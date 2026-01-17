@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: neo4j-agent-memory-test
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/test-password
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - neo4j_test_data:/data
+      - neo4j_test_logs:/logs
+
+volumes:
+  neo4j_test_data:
+  neo4j_test_logs:

@@ -1,0 +1,506 @@
+"""Comprehensive integration tests for semantic memory."""
+
+from datetime import datetime, timedelta
+
+import pytest
+
+from neo4j_agent_memory.memory.semantic import EntityType
+
+
+@pytest.mark.integration
+class TestSemanticMemoryEntities:
+    """Test entity operations in semantic memory."""
+
+    @pytest.mark.asyncio
+    async def test_add_entity_basic(self, memory_client):
+        """Test adding a basic entity."""
+        entity = await memory_client.semantic.add_entity(
+            name="John Smith",
+            entity_type=EntityType.PERSON,
+            description="A test person",
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        assert entity is not None
+        assert entity.name == "John Smith"
+        assert entity.type == EntityType.PERSON
+        assert entity.description == "A test person"
+        assert entity.id is not None
+
+    @pytest.mark.asyncio
+    async def test_add_entity_all_types(self, memory_client):
+        """Test adding entities of all supported types."""
+        entity_types = [
+            EntityType.PERSON,
+            EntityType.ORGANIZATION,
+            EntityType.LOCATION,
+            EntityType.EVENT,
+            EntityType.CONCEPT,
+        ]
+
+        for etype in entity_types:
+            entity = await memory_client.semantic.add_entity(
+                name=f"Test {etype.value}",
+                entity_type=etype,
+                resolve=False,
+                generate_embedding=False,
+            )
+            assert entity.type == etype
+
+    @pytest.mark.asyncio
+    async def test_add_entity_with_embedding(self, memory_client):
+        """Test adding an entity with embedding generation."""
+        entity = await memory_client.semantic.add_entity(
+            name="Google Inc",
+            entity_type=EntityType.ORGANIZATION,
+            description="A major technology company",
+            resolve=False,
+            generate_embedding=True,
+        )
+
+        assert entity.embedding is not None
+        assert len(entity.embedding) > 0
+
+    @pytest.mark.asyncio
+    async def test_search_entities_basic(self, memory_client):
+        """Test basic entity search."""
+        # Add some entities
+        await memory_client.semantic.add_entity(
+            name="Apple Inc",
+            entity_type=EntityType.ORGANIZATION,
+            description="Technology company making iPhones",
+            resolve=False,
+            generate_embedding=True,
+        )
+        await memory_client.semantic.add_entity(
+            name="Microsoft",
+            entity_type=EntityType.ORGANIZATION,
+            description="Software company making Windows",
+            resolve=False,
+            generate_embedding=True,
+        )
+        await memory_client.semantic.add_entity(
+            name="Central Park",
+            entity_type=EntityType.LOCATION,
+            description="Famous park in New York City",
+            resolve=False,
+            generate_embedding=True,
+        )
+
+        # Search for tech companies
+        results = await memory_client.semantic.search_entities(
+            "technology companies",
+            limit=10,
+        )
+
+        assert isinstance(results, list)
+
+    @pytest.mark.asyncio
+    async def test_get_entity_by_name(self, memory_client):
+        """Test retrieving an entity by name."""
+        # Add entity
+        await memory_client.semantic.add_entity(
+            name="TestEntity123",
+            entity_type=EntityType.PERSON,
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        # Retrieve by name
+        entity = await memory_client.semantic.get_entity_by_name("TestEntity123")
+
+        assert entity is not None
+        assert entity.name == "TestEntity123"
+
+    @pytest.mark.asyncio
+    async def test_get_nonexistent_entity(self, memory_client):
+        """Test retrieving a non-existent entity."""
+        entity = await memory_client.semantic.get_entity_by_name("NonExistentEntity12345")
+
+        assert entity is None
+
+
+@pytest.mark.integration
+class TestSemanticMemoryPreferences:
+    """Test preference operations in semantic memory."""
+
+    @pytest.mark.asyncio
+    async def test_add_preference_basic(self, memory_client):
+        """Test adding a basic preference."""
+        pref = await memory_client.semantic.add_preference(
+            category="food",
+            preference="I love spicy Thai food",
+            generate_embedding=False,
+        )
+
+        assert pref is not None
+        assert pref.category == "food"
+        assert pref.preference == "I love spicy Thai food"
+        assert pref.id is not None
+
+    @pytest.mark.asyncio
+    async def test_add_preference_with_context(self, memory_client):
+        """Test adding a preference with context."""
+        pref = await memory_client.semantic.add_preference(
+            category="communication",
+            preference="Prefers brief, direct responses",
+            context="When asking technical questions",
+            generate_embedding=False,
+        )
+
+        assert pref.context == "When asking technical questions"
+
+    @pytest.mark.asyncio
+    async def test_add_preference_with_embedding(self, memory_client):
+        """Test adding a preference with embedding."""
+        pref = await memory_client.semantic.add_preference(
+            category="music",
+            preference="Enjoys jazz and classical music",
+            generate_embedding=True,
+        )
+
+        assert pref.embedding is not None
+        assert len(pref.embedding) > 0
+
+    @pytest.mark.asyncio
+    async def test_search_preferences(self, memory_client):
+        """Test searching preferences."""
+        # Add various preferences
+        prefs = [
+            ("food", "Loves Italian cuisine"),
+            ("food", "Vegetarian diet"),
+            ("music", "Enjoys rock music"),
+            ("sports", "Plays tennis regularly"),
+            ("work", "Prefers remote work"),
+        ]
+
+        for category, preference in prefs:
+            await memory_client.semantic.add_preference(
+                category=category,
+                preference=preference,
+                generate_embedding=True,
+            )
+
+        # Search for food preferences
+        results = await memory_client.semantic.search_preferences(
+            "dining and cuisine",
+            limit=10,
+        )
+
+        assert isinstance(results, list)
+
+    @pytest.mark.asyncio
+    async def test_get_preferences_by_category(self, memory_client):
+        """Test getting preferences by category."""
+        # Add preferences in same category
+        await memory_client.semantic.add_preference(
+            category="test-category",
+            preference="Test preference 1",
+            generate_embedding=False,
+        )
+        await memory_client.semantic.add_preference(
+            category="test-category",
+            preference="Test preference 2",
+            generate_embedding=False,
+        )
+        await memory_client.semantic.add_preference(
+            category="other-category",
+            preference="Other preference",
+            generate_embedding=False,
+        )
+
+        # Get by category
+        results = await memory_client.semantic.get_preferences_by_category("test-category")
+
+        assert len(results) >= 2
+        assert all(p.category == "test-category" for p in results)
+
+
+@pytest.mark.integration
+class TestSemanticMemoryFacts:
+    """Test fact operations in semantic memory."""
+
+    @pytest.mark.asyncio
+    async def test_add_fact_basic(self, memory_client):
+        """Test adding a basic fact."""
+        fact = await memory_client.semantic.add_fact(
+            subject="Alice",
+            predicate="works_at",
+            obj="Acme Corp",
+            generate_embedding=False,
+        )
+
+        assert fact is not None
+        assert fact.subject == "Alice"
+        assert fact.predicate == "works_at"
+        assert fact.object == "Acme Corp"
+        assert fact.id is not None
+
+    @pytest.mark.asyncio
+    async def test_add_fact_with_validity(self, memory_client):
+        """Test adding a fact with temporal validity."""
+        valid_from = datetime(2023, 1, 1)
+        valid_until = datetime(2024, 12, 31)
+
+        fact = await memory_client.semantic.add_fact(
+            subject="Bob",
+            predicate="employed_at",
+            obj="Tech Inc",
+            valid_from=valid_from,
+            valid_until=valid_until,
+            generate_embedding=False,
+        )
+
+        assert fact.valid_from == valid_from
+        assert fact.valid_until == valid_until
+
+    @pytest.mark.asyncio
+    async def test_add_fact_with_embedding(self, memory_client):
+        """Test adding a fact with embedding."""
+        fact = await memory_client.semantic.add_fact(
+            subject="Charlie",
+            predicate="lives_in",
+            obj="New York",
+            generate_embedding=True,
+        )
+
+        assert fact.embedding is not None
+        assert len(fact.embedding) > 0
+
+    @pytest.mark.asyncio
+    async def test_get_facts_about_subject(self, memory_client):
+        """Test getting facts about a subject."""
+        # Add facts about same subject
+        await memory_client.semantic.add_fact(
+            subject="TestSubject",
+            predicate="has_property",
+            obj="value1",
+            generate_embedding=False,
+        )
+        await memory_client.semantic.add_fact(
+            subject="TestSubject",
+            predicate="has_another_property",
+            obj="value2",
+            generate_embedding=False,
+        )
+        await memory_client.semantic.add_fact(
+            subject="OtherSubject",
+            predicate="has_property",
+            obj="value3",
+            generate_embedding=False,
+        )
+
+        # Get facts about TestSubject
+        facts = await memory_client.semantic.get_facts_about("TestSubject")
+
+        assert len(facts) >= 2
+        assert all(f.subject == "TestSubject" for f in facts)
+
+    @pytest.mark.asyncio
+    async def test_search_facts(self, memory_client):
+        """Test searching facts."""
+        # Add various facts
+        await memory_client.semantic.add_fact(
+            subject="Python",
+            predicate="is_a",
+            obj="programming language",
+            generate_embedding=True,
+        )
+        await memory_client.semantic.add_fact(
+            subject="Python",
+            predicate="created_by",
+            obj="Guido van Rossum",
+            generate_embedding=True,
+        )
+        await memory_client.semantic.add_fact(
+            subject="JavaScript",
+            predicate="is_a",
+            obj="programming language",
+            generate_embedding=True,
+        )
+
+        # Search for programming facts
+        results = await memory_client.semantic.search_facts(
+            "programming languages",
+            limit=10,
+        )
+
+        assert isinstance(results, list)
+
+
+@pytest.mark.integration
+class TestSemanticMemoryRelationships:
+    """Test entity relationship operations."""
+
+    @pytest.mark.asyncio
+    async def test_add_relationship_between_entities(self, memory_client):
+        """Test creating relationships between entities."""
+        # Add entities
+        entity1 = await memory_client.semantic.add_entity(
+            name="Company A",
+            entity_type=EntityType.ORGANIZATION,
+            resolve=False,
+            generate_embedding=False,
+        )
+        entity2 = await memory_client.semantic.add_entity(
+            name="Company B",
+            entity_type=EntityType.ORGANIZATION,
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        # Add relationship using entity objects
+        rel = await memory_client.semantic.add_relationship(
+            source=entity1,
+            target=entity2,
+            relationship_type="PARTNER_OF",
+        )
+
+        assert rel is not None
+
+    @pytest.mark.asyncio
+    async def test_get_entity_relationships(self, memory_client):
+        """Test getting relationships for an entity."""
+        # Add entities and relationships
+        entity1 = await memory_client.semantic.add_entity(
+            name="RelTestEntity1",
+            entity_type=EntityType.PERSON,
+            resolve=False,
+            generate_embedding=False,
+        )
+        entity2 = await memory_client.semantic.add_entity(
+            name="RelTestEntity2",
+            entity_type=EntityType.ORGANIZATION,
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        await memory_client.semantic.add_relationship(
+            source=entity1,
+            target=entity2,
+            relationship_type="WORKS_AT",
+        )
+
+        # Get relationships
+        rels = await memory_client.semantic.get_entity_relationships("RelTestEntity1")
+
+        assert isinstance(rels, list)
+
+
+@pytest.mark.integration
+class TestSemanticMemoryEdgeCases:
+    """Test edge cases and error handling."""
+
+    @pytest.mark.asyncio
+    async def test_entity_with_special_characters(self, memory_client):
+        """Test entity with special characters in name."""
+        entity = await memory_client.semantic.add_entity(
+            name="O'Brien & Co.",
+            entity_type=EntityType.ORGANIZATION,
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        assert entity.name == "O'Brien & Co."
+
+    @pytest.mark.asyncio
+    async def test_preference_with_unicode(self, memory_client):
+        """Test preference with unicode characters."""
+        pref = await memory_client.semantic.add_preference(
+            category="language",
+            preference="Speaks 日本語 and Español fluently",
+            generate_embedding=False,
+        )
+
+        assert "日本語" in pref.preference
+        assert "Español" in pref.preference
+
+    @pytest.mark.asyncio
+    async def test_fact_with_long_values(self, memory_client):
+        """Test fact with very long subject/object."""
+        long_text = "A" * 1000
+
+        fact = await memory_client.semantic.add_fact(
+            subject=long_text,
+            predicate="has_property",
+            obj=long_text,
+            generate_embedding=False,
+        )
+
+        assert len(fact.subject) == 1000
+        assert len(fact.object) == 1000
+
+    @pytest.mark.asyncio
+    async def test_concurrent_entity_additions(self, memory_client):
+        """Test concurrent entity additions."""
+        import asyncio
+
+        async def add_entity(index):
+            return await memory_client.semantic.add_entity(
+                name=f"ConcurrentEntity{index}",
+                entity_type=EntityType.PERSON,
+                resolve=False,
+                generate_embedding=False,
+            )
+
+        # Add 10 entities concurrently
+        tasks = [add_entity(i) for i in range(10)]
+        results = await asyncio.gather(*tasks)
+
+        assert len(results) == 10
+        assert all(e is not None for e in results)
+
+    @pytest.mark.asyncio
+    async def test_duplicate_entity_handling(self, memory_client):
+        """Test handling of duplicate entities."""
+        # Add same entity twice (should use resolution or update)
+        entity1 = await memory_client.semantic.add_entity(
+            name="DuplicateTestEntity",
+            entity_type=EntityType.PERSON,
+            description="First description",
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        entity2 = await memory_client.semantic.add_entity(
+            name="DuplicateTestEntity",
+            entity_type=EntityType.PERSON,
+            description="Second description",
+            resolve=True,  # Enable resolution
+            generate_embedding=False,
+        )
+
+        # Both should return valid entities
+        assert entity1 is not None
+        assert entity2 is not None
+
+    @pytest.mark.asyncio
+    async def test_empty_preference_category(self, memory_client):
+        """Test preference with empty category."""
+        pref = await memory_client.semantic.add_preference(
+            category="",
+            preference="A preference without category",
+            generate_embedding=False,
+        )
+
+        assert pref.category == ""
+
+    @pytest.mark.asyncio
+    async def test_search_with_no_embeddings(self, memory_client):
+        """Test search when no embeddings exist."""
+        # Add entity without embedding
+        await memory_client.semantic.add_entity(
+            name="NoEmbeddingEntity",
+            entity_type=EntityType.PERSON,
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        # Search should still work (may return empty results)
+        results = await memory_client.semantic.search_entities(
+            "some query",
+            limit=10,
+        )
+
+        assert isinstance(results, list)

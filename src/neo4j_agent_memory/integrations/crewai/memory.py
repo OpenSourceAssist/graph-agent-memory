@@ -1,0 +1,185 @@
+"""CrewAI memory integration."""
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from neo4j_agent_memory import MemoryClient
+
+try:
+    from crewai.memory import Memory
+
+    class Neo4jCrewMemory(Memory):
+        """
+        CrewAI memory backed by Neo4j Agent Memory.
+
+        Provides long-term memory for CrewAI agents with:
+        - Cross-task knowledge persistence
+        - Entity and relationship tracking
+        - Tool usage patterns
+
+        Example:
+            from neo4j_agent_memory import MemoryClient, MemorySettings
+            from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory
+
+            async with MemoryClient(settings) as client:
+                memory = Neo4jCrewMemory(
+                    memory_client=client,
+                    crew_id="my-crew"
+                )
+                # Use with CrewAI
+        """
+
+        def __init__(
+            self,
+            memory_client: "MemoryClient",
+            crew_id: str,
+        ):
+            """
+            Initialize CrewAI memory.
+
+            Args:
+                memory_client: Neo4j Agent Memory client
+                crew_id: Crew identifier for session tracking
+            """
+            self._client = memory_client
+            self._crew_id = crew_id
+
+        def remember(self, content: str, metadata: dict[str, Any] | None = None) -> None:
+            """
+            Store a memory from agent execution.
+
+            Args:
+                content: Memory content
+                metadata: Optional metadata with memory type
+            """
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop is not None:
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        asyncio.run,
+                        self._remember_async(content, metadata),
+                    )
+                    future.result()
+            else:
+                asyncio.run(self._remember_async(content, metadata))
+
+        async def _remember_async(
+            self, content: str, metadata: dict[str, Any] | None = None
+        ) -> None:
+            """Async implementation of remember."""
+            metadata = metadata or {}
+            memory_type = metadata.get("type", "episodic")
+
+            if memory_type == "episodic":
+                await self._client.episodic.add_message(self._crew_id, "assistant", content)
+            elif memory_type == "fact":
+                subject = metadata.get("subject", "agent")
+                predicate = metadata.get("predicate", "learned")
+                await self._client.semantic.add_fact(subject, predicate, content)
+            elif memory_type == "preference":
+                category = metadata.get("category", "general")
+                await self._client.semantic.add_preference(category, content)
+
+        def recall(self, query: str, n: int = 5) -> list[str]:
+            """
+            Recall relevant memories for a query.
+
+            Args:
+                query: Search query
+                n: Maximum memories to return
+
+            Returns:
+                List of memory strings
+            """
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop is not None:
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, self._recall_async(query, n))
+                    return future.result()
+            else:
+                return asyncio.run(self._recall_async(query, n))
+
+        async def _recall_async(self, query: str, n: int = 5) -> list[str]:
+            """Async implementation of recall."""
+            results = []
+
+            # Search episodic
+            messages = await self._client.episodic.search_messages(query, limit=n)
+            results.extend([m.content for m in messages])
+
+            # Search semantic
+            entities = await self._client.semantic.search_entities(query, limit=n)
+            for e in entities:
+                if e.description:
+                    results.append(f"{e.display_name}: {e.description}")
+
+            prefs = await self._client.semantic.search_preferences(query, limit=n)
+            results.extend([p.preference for p in prefs])
+
+            return results[:n]
+
+        def get_agent_context(self, agent_role: str, task: str) -> str:
+            """
+            Get context for a specific agent working on a task.
+
+            Args:
+                agent_role: The agent's role
+                task: The task description
+
+            Returns:
+                Formatted context string
+            """
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop is not None:
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        asyncio.run,
+                        self._get_agent_context_async(agent_role, task),
+                    )
+                    return future.result()
+            else:
+                return asyncio.run(self._get_agent_context_async(agent_role, task))
+
+        async def _get_agent_context_async(self, agent_role: str, task: str) -> str:
+            """Async implementation of get_agent_context."""
+            # Get similar past traces
+            traces = await self._client.procedural.get_similar_traces(task, limit=3)
+
+            context_parts = [f"## Past experience with similar tasks:"]
+            for trace in traces:
+                context_parts.append(f"- Task: {trace.task}")
+                if trace.outcome:
+                    context_parts.append(f"  Outcome: {trace.outcome}")
+                if trace.success is not None:
+                    status = "Succeeded" if trace.success else "Failed"
+                    context_parts.append(f"  Status: {status}")
+
+            return "\n".join(context_parts)
+
+except ImportError:
+    # CrewAI not installed
+    pass
