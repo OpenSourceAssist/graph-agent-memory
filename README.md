@@ -541,6 +541,12 @@ make example-resolution # Entity resolution example
 make example-langchain  # LangChain integration example
 make example-pydantic   # Pydantic AI integration example
 make examples           # Run all examples
+
+# Full-stack chat agent
+make chat-agent-install  # Install backend + frontend dependencies
+make chat-agent-backend  # Run FastAPI backend (port 8000)
+make chat-agent-frontend # Run Next.js frontend (port 3000)
+make chat-agent          # Show setup instructions
 ```
 
 ### Running Examples
@@ -553,6 +559,7 @@ Examples are located in `examples/` and demonstrate various features:
 | `entity_resolution.py` | Entity matching strategies | None |
 | `langchain_agent.py` | LangChain integration | Neo4j, OpenAI, langchain extra |
 | `pydantic_ai_agent.py` | Pydantic AI integration | Neo4j, OpenAI, pydantic-ai extra |
+| `full-stack-chat-agent/` | Complete web app with FastAPI backend and Next.js frontend | Neo4j, OpenAI, Node.js |
 
 #### Environment Setup
 
@@ -576,6 +583,42 @@ make example-basic
 rm examples/.env  # Ensure no .env file
 make example-basic  # Will start Docker with test-password
 ```
+
+### Full-Stack Chat Agent Example
+
+The `examples/full-stack-chat-agent/` directory contains a complete web application demonstrating all features of neo4j-agent-memory:
+
+**Features:**
+- PydanticAI agent with memory-enhanced system prompts
+- All three memory types (episodic, semantic, procedural)
+- News graph tools for searching and analyzing articles
+- SSE streaming for real-time responses
+- Next.js 14 frontend with Chakra UI
+- Thread management and memory context display
+
+**Quick Start:**
+
+```bash
+# Install dependencies
+make chat-agent-install
+
+# Configure backend environment
+cp examples/full-stack-chat-agent/backend/.env.example examples/full-stack-chat-agent/backend/.env
+# Edit .env and add your OPENAI_API_KEY
+
+# Start Neo4j
+make neo4j-start
+
+# Terminal 1: Run backend
+make chat-agent-backend
+
+# Terminal 2: Run frontend
+make chat-agent-frontend
+
+# Open http://localhost:3000
+```
+
+See `examples/full-stack-chat-agent/README.md` for detailed documentation.
 
 ### Running Integration Tests
 

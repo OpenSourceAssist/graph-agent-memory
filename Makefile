@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all coverage neo4j-start neo4j-stop neo4j-logs clean build publish docs example-basic example-resolution example-langchain example-pydantic examples
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all coverage neo4j-start neo4j-stop neo4j-logs clean build publish docs example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
 
 # Default target
 help:
@@ -29,6 +29,12 @@ help:
 	@echo "  make example-langchain Run LangChain integration example"
 	@echo "  make example-pydantic Run Pydantic AI integration example"
 	@echo "  make examples         Run all examples"
+	@echo ""
+	@echo "Full-Stack Chat Agent:"
+	@echo "  make chat-agent-install  Install chat agent dependencies (backend + frontend)"
+	@echo "  make chat-agent-backend  Run chat agent backend server"
+	@echo "  make chat-agent-frontend Run chat agent frontend dev server"
+	@echo "  make chat-agent          Run both backend and frontend (requires two terminals)"
 	@echo ""
 	@echo "Neo4j:"
 	@echo "  make neo4j-start      Start Neo4j test container"
@@ -306,3 +312,62 @@ example-pydantic:
 # Run all examples
 examples: example-resolution example-basic example-langchain example-pydantic
 	@echo "All examples completed!"
+
+# =============================================================================
+# Full-Stack Chat Agent
+# =============================================================================
+
+CHAT_AGENT_DIR := examples/full-stack-chat-agent
+
+# Install dependencies for both backend and frontend
+chat-agent-install:
+	@echo "Installing chat agent backend dependencies..."
+	cd $(CHAT_AGENT_DIR)/backend && uv sync
+	@echo "Installing chat agent frontend dependencies..."
+	cd $(CHAT_AGENT_DIR)/frontend && npm install
+	@echo "Chat agent dependencies installed!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Copy .env.example to .env in both backend and frontend directories"
+	@echo "  2. Add your OPENAI_API_KEY to backend/.env"
+	@echo "  3. Start Neo4j: make neo4j-start"
+	@echo "  4. Run backend: make chat-agent-backend"
+	@echo "  5. Run frontend: make chat-agent-frontend (in another terminal)"
+
+# Run the chat agent backend server
+chat-agent-backend:
+	@echo "Starting chat agent backend..."
+	@if [ -f $(CHAT_AGENT_DIR)/backend/.env ]; then \
+		echo "Using $(CHAT_AGENT_DIR)/backend/.env"; \
+	else \
+		echo "Warning: No .env file found. Copy .env.example to .env and configure it."; \
+	fi
+	cd $(CHAT_AGENT_DIR)/backend && uv run uvicorn src.main:app --reload --port 8000
+
+# Run the chat agent frontend dev server
+chat-agent-frontend:
+	@echo "Starting chat agent frontend..."
+	cd $(CHAT_AGENT_DIR)/frontend && npm run dev
+
+# Show instructions for running both
+chat-agent:
+	@echo "Full-Stack Chat Agent"
+	@echo "====================="
+	@echo ""
+	@echo "To run the chat agent, you need two terminal windows:"
+	@echo ""
+	@echo "Terminal 1 (Backend):"
+	@echo "  make chat-agent-backend"
+	@echo ""
+	@echo "Terminal 2 (Frontend):"
+	@echo "  make chat-agent-frontend"
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  1. Install dependencies: make chat-agent-install"
+	@echo "  2. Configure .env files in backend/ and frontend/"
+	@echo "  3. Start Neo4j: make neo4j-start (or use your own instance)"
+	@echo ""
+	@echo "Then open http://localhost:3000 in your browser."
+
+# Start Neo4j and run backend (convenience target)
+chat-agent-backend-with-neo4j: neo4j-start neo4j-wait chat-agent-backend

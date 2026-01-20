@@ -298,12 +298,18 @@ make check             # Run lint, format check, typecheck
 make pre-commit        # Run all checks + unit tests
 make ci                # Full CI simulation
 
-# Examples
+# Simple Examples
 make example-basic     # Run basic usage example
 make example-resolution # Run entity resolution example
 make example-langchain # Run LangChain integration example
 make example-pydantic  # Run Pydantic AI integration example
 make examples          # Run all examples
+
+# Full-Stack Chat Agent Example
+make chat-agent-install  # Install backend + frontend dependencies
+make chat-agent-backend  # Run FastAPI backend server
+make chat-agent-frontend # Run Next.js frontend dev server
+make chat-agent          # Show instructions for running both
 ```
 
 ## Running Examples
@@ -332,3 +338,37 @@ Key variables:
 - `OPENAI_API_KEY` - Required for OpenAI embeddings and LLM extraction
 
 If `NEO4J_URI` is not set, the Makefile targets will automatically start the Docker Neo4j container with `test-password`.
+
+## Full-Stack Chat Agent Example
+
+Located in `examples/full-stack-chat-agent/`, this is a complete demonstration of the neo4j-agent-memory package with:
+
+- **Backend**: FastAPI + PydanticAI agent with all three memory types
+- **Frontend**: Next.js 14 + Chakra UI with SSE streaming
+- **News Graph Tools**: Search, filter, and analyze news articles
+
+### Running the Chat Agent
+
+```bash
+# Install dependencies
+make chat-agent-install
+
+# Configure environment
+cp examples/full-stack-chat-agent/backend/.env.example examples/full-stack-chat-agent/backend/.env
+# Edit .env and add OPENAI_API_KEY
+
+# Terminal 1: Start backend
+make chat-agent-backend
+
+# Terminal 2: Start frontend
+make chat-agent-frontend
+
+# Open http://localhost:3000
+```
+
+### Key Files
+
+- `examples/full-stack-chat-agent/backend/src/agent/agent.py` - PydanticAI agent with memory-enhanced system prompt
+- `examples/full-stack-chat-agent/backend/src/agent/tools.py` - News graph query tools
+- `examples/full-stack-chat-agent/backend/src/api/routes/chat.py` - SSE streaming chat endpoint
+- `examples/full-stack-chat-agent/frontend/src/hooks/useChat.ts` - React hook with SSE handling
