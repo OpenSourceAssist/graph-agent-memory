@@ -9,20 +9,59 @@ This example demonstrates the core functionality of the memory system:
 - Getting combined context for LLM prompts
 
 Requirements:
-    - Neo4j running at bolt://localhost:7687
+    - Neo4j running (or set NEO4J_URI in .env)
     - pip install neo4j-agent-memory[openai]
-    - OPENAI_API_KEY environment variable set
+    - OPENAI_API_KEY environment variable set (or in .env)
+
+Environment variables can be set in examples/.env file.
 """
 
 import asyncio
 import os
+from pathlib import Path
 
 from pydantic import SecretStr
+
+
+def load_env_files():
+    """Load environment variables from .env files."""
+    # Try to load from dotenv if available
+    try:
+        from dotenv import load_dotenv
+
+        # Load from examples/.env (same directory as this script)
+        env_file = Path(__file__).parent / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+            print(f"Loaded environment from {env_file}")
+
+        # Also try parent directory .env
+        parent_env = Path(__file__).parent.parent / ".env"
+        if parent_env.exists():
+            load_dotenv(parent_env)
+            print(f"Loaded environment from {parent_env}")
+    except ImportError:
+        # dotenv not installed, try manual parsing
+        env_file = Path(__file__).parent / ".env"
+        if env_file.exists():
+            with open(env_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, _, value = line.partition("=")
+                        key = key.strip()
+                        value = value.strip().strip("\"'")
+                        if key and key not in os.environ:
+                            os.environ[key] = value
+            print(f"Loaded environment from {env_file}")
+
+
+# Load environment variables before anything else
+load_env_files()
 
 from neo4j_agent_memory import (
     EmbeddingConfig,
     EmbeddingProvider,
-    EntityType,
     ExtractionConfig,
     ExtractorType,
     MemoryClient,
@@ -34,6 +73,43 @@ from neo4j_agent_memory import (
 
 
 async def main():
+    # Configure embedding provider based on available API keys
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+
+    if openai_api_key:
+        # Use OpenAI embeddings if API key is available
+        embedding_config = EmbeddingConfig(
+            provider=EmbeddingProvider.OPENAI,
+            model="text-embedding-3-small",
+        )
+        extraction_config = ExtractionConfig(
+            extractor_type=ExtractorType.LLM,
+        )
+        print("Using OpenAI embeddings and LLM extraction")
+    else:
+        # Fall back to sentence-transformers (requires: pip install neo4j-agent-memory[sentence-transformers])
+        try:
+            import sentence_transformers  # noqa: F401
+
+            embedding_config = EmbeddingConfig(
+                provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
+                model="all-MiniLM-L6-v2",
+                dimensions=384,
+            )
+            extraction_config = ExtractionConfig(
+                extractor_type=ExtractorType.NONE,  # Disable extraction without LLM
+            )
+            print("Using sentence-transformers embeddings (no OPENAI_API_KEY found)")
+            print("Note: Entity extraction disabled without OpenAI API key")
+        except ImportError:
+            print("ERROR: No embedding provider available!")
+            print("Either:")
+            print("  1. Set OPENAI_API_KEY environment variable, or")
+            print(
+                "  2. Install sentence-transformers: pip install neo4j-agent-memory[sentence-transformers]"
+            )
+            return
+
     # Configure the memory client
     settings = MemorySettings(
         neo4j=Neo4jConfig(
@@ -41,13 +117,8 @@ async def main():
             username=os.getenv("NEO4J_USERNAME", "neo4j"),
             password=SecretStr(os.getenv("NEO4J_PASSWORD", "password")),
         ),
-        embedding=EmbeddingConfig(
-            provider=EmbeddingProvider.OPENAI,
-            model="text-embedding-3-small",
-        ),
-        extraction=ExtractionConfig(
-            extractor_type=ExtractorType.LLM,
-        ),
+        embedding=embedding_config,
+        extraction=extraction_config,
     )
 
     async with MemoryClient(settings) as memory:
@@ -107,10 +178,11 @@ async def main():
             preference="Prefers mid-range restaurants",
         )
 
-        # Add entities
+        # Add entities (using POLE+O types)
         await memory.semantic.add_entity(
             name="Downtown",
-            entity_type=EntityType.LOCATION,
+            entity_type="LOCATION",  # POLE+O type
+            subtype="LANDMARK",  # Optional subtype
             description="User's preferred dining area",
         )
 

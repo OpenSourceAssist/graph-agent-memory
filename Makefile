@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all coverage neo4j-start neo4j-stop neo4j-logs clean build publish docs
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all coverage neo4j-start neo4j-stop neo4j-logs clean build publish docs example-basic example-resolution example-langchain example-pydantic examples
 
 # Default target
 help:
@@ -18,15 +18,25 @@ help:
 	@echo "Testing:"
 	@echo "  make test             Run unit tests"
 	@echo "  make test-unit        Run unit tests only"
-	@echo "  make test-integration Run integration tests (requires Neo4j)"
-	@echo "  make test-all         Run all tests (unit + integration)"
+	@echo "  make test-integration Run integration tests (starts Neo4j if needed)"
+	@echo "  make test-all         Run all tests (starts Neo4j if needed)"
+	@echo "  make test-docker      Run all tests with Docker Neo4j"
 	@echo "  make coverage         Run tests with coverage report"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make example-basic    Run basic usage example"
+	@echo "  make example-resolution Run entity resolution example"
+	@echo "  make example-langchain Run LangChain integration example"
+	@echo "  make example-pydantic Run Pydantic AI integration example"
+	@echo "  make examples         Run all examples"
 	@echo ""
 	@echo "Neo4j:"
 	@echo "  make neo4j-start      Start Neo4j test container"
 	@echo "  make neo4j-stop       Stop Neo4j test container"
 	@echo "  make neo4j-logs       View Neo4j container logs"
 	@echo "  make neo4j-status     Check Neo4j container status"
+	@echo "  make neo4j-wait       Wait for Neo4j to be ready"
+	@echo "  make neo4j-clean      Stop and remove Neo4j data volumes"
 	@echo ""
 	@echo "Build & Publish:"
 	@echo "  make build            Build package"
@@ -80,47 +90,89 @@ test: test-unit
 test-unit:
 	uv run pytest tests/unit -v
 
-test-integration: neo4j-wait
+# Integration tests - auto-starts Docker Neo4j if needed
+test-integration:
+	@echo "Starting Neo4j if not running..."
+	@docker compose -f docker-compose.test.yml up -d 2>/dev/null || true
+	@$(MAKE) neo4j-wait-quiet
 	RUN_INTEGRATION_TESTS=1 uv run pytest tests/integration -v
 
-test-all: neo4j-wait
+# Run all tests - auto-starts Docker Neo4j if needed
+test-all:
+	@echo "Starting Neo4j if not running..."
+	@docker compose -f docker-compose.test.yml up -d 2>/dev/null || true
+	@$(MAKE) neo4j-wait-quiet
 	RUN_INTEGRATION_TESTS=1 uv run pytest tests -v
+
+# Run all tests with explicit Docker control
+test-docker: neo4j-start neo4j-wait
+	RUN_INTEGRATION_TESTS=1 uv run pytest tests -v
+
+# Run tests without integration tests (useful for CI without Docker)
+test-no-docker:
+	SKIP_INTEGRATION_TESTS=1 uv run pytest tests -v
 
 coverage:
 	uv run pytest tests/unit --cov=src/neo4j_agent_memory --cov-report=term-missing --cov-report=html
 
-coverage-all: neo4j-wait
+coverage-all:
+	@echo "Starting Neo4j if not running..."
+	@docker compose -f docker-compose.test.yml up -d 2>/dev/null || true
+	@$(MAKE) neo4j-wait-quiet
 	RUN_INTEGRATION_TESTS=1 uv run pytest tests --cov=src/neo4j_agent_memory --cov-report=term-missing --cov-report=html
 
 # =============================================================================
 # Neo4j Docker Management
 # =============================================================================
 
+NEO4J_COMPOSE := docker compose -f docker-compose.test.yml
+
 neo4j-start:
-	docker compose -f docker-compose.test.yml up -d
+	$(NEO4J_COMPOSE) up -d
 	@echo "Neo4j starting... use 'make neo4j-wait' to wait for it to be ready"
 
 neo4j-stop:
-	docker compose -f docker-compose.test.yml down
+	$(NEO4J_COMPOSE) down
+
+neo4j-restart: neo4j-stop neo4j-start neo4j-wait
 
 neo4j-logs:
-	docker compose -f docker-compose.test.yml logs -f
+	$(NEO4J_COMPOSE) logs -f
 
 neo4j-status:
-	@docker compose -f docker-compose.test.yml ps
+	@$(NEO4J_COMPOSE) ps
 
 neo4j-wait:
 	@echo "Waiting for Neo4j to be ready..."
-	@docker compose -f docker-compose.test.yml up -d
-	@until docker compose -f docker-compose.test.yml exec -T neo4j cypher-shell -u neo4j -p test-password "RETURN 1" > /dev/null 2>&1; do \
-		echo "Waiting for Neo4j..."; \
+	@$(NEO4J_COMPOSE) up -d
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do \
+		if $(NEO4J_COMPOSE) exec -T neo4j cypher-shell -u neo4j -p test-password "RETURN 1" > /dev/null 2>&1; then \
+			echo "Neo4j is ready!"; \
+			exit 0; \
+		fi; \
+		echo "Waiting for Neo4j... ($$i/30)"; \
 		sleep 2; \
-	done
-	@echo "Neo4j is ready!"
+	done; \
+	echo "Neo4j failed to start within 60 seconds"; \
+	exit 1
+
+# Quiet version for internal use
+neo4j-wait-quiet:
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do \
+		if $(NEO4J_COMPOSE) exec -T neo4j cypher-shell -u neo4j -p test-password "RETURN 1" > /dev/null 2>&1; then \
+			exit 0; \
+		fi; \
+		sleep 2; \
+	done; \
+	echo "Neo4j failed to start"; \
+	exit 1
 
 neo4j-clean:
-	docker compose -f docker-compose.test.yml down -v
+	$(NEO4J_COMPOSE) down -v
 	@echo "Neo4j container and volumes removed"
+
+neo4j-shell:
+	$(NEO4J_COMPOSE) exec neo4j cypher-shell -u neo4j -p test-password
 
 # =============================================================================
 # Build & Publish
@@ -163,9 +215,13 @@ docs:
 pre-commit: format lint typecheck test-unit
 	@echo "Pre-commit checks passed!"
 
-# Full CI simulation
+# Full CI simulation (with Neo4j)
 ci: check test-all
 	@echo "CI simulation passed!"
+
+# CI without Docker (for environments without Docker)
+ci-no-docker: check test-unit
+	@echo "CI simulation (no Docker) passed!"
 
 # Interactive Python shell with package loaded
 shell:
@@ -174,3 +230,79 @@ shell:
 # Watch tests (requires pytest-watch)
 watch:
 	uv run pytest-watch tests/unit
+
+# Quick iteration: format, lint, and run unit tests
+dev: format lint test-unit
+
+# =============================================================================
+# Examples
+# =============================================================================
+
+# Check if NEO4J_URI is set in environment or examples/.env
+# If not set, we'll start Docker; otherwise use the configured Neo4j
+define check_neo4j_env
+	@if [ -f examples/.env ]; then \
+		. examples/.env 2>/dev/null; \
+	fi; \
+	if [ -z "$$NEO4J_URI" ]; then \
+		echo "NEO4J_URI not set, starting Docker Neo4j..."; \
+		$(MAKE) neo4j-start neo4j-wait-quiet; \
+		export NEO4J_PASSWORD=test-password; \
+	else \
+		echo "Using configured Neo4j at $$NEO4J_URI"; \
+	fi
+endef
+
+# Basic usage example (requires Neo4j and OpenAI API key or sentence-transformers)
+example-basic:
+	@echo "Running basic usage example..."
+	@if [ -f examples/.env ]; then \
+		. examples/.env 2>/dev/null || true; \
+	fi; \
+	if [ -z "$$NEO4J_URI" ]; then \
+		echo "NEO4J_URI not set, starting Docker Neo4j..."; \
+		$(MAKE) neo4j-start neo4j-wait-quiet; \
+		NEO4J_PASSWORD=test-password uv run python examples/basic_usage.py; \
+	else \
+		echo "Using configured Neo4j at $$NEO4J_URI"; \
+		uv run python examples/basic_usage.py; \
+	fi
+
+# Entity resolution example (no external dependencies required)
+example-resolution:
+	@echo "Running entity resolution example..."
+	uv run python examples/entity_resolution.py
+
+# LangChain integration example (requires Neo4j and OpenAI API key)
+example-langchain:
+	@echo "Running LangChain integration example..."
+	@if [ -f examples/.env ]; then \
+		. examples/.env 2>/dev/null || true; \
+	fi; \
+	if [ -z "$$NEO4J_URI" ]; then \
+		echo "NEO4J_URI not set, starting Docker Neo4j..."; \
+		$(MAKE) neo4j-start neo4j-wait-quiet; \
+		NEO4J_PASSWORD=test-password uv run python examples/langchain_agent.py; \
+	else \
+		echo "Using configured Neo4j at $$NEO4J_URI"; \
+		uv run python examples/langchain_agent.py; \
+	fi
+
+# Pydantic AI integration example (requires Neo4j and OpenAI API key)
+example-pydantic:
+	@echo "Running Pydantic AI integration example..."
+	@if [ -f examples/.env ]; then \
+		. examples/.env 2>/dev/null || true; \
+	fi; \
+	if [ -z "$$NEO4J_URI" ]; then \
+		echo "NEO4J_URI not set, starting Docker Neo4j..."; \
+		$(MAKE) neo4j-start neo4j-wait-quiet; \
+		NEO4J_PASSWORD=test-password uv run python examples/pydantic_ai_agent.py; \
+	else \
+		echo "Using configured Neo4j at $$NEO4J_URI"; \
+		uv run python examples/pydantic_ai_agent.py; \
+	fi
+
+# Run all examples
+examples: example-resolution example-basic example-langchain example-pydantic
+	@echo "All examples completed!"

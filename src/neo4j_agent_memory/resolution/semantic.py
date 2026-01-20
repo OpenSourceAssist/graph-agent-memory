@@ -51,7 +51,8 @@ class SemanticMatchResolver(BaseResolver):
         norm_b = sum(x * x for x in b) ** 0.5
         if norm_a == 0 or norm_b == 0:
             return 0.0
-        return dot_product / (norm_a * norm_b)
+        # Clamp to [0.0, 1.0] to handle floating point precision issues
+        return min(1.0, max(0.0, dot_product / (norm_a * norm_b)))
 
     async def resolve(
         self,

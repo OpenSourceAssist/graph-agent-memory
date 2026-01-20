@@ -6,19 +6,39 @@ from pydantic import BaseModel, Field
 
 
 class ExtractedEntity(BaseModel):
-    """Entity extracted from text."""
+    """Entity extracted from text.
+
+    Supports the POLE+O model (Person, Object, Location, Event, Organization)
+    as well as custom entity types and subtypes.
+    """
 
     name: str = Field(description="Entity name")
-    type: str = Field(description="Entity type (PERSON, ORGANIZATION, etc.)")
+    type: str = Field(description="Entity type (PERSON, OBJECT, LOCATION, EVENT, ORGANIZATION)")
+    subtype: str | None = Field(
+        default=None, description="Entity subtype (e.g., VEHICLE for OBJECT, ADDRESS for LOCATION)"
+    )
     start_pos: int | None = Field(default=None, description="Start position in text")
     end_pos: int | None = Field(default=None, description="End position in text")
     confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Confidence score")
     context: str | None = Field(default=None, description="Surrounding context")
+    attributes: dict[str, Any] = Field(
+        default_factory=dict, description="Additional attributes extracted for this entity"
+    )
+    extractor: str | None = Field(
+        default=None, description="Name of the extractor that produced this entity"
+    )
 
     @property
     def normalized_name(self) -> str:
         """Return normalized entity name (lowercase, stripped)."""
         return self.name.lower().strip()
+
+    @property
+    def full_type(self) -> str:
+        """Return full type including subtype if present."""
+        if self.subtype:
+            return f"{self.type}:{self.subtype}"
+        return self.type
 
 
 class ExtractedRelation(BaseModel):

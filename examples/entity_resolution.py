@@ -58,7 +58,9 @@ async def main():
         result = await exact_resolver.resolve(
             name, entity_type, existing_entities=existing_entities
         )
-        match_info = "✓ matched" if result.canonical_name != name else "✗ no match"
+        # Check if resolved to an existing entity (exact or case-insensitive match)
+        matched = result.canonical_name.lower() in [e.lower() for e in existing_entities]
+        match_info = "✓ matched" if matched else "✗ no match"
         print(f"   '{name}' -> '{result.canonical_name}' ({match_info})")
 
     # =================================================================

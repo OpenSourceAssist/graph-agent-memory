@@ -50,33 +50,108 @@ if TYPE_CHECKING:
 
 
 class EntityType(str, Enum):
-    """Standard entity types."""
+    """Standard entity types (legacy enum for backward compatibility).
 
+    For new code, prefer using string types directly with the POLE+O model:
+    - PERSON: Individuals, aliases, personas
+    - OBJECT: Physical/digital items (vehicles, phones, documents)
+    - LOCATION: Geographic areas, addresses, places
+    - EVENT: Incidents connecting entities across time/place
+    - ORGANIZATION: Companies, non-profits, groups
+    """
+
+    # POLE+O types
     PERSON = "PERSON"
-    ORGANIZATION = "ORGANIZATION"
+    OBJECT = "OBJECT"
     LOCATION = "LOCATION"
     EVENT = "EVENT"
-    CONCEPT = "CONCEPT"
-    EMOTION = "EMOTION"
-    PREFERENCE = "PREFERENCE"
-    FACT = "FACT"
+    ORGANIZATION = "ORGANIZATION"
+
+    # Legacy types (mapped to POLE+O)
+    CONCEPT = "CONCEPT"  # -> typically OBJECT or custom
+    EMOTION = "EMOTION"  # -> typically OBJECT:EMOTION
+    PREFERENCE = "PREFERENCE"  # -> stored separately
+    FACT = "FACT"  # -> stored separately
+
+
+# POLE+O type constants for convenience
+POLEO_TYPES = ["PERSON", "OBJECT", "LOCATION", "EVENT", "ORGANIZATION"]
+
+
+def normalize_entity_type(entity_type: str | EntityType) -> str:
+    """Normalize entity type to uppercase string."""
+    if isinstance(entity_type, EntityType):
+        return entity_type.value
+    return entity_type.upper()
+
+
+def parse_entity_type(type_str: str) -> tuple[str, str | None]:
+    """Parse entity type string into (type, subtype).
+
+    Supports format "TYPE" or "TYPE:SUBTYPE".
+
+    Examples:
+        parse_entity_type("PERSON") -> ("PERSON", None)
+        parse_entity_type("OBJECT:VEHICLE") -> ("OBJECT", "VEHICLE")
+        parse_entity_type("location:address") -> ("LOCATION", "ADDRESS")
+    """
+    if ":" in type_str:
+        parts = type_str.upper().split(":", 1)
+        return parts[0], parts[1] if len(parts) > 1 else None
+    return type_str.upper(), None
 
 
 class Entity(MemoryEntry):
-    """An entity extracted from conversations or documents."""
+    """An entity extracted from conversations or documents.
+
+    Supports the POLE+O data model (Person, Object, Location, Event, Organization)
+    with optional subtypes for finer classification.
+
+    Attributes:
+        name: Entity name
+        canonical_name: Resolved canonical name (after entity resolution)
+        type: Entity type (PERSON, OBJECT, LOCATION, EVENT, ORGANIZATION)
+        subtype: Optional subtype (e.g., VEHICLE for OBJECT, ADDRESS for LOCATION)
+        description: Optional entity description
+        confidence: Confidence score from extraction/resolution
+        aliases: Alternative names for this entity
+        attributes: Additional flexible attributes
+        source_id: ID of source message/document
+    """
 
     name: str = Field(description="Entity name")
     canonical_name: str | None = Field(default=None, description="Resolved canonical name")
-    type: EntityType = Field(description="Entity type")
+    type: str = Field(description="Entity type (PERSON, OBJECT, LOCATION, EVENT, ORGANIZATION)")
+    subtype: str | None = Field(
+        default=None, description="Entity subtype (e.g., VEHICLE for OBJECT)"
+    )
     description: str | None = Field(default=None, description="Entity description")
     confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Confidence score")
     aliases: list[str] = Field(default_factory=list, description="Alternative names")
+    attributes: dict[str, Any] = Field(
+        default_factory=dict, description="Additional entity attributes"
+    )
     source_id: UUID | None = Field(default=None, description="Source message/document ID")
 
     @property
     def display_name(self) -> str:
         """Get the display name (canonical if available)."""
         return self.canonical_name or self.name
+
+    @property
+    def full_type(self) -> str:
+        """Get full type including subtype if present."""
+        if self.subtype:
+            return f"{self.type}:{self.subtype}"
+        return self.type
+
+    @property
+    def entity_type(self) -> EntityType | None:
+        """Get EntityType enum if type matches, for backward compatibility."""
+        try:
+            return EntityType(self.type)
+        except ValueError:
+            return None
 
 
 class Relationship(MemoryEntry):
@@ -89,6 +164,9 @@ class Relationship(MemoryEntry):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Confidence score")
     valid_from: datetime | None = Field(default=None, description="Start of validity")
     valid_until: datetime | None = Field(default=None, description="End of validity")
+    attributes: dict[str, Any] = Field(
+        default_factory=dict, description="Additional relationship attributes"
+    )
 
 
 class Preference(MemoryEntry):
@@ -127,6 +205,9 @@ class SemanticMemory(BaseMemory[Entity]):
     - User preferences with categories
     - Facts with temporal validity
     - Relationships between entities
+
+    Supports the POLE+O data model (Person, Object, Location, Event, Organization)
+    as the default entity schema, but allows custom entity types via configuration.
     """
 
     def __init__(
@@ -135,15 +216,40 @@ class SemanticMemory(BaseMemory[Entity]):
         embedder: "Embedder | None" = None,
         extractor: "EntityExtractor | None" = None,
         resolver: "EntityResolver | None" = None,
+        entity_types: list[str] | None = None,
+        strict_types: bool = False,
     ):
-        """Initialize semantic memory."""
+        """Initialize semantic memory.
+
+        Args:
+            client: Neo4j client for database operations
+            embedder: Optional embedder for semantic search
+            extractor: Optional entity extractor
+            resolver: Optional entity resolver for deduplication
+            entity_types: Allowed entity types (defaults to POLE+O)
+            strict_types: If True, reject entities with unknown types
+        """
         super().__init__(client, embedder, extractor)
         self._resolver = resolver
+        self._entity_types = entity_types or POLEO_TYPES
+        self._strict_types = strict_types
+
+    def _validate_entity_type(self, entity_type: str) -> str:
+        """Validate and normalize entity type."""
+        normalized = normalize_entity_type(entity_type)
+        base_type, _ = parse_entity_type(normalized)
+
+        if self._strict_types and base_type not in self._entity_types:
+            raise ValueError(
+                f"Unknown entity type: {base_type}. Allowed types: {self._entity_types}"
+            )
+
+        return normalized
 
     async def add(self, content: str, **kwargs: Any) -> Entity:
         """Add content as an entity."""
         name = kwargs.get("name", content)
-        entity_type = kwargs.get("type", EntityType.CONCEPT)
+        entity_type = kwargs.get("type", "OBJECT")
         return await self.add_entity(name, entity_type, **kwargs)
 
     async def add_entity(
@@ -151,7 +257,10 @@ class SemanticMemory(BaseMemory[Entity]):
         name: str,
         entity_type: EntityType | str,
         *,
+        subtype: str | None = None,
         description: str | None = None,
+        aliases: list[str] | None = None,
+        attributes: dict[str, Any] | None = None,
         resolve: bool = True,
         generate_embedding: bool = True,
         metadata: dict[str, Any] | None = None,
@@ -161,8 +270,11 @@ class SemanticMemory(BaseMemory[Entity]):
 
         Args:
             name: Entity name
-            entity_type: Entity type
+            entity_type: Entity type (PERSON, OBJECT, LOCATION, EVENT, ORGANIZATION)
+            subtype: Optional subtype (e.g., VEHICLE for OBJECT)
             description: Optional description
+            aliases: Optional list of alternative names
+            attributes: Optional additional attributes
             resolve: Whether to resolve against existing entities
             generate_embedding: Whether to generate embedding
             metadata: Optional metadata
@@ -170,19 +282,22 @@ class SemanticMemory(BaseMemory[Entity]):
         Returns:
             The created or resolved entity
         """
-        # Normalize type
-        if isinstance(entity_type, str):
-            entity_type = EntityType(entity_type.upper())
+        # Normalize and validate type
+        type_str = self._validate_entity_type(
+            entity_type.value if isinstance(entity_type, EntityType) else entity_type
+        )
+
+        # Parse type and subtype if provided in type string
+        parsed_type, parsed_subtype = parse_entity_type(type_str)
+        final_subtype = subtype or parsed_subtype
 
         canonical_name = name
         confidence = 1.0
 
         # Resolve against existing entities
         if resolve and self._resolver is not None:
-            existing = await self._get_existing_entity_names(entity_type)
-            resolved = await self._resolver.resolve(
-                name, entity_type.value, existing_entities=existing
-            )
+            existing = await self._get_existing_entity_names(parsed_type)
+            resolved = await self._resolver.resolve(name, parsed_type, existing_entities=existing)
             canonical_name = resolved.canonical_name
             confidence = resolved.confidence
 
@@ -196,12 +311,22 @@ class SemanticMemory(BaseMemory[Entity]):
             id=uuid4(),
             name=name,
             canonical_name=canonical_name,
-            type=entity_type,
+            type=parsed_type,
+            subtype=final_subtype,
             description=description,
             embedding=embedding,
             confidence=confidence,
+            aliases=aliases or [],
+            attributes=attributes or {},
             metadata=metadata or {},
         )
+
+        # Merge attributes into metadata for storage
+        storage_metadata = {**entity.metadata}
+        if entity.attributes:
+            storage_metadata["attributes"] = entity.attributes
+        if entity.aliases:
+            storage_metadata["aliases"] = entity.aliases
 
         # Store entity
         await self._client.execute_write(
@@ -209,12 +334,13 @@ class SemanticMemory(BaseMemory[Entity]):
             {
                 "id": str(entity.id),
                 "name": entity.name,
-                "type": entity.type.value,
+                "type": entity.type,
+                "subtype": entity.subtype,
                 "canonical_name": entity.canonical_name,
                 "description": entity.description,
                 "embedding": entity.embedding,
                 "confidence": entity.confidence,
-                "metadata": _serialize_metadata(entity.metadata),
+                "metadata": _serialize_metadata(storage_metadata) if storage_metadata else None,
             },
         )
 
@@ -354,6 +480,7 @@ class SemanticMemory(BaseMemory[Entity]):
         confidence: float = 1.0,
         valid_from: datetime | None = None,
         valid_until: datetime | None = None,
+        attributes: dict[str, Any] | None = None,
     ) -> Relationship:
         """
         Add a relationship between entities.
@@ -366,6 +493,7 @@ class SemanticMemory(BaseMemory[Entity]):
             confidence: Confidence score
             valid_from: Start of validity
             valid_until: End of validity
+            attributes: Optional additional attributes
 
         Returns:
             The created relationship
@@ -382,6 +510,7 @@ class SemanticMemory(BaseMemory[Entity]):
             confidence=confidence,
             valid_from=valid_from,
             valid_until=valid_until,
+            attributes=attributes or {},
         )
 
         await self._client.execute_write(
@@ -421,17 +550,7 @@ class SemanticMemory(BaseMemory[Entity]):
         row = results[0]
         entity_data = dict(row["e"])
 
-        return Entity(
-            id=UUID(entity_data["id"]),
-            name=entity_data["name"],
-            canonical_name=entity_data.get("canonical_name"),
-            type=EntityType(entity_data["type"]),
-            description=entity_data.get("description"),
-            embedding=entity_data.get("embedding"),
-            confidence=entity_data.get("confidence", 1.0),
-            created_at=_to_python_datetime(entity_data.get("created_at")),
-            metadata=_deserialize_metadata(entity_data.get("metadata")),
-        )
+        return self._parse_entity(entity_data)
 
     async def search(self, query: str, **kwargs: Any) -> list[Entity]:
         """Search for entities."""
@@ -441,7 +560,7 @@ class SemanticMemory(BaseMemory[Entity]):
         self,
         query: str,
         *,
-        entity_types: list[EntityType] | None = None,
+        entity_types: list[EntityType | str] | None = None,
         limit: int = 10,
         threshold: float = 0.7,
     ) -> list[Entity]:
@@ -471,29 +590,22 @@ class SemanticMemory(BaseMemory[Entity]):
             },
         )
 
+        # Normalize filter types
+        filter_types: set[str] | None = None
+        if entity_types:
+            filter_types = {normalize_entity_type(t) for t in entity_types}
+
         entities = []
         for row in results:
             entity_data = dict(row["e"])
-            entity_type = EntityType(entity_data["type"])
+            entity_type = entity_data["type"]
 
             # Filter by type if specified
-            if entity_types and entity_type not in entity_types:
+            if filter_types and entity_type not in filter_types:
                 continue
 
-            entity = Entity(
-                id=UUID(entity_data["id"]),
-                name=entity_data["name"],
-                canonical_name=entity_data.get("canonical_name"),
-                type=entity_type,
-                description=entity_data.get("description"),
-                embedding=entity_data.get("embedding"),
-                confidence=entity_data.get("confidence", 1.0),
-                created_at=_to_python_datetime(entity_data.get("created_at")),
-                metadata={
-                    **_deserialize_metadata(entity_data.get("metadata")),
-                    "similarity": row["score"],
-                },
-            )
+            entity = self._parse_entity(entity_data)
+            entity.metadata["similarity"] = row["score"]
             entities.append(entity)
 
         return entities
@@ -605,13 +717,7 @@ class SemanticMemory(BaseMemory[Entity]):
             if relationship_types and rel_type not in relationship_types:
                 continue
 
-            other_entity = Entity(
-                id=UUID(other_data["id"]),
-                name=other_data["name"],
-                type=EntityType(other_data["type"]),
-                canonical_name=other_data.get("canonical_name"),
-                description=other_data.get("description"),
-            )
+            other_entity = self._parse_entity(other_data)
 
             relationship = Relationship(
                 id=UUID(rel_data.get("id", str(uuid4()))),
@@ -662,18 +768,19 @@ class SemanticMemory(BaseMemory[Entity]):
             if entities:
                 parts.append("\n### Relevant Entities")
                 for entity in entities:
-                    line = f"- {entity.display_name} ({entity.type.value})"
+                    type_str = entity.full_type
+                    line = f"- {entity.display_name} ({type_str})"
                     if entity.description:
                         line += f": {entity.description}"
                     parts.append(line)
 
         return "\n".join(parts)
 
-    async def _get_existing_entity_names(self, entity_type: EntityType) -> list[str]:
+    async def _get_existing_entity_names(self, entity_type: str) -> list[str]:
         """Get names of existing entities of a given type."""
         results = await self._client.execute_read(
             queries.SEARCH_ENTITIES_BY_TYPE,
-            {"type": entity_type.value, "limit": 1000},
+            {"type": entity_type, "limit": 1000},
         )
         names = []
         for row in results:
@@ -786,6 +893,27 @@ class SemanticMemory(BaseMemory[Entity]):
             return []
 
         return await self.get_related_entities(entity)
+
+    def _parse_entity(self, data: dict[str, Any]) -> Entity:
+        """Parse entity from database result."""
+        metadata = _deserialize_metadata(data.get("metadata"))
+        attributes = metadata.pop("attributes", {})
+        aliases = metadata.pop("aliases", [])
+
+        return Entity(
+            id=UUID(data["id"]),
+            name=data["name"],
+            canonical_name=data.get("canonical_name"),
+            type=data["type"],
+            subtype=data.get("subtype"),
+            description=data.get("description"),
+            embedding=data.get("embedding"),
+            confidence=data.get("confidence", 1.0),
+            aliases=aliases,
+            attributes=attributes,
+            created_at=_to_python_datetime(data.get("created_at")),
+            metadata=metadata,
+        )
 
     def _parse_preference(self, data: dict[str, Any]) -> Preference:
         """Parse preference from database result."""

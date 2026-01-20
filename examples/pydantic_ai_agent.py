@@ -7,15 +7,49 @@ This example shows how to use Neo4j Agent Memory with Pydantic AI:
 - Using memory tools for agent memory operations
 
 Requirements:
-    - Neo4j running at bolt://localhost:7687
+    - Neo4j running (or set NEO4J_URI in .env)
     - pip install neo4j-agent-memory[pydantic-ai,openai]
-    - OPENAI_API_KEY environment variable set
+    - OPENAI_API_KEY environment variable set (or in .env)
+
+Environment variables can be set in examples/.env file.
 """
 
 import asyncio
 import os
+from pathlib import Path
 
 from pydantic import SecretStr
+
+
+def load_env_files():
+    """Load environment variables from .env files."""
+    try:
+        from dotenv import load_dotenv
+
+        env_file = Path(__file__).parent / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+            print(f"Loaded environment from {env_file}")
+
+        parent_env = Path(__file__).parent.parent / ".env"
+        if parent_env.exists():
+            load_dotenv(parent_env)
+    except ImportError:
+        env_file = Path(__file__).parent / ".env"
+        if env_file.exists():
+            with open(env_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, _, value = line.partition("=")
+                        key = key.strip()
+                        value = value.strip().strip("\"'")
+                        if key and key not in os.environ:
+                            os.environ[key] = value
+            print(f"Loaded environment from {env_file}")
+
+
+load_env_files()
 
 from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 

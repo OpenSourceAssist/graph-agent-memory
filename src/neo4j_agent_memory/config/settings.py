@@ -29,7 +29,26 @@ class ExtractorType(str, Enum):
 
     LLM = "llm"
     GLINER = "gliner"
+    SPACY = "spacy"
+    PIPELINE = "pipeline"  # Multi-stage pipeline
     NONE = "none"
+
+
+class MergeStrategy(str, Enum):
+    """Strategies for merging extraction results from multiple extractors."""
+
+    UNION = "union"  # Keep all unique entities
+    INTERSECTION = "intersection"  # Keep only entities found by multiple extractors
+    CONFIDENCE = "confidence"  # Keep highest confidence per entity
+    CASCADE = "cascade"  # Use first extractor's results, fill gaps with others
+
+
+class SchemaModel(str, Enum):
+    """Available schema models for entity types."""
+
+    POLEO = "poleo"  # Person, Object, Location, Event, Organization
+    LEGACY = "legacy"  # Original EntityType enum for backward compatibility
+    CUSTOM = "custom"  # User-defined schema
 
 
 class ResolverStrategy(str, Enum):
@@ -84,32 +103,87 @@ class LLMConfig(BaseModel):
     max_tokens: int = Field(default=4096, ge=1, description="Maximum tokens for LLM")
 
 
+class SchemaConfig(BaseModel):
+    """Knowledge graph schema configuration.
+
+    Defines what entity types are valid and how the knowledge graph is structured.
+    The default is the POLE+O model (Person, Object, Location, Event, Organization).
+    """
+
+    model: SchemaModel = Field(default=SchemaModel.POLEO, description="Schema model to use")
+    entity_types: list[str] | None = Field(
+        default=None, description="Custom entity types (overrides model default when model=custom)"
+    )
+    enable_subtypes: bool = Field(default=True, description="Whether to track entity subtypes")
+    strict_types: bool = Field(default=False, description="Whether to reject unknown entity types")
+    custom_schema_path: str | None = Field(
+        default=None, description="Path to custom schema definition file (.json or .yaml)"
+    )
+
+
 class ExtractionConfig(BaseModel):
-    """Entity extraction configuration."""
+    """Entity extraction configuration.
+
+    Supports multiple extraction modes:
+    - LLM: Use OpenAI/Anthropic for extraction (most accurate, highest cost)
+    - GLINER: Use GLiNER zero-shot NER (good accuracy, runs locally)
+    - SPACY: Use spaCy NER (fast, basic entity types)
+    - PIPELINE: Multi-stage pipeline combining multiple extractors
+    - NONE: Disable extraction
+    """
 
     extractor_type: ExtractorType = Field(
-        default=ExtractorType.LLM, description="Type of entity extractor"
+        default=ExtractorType.PIPELINE, description="Type of entity extractor"
     )
+
+    # Pipeline settings (when extractor_type=PIPELINE)
+    enable_spacy: bool = Field(default=True, description="Enable spaCy in extraction pipeline")
+    enable_gliner: bool = Field(default=True, description="Enable GLiNER in extraction pipeline")
+    enable_llm_fallback: bool = Field(
+        default=True, description="Enable LLM as fallback in pipeline"
+    )
+    merge_strategy: MergeStrategy = Field(
+        default=MergeStrategy.CONFIDENCE,
+        description="Strategy for merging results from multiple extractors",
+    )
+    fallback_on_empty: bool = Field(
+        default=True, description="Continue to next stage if current stage returns no results"
+    )
+
+    # spaCy settings
+    spacy_model: str = Field(default="en_core_web_sm", description="spaCy model name")
+    spacy_confidence: float = Field(
+        default=0.85, ge=0.0, le=1.0, description="Default confidence score for spaCy extractions"
+    )
+
+    # GLiNER settings
+    gliner_model: str = Field(default="urchade/gliner_medium-v2.1", description="GLiNER model name")
+    gliner_threshold: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="GLiNER confidence threshold"
+    )
+    gliner_device: str = Field(default="cpu", description="Device for GLiNER model (cpu/cuda)")
+
+    # LLM settings (for LLM extractor or fallback)
+    llm_model: str = Field(default="gpt-4o-mini", description="LLM model for extraction")
+
+    # General extraction settings
     entity_types: list[str] = Field(
         default=[
             "PERSON",
             "ORGANIZATION",
             "LOCATION",
             "EVENT",
-            "CONCEPT",
-            "PREFERENCE",
+            "OBJECT",
         ],
-        description="Entity types to extract",
+        description="Entity types to extract (POLE+O by default)",
     )
     extract_relations: bool = Field(default=True, description="Whether to extract relations")
     extract_preferences: bool = Field(default=True, description="Whether to extract preferences")
     confidence_threshold: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="Minimum confidence threshold"
-    )
-    # GLiNER specific
-    gliner_model: str = Field(default="urchade/gliner_base", description="GLiNER model name")
-    gliner_threshold: float = Field(
-        default=0.5, ge=0.0, le=1.0, description="GLiNER confidence threshold"
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Minimum confidence threshold for extracted entities",
     )
 
 
@@ -186,6 +260,7 @@ class MemorySettings(BaseSettings):
     neo4j: Neo4jConfig = Field(default_factory=lambda: Neo4jConfig(password=SecretStr("")))
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    schema: SchemaConfig = Field(default_factory=SchemaConfig)
     extraction: ExtractionConfig = Field(default_factory=ExtractionConfig)
     resolution: ResolutionConfig = Field(default_factory=ResolutionConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)

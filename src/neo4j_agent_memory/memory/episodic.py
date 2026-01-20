@@ -380,6 +380,7 @@ class EpisodicMemory(BaseMemory[Message]):
                     "id": entity_id,
                     "name": entity.name,
                     "type": entity.type,
+                    "subtype": getattr(entity, "subtype", None),  # POLE+O subtype support
                     "canonical_name": entity.name,
                     "description": None,
                     "embedding": None,

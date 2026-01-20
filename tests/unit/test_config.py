@@ -75,9 +75,14 @@ class TestExtractionConfig:
         """Test default extraction config."""
         config = ExtractionConfig()
 
-        assert config.extractor_type == ExtractorType.LLM
+        # Default is now PIPELINE (multi-stage extraction)
+        assert config.extractor_type == ExtractorType.PIPELINE
         assert "PERSON" in config.entity_types
         assert config.extract_relations is True
+        # Pipeline settings
+        assert config.enable_spacy is True
+        assert config.enable_gliner is True
+        assert config.enable_llm_fallback is True
 
     def test_gliner_config(self):
         """Test GLiNER extraction config."""

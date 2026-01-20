@@ -46,7 +46,11 @@ anthropic = ["anthropic>=0.20.0"]
 sentence-transformers = ["sentence-transformers>=2.2.0"]
 
 # Entity extraction
+spacy = ["spacy>=3.7.0"]
 gliner = ["gliner>=0.2.0"]
+
+# Extraction pipeline (spaCy + GLiNER)
+extraction = ["spacy>=3.7.0", "gliner>=0.2.0"]
 
 # Entity resolution
 fuzzy = ["rapidfuzz>=3.0.0"]
@@ -62,9 +66,9 @@ all = [
     "neo4j-agent-memory[openai,anthropic,fuzzy,langchain,llamaindex,pydantic-ai,crewai]",
 ]
 
-# Full install including local models
+# Full install including local models and extraction pipeline
 full = [
-    "neo4j-agent-memory[all,sentence-transformers,gliner]",
+    "neo4j-agent-memory[all,sentence-transformers,spacy,gliner]",
 ]
 
 [project.urls]
@@ -126,6 +130,7 @@ plugins = ["pydantic.mypy"]
 module = [
     "neo4j.*",
     "sentence_transformers.*",
+    "spacy.*",
     "gliner.*",
     "rapidfuzz.*",
     "langchain_core.*",

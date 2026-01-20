@@ -7,15 +7,49 @@ This example shows how to use Neo4j Agent Memory with LangChain:
 - Using Neo4jMemoryRetriever for RAG
 
 Requirements:
-    - Neo4j running at bolt://localhost:7687
+    - Neo4j running (or set NEO4J_URI in .env)
     - pip install neo4j-agent-memory[langchain,openai]
-    - OPENAI_API_KEY environment variable set
+    - OPENAI_API_KEY environment variable set (or in .env)
+
+Environment variables can be set in examples/.env file.
 """
 
 import asyncio
 import os
+from pathlib import Path
 
 from pydantic import SecretStr
+
+
+def load_env_files():
+    """Load environment variables from .env files."""
+    try:
+        from dotenv import load_dotenv
+
+        env_file = Path(__file__).parent / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+            print(f"Loaded environment from {env_file}")
+
+        parent_env = Path(__file__).parent.parent / ".env"
+        if parent_env.exists():
+            load_dotenv(parent_env)
+    except ImportError:
+        env_file = Path(__file__).parent / ".env"
+        if env_file.exists():
+            with open(env_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, _, value = line.partition("=")
+                        key = key.strip()
+                        value = value.strip().strip("\"'")
+                        if key and key not in os.environ:
+                            os.environ[key] = value
+            print(f"Loaded environment from {env_file}")
+
+
+load_env_files()
 
 from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 
@@ -33,7 +67,9 @@ async def main():
         session_id = "langchain-demo"
 
         await client.episodic.add_message(session_id, "user", "I prefer spicy food")
-        await client.semantic.add_preference("food", "Loves spicy dishes", "Dining preferences")
+        await client.semantic.add_preference(
+            "food", "Loves spicy dishes", context="Dining preferences"
+        )
         await client.semantic.add_entity(
             name="Thai Kitchen",
             entity_type="ORGANIZATION",
@@ -68,8 +104,10 @@ async def main():
             include_procedural=True,
         )
 
-        # Load memory variables
-        variables = memory.load_memory_variables({"input": "restaurant recommendation"})
+        # Load memory variables (using async method directly since we're in async context)
+        variables = await memory._load_memory_variables_async(
+            {"input": "restaurant recommendation"}
+        )
 
         print("Memory variables:")
         for key, value in variables.items():
@@ -79,8 +117,8 @@ async def main():
             else:
                 print(f"    {value}")
 
-        # Save new context
-        memory.save_context(
+        # Save new context (using async method directly)
+        await memory._save_context_async(
             {"input": "What's a good Thai restaurant?"},
             {"output": "Based on your preferences, I recommend Thai Kitchen!"},
         )
@@ -98,8 +136,8 @@ async def main():
             k=5,
         )
 
-        # Retrieve relevant documents
-        docs = retriever.invoke("spicy food preferences")
+        # Retrieve relevant documents (using async method directly since we're in async context)
+        docs = await retriever._get_relevant_documents_async("spicy food preferences")
 
         print(f"Retrieved {len(docs)} documents:")
         for doc in docs:

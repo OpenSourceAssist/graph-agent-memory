@@ -72,6 +72,7 @@ CREATE_ENTITY = """
 MERGE (e:Entity {name: $name, type: $type})
 ON CREATE SET
     e.id = $id,
+    e.subtype = $subtype,
     e.canonical_name = $canonical_name,
     e.description = $description,
     e.embedding = $embedding,
@@ -79,6 +80,7 @@ ON CREATE SET
     e.created_at = datetime(),
     e.metadata = $metadata
 ON MATCH SET
+    e.subtype = COALESCE($subtype, e.subtype),
     e.canonical_name = COALESCE($canonical_name, e.canonical_name),
     e.description = COALESCE($description, e.description),
     e.embedding = COALESCE($embedding, e.embedding),
