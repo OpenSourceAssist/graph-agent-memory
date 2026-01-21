@@ -346,6 +346,9 @@ Located in `examples/full-stack-chat-agent/`, this is a complete demonstration o
 - **Backend**: FastAPI + PydanticAI agent with all three memory types
 - **Frontend**: Next.js 14 + Chakra UI with SSE streaming
 - **News Graph Tools**: Search, filter, and analyze news articles
+- **Memory Graph Visualization**: Interactive graph view using Neo4j Visualization Library (NVL)
+- **Automatic Preference Extraction**: Detects and stores user preferences from conversation
+- **Memory Context Panel**: Real-time display of episodic, semantic, and procedural memory
 
 ### Running the Chat Agent
 
@@ -368,7 +371,16 @@ make chat-agent-frontend
 
 ### Key Files
 
-- `examples/full-stack-chat-agent/backend/src/agent/agent.py` - PydanticAI agent with memory-enhanced system prompt
-- `examples/full-stack-chat-agent/backend/src/agent/tools.py` - News graph query tools
-- `examples/full-stack-chat-agent/backend/src/api/routes/chat.py` - SSE streaming chat endpoint
-- `examples/full-stack-chat-agent/frontend/src/hooks/useChat.ts` - React hook with SSE handling
+**Backend:**
+- `backend/src/agent/agent.py` - PydanticAI agent with memory-enhanced system prompt
+- `backend/src/agent/tools.py` - News graph query tools
+- `backend/src/api/routes/chat.py` - SSE streaming chat endpoint with automatic preference extraction
+- `backend/src/api/routes/memory.py` - Memory context and preferences API endpoints
+- `backend/src/api/routes/threads.py` - Thread/conversation CRUD operations
+
+**Frontend:**
+- `frontend/src/hooks/useChat.ts` - React hook with SSE handling
+- `frontend/src/hooks/useThreads.ts` - Thread management hook
+- `frontend/src/components/chat/` - Chat UI components (MessageList, PromptInput, ToolCallDisplay)
+- `frontend/src/components/memory/MemoryContext.tsx` - Memory context panel showing preferences, entities, recent messages
+- `frontend/src/components/memory/MemoryGraphView.tsx` - Interactive NVL graph visualization of memory nodes

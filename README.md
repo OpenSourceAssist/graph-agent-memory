@@ -595,6 +595,9 @@ The `examples/full-stack-chat-agent/` directory contains a complete web applicat
 - SSE streaming for real-time responses
 - Next.js 14 frontend with Chakra UI
 - Thread management and memory context display
+- **Memory Graph Visualization**: Interactive graph view using Neo4j NVL library showing all memory nodes and relationships
+- **Automatic Preference Extraction**: User preferences are automatically detected and stored in semantic memory
+- **Memory Context Panel**: Side panel displaying recent messages, extracted preferences, and entities
 
 **Quick Start:**
 
