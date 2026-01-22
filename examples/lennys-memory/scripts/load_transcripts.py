@@ -102,8 +102,21 @@ async def load_transcript(
     extract_entities: bool = True,
     generate_embeddings: bool = True,
     verbose: bool = False,
+    use_batch: bool = True,
 ) -> dict:
-    """Load a single transcript into memory."""
+    """Load a single transcript into memory.
+
+    Args:
+        memory: MemoryClient instance
+        file_path: Path to transcript file
+        extract_entities: Whether to extract entities from messages
+        generate_embeddings: Whether to generate embeddings for semantic search
+        verbose: Show detailed progress
+        use_batch: Use batch loading API for better performance (recommended)
+
+    Returns:
+        Stats dict with turns loaded and speakers found
+    """
     turns = parse_transcript(file_path)
     guest_name = file_path.stem
 
@@ -112,36 +125,77 @@ async def load_transcript(
 
     stats = {"turns": 0, "speakers": set()}
 
-    for i, turn in enumerate(turns):
-        # Use "user" role for Lenny, "assistant" role for guests
-        role = "user" if turn.speaker.lower() == "lenny" else "assistant"
-
-        # Include metadata about the episode
-        metadata = {
-            "episode_guest": turn.episode_guest,
-            "speaker": turn.speaker,
-            "timestamp": turn.timestamp,
-            "source": "lenny_podcast",
-            "turn_index": i,
-        }
-
-        try:
-            await memory.episodic.add_message(
-                session_id=session_id,
-                role=role,
-                content=turn.content,
-                metadata=metadata,
-                extract_entities=extract_entities,
-                generate_embedding=generate_embeddings,
+    if use_batch:
+        # Use the new batch loading API for better performance
+        messages = []
+        for i, turn in enumerate(turns):
+            role = "user" if turn.speaker.lower() == "lenny" else "assistant"
+            metadata = {
+                "episode_guest": turn.episode_guest,
+                "speaker": turn.speaker,
+                "timestamp": turn.timestamp,
+                "source": "lenny_podcast",
+                "turn_index": i,
+            }
+            messages.append(
+                {
+                    "role": role,
+                    "content": turn.content,
+                    "metadata": metadata,
+                }
             )
-            stats["turns"] += 1
             stats["speakers"].add(turn.speaker)
 
-            if verbose and stats["turns"] % 10 == 0:
-                print(f"  Loaded {stats['turns']} turns...")
+        def progress_callback(processed: int, total: int) -> None:
+            if verbose:
+                print(f"  Loaded {processed}/{total} turns...")
 
+        try:
+            await memory.episodic.add_messages_batch(
+                session_id=session_id,
+                messages=messages,
+                batch_size=50,
+                generate_embeddings=generate_embeddings,
+                extract_entities=extract_entities,
+                on_progress=progress_callback if verbose else None,
+            )
+            stats["turns"] = len(messages)
         except Exception as e:
-            print(f"  Warning: Failed to load turn {i}: {e}")
+            print(f"  ERROR during batch load: {e}")
+            # Fallback to individual loading
+            print("  Falling back to individual message loading...")
+            return await load_transcript(
+                memory, file_path, extract_entities, generate_embeddings, verbose, use_batch=False
+            )
+    else:
+        # Fallback: load messages one at a time
+        for i, turn in enumerate(turns):
+            role = "user" if turn.speaker.lower() == "lenny" else "assistant"
+            metadata = {
+                "episode_guest": turn.episode_guest,
+                "speaker": turn.speaker,
+                "timestamp": turn.timestamp,
+                "source": "lenny_podcast",
+                "turn_index": i,
+            }
+
+            try:
+                await memory.episodic.add_message(
+                    session_id=session_id,
+                    role=role,
+                    content=turn.content,
+                    metadata=metadata,
+                    extract_entities=extract_entities,
+                    generate_embedding=generate_embeddings,
+                )
+                stats["turns"] += 1
+                stats["speakers"].add(turn.speaker)
+
+                if verbose and stats["turns"] % 10 == 0:
+                    print(f"  Loaded {stats['turns']} turns...")
+
+            except Exception as e:
+                print(f"  Warning: Failed to load turn {i}: {e}")
 
     return stats
 

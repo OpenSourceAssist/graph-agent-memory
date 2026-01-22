@@ -139,6 +139,84 @@ async def chat(message: str, session_id: str):
     return EventSourceResponse(event_generator())
 ----
 
+=== Automatic Trace Recording
+
+The `record_agent_trace()` function automatically captures a PydanticAI agent's reasoning trace from a `RunResult`, including all tool calls and their results.
+
+[source,python]
+----
+from pydantic_ai import Agent
+from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory.integrations.pydantic_ai import record_agent_trace
+
+agent = Agent(
+    "openai:gpt-4o-mini",
+    system_prompt="You are a helpful assistant."
+)
+
+@agent.tool
+async def search_web(query: str) -> str:
+    """Search the web for information."""
+    return f"Results for: {query}"
+
+async def main():
+    async with MemoryClient(settings) as memory:
+        # Run the agent
+        result = await agent.run("Search for Python tutorials")
+
+        # Automatically record the trace
+        trace = await record_agent_trace(
+            memory.procedural,
+            session_id="user-123",
+            result=result,
+            task="Search for Python tutorials",
+            include_tool_calls=True,
+            generate_embeddings=False,
+        )
+
+        print(f"Recorded trace: {trace.id}")
+        print(f"Steps: {len(trace.steps)}")
+        print(f"Success: {trace.success}")
+----
+
+The function extracts:
+
+* **Reasoning steps** - Each model request/response pair becomes a step
+* **Tool calls** - Arguments, results, and timing are captured
+* **Success/failure** - Detected from tool results (errors, exceptions)
+* **Timing** - Duration calculated from result timestamps
+
+Parameters:
+
+[cols="1,2,1"]
+|===
+|Parameter |Description |Default
+
+|`procedural_memory`
+|The ProceduralMemory instance
+|Required
+
+|`session_id`
+|Session to associate the trace with
+|Required
+
+|`result`
+|PydanticAI RunResult to record
+|Required
+
+|`task`
+|Description of the task (extracted from first user message if not provided)
+|`None`
+
+|`include_tool_calls`
+|Whether to record tool calls
+|`True`
+
+|`generate_embeddings`
+|Generate embeddings for steps
+|`False`
+|===
+
 == LangChain Integration
 
 LangChain is a framework for building LLM-powered applications.

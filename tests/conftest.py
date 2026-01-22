@@ -3,8 +3,6 @@
 import asyncio
 import hashlib
 import os
-import subprocess
-import time
 from typing import AsyncGenerator
 from uuid import uuid4
 
@@ -34,14 +32,62 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "slow: mark test as slow running")
 
 
+# Global testcontainer instance for session-scoped reuse
+_neo4j_container = None
+
+
+def _get_testcontainer():
+    """Get or create a Neo4j testcontainer instance."""
+    global _neo4j_container
+    if _neo4j_container is None:
+        try:
+            from testcontainers.neo4j import Neo4jContainer
+
+            # Create Neo4j container with APOC plugin
+            _neo4j_container = Neo4jContainer(
+                image="neo4j:5.26-community",
+                password="test-password",
+            )
+            # Configure APOC plugin
+            _neo4j_container.with_env("NEO4J_PLUGINS", '["apoc"]')
+            _neo4j_container.with_env("NEO4J_dbms_security_procedures_unrestricted", "apoc.*")
+            _neo4j_container.with_env("NEO4J_dbms_security_procedures_allowlist", "apoc.*")
+            _neo4j_container.with_env("NEO4J_apoc_export_file_enabled", "true")
+            _neo4j_container.with_env("NEO4J_apoc_import_file_enabled", "true")
+        except ImportError:
+            _neo4j_container = None
+    return _neo4j_container
+
+
+def _check_neo4j_env_available() -> dict | None:
+    """Check if Neo4j is available via environment variables (e.g., GitHub Actions services)."""
+    uri = os.getenv("NEO4J_URI")
+    if not uri:
+        return None
+
+    username = os.getenv("NEO4J_USERNAME", "neo4j")
+    password = os.getenv("NEO4J_PASSWORD", "test-password")
+
+    try:
+        from neo4j import GraphDatabase
+
+        driver = GraphDatabase.driver(uri, auth=(username, password))
+        driver.verify_connectivity()
+        driver.close()
+        return {
+            "uri": uri,
+            "username": username,
+            "password": password,
+        }
+    except Exception:
+        return None
+
+
 def pytest_collection_modifyitems(config, items):
-    """Auto-skip integration tests if Neo4j is not available and Docker auto-start is disabled."""
+    """Auto-skip integration tests if Neo4j is not available."""
     # Check environment settings
-    run_integration = os.getenv("RUN_INTEGRATION_TESTS", "").lower() in ("1", "true", "yes")
-    auto_docker = os.getenv("AUTO_START_DOCKER", "true").lower() in ("1", "true", "yes")
     skip_integration = os.getenv("SKIP_INTEGRATION_TESTS", "").lower() in ("1", "true", "yes")
 
-    # If explicitly skipping integration tests
     if skip_integration:
         skip_marker = pytest.mark.skip(reason="SKIP_INTEGRATION_TESTS=1 set")
         for item in items:
@@ -49,76 +95,26 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_marker)
         return
 
-    # If RUN_INTEGRATION_TESTS is set, always run them
-    if run_integration:
+    # Check if Neo4j is available via environment (GitHub Actions services)
+    if _check_neo4j_env_available():
         return
 
-    # Check if Neo4j is available or can be started via Docker
-    neo4j_available = _check_neo4j_available()
-
-    if not neo4j_available and auto_docker and is_docker_available():
-        # Try to start Neo4j via Docker
-        if _try_start_neo4j_docker():
-            neo4j_available = True
-
-    if not neo4j_available:
-        skip_marker = pytest.mark.skip(
-            reason="Neo4j not available. Set RUN_INTEGRATION_TESTS=1 or start Neo4j with Docker"
-        )
-        for item in items:
-            if "integration" in item.keywords:
-                item.add_marker(skip_marker)
-
-
-def _check_neo4j_available() -> bool:
-    """Quick check if Neo4j is available."""
+    # Check if testcontainers is available
     try:
-        from neo4j import GraphDatabase
-        from neo4j.exceptions import ServiceUnavailable
+        from testcontainers.neo4j import Neo4jContainer  # noqa: F401
 
-        uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        username = os.getenv("NEO4J_USERNAME", "neo4j")
-        password = os.getenv("NEO4J_PASSWORD", "test-password")
+        # Testcontainers available, tests will use it
+        return
+    except ImportError:
+        pass
 
-        driver = GraphDatabase.driver(uri, auth=(username, password))
-        driver.verify_connectivity()
-        driver.close()
-        return True
-    except Exception:
-        return False
-
-
-def _try_start_neo4j_docker() -> bool:
-    """Try to start Neo4j via Docker compose."""
-    if not is_docker_available():
-        return False
-
-    compose_file = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)), "docker-compose.test.yml"
+    # No Neo4j available, skip integration tests
+    skip_marker = pytest.mark.skip(
+        reason="Neo4j not available. Install testcontainers[neo4j] or set NEO4J_URI environment variable"
     )
-
-    if not os.path.exists(compose_file):
-        return False
-
-    try:
-        # Start the container
-        result = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "up", "-d"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if result.returncode != 0:
-            return False
-
-        # Wait for Neo4j to be ready
-        uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        username = os.getenv("NEO4J_USERNAME", "neo4j")
-        password = os.getenv("NEO4J_PASSWORD", "test-password")
-
-        return wait_for_neo4j(uri, username, password, timeout=90)
-    except Exception:
-        return False
+    for item in items:
+        if "integration" in item.keywords:
+            item.add_marker(skip_marker)
 
 
 @pytest.fixture(scope="session")
@@ -308,106 +304,79 @@ def mock_resolver():
 
 
 # =============================================================================
-# Neo4j Docker Management
+# Neo4j Testcontainer Fixtures
 # =============================================================================
 
 
-def is_docker_available() -> bool:
-    """Check if Docker is available."""
+def _is_docker_available() -> bool:
+    """Check if Docker daemon is running."""
     try:
-        result = subprocess.run(
-            ["docker", "info"],
-            capture_output=True,
-            timeout=10,
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
+        import docker
 
-
-def is_neo4j_container_running() -> bool:
-    """Check if the Neo4j test container is running."""
-    try:
-        result = subprocess.run(
-            ["docker", "ps", "--filter", "name=neo4j-agent-memory-test", "--format", "{{.Names}}"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        return "neo4j-agent-memory-test" in result.stdout
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
-
-
-def start_neo4j_container() -> bool:
-    """Start the Neo4j test container using docker-compose."""
-    try:
-        # Get the directory containing docker-compose.test.yml
-        compose_file = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "docker-compose.test.yml"
-        )
-
-        if not os.path.exists(compose_file):
-            print(f"Docker compose file not found: {compose_file}")
-            return False
-
-        print(f"Starting Neo4j container from {compose_file}...")
-        result = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "up", "-d"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-
-        if result.returncode != 0:
-            print(f"Failed to start container: {result.stderr}")
-            return False
-
-        print("Neo4j container started, waiting for it to be ready...")
+        client = docker.from_env()
+        client.ping()
         return True
-    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-        print(f"Error starting container: {e}")
+    except Exception:
         return False
 
 
-def stop_neo4j_container():
-    """Stop the Neo4j test container."""
+@pytest.fixture(scope="session")
+def neo4j_container():
+    """
+    Session-scoped Neo4j testcontainer.
+
+    This fixture provides a Neo4j database for integration tests.
+    It first checks if Neo4j is available via environment variables (GitHub Actions),
+    and falls back to testcontainers for local development.
+    """
+    # First, check if Neo4j is available via environment (GitHub Actions services)
+    env_config = _check_neo4j_env_available()
+    if env_config:
+        print("Using Neo4j from environment variables (GitHub Actions services)")
+        yield env_config
+        return
+
+    # Check if Docker is available
+    if not _is_docker_available():
+        pytest.skip("Docker is not running. Start Docker or set NEO4J_URI environment variable.")
+        return
+
+    # Fall back to testcontainers
     try:
-        compose_file = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "docker-compose.test.yml"
-        )
+        from testcontainers.neo4j import Neo4jContainer
+    except ImportError:
+        pytest.skip("testcontainers[neo4j] not installed and NEO4J_URI not set")
+        return
 
-        if os.path.exists(compose_file):
-            subprocess.run(
-                ["docker", "compose", "-f", compose_file, "down", "-v"],
-                capture_output=True,
-                timeout=60,
-            )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+    print("Starting Neo4j testcontainer...")
+    container = Neo4jContainer(
+        image="neo4j:5.26-community",
+    )
+    # Configure APOC plugin and settings
+    container.with_env("NEO4J_PLUGINS", '["apoc"]')
+    container.with_env("NEO4J_dbms_security_procedures_unrestricted", "apoc.*")
+    container.with_env("NEO4J_dbms_security_procedures_allowlist", "apoc.*")
+    container.with_env("NEO4J_apoc_export_file_enabled", "true")
+    container.with_env("NEO4J_apoc_import_file_enabled", "true")
+
+    try:
+        container.start()
+        print(f"Neo4j testcontainer started at {container.get_connection_url()}")
+
+        yield {
+            "uri": container.get_connection_url(),
+            "username": "neo4j",
+            "password": container.password,
+        }
+    finally:
+        print("Stopping Neo4j testcontainer...")
+        container.stop()
 
 
-def wait_for_neo4j(uri: str, username: str, password: str, timeout: int = 60) -> bool:
-    """Wait for Neo4j to be ready to accept connections."""
-    from neo4j import GraphDatabase
-    from neo4j.exceptions import AuthError, ServiceUnavailable
-
-    start_time = time.time()
-    last_error = None
-
-    while time.time() - start_time < timeout:
-        try:
-            driver = GraphDatabase.driver(uri, auth=(username, password))
-            driver.verify_connectivity()
-            driver.close()
-            return True
-        except (ServiceUnavailable, AuthError, Exception) as e:
-            last_error = e
-            time.sleep(2)
-
-    if last_error:
-        print(f"Neo4j not ready after {timeout}s: {last_error}")
-    return False
+@pytest.fixture(scope="session")
+def neo4j_connection_info(neo4j_container):
+    """Get Neo4j connection info from the container."""
+    return neo4j_container
 
 
 # =============================================================================
@@ -415,65 +384,14 @@ def wait_for_neo4j(uri: str, username: str, password: str, timeout: int = 60) ->
 # =============================================================================
 
 
-@pytest.fixture(scope="session")
-def neo4j_connection_info():
-    """Get Neo4j connection info."""
-    uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    username = os.getenv("NEO4J_USERNAME", "neo4j")
-    password = os.getenv("NEO4J_PASSWORD", "test-password")
-
-    return {
-        "uri": uri,
-        "username": username,
-        "password": password,
-    }
-
-
-@pytest.fixture(scope="session")
-def ensure_neo4j_running(neo4j_connection_info):
-    """
-    Ensure Neo4j is running for integration tests.
-
-    This fixture will:
-    1. Check if Neo4j is already available
-    2. If not, try to start the Docker container
-    3. Wait for Neo4j to be ready
-    """
-    uri = neo4j_connection_info["uri"]
-    username = neo4j_connection_info["username"]
-    password = neo4j_connection_info["password"]
-
-    # First, check if Neo4j is already available
-    if wait_for_neo4j(uri, username, password, timeout=5):
-        print("Neo4j is already running")
-        yield neo4j_connection_info
-        return
-
-    # Check if Docker is available
-    if not is_docker_available():
-        pytest.skip("Docker not available and Neo4j not running")
-
-    # Try to start Docker container
-    if not is_neo4j_container_running():
-        if not start_neo4j_container():
-            pytest.skip("Could not start Neo4j Docker container")
-
-    # Wait for Neo4j to be ready
-    if not wait_for_neo4j(uri, username, password, timeout=90):
-        pytest.skip("Neo4j not ready after timeout")
-
-    print("Neo4j is ready")
-    yield neo4j_connection_info
-
-
 @pytest.fixture
-def memory_settings(ensure_neo4j_running):
-    """Test settings with default configuration."""
+def memory_settings(neo4j_connection_info):
+    """Test settings with connection to Neo4j testcontainer."""
     return MemorySettings(
         neo4j=Neo4jConfig(
-            uri=ensure_neo4j_running["uri"],
-            username=ensure_neo4j_running["username"],
-            password=SecretStr(ensure_neo4j_running["password"]),
+            uri=neo4j_connection_info["uri"],
+            username=neo4j_connection_info["username"],
+            password=SecretStr(neo4j_connection_info["password"]),
         )
     )
 
@@ -489,7 +407,7 @@ async def neo4j_client(memory_settings) -> AsyncGenerator:
     """
     Real Neo4j client for integration tests.
 
-    Requires Neo4j to be running.
+    Uses the Neo4j testcontainer.
     """
     from neo4j_agent_memory.graph.client import Neo4jClient
     from neo4j_agent_memory.graph.schema import SchemaManager
@@ -524,7 +442,7 @@ async def memory_client(
     Full MemoryClient for integration tests with mock components.
 
     Uses mock embedder/extractor/resolver to avoid external API calls.
-    Requires Neo4j to be running.
+    Uses Neo4j testcontainer for database.
     """
     from neo4j_agent_memory import MemoryClient
 
@@ -589,16 +507,3 @@ async def clean_memory_client(
         pass
 
     await client.close()
-
-
-# =============================================================================
-# Session-level cleanup
-# =============================================================================
-
-
-def pytest_sessionfinish(session, exitstatus):
-    """Optionally stop Neo4j container after all tests."""
-    # Only stop if AUTO_STOP_DOCKER is set
-    auto_stop = os.getenv("AUTO_STOP_DOCKER", "").lower() in ("1", "true", "yes")
-    if auto_stop:
-        stop_neo4j_container()

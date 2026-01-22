@@ -117,9 +117,40 @@ results = await memory.episodic.search_messages(
     limit=10
 )
 
-for msg, score in results:
+for msg in results:
+    score = msg.metadata.get("similarity", 0)
     print(f"[{score:.2f}] {msg.content}")
 ----
+
+==== Metadata Filters
+
+Search with MongoDB-style metadata filters:
+
+[source,python]
+----
+# Search with metadata filters
+results = await memory.episodic.search_messages(
+    query="restaurant",
+    session_id="user-123",
+    metadata_filters={
+        "speaker": "Lenny",                    # Exact match
+        "turn_index": {"$gt": 5},              # Greater than
+        "source": {"$in": ["web", "mobile"]},  # In list
+        "archived": {"$exists": False},        # Field doesn't exist
+    },
+    limit=10,
+)
+----
+
+Supported operators:
+
+* `$eq` - Equal (default)
+* `$ne` - Not equal
+* `$gt`, `$gte` - Greater than (or equal)
+* `$lt`, `$lte` - Less than (or equal)
+* `$in`, `$nin` - In / not in list
+* `$exists` - Field exists / doesn't exist
+* `$contains` - String contains (case-insensitive)
 
 === Getting Conversation Context
 
@@ -142,21 +173,123 @@ print(context)
 
 [source,python]
 ----
-# List all conversations
-conversations = await memory.episodic.list_conversations(
-    limit=10
-)
-
 # Get a specific conversation
 conversation = await memory.episodic.get_conversation(
     session_id="user-123-session-1"
 )
 
-# Get conversation with messages
-conversation = await memory.episodic.get_conversation_with_messages(
-    session_id="user-123-session-1",
-    message_limit=50
+# Delete a message
+deleted = await memory.episodic.delete_message(
+    message_id=msg.id,
+    cascade=True  # Also delete MENTIONS relationships
 )
+----
+
+=== Session Management
+
+List and manage sessions with the `list_sessions()` method:
+
+[source,python]
+----
+# List all sessions with metadata
+sessions = await memory.episodic.list_sessions(
+    prefix="user-123-",  # Optional: filter by prefix
+    limit=50,
+    offset=0,
+    order_by="updated_at",  # "created_at", "updated_at", or "message_count"
+    order_dir="desc",
+)
+
+for session in sessions:
+    print(f"{session.session_id}: {session.message_count} messages")
+    print(f"  First: {session.first_message_preview}")
+    print(f"  Last: {session.last_message_preview}")
+    print(f"  Created: {session.created_at}")
+    print(f"  Updated: {session.updated_at}")
+----
+
+=== Batch Loading
+
+Load large amounts of messages efficiently with progress tracking:
+
+[source,python]
+----
+# Prepare messages for bulk loading
+messages = [
+    {"role": "user", "content": "Hello!", "metadata": {"source": "web"}},
+    {"role": "assistant", "content": "Hi there!", "metadata": {"source": "web"}},
+    # ... hundreds more messages
+]
+
+# Load with progress callback
+def on_progress(loaded, total):
+    print(f"Loaded {loaded}/{total} messages")
+
+await memory.episodic.add_messages_batch(
+    session_id="bulk-session",
+    messages=messages,
+    batch_size=100,
+    generate_embeddings=True,
+    extract_entities=False,  # Defer entity extraction for speed
+    on_progress=on_progress,
+)
+
+# Generate embeddings later for messages that don't have them
+count = await memory.episodic.generate_embeddings_batch(
+    session_id="bulk-session",
+    batch_size=50,
+)
+print(f"Generated {count} embeddings")
+----
+
+=== Conversation Summaries
+
+Generate summaries of conversations:
+
+[source,python]
+----
+# Basic summary (no LLM required)
+summary = await memory.episodic.get_conversation_summary("user-123")
+print(summary.summary)
+print(f"Messages: {summary.message_count}")
+print(f"Time range: {summary.time_range}")
+print(f"Key entities: {summary.key_entities}")
+print(f"Key topics: {summary.key_topics}")
+
+# With custom LLM summarizer
+async def my_summarizer(transcript: str) -> str:
+    response = await openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Summarize this conversation concisely."},
+            {"role": "user", "content": transcript}
+        ]
+    )
+    return response.choices[0].message.content
+
+summary = await memory.episodic.get_conversation_summary(
+    "user-123",
+    summarizer=my_summarizer,
+    include_entities=True,
+)
+----
+
+=== Entity Extraction from Session
+
+Extract entities from all messages in a session (batch processing):
+
+[source,python]
+----
+# Extract entities from messages that don't have them yet
+stats = await memory.episodic.extract_entities_from_session(
+    session_id="user-123",
+    batch_size=50,
+    skip_existing=True,  # Skip messages that already have entity links
+    on_progress=lambda processed, total: print(f"Processed {processed}/{total}"),
+)
+
+print(f"Messages processed: {stats['messages_processed']}")
+print(f"Entities extracted: {stats['entities_extracted']}")
 ----
 
 == Semantic Memory
@@ -363,15 +496,142 @@ tool_call = await memory.procedural.record_tool_call(
 [source,python]
 ----
 # Find similar past reasoning
-similar_traces = await memory.procedural.search_traces(
-    query="restaurant recommendations",
-    limit=5
+similar_traces = await memory.procedural.get_similar_traces(
+    task="restaurant recommendations",
+    limit=5,
+    success_only=True,
+    threshold=0.7
 )
 
 for trace in similar_traces:
     print(f"Task: {trace.task}")
     print(f"Success: {trace.success}")
     print(f"Steps: {len(trace.steps)}")
+----
+
+=== Listing Traces
+
+Query traces with filtering and pagination:
+
+[source,python]
+----
+from datetime import datetime
+
+# List traces with filters
+traces = await memory.procedural.list_traces(
+    session_id="user-123",           # Optional session filter
+    success_only=True,               # Only successful traces
+    since=datetime(2024, 1, 1),      # After this date
+    until=datetime(2024, 12, 31),    # Before this date
+    limit=50,
+    offset=0,
+    order_by="started_at",           # "started_at" or "completed_at"
+    order_dir="desc",
+)
+
+for trace in traces:
+    print(f"{trace.task}: {'Success' if trace.success else 'Failed'}")
+----
+
+=== Streaming Trace Recording
+
+Use `StreamingTraceRecorder` for recording traces during streaming responses:
+
+[source,python]
+----
+from neo4j_agent_memory import StreamingTraceRecorder
+
+async with StreamingTraceRecorder(
+    memory.procedural,
+    session_id="user-123",
+    task="Process customer inquiry"
+) as recorder:
+    # Start a step
+    step = await recorder.start_step(
+        thought="Analyzing the request",
+        action="analyze",
+    )
+
+    # Record tool calls
+    await recorder.record_tool_call(
+        "search_api",
+        {"query": "customer history"},
+        {"found": 5, "results": [...]},
+    )
+
+    # Add observations
+    await recorder.add_observation("Found 5 relevant records")
+
+    # Start another step
+    await recorder.start_step(thought="Formulating response")
+
+# Trace is automatically completed with timing when context exits
+----
+
+=== Tool Statistics
+
+Get pre-aggregated tool usage statistics (optimized for performance):
+
+[source,python]
+----
+# Get stats for all tools
+stats = await memory.procedural.get_tool_stats()
+
+for tool in stats:
+    print(f"{tool.name}:")
+    print(f"  Total calls: {tool.total_calls}")
+    print(f"  Successful: {tool.successful_calls}")
+    print(f"  Failed: {tool.failed_calls}")
+    print(f"  Success rate: {tool.success_rate:.1%}")
+    print(f"  Avg duration: {tool.avg_duration_ms}ms")
+
+# Get stats for a specific tool
+stats = await memory.procedural.get_tool_stats(tool_name="search_api")
+----
+
+==== Migrating Tool Stats
+
+For existing data, migrate to pre-aggregated stats:
+
+[source,python]
+----
+# One-time migration for existing data
+migrated = await memory.procedural.migrate_tool_stats()
+print(f"Migrated stats for {len(migrated)} tools")
+for tool, count in migrated.items():
+    print(f"  {tool}: {count} calls")
+----
+
+=== Recording with Auto-Observation
+
+Automatically set step observations from tool results:
+
+[source,python]
+----
+# auto_observation=True sets the step's observation from the tool result
+await memory.procedural.record_tool_call(
+    step.id,
+    tool_name="search_api",
+    arguments={"query": "restaurants"},
+    result={"found": 10, "results": [...]},
+    status=ToolCallStatus.SUCCESS,
+    auto_observation=True,  # Sets step.observation automatically
+)
+----
+
+=== Generate Step Embeddings
+
+Batch generate embeddings for steps when completing a trace:
+
+[source,python]
+----
+# Generate embeddings for all steps that don't have them
+await memory.procedural.complete_trace(
+    trace.id,
+    outcome="Successfully found restaurants",
+    success=True,
+    generate_step_embeddings=True,  # Batch generate embeddings
+)
 ----
 
 === Getting Procedural Context
@@ -446,6 +706,37 @@ Task: "Find vegetarian restaurants" (success)
 - Filtered by vegetarian options
 - Recommended: Green Garden Cafe
 ----
+
+== Graph Export
+
+Export memory graph data for visualization or external processing:
+
+[source,python]
+----
+# Export the full memory graph
+graph = await memory.get_graph(
+    memory_types=["episodic", "semantic", "procedural"],  # Optional filter
+    session_id="user-123",  # Optional session filter
+    include_embeddings=False,  # Don't include large embedding vectors
+    limit=1000,
+)
+
+print(f"Nodes: {len(graph.nodes)}")
+print(f"Relationships: {len(graph.relationships)}")
+
+# Access graph data
+for node in graph.nodes:
+    print(f"{node.labels}: {node.properties.get('name', node.id)}")
+
+for rel in graph.relationships:
+    print(f"{rel.from_node} -[{rel.type}]-> {rel.to_node}")
+----
+
+The `MemoryGraph` object contains:
+
+* `nodes` - List of `GraphNode` objects with `id`, `labels`, and `properties`
+* `relationships` - List of `GraphRelationship` objects with `id`, `type`, `from_node`, `to_node`, and `properties`
+* `metadata` - Additional information about the export
 
 == Memory Statistics
 

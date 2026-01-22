@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all coverage neo4j-start neo4j-stop neo4j-logs clean build publish docs example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all test-docker test-ci test-no-docker test-quick test-file test-match coverage coverage-all coverage-ci test-examples test-examples-quick test-examples-no-neo4j neo4j-start neo4j-stop neo4j-logs clean build publish docs example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
 
 # Default target
 help:
@@ -18,10 +18,16 @@ help:
 	@echo "Testing:"
 	@echo "  make test             Run unit tests"
 	@echo "  make test-unit        Run unit tests only"
-	@echo "  make test-integration Run integration tests (starts Neo4j if needed)"
-	@echo "  make test-all         Run all tests (starts Neo4j if needed)"
-	@echo "  make test-docker      Run all tests with Docker Neo4j"
+	@echo "  make test-integration Run integration tests (uses testcontainers)"
+	@echo "  make test-all         Run all tests (uses testcontainers)"
+	@echo "  make test-docker      Run all tests with docker-compose Neo4j"
+	@echo "  make test-ci          Run tests as they would run in CI"
 	@echo "  make coverage         Run tests with coverage report"
+	@echo ""
+	@echo "Example Testing:"
+	@echo "  make test-examples         Run all example smoke tests (uses testcontainers)"
+	@echo "  make test-examples-quick   Run quick example validation (no Neo4j needed)"
+	@echo "  make test-examples-no-neo4j Run example tests that don't need Neo4j"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make example-basic    Run basic usage example"
@@ -96,36 +102,100 @@ test: test-unit
 test-unit:
 	uv run pytest tests/unit -v
 
-# Integration tests - auto-starts Docker Neo4j if needed
+# Integration tests using testcontainers (auto-starts Neo4j container)
+# Requires Docker to be running
 test-integration:
-	@echo "Starting Neo4j if not running..."
-	@docker compose -f docker-compose.test.yml up -d 2>/dev/null || true
-	@$(MAKE) neo4j-wait-quiet
-	RUN_INTEGRATION_TESTS=1 uv run pytest tests/integration -v
+	@echo "Running integration tests with testcontainers..."
+	@echo "(Docker must be running - testcontainers will manage the Neo4j container)"
+	uv run pytest tests/integration -v --timeout=300
 
-# Run all tests - auto-starts Docker Neo4j if needed
+# Run all tests using testcontainers
 test-all:
-	@echo "Starting Neo4j if not running..."
-	@docker compose -f docker-compose.test.yml up -d 2>/dev/null || true
-	@$(MAKE) neo4j-wait-quiet
-	RUN_INTEGRATION_TESTS=1 uv run pytest tests -v
+	@echo "Running all tests with testcontainers..."
+	@echo "(Docker must be running - testcontainers will manage the Neo4j container)"
+	uv run pytest tests -v --timeout=300
 
-# Run all tests with explicit Docker control
+# Run all tests with explicit docker-compose Neo4j (useful if testcontainers has issues)
 test-docker: neo4j-start neo4j-wait
-	RUN_INTEGRATION_TESTS=1 uv run pytest tests -v
+	NEO4J_URI=bolt://localhost:7687 NEO4J_USERNAME=neo4j NEO4J_PASSWORD=test-password \
+		uv run pytest tests -v --timeout=300
 
-# Run tests without integration tests (useful for CI without Docker)
+# Run tests as they would run in CI (with environment variables)
+test-ci:
+	@echo "Running tests in CI mode with docker-compose Neo4j..."
+	@docker compose -f docker-compose.test.yml up -d
+	@$(MAKE) neo4j-wait-quiet
+	NEO4J_URI=bolt://localhost:7687 NEO4J_USERNAME=neo4j NEO4J_PASSWORD=test-password \
+		uv run pytest tests -v --timeout=300
+	@docker compose -f docker-compose.test.yml down
+
+# Run tests without integration tests (useful when Docker is not available)
 test-no-docker:
 	SKIP_INTEGRATION_TESTS=1 uv run pytest tests -v
+
+# Quick test run - unit tests only, fast feedback
+test-quick:
+	uv run pytest tests/unit -v -x --tb=short
+
+# Run a specific test file or pattern
+# Usage: make test-file FILE=tests/integration/test_episodic_memory.py
+test-file:
+	uv run pytest $(FILE) -v --timeout=300
+
+# Run tests matching a pattern
+# Usage: make test-match PATTERN="test_add_message"
+test-match:
+	uv run pytest tests -v -k "$(PATTERN)" --timeout=300
 
 coverage:
 	uv run pytest tests/unit --cov=src/neo4j_agent_memory --cov-report=term-missing --cov-report=html
 
 coverage-all:
-	@echo "Starting Neo4j if not running..."
-	@docker compose -f docker-compose.test.yml up -d 2>/dev/null || true
+	@echo "Running all tests with coverage using testcontainers..."
+	uv run pytest tests --cov=src/neo4j_agent_memory --cov-report=term-missing --cov-report=html --timeout=300
+
+# Coverage report for CI (with docker-compose Neo4j)
+coverage-ci:
+	@docker compose -f docker-compose.test.yml up -d
 	@$(MAKE) neo4j-wait-quiet
-	RUN_INTEGRATION_TESTS=1 uv run pytest tests --cov=src/neo4j_agent_memory --cov-report=term-missing --cov-report=html
+	NEO4J_URI=bolt://localhost:7687 NEO4J_USERNAME=neo4j NEO4J_PASSWORD=test-password \
+		uv run pytest tests --cov=src/neo4j_agent_memory --cov-report=term-missing --cov-report=xml --timeout=300
+	@docker compose -f docker-compose.test.yml down
+
+# =============================================================================
+# Example Testing
+# =============================================================================
+
+# Run all example smoke tests (uses testcontainers for Neo4j)
+# This validates that all examples work correctly with the current package
+test-examples:
+	@echo "Running example smoke tests with testcontainers..."
+	@echo "(Docker must be running - testcontainers will manage the Neo4j container)"
+	uv run pytest tests/examples -v --timeout=120
+
+# Run quick example validation tests (structure checks, imports, no Neo4j needed)
+test-examples-quick:
+	@echo "Running quick example validation tests..."
+	uv run pytest tests/examples -v -m "not requires_neo4j and not slow" --timeout=30
+
+# Run example tests that don't require Neo4j
+test-examples-no-neo4j:
+	@echo "Running example tests that don't need Neo4j..."
+	uv run pytest tests/examples/test_entity_resolution.py tests/examples/test_full_stack_apps.py -v --timeout=60
+
+# Run example tests with docker-compose Neo4j (alternative to testcontainers)
+test-examples-docker: neo4j-start neo4j-wait
+	NEO4J_URI=bolt://localhost:7687 NEO4J_USERNAME=neo4j NEO4J_PASSWORD=test-password \
+		uv run pytest tests/examples -v --timeout=120
+
+# Run example tests in CI mode
+test-examples-ci:
+	@echo "Running example tests in CI mode..."
+	@docker compose -f docker-compose.test.yml up -d
+	@$(MAKE) neo4j-wait-quiet
+	NEO4J_URI=bolt://localhost:7687 NEO4J_USERNAME=neo4j NEO4J_PASSWORD=test-password \
+		uv run pytest tests/examples -v --timeout=120
+	@docker compose -f docker-compose.test.yml down
 
 # =============================================================================
 # Neo4j Docker Management

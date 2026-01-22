@@ -267,6 +267,130 @@ async def main():
         print("-" * 40)
 
         # =================================================================
+        # NEW FEATURES: Batch Loading
+        # =================================================================
+        print("\n🚀 Demonstrating batch message loading...")
+
+        bulk_session = "bulk-demo-session"
+        messages = [
+            {
+                "role": "user",
+                "content": "What's the weather like?",
+                "metadata": {"topic": "weather"},
+            },
+            {
+                "role": "assistant",
+                "content": "It's sunny and 72°F today!",
+                "metadata": {"topic": "weather"},
+            },
+            {
+                "role": "user",
+                "content": "Great! What should I wear?",
+                "metadata": {"topic": "fashion"},
+            },
+            {
+                "role": "assistant",
+                "content": "Light clothing would be perfect.",
+                "metadata": {"topic": "fashion"},
+            },
+        ]
+
+        loaded_messages = await memory.episodic.add_messages_batch(
+            bulk_session,
+            messages,
+            batch_size=2,
+            generate_embeddings=True,
+            extract_entities=False,  # Skip for speed
+        )
+        print(f"✅ Bulk loaded {len(loaded_messages)} messages")
+
+        # =================================================================
+        # NEW FEATURES: Session Listing
+        # =================================================================
+        print("\n📋 Listing sessions...")
+
+        sessions = await memory.episodic.list_sessions(
+            limit=10,
+            order_by="updated_at",
+            order_dir="desc",
+        )
+        print(f"Found {len(sessions)} sessions:")
+        for s in sessions[:3]:
+            print(f"   - {s.session_id}: {s.message_count} messages")
+
+        # =================================================================
+        # NEW FEATURES: Metadata Search
+        # =================================================================
+        print("\n🔎 Searching messages with metadata filters...")
+
+        weather_messages = await memory.episodic.search_messages(
+            "weather",
+            session_id=bulk_session,
+            metadata_filters={"topic": "weather"},
+            limit=5,
+        )
+        print(f"Found {len(weather_messages)} messages about weather")
+
+        # =================================================================
+        # NEW FEATURES: StreamingTraceRecorder
+        # =================================================================
+        print("\n⏱️  Using StreamingTraceRecorder for trace recording...")
+
+        from neo4j_agent_memory import StreamingTraceRecorder
+
+        async with StreamingTraceRecorder(
+            memory.procedural, session_id, "Process customer inquiry"
+        ) as recorder:
+            # Record steps during streaming
+            step = await recorder.start_step(
+                thought="Analyzing customer request",
+                action="process_inquiry",
+            )
+            await recorder.record_tool_call(
+                "analyze_text",
+                {"text": "Customer asking about returns"},
+                {"intent": "return_policy", "confidence": 0.95},
+            )
+            await recorder.add_observation("Customer wants to know about return policy")
+
+        print("✅ Streaming trace recorded automatically with timing")
+
+        # =================================================================
+        # NEW FEATURES: List Traces
+        # =================================================================
+        print("\n📊 Listing reasoning traces...")
+
+        traces = await memory.procedural.list_traces(
+            session_id=session_id,
+            success_only=True,
+            limit=5,
+        )
+        print(f"Found {len(traces)} successful traces for session")
+
+        # =================================================================
+        # NEW FEATURES: Tool Stats (optimized)
+        # =================================================================
+        print("\n🔧 Getting optimized tool statistics...")
+
+        tool_stats = await memory.procedural.get_tool_stats()
+        print(f"Found stats for {len(tool_stats)} tools:")
+        for stat in tool_stats[:3]:
+            print(f"   - {stat.name}: {stat.total_calls} calls, {stat.success_rate:.0%} success")
+
+        # =================================================================
+        # NEW FEATURES: Graph Export
+        # =================================================================
+        print("\n🌐 Exporting memory graph...")
+
+        graph = await memory.get_graph(
+            memory_types=["episodic", "semantic"],
+            session_id=session_id,
+            include_embeddings=False,
+            limit=100,
+        )
+        print(f"Graph export: {len(graph.nodes)} nodes, {len(graph.relationships)} relationships")
+
+        # =================================================================
         # MEMORY STATS
         # =================================================================
         print("\n📊 Memory statistics:")

@@ -1,6 +1,8 @@
-"""Memory management API endpoints."""
+"""Memory management API endpoints.
 
-from typing import Any
+Uses neo4j-agent-memory's new features for improved memory operations.
+"""
+
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
@@ -121,7 +123,9 @@ async def get_memory_context(
 
     except Exception as e:
         # Return empty context on error
-        pass
+        import logging
+
+        logging.getLogger(__name__).warning(f"Failed to get memory context: {e}")
 
     return MemoryContext(
         preferences=preferences,
@@ -206,9 +210,19 @@ async def delete_preference(
     preference_id: str,
 ) -> dict:
     """Delete a preference by ID."""
-    # Note: Would need a delete_preference method on semantic memory
-    # For now, return success
-    return {"status": "deleted", "preference_id": preference_id}
+    memory = get_memory_client()
+    if memory is None:
+        raise HTTPException(status_code=503, detail="Memory service unavailable")
+
+    try:
+        # Delete via direct query
+        await memory._client.execute_write(
+            "MATCH (p:Preference {id: $id}) DETACH DELETE p",
+            {"id": preference_id},
+        )
+        return {"status": "deleted", "preference_id": preference_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/entities", response_model=list[Entity])
@@ -246,110 +260,166 @@ async def list_entities(
     return entities
 
 
-def serialize_neo4j_value(value: Any) -> Any:
-    """Serialize Neo4j values to JSON-compatible format."""
-    if value is None:
-        return None
-
-    # Handle Neo4j Integer
-    if hasattr(value, "__class__") and value.__class__.__name__ == "Integer":
-        return int(value)
-
-    # Handle Neo4j DateTime
-    if hasattr(value, "iso_format"):
-        return value.iso_format()
-
-    # Handle datetime objects
-    if hasattr(value, "isoformat"):
-        return value.isoformat()
-
-    # Handle lists
-    if isinstance(value, list):
-        return [serialize_neo4j_value(v) for v in value]
-
-    # Handle dicts
-    if isinstance(value, dict):
-        return {k: serialize_neo4j_value(v) for k, v in value.items()}
-
-    return value
-
-
 @router.get("/memory/graph", response_model=MemoryGraph)
-async def get_memory_graph() -> MemoryGraph:
-    """Get the complete memory graph for visualization.
+async def get_memory_graph(
+    session_id: str | None = None,
+    include_embeddings: bool = False,
+) -> MemoryGraph:
+    """Get the memory graph for visualization.
 
-    Returns all nodes and relationships from the memory graph database.
+    Uses the new get_graph() API for efficient graph export.
+
+    Args:
+        session_id: Optional session ID to filter the graph.
+        include_embeddings: Whether to include embedding vectors (can be large).
     """
     memory = get_memory_client()
     if memory is None:
         return MemoryGraph(nodes=[], relationships=[])
 
     try:
-        # Query all nodes
-        nodes_query = """
-        MATCH (n)
-        RETURN elementId(n) AS id, labels(n) AS labels, properties(n) AS properties
-        """
-
-        # Query all relationships
-        rels_query = """
-        MATCH (a)-[r]->(b)
-        RETURN elementId(r) AS id,
-               elementId(a) AS `from`,
-               elementId(b) AS `to`,
-               type(r) AS type,
-               properties(r) AS properties
-        """
-
-        # Use the Neo4jClient's execute_read method
-        client = memory._client
-
-        node_results = await client.execute_read(nodes_query)
-        rel_results = await client.execute_read(rels_query)
+        # Use the new get_graph() API
+        graph = await memory.get_graph(
+            memory_types=["episodic", "semantic", "procedural"],
+            session_id=session_id,
+            include_embeddings=include_embeddings,
+            limit=500,
+        )
 
         # Convert to response format
         nodes = []
-        seen_node_ids = set()
-        for record in node_results:
-            node_id = str(record["id"])
-            if node_id not in seen_node_ids:
-                seen_node_ids.add(node_id)
-                props = {
-                    k: serialize_neo4j_value(v) for k, v in (record.get("properties") or {}).items()
-                }
-                nodes.append(
-                    GraphNode(
-                        id=node_id,
-                        labels=list(record.get("labels") or []),
-                        properties=props,
-                    )
+        for node in graph.nodes:
+            nodes.append(
+                GraphNode(
+                    id=node.id,
+                    labels=node.labels,
+                    properties=node.properties,
                 )
+            )
 
         relationships = []
-        seen_rel_ids = set()
-        for record in rel_results:
-            rel_id = str(record["id"])
-            if rel_id not in seen_rel_ids:
-                seen_rel_ids.add(rel_id)
-                props = {
-                    k: serialize_neo4j_value(v) for k, v in (record.get("properties") or {}).items()
-                }
-                relationships.append(
-                    GraphRelationship(
-                        id=rel_id,
-                        from_node=str(record["from"]),
-                        to_node=str(record["to"]),
-                        type=record["type"],
-                        properties=props,
-                    )
+        for rel in graph.relationships:
+            relationships.append(
+                GraphRelationship(
+                    id=rel.id,
+                    from_node=rel.from_node,
+                    to_node=rel.to_node,
+                    type=rel.type,
+                    properties=rel.properties,
                 )
+            )
 
         return MemoryGraph(nodes=nodes, relationships=relationships)
 
     except Exception as e:
-        # Return empty graph on error
-        import traceback
+        import logging
 
-        print(f"Error fetching memory graph: {e}")
-        traceback.print_exc()
+        logging.getLogger(__name__).warning(f"Error fetching memory graph: {e}")
         return MemoryGraph(nodes=[], relationships=[])
+
+
+@router.get("/memory/traces")
+async def list_traces(
+    session_id: str | None = None,
+    success_only: bool | None = None,
+    limit: int = 50,
+) -> list[dict]:
+    """List reasoning traces.
+
+    Uses the new list_traces() API for efficient trace listing.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        return []
+
+    try:
+        traces = await memory.procedural.list_traces(
+            session_id=session_id,
+            success_only=success_only,
+            limit=limit,
+        )
+
+        return [
+            {
+                "id": str(trace.id),
+                "session_id": trace.session_id,
+                "task": trace.task,
+                "success": trace.success,
+                "outcome": trace.outcome,
+                "started_at": trace.started_at.isoformat() if trace.started_at else None,
+                "completed_at": trace.completed_at.isoformat() if trace.completed_at else None,
+                "step_count": len(trace.steps) if trace.steps else 0,
+            }
+            for trace in traces
+        ]
+
+    except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).warning(f"Error listing traces: {e}")
+        return []
+
+
+@router.get("/memory/tool-stats")
+async def get_tool_stats() -> list[dict]:
+    """Get tool usage statistics.
+
+    Uses the optimized get_tool_stats() API with pre-aggregated stats.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        return []
+
+    try:
+        stats = await memory.procedural.get_tool_stats()
+
+        return [
+            {
+                "name": stat.name,
+                "description": stat.description,
+                "total_calls": stat.total_calls,
+                "successful_calls": stat.successful_calls,
+                "failed_calls": stat.failed_calls,
+                "success_rate": stat.success_rate,
+                "avg_duration_ms": stat.avg_duration_ms,
+                "last_used_at": stat.last_used_at.isoformat() if stat.last_used_at else None,
+            }
+            for stat in stats
+        ]
+
+    except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).warning(f"Error getting tool stats: {e}")
+        return []
+
+
+@router.delete("/memory/messages/{message_id}")
+async def delete_message(
+    message_id: str,
+    cascade: bool = True,
+) -> dict:
+    """Delete a specific message from episodic memory.
+
+    Uses the new delete_message() API.
+
+    Args:
+        message_id: The ID of the message to delete.
+        cascade: Whether to also delete related MENTIONS relationships.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        raise HTTPException(status_code=503, detail="Memory service unavailable")
+
+    try:
+        deleted = await memory.episodic.delete_message(message_id, cascade=cascade)
+
+        if deleted:
+            return {"status": "deleted", "message_id": message_id}
+        else:
+            raise HTTPException(status_code=404, detail="Message not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

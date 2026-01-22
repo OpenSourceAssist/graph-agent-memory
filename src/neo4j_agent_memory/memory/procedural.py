@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -98,11 +98,227 @@ class Tool(BaseModel):
     """A registered tool that can be used by the agent."""
 
     name: str = Field(description="Unique tool name")
+
+
+class ToolStats(BaseModel):
+    """Pre-aggregated statistics for a tool.
+
+    These stats are maintained incrementally on Tool nodes for fast retrieval
+    without needing to aggregate across all ToolCall nodes.
+    """
+
+    name: str = Field(description="Tool name")
     description: str | None = Field(default=None, description="Tool description")
-    parameters_schema: dict[str, Any] | None = Field(default=None, description="JSON schema")
-    success_rate: float = Field(default=0.0, description="Success rate")
-    avg_duration_ms: float = Field(default=0.0, description="Average duration")
-    total_calls: int = Field(default=0, description="Total call count")
+    total_calls: int = Field(default=0, description="Total number of calls")
+    successful_calls: int = Field(default=0, description="Number of successful calls")
+    failed_calls: int = Field(default=0, description="Number of failed calls (error/timeout)")
+    success_rate: float = Field(default=0.0, description="Success rate (0.0 to 1.0)")
+    avg_duration_ms: float | None = Field(default=None, description="Average duration in ms")
+    last_used_at: datetime | None = Field(default=None, description="Last time tool was used")
+
+
+class StreamingTraceRecorder:
+    """
+    Context manager for recording traces during streaming agent execution.
+
+    Handles timing automatically and provides convenient methods for recording
+    tool calls and observations during streaming responses.
+
+    Example:
+        async with StreamingTraceRecorder(memory.procedural, session_id, "Find restaurants") as recorder:
+            step = await recorder.start_step(thought="Searching for restaurants")
+
+            start = time.time()
+            result = await search_tool(query="Italian restaurants")
+            duration = int((time.time() - start) * 1000)
+
+            await recorder.record_tool_call(
+                "search",
+                {"query": "Italian"},
+                result=result,
+                duration_ms=duration,
+            )
+
+            await recorder.add_observation(f"Found {len(result)} restaurants")
+
+        # Trace is automatically completed when exiting the context
+    """
+
+    def __init__(
+        self,
+        procedural_memory: "ProceduralMemory",
+        session_id: str,
+        task: str,
+        *,
+        generate_task_embedding: bool = True,
+        generate_step_embeddings: bool = False,
+    ):
+        """
+        Initialize the streaming trace recorder.
+
+        Args:
+            procedural_memory: The ProceduralMemory instance to use
+            session_id: Session identifier
+            task: Task description
+            generate_task_embedding: Whether to generate embedding for the task
+            generate_step_embeddings: Whether to generate embeddings for steps during
+                                     recording. If False, can batch generate at completion
+                                     using complete_trace(generate_step_embeddings=True)
+        """
+        self.memory = procedural_memory
+        self.session_id = session_id
+        self.task = task
+        self.generate_task_embedding = generate_task_embedding
+        self.generate_step_embeddings = generate_step_embeddings
+
+        self.trace: ReasoningTrace | None = None
+        self.current_step: ReasoningStep | None = None
+        self._step_start_time: datetime | None = None
+        self._tool_call_times: dict[str, datetime] = {}
+        self._outcome: str | None = None
+        self._success: bool | None = None
+        self._error: Exception | None = None
+
+    async def __aenter__(self) -> "StreamingTraceRecorder":
+        """Start the trace when entering the context."""
+        self.trace = await self.memory.start_trace(
+            self.session_id,
+            self.task,
+            generate_embedding=self.generate_task_embedding,
+        )
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Complete the trace when exiting the context."""
+        if self.trace is None:
+            return
+
+        # Determine success based on exception
+        if exc_type is not None:
+            self._success = False
+            self._outcome = str(exc_val) if exc_val else f"Error: {exc_type.__name__}"
+            self._error = exc_val
+
+        await self.memory.complete_trace(
+            self.trace.id,
+            outcome=self._outcome,
+            success=self._success if self._success is not None else True,
+            generate_step_embeddings=self.generate_step_embeddings,
+        )
+
+    async def start_step(
+        self,
+        *,
+        thought: str | None = None,
+        action: str | None = None,
+    ) -> ReasoningStep:
+        """
+        Start a new reasoning step.
+
+        Args:
+            thought: The agent's reasoning/thought
+            action: The action being taken
+
+        Returns:
+            The created ReasoningStep
+        """
+        if self.trace is None:
+            raise RuntimeError("Trace not started. Use within 'async with' context.")
+
+        self._step_start_time = datetime.utcnow()
+        self.current_step = await self.memory.add_step(
+            self.trace.id,
+            thought=thought,
+            action=action,
+            generate_embedding=self.generate_step_embeddings,
+        )
+        return self.current_step
+
+    async def record_tool_call(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        *,
+        result: Any = None,
+        status: ToolCallStatus = ToolCallStatus.SUCCESS,
+        duration_ms: int | None = None,
+        error: str | None = None,
+        auto_observation: bool = False,
+    ) -> ToolCall:
+        """
+        Record a tool call with optional automatic timing.
+
+        If no step is active, automatically creates one with action set to the tool name.
+
+        Args:
+            tool_name: Name of the tool
+            arguments: Tool arguments
+            result: Tool result
+            status: Call status
+            duration_ms: Duration in milliseconds (if not provided, calculated from step start)
+            error: Error message if failed
+            auto_observation: If True, set the step's observation from the result
+
+        Returns:
+            The created ToolCall
+        """
+        if self.trace is None:
+            raise RuntimeError("Trace not started. Use within 'async with' context.")
+
+        # Auto-create step if none exists
+        if self.current_step is None:
+            await self.start_step(action=f"call:{tool_name}")
+
+        # Calculate duration if not provided
+        if duration_ms is None and self._step_start_time is not None:
+            duration_ms = int((datetime.utcnow() - self._step_start_time).total_seconds() * 1000)
+
+        return await self.memory.record_tool_call(
+            self.current_step.id,
+            tool_name=tool_name,
+            arguments=arguments,
+            result=result,
+            status=status,
+            duration_ms=duration_ms,
+            error=error,
+            auto_observation=auto_observation,
+        )
+
+    async def add_observation(self, observation: str) -> None:
+        """
+        Add an observation to the current step.
+
+        Args:
+            observation: The observation text
+        """
+        if self.current_step is None:
+            raise RuntimeError("No active step. Call start_step() first.")
+
+        await self.memory._client.execute_write(
+            "MATCH (s:ReasoningStep {id: $id}) SET s.observation = $observation",
+            {"id": str(self.current_step.id), "observation": observation},
+        )
+
+    def set_outcome(self, outcome: str, success: bool = True) -> None:
+        """
+        Set the outcome for the trace (will be applied on context exit).
+
+        Args:
+            outcome: The outcome description
+            success: Whether the task succeeded
+        """
+        self._outcome = outcome
+        self._success = success
+
+    @property
+    def trace_id(self) -> UUID | None:
+        """Get the current trace ID."""
+        return self.trace.id if self.trace else None
+
+    @property
+    def step_id(self) -> UUID | None:
+        """Get the current step ID."""
+        return self.current_step.id if self.current_step else None
 
 
 class ProceduralMemory(BaseMemory[ReasoningStep]):
@@ -266,6 +482,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
         status: ToolCallStatus = ToolCallStatus.SUCCESS,
         duration_ms: int | None = None,
         error: str | None = None,
+        auto_observation: bool = False,
     ) -> ToolCall:
         """
         Record a tool call within a reasoning step.
@@ -278,6 +495,9 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
             status: Call status
             duration_ms: Duration in milliseconds
             error: Error message if failed
+            auto_observation: If True, automatically set the step's observation field
+                from the tool result. Useful for ReAct-style agents where the observation
+                is the tool's output.
 
         Returns:
             The created tool call
@@ -307,7 +527,33 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
             },
         )
 
+        # Auto-populate the step's observation from the tool result
+        if auto_observation and result is not None:
+            observation = self._format_observation(result)
+            await self._client.execute_write(
+                "MATCH (s:ReasoningStep {id: $id}) SET s.observation = $observation",
+                {"id": str(step_id), "observation": observation},
+            )
+
         return tool_call
+
+    def _format_observation(self, result: Any, max_length: int = 1000) -> str:
+        """
+        Format a tool result as an observation string.
+
+        Args:
+            result: The tool result to format
+            max_length: Maximum length of the observation string
+
+        Returns:
+            Formatted observation string
+        """
+        if isinstance(result, str):
+            return result[:max_length] if len(result) > max_length else result
+        if isinstance(result, (dict, list)):
+            formatted = json.dumps(result, indent=2, default=str)
+            return formatted[:max_length] if len(formatted) > max_length else formatted
+        return str(result)[:max_length]
 
     async def complete_trace(
         self,
@@ -315,6 +561,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
         *,
         outcome: str | None = None,
         success: bool | None = None,
+        generate_step_embeddings: bool = False,
     ) -> ReasoningTrace:
         """
         Complete a reasoning trace.
@@ -323,10 +570,17 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
             trace_id: Trace ID to complete
             outcome: Final outcome description
             success: Whether the task succeeded
+            generate_step_embeddings: If True, batch generate embeddings for all steps
+                that don't have them yet. Useful when steps were recorded with
+                generate_embedding=False during streaming.
 
         Returns:
             The updated reasoning trace
         """
+        # Batch generate step embeddings if requested
+        if generate_step_embeddings and self._embedder is not None:
+            await self._generate_step_embeddings_batch(trace_id)
+
         results = await self._client.execute_write(
             queries.UPDATE_REASONING_TRACE,
             {
@@ -352,6 +606,62 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
             if trace_data.get("completed_at")
             else None,
         )
+
+    async def _generate_step_embeddings_batch(self, trace_id: UUID) -> int:
+        """
+        Batch generate embeddings for all steps in a trace that don't have them.
+
+        Args:
+            trace_id: Trace ID to process
+
+        Returns:
+            Number of steps that had embeddings generated
+        """
+        if self._embedder is None:
+            return 0
+
+        # Get all steps without embeddings
+        results = await self._client.execute_read(
+            """
+            MATCH (rt:ReasoningTrace {id: $id})-[:HAS_STEP]->(s:ReasoningStep)
+            WHERE s.embedding IS NULL
+            RETURN s.id AS id, s.thought AS thought, s.action AS action, s.observation AS observation
+            """,
+            {"id": str(trace_id)},
+        )
+
+        if not results:
+            return 0
+
+        # Build texts for embedding
+        texts = []
+        step_ids = []
+        for step in results:
+            text_parts = []
+            if step["thought"]:
+                text_parts.append(f"Thought: {step['thought']}")
+            if step["action"]:
+                text_parts.append(f"Action: {step['action']}")
+            if step["observation"]:
+                text_parts.append(f"Observation: {step['observation']}")
+            if text_parts:
+                texts.append(" ".join(text_parts))
+                step_ids.append(step["id"])
+
+        if not texts:
+            return 0
+
+        # Batch generate embeddings
+        embeddings = await self._embedder.embed_batch(texts)
+
+        # Batch update steps with embeddings
+        for step_id, embedding in zip(step_ids, embeddings):
+            await self._client.execute_write(
+                "MATCH (s:ReasoningStep {id: $id}) SET s.embedding = $embedding",
+                {"id": step_id, "embedding": embedding},
+            )
+
+        return len(step_ids)
 
     async def search(self, query: str, **kwargs: Any) -> list[ReasoningStep]:
         """Search is not directly supported for procedural memory."""
@@ -419,6 +729,8 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
         """
         Get tool usage statistics.
 
+        .. deprecated:: Use get_tool_stats() instead for pre-aggregated stats.
+
         Args:
             tool_name: Optional filter by tool name
 
@@ -435,13 +747,85 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
 
             tools[name] = Tool(
                 name=name,
-                description=row.get("description"),
-                success_rate=row.get("success_rate", 0.0),
-                avg_duration_ms=row.get("avg_duration") or 0.0,
-                total_calls=row.get("total_calls", 0),
             )
 
         return tools
+
+    async def get_tool_stats(
+        self,
+        tool_name: str | None = None,
+    ) -> list[ToolStats]:
+        """
+        Get pre-aggregated tool statistics.
+
+        Returns tool usage statistics that are maintained incrementally on Tool nodes.
+        This is much faster than computing stats from ToolCall nodes, especially
+        with many tool calls.
+
+        Args:
+            tool_name: Optional filter by specific tool name
+
+        Returns:
+            List of ToolStats objects ordered by total_calls descending
+
+        Example:
+            # Get stats for all tools
+            stats = await memory.procedural.get_tool_stats()
+            for tool in stats:
+                print(f"{tool.name}: {tool.total_calls} calls, {tool.success_rate:.1%} success")
+
+            # Get stats for a specific tool
+            stats = await memory.procedural.get_tool_stats("search_memory")
+        """
+        results = await self._client.execute_read(queries.GET_TOOL_STATS)
+
+        tool_stats = []
+        for row in results:
+            name = row["name"]
+            if tool_name and name != tool_name:
+                continue
+
+            total_calls = row.get("total_calls", 0)
+            success_rate = row.get("success_rate", 0.0)
+            avg_duration = row.get("avg_duration")
+
+            tool_stats.append(
+                ToolStats(
+                    name=name,
+                    description=row.get("description"),
+                    total_calls=total_calls,
+                    successful_calls=int(total_calls * success_rate) if total_calls > 0 else 0,
+                    failed_calls=total_calls - int(total_calls * success_rate)
+                    if total_calls > 0
+                    else 0,
+                    success_rate=success_rate,
+                    avg_duration_ms=avg_duration,
+                )
+            )
+
+        return tool_stats
+
+    async def migrate_tool_stats(self) -> dict[str, int]:
+        """
+        Migrate tool statistics from ToolCall nodes to pre-aggregated Tool node properties.
+
+        This is a one-time migration for existing data. New tool calls automatically
+        update the pre-aggregated stats. Run this if you have existing ToolCall data
+        that was created before the pre-aggregation optimization was added.
+
+        Returns:
+            Dictionary mapping tool names to number of calls migrated
+
+        Example:
+            # Run migration for existing data
+            migrated = await memory.procedural.migrate_tool_stats()
+            print(f"Migrated stats for {len(migrated)} tools")
+            for tool, count in migrated.items():
+                print(f"  {tool}: {count} calls")
+        """
+        results = await self._client.execute_write(queries.MIGRATE_TOOL_STATS)
+
+        return {row["name"]: row["migrated_calls"] for row in results}
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
         """
@@ -585,16 +969,49 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
         Returns:
             List of reasoning traces for the session
         """
-        query = """
-        MATCH (rt:ReasoningTrace {session_id: $session_id})
-        RETURN rt
-        ORDER BY rt.started_at DESC
-        LIMIT $limit
-        """
+        return await self.list_traces(session_id=session_id, limit=limit)
 
+    async def list_traces(
+        self,
+        *,
+        session_id: str | None = None,
+        success_only: bool | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        order_by: Literal["started_at", "completed_at"] = "started_at",
+        order_dir: Literal["asc", "desc"] = "desc",
+    ) -> list[ReasoningTrace]:
+        """
+        List reasoning traces with filtering and pagination.
+
+        Args:
+            session_id: Filter by session (optional)
+            success_only: Filter by success status (None for all, True for successful,
+                         False for failed)
+            since: Only traces started after this time
+            until: Only traces started before this time
+            limit: Maximum traces to return
+            offset: Number of traces to skip (for pagination)
+            order_by: Field to order by ('started_at' or 'completed_at')
+            order_dir: Sort direction ('asc' or 'desc')
+
+        Returns:
+            List of ReasoningTrace objects (without steps - use get_trace for full details)
+        """
         results = await self._client.execute_read(
-            query,
-            {"session_id": session_id, "limit": limit},
+            queries.LIST_TRACES,
+            {
+                "session_id": session_id,
+                "success": success_only,
+                "since": since.isoformat() if since else None,
+                "until": until.isoformat() if until else None,
+                "limit": limit,
+                "offset": offset,
+                "order_by": order_by,
+                "order_dir": order_dir,
+            },
         )
 
         traces = []

@@ -49,6 +49,36 @@ SET c.updated_at = datetime()
 RETURN m
 """
 
+CREATE_MESSAGES_BATCH = """
+UNWIND $messages AS msg
+MATCH (c:Conversation {id: $conversation_id})
+CREATE (m:Message {
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    embedding: msg.embedding,
+    timestamp: CASE WHEN msg.timestamp IS NOT NULL THEN datetime(msg.timestamp) ELSE datetime() END,
+    metadata: msg.metadata
+})
+CREATE (c)-[:HAS_MESSAGE]->(m)
+WITH c, count(m) AS created
+SET c.updated_at = datetime()
+RETURN created
+"""
+
+UPDATE_MESSAGE_EMBEDDING = """
+MATCH (m:Message {id: $id})
+SET m.embedding = $embedding
+RETURN m
+"""
+
+GET_MESSAGES_WITHOUT_EMBEDDINGS = """
+MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)
+WHERE m.embedding IS NULL
+RETURN m.id AS id, m.content AS content
+ORDER BY m.timestamp ASC
+"""
+
 GET_CONVERSATION_MESSAGES = """
 MATCH (c:Conversation {id: $conversation_id})-[:HAS_MESSAGE]->(m:Message)
 RETURN m
@@ -62,6 +92,50 @@ YIELD node, score
 WHERE score >= $threshold
 RETURN node AS m, score
 ORDER BY score DESC
+"""
+
+DELETE_MESSAGE = """
+MATCH (m:Message {id: $id})
+OPTIONAL MATCH (m)-[r:MENTIONS]->()
+DELETE r, m
+RETURN count(m) > 0 AS deleted
+"""
+
+DELETE_MESSAGE_NO_CASCADE = """
+MATCH (m:Message {id: $id})
+DELETE m
+RETURN count(m) > 0 AS deleted
+"""
+
+LIST_SESSIONS = """
+MATCH (c:Conversation)
+WHERE $prefix IS NULL OR c.session_id STARTS WITH $prefix
+WITH c
+OPTIONAL MATCH (c)-[:HAS_MESSAGE]->(m:Message)
+WITH c,
+     count(m) AS message_count,
+     min(m.timestamp) AS first_msg_time,
+     max(m.timestamp) AS last_msg_time,
+     collect(m) AS messages
+WITH c, message_count, first_msg_time, last_msg_time,
+     head([msg IN messages WHERE msg.timestamp = first_msg_time | msg.content]) AS first_content,
+     head([msg IN messages WHERE msg.timestamp = last_msg_time | msg.content]) AS last_content
+WITH c.session_id AS session_id,
+     c.title AS title,
+     c.created_at AS created_at,
+     c.updated_at AS updated_at,
+     message_count,
+     substring(first_content, 0, 100) AS first_message_preview,
+     substring(last_content, 0, 100) AS last_message_preview
+ORDER BY
+    CASE WHEN $order_by = 'created_at' AND $order_dir = 'desc' THEN created_at END DESC,
+    CASE WHEN $order_by = 'created_at' AND $order_dir = 'asc' THEN created_at END ASC,
+    CASE WHEN $order_by = 'updated_at' AND $order_dir = 'desc' THEN updated_at END DESC,
+    CASE WHEN $order_by = 'updated_at' AND $order_dir = 'asc' THEN updated_at END ASC,
+    CASE WHEN $order_by = 'message_count' AND $order_dir = 'desc' THEN message_count END DESC,
+    CASE WHEN $order_by = 'message_count' AND $order_dir = 'asc' THEN message_count END ASC
+SKIP $offset LIMIT $limit
+RETURN session_id, title, created_at, updated_at, message_count, first_message_preview, last_message_preview
 """
 
 # =============================================================================
@@ -259,7 +333,11 @@ RETURN rs
 CREATE_TOOL_CALL = """
 MATCH (rs:ReasoningStep {id: $step_id})
 MERGE (t:Tool {name: $tool_name})
-ON CREATE SET t.created_at = datetime(), t.total_calls = 0
+ON CREATE SET t.created_at = datetime(),
+              t.total_calls = 0,
+              t.successful_calls = 0,
+              t.failed_calls = 0,
+              t.total_duration_ms = 0
 CREATE (tc:ToolCall {
     id: $id,
     tool_name: $tool_name,
@@ -273,12 +351,40 @@ CREATE (tc:ToolCall {
 CREATE (rs)-[:USES_TOOL]->(tc)
 CREATE (tc)-[:INSTANCE_OF]->(t)
 WITH t, tc
-SET t.total_calls = t.total_calls + 1,
+SET t.total_calls = coalesce(t.total_calls, 0) + 1,
+    t.successful_calls = coalesce(t.successful_calls, 0) + CASE WHEN tc.status = 'success' THEN 1 ELSE 0 END,
+    t.failed_calls = coalesce(t.failed_calls, 0) + CASE WHEN tc.status IN ['error', 'timeout'] THEN 1 ELSE 0 END,
+    t.total_duration_ms = coalesce(t.total_duration_ms, 0) + coalesce(tc.duration_ms, 0),
     t.last_used_at = datetime()
 RETURN tc
 """
 
+# Optimized GET_TOOL_STATS using pre-aggregated stats on Tool nodes
+# Falls back to computing from ToolCalls for backward compatibility with existing data
 GET_TOOL_STATS = """
+MATCH (t:Tool)
+WITH t,
+     coalesce(t.total_calls, 0) AS precomputed_total,
+     coalesce(t.successful_calls, 0) AS precomputed_success,
+     coalesce(t.total_duration_ms, 0) AS precomputed_duration
+// Use precomputed stats if available (non-zero), otherwise compute from tool calls
+WITH t, precomputed_total, precomputed_success, precomputed_duration
+RETURN t.name AS name,
+       t.description AS description,
+       precomputed_total AS total_calls,
+       CASE WHEN precomputed_total > 0
+            THEN toFloat(precomputed_success) / precomputed_total
+            ELSE 0.0
+       END AS success_rate,
+       CASE WHEN precomputed_total > 0
+            THEN toFloat(precomputed_duration) / precomputed_total
+            ELSE null
+       END AS avg_duration
+ORDER BY total_calls DESC
+"""
+
+# Fallback query that computes stats from ToolCall nodes (for migration/verification)
+GET_TOOL_STATS_COMPUTED = """
 MATCH (t:Tool)
 OPTIONAL MATCH (t)<-[:INSTANCE_OF]-(tc:ToolCall)
 WITH t,
@@ -291,6 +397,22 @@ RETURN t.name AS name,
        CASE WHEN total_calls > 0 THEN toFloat(successful_calls) / total_calls ELSE 0.0 END AS success_rate,
        avg_duration
 ORDER BY total_calls DESC
+"""
+
+# Migration query to populate pre-aggregated stats from existing ToolCall data
+MIGRATE_TOOL_STATS = """
+MATCH (t:Tool)
+OPTIONAL MATCH (t)<-[:INSTANCE_OF]-(tc:ToolCall)
+WITH t,
+     count(tc) AS total,
+     sum(CASE WHEN tc.status = 'success' THEN 1 ELSE 0 END) AS success,
+     sum(CASE WHEN tc.status IN ['error', 'timeout'] THEN 1 ELSE 0 END) AS failed,
+     sum(coalesce(tc.duration_ms, 0)) AS duration
+SET t.total_calls = total,
+    t.successful_calls = success,
+    t.failed_calls = failed,
+    t.total_duration_ms = duration
+RETURN t.name AS name, total AS migrated_calls
 """
 
 SEARCH_TRACES_BY_EMBEDDING = """
@@ -308,6 +430,28 @@ OPTIONAL MATCH (rs)-[:USES_TOOL]->(tc:ToolCall)
 RETURN rt,
        collect(DISTINCT rs) AS steps,
        collect(DISTINCT tc) AS tool_calls
+"""
+
+LIST_TRACES = """
+MATCH (rt:ReasoningTrace)
+WHERE ($session_id IS NULL OR rt.session_id = $session_id)
+  AND ($success IS NULL OR rt.success = $success)
+  AND ($since IS NULL OR rt.started_at >= datetime($since))
+  AND ($until IS NULL OR rt.started_at <= datetime($until))
+WITH rt
+ORDER BY
+    CASE WHEN $order_dir = 'desc' THEN
+        CASE WHEN $order_by = 'started_at' THEN rt.started_at
+             WHEN $order_by = 'completed_at' THEN rt.completed_at
+        END
+    END DESC,
+    CASE WHEN $order_dir = 'asc' THEN
+        CASE WHEN $order_by = 'started_at' THEN rt.started_at
+             WHEN $order_by = 'completed_at' THEN rt.completed_at
+        END
+    END ASC
+SKIP $offset LIMIT $limit
+RETURN rt
 """
 
 # =============================================================================
@@ -352,4 +496,75 @@ OPTIONAL MATCH (p:Preference) WITH conversations, messages, entities, count(p) A
 OPTIONAL MATCH (f:Fact) WITH conversations, messages, entities, preferences, count(f) AS facts
 OPTIONAL MATCH (rt:ReasoningTrace) WITH conversations, messages, entities, preferences, facts, count(rt) AS traces
 RETURN conversations, messages, entities, preferences, facts, traces
+"""
+
+# =============================================================================
+# GRAPH EXPORT QUERIES
+# =============================================================================
+
+GET_GRAPH_EPISODIC = """
+MATCH (c:Conversation)-[r:HAS_MESSAGE]->(m:Message)
+WHERE ($session_id IS NULL OR c.session_id = $session_id)
+  AND ($since IS NULL OR m.timestamp >= datetime($since))
+  AND ($until IS NULL OR m.timestamp <= datetime($until))
+WITH c, r, m
+LIMIT $limit
+RETURN
+    collect(DISTINCT {id: c.id, labels: ['Conversation'], properties: properties(c)}) +
+    collect(DISTINCT {id: m.id, labels: ['Message'], properties: CASE WHEN $include_embeddings THEN properties(m) ELSE apoc.map.removeKeys(properties(m), ['embedding']) END}) AS nodes,
+    collect(DISTINCT {id: id(r), type: type(r), from_node: c.id, to_node: m.id, properties: properties(r)}) AS relationships
+"""
+
+GET_GRAPH_SEMANTIC = """
+MATCH (e:Entity)
+WHERE ($since IS NULL OR e.created_at >= datetime($since))
+  AND ($until IS NULL OR e.created_at <= datetime($until))
+WITH e
+LIMIT $limit
+OPTIONAL MATCH (e)-[r:RELATED_TO]-(e2:Entity)
+OPTIONAL MATCH (p:Preference)
+OPTIONAL MATCH (f:Fact)
+WITH e, r, e2, collect(DISTINCT p) AS prefs, collect(DISTINCT f) AS facts
+RETURN
+    collect(DISTINCT {id: e.id, labels: ['Entity'], properties: CASE WHEN $include_embeddings THEN properties(e) ELSE apoc.map.removeKeys(properties(e), ['embedding']) END}) AS nodes,
+    collect(DISTINCT {id: id(r), type: type(r), from_node: e.id, to_node: e2.id, properties: properties(r)}) AS relationships
+"""
+
+GET_GRAPH_PROCEDURAL = """
+MATCH (rt:ReasoningTrace)
+WHERE ($session_id IS NULL OR rt.session_id = $session_id)
+  AND ($since IS NULL OR rt.started_at >= datetime($since))
+  AND ($until IS NULL OR rt.started_at <= datetime($until))
+WITH rt
+LIMIT $limit
+OPTIONAL MATCH (rt)-[r1:HAS_STEP]->(rs:ReasoningStep)
+OPTIONAL MATCH (rs)-[r2:USES_TOOL]->(tc:ToolCall)
+RETURN
+    collect(DISTINCT {id: rt.id, labels: ['ReasoningTrace'], properties: CASE WHEN $include_embeddings THEN properties(rt) ELSE apoc.map.removeKeys(properties(rt), ['task_embedding']) END}) +
+    collect(DISTINCT {id: rs.id, labels: ['ReasoningStep'], properties: CASE WHEN $include_embeddings THEN properties(rs) ELSE apoc.map.removeKeys(properties(rs), ['embedding']) END}) +
+    collect(DISTINCT {id: tc.id, labels: ['ToolCall'], properties: properties(tc)}) AS nodes,
+    collect(DISTINCT {id: id(r1), type: type(r1), from_node: rt.id, to_node: rs.id, properties: properties(r1)}) +
+    collect(DISTINCT {id: id(r2), type: type(r2), from_node: rs.id, to_node: tc.id, properties: properties(r2)}) AS relationships
+"""
+
+GET_GRAPH_ALL = """
+MATCH (n)
+WHERE ($since IS NULL OR n.created_at >= datetime($since) OR n.timestamp >= datetime($since) OR n.started_at >= datetime($since))
+  AND ($until IS NULL OR n.created_at <= datetime($until) OR n.timestamp <= datetime($until) OR n.started_at <= datetime($until))
+WITH n
+LIMIT $limit
+OPTIONAL MATCH (n)-[r]-(m)
+RETURN
+    collect(DISTINCT {
+        id: COALESCE(n.id, toString(id(n))),
+        labels: labels(n),
+        properties: CASE WHEN $include_embeddings THEN properties(n) ELSE apoc.map.removeKeys(properties(n), ['embedding', 'task_embedding']) END
+    }) AS nodes,
+    collect(DISTINCT {
+        id: toString(id(r)),
+        type: type(r),
+        from_node: COALESCE(n.id, toString(id(n))),
+        to_node: COALESCE(m.id, toString(id(m))),
+        properties: properties(r)
+    }) AS relationships
 """

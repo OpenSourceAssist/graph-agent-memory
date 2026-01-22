@@ -1,10 +1,15 @@
 """Pydantic AI integration for neo4j-agent-memory."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
+    from pydantic_ai.result import RunResult
+
     from neo4j_agent_memory import MemoryClient
+    from neo4j_agent_memory.memory.procedural import ProceduralMemory, ReasoningTrace
+
+T = TypeVar("T")
 
 
 @dataclass
@@ -215,3 +220,191 @@ def create_memory_tools(memory: "MemoryClient") -> list[Callable]:
         return "\n".join([f"- [{p.category}] {p.preference}" for p in prefs])
 
     return [search_memory, save_preference, recall_preferences]
+
+
+async def record_agent_trace(
+    procedural_memory: "ProceduralMemory",
+    session_id: str,
+    result: "RunResult[T]",
+    *,
+    task: str | None = None,
+    include_tool_calls: bool = True,
+    generate_embeddings: bool = False,
+) -> "ReasoningTrace":
+    """
+    Record a reasoning trace from a PydanticAI RunResult.
+
+    This function extracts tool calls and their results from a completed
+    PydanticAI agent run and records them as a reasoning trace in procedural
+    memory.
+
+    Args:
+        procedural_memory: The procedural memory instance to record to
+        session_id: Session ID for the trace
+        result: The RunResult from a PydanticAI agent run
+        task: Optional task description (defaults to extracting from messages)
+        include_tool_calls: Whether to record individual tool calls
+        generate_embeddings: Whether to generate embeddings for steps
+
+    Returns:
+        The created ReasoningTrace
+
+    Example:
+        from pydantic_ai import Agent
+        from neo4j_agent_memory.integrations.pydantic_ai import record_agent_trace
+
+        agent = Agent('openai:gpt-4o')
+        result = await agent.run("Find restaurants near me")
+
+        # Record the trace
+        trace = await record_agent_trace(
+            client.procedural,
+            session_id="user-123",
+            result=result,
+            task="Find restaurants",
+        )
+    """
+    # Import here to avoid circular imports and allow optional pydantic-ai dependency
+    try:
+        from pydantic_ai.messages import (
+            ModelRequest,
+            ModelResponse,
+            ToolCallPart,
+            ToolReturnPart,
+            UserPromptPart,
+        )
+    except ImportError as e:
+        raise ImportError(
+            "pydantic-ai is required for record_agent_trace. Install with: pip install pydantic-ai"
+        ) from e
+
+    from neo4j_agent_memory.memory.procedural import ToolCallStatus
+
+    # Extract task from first user message if not provided
+    if task is None:
+        for msg in result.all_messages():
+            if isinstance(msg, ModelRequest):
+                for part in msg.parts:
+                    if isinstance(part, UserPromptPart):
+                        task = str(part.content)[:500]  # Truncate long tasks
+                        break
+            if task:
+                break
+        if task is None:
+            task = "PydanticAI agent run"
+
+    # Start the trace
+    trace = await procedural_memory.start_trace(
+        session_id=session_id,
+        task=task,
+        metadata={
+            "source": "pydantic_ai",
+            "model": getattr(result, "model", None),
+        },
+    )
+
+    if include_tool_calls:
+        # Collect tool calls and their results
+        # Tool calls come from ModelResponse, results come from ModelRequest
+        tool_calls: dict[str, dict[str, Any]] = {}  # tool_call_id -> {name, args}
+        tool_results: dict[str, Any] = {}  # tool_call_id -> result
+
+        for msg in result.all_messages():
+            if isinstance(msg, ModelResponse):
+                for part in msg.parts:
+                    if isinstance(part, ToolCallPart):
+                        tool_call_id = part.tool_call_id or f"call_{len(tool_calls)}"
+                        # Extract args safely
+                        args = {}
+                        if hasattr(part.args, "args_dict"):
+                            args = part.args.args_dict
+                        elif hasattr(part.args, "model_dump"):
+                            args = part.args.model_dump()
+                        elif isinstance(part.args, dict):
+                            args = part.args
+
+                        tool_calls[tool_call_id] = {
+                            "name": part.tool_name,
+                            "args": args,
+                        }
+
+            elif isinstance(msg, ModelRequest):
+                for part in msg.parts:
+                    if isinstance(part, ToolReturnPart):
+                        tool_call_id = part.tool_call_id or ""
+                        tool_results[tool_call_id] = part.content
+
+        # Create steps for each tool call
+        step_number = 0
+        for tool_call_id, call_info in tool_calls.items():
+            step_number += 1
+            tool_name = call_info["name"]
+            tool_args = call_info["args"]
+            tool_result = tool_results.get(tool_call_id)
+
+            # Create a reasoning step
+            step = await procedural_memory.add_step(
+                trace.id,
+                thought=f"Using {tool_name} tool",
+                action=f"Call {tool_name}",
+                observation=_format_tool_result(tool_result) if tool_result else None,
+                generate_embedding=generate_embeddings,
+                metadata={
+                    "tool_call_id": tool_call_id,
+                    "step_number": step_number,
+                },
+            )
+
+            # Record the tool call
+            is_error = _is_error_result(tool_result)
+            await procedural_memory.record_tool_call(
+                step_id=step.id,
+                tool_name=tool_name,
+                arguments=tool_args,
+                result=tool_result,
+                status=ToolCallStatus.ERROR if is_error else ToolCallStatus.SUCCESS,
+                error=str(tool_result) if is_error else None,
+            )
+
+    # Complete the trace with the final output
+    final_output = str(result.data) if hasattr(result, "data") else None
+    completed_trace = await procedural_memory.complete_trace(
+        trace.id,
+        outcome=final_output[:1000] if final_output else "Completed",
+        success=True,
+        generate_step_embeddings=generate_embeddings,
+    )
+
+    return completed_trace
+
+
+def _format_tool_result(result: Any) -> str:
+    """Format a tool result for observation field."""
+    if result is None:
+        return "No result"
+    if isinstance(result, str):
+        return result[:500] if len(result) > 500 else result
+    if isinstance(result, (list, dict)):
+        import json
+
+        try:
+            formatted = json.dumps(result, default=str)
+            return formatted[:500] if len(formatted) > 500 else formatted
+        except Exception:
+            return str(result)[:500]
+    return str(result)[:500]
+
+
+def _is_error_result(result: Any) -> bool:
+    """Check if a tool result indicates an error."""
+    if result is None:
+        return False
+    if isinstance(result, dict):
+        return "error" in result or "Error" in result
+    if isinstance(result, list) and result:
+        first = result[0]
+        if isinstance(first, dict):
+            return "error" in first or "Error" in first
+    if isinstance(result, str):
+        return result.lower().startswith("error:")
+    return False

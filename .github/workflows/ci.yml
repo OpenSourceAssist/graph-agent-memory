@@ -74,6 +74,7 @@ jobs:
 
   integration-test:
     runs-on: ubuntu-latest
+    # Use GitHub Actions services for Neo4j - more reliable than testcontainers in CI
     services:
       neo4j:
         image: neo4j:5.26-community
@@ -126,14 +127,17 @@ jobs:
             --timeout=300 \
             -x  # Stop on first failure for faster feedback
         env:
-          RUN_INTEGRATION_TESTS: "1"
           NEO4J_URI: bolt://localhost:7687
           NEO4J_USERNAME: neo4j
           NEO4J_PASSWORD: test-password
 
-  integration-test-all-memory-types:
+  integration-test-matrix:
     runs-on: ubuntu-latest
     needs: integration-test
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+      fail-fast: false
     services:
       neo4j:
         image: neo4j:5.26-community
@@ -144,6 +148,86 @@ jobs:
           NEO4J_AUTH: neo4j/test-password
           NEO4J_PLUGINS: '["apoc"]'
           NEO4J_dbms_security_procedures_unrestricted: apoc.*
+          NEO4J_dbms_security_procedures_allowlist: apoc.*
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p test-password 'RETURN 1'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 20
+          --health-start-period 30s
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install all dependencies
+        run: uv sync --group dev --all-extras
+
+      - name: Wait for Neo4j
+        run: |
+          for i in {1..60}; do
+            if curl -s http://localhost:7474 > /dev/null 2>&1; then
+              sleep 5  # Extra wait for full initialization
+              break
+            fi
+            sleep 2
+          done
+
+      - name: Run integration tests
+        run: |
+          uv run pytest tests/integration \
+            -v \
+            --tb=short \
+            --timeout=600 \
+            --durations=20
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USERNAME: neo4j
+          NEO4J_PASSWORD: test-password
+
+  # Alternative job using testcontainers (useful for debugging or different environments)
+  integration-test-testcontainers:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[testcontainers]')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --group dev --all-extras
+
+      - name: Run integration tests with testcontainers
+        run: |
+          uv run pytest tests/integration \
+            -v \
+            --tb=short \
+            --timeout=600
+        # No NEO4J_URI set - will use testcontainers
+
+  # Example smoke tests - validates that all examples work with current package
+  example-tests:
+    runs-on: ubuntu-latest
+    needs: test # Run after unit tests pass
+    services:
+      neo4j:
+        image: neo4j:5.26-community
+        ports:
+          - 7687:7687
+          - 7474:7474
+        env:
+          NEO4J_AUTH: neo4j/test-password
+          NEO4J_PLUGINS: '["apoc"]'
+          NEO4J_dbms_security_procedures_unrestricted: apoc.*
+          NEO4J_dbms_security_procedures_allowlist: apoc.*
         options: >-
           --health-cmd "cypher-shell -u neo4j -p test-password 'RETURN 1'"
           --health-interval 10s
@@ -164,26 +248,50 @@ jobs:
 
       - name: Wait for Neo4j
         run: |
+          echo "Waiting for Neo4j to be ready..."
           for i in {1..60}; do
             if curl -s http://localhost:7474 > /dev/null 2>&1; then
-              sleep 5  # Extra wait for full initialization
-              break
+              if uv run python -c "from neo4j import GraphDatabase; d = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'test-password')); d.verify_connectivity(); d.close()" 2>/dev/null; then
+                echo "Neo4j is ready!"
+                break
+              fi
             fi
+            echo "Attempt $i: Waiting for Neo4j..."
             sleep 2
           done
 
-      - name: Run comprehensive integration tests
+      - name: Run example smoke tests
         run: |
-          uv run pytest tests/integration \
+          uv run pytest tests/examples \
             -v \
-            --tb=long \
-            --timeout=600 \
-            --durations=20
+            --tb=short \
+            --timeout=120
         env:
-          RUN_INTEGRATION_TESTS: "1"
           NEO4J_URI: bolt://localhost:7687
           NEO4J_USERNAME: neo4j
           NEO4J_PASSWORD: test-password
+
+  # Quick example validation (no Neo4j required) - runs in parallel with other tests
+  example-tests-quick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --group dev --all-extras
+
+      - name: Run quick example validation
+        run: |
+          uv run pytest tests/examples/test_entity_resolution.py tests/examples/test_full_stack_apps.py \
+            -v \
+            --tb=short \
+            --timeout=60
 
   build:
     runs-on: ubuntu-latest

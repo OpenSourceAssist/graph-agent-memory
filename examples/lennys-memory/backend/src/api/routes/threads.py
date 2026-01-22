@@ -27,13 +27,47 @@ def _get_thread_or_404(thread_id: str) -> dict:
 
 
 @router.get("/threads", response_model=list[ThreadSummary])
-async def list_threads() -> list[ThreadSummary]:
-    """List all conversation threads."""
-    summaries = []
-    memory = get_memory_client()
+async def list_threads(
+    limit: int = 100,
+    offset: int = 0,
+) -> list[ThreadSummary]:
+    """List all conversation threads.
 
+    Uses the new list_sessions() API from neo4j-agent-memory for efficient
+    session listing with metadata directly from Neo4j.
+    """
+    memory = get_memory_client()
+    summaries = []
+
+    if memory:
+        try:
+            # Use the new list_sessions() API for efficient listing
+            sessions = await memory.episodic.list_sessions(
+                limit=limit,
+                offset=offset,
+                order_by="updated_at",
+                order_dir="desc",
+            )
+
+            for session in sessions:
+                # Use session data directly from memory
+                summaries.append(
+                    ThreadSummary(
+                        id=session.session_id,
+                        title=session.title or session.first_message_preview or "Untitled",
+                        created_at=session.created_at,
+                        updated_at=session.updated_at or session.created_at,
+                        message_count=session.message_count,
+                    )
+                )
+
+            return summaries
+        except Exception as e:
+            # Fallback to in-memory storage if memory client fails
+            print(f"Warning: Failed to list sessions from memory: {e}")
+
+    # Fallback: use in-memory thread storage
     for thread_id, thread_data in _threads.items():
-        # Get message count from episodic memory
         message_count = 0
         if memory:
             try:
@@ -54,7 +88,7 @@ async def list_threads() -> list[ThreadSummary]:
 
     # Sort by updated_at descending
     summaries.sort(key=lambda x: x.updated_at, reverse=True)
-    return summaries
+    return summaries[offset : offset + limit]
 
 
 @router.post("/threads", response_model=ThreadSummary)

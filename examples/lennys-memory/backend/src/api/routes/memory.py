@@ -34,46 +34,34 @@ router = APIRouter()
 async def list_traces(
     thread_id: str | None = None,
     limit: int = 50,
+    offset: int = 0,
+    success_only: bool | None = None,
 ) -> list[ReasoningTraceResponse]:
     """List reasoning traces, optionally filtered by thread/session.
+
+    Uses the new list_traces() API from neo4j-agent-memory for efficient
+    trace listing with filtering and pagination.
 
     Args:
         thread_id: Optional thread ID to filter traces by session.
         limit: Maximum number of traces to return.
+        offset: Number of traces to skip (for pagination).
+        success_only: Filter by success status (True/False/None for all).
     """
     memory = get_memory_client()
     if memory is None:
         return []
 
     try:
-        if thread_id:
-            traces = await memory.procedural.get_session_traces(
-                session_id=thread_id,
-                limit=limit,
-            )
-        else:
-            # Get all traces - need to query directly
-            query = """
-            MATCH (rt:ReasoningTrace)
-            RETURN rt
-            ORDER BY rt.started_at DESC
-            LIMIT $limit
-            """
-            results = await memory._client.execute_read(query, {"limit": limit})
-            traces = []
-            for row in results:
-                trace_data = dict(row["rt"])
-                from neo4j_agent_memory.memory.procedural import ReasoningTrace
-
-                traces.append(
-                    ReasoningTrace(
-                        id=UUID(trace_data["id"]),
-                        session_id=trace_data["session_id"],
-                        task=trace_data["task"],
-                        outcome=trace_data.get("outcome"),
-                        success=trace_data.get("success"),
-                    )
-                )
+        # Use the new list_traces() API for efficient listing
+        traces = await memory.procedural.list_traces(
+            session_id=thread_id,
+            success_only=success_only,
+            limit=limit,
+            offset=offset,
+            order_by="started_at",
+            order_dir="desc",
+        )
 
         return [
             ReasoningTraceResponse(
@@ -158,6 +146,9 @@ async def get_trace(trace_id: str) -> ReasoningTraceResponse:
 async def get_tool_stats() -> list[ToolStatsResponse]:
     """Get usage statistics for all tools.
 
+    Uses the new optimized get_tool_stats() API from neo4j-agent-memory
+    which uses pre-aggregated statistics on Tool nodes for fast retrieval.
+
     Returns aggregated statistics for each tool including success rate,
     average duration, and total call count.
     """
@@ -166,7 +157,8 @@ async def get_tool_stats() -> list[ToolStatsResponse]:
         return []
 
     try:
-        stats = await memory.procedural.get_tool_usage_stats()
+        # Use the new optimized get_tool_stats() API
+        stats = await memory.procedural.get_tool_stats()
         return [
             ToolStatsResponse(
                 name=tool.name,
@@ -175,7 +167,7 @@ async def get_tool_stats() -> list[ToolStatsResponse]:
                 avg_duration_ms=tool.avg_duration_ms,
                 total_calls=tool.total_calls,
             )
-            for tool in stats.values()
+            for tool in stats
         ]
     except Exception:
         return []
@@ -469,8 +461,21 @@ def serialize_neo4j_value(value: Any) -> Any:
 
 
 @router.get("/memory/graph", response_model=MemoryGraph)
-async def get_memory_graph() -> MemoryGraph:
-    """Get the complete memory graph for visualization.
+async def get_memory_graph(
+    memory_types: str | None = None,
+    session_id: str | None = None,
+    limit: int = 1000,
+) -> MemoryGraph:
+    """Get the memory graph for visualization.
+
+    Uses the new get_graph() API from neo4j-agent-memory for efficient
+    graph export with filtering options.
+
+    Args:
+        memory_types: Comma-separated list of memory types to include
+                     (episodic, semantic, procedural). Defaults to all.
+        session_id: Optional session ID to filter by.
+        limit: Maximum number of nodes to return.
 
     Returns all nodes and relationships from the memory graph database.
     """
@@ -479,63 +484,39 @@ async def get_memory_graph() -> MemoryGraph:
         return MemoryGraph(nodes=[], relationships=[])
 
     try:
-        # Query all nodes
-        nodes_query = """
-        MATCH (n)
-        RETURN elementId(n) AS id, labels(n) AS labels, properties(n) AS properties
-        """
+        # Parse memory types if provided
+        types_list = None
+        if memory_types:
+            types_list = [t.strip() for t in memory_types.split(",")]
 
-        # Query all relationships
-        rels_query = """
-        MATCH (a)-[r]->(b)
-        RETURN elementId(r) AS id,
-               elementId(a) AS `from`,
-               elementId(b) AS `to`,
-               type(r) AS type,
-               properties(r) AS properties
-        """
+        # Use the new get_graph() API
+        graph = await memory.get_graph(
+            memory_types=types_list,
+            session_id=session_id,
+            include_embeddings=False,  # Don't include embeddings for visualization
+            limit=limit,
+        )
 
-        client = memory._client
+        # Convert to response format (the API already returns the right structure)
+        nodes = [
+            GraphNode(
+                id=node.id,
+                labels=node.labels,
+                properties={k: serialize_neo4j_value(v) for k, v in node.properties.items()},
+            )
+            for node in graph.nodes
+        ]
 
-        node_results = await client.execute_read(nodes_query)
-        rel_results = await client.execute_read(rels_query)
-
-        # Convert to response format
-        nodes = []
-        seen_node_ids = set()
-        for record in node_results:
-            node_id = str(record["id"])
-            if node_id not in seen_node_ids:
-                seen_node_ids.add(node_id)
-                props = {
-                    k: serialize_neo4j_value(v) for k, v in (record.get("properties") or {}).items()
-                }
-                nodes.append(
-                    GraphNode(
-                        id=node_id,
-                        labels=list(record.get("labels") or []),
-                        properties=props,
-                    )
-                )
-
-        relationships = []
-        seen_rel_ids = set()
-        for record in rel_results:
-            rel_id = str(record["id"])
-            if rel_id not in seen_rel_ids:
-                seen_rel_ids.add(rel_id)
-                props = {
-                    k: serialize_neo4j_value(v) for k, v in (record.get("properties") or {}).items()
-                }
-                relationships.append(
-                    GraphRelationship(
-                        id=rel_id,
-                        from_node=str(record["from"]),
-                        to_node=str(record["to"]),
-                        type=record["type"],
-                        properties=props,
-                    )
-                )
+        relationships = [
+            GraphRelationship(
+                id=rel.id,
+                from_node=rel.from_node,
+                to_node=rel.to_node,
+                type=rel.type,
+                properties={k: serialize_neo4j_value(v) for k, v in rel.properties.items()},
+            )
+            for rel in graph.relationships
+        ]
 
         return MemoryGraph(nodes=nodes, relationships=relationships)
 

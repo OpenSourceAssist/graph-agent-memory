@@ -10,7 +10,7 @@
 A comprehensive memory system for AI agents using Neo4j as the persistence layer.
 
 [.lead]
-Neo4j Agent Memory provides episodic, semantic, and procedural memory capabilities for AI agents, enabling them to remember conversations, learn facts, and recall past reasoning patterns.
+Neo4j Agent Memory provides short-term, long-term, and procedural memory capabilities for AI agents, enabling them to remember conversations, learn facts, and recall past reasoning patterns.
 
 == Overview
 
@@ -20,10 +20,10 @@ Neo4j Agent Memory is designed to give AI agents persistent, queryable memory ac
 |===
 |Memory Type |Description
 
-|**Episodic**
+|**Short-Term**
 |Conversation history and experiences - what happened and when
 
-|**Semantic**
+|**Long-Term**
 |Facts, preferences, and entities - what the agent knows
 
 |**Procedural**

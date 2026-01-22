@@ -37,6 +37,11 @@ Example usage:
         context = await client.get_context("restaurant recommendation")
 """
 
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
 from neo4j_agent_memory.config.settings import (
     EmbeddingConfig,
     EmbeddingProvider,
@@ -62,21 +67,58 @@ from neo4j_agent_memory.core.exceptions import (
     SchemaError,
 )
 from neo4j_agent_memory.core.memory import BaseMemory, MemoryEntry
+
+
+class GraphNode(BaseModel):
+    """A node in the memory graph for visualization."""
+
+    id: str = Field(description="Node identifier")
+    labels: list[str] = Field(description="Node labels (e.g., ['Message'], ['Entity'])")
+    properties: dict[str, Any] = Field(default_factory=dict, description="Node properties")
+
+
+class GraphRelationship(BaseModel):
+    """A relationship in the memory graph for visualization."""
+
+    id: str = Field(description="Relationship identifier")
+    type: str = Field(description="Relationship type (e.g., 'HAS_MESSAGE', 'MENTIONS')")
+    from_node: str = Field(description="Source node ID")
+    to_node: str = Field(description="Target node ID")
+    properties: dict[str, Any] = Field(default_factory=dict, description="Relationship properties")
+
+
+class MemoryGraph(BaseModel):
+    """Memory graph export for visualization."""
+
+    nodes: list[GraphNode] = Field(default_factory=list, description="Graph nodes")
+    relationships: list[GraphRelationship] = Field(
+        default_factory=list, description="Graph relationships"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Export metadata (filters applied, counts, etc.)",
+    )
+
+
 from neo4j_agent_memory.graph.client import Neo4jClient
 from neo4j_agent_memory.graph.schema import SchemaManager
 from neo4j_agent_memory.memory.episodic import (
     Conversation,
+    ConversationSummary,
     EpisodicMemory,
     Message,
     MessageRole,
+    SessionInfo,
 )
 from neo4j_agent_memory.memory.procedural import (
     ProceduralMemory,
     ReasoningStep,
     ReasoningTrace,
+    StreamingTraceRecorder,
     Tool,
     ToolCall,
     ToolCallStatus,
+    ToolStats,
 )
 from neo4j_agent_memory.memory.semantic import (
     Entity,
@@ -116,6 +158,8 @@ __all__ = [
     # Models - Episodic
     "Message",
     "Conversation",
+    "ConversationSummary",
+    "SessionInfo",
     # Models - Semantic
     "Entity",
     "Preference",
@@ -125,13 +169,19 @@ __all__ = [
     "ReasoningTrace",
     "ReasoningStep",
     "ToolCall",
+    "ToolStats",
     "Tool",
+    "StreamingTraceRecorder",
     # Base classes
     "BaseMemory",
     "MemoryEntry",
     # Graph
     "Neo4jClient",
     "SchemaManager",
+    # Graph Export
+    "GraphNode",
+    "GraphRelationship",
+    "MemoryGraph",
     # Exceptions
     "MemoryError",
     "ConnectionError",
@@ -395,6 +445,265 @@ class MemoryClient:
             "facts": 0,
             "traces": 0,
         }
+
+    async def get_graph(
+        self,
+        *,
+        memory_types: list[Literal["episodic", "semantic", "procedural"]] | None = None,
+        session_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        include_embeddings: bool = False,
+        limit: int = 1000,
+    ) -> MemoryGraph:
+        """
+        Export memory graph for visualization.
+
+        This method retrieves nodes and relationships from the memory graph,
+        formatted for visualization libraries like NVL (Neo4j Visualization Library).
+
+        Args:
+            memory_types: Which memory types to include. Defaults to all.
+                         Options: 'episodic', 'semantic', 'procedural'
+            session_id: Filter by session ID (for episodic and procedural)
+            since: Only include data created/updated after this time
+            until: Only include data created/updated before this time
+            include_embeddings: Whether to include embedding vectors in properties.
+                              Set to False (default) for smaller payloads.
+            limit: Maximum number of nodes to return per memory type
+
+        Returns:
+            MemoryGraph with nodes, relationships, and metadata
+        """
+        if self._client is None:
+            raise NotConnectedError("Client not connected.")
+
+        if memory_types is None:
+            memory_types = ["episodic", "semantic", "procedural"]
+
+        all_nodes: list[GraphNode] = []
+        all_relationships: list[GraphRelationship] = []
+        node_ids_seen: set[str] = set()
+
+        params = {
+            "session_id": session_id,
+            "since": since.isoformat() if since else None,
+            "until": until.isoformat() if until else None,
+            "include_embeddings": include_embeddings,
+            "limit": limit,
+        }
+
+        # Fetch episodic memory graph
+        if "episodic" in memory_types:
+            try:
+                results = await self._client.execute_read(
+                    """
+                    MATCH (c:Conversation)-[r:HAS_MESSAGE]->(m:Message)
+                    WHERE ($session_id IS NULL OR c.session_id = $session_id)
+                    WITH c, r, m
+                    LIMIT $limit
+                    RETURN c, r, m
+                    """,
+                    params,
+                )
+                for row in results:
+                    conv = dict(row["c"])
+                    msg = dict(row["m"])
+
+                    # Add conversation node
+                    if conv.get("id") and conv["id"] not in node_ids_seen:
+                        props = {k: v for k, v in conv.items() if v is not None}
+                        all_nodes.append(
+                            GraphNode(
+                                id=conv["id"],
+                                labels=["Conversation"],
+                                properties=props,
+                            )
+                        )
+                        node_ids_seen.add(conv["id"])
+
+                    # Add message node
+                    if msg.get("id") and msg["id"] not in node_ids_seen:
+                        props = {k: v for k, v in msg.items() if v is not None}
+                        if not include_embeddings:
+                            props.pop("embedding", None)
+                        all_nodes.append(
+                            GraphNode(
+                                id=msg["id"],
+                                labels=["Message"],
+                                properties=props,
+                            )
+                        )
+                        node_ids_seen.add(msg["id"])
+
+                    # Add relationship
+                    if conv.get("id") and msg.get("id"):
+                        all_relationships.append(
+                            GraphRelationship(
+                                id=f"{conv['id']}->{msg['id']}",
+                                type="HAS_MESSAGE",
+                                from_node=conv["id"],
+                                to_node=msg["id"],
+                                properties={},
+                            )
+                        )
+            except Exception:
+                pass  # Skip if query fails
+
+        # Fetch semantic memory graph
+        if "semantic" in memory_types:
+            try:
+                results = await self._client.execute_read(
+                    """
+                    MATCH (e:Entity)
+                    WITH e LIMIT $limit
+                    OPTIONAL MATCH (e)-[r:RELATED_TO]-(e2:Entity)
+                    RETURN e, r, e2
+                    """,
+                    {"limit": limit},
+                )
+                for row in results:
+                    entity = dict(row["e"])
+
+                    if entity.get("id") and entity["id"] not in node_ids_seen:
+                        props = {k: v for k, v in entity.items() if v is not None}
+                        if not include_embeddings:
+                            props.pop("embedding", None)
+                        all_nodes.append(
+                            GraphNode(
+                                id=entity["id"],
+                                labels=["Entity"],
+                                properties=props,
+                            )
+                        )
+                        node_ids_seen.add(entity["id"])
+
+                    if row.get("r") and row.get("e2"):
+                        e2 = dict(row["e2"])
+                        if e2.get("id") and e2["id"] not in node_ids_seen:
+                            props = {k: v for k, v in e2.items() if v is not None}
+                            if not include_embeddings:
+                                props.pop("embedding", None)
+                            all_nodes.append(
+                                GraphNode(
+                                    id=e2["id"],
+                                    labels=["Entity"],
+                                    properties=props,
+                                )
+                            )
+                            node_ids_seen.add(e2["id"])
+
+                        rel = dict(row["r"])
+                        all_relationships.append(
+                            GraphRelationship(
+                                id=f"{entity['id']}->{e2['id']}",
+                                type=rel.get("type", "RELATED_TO"),
+                                from_node=entity["id"],
+                                to_node=e2["id"],
+                                properties={
+                                    k: v for k, v in rel.items() if k != "type" and v is not None
+                                },
+                            )
+                        )
+            except Exception:
+                pass
+
+        # Fetch procedural memory graph
+        if "procedural" in memory_types:
+            try:
+                results = await self._client.execute_read(
+                    """
+                    MATCH (rt:ReasoningTrace)
+                    WHERE ($session_id IS NULL OR rt.session_id = $session_id)
+                    WITH rt LIMIT $limit
+                    OPTIONAL MATCH (rt)-[r1:HAS_STEP]->(rs:ReasoningStep)
+                    OPTIONAL MATCH (rs)-[r2:USES_TOOL]->(tc:ToolCall)
+                    RETURN rt, r1, rs, r2, tc
+                    """,
+                    params,
+                )
+                for row in results:
+                    trace = dict(row["rt"])
+
+                    if trace.get("id") and trace["id"] not in node_ids_seen:
+                        props = {k: v for k, v in trace.items() if v is not None}
+                        if not include_embeddings:
+                            props.pop("task_embedding", None)
+                        all_nodes.append(
+                            GraphNode(
+                                id=trace["id"],
+                                labels=["ReasoningTrace"],
+                                properties=props,
+                            )
+                        )
+                        node_ids_seen.add(trace["id"])
+
+                    if row.get("rs"):
+                        step = dict(row["rs"])
+                        if step.get("id") and step["id"] not in node_ids_seen:
+                            props = {k: v for k, v in step.items() if v is not None}
+                            if not include_embeddings:
+                                props.pop("embedding", None)
+                            all_nodes.append(
+                                GraphNode(
+                                    id=step["id"],
+                                    labels=["ReasoningStep"],
+                                    properties=props,
+                                )
+                            )
+                            node_ids_seen.add(step["id"])
+
+                        if trace.get("id") and step.get("id"):
+                            all_relationships.append(
+                                GraphRelationship(
+                                    id=f"{trace['id']}->{step['id']}",
+                                    type="HAS_STEP",
+                                    from_node=trace["id"],
+                                    to_node=step["id"],
+                                    properties={},
+                                )
+                            )
+
+                    if row.get("tc") and row.get("rs"):
+                        tc = dict(row["tc"])
+                        step = dict(row["rs"])
+                        if tc.get("id") and tc["id"] not in node_ids_seen:
+                            props = {k: v for k, v in tc.items() if v is not None}
+                            all_nodes.append(
+                                GraphNode(
+                                    id=tc["id"],
+                                    labels=["ToolCall"],
+                                    properties=props,
+                                )
+                            )
+                            node_ids_seen.add(tc["id"])
+
+                        if step.get("id") and tc.get("id"):
+                            all_relationships.append(
+                                GraphRelationship(
+                                    id=f"{step['id']}->{tc['id']}",
+                                    type="USES_TOOL",
+                                    from_node=step["id"],
+                                    to_node=tc["id"],
+                                    properties={},
+                                )
+                            )
+            except Exception:
+                pass
+
+        return MemoryGraph(
+            nodes=all_nodes,
+            relationships=all_relationships,
+            metadata={
+                "memory_types": memory_types,
+                "session_id": session_id,
+                "since": since.isoformat() if since else None,
+                "until": until.isoformat() if until else None,
+                "include_embeddings": include_embeddings,
+                "node_count": len(all_nodes),
+                "relationship_count": len(all_relationships),
+            },
+        )
 
     def _create_embedder(self):
         """Create embedder based on settings."""

@@ -161,6 +161,30 @@ async def main():
             print("\n⚠️  Pydantic AI not fully installed for agent demo")
             print("   Install with: pip install pydantic-ai")
 
+        # =================================================================
+        # NEW FEATURE: record_agent_trace()
+        # =================================================================
+        print("\n📊 Demonstrating record_agent_trace()...")
+        print("   This function automatically records a PydanticAI RunResult as a reasoning trace.")
+        print("   Example usage:")
+        print("   ")
+        print("   from neo4j_agent_memory.integrations.pydantic_ai import record_agent_trace")
+        print("   ")
+        print("   result = await agent.run('Find me a restaurant', deps=deps)")
+        print("   trace = await record_agent_trace(")
+        print("       client.procedural,")
+        print("       session_id='user-123',")
+        print("       result=result,")
+        print("       task='Find restaurant recommendation',")
+        print("   )")
+        print("   ")
+        print("   # The trace now contains all tool calls from the agent run!")
+
+        # Import to show it's available
+        from neo4j_agent_memory.integrations.pydantic_ai import record_agent_trace  # noqa: F401
+
+        print("\n✅ record_agent_trace() is available for automatic trace recording")
+
         print("\n✅ Demo complete!")
 
 

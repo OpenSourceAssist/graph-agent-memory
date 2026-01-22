@@ -188,6 +188,257 @@ await memory.procedural.complete_trace(
 similar = await memory.procedural.get_similar_traces("restaurant recommendation")
 ```
 
+## Advanced Features
+
+### Batch Message Loading
+
+Load large amounts of messages efficiently with progress tracking:
+
+```python
+# Prepare messages for bulk loading
+messages = [
+    {"role": "user", "content": "Hello!", "metadata": {"source": "web"}},
+    {"role": "assistant", "content": "Hi there!", "metadata": {"source": "web"}},
+    # ... hundreds more messages
+]
+
+# Load with progress callback
+def on_progress(loaded, total):
+    print(f"Loaded {loaded}/{total} messages")
+
+await memory.episodic.add_messages_batch(
+    session_id="bulk-session",
+    messages=messages,
+    batch_size=100,
+    generate_embeddings=True,
+    extract_entities=False,  # Defer entity extraction for speed
+    on_progress=on_progress,
+)
+
+# Generate embeddings later for messages that don't have them
+await memory.episodic.generate_embeddings_batch(
+    session_id="bulk-session",
+    batch_size=50,
+)
+```
+
+### Session Management
+
+List and manage conversation sessions:
+
+```python
+# List all sessions with metadata
+sessions = await memory.episodic.list_sessions(
+    prefix="user-",  # Optional: filter by prefix
+    limit=50,
+    offset=0,
+    order_by="updated_at",  # "created_at", "updated_at", or "message_count"
+    order_dir="desc",
+)
+
+for session in sessions:
+    print(f"{session.session_id}: {session.message_count} messages")
+    print(f"  First: {session.first_message_preview}")
+    print(f"  Last: {session.last_message_preview}")
+```
+
+### Metadata-Based Search
+
+Search messages with MongoDB-style metadata filters:
+
+```python
+# Search with metadata filters
+results = await memory.episodic.search_messages(
+    "restaurant",
+    session_id="user-123",
+    metadata_filters={
+        "speaker": "Lenny",                    # Exact match
+        "turn_index": {"$gt": 5},              # Greater than
+        "source": {"$in": ["web", "mobile"]},  # In list
+        "archived": {"$exists": False},        # Field doesn't exist
+    },
+    limit=10,
+)
+```
+
+### Conversation Summaries
+
+Generate summaries of conversations:
+
+```python
+# Basic summary (no LLM required)
+summary = await memory.episodic.get_conversation_summary("user-123")
+print(summary.summary)
+print(f"Messages: {summary.message_count}")
+print(f"Key entities: {summary.key_entities}")
+
+# With custom LLM summarizer
+async def my_summarizer(transcript: str) -> str:
+    # Your LLM call here
+    response = await openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Summarize this conversation concisely."},
+            {"role": "user", "content": transcript}
+        ]
+    )
+    return response.choices[0].message.content
+
+summary = await memory.episodic.get_conversation_summary(
+    "user-123",
+    summarizer=my_summarizer,
+    include_entities=True,
+)
+```
+
+### Streaming Trace Recording
+
+Record reasoning traces during streaming responses:
+
+```python
+from neo4j_agent_memory import StreamingTraceRecorder
+
+async with StreamingTraceRecorder(
+    memory.procedural,
+    session_id="user-123",
+    task="Process customer inquiry"
+) as recorder:
+    # Start a step
+    step = await recorder.start_step(
+        thought="Analyzing the request",
+        action="analyze",
+    )
+    
+    # Record tool calls
+    await recorder.record_tool_call(
+        "search_api",
+        {"query": "customer history"},
+        {"found": 5, "results": [...]},
+    )
+    
+    # Add observations
+    await recorder.add_observation("Found 5 relevant records")
+    
+    # Start another step
+    await recorder.start_step(thought="Formulating response")
+
+# Trace is automatically completed with timing when context exits
+```
+
+### List and Filter Traces
+
+Query reasoning traces with filtering and pagination:
+
+```python
+# List traces with filters
+traces = await memory.procedural.list_traces(
+    session_id="user-123",           # Optional session filter
+    success_only=True,               # Only successful traces
+    since=datetime(2024, 1, 1),      # After this date
+    until=datetime(2024, 12, 31),    # Before this date
+    limit=50,
+    offset=0,
+    order_by="started_at",           # "started_at" or "completed_at"
+    order_dir="desc",
+)
+
+for trace in traces:
+    print(f"{trace.task}: {'Success' if trace.success else 'Failed'}")
+```
+
+### Tool Statistics (Optimized)
+
+Get pre-aggregated tool usage statistics:
+
+```python
+# Get stats for all tools (uses pre-aggregated data for speed)
+stats = await memory.procedural.get_tool_stats()
+
+for tool in stats:
+    print(f"{tool.name}:")
+    print(f"  Total calls: {tool.total_calls}")
+    print(f"  Success rate: {tool.success_rate:.1%}")
+    print(f"  Avg duration: {tool.avg_duration_ms}ms")
+
+# Migrate existing data to use pre-aggregation
+migrated = await memory.procedural.migrate_tool_stats()
+print(f"Migrated stats for {len(migrated)} tools")
+```
+
+### Graph Export for Visualization
+
+Export memory graph data for visualization:
+
+```python
+# Export the full memory graph
+graph = await memory.get_graph(
+    memory_types=["episodic", "semantic", "procedural"],  # Optional filter
+    session_id="user-123",  # Optional session filter
+    include_embeddings=False,  # Don't include large embedding vectors
+    limit=1000,
+)
+
+print(f"Nodes: {len(graph.nodes)}")
+print(f"Relationships: {len(graph.relationships)}")
+
+# Access graph data
+for node in graph.nodes:
+    print(f"{node.labels}: {node.properties.get('name', node.id)}")
+
+for rel in graph.relationships:
+    print(f"{rel.from_node} -[{rel.type}]-> {rel.to_node}")
+```
+
+### PydanticAI Trace Recording
+
+Automatically record PydanticAI agent runs as reasoning traces:
+
+```python
+from pydantic_ai import Agent
+from neo4j_agent_memory.integrations.pydantic_ai import record_agent_trace
+
+agent = Agent('openai:gpt-4o')
+
+# Run the agent
+result = await agent.run("Find me a good restaurant")
+
+# Record the trace automatically
+trace = await record_agent_trace(
+    memory.procedural,
+    session_id="user-123",
+    result=result,
+    task="Restaurant recommendation",
+    include_tool_calls=True,
+)
+
+print(f"Recorded trace with {len(trace.steps)} steps")
+```
+
+### Testing Utilities
+
+Mock implementations for unit testing without Neo4j:
+
+```python
+from neo4j_agent_memory.testing import MockMemoryClient, MemoryFixtures
+
+# Create mock client for testing
+async def test_my_agent():
+    client = MockMemoryClient()
+    
+    # Use like real MemoryClient
+    await client.episodic.add_message("session-1", "user", "Hello")
+    conv = await client.episodic.get_conversation("session-1")
+    
+    assert len(conv.messages) == 1
+
+# Create test data with fixtures
+def test_with_fixtures():
+    message = MemoryFixtures.message(role="user", content="Test")
+    conversation = MemoryFixtures.conversation(message_count=5)
+    trace = MemoryFixtures.reasoning_trace(step_count=3, include_tool_calls=True)
+    embedding = MemoryFixtures.embedding(dimensions=1536)
+```
+
 ## POLE+O Data Model
 
 The package uses the POLE+O data model for entity classification, an extension of the POLE (Person, Object, Location, Event) model commonly used in law enforcement and intelligence analysis:
