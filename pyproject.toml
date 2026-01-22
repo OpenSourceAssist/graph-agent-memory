@@ -104,9 +104,16 @@ build-backend = "hatchling.build"
 packages = ["src/neo4j_agent_memory"]
 
 [tool.hatch.build.targets.sdist]
-include = [
-    "/src",
-    "/tests",
+only-include = [
+    "src",
+    "pyproject.toml",
+    "README.md",
+    "LICENSE",
+]
+exclude = [
+    "/.gitignore",
+    ".gitignore",
+    "**/.gitignore",
 ]
 
 [tool.pytest.ini_options]
