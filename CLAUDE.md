@@ -20,7 +20,7 @@ The long-term memory uses the POLE+O entity model (Person, Object, Location, Eve
 - **EVENT**: Incidents, meetings, transactions
 - **ORGANIZATION**: Companies, non-profits, government agencies
 
-Each entity type supports subtypes for finer classification (e.g., `OBJECT:VEHICLE`, `LOCATION:ADDRESS`).
+Each entity type supports subtypes for finer classification (e.g., `OBJECT:VEHICLE`, `LOCATION:ADDRESS`). Types and subtypes are stored as uppercase properties but converted to PascalCase labels in Neo4j (e.g., `:Person`, `:Vehicle`).
 
 ## Build & Development Commands
 
@@ -118,7 +118,7 @@ src/neo4j_agent_memory/
 The package creates these node types:
 - `Conversation`, `Message` (short-term)
 - `Entity` (with `type`, `subtype` for POLE+O), `Preference`, `Fact` (long-term)
-  - Entity nodes have dynamic labels for type/subtype (e.g., `:Entity:PERSON:INDIVIDUAL`, `:Entity:OBJECT:VEHICLE`)
+  - Entity nodes have dynamic PascalCase labels for type/subtype (e.g., `:Entity:Person:Individual`, `:Entity:Object:Vehicle`)
 - `ReasoningTrace`, `ReasoningStep`, `ToolCall`, `Tool` (procedural)
 
 #### Short-Term Memory Relationships
@@ -334,7 +334,7 @@ deps = MemoryDependency(client=client, session_id="user-123")
 
 8. **Type-Aware Resolution**: The `CompositeResolver` now supports type-aware resolution - entities of different types (e.g., PERSON vs LOCATION) are never merged even if they have similar names.
 
-9. **Entity Type Labels**: Entity `type` and `subtype` are added as Neo4j node labels (e.g., `:Entity:PERSON:INDIVIDUAL`) for efficient querying. The `query_builder.py` module validates types against POLE+O whitelist before adding labels. Custom types outside POLE+O are stored as properties only.
+9. **Entity Type Labels**: Entity `type` and `subtype` are added as PascalCase Neo4j node labels (e.g., `:Entity:Person:Individual`) for efficient querying. The `query_builder.py` module sanitizes types to ensure they are valid Neo4j label identifiers and converts them to PascalCase. Both POLE+O types and custom types become labels. For POLE+O types, subtypes are validated against known subtypes; for custom types, any valid identifier works as a subtype.
 
 ## Environment Variables
 

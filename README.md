@@ -515,27 +515,43 @@ await client.long_term.add_entity(
     description="Silver sedan"
 )
 
-# Neo4j creates a node with multiple labels:
-# (:Entity:OBJECT:VEHICLE {name: "Toyota Camry", type: "OBJECT", subtype: "VEHICLE", ...})
+# Neo4j creates a node with multiple PascalCase labels:
+# (:Entity:Object:Vehicle {name: "Toyota Camry", type: "OBJECT", subtype: "VEHICLE", ...})
 ```
 
-This allows efficient Cypher queries by type:
+This allows efficient Cypher queries by type (using PascalCase labels):
 
 ```cypher
 -- Find all vehicles
-MATCH (v:VEHICLE) RETURN v
+MATCH (v:Vehicle) RETURN v
 
 -- Find all people
-MATCH (p:PERSON) RETURN p
+MATCH (p:Person) RETURN p
 
 -- Find all organizations
-MATCH (o:ORGANIZATION) RETURN o
+MATCH (o:Organization) RETURN o
 
 -- Combine with other criteria
-MATCH (v:VEHICLE {name: "Toyota Camry"}) RETURN v
+MATCH (v:Vehicle {name: "Toyota Camry"}) RETURN v
 ```
 
-Labels are only added for valid POLE+O types and subtypes. Custom types outside the POLE+O model are stored as properties only.
+**Custom Entity Types:** If you define custom entity types outside the POLE+O model, they are also added as PascalCase labels as long as they are valid Neo4j label identifiers (start with a letter, contain only letters, numbers, and underscores):
+
+```python
+# Custom types also become PascalCase labels
+await client.long_term.add_entity(
+    name="Widget Pro",
+    entity_type="PRODUCT",      # Custom type -> becomes :Product label
+    subtype="ELECTRONICS",      # Custom subtype -> becomes :Electronics label
+)
+
+# Neo4j node: (:Entity:Product:Electronics {name: "Widget Pro", ...})
+
+# Query custom types
+MATCH (p:Product:Electronics) RETURN p
+```
+
+For POLE+O types, subtypes are validated against the known subtypes for that type. For custom types, any valid identifier can be used as a subtype.
 
 ## Entity Extraction Pipeline
 
@@ -800,7 +816,7 @@ The package automatically creates the following schema:
 ### Node Labels
 - `Conversation`, `Message` - Short-term memory
 - `Entity`, `Preference`, `Fact` - Long-term memory
-  - Entity nodes also have type/subtype labels (e.g., `:Entity:PERSON:INDIVIDUAL`, `:Entity:OBJECT:VEHICLE`)
+  - Entity nodes also have PascalCase type/subtype labels (e.g., `:Entity:Person:Individual`, `:Entity:Object:Vehicle`)
 - `ReasoningTrace`, `ReasoningStep`, `Tool`, `ToolCall` - Procedural memory
 
 ### Relationships

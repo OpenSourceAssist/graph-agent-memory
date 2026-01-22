@@ -179,15 +179,25 @@ async def main():
         )
 
         # Add entities (using POLE+O types)
-        # Entities are stored with type and subtype as Neo4j node labels for efficient querying.
-        # Example: This creates a node with labels (:Entity:LOCATION:LANDMARK)
-        # You can then query with: MATCH (l:LOCATION:LANDMARK) RETURN l
+        # Entities are stored with type and subtype as PascalCase Neo4j node labels for efficient querying.
+        # Example: This creates a node with labels (:Entity:Location:Landmark)
+        # You can then query with: MATCH (l:Location:Landmark) RETURN l
         await memory.long_term.add_entity(
             name="Downtown",
-            entity_type="LOCATION",  # POLE+O type (also becomes a node label)
-            subtype="LANDMARK",  # Optional subtype (also becomes a node label)
+            entity_type="LOCATION",  # POLE+O type (becomes :Location label)
+            subtype="LANDMARK",  # Optional subtype (becomes :Landmark label)
             description="User's preferred dining area",
         )
+
+        # Custom entity types also become PascalCase labels (not just POLE+O types)
+        # Example: This creates a node with labels (:Entity:Cuisine:Italian)
+        await memory.long_term.add_entity(
+            name="Italian Food",
+            entity_type="CUISINE",  # Custom type -> becomes :Cuisine label
+            subtype="ITALIAN",  # Custom subtype -> becomes :Italian label
+            description="User's favorite cuisine type",
+        )
+        # Query custom types with: MATCH (c:Cuisine) RETURN c
 
         # Add facts
         await memory.long_term.add_fact(

@@ -1,18 +1,23 @@
 """Query builder utilities for dynamic Cypher generation with validated labels.
 
-This module provides functions to build Cypher queries with dynamic entity labels
-based on the POLE+O model (Person, Object, Location, Event, Organization).
+This module provides functions to build Cypher queries with dynamic entity labels.
+It supports both the built-in POLE+O model (Person, Object, Location, Event, Organization)
+and custom entity types defined by users.
 
 Since Neo4j doesn't support parameterized labels in Cypher, we use query string
-construction with strict validation against known POLE+O types to ensure safety.
+construction with sanitization to prevent Cypher injection while allowing flexibility.
+
+Labels are converted to PascalCase following Neo4j naming conventions.
 """
 
+import re
 from typing import Set
 
-# Valid POLE+O entity types
+# Valid POLE+O entity types (stored uppercase internally, converted to PascalCase for labels)
 VALID_ENTITY_TYPES: Set[str] = {"PERSON", "OBJECT", "LOCATION", "EVENT", "ORGANIZATION"}
 
 # Valid subtypes by entity type (from schema/models.py)
+# Stored uppercase internally, converted to PascalCase for labels
 VALID_SUBTYPES: dict[str, Set[str]] = {
     "PERSON": {"INDIVIDUAL", "ALIAS", "PERSONA", "SUSPECT", "WITNESS", "VICTIM"},
     "OBJECT": {
@@ -64,9 +69,102 @@ VALID_SUBTYPES: dict[str, Set[str]] = {
     },
 }
 
+# Pattern for valid Neo4j labels: must start with letter, can contain letters, numbers, underscores
+# This prevents Cypher injection while allowing flexible custom types
+VALID_LABEL_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
+
+
+def to_pascal_case(s: str) -> str:
+    """Convert a string to PascalCase for Neo4j label naming convention.
+
+    Handles various input formats:
+    - UPPERCASE -> Uppercase (e.g., PERSON -> Person)
+    - snake_case -> SnakeCase (e.g., my_type -> MyType)
+    - already PascalCase -> unchanged
+    - mixedCase -> MixedCase
+
+    Args:
+        s: The string to convert
+
+    Returns:
+        PascalCase version of the string
+    """
+    if not s:
+        return s
+
+    # Split on underscores and capitalize each part
+    parts = s.split("_")
+    result_parts = []
+
+    for part in parts:
+        if not part:
+            continue
+        # Capitalize first letter, lowercase the rest
+        result_parts.append(part[0].upper() + part[1:].lower())
+
+    return "".join(result_parts)
+
+
+def sanitize_label(label: str) -> str | None:
+    """Sanitize and normalize a string for use as a Neo4j label.
+
+    Labels must start with a letter and contain only letters, numbers, and underscores.
+    This prevents Cypher injection while allowing custom entity types.
+    Labels are converted to PascalCase following Neo4j naming conventions.
+
+    Args:
+        label: The label string to sanitize
+
+    Returns:
+        PascalCase label if valid, None if invalid
+    """
+    if not label or not isinstance(label, str):
+        return None
+
+    # Strip whitespace
+    stripped = label.strip()
+
+    # Validate against pattern (before case conversion)
+    if not VALID_LABEL_PATTERN.match(stripped):
+        return None
+
+    # Convert to PascalCase for Neo4j convention
+    return to_pascal_case(stripped)
+
+
+def is_poleo_type(entity_type: str) -> bool:
+    """Check if an entity type is a valid POLE+O type.
+
+    Args:
+        entity_type: The entity type to check
+
+    Returns:
+        True if the type is a valid POLE+O type, False otherwise
+    """
+    return entity_type.upper() in VALID_ENTITY_TYPES
+
+
+def is_poleo_subtype(entity_type: str, subtype: str) -> bool:
+    """Check if a subtype is valid for a given POLE+O entity type.
+
+    Args:
+        entity_type: The parent entity type
+        subtype: The subtype to check
+
+    Returns:
+        True if the subtype is valid for the entity type, False otherwise
+    """
+    type_upper = entity_type.upper()
+    subtype_upper = subtype.upper()
+    valid_subtypes = VALID_SUBTYPES.get(type_upper, set())
+    return subtype_upper in valid_subtypes
+
 
 def validate_entity_type(entity_type: str) -> str | None:
-    """Validate and normalize entity type.
+    """Validate and normalize entity type for use as a label.
+
+    Accepts both POLE+O types and custom types. Custom types must be valid
+    Neo4j label identifiers (start with letter, alphanumeric + underscore).
 
     Args:
         entity_type: The entity type to validate
@@ -74,24 +172,37 @@ def validate_entity_type(entity_type: str) -> str | None:
     Returns:
         Normalized (uppercase) entity type if valid, None if invalid
     """
-    type_upper = entity_type.upper()
-    return type_upper if type_upper in VALID_ENTITY_TYPES else None
+    return sanitize_label(entity_type)
 
 
 def validate_subtype(entity_type: str, subtype: str) -> str | None:
-    """Validate and normalize subtype for a given entity type.
+    """Validate and normalize subtype for use as a label.
+
+    For POLE+O types, validates against known subtypes.
+    For custom types, accepts any valid Neo4j label identifier.
+    Returns PascalCase label.
 
     Args:
         entity_type: The parent entity type
         subtype: The subtype to validate
 
     Returns:
-        Normalized (uppercase) subtype if valid for the entity type, None if invalid
+        PascalCase subtype if valid, None if invalid
     """
-    type_upper = entity_type.upper()
-    subtype_upper = subtype.upper()
-    valid_subtypes = VALID_SUBTYPES.get(type_upper, set())
-    return subtype_upper if subtype_upper in valid_subtypes else None
+    type_upper = entity_type.upper() if entity_type else ""
+    subtype_upper = subtype.upper() if subtype else ""
+
+    # For POLE+O types, validate against known subtypes
+    if is_poleo_type(type_upper):
+        valid_subtypes = VALID_SUBTYPES.get(type_upper, set())
+        if subtype_upper in valid_subtypes:
+            # Convert to PascalCase for label
+            return to_pascal_case(subtype)
+        # For POLE+O types, only allow known subtypes
+        return None
+
+    # For custom types, allow any valid label identifier as subtype
+    return sanitize_label(subtype)
 
 
 def build_label_set_clause(entity_type: str, subtype: str | None, node_var: str = "e") -> str:

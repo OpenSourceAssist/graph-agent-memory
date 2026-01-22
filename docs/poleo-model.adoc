@@ -227,11 +227,11 @@ Each entity has the base `:Entity` label plus the type and subtype as additional
 
 [source,cypher]
 ----
-(:Entity:PERSON:INDIVIDUAL {
+(:Entity:Person:Individual {
     id: "uuid",
     name: "John Smith",
-    type: "PERSON",                    // POLE+O type (also as label)
-    subtype: "INDIVIDUAL",             // Optional subtype (also as label)
+    type: "PERSON",                    // POLE+O type (stored as uppercase)
+    subtype: "INDIVIDUAL",             // Optional subtype (stored as uppercase)
     canonical_name: "John Smith",      // Resolved name
     description: "CEO of Acme Corp",
     confidence: 0.92,
@@ -241,34 +241,64 @@ Each entity has the base `:Entity` label plus the type and subtype as additional
 })
 ----
 
+NOTE: Entity types and subtypes are stored as uppercase properties (e.g., `type: "PERSON"`) but labels use PascalCase (e.g., `:Person`) following Neo4j naming conventions.
+
 === Label Structure
 
 Each entity has:
 
 * `:Entity` - Base label (always present)
-* `:<TYPE>` - POLE+O type as label (e.g., `:PERSON`, `:OBJECT`, `:LOCATION`, `:EVENT`, `:ORGANIZATION`)
-* `:<SUBTYPE>` - Subtype as label when present (e.g., `:VEHICLE`, `:ADDRESS`, `:COMPANY`)
+* `:<Type>` - Entity type as PascalCase label (e.g., `:Person`, `:Object`, `:Location`, `:Event`, `:Organization`)
+* `:<Subtype>` - Subtype as PascalCase label when present (e.g., `:Vehicle`, `:Address`, `:Company`)
+
+Both POLE+O types and custom types are added as PascalCase labels, as long as they are valid Neo4j label identifiers (start with a letter, contain only letters, numbers, and underscores).
 
 This enables efficient queries like:
 
 [source,cypher]
 ----
 // Find all people
-MATCH (p:PERSON) RETURN p
+MATCH (p:Person) RETURN p
 
-// Find all vehicles (regardless of whether they're OBJECT type)
-MATCH (v:VEHICLE) RETURN v
+// Find all vehicles (regardless of whether they're Object type)
+MATCH (v:Vehicle) RETURN v
 
 // Find all entities (any type)
 MATCH (e:Entity) RETURN e
 
 // Find people who are individuals
-MATCH (p:PERSON:INDIVIDUAL) RETURN p
+MATCH (p:Person:Individual) RETURN p
 
 // Combine with relationship traversal
-MATCH (p:PERSON)-[:WORKS_AT]->(o:ORGANIZATION:COMPANY)
+MATCH (p:Person)-[:WORKS_AT]->(o:Organization:Company)
 RETURN p.name, o.name
 ----
+
+==== Custom Entity Types
+
+Custom entity types outside the POLE+O model also become PascalCase labels:
+
+[source,python]
+----
+# Custom types become PascalCase labels
+await client.long_term.add_entity(
+    name="Widget Pro",
+    entity_type="PRODUCT",
+    subtype="ELECTRONICS",
+)
+
+# Creates: (:Entity:Product:Electronics {name: "Widget Pro", ...})
+----
+
+Query by custom type:
+
+[source,cypher]
+----
+MATCH (p:Product) RETURN p
+MATCH (e:Electronics) RETURN e
+----
+
+NOTE: For POLE+O types, subtypes are validated against the known subtypes for that type. For custom types, any valid Neo4j label identifier can be used as a subtype.
 
 === Relationships
 
@@ -277,19 +307,19 @@ Entities can have relationships to other entities:
 [source,cypher]
 ----
 // Person works at organization
-(:PERSON)-[:WORKS_AT]->(:ORGANIZATION)
+(:Person)-[:WORKS_AT]->(:Organization)
 
 // Person lives at location
-(:PERSON)-[:LIVES_IN]->(:LOCATION)
+(:Person)-[:LIVES_IN]->(:Location)
 
 // Organization located at location
-(:ORGANIZATION)-[:LOCATED_AT]->(:LOCATION)
+(:Organization)-[:LOCATED_AT]->(:Location)
 
 // Person owns object
-(:PERSON)-[:OWNS]->(:OBJECT)
+(:Person)-[:OWNS]->(:Object)
 
 // Person participated in event
-(:PERSON)-[:PARTICIPATED_IN]->(:EVENT)
+(:Person)-[:PARTICIPATED_IN]->(:Event)
 ----
 
 === Message Links

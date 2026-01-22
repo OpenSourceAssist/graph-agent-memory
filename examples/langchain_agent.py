@@ -70,9 +70,9 @@ async def main():
         await client.long_term.add_preference(
             "food", "Loves spicy dishes", context="Dining preferences"
         )
-        # Add entity - type and subtype become Neo4j node labels for efficient querying
-        # This creates a node with labels (:Entity:ORGANIZATION)
-        # You can query with: MATCH (o:ORGANIZATION) RETURN o
+        # Add entity - type and subtype become PascalCase Neo4j node labels for efficient querying
+        # This creates a node with labels (:Entity:Organization)
+        # You can query with: MATCH (o:Organization) RETURN o
         await client.long_term.add_entity(
             name="Thai Kitchen",
             entity_type="ORGANIZATION",  # Becomes a node label

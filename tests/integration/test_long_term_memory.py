@@ -508,11 +508,11 @@ class TestLongTermMemoryEdgeCases:
 
 @pytest.mark.integration
 class TestEntityNodeLabels:
-    """Test that entities have type and subtype as Neo4j node labels."""
+    """Test that entities have type and subtype as Neo4j node labels (PascalCase)."""
 
     @pytest.mark.asyncio
     async def test_entity_has_type_label(self, memory_client):
-        """Test that created entities have type as a node label."""
+        """Test that created entities have type as a PascalCase node label."""
         entity = await memory_client.long_term.add_entity(
             name="Label Test Person",
             entity_type="PERSON",
@@ -528,11 +528,11 @@ class TestEntityNodeLabels:
 
         labels = result[0]["labels"]
         assert "Entity" in labels
-        assert "PERSON" in labels
+        assert "Person" in labels  # PascalCase
 
     @pytest.mark.asyncio
     async def test_entity_has_subtype_label(self, memory_client):
-        """Test that created entities have subtype as a node label."""
+        """Test that created entities have subtype as a PascalCase node label."""
         entity = await memory_client.long_term.add_entity(
             name="Tesla Model 3",
             entity_type="OBJECT",
@@ -549,21 +549,22 @@ class TestEntityNodeLabels:
 
         labels = result[0]["labels"]
         assert "Entity" in labels
-        assert "OBJECT" in labels
-        assert "VEHICLE" in labels
+        assert "Object" in labels  # PascalCase
+        assert "Vehicle" in labels  # PascalCase
 
     @pytest.mark.asyncio
     async def test_all_pole_o_types_have_labels(self, memory_client):
-        """Test that all POLE+O types are added as labels."""
+        """Test that all POLE+O types are added as PascalCase labels."""
+        # Map from input type to expected PascalCase label
         test_cases = [
-            ("PERSON", None),
-            ("OBJECT", None),
-            ("LOCATION", None),
-            ("EVENT", None),
-            ("ORGANIZATION", None),
+            ("PERSON", None, "Person"),
+            ("OBJECT", None, "Object"),
+            ("LOCATION", None, "Location"),
+            ("EVENT", None, "Event"),
+            ("ORGANIZATION", None, "Organization"),
         ]
 
-        for entity_type, subtype in test_cases:
+        for entity_type, subtype, expected_label in test_cases:
             entity = await memory_client.long_term.add_entity(
                 name=f"Test {entity_type}",
                 entity_type=entity_type,
@@ -579,22 +580,22 @@ class TestEntityNodeLabels:
 
             labels = result[0]["labels"]
             assert "Entity" in labels, f"Missing Entity label for {entity_type}"
-            assert entity_type in labels, f"Missing {entity_type} label"
+            assert expected_label in labels, f"Missing {expected_label} label"
 
     @pytest.mark.asyncio
     async def test_subtypes_have_labels(self, memory_client):
-        """Test that various subtypes are added as labels."""
+        """Test that various subtypes are added as PascalCase labels."""
         test_cases = [
-            ("PERSON", "INDIVIDUAL"),
-            ("OBJECT", "VEHICLE"),
-            ("OBJECT", "DOCUMENT"),
-            ("LOCATION", "ADDRESS"),
-            ("LOCATION", "CITY"),
-            ("EVENT", "MEETING"),
-            ("ORGANIZATION", "COMPANY"),
+            ("PERSON", "INDIVIDUAL", "Person", "Individual"),
+            ("OBJECT", "VEHICLE", "Object", "Vehicle"),
+            ("OBJECT", "DOCUMENT", "Object", "Document"),
+            ("LOCATION", "ADDRESS", "Location", "Address"),
+            ("LOCATION", "CITY", "Location", "City"),
+            ("EVENT", "MEETING", "Event", "Meeting"),
+            ("ORGANIZATION", "COMPANY", "Organization", "Company"),
         ]
 
-        for entity_type, subtype in test_cases:
+        for entity_type, subtype, expected_type_label, expected_subtype_label in test_cases:
             entity = await memory_client.long_term.add_entity(
                 name=f"Test {entity_type} {subtype}",
                 entity_type=entity_type,
@@ -610,12 +611,12 @@ class TestEntityNodeLabels:
 
             labels = result[0]["labels"]
             assert "Entity" in labels
-            assert entity_type in labels, f"Missing {entity_type} label"
-            assert subtype in labels, f"Missing {subtype} label for {entity_type}:{subtype}"
+            assert expected_type_label in labels, f"Missing {expected_type_label} label"
+            assert expected_subtype_label in labels, f"Missing {expected_subtype_label} label"
 
     @pytest.mark.asyncio
     async def test_query_entities_by_type_label(self, memory_client):
-        """Test querying entities using type label directly."""
+        """Test querying entities using PascalCase type label directly."""
         # Create entities of different types
         await memory_client.long_term.add_entity(
             name="John Doe",
@@ -636,18 +637,18 @@ class TestEntityNodeLabels:
             generate_embedding=False,
         )
 
-        # Query by PERSON label directly
+        # Query by Person label directly (PascalCase)
         result = await memory_client._client.execute_read(
-            "MATCH (p:PERSON) WHERE p:Entity RETURN p.name AS name"
+            "MATCH (p:Person) WHERE p:Entity RETURN p.name AS name"
         )
         names = [r["name"] for r in result]
         assert "John Doe" in names
         assert "Acme Corp" not in names
         assert "New York" not in names
 
-        # Query by ORGANIZATION label
+        # Query by Organization label (PascalCase)
         result = await memory_client._client.execute_read(
-            "MATCH (o:ORGANIZATION) WHERE o:Entity RETURN o.name AS name"
+            "MATCH (o:Organization) WHERE o:Entity RETURN o.name AS name"
         )
         names = [r["name"] for r in result]
         assert "Acme Corp" in names
@@ -655,7 +656,7 @@ class TestEntityNodeLabels:
 
     @pytest.mark.asyncio
     async def test_query_entities_by_subtype_label(self, memory_client):
-        """Test querying entities using subtype label directly."""
+        """Test querying entities using PascalCase subtype label directly."""
         # Create entities with subtypes
         await memory_client.long_term.add_entity(
             name="Ford F-150",
@@ -672,29 +673,29 @@ class TestEntityNodeLabels:
             generate_embedding=False,
         )
 
-        # Query by VEHICLE label
+        # Query by Vehicle label (PascalCase)
         result = await memory_client._client.execute_read(
-            "MATCH (v:VEHICLE) WHERE v:Entity RETURN v.name AS name"
+            "MATCH (v:Vehicle) WHERE v:Entity RETURN v.name AS name"
         )
         names = [r["name"] for r in result]
         assert "Ford F-150" in names
         assert "iPhone 15" not in names
 
-        # Query by DEVICE label
+        # Query by Device label (PascalCase)
         result = await memory_client._client.execute_read(
-            "MATCH (d:DEVICE) WHERE d:Entity RETURN d.name AS name"
+            "MATCH (d:Device) WHERE d:Entity RETURN d.name AS name"
         )
         names = [r["name"] for r in result]
         assert "iPhone 15" in names
         assert "Ford F-150" not in names
 
     @pytest.mark.asyncio
-    async def test_invalid_type_no_extra_label(self, memory_client):
-        """Test that invalid types don't add extra labels."""
-        # Custom/invalid types should still create Entity but without type label
+    async def test_custom_type_has_label(self, memory_client):
+        """Test that custom entity types are also added as PascalCase labels."""
+        # Custom types (valid identifiers) should become labels
         entity = await memory_client.long_term.add_entity(
             name="Custom Entity",
-            entity_type="CUSTOM_TYPE",  # Not a valid POLE+O type
+            entity_type="PRODUCT",  # Custom type (not POLE+O)
             resolve=False,
             generate_embedding=False,
         )
@@ -706,8 +707,83 @@ class TestEntityNodeLabels:
 
         labels = result[0]["labels"]
         assert "Entity" in labels
-        # CUSTOM_TYPE should NOT be a label (only valid POLE+O types become labels)
-        assert "CUSTOM_TYPE" not in labels
+        # Custom types ARE now added as PascalCase labels
+        assert "Product" in labels
+
+    @pytest.mark.asyncio
+    async def test_custom_type_and_subtype_have_labels(self, memory_client):
+        """Test that custom types with custom subtypes have both as PascalCase labels."""
+        entity = await memory_client.long_term.add_entity(
+            name="iPhone 15 Pro",
+            entity_type="PRODUCT",
+            subtype="ELECTRONICS",
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        result = await memory_client._client.execute_read(
+            "MATCH (e:Entity {id: $id}) RETURN labels(e) AS labels",
+            {"id": str(entity.id)},
+        )
+
+        labels = result[0]["labels"]
+        assert "Entity" in labels
+        assert "Product" in labels  # PascalCase
+        assert "Electronics" in labels  # PascalCase
+
+    @pytest.mark.asyncio
+    async def test_query_by_custom_type_label(self, memory_client):
+        """Test querying entities using custom PascalCase type labels."""
+        # Create entities with custom types
+        await memory_client.long_term.add_entity(
+            name="Widget A",
+            entity_type="PRODUCT",
+            resolve=False,
+            generate_embedding=False,
+        )
+        await memory_client.long_term.add_entity(
+            name="Subscription Plan",
+            entity_type="SERVICE",
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        # Query by Product label (PascalCase)
+        result = await memory_client._client.execute_read(
+            "MATCH (p:Product) WHERE p:Entity RETURN p.name AS name"
+        )
+        names = [r["name"] for r in result]
+        assert "Widget A" in names
+        assert "Subscription Plan" not in names
+
+        # Query by Service label (PascalCase)
+        result = await memory_client._client.execute_read(
+            "MATCH (s:Service) WHERE s:Entity RETURN s.name AS name"
+        )
+        names = [r["name"] for r in result]
+        assert "Subscription Plan" in names
+        assert "Widget A" not in names
+
+    @pytest.mark.asyncio
+    async def test_invalid_label_format_no_extra_label(self, memory_client):
+        """Test that invalid label formats don't add extra labels."""
+        # Types with invalid label format should still create Entity but without type label
+        entity = await memory_client.long_term.add_entity(
+            name="Entity with bad type",
+            entity_type="has-dash",  # Invalid: contains dash
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        result = await memory_client._client.execute_read(
+            "MATCH (e:Entity {id: $id}) RETURN labels(e) AS labels",
+            {"id": str(entity.id)},
+        )
+
+        labels = result[0]["labels"]
+        assert "Entity" in labels
+        # Invalid format should NOT be a label
+        assert len(labels) == 1  # Only Entity label
 
     @pytest.mark.asyncio
     async def test_type_subtype_string_format(self, memory_client):
@@ -727,10 +803,10 @@ class TestEntityNodeLabels:
         row = result[0]
         labels = row["labels"]
 
-        # Should have both type and subtype as labels
+        # Should have both type and subtype as PascalCase labels
         assert "Entity" in labels
-        assert "LOCATION" in labels
-        assert "ADDRESS" in labels
+        assert "Location" in labels
+        assert "Address" in labels
 
         # Properties should also be set correctly
         assert row["type"] == "LOCATION"
