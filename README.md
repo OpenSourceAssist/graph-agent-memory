@@ -11,7 +11,7 @@ A comprehensive memory system for AI agents using Neo4j as the persistence layer
 
 - **Three Memory Types**: Short-Term (conversations), Long-Term (facts/preferences), and Procedural (reasoning traces)
 - **POLE+O Data Model**: Configurable entity schema based on Person, Object, Location, Event, Organization types with subtypes
-- **Multi-Stage Entity Extraction**: Pipeline combining spaCy, GLiNER, and LLM extractors with configurable merge strategies
+- **Multi-Stage Entity Extraction**: Pipeline combining spaCy, GLiNER2, and LLM extractors with configurable merge strategies
 - **Entity Resolution**: Multi-strategy deduplication (exact, fuzzy, semantic matching) with type-aware resolution
 - **Vector Search**: Semantic similarity search across all memory types
 - **Temporal Relationships**: Track when facts become valid or invalid
@@ -194,64 +194,6 @@ await memory.procedural.link_trace_to_message(trace.id, message.id)
 ```
 
 ## Advanced Features
-
-### Message Linking
-
-Messages in conversations are automatically linked sequentially in the graph for efficient traversal:
-
-```
-(Conversation) -[:FIRST_MESSAGE]-> (Message)     # O(1) access to first message
-(Conversation) -[:HAS_MESSAGE]-> (Message)       # Membership check
-(Message) -[:NEXT_MESSAGE]-> (Message)           # Sequential chain
-```
-
-This happens automatically when adding messages. For existing data without links:
-
-```python
-# Migrate existing conversations to use message linking
-migrated = await memory.short_term.migrate_message_links()
-print(f"Migrated {len(migrated)} conversations")
-# Returns: {"conversation_id": num_messages_linked, ...}
-```
-
-Cross-memory linking connects procedural memory to messages:
-
-```
-(ReasoningTrace) -[:INITIATED_BY]-> (Message)    # Trace triggered by message
-(ToolCall) -[:TRIGGERED_BY]-> (Message)          # Tool call triggered by message
-```
-
-### Batch Message Loading
-
-Load large amounts of messages efficiently with progress tracking:
-
-```python
-# Prepare messages for bulk loading
-messages = [
-    {"role": "user", "content": "Hello!", "metadata": {"source": "web"}},
-    {"role": "assistant", "content": "Hi there!", "metadata": {"source": "web"}},
-    # ... hundreds more messages
-]
-
-# Load with progress callback
-def on_progress(loaded, total):
-    print(f"Loaded {loaded}/{total} messages")
-
-await memory.short_term.add_messages_batch(
-    session_id="bulk-session",
-    messages=messages,
-    batch_size=100,
-    generate_embeddings=True,
-    extract_entities=False,  # Defer entity extraction for speed
-    on_progress=on_progress,
-)
-
-# Generate embeddings later for messages that don't have them
-await memory.short_term.generate_embeddings_batch(
-    session_id="bulk-session",
-    batch_size=50,
-)
-```
 
 ### Session Management
 
@@ -443,31 +385,6 @@ trace = await record_agent_trace(
 )
 
 print(f"Recorded trace with {len(trace.steps)} steps")
-```
-
-### Testing Utilities
-
-Mock implementations for unit testing without Neo4j:
-
-```python
-from neo4j_agent_memory.testing import MockMemoryClient, MemoryFixtures
-
-# Create mock client for testing
-async def test_my_agent():
-    client = MockMemoryClient()
-    
-    # Use like real MemoryClient
-    await client.short_term.add_message("session-1", "user", "Hello")
-    conv = await client.short_term.get_conversation("session-1")
-    
-    assert len(conv.messages) == 1
-
-# Create test data with fixtures
-def test_with_fixtures():
-    message = MemoryFixtures.message(role="user", content="Test")
-    conversation = MemoryFixtures.conversation(message_count=5)
-    trace = MemoryFixtures.reasoning_trace(step_count=3, include_tool_calls=True)
-    embedding = MemoryFixtures.embedding(dimensions=1536)
 ```
 
 ## POLE+O Data Model
@@ -816,7 +733,7 @@ The package automatically creates the following schema:
 ### Node Labels
 - `Conversation`, `Message` - Short-term memory
 - `Entity`, `Preference`, `Fact` - Long-term memory
-  - Entity nodes also have PascalCase type/subtype labels (e.g., `:Entity:Person:Individual`, `:Entity:Object:Vehicle`)
+  - Entity nodes also have type/subtype labels (e.g., `:Entity:Person:Individual`, `:Entity:Object:Vehicle`)
 - `ReasoningTrace`, `ReasoningStep`, `Tool`, `ToolCall` - Procedural memory
 
 ### Relationships
@@ -927,63 +844,6 @@ make example-basic
 # Or without .env (auto-starts Docker Neo4j)
 rm examples/.env  # Ensure no .env file
 make example-basic  # Will start Docker with test-password
-```
-
-### Full-Stack Chat Agent Example
-
-The `examples/full-stack-chat-agent/` directory contains a complete web application demonstrating all features of neo4j-agent-memory:
-
-**Features:**
-- PydanticAI agent with memory-enhanced system prompts
-- All three memory types (short-term, long-term, procedural)
-- News graph tools for searching and analyzing articles
-- SSE streaming for real-time responses
-- Next.js 14 frontend with Chakra UI
-- Thread management and memory context display
-- **Memory Graph Visualization**: Interactive graph view using Neo4j NVL library showing all memory nodes and relationships
-- **Automatic Preference Extraction**: User preferences are automatically detected and stored in long-term memory
-- **Memory Context Panel**: Side panel displaying recent messages, extracted preferences, and entities
-
-**Quick Start:**
-
-```bash
-# Install dependencies
-make chat-agent-install
-
-# Configure backend environment
-cp examples/full-stack-chat-agent/backend/.env.example examples/full-stack-chat-agent/backend/.env
-# Edit .env and add your OPENAI_API_KEY
-
-# Start Neo4j
-make neo4j-start
-
-# Terminal 1: Run backend
-make chat-agent-backend
-
-# Terminal 2: Run frontend
-make chat-agent-frontend
-
-# Open http://localhost:3000
-```
-
-See `examples/full-stack-chat-agent/README.md` for detailed documentation.
-
-### Running Integration Tests
-
-Integration tests require a running Neo4j instance. The Makefile handles this automatically:
-
-```bash
-# Recommended: Use make (auto-starts Docker if needed)
-make test-integration
-
-# Or use the provided script
-./scripts/run-integration-tests.sh
-
-# Manual setup
-docker compose -f docker-compose.test.yml up -d
-make neo4j-wait  # Wait for Neo4j to be ready
-RUN_INTEGRATION_TESTS=1 uv run pytest tests/integration -v
-docker compose -f docker-compose.test.yml down -v
 ```
 
 ### Environment Variables for Testing
