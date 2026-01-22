@@ -502,6 +502,41 @@ print(entity.full_type)
 print(POLEO_TYPES)  # ['PERSON', 'OBJECT', 'LOCATION', 'EVENT', 'ORGANIZATION']
 ```
 
+### Entity Type Labels in Neo4j
+
+Entity `type` and `subtype` are automatically added as Neo4j node labels in addition to being stored as properties. This enables efficient querying by type:
+
+```python
+# When you create this entity:
+await client.long_term.add_entity(
+    name="Toyota Camry",
+    entity_type="OBJECT",
+    subtype="VEHICLE",
+    description="Silver sedan"
+)
+
+# Neo4j creates a node with multiple labels:
+# (:Entity:OBJECT:VEHICLE {name: "Toyota Camry", type: "OBJECT", subtype: "VEHICLE", ...})
+```
+
+This allows efficient Cypher queries by type:
+
+```cypher
+-- Find all vehicles
+MATCH (v:VEHICLE) RETURN v
+
+-- Find all people
+MATCH (p:PERSON) RETURN p
+
+-- Find all organizations
+MATCH (o:ORGANIZATION) RETURN o
+
+-- Combine with other criteria
+MATCH (v:VEHICLE {name: "Toyota Camry"}) RETURN v
+```
+
+Labels are only added for valid POLE+O types and subtypes. Custom types outside the POLE+O model are stored as properties only.
+
 ## Entity Extraction Pipeline
 
 The package provides a multi-stage extraction pipeline that combines different extractors for optimal accuracy and cost efficiency:
@@ -765,6 +800,7 @@ The package automatically creates the following schema:
 ### Node Labels
 - `Conversation`, `Message` - Short-term memory
 - `Entity`, `Preference`, `Fact` - Long-term memory
+  - Entity nodes also have type/subtype labels (e.g., `:Entity:PERSON:INDIVIDUAL`, `:Entity:OBJECT:VEHICLE`)
 - `ReasoningTrace`, `ReasoningStep`, `Tool`, `ToolCall` - Procedural memory
 
 ### Relationships

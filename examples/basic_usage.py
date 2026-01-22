@@ -179,10 +179,13 @@ async def main():
         )
 
         # Add entities (using POLE+O types)
+        # Entities are stored with type and subtype as Neo4j node labels for efficient querying.
+        # Example: This creates a node with labels (:Entity:LOCATION:LANDMARK)
+        # You can then query with: MATCH (l:LOCATION:LANDMARK) RETURN l
         await memory.long_term.add_entity(
             name="Downtown",
-            entity_type="LOCATION",  # POLE+O type
-            subtype="LANDMARK",  # Optional subtype
+            entity_type="LOCATION",  # POLE+O type (also becomes a node label)
+            subtype="LANDMARK",  # Optional subtype (also becomes a node label)
             description="User's preferred dining area",
         )
 

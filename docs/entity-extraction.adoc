@@ -80,13 +80,20 @@ from neo4j_agent_memory import MemoryClient, MemorySettings
 settings = MemorySettings()
 
 async with MemoryClient(settings) as memory:
-    # Entities extracted automatically
+    # Entities extracted automatically and stored with type/subtype as labels
+    # Example: (:Entity:PERSON {name: "John Smith", ...})
+    #          (:Entity:ORGANIZATION:COMPANY {name: "Acme Corp", ...})
+    #          (:Entity:LOCATION:CITY {name: "New York", ...})
     await memory.short_term.add_message(
         session_id="session-1",
         role="user",
         content="I met John Smith at Acme Corp in New York yesterday"
     )
 ----
+
+NOTE: Extracted entities are stored in Neo4j with their POLE+O type and subtype as node labels.
+This enables efficient queries like `MATCH (p:PERSON) RETURN p` or `MATCH (v:VEHICLE) RETURN v`.
+See xref:poleo-model.adoc#_label_structure[POLE+O Label Structure] for details.
 
 === Using a Single Extractor
 

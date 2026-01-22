@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from neo4j_agent_memory.core.memory import BaseMemory, MemoryEntry
 from neo4j_agent_memory.graph import queries
+from neo4j_agent_memory.graph.query_builder import build_create_entity_query
 
 
 def _serialize_metadata(metadata: dict[str, Any] | None) -> str | None:
@@ -840,15 +841,17 @@ class ShortTermMemory(BaseMemory[Message]):
                 extraction_result = await self._extractor.extract(content)
 
                 for entity in extraction_result.entities:
-                    # Create or get entity
+                    # Create or get entity with dynamic labels for type/subtype
                     entity_id = str(uuid4())
+                    entity_subtype = getattr(entity, "subtype", None)
+                    create_query = build_create_entity_query(entity.type, entity_subtype)
                     await self._client.execute_write(
-                        queries.CREATE_ENTITY,
+                        create_query,
                         {
                             "id": entity_id,
                             "name": entity.name,
                             "type": entity.type,
-                            "subtype": getattr(entity, "subtype", None),
+                            "subtype": entity_subtype,
                             "canonical_name": entity.name,
                             "description": None,
                             "embedding": None,
@@ -946,15 +949,17 @@ class ShortTermMemory(BaseMemory[Message]):
         result = await self._extractor.extract(message.content)
 
         for entity in result.entities:
-            # Create or get entity
+            # Create or get entity with dynamic labels for type/subtype
             entity_id = str(uuid4())
+            entity_subtype = getattr(entity, "subtype", None)
+            create_query = build_create_entity_query(entity.type, entity_subtype)
             await self._client.execute_write(
-                queries.CREATE_ENTITY,
+                create_query,
                 {
                     "id": entity_id,
                     "name": entity.name,
                     "type": entity.type,
-                    "subtype": getattr(entity, "subtype", None),  # POLE+O subtype support
+                    "subtype": entity_subtype,
                     "canonical_name": entity.name,
                     "description": None,
                     "embedding": None,

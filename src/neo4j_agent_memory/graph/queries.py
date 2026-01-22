@@ -211,6 +211,14 @@ RETURN session_id, title, created_at, updated_at, message_count, first_message_p
 # LONG-TERM MEMORY QUERIES
 # =============================================================================
 
+# NOTE: CREATE_ENTITY is now dynamically generated to support type/subtype as node labels.
+# Use build_create_entity_query(entity_type, subtype) from query_builder module instead.
+# This static query is kept for reference but should not be used directly.
+# Example: Entity with type=OBJECT, subtype=VEHICLE will have labels (:Entity:OBJECT:VEHICLE)
+#
+# from neo4j_agent_memory.graph.query_builder import build_create_entity_query
+# query = build_create_entity_query("OBJECT", "VEHICLE")
+
 CREATE_ENTITY = """
 MERGE (e:Entity {name: $name, type: $type})
 ON CREATE SET

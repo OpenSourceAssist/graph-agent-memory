@@ -504,3 +504,234 @@ class TestLongTermMemoryEdgeCases:
         )
 
         assert isinstance(results, list)
+
+
+@pytest.mark.integration
+class TestEntityNodeLabels:
+    """Test that entities have type and subtype as Neo4j node labels."""
+
+    @pytest.mark.asyncio
+    async def test_entity_has_type_label(self, memory_client):
+        """Test that created entities have type as a node label."""
+        entity = await memory_client.long_term.add_entity(
+            name="Label Test Person",
+            entity_type="PERSON",
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        # Query Neo4j directly to check labels
+        result = await memory_client._client.execute_read(
+            "MATCH (e:Entity {id: $id}) RETURN labels(e) AS labels",
+            {"id": str(entity.id)},
+        )
+
+        labels = result[0]["labels"]
+        assert "Entity" in labels
+        assert "PERSON" in labels
+
+    @pytest.mark.asyncio
+    async def test_entity_has_subtype_label(self, memory_client):
+        """Test that created entities have subtype as a node label."""
+        entity = await memory_client.long_term.add_entity(
+            name="Tesla Model 3",
+            entity_type="OBJECT",
+            subtype="VEHICLE",
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        # Query Neo4j directly to check labels
+        result = await memory_client._client.execute_read(
+            "MATCH (e:Entity {id: $id}) RETURN labels(e) AS labels",
+            {"id": str(entity.id)},
+        )
+
+        labels = result[0]["labels"]
+        assert "Entity" in labels
+        assert "OBJECT" in labels
+        assert "VEHICLE" in labels
+
+    @pytest.mark.asyncio
+    async def test_all_pole_o_types_have_labels(self, memory_client):
+        """Test that all POLE+O types are added as labels."""
+        test_cases = [
+            ("PERSON", None),
+            ("OBJECT", None),
+            ("LOCATION", None),
+            ("EVENT", None),
+            ("ORGANIZATION", None),
+        ]
+
+        for entity_type, subtype in test_cases:
+            entity = await memory_client.long_term.add_entity(
+                name=f"Test {entity_type}",
+                entity_type=entity_type,
+                subtype=subtype,
+                resolve=False,
+                generate_embedding=False,
+            )
+
+            result = await memory_client._client.execute_read(
+                "MATCH (e:Entity {id: $id}) RETURN labels(e) AS labels",
+                {"id": str(entity.id)},
+            )
+
+            labels = result[0]["labels"]
+            assert "Entity" in labels, f"Missing Entity label for {entity_type}"
+            assert entity_type in labels, f"Missing {entity_type} label"
+
+    @pytest.mark.asyncio
+    async def test_subtypes_have_labels(self, memory_client):
+        """Test that various subtypes are added as labels."""
+        test_cases = [
+            ("PERSON", "INDIVIDUAL"),
+            ("OBJECT", "VEHICLE"),
+            ("OBJECT", "DOCUMENT"),
+            ("LOCATION", "ADDRESS"),
+            ("LOCATION", "CITY"),
+            ("EVENT", "MEETING"),
+            ("ORGANIZATION", "COMPANY"),
+        ]
+
+        for entity_type, subtype in test_cases:
+            entity = await memory_client.long_term.add_entity(
+                name=f"Test {entity_type} {subtype}",
+                entity_type=entity_type,
+                subtype=subtype,
+                resolve=False,
+                generate_embedding=False,
+            )
+
+            result = await memory_client._client.execute_read(
+                "MATCH (e:Entity {id: $id}) RETURN labels(e) AS labels",
+                {"id": str(entity.id)},
+            )
+
+            labels = result[0]["labels"]
+            assert "Entity" in labels
+            assert entity_type in labels, f"Missing {entity_type} label"
+            assert subtype in labels, f"Missing {subtype} label for {entity_type}:{subtype}"
+
+    @pytest.mark.asyncio
+    async def test_query_entities_by_type_label(self, memory_client):
+        """Test querying entities using type label directly."""
+        # Create entities of different types
+        await memory_client.long_term.add_entity(
+            name="John Doe",
+            entity_type="PERSON",
+            resolve=False,
+            generate_embedding=False,
+        )
+        await memory_client.long_term.add_entity(
+            name="Acme Corp",
+            entity_type="ORGANIZATION",
+            resolve=False,
+            generate_embedding=False,
+        )
+        await memory_client.long_term.add_entity(
+            name="New York",
+            entity_type="LOCATION",
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        # Query by PERSON label directly
+        result = await memory_client._client.execute_read(
+            "MATCH (p:PERSON) WHERE p:Entity RETURN p.name AS name"
+        )
+        names = [r["name"] for r in result]
+        assert "John Doe" in names
+        assert "Acme Corp" not in names
+        assert "New York" not in names
+
+        # Query by ORGANIZATION label
+        result = await memory_client._client.execute_read(
+            "MATCH (o:ORGANIZATION) WHERE o:Entity RETURN o.name AS name"
+        )
+        names = [r["name"] for r in result]
+        assert "Acme Corp" in names
+        assert "John Doe" not in names
+
+    @pytest.mark.asyncio
+    async def test_query_entities_by_subtype_label(self, memory_client):
+        """Test querying entities using subtype label directly."""
+        # Create entities with subtypes
+        await memory_client.long_term.add_entity(
+            name="Ford F-150",
+            entity_type="OBJECT",
+            subtype="VEHICLE",
+            resolve=False,
+            generate_embedding=False,
+        )
+        await memory_client.long_term.add_entity(
+            name="iPhone 15",
+            entity_type="OBJECT",
+            subtype="DEVICE",
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        # Query by VEHICLE label
+        result = await memory_client._client.execute_read(
+            "MATCH (v:VEHICLE) WHERE v:Entity RETURN v.name AS name"
+        )
+        names = [r["name"] for r in result]
+        assert "Ford F-150" in names
+        assert "iPhone 15" not in names
+
+        # Query by DEVICE label
+        result = await memory_client._client.execute_read(
+            "MATCH (d:DEVICE) WHERE d:Entity RETURN d.name AS name"
+        )
+        names = [r["name"] for r in result]
+        assert "iPhone 15" in names
+        assert "Ford F-150" not in names
+
+    @pytest.mark.asyncio
+    async def test_invalid_type_no_extra_label(self, memory_client):
+        """Test that invalid types don't add extra labels."""
+        # Custom/invalid types should still create Entity but without type label
+        entity = await memory_client.long_term.add_entity(
+            name="Custom Entity",
+            entity_type="CUSTOM_TYPE",  # Not a valid POLE+O type
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        result = await memory_client._client.execute_read(
+            "MATCH (e:Entity {id: $id}) RETURN labels(e) AS labels",
+            {"id": str(entity.id)},
+        )
+
+        labels = result[0]["labels"]
+        assert "Entity" in labels
+        # CUSTOM_TYPE should NOT be a label (only valid POLE+O types become labels)
+        assert "CUSTOM_TYPE" not in labels
+
+    @pytest.mark.asyncio
+    async def test_type_subtype_string_format(self, memory_client):
+        """Test adding entity with TYPE:SUBTYPE string format."""
+        entity = await memory_client.long_term.add_entity(
+            name="123 Main St",
+            entity_type="LOCATION:ADDRESS",  # Combined format
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        result = await memory_client._client.execute_read(
+            "MATCH (e:Entity {id: $id}) RETURN labels(e) AS labels, e.type AS type, e.subtype AS subtype",
+            {"id": str(entity.id)},
+        )
+
+        row = result[0]
+        labels = row["labels"]
+
+        # Should have both type and subtype as labels
+        assert "Entity" in labels
+        assert "LOCATION" in labels
+        assert "ADDRESS" in labels
+
+        # Properties should also be set correctly
+        assert row["type"] == "LOCATION"
+        assert row["subtype"] == "ADDRESS"

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from neo4j_agent_memory.core.memory import BaseMemory, MemoryEntry
 from neo4j_agent_memory.graph import queries
+from neo4j_agent_memory.graph.query_builder import build_create_entity_query
 
 
 def _serialize_metadata(metadata: dict[str, Any] | None) -> str | None:
@@ -328,9 +329,10 @@ class LongTermMemory(BaseMemory[Entity]):
         if entity.aliases:
             storage_metadata["aliases"] = entity.aliases
 
-        # Store entity
+        # Store entity with dynamic labels for type/subtype
+        create_query = build_create_entity_query(entity.type, entity.subtype)
         await self._client.execute_write(
-            queries.CREATE_ENTITY,
+            create_query,
             {
                 "id": str(entity.id),
                 "name": entity.name,

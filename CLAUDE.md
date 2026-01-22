@@ -94,7 +94,8 @@ src/neo4j_agent_memory/
 ├── graph/
 │   ├── client.py            # Async Neo4j client wrapper
 │   ├── schema.py            # Index/constraint management
-│   └── queries.py           # Cypher query templates
+│   ├── queries.py           # Cypher query templates
+│   └── query_builder.py     # Dynamic query builder with label validation
 └── integrations/
     ├── langchain/           # LangChain memory + retriever
     ├── pydantic_ai/         # Pydantic AI dependency + tools
@@ -117,6 +118,7 @@ src/neo4j_agent_memory/
 The package creates these node types:
 - `Conversation`, `Message` (short-term)
 - `Entity` (with `type`, `subtype` for POLE+O), `Preference`, `Fact` (long-term)
+  - Entity nodes have dynamic labels for type/subtype (e.g., `:Entity:PERSON:INDIVIDUAL`, `:Entity:OBJECT:VEHICLE`)
 - `ReasoningTrace`, `ReasoningStep`, `ToolCall`, `Tool` (procedural)
 
 #### Short-Term Memory Relationships
@@ -331,6 +333,8 @@ deps = MemoryDependency(client=client, session_id="user-123")
 7. **Optional Dependencies**: Framework integrations and extractors (LangChain, spaCy, GLiNER, etc.) are optional. They're wrapped in try/except ImportError blocks.
 
 8. **Type-Aware Resolution**: The `CompositeResolver` now supports type-aware resolution - entities of different types (e.g., PERSON vs LOCATION) are never merged even if they have similar names.
+
+9. **Entity Type Labels**: Entity `type` and `subtype` are added as Neo4j node labels (e.g., `:Entity:PERSON:INDIVIDUAL`) for efficient querying. The `query_builder.py` module validates types against POLE+O whitelist before adding labels. Custom types outside POLE+O are stored as properties only.
 
 ## Environment Variables
 

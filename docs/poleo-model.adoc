@@ -222,15 +222,16 @@ Companies, institutions, groups, and collective entities.
 
 == Neo4j Schema
 
-Entities are stored as nodes in Neo4j with the following structure:
+Entities are stored as nodes in Neo4j with multiple labels for efficient querying.
+Each entity has the base `:Entity` label plus the type and subtype as additional labels.
 
 [source,cypher]
 ----
-(:Entity {
+(:Entity:PERSON:INDIVIDUAL {
     id: "uuid",
     name: "John Smith",
-    type: "PERSON",                    // POLE+O type
-    subtype: "INDIVIDUAL",             // Optional subtype
+    type: "PERSON",                    // POLE+O type (also as label)
+    subtype: "INDIVIDUAL",             // Optional subtype (also as label)
     canonical_name: "John Smith",      // Resolved name
     description: "CEO of Acme Corp",
     confidence: 0.92,
@@ -240,6 +241,35 @@ Entities are stored as nodes in Neo4j with the following structure:
 })
 ----
 
+=== Label Structure
+
+Each entity has:
+
+* `:Entity` - Base label (always present)
+* `:<TYPE>` - POLE+O type as label (e.g., `:PERSON`, `:OBJECT`, `:LOCATION`, `:EVENT`, `:ORGANIZATION`)
+* `:<SUBTYPE>` - Subtype as label when present (e.g., `:VEHICLE`, `:ADDRESS`, `:COMPANY`)
+
+This enables efficient queries like:
+
+[source,cypher]
+----
+// Find all people
+MATCH (p:PERSON) RETURN p
+
+// Find all vehicles (regardless of whether they're OBJECT type)
+MATCH (v:VEHICLE) RETURN v
+
+// Find all entities (any type)
+MATCH (e:Entity) RETURN e
+
+// Find people who are individuals
+MATCH (p:PERSON:INDIVIDUAL) RETURN p
+
+// Combine with relationship traversal
+MATCH (p:PERSON)-[:WORKS_AT]->(o:ORGANIZATION:COMPANY)
+RETURN p.name, o.name
+----
+
 === Relationships
 
 Entities can have relationships to other entities:
@@ -247,19 +277,19 @@ Entities can have relationships to other entities:
 [source,cypher]
 ----
 // Person works at organization
-(:Entity {type: "PERSON"})-[:WORKS_AT]->(:Entity {type: "ORGANIZATION"})
+(:PERSON)-[:WORKS_AT]->(:ORGANIZATION)
 
 // Person lives at location
-(:Entity {type: "PERSON"})-[:LIVES_IN]->(:Entity {type: "LOCATION"})
+(:PERSON)-[:LIVES_IN]->(:LOCATION)
 
 // Organization located at location
-(:Entity {type: "ORGANIZATION"})-[:LOCATED_AT]->(:Entity {type: "LOCATION"})
+(:ORGANIZATION)-[:LOCATED_AT]->(:LOCATION)
 
 // Person owns object
-(:Entity {type: "PERSON"})-[:OWNS]->(:Entity {type: "OBJECT"})
+(:PERSON)-[:OWNS]->(:OBJECT)
 
 // Person participated in event
-(:Entity {type: "PERSON"})-[:PARTICIPATED_IN]->(:Entity {type: "EVENT"})
+(:PERSON)-[:PARTICIPATED_IN]->(:EVENT)
 ----
 
 === Message Links
