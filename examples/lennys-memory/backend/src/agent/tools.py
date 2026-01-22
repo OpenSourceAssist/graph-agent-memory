@@ -26,7 +26,7 @@ async def search_podcast_content(
         return [{"error": "Memory client not available"}]
 
     try:
-        messages = await ctx.deps.client.episodic.search_messages(
+        messages = await ctx.deps.client.short_term.search_messages(
             query=query,
             limit=limit,
             threshold=0.5,
@@ -136,14 +136,14 @@ async def search_by_episode(
 
         if topic:
             # Search within episode for specific topic
-            messages = await ctx.deps.client.episodic.search_messages(
+            messages = await ctx.deps.client.short_term.search_messages(
                 query=topic,
                 session_id=session_id,
                 limit=limit,
             )
         else:
             # Get conversation from episode
-            conv = await ctx.deps.client.episodic.get_conversation(
+            conv = await ctx.deps.client.short_term.get_conversation(
                 session_id=session_id,
                 limit=limit,
             )

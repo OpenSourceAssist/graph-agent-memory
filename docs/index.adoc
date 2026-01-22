@@ -53,14 +53,14 @@ settings = MemorySettings(
 # Use as async context manager
 async with MemoryClient(settings) as memory:
     # Store a conversation message
-    await memory.episodic.add_message(
+    await memory.short_term.add_message(
         session_id="user-123",
         role="user",
         content="I'm looking for Italian restaurants in San Francisco"
     )
 
     # Add a preference
-    await memory.semantic.add_preference(
+    await memory.long_term.add_preference(
         category="food",
         preference="Loves Italian cuisine",
         importance=0.9
@@ -100,7 +100,7 @@ pip install neo4j-agent-memory[full]
 |Installation, setup, and your first memory operations
 
 |xref:memory-types.adoc[Memory Types]
-|Deep dive into episodic, semantic, and procedural memory
+|Deep dive into short-term, long-term, and procedural memory
 
 |xref:entity-extraction.adoc[Entity Extraction]
 |Configuring the extraction pipeline (spaCy, GLiNER, LLM)

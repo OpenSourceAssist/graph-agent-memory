@@ -2,7 +2,7 @@
 
 import pytest
 
-from neo4j_agent_memory.memory.episodic import MessageRole
+from neo4j_agent_memory.memory.short_term import MessageRole
 
 # Check if langchain is available
 try:
@@ -95,15 +95,15 @@ class TestNeo4jAgentMemory:
     async def test_load_memory_with_semantic(self, memory_client, session_id):
         """Test loading memory with semantic context."""
         from neo4j_agent_memory.integrations.langchain import Neo4jAgentMemory
-        from neo4j_agent_memory.memory.semantic import EntityType
+        from neo4j_agent_memory.memory.long_term import EntityType
 
         # Add some semantic data
-        await memory_client.semantic.add_preference(
+        await memory_client.long_term.add_preference(
             category="food",
             preference="I love Italian food",
             generate_embedding=True,
         )
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Italian Restaurant",
             entity_type=EntityType.CONCEPT,
             resolve=False,
@@ -148,14 +148,14 @@ class TestNeo4jMemoryRetriever:
         from neo4j_agent_memory.integrations.langchain import Neo4jMemoryRetriever
 
         # Add some data
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "I love hiking in the mountains",
             extract_entities=False,
             generate_embedding=True,
         )
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.ASSISTANT,
             "That sounds wonderful! Do you have a favorite trail?",

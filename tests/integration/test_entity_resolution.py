@@ -2,7 +2,7 @@
 
 import pytest
 
-from neo4j_agent_memory.memory.semantic import EntityType
+from neo4j_agent_memory.memory.long_term import EntityType
 from neo4j_agent_memory.resolution.base import ResolvedEntity
 from neo4j_agent_memory.resolution.composite import CompositeResolver
 from neo4j_agent_memory.resolution.exact import ExactMatchResolver
@@ -16,13 +16,13 @@ class TestExactMatchResolverIntegration:
     async def test_resolve_exact_match_against_database(self, memory_client):
         """Test exact matching against entities in database."""
         # Create entities in database
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="John Smith",
             entity_type=EntityType.PERSON,
             resolve=False,
             generate_embedding=False,
         )
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Acme Corporation",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -46,7 +46,7 @@ class TestExactMatchResolverIntegration:
     @pytest.mark.asyncio
     async def test_resolve_case_insensitive_against_database(self, memory_client):
         """Test case-insensitive matching."""
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Jane Doe",
             entity_type=EntityType.PERSON,
             resolve=False,
@@ -67,7 +67,7 @@ class TestExactMatchResolverIntegration:
     @pytest.mark.asyncio
     async def test_resolve_no_match(self, memory_client):
         """Test when no match exists."""
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Existing Entity",
             entity_type=EntityType.PERSON,
             resolve=False,
@@ -95,7 +95,7 @@ class TestCompositeResolverIntegration:
     async def test_composite_exact_then_fuzzy(self, memory_client, mock_embedder):
         """Test composite resolver tries exact first, then fuzzy."""
         # Create entity
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Microsoft Corporation",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -116,7 +116,7 @@ class TestCompositeResolverIntegration:
     @pytest.mark.asyncio
     async def test_composite_falls_through_strategies(self, memory_client, mock_embedder):
         """Test composite resolver falls through when no match found."""
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Apple Inc",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -172,7 +172,7 @@ class TestEntityResolutionInMemoryOperations:
     async def test_add_entity_with_resolution_enabled(self, memory_client):
         """Test adding entity with resolution finds existing."""
         # Add original entity
-        original = await memory_client.semantic.add_entity(
+        original = await memory_client.long_term.add_entity(
             name="Google LLC",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -180,7 +180,7 @@ class TestEntityResolutionInMemoryOperations:
         )
 
         # Add similar entity with resolution
-        similar = await memory_client.semantic.add_entity(
+        similar = await memory_client.long_term.add_entity(
             name="google llc",  # Different case
             entity_type=EntityType.ORGANIZATION,
             resolve=True,  # Enable resolution
@@ -194,7 +194,7 @@ class TestEntityResolutionInMemoryOperations:
     async def test_entity_extraction_with_resolution(self, memory_client, session_id):
         """Test entity extraction uses resolution."""
         # Add known entity
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Acme Corp",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -202,7 +202,7 @@ class TestEntityResolutionInMemoryOperations:
         )
 
         # Add message mentioning similar entity
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             "user",
             "I work at Acme",  # Mock extractor may extract this
@@ -216,7 +216,7 @@ class TestEntityResolutionInMemoryOperations:
     async def test_resolution_across_sessions(self, memory_client):
         """Test that resolution works when adding entities with same name (different case)."""
         # Add first entity without resolution
-        entity1 = await memory_client.semantic.add_entity(
+        entity1 = await memory_client.long_term.add_entity(
             name="UniqueCompany123",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -228,7 +228,7 @@ class TestEntityResolutionInMemoryOperations:
 
         # Add similar entity with resolution enabled
         # Note: Resolution requires the resolver to find the existing entity
-        entity2 = await memory_client.semantic.add_entity(
+        entity2 = await memory_client.long_term.add_entity(
             name="uniquecompany123",  # Different case
             entity_type=EntityType.ORGANIZATION,
             resolve=True,
@@ -261,7 +261,7 @@ class TestEntityResolutionEdgeCases:
     @pytest.mark.asyncio
     async def test_resolution_special_characters(self, memory_client):
         """Test resolution handles special characters."""
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="O'Reilly & Associates",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -281,7 +281,7 @@ class TestEntityResolutionEdgeCases:
     @pytest.mark.asyncio
     async def test_resolution_unicode_characters(self, memory_client):
         """Test resolution handles unicode."""
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Tokyo 東京",
             entity_type=EntityType.LOCATION,
             resolve=False,
@@ -301,7 +301,7 @@ class TestEntityResolutionEdgeCases:
     @pytest.mark.asyncio
     async def test_resolution_whitespace_handling(self, memory_client):
         """Test resolution handles whitespace variations."""
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="New York City",
             entity_type=EntityType.LOCATION,
             resolve=False,
@@ -326,7 +326,7 @@ class TestEntityResolutionEdgeCases:
         # Create many entities
         candidates = [f"Entity{i}" for i in range(100)]
         for name in candidates:
-            await memory_client.semantic.add_entity(
+            await memory_client.long_term.add_entity(
                 name=name,
                 entity_type=EntityType.CONCEPT,
                 resolve=False,
@@ -352,7 +352,7 @@ class TestEntityResolutionEdgeCases:
         # Create base entities
         base_entities = ["Alpha", "Beta", "Gamma", "Delta"]
         for name in base_entities:
-            await memory_client.semantic.add_entity(
+            await memory_client.long_term.add_entity(
                 name=name,
                 entity_type=EntityType.CONCEPT,
                 resolve=False,
@@ -384,7 +384,7 @@ class TestEntityResolutionMetrics:
     @pytest.mark.asyncio
     async def test_resolution_confidence_scores(self, memory_client, mock_embedder):
         """Test that resolution returns appropriate confidence scores."""
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Test Corp",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -405,7 +405,7 @@ class TestEntityResolutionMetrics:
     @pytest.mark.asyncio
     async def test_resolution_match_type_tracking(self, memory_client, mock_embedder):
         """Test that resolution tracks match type."""
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Exact Match Entity",
             entity_type=EntityType.CONCEPT,
             resolve=False,
@@ -428,7 +428,7 @@ class TestEntityResolutionMetrics:
         """Test find_matches returns all potential matches."""
         candidates = ["Apple Inc", "Apple Computer", "Apple Records"]
         for name in candidates:
-            await memory_client.semantic.add_entity(
+            await memory_client.long_term.add_entity(
                 name=name,
                 entity_type=EntityType.ORGANIZATION,
                 resolve=False,

@@ -107,7 +107,7 @@ Visit http://localhost:3000 to start exploring Lenny's Podcast!
 
 ### Data Flow
 
-1. **Data Loading**: Transcripts are parsed and stored as Messages in episodic memory
+1. **Data Loading**: Transcripts are parsed and stored as Messages in short-term memory
 2. **Chat**: User questions trigger agent tool calls to search memory
 3. **Memory**: Agent retrieves relevant transcript segments via semantic search
 4. **Visualization**: NVL renders the memory graph for exploration

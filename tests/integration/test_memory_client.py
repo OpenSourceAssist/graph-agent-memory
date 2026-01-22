@@ -2,8 +2,8 @@
 
 import pytest
 
-from neo4j_agent_memory.memory.episodic import MessageRole
-from neo4j_agent_memory.memory.semantic import EntityType
+from neo4j_agent_memory.memory.long_term import EntityType
+from neo4j_agent_memory.memory.short_term import MessageRole
 
 
 @pytest.mark.integration
@@ -83,11 +83,11 @@ class TestMemoryClientMemoryAccess:
     """Test accessing different memory types through MemoryClient."""
 
     @pytest.mark.asyncio
-    async def test_episodic_memory_access(self, memory_client, session_id):
-        """Test accessing episodic memory through client."""
-        assert memory_client.episodic is not None
+    async def test_short_term_memory_access(self, memory_client, session_id):
+        """Test accessing short-term memory through client."""
+        assert memory_client.short_term is not None
 
-        msg = await memory_client.episodic.add_message(
+        msg = await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Test message",
@@ -97,11 +97,11 @@ class TestMemoryClientMemoryAccess:
         assert msg is not None
 
     @pytest.mark.asyncio
-    async def test_semantic_memory_access(self, memory_client):
-        """Test accessing semantic memory through client."""
-        assert memory_client.semantic is not None
+    async def test_long_term_memory_access(self, memory_client):
+        """Test accessing long-term memory through client."""
+        assert memory_client.long_term is not None
 
-        entity = await memory_client.semantic.add_entity(
+        entity = await memory_client.long_term.add_entity(
             "TestEntity",
             EntityType.PERSON,
             resolve=False,
@@ -137,17 +137,17 @@ class TestMemoryClientGetContext:
         assert isinstance(context, str)
 
     @pytest.mark.asyncio
-    async def test_get_context_with_episodic_data(self, memory_client, session_id):
-        """Test get_context includes episodic memory."""
+    async def test_get_context_with_short_term_data(self, memory_client, session_id):
+        """Test get_context includes short-term memory."""
         # Add conversation messages
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "I'm looking for Italian restaurants",
             extract_entities=False,
             generate_embedding=True,
         )
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.ASSISTANT,
             "I can help you find Italian restaurants!",
@@ -163,15 +163,15 @@ class TestMemoryClientGetContext:
         assert isinstance(context, str)
 
     @pytest.mark.asyncio
-    async def test_get_context_with_semantic_data(self, memory_client, session_id):
-        """Test get_context includes semantic memory."""
+    async def test_get_context_with_long_term_data(self, memory_client, session_id):
+        """Test get_context includes long-term memory."""
         # Add preferences
-        await memory_client.semantic.add_preference(
+        await memory_client.long_term.add_preference(
             category="food",
             preference="Loves spicy Thai food",
             generate_embedding=True,
         )
-        await memory_client.semantic.add_preference(
+        await memory_client.long_term.add_preference(
             category="dietary",
             preference="Vegetarian",
             generate_embedding=True,
@@ -187,8 +187,8 @@ class TestMemoryClientGetContext:
     @pytest.mark.asyncio
     async def test_get_context_with_all_memory_types(self, memory_client, session_id):
         """Test get_context with data in all memory types."""
-        # Add episodic data
-        await memory_client.episodic.add_message(
+        # Add short-term data
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "I want to find a restaurant",
@@ -196,13 +196,13 @@ class TestMemoryClientGetContext:
             generate_embedding=True,
         )
 
-        # Add semantic data
-        await memory_client.semantic.add_preference(
+        # Add long-term data
+        await memory_client.long_term.add_preference(
             category="food",
             preference="Prefers Italian cuisine",
             generate_embedding=True,
         )
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Pizza Place",
             entity_type=EntityType.ORGANIZATION,
             description="A local pizza restaurant",
@@ -236,7 +236,7 @@ class TestMemoryClientGetContext:
         """Test get_context respects limits."""
         # Add many messages
         for i in range(20):
-            await memory_client.episodic.add_message(
+            await memory_client.short_term.add_message(
                 session_id,
                 MessageRole.USER,
                 f"Message number {i}",
@@ -280,14 +280,14 @@ class TestMemoryClientStats:
         initial_stats = await client.get_stats()
 
         # Add some data
-        await client.episodic.add_message(
+        await client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Test message 1",
             extract_entities=False,
             generate_embedding=False,
         )
-        await client.episodic.add_message(
+        await client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Test message 2",
@@ -295,14 +295,14 @@ class TestMemoryClientStats:
             generate_embedding=False,
         )
 
-        await client.semantic.add_entity(
+        await client.long_term.add_entity(
             "StatsTestEntity",
             EntityType.PERSON,
             resolve=False,
             generate_embedding=False,
         )
 
-        await client.semantic.add_preference(
+        await client.long_term.add_preference(
             category="test",
             preference="Test preference",
             generate_embedding=False,
@@ -321,9 +321,9 @@ class TestMemoryClientCrossMemoryOperations:
 
     @pytest.mark.asyncio
     async def test_message_with_entity_extraction_creates_entities(self, memory_client, session_id):
-        """Test that entity extraction from messages creates semantic entities."""
+        """Test that entity extraction from messages creates long-term entities."""
         # Add message with entity extraction
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "I met John Smith at Google yesterday",
@@ -339,7 +339,7 @@ class TestMemoryClientCrossMemoryOperations:
     async def test_reasoning_trace_references_conversation(self, memory_client, session_id):
         """Test that reasoning traces can reference conversations."""
         # Add conversation
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Help me plan a trip",
@@ -367,7 +367,7 @@ class TestMemoryClientCrossMemoryOperations:
     async def test_end_to_end_conversation_flow(self, memory_client, session_id):
         """Test complete conversation flow with all memory types."""
         # User starts conversation
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Hi, I'm looking for restaurant recommendations. I love Italian food.",
@@ -376,7 +376,7 @@ class TestMemoryClientCrossMemoryOperations:
         )
 
         # Store user preference
-        await memory_client.semantic.add_preference(
+        await memory_client.long_term.add_preference(
             category="food",
             preference="Loves Italian food",
             context="Restaurant preferences",
@@ -414,7 +414,7 @@ class TestMemoryClientCrossMemoryOperations:
         )
 
         # Add assistant response
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.ASSISTANT,
             "I found La Bella, a great Italian restaurant with 4.5 stars!",
@@ -423,7 +423,7 @@ class TestMemoryClientCrossMemoryOperations:
         )
 
         # Store entity for the restaurant
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="La Bella",
             entity_type=EntityType.ORGANIZATION,
             description="Italian restaurant recommended to user",
@@ -432,7 +432,7 @@ class TestMemoryClientCrossMemoryOperations:
         )
 
         # Verify the full flow
-        conversation = await memory_client.episodic.get_conversation(session_id)
+        conversation = await memory_client.short_term.get_conversation(session_id)
         assert len(conversation.messages) >= 2
 
         context = await memory_client.get_context(
@@ -464,7 +464,7 @@ class TestMemoryClientConfiguration:
             resolver=mock_resolver,
         ) as client:
             # Verify embedder is used
-            entity = await client.semantic.add_entity(
+            entity = await client.long_term.add_entity(
                 "TestEntity",
                 EntityType.PERSON,
                 resolve=False,
@@ -521,5 +521,5 @@ class TestMemoryClientErrorHandling:
 
         for sid in special_session_ids:
             sid = f"test-{sid}"  # Prefix for cleanup
-            conv = await memory_client.episodic.get_conversation(sid)
+            conv = await memory_client.short_term.get_conversation(sid)
             assert conv is not None  # Should handle any format

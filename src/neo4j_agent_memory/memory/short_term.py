@@ -1,4 +1,4 @@
-"""Episodic memory for conversations and messages."""
+"""Short-term memory for conversations and messages."""
 
 import json
 from datetime import datetime
@@ -43,10 +43,13 @@ def _to_python_datetime(neo4j_datetime) -> datetime:
 
 
 def _build_metadata_filter_clause(
-    filters: dict[str, Any], param_prefix: str = "mf"
+    filters: dict[str, Any], param_prefix: str = "mf", metadata_var: str = "md"
 ) -> tuple[str, dict[str, Any]]:
     """
     Build Cypher WHERE clause from metadata filters.
+
+    Since metadata is stored as a JSON string, this function generates clauses
+    that work with a pre-parsed metadata map variable (e.g., from apoc.convert.fromJsonMap).
 
     Supports:
     - Simple equality: {"key": "value"}
@@ -56,6 +59,7 @@ def _build_metadata_filter_clause(
     Args:
         filters: Dictionary of filter conditions
         param_prefix: Prefix for parameter names
+        metadata_var: Variable name for the parsed metadata map
 
     Returns:
         Tuple of (WHERE clause string, parameters dict)
@@ -76,36 +80,36 @@ def _build_metadata_filter_clause(
                 params[op_param] = op_value
 
                 if op == "$eq":
-                    clauses.append(f"m.metadata.`{key}` = ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` = ${op_param}")
                 elif op == "$ne":
-                    clauses.append(f"m.metadata.`{key}` <> ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` <> ${op_param}")
                 elif op == "$gt":
-                    clauses.append(f"m.metadata.`{key}` > ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` > ${op_param}")
                 elif op == "$gte":
-                    clauses.append(f"m.metadata.`{key}` >= ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` >= ${op_param}")
                 elif op == "$lt":
-                    clauses.append(f"m.metadata.`{key}` < ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` < ${op_param}")
                 elif op == "$lte":
-                    clauses.append(f"m.metadata.`{key}` <= ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` <= ${op_param}")
                 elif op == "$in":
-                    clauses.append(f"m.metadata.`{key}` IN ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` IN ${op_param}")
                 elif op == "$nin":
-                    clauses.append(f"NOT m.metadata.`{key}` IN ${op_param}")
+                    clauses.append(f"NOT {metadata_var}.`{key}` IN ${op_param}")
                 elif op == "$exists":
                     if op_value:
-                        clauses.append(f"m.metadata.`{key}` IS NOT NULL")
+                        clauses.append(f"{metadata_var}.`{key}` IS NOT NULL")
                     else:
-                        clauses.append(f"m.metadata.`{key}` IS NULL")
+                        clauses.append(f"{metadata_var}.`{key}` IS NULL")
                 elif op == "$contains":
-                    clauses.append(f"m.metadata.`{key}` CONTAINS ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` CONTAINS ${op_param}")
                 elif op == "$startswith":
-                    clauses.append(f"m.metadata.`{key}` STARTS WITH ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` STARTS WITH ${op_param}")
                 elif op == "$endswith":
-                    clauses.append(f"m.metadata.`{key}` ENDS WITH ${op_param}")
+                    clauses.append(f"{metadata_var}.`{key}` ENDS WITH ${op_param}")
         else:
             # Simple equality
             params[param_name] = value
-            clauses.append(f"m.metadata.`{key}` = ${param_name}")
+            clauses.append(f"{metadata_var}.`{key}` = ${param_name}")
 
     return " AND ".join(clauses), params
 
@@ -182,9 +186,9 @@ class ConversationSummary(BaseModel):
     )
 
 
-class EpisodicMemory(BaseMemory[Message]):
+class ShortTermMemory(BaseMemory[Message]):
     """
-    Episodic memory stores conversation history and experiences.
+    Short-term memory stores conversation history and experiences.
 
     Provides:
     - Thread-based organization of messages
@@ -199,7 +203,7 @@ class EpisodicMemory(BaseMemory[Message]):
         embedder: "Embedder | None" = None,
         extractor: "EntityExtractor | None" = None,
     ):
-        """Initialize episodic memory."""
+        """Initialize short-term memory."""
         super().__init__(client, embedder, extractor)
 
     async def add(self, content: str, **kwargs: Any) -> Message:
@@ -558,11 +562,14 @@ class EpisodicMemory(BaseMemory[Message]):
         # Build the query with optional metadata filtering
         if metadata_clause:
             # Use a modified query that includes metadata filtering
+            # Metadata is stored as JSON string, so we parse it with apoc.convert.fromJsonMap
             cypher_query = f"""
             CALL db.index.vector.queryNodes('message_embedding_idx', $limit * 2, $embedding)
             YIELD node, score
             WHERE score >= $threshold
             WITH node AS m, score
+            WITH m, score,
+                 CASE WHEN m.metadata IS NOT NULL THEN apoc.convert.fromJsonMap(m.metadata) ELSE {{}} END AS md
             WHERE {metadata_clause}
             RETURN m, score
             ORDER BY score DESC
@@ -929,14 +936,14 @@ class EpisodicMemory(BaseMemory[Message]):
 
         Example:
             # Basic summary (no LLM)
-            summary = await memory.episodic.get_conversation_summary("session-123")
+            summary = await memory.short_term.get_conversation_summary("session-123")
 
             # With custom OpenAI summarizer
             async def my_summarizer(text):
                 # Your LLM call here
                 return await openai_client.summarize(text)
 
-            summary = await memory.episodic.get_conversation_summary(
+            summary = await memory.short_term.get_conversation_summary(
                 "session-123",
                 summarizer=my_summarizer
             )

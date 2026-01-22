@@ -64,7 +64,7 @@ agent = Agent(
 @agent.tool
 async def remember_preference(ctx, category: str, preference: str) -> str:
     """Store a user preference."""
-    await ctx.deps.memory.semantic.add_preference(
+    await ctx.deps.memory.long_term.add_preference(
         category=category,
         preference=preference,
         importance=0.8
@@ -109,7 +109,7 @@ async def chat(message: str, session_id: str):
     async def event_generator():
         async with MemoryClient(settings) as memory:
             # Store user message
-            await memory.episodic.add_message(
+            await memory.short_term.add_message(
                 session_id=session_id,
                 role="user",
                 content=message
@@ -130,7 +130,7 @@ async def chat(message: str, session_id: str):
                     yield {"event": "message", "data": chunk}
 
             # Store assistant response
-            await memory.episodic.add_message(
+            await memory.short_term.add_message(
                 session_id=session_id,
                 role="assistant",
                 content=full_response
@@ -438,19 +438,19 @@ class MemoryContextProvider:
         return await self.memory.get_context(
             query=query,
             session_id=self.session_id,
-            include_episodic=True,
-            include_semantic=True,
+            include_short_term=True,
+            include_long_term=True,
             include_procedural=True
         )
 
     async def store_interaction(self, user_msg: str, assistant_msg: str):
         """Store a conversation turn."""
-        await self.memory.episodic.add_message(
+        await self.memory.short_term.add_message(
             session_id=self.session_id,
             role="user",
             content=user_msg
         )
-        await self.memory.episodic.add_message(
+        await self.memory.short_term.add_message(
             session_id=self.session_id,
             role="assistant",
             content=assistant_msg
@@ -472,8 +472,8 @@ def create_memory_tools(memory: MemoryClient, session_id: str):
         )
 
     async def remember_fact(subject: str, predicate: str, obj: str) -> str:
-        """Store a fact in semantic memory."""
-        await memory.semantic.add_fact(
+        """Store a fact in long-term memory."""
+        await memory.long_term.add_fact(
             subject=subject,
             predicate=predicate,
             object=obj
@@ -482,7 +482,7 @@ def create_memory_tools(memory: MemoryClient, session_id: str):
 
     async def remember_preference(category: str, preference: str) -> str:
         """Store a user preference."""
-        await memory.semantic.add_preference(
+        await memory.long_term.add_preference(
             category=category,
             preference=preference
         )

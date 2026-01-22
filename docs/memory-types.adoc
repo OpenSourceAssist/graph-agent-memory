@@ -44,7 +44,7 @@ Neo4j Agent Memory provides three complementary memory types that work together 
 
 == Episodic Memory
 
-Episodic memory stores conversation history and experiences - the "what happened" of agent interactions.
+Short-term memory stores conversation history and experiences - the "what happened" of agent interactions.
 
 === Core Concepts
 
@@ -57,7 +57,7 @@ Episodic memory stores conversation history and experiences - the "what happened
 ----
 async with MemoryClient(settings) as memory:
     # Add a user message
-    message = await memory.episodic.add_message(
+    message = await memory.short_term.add_message(
         session_id="user-123-session-1",
         role="user",
         content="What's the weather like in San Francisco?",
@@ -65,7 +65,7 @@ async with MemoryClient(settings) as memory:
     )
 
     # Add an assistant response
-    await memory.episodic.add_message(
+    await memory.short_term.add_message(
         session_id="user-123-session-1",
         role="assistant",
         content="It's currently 65°F and sunny in San Francisco.",
@@ -76,7 +76,7 @@ async with MemoryClient(settings) as memory:
 
 [source,python]
 ----
-await memory.episodic.add_message(
+await memory.short_term.add_message(
     session_id="session-id",
     role="user",                      # "user" or "assistant"
     content="Message content",
@@ -94,7 +94,7 @@ await memory.episodic.add_message(
 [source,python]
 ----
 # Get recent messages from a session
-messages = await memory.episodic.get_messages(
+messages = await memory.short_term.get_messages(
     session_id="user-123-session-1",
     limit=20,
     include_metadata=True
@@ -111,7 +111,7 @@ for msg in messages:
 [source,python]
 ----
 # Semantic search across messages
-results = await memory.episodic.search_messages(
+results = await memory.short_term.search_messages(
     query="weather questions",
     session_id="user-123-session-1",  # Optional: filter by session
     limit=10
@@ -129,7 +129,7 @@ Search with MongoDB-style metadata filters:
 [source,python]
 ----
 # Search with metadata filters
-results = await memory.episodic.search_messages(
+results = await memory.short_term.search_messages(
     query="restaurant",
     session_id="user-123",
     metadata_filters={
@@ -157,7 +157,7 @@ Supported operators:
 [source,python]
 ----
 # Get formatted context for LLM prompts
-context = await memory.episodic.get_context(
+context = await memory.short_term.get_context(
     query="weather information",
     session_id="user-123-session-1",
     max_messages=10
@@ -174,12 +174,12 @@ print(context)
 [source,python]
 ----
 # Get a specific conversation
-conversation = await memory.episodic.get_conversation(
+conversation = await memory.short_term.get_conversation(
     session_id="user-123-session-1"
 )
 
 # Delete a message
-deleted = await memory.episodic.delete_message(
+deleted = await memory.short_term.delete_message(
     message_id=msg.id,
     cascade=True  # Also delete MENTIONS relationships
 )
@@ -192,7 +192,7 @@ List and manage sessions with the `list_sessions()` method:
 [source,python]
 ----
 # List all sessions with metadata
-sessions = await memory.episodic.list_sessions(
+sessions = await memory.short_term.list_sessions(
     prefix="user-123-",  # Optional: filter by prefix
     limit=50,
     offset=0,
@@ -225,7 +225,7 @@ messages = [
 def on_progress(loaded, total):
     print(f"Loaded {loaded}/{total} messages")
 
-await memory.episodic.add_messages_batch(
+await memory.short_term.add_messages_batch(
     session_id="bulk-session",
     messages=messages,
     batch_size=100,
@@ -235,7 +235,7 @@ await memory.episodic.add_messages_batch(
 )
 
 # Generate embeddings later for messages that don't have them
-count = await memory.episodic.generate_embeddings_batch(
+count = await memory.short_term.generate_embeddings_batch(
     session_id="bulk-session",
     batch_size=50,
 )
@@ -249,7 +249,7 @@ Generate summaries of conversations:
 [source,python]
 ----
 # Basic summary (no LLM required)
-summary = await memory.episodic.get_conversation_summary("user-123")
+summary = await memory.short_term.get_conversation_summary("user-123")
 print(summary.summary)
 print(f"Messages: {summary.message_count}")
 print(f"Time range: {summary.time_range}")
@@ -267,7 +267,7 @@ async def my_summarizer(transcript: str) -> str:
     )
     return response.choices[0].message.content
 
-summary = await memory.episodic.get_conversation_summary(
+summary = await memory.short_term.get_conversation_summary(
     "user-123",
     summarizer=my_summarizer,
     include_entities=True,
@@ -281,7 +281,7 @@ Extract entities from all messages in a session (batch processing):
 [source,python]
 ----
 # Extract entities from messages that don't have them yet
-stats = await memory.episodic.extract_entities_from_session(
+stats = await memory.short_term.extract_entities_from_session(
     session_id="user-123",
     batch_size=50,
     skip_existing=True,  # Skip messages that already have entity links
@@ -294,7 +294,7 @@ print(f"Entities extracted: {stats['entities_extracted']}")
 
 == Semantic Memory
 
-Semantic memory stores facts, entities, and preferences - the "what the agent knows" about the world and users.
+Long-term memory stores facts, entities, and preferences - the "what the agent knows" about the world and users.
 
 === Core Concepts
 
@@ -310,7 +310,7 @@ Entities are automatically extracted when adding messages:
 
 [source,python]
 ----
-await memory.episodic.add_message(
+await memory.short_term.add_message(
     session_id="session-1",
     role="user",
     content="I work at Acme Corp with John Smith in San Francisco"
@@ -326,7 +326,7 @@ await memory.episodic.add_message(
 [source,python]
 ----
 # Add an entity manually
-entity = await memory.semantic.add_entity(
+entity = await memory.long_term.add_entity(
     name="Acme Corporation",
     entity_type="ORGANIZATION",
     subtype="COMPANY",
@@ -342,20 +342,20 @@ entity = await memory.semantic.add_entity(
 [source,python]
 ----
 # Semantic search
-entities = await memory.semantic.search_entities(
+entities = await memory.long_term.search_entities(
     query="technology companies",
     limit=10
 )
 
 # Filter by type
-people = await memory.semantic.search_entities(
+people = await memory.long_term.search_entities(
     query="engineers",
     entity_type="PERSON",
     limit=10
 )
 
 # Get entity by name
-entity = await memory.semantic.get_entity(
+entity = await memory.long_term.get_entity(
     name="Acme Corp",
     entity_type="ORGANIZATION"
 )
@@ -366,7 +366,7 @@ entity = await memory.semantic.get_entity(
 [source,python]
 ----
 # Add a preference
-preference = await memory.semantic.add_preference(
+preference = await memory.long_term.add_preference(
     category="food",
     preference="Prefers vegetarian options",
     importance=0.9,
@@ -374,7 +374,7 @@ preference = await memory.semantic.add_preference(
 )
 
 # Add preference with user context
-preference = await memory.semantic.add_preference(
+preference = await memory.long_term.add_preference(
     category="communication",
     preference="Prefers email over phone calls",
     importance=0.8,
@@ -382,13 +382,13 @@ preference = await memory.semantic.add_preference(
 )
 
 # Search preferences
-preferences = await memory.semantic.search_preferences(
+preferences = await memory.long_term.search_preferences(
     query="dietary restrictions",
     limit=5
 )
 
 # Get preferences by category
-food_prefs = await memory.semantic.get_preferences_by_category(
+food_prefs = await memory.long_term.get_preferences_by_category(
     category="food"
 )
 ----
@@ -398,7 +398,7 @@ food_prefs = await memory.semantic.get_preferences_by_category(
 [source,python]
 ----
 # Add a fact
-fact = await memory.semantic.add_fact(
+fact = await memory.long_term.add_fact(
     subject="Earth",
     predicate="orbits",
     object="Sun",
@@ -407,18 +407,18 @@ fact = await memory.semantic.add_fact(
 )
 
 # Search facts
-facts = await memory.semantic.search_facts(
+facts = await memory.long_term.search_facts(
     query="solar system",
     limit=10
 )
 ----
 
-=== Getting Semantic Context
+=== Getting Long-Term Context
 
 [source,python]
 ----
-# Get combined semantic context for LLM
-context = await memory.semantic.get_context(
+# Get combined long-term context for LLM
+context = await memory.long_term.get_context(
     query="restaurant recommendation",
     max_items=10
 )
@@ -666,8 +666,8 @@ async with MemoryClient(settings) as memory:
         session_id="user-123-session-1",
 
         # Control which memory types to include
-        include_episodic=True,    # Recent conversation
-        include_semantic=True,     # Facts and preferences
+        include_short_term=True,    # Recent conversation
+        include_long_term=True,     # Facts and preferences
         include_procedural=True,   # Past reasoning patterns
 
         max_items=10
@@ -715,7 +715,7 @@ Export memory graph data for visualization or external processing:
 ----
 # Export the full memory graph
 graph = await memory.get_graph(
-    memory_types=["episodic", "semantic", "procedural"],  # Optional filter
+    memory_types=["short_term", "long_term", "procedural"],  # Optional filter
     session_id="user-123",  # Optional session filter
     include_embeddings=False,  # Don't include large embedding vectors
     limit=1000,

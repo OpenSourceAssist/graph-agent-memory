@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 
-from neo4j_agent_memory.memory.semantic import Preference as SemanticPreference
+from neo4j_agent_memory.memory.long_term import Preference as LongTermPreference
 from src.api.schemas import (
     Entity,
     GraphNode,
@@ -239,9 +239,9 @@ async def get_memory_context(
         )
 
     try:
-        # Get recent messages from episodic memory
+        # Get recent messages from short-term memory
         if thread_id:
-            conversation = await memory.episodic.get_conversation(
+            conversation = await memory.short_term.get_conversation(
                 session_id=thread_id,
                 limit=10,
             )
@@ -258,7 +258,7 @@ async def get_memory_context(
 
         # Get preferences
         if query:
-            pref_results = await memory.semantic.search_preferences(query, limit=10)
+            pref_results = await memory.long_term.search_preferences(query, limit=10)
         else:
             # Get all preferences when no query - use direct database query
             try:
@@ -269,7 +269,7 @@ async def get_memory_context(
                 for row in results:
                     p = dict(row["p"])
                     pref_results.append(
-                        SemanticPreference(
+                        LongTermPreference(
                             id=UUID(p["id"]),
                             category=p.get("category", "general"),
                             preference=p.get("preference", ""),
@@ -294,9 +294,9 @@ async def get_memory_context(
 
         # Get entities
         if query:
-            entity_results = await memory.semantic.search_entities(query, limit=10)
+            entity_results = await memory.long_term.search_entities(query, limit=10)
         else:
-            entity_results = await memory.semantic.search_entities("", limit=10)
+            entity_results = await memory.long_term.search_entities("", limit=10)
 
         for ent in entity_results:
             entities.append(
@@ -370,7 +370,7 @@ async def add_preference(
         raise HTTPException(status_code=503, detail="Memory service unavailable")
 
     try:
-        pref = await memory.semantic.add_preference(
+        pref = await memory.long_term.add_preference(
             category=request.category,
             preference=request.preference,
             context=request.context or "Added via API",
@@ -411,7 +411,7 @@ async def list_entities(
 
     try:
         search_query = query or type or ""
-        results = await memory.semantic.search_entities(search_query, limit=50)
+        results = await memory.long_term.search_entities(search_query, limit=50)
 
         for ent in results:
             ent_type = ent.type if isinstance(ent.type, str) else ent.type.value
@@ -473,7 +473,7 @@ async def get_memory_graph(
 
     Args:
         memory_types: Comma-separated list of memory types to include
-                     (episodic, semantic, procedural). Defaults to all.
+                     (short_term, long_term, procedural). Defaults to all.
         session_id: Optional session ID to filter by.
         limit: Maximum number of nodes to return.
 

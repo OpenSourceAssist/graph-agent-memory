@@ -71,13 +71,13 @@ class MemoryDependency:
             assistant_message: The assistant's response
             extract_entities: Whether to extract entities from messages
         """
-        await self.client.episodic.add_message(
+        await self.client.short_term.add_message(
             self.session_id,
             "user",
             user_message,
             extract_entities=extract_entities,
         )
-        await self.client.episodic.add_message(
+        await self.client.short_term.add_message(
             self.session_id,
             "assistant",
             assistant_message,
@@ -98,7 +98,7 @@ class MemoryDependency:
             preference: The preference statement
             context: When/where preference applies
         """
-        await self.client.semantic.add_preference(category, preference, context=context)
+        await self.client.long_term.add_preference(category, preference, context=context)
 
     async def search_preferences(
         self,
@@ -115,7 +115,7 @@ class MemoryDependency:
         Returns:
             List of preference dictionaries
         """
-        prefs = await self.client.semantic.search_preferences(query, limit=limit)
+        prefs = await self.client.long_term.search_preferences(query, limit=limit)
         return [
             {
                 "category": p.category,
@@ -160,20 +160,20 @@ def create_memory_tools(memory: "MemoryClient") -> list[Callable]:
             Relevant memories as formatted text
         """
         results = []
-        types = memory_types or ["episodic", "semantic", "procedural"]
+        types = memory_types or ["short_term", "long_term", "procedural"]
 
-        if "episodic" in types:
-            messages = await memory.episodic.search_messages(query, limit=5)
+        if "short_term" in types:
+            messages = await memory.short_term.search_messages(query, limit=5)
             for msg in messages:
                 results.append(f"[{msg.role.value}] {msg.content}")
 
-        if "semantic" in types:
-            entities = await memory.semantic.search_entities(query, limit=5)
+        if "long_term" in types:
+            entities = await memory.long_term.search_entities(query, limit=5)
             for entity in entities:
                 desc = f": {entity.description}" if entity.description else ""
                 results.append(f"[{entity.type.value}] {entity.display_name}{desc}")
 
-            prefs = await memory.semantic.search_preferences(query, limit=5)
+            prefs = await memory.long_term.search_preferences(query, limit=5)
             for pref in prefs:
                 results.append(f"[PREFERENCE:{pref.category}] {pref.preference}")
 
@@ -201,7 +201,7 @@ def create_memory_tools(memory: "MemoryClient") -> list[Callable]:
         Returns:
             Confirmation message
         """
-        await memory.semantic.add_preference(category, preference, context=context)
+        await memory.long_term.add_preference(category, preference, context=context)
         return f"Saved preference: {preference} (category: {category})"
 
     async def recall_preferences(topic: str) -> str:
@@ -214,7 +214,7 @@ def create_memory_tools(memory: "MemoryClient") -> list[Callable]:
         Returns:
             Relevant preferences as formatted text
         """
-        prefs = await memory.semantic.search_preferences(topic, limit=10)
+        prefs = await memory.long_term.search_preferences(topic, limit=10)
         if not prefs:
             return "No preferences found for this topic."
         return "\n".join([f"- [{p.category}] {p.preference}" for p in prefs])

@@ -11,8 +11,8 @@ Example:
         client = MockMemoryClient()
 
         # Use like real MemoryClient
-        await client.episodic.add_message("session-1", "user", "Hello")
-        messages = await client.episodic.get_conversation("session-1")
+        await client.short_term.add_message("session-1", "user", "Hello")
+        messages = await client.short_term.get_conversation("session-1")
 
         assert len(messages.messages) == 1
 
@@ -25,16 +25,16 @@ Example:
 
 from neo4j_agent_memory.testing.fixtures import MemoryFixtures
 from neo4j_agent_memory.testing.mocks import (
-    MockEpisodicMemory,
+    MockLongTermMemory,
     MockMemoryClient,
     MockProceduralMemory,
-    MockSemanticMemory,
+    MockShortTermMemory,
 )
 
 __all__ = [
     "MockMemoryClient",
-    "MockEpisodicMemory",
-    "MockSemanticMemory",
+    "MockShortTermMemory",
+    "MockLongTermMemory",
     "MockProceduralMemory",
     "MemoryFixtures",
 ]

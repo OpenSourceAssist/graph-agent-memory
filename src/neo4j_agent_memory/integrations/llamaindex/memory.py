@@ -73,20 +73,20 @@ try:
 
             if input:
                 # Semantic search across memories
-                messages = await self._client.episodic.search_messages(input, limit=5)
+                messages = await self._client.short_term.search_messages(input, limit=5)
                 for msg in messages:
                     nodes.append(
                         TextNode(
                             text=msg.content,
                             metadata={
-                                "source": "episodic",
+                                "source": "short_term",
                                 "role": msg.role.value,
                                 "id": str(msg.id),
                             },
                         )
                     )
 
-                entities = await self._client.semantic.search_entities(input, limit=5)
+                entities = await self._client.long_term.search_entities(input, limit=5)
                 for entity in entities:
                     text = f"{entity.display_name}"
                     if entity.description:
@@ -95,7 +95,7 @@ try:
                         TextNode(
                             text=text,
                             metadata={
-                                "source": "semantic",
+                                "source": "long_term",
                                 "entity_type": entity.type.value,
                                 "id": str(entity.id),
                             },
@@ -103,13 +103,13 @@ try:
                     )
             else:
                 # Get recent conversation
-                conv = await self._client.episodic.get_conversation(self._session_id, limit=10)
+                conv = await self._client.short_term.get_conversation(self._session_id, limit=10)
                 for msg in conv.messages:
                     nodes.append(
                         TextNode(
                             text=msg.content,
                             metadata={
-                                "source": "episodic",
+                                "source": "short_term",
                                 "role": msg.role.value,
                                 "id": str(msg.id),
                             },
@@ -140,11 +140,11 @@ try:
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
                         asyncio.run,
-                        self._client.episodic.add_message(self._session_id, role, node.text),
+                        self._client.short_term.add_message(self._session_id, role, node.text),
                     )
                     future.result()
             else:
-                asyncio.run(self._client.episodic.add_message(self._session_id, role, node.text))
+                asyncio.run(self._client.short_term.add_message(self._session_id, role, node.text))
 
         def reset(self) -> None:
             """Reset memory for this session."""
@@ -161,11 +161,11 @@ try:
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
                         asyncio.run,
-                        self._client.episodic.clear_session(self._session_id),
+                        self._client.short_term.clear_session(self._session_id),
                     )
                     future.result()
             else:
-                asyncio.run(self._client.episodic.clear_session(self._session_id))
+                asyncio.run(self._client.short_term.clear_session(self._session_id))
 
 except ImportError:
     # LlamaIndex not installed

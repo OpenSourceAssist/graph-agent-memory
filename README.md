@@ -9,7 +9,7 @@ A comprehensive memory system for AI agents using Neo4j as the persistence layer
 
 ## Features
 
-- **Three Memory Types**: Episodic (conversations), Semantic (facts/preferences), and Procedural (reasoning traces)
+- **Three Memory Types**: Short-Term (conversations), Long-Term (facts/preferences), and Procedural (reasoning traces)
 - **POLE+O Data Model**: Configurable entity schema based on Person, Object, Location, Event, Organization types with subtypes
 - **Multi-Stage Entity Extraction**: Pipeline combining spaCy, GLiNER, and LLM extractors with configurable merge strategies
 - **Entity Resolution**: Multi-strategy deduplication (exact, fuzzy, semantic matching) with type-aware resolution
@@ -65,21 +65,21 @@ async def main():
     # Use the memory client
     async with MemoryClient(settings) as memory:
         # Store a conversation message
-        await memory.episodic.add_message(
+        await memory.short_term.add_message(
             session_id="user-123",
             role="user",
             content="Hi, I'm John and I love Italian food!"
         )
 
         # Add a preference
-        await memory.semantic.add_preference(
+        await memory.long_term.add_preference(
             category="food",
             preference="Loves Italian cuisine",
             context="Dining preferences"
         )
 
         # Search for relevant memories
-        preferences = await memory.semantic.search_preferences("restaurant recommendation")
+        preferences = await memory.long_term.search_preferences("restaurant recommendation")
         for pref in preferences:
             print(f"[{pref.category}] {pref.preference}")
 
@@ -95,34 +95,34 @@ asyncio.run(main())
 
 ## Memory Types
 
-### Episodic Memory
+### Short-Term Memory
 
 Stores conversation history and experiences:
 
 ```python
 # Add messages to a conversation
-await memory.episodic.add_message(
+await memory.short_term.add_message(
     session_id="user-123",
     role="user",
     content="I'm looking for a restaurant"
 )
 
 # Get conversation history
-conversation = await memory.episodic.get_conversation("user-123")
+conversation = await memory.short_term.get_conversation("user-123")
 for msg in conversation.messages:
     print(f"{msg.role}: {msg.content}")
 
 # Search past messages
-results = await memory.episodic.search_messages("Italian food")
+results = await memory.short_term.search_messages("Italian food")
 ```
 
-### Semantic Memory
+### Long-Term Memory
 
 Stores facts, preferences, and entities:
 
 ```python
 # Add entities with POLE+O types and subtypes
-entity = await memory.semantic.add_entity(
+entity = await memory.long_term.add_entity(
     name="John Smith",
     entity_type="PERSON",  # POLE+O type
     subtype="INDIVIDUAL",  # Optional subtype
@@ -130,7 +130,7 @@ entity = await memory.semantic.add_entity(
 )
 
 # Add preferences
-pref = await memory.semantic.add_preference(
+pref = await memory.long_term.add_preference(
     category="food",
     preference="Prefers vegetarian options",
     context="When dining out"
@@ -138,7 +138,7 @@ pref = await memory.semantic.add_preference(
 
 # Add facts with temporal validity
 from datetime import datetime
-fact = await memory.semantic.add_fact(
+fact = await memory.long_term.add_fact(
     subject="John",
     predicate="works_at",
     obj="Acme Corp",
@@ -146,7 +146,7 @@ fact = await memory.semantic.add_fact(
 )
 
 # Search for relevant entities
-entities = await memory.semantic.search_entities("Italian restaurants")
+entities = await memory.long_term.search_entities("Italian restaurants")
 ```
 
 ### Procedural Memory
@@ -206,7 +206,7 @@ messages = [
 def on_progress(loaded, total):
     print(f"Loaded {loaded}/{total} messages")
 
-await memory.episodic.add_messages_batch(
+await memory.short_term.add_messages_batch(
     session_id="bulk-session",
     messages=messages,
     batch_size=100,
@@ -216,7 +216,7 @@ await memory.episodic.add_messages_batch(
 )
 
 # Generate embeddings later for messages that don't have them
-await memory.episodic.generate_embeddings_batch(
+await memory.short_term.generate_embeddings_batch(
     session_id="bulk-session",
     batch_size=50,
 )
@@ -228,7 +228,7 @@ List and manage conversation sessions:
 
 ```python
 # List all sessions with metadata
-sessions = await memory.episodic.list_sessions(
+sessions = await memory.short_term.list_sessions(
     prefix="user-",  # Optional: filter by prefix
     limit=50,
     offset=0,
@@ -248,7 +248,7 @@ Search messages with MongoDB-style metadata filters:
 
 ```python
 # Search with metadata filters
-results = await memory.episodic.search_messages(
+results = await memory.short_term.search_messages(
     "restaurant",
     session_id="user-123",
     metadata_filters={
@@ -267,7 +267,7 @@ Generate summaries of conversations:
 
 ```python
 # Basic summary (no LLM required)
-summary = await memory.episodic.get_conversation_summary("user-123")
+summary = await memory.short_term.get_conversation_summary("user-123")
 print(summary.summary)
 print(f"Messages: {summary.message_count}")
 print(f"Key entities: {summary.key_entities}")
@@ -284,7 +284,7 @@ async def my_summarizer(transcript: str) -> str:
     )
     return response.choices[0].message.content
 
-summary = await memory.episodic.get_conversation_summary(
+summary = await memory.short_term.get_conversation_summary(
     "user-123",
     summarizer=my_summarizer,
     include_entities=True,
@@ -372,7 +372,7 @@ Export memory graph data for visualization:
 ```python
 # Export the full memory graph
 graph = await memory.get_graph(
-    memory_types=["episodic", "semantic", "procedural"],  # Optional filter
+    memory_types=["short_term", "long_term", "procedural"],  # Optional filter
     session_id="user-123",  # Optional session filter
     include_embeddings=False,  # Don't include large embedding vectors
     limit=1000,
@@ -426,8 +426,8 @@ async def test_my_agent():
     client = MockMemoryClient()
     
     # Use like real MemoryClient
-    await client.episodic.add_message("session-1", "user", "Hello")
-    conv = await client.episodic.get_conversation("session-1")
+    await client.short_term.add_message("session-1", "user", "Hello")
+    conv = await client.short_term.get_conversation("session-1")
     
     assert len(conv.messages) == 1
 
@@ -454,7 +454,7 @@ The package uses the POLE+O data model for entity classification, an extension o
 ### Using Entity Types and Subtypes
 
 ```python
-from neo4j_agent_memory.memory.semantic import Entity, POLEO_TYPES
+from neo4j_agent_memory.memory.long_term import Entity, POLEO_TYPES
 
 # Create an entity with type and subtype
 entity = Entity(
@@ -732,8 +732,8 @@ resolver = CompositeResolver(
 The package automatically creates the following schema:
 
 ### Node Labels
-- `Conversation`, `Message` - Episodic memory
-- `Entity`, `Preference`, `Fact` - Semantic memory
+- `Conversation`, `Message` - Short-term memory
+- `Entity`, `Preference`, `Fact` - Long-term memory
 - `ReasoningTrace`, `ReasoningStep`, `Tool`, `ToolCall` - Procedural memory
 
 ### Indexes
@@ -806,7 +806,7 @@ Examples are located in `examples/` and demonstrate various features:
 
 | Example | Description | Requirements |
 |---------|-------------|--------------|
-| `basic_usage.py` | Core memory operations (episodic, semantic, procedural) | Neo4j, OpenAI API key |
+| `basic_usage.py` | Core memory operations (short-term, long-term, procedural) | Neo4j, OpenAI API key |
 | `entity_resolution.py` | Entity matching strategies | None |
 | `langchain_agent.py` | LangChain integration | Neo4j, OpenAI, langchain extra |
 | `pydantic_ai_agent.py` | Pydantic AI integration | Neo4j, OpenAI, pydantic-ai extra |
@@ -841,13 +841,13 @@ The `examples/full-stack-chat-agent/` directory contains a complete web applicat
 
 **Features:**
 - PydanticAI agent with memory-enhanced system prompts
-- All three memory types (episodic, semantic, procedural)
+- All three memory types (short-term, long-term, procedural)
 - News graph tools for searching and analyzing articles
 - SSE streaming for real-time responses
 - Next.js 14 frontend with Chakra UI
 - Thread management and memory context display
 - **Memory Graph Visualization**: Interactive graph view using Neo4j NVL library showing all memory nodes and relationships
-- **Automatic Preference Extraction**: User preferences are automatically detected and stored in semantic memory
+- **Automatic Preference Extraction**: User preferences are automatically detected and stored in long-term memory
 - **Memory Context Panel**: Side panel displaying recent messages, extracted preferences, and entities
 
 **Quick Start:**
@@ -912,7 +912,7 @@ The integration test script supports several options:
 ./scripts/run-integration-tests.sh --verbose
 
 # Run specific test pattern
-./scripts/run-integration-tests.sh --pattern "test_episodic"
+./scripts/run-integration-tests.sh --pattern "test_short_term"
 ```
 
 ## Publishing to PyPI

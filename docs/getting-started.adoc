@@ -127,7 +127,7 @@ asyncio.run(main())
 ----
 async with MemoryClient(settings) as memory:
     # Add a user message
-    message = await memory.episodic.add_message(
+    message = await memory.short_term.add_message(
         session_id="session-123",
         role="user",
         content="What's the best pizza place in New York?"
@@ -135,14 +135,14 @@ async with MemoryClient(settings) as memory:
     print(f"Stored message: {message.id}")
 
     # Add an assistant response
-    await memory.episodic.add_message(
+    await memory.short_term.add_message(
         session_id="session-123",
         role="assistant",
         content="I recommend Joe's Pizza in Greenwich Village!"
     )
 
     # Retrieve conversation history
-    messages = await memory.episodic.get_messages(
+    messages = await memory.short_term.get_messages(
         session_id="session-123",
         limit=10
     )
@@ -158,7 +158,7 @@ Entities are automatically extracted from messages when `extract_entities=True` 
 ----
 async with MemoryClient(settings) as memory:
     # This message will have entities extracted automatically
-    await memory.episodic.add_message(
+    await memory.short_term.add_message(
         session_id="session-123",
         role="user",
         content="I work at Acme Corp in San Francisco with John Smith",
@@ -166,7 +166,7 @@ async with MemoryClient(settings) as memory:
     )
 
     # Search for entities
-    entities = await memory.semantic.search_entities(
+    entities = await memory.long_term.search_entities(
         query="companies in San Francisco",
         limit=5
     )
@@ -180,7 +180,7 @@ async with MemoryClient(settings) as memory:
 ----
 async with MemoryClient(settings) as memory:
     # Add a user preference
-    pref = await memory.semantic.add_preference(
+    pref = await memory.long_term.add_preference(
         category="food",
         preference="Prefers vegetarian options",
         importance=0.8,
@@ -188,7 +188,7 @@ async with MemoryClient(settings) as memory:
     )
 
     # Search preferences
-    prefs = await memory.semantic.search_preferences(
+    prefs = await memory.long_term.search_preferences(
         query="dietary restrictions",
         limit=5
     )
@@ -203,8 +203,8 @@ async with MemoryClient(settings) as memory:
     context = await memory.get_context(
         query="restaurant recommendation",
         session_id="session-123",
-        include_episodic=True,   # Recent conversation
-        include_semantic=True,    # Facts and preferences
+        include_short_term=True,   # Recent conversation
+        include_long_term=True,    # Facts and preferences
         include_procedural=True,  # Past reasoning patterns
         max_items=10
     )
@@ -267,7 +267,7 @@ from neo4j_agent_memory import (
 
 try:
     async with MemoryClient(settings) as memory:
-        await memory.episodic.add_message(...)
+        await memory.short_term.add_message(...)
 except ConnectionError as e:
     print(f"Failed to connect to Neo4j: {e}")
 except ExtractionError as e:

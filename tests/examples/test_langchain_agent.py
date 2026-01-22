@@ -64,8 +64,8 @@ class TestLangchainAgentExample:
             session_id = f"test-langchain-load-{uuid4()}"
 
             # Pre-populate some data
-            await memory_client.episodic.add_message(session_id, "user", "I prefer spicy food")
-            await memory_client.semantic.add_preference(
+            await memory_client.short_term.add_message(session_id, "user", "I prefer spicy food")
+            await memory_client.long_term.add_preference(
                 "food", "Loves spicy dishes", context="Dining preferences"
             )
 
@@ -106,7 +106,7 @@ class TestLangchainAgentExample:
             )
 
             # Verify it was saved
-            conversation = await memory_client.episodic.get_conversation(session_id)
+            conversation = await memory_client.short_term.get_conversation(session_id)
             assert len(conversation.messages) == 2
 
         except ImportError:
@@ -140,8 +140,8 @@ class TestLangchainAgentExample:
             session_id = f"test-langchain-retrieve-{uuid4()}"
 
             # Pre-populate data
-            await memory_client.episodic.add_message(session_id, "user", "I love spicy Thai food")
-            await memory_client.semantic.add_preference("food", "Prefers spicy dishes")
+            await memory_client.short_term.add_message(session_id, "user", "I love spicy Thai food")
+            await memory_client.long_term.add_preference("food", "Prefers spicy dishes")
 
             retriever = Neo4jMemoryRetriever(
                 memory_client=memory_client,

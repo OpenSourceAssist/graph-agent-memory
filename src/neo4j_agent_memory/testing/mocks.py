@@ -4,12 +4,11 @@ from datetime import datetime
 from typing import Any, Callable, Literal
 from uuid import UUID, uuid4
 
-from neo4j_agent_memory.memory.episodic import (
-    Conversation,
-    ConversationSummary,
-    Message,
-    MessageRole,
-    SessionInfo,
+from neo4j_agent_memory.memory.long_term import (
+    Entity,
+    EntityType,
+    Fact,
+    Preference,
 )
 from neo4j_agent_memory.memory.procedural import (
     ReasoningStep,
@@ -18,16 +17,17 @@ from neo4j_agent_memory.memory.procedural import (
     ToolCallStatus,
     ToolStats,
 )
-from neo4j_agent_memory.memory.semantic import (
-    Entity,
-    EntityType,
-    Fact,
-    Preference,
+from neo4j_agent_memory.memory.short_term import (
+    Conversation,
+    ConversationSummary,
+    Message,
+    MessageRole,
+    SessionInfo,
 )
 
 
-class MockEpisodicMemory:
-    """In-memory mock of EpisodicMemory for unit testing."""
+class MockShortTermMemory:
+    """In-memory mock of ShortTermMemory for unit testing."""
 
     def __init__(self):
         self._conversations: dict[str, Conversation] = {}
@@ -284,8 +284,8 @@ class MockEpisodicMemory:
             del self._conversations[session_id]
 
 
-class MockSemanticMemory:
-    """In-memory mock of SemanticMemory for unit testing."""
+class MockLongTermMemory:
+    """In-memory mock of LongTermMemory for unit testing."""
 
     def __init__(self):
         self._entities: dict[str, Entity] = {}
@@ -407,7 +407,7 @@ class MockSemanticMemory:
         return [p for p in self._preferences.values() if p.category == category]
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
-        """Get semantic context."""
+        """Get long-term context."""
         entities = await self.search_entities(query, limit=5)
         prefs = await self.search_preferences(query, limit=5)
 
@@ -651,15 +651,15 @@ class MockMemoryClient:
             client = MockMemoryClient()
 
             # Use like the real MemoryClient
-            await client.episodic.add_message("session-1", "user", "Hello")
-            conv = await client.episodic.get_conversation("session-1")
+            await client.short_term.add_message("session-1", "user", "Hello")
+            conv = await client.short_term.get_conversation("session-1")
 
             assert len(conv.messages) == 1
     """
 
     def __init__(self):
-        self.episodic = MockEpisodicMemory()
-        self.semantic = MockSemanticMemory()
+        self.short_term = MockShortTermMemory()
+        self.long_term = MockLongTermMemory()
         self.procedural = MockProceduralMemory()
 
     async def __aenter__(self) -> "MockMemoryClient":
@@ -683,22 +683,22 @@ class MockMemoryClient:
         query: str,
         *,
         session_id: str | None = None,
-        include_episodic: bool = True,
-        include_semantic: bool = True,
+        include_short_term: bool = True,
+        include_long_term: bool = True,
         include_procedural: bool = True,
     ) -> str:
         """Get combined context from all memory types."""
         parts = []
 
-        if include_episodic:
-            episodic_ctx = await self.episodic.get_context(query, session_id=session_id)
-            if episodic_ctx:
-                parts.append(episodic_ctx)
+        if include_short_term:
+            short_term_ctx = await self.short_term.get_context(query, session_id=session_id)
+            if short_term_ctx:
+                parts.append(short_term_ctx)
 
-        if include_semantic:
-            semantic_ctx = await self.semantic.get_context(query)
-            if semantic_ctx:
-                parts.append(semantic_ctx)
+        if include_long_term:
+            long_term_ctx = await self.long_term.get_context(query)
+            if long_term_ctx:
+                parts.append(long_term_ctx)
 
         if include_procedural:
             procedural_ctx = await self.procedural.get_context(query)
@@ -709,6 +709,6 @@ class MockMemoryClient:
 
     def clear_all(self) -> None:
         """Clear all mock data."""
-        self.episodic = MockEpisodicMemory()
-        self.semantic = MockSemanticMemory()
+        self.short_term = MockShortTermMemory()
+        self.long_term = MockLongTermMemory()
         self.procedural = MockProceduralMemory()

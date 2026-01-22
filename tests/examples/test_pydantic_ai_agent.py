@@ -61,7 +61,7 @@ class TestPydanticAIAgentExample:
             session_id = f"test-pydantic-ctx-{uuid4()}"
 
             # Pre-populate some data
-            await memory_client.semantic.add_preference(
+            await memory_client.long_term.add_preference(
                 "communication", "Prefers concise responses"
             )
 
@@ -92,7 +92,7 @@ class TestPydanticAIAgentExample:
             )
 
             # Verify it was saved
-            prefs = await memory_client.semantic.search_preferences("downtown")
+            prefs = await memory_client.long_term.search_preferences("downtown")
             assert len(prefs) >= 1
 
         except ImportError:
@@ -107,7 +107,7 @@ class TestPydanticAIAgentExample:
             session_id = f"test-pydantic-search-{uuid4()}"
 
             # Pre-populate
-            await memory_client.semantic.add_preference("food", "Vegetarian, loves Indian cuisine")
+            await memory_client.long_term.add_preference("food", "Vegetarian, loves Indian cuisine")
 
             deps = MemoryDependency(client=memory_client, session_id=session_id)
 

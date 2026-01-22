@@ -4,11 +4,11 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
-from neo4j_agent_memory.memory.episodic import (
-    Conversation,
-    Message,
-    MessageRole,
-    SessionInfo,
+from neo4j_agent_memory.memory.long_term import (
+    Entity,
+    EntityType,
+    Fact,
+    Preference,
 )
 from neo4j_agent_memory.memory.procedural import (
     ReasoningStep,
@@ -16,11 +16,11 @@ from neo4j_agent_memory.memory.procedural import (
     ToolCall,
     ToolCallStatus,
 )
-from neo4j_agent_memory.memory.semantic import (
-    Entity,
-    EntityType,
-    Fact,
-    Preference,
+from neo4j_agent_memory.memory.short_term import (
+    Conversation,
+    Message,
+    MessageRole,
+    SessionInfo,
 )
 
 

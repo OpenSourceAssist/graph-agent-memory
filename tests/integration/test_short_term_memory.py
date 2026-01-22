@@ -1,20 +1,20 @@
-"""Comprehensive integration tests for episodic memory."""
+"""Comprehensive integration tests for short-term memory."""
 
 from datetime import datetime, timedelta
 
 import pytest
 
-from neo4j_agent_memory.memory.episodic import MessageRole
+from neo4j_agent_memory.memory.short_term import MessageRole
 
 
 @pytest.mark.integration
-class TestEpisodicMemoryBasicOperations:
-    """Test basic episodic memory operations."""
+class TestShortTermMemoryBasicOperations:
+    """Test basic short-term memory operations."""
 
     @pytest.mark.asyncio
     async def test_add_single_message(self, memory_client, session_id):
         """Test adding a single message to a conversation."""
-        msg = await memory_client.episodic.add_message(
+        msg = await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Hello, this is a test message",
@@ -34,7 +34,7 @@ class TestEpisodicMemoryBasicOperations:
         roles = [MessageRole.USER, MessageRole.ASSISTANT, MessageRole.SYSTEM]
 
         for role in roles:
-            msg = await memory_client.episodic.add_message(
+            msg = await memory_client.short_term.add_message(
                 session_id,
                 role,
                 f"Test message with role {role.value}",
@@ -55,7 +55,7 @@ class TestEpisodicMemoryBasicOperations:
         ]
 
         for role, content in messages:
-            await memory_client.episodic.add_message(
+            await memory_client.short_term.add_message(
                 session_id,
                 role,
                 content,
@@ -64,7 +64,7 @@ class TestEpisodicMemoryBasicOperations:
             )
 
         # Retrieve conversation
-        conv = await memory_client.episodic.get_conversation(session_id)
+        conv = await memory_client.short_term.get_conversation(session_id)
 
         assert conv is not None
         assert conv.session_id == session_id
@@ -80,7 +80,7 @@ class TestEpisodicMemoryBasicOperations:
         """Test retrieving conversation with message limit."""
         # Add many messages
         for i in range(10):
-            await memory_client.episodic.add_message(
+            await memory_client.short_term.add_message(
                 session_id,
                 MessageRole.USER if i % 2 == 0 else MessageRole.ASSISTANT,
                 f"Message {i}",
@@ -89,14 +89,14 @@ class TestEpisodicMemoryBasicOperations:
             )
 
         # Retrieve with limit
-        conv = await memory_client.episodic.get_conversation(session_id, limit=5)
+        conv = await memory_client.short_term.get_conversation(session_id, limit=5)
 
         assert len(conv.messages) == 5
 
     @pytest.mark.asyncio
     async def test_get_nonexistent_conversation(self, memory_client):
         """Test retrieving a conversation that doesn't exist."""
-        conv = await memory_client.episodic.get_conversation("nonexistent-session-id")
+        conv = await memory_client.short_term.get_conversation("nonexistent-session-id")
 
         # Should return an empty conversation, not None
         assert conv is not None
@@ -109,7 +109,7 @@ class TestEpisodicMemoryBasicOperations:
         session2 = f"test-session-2-{datetime.now().timestamp()}"
 
         # Add messages to session 1
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session1,
             MessageRole.USER,
             "Session 1 message",
@@ -118,7 +118,7 @@ class TestEpisodicMemoryBasicOperations:
         )
 
         # Add messages to session 2
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session2,
             MessageRole.USER,
             "Session 2 message",
@@ -127,8 +127,8 @@ class TestEpisodicMemoryBasicOperations:
         )
 
         # Verify isolation
-        conv1 = await memory_client.episodic.get_conversation(session1)
-        conv2 = await memory_client.episodic.get_conversation(session2)
+        conv1 = await memory_client.short_term.get_conversation(session1)
+        conv2 = await memory_client.short_term.get_conversation(session2)
 
         assert len(conv1.messages) == 1
         assert conv1.messages[0].content == "Session 1 message"
@@ -138,28 +138,28 @@ class TestEpisodicMemoryBasicOperations:
 
 
 @pytest.mark.integration
-class TestEpisodicMemorySearch:
-    """Test episodic memory search functionality."""
+class TestShortTermMemorySearch:
+    """Test short-term memory search functionality."""
 
     @pytest.mark.asyncio
     async def test_search_messages_basic(self, memory_client, session_id):
         """Test basic message search."""
         # Add messages with specific content
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "I love Italian food",
             extract_entities=False,
             generate_embedding=True,
         )
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "The weather is nice today",
             extract_entities=False,
             generate_embedding=True,
         )
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Pizza and pasta are my favorites",
@@ -168,7 +168,7 @@ class TestEpisodicMemorySearch:
         )
 
         # Search for food-related messages
-        results = await memory_client.episodic.search_messages(
+        results = await memory_client.short_term.search_messages(
             "Italian cuisine restaurants",
             limit=10,
         )
@@ -180,7 +180,7 @@ class TestEpisodicMemorySearch:
     async def test_search_messages_empty_results(self, memory_client, session_id):
         """Test search with no matching results."""
         # Add unrelated message
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Hello world",
@@ -189,7 +189,7 @@ class TestEpisodicMemorySearch:
         )
 
         # Search for something very different
-        results = await memory_client.episodic.search_messages(
+        results = await memory_client.short_term.search_messages(
             "quantum physics equations",
             limit=10,
         )
@@ -199,13 +199,13 @@ class TestEpisodicMemorySearch:
 
 
 @pytest.mark.integration
-class TestEpisodicMemoryWithEmbeddings:
-    """Test episodic memory with embedding generation."""
+class TestShortTermMemoryWithEmbeddings:
+    """Test short-term memory with embedding generation."""
 
     @pytest.mark.asyncio
     async def test_add_message_with_embedding(self, memory_client, session_id):
         """Test adding a message with embedding generation."""
-        msg = await memory_client.episodic.add_message(
+        msg = await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "This message should have an embedding",
@@ -230,7 +230,7 @@ class TestEpisodicMemoryWithEmbeddings:
         ]
 
         for topic in topics:
-            await memory_client.episodic.add_message(
+            await memory_client.short_term.add_message(
                 session_id,
                 MessageRole.USER,
                 topic,
@@ -239,7 +239,7 @@ class TestEpisodicMemoryWithEmbeddings:
             )
 
         # Search for programming-related content
-        results = await memory_client.episodic.search_messages(
+        results = await memory_client.short_term.search_messages(
             "coding and software development",
             limit=3,
         )
@@ -249,13 +249,13 @@ class TestEpisodicMemoryWithEmbeddings:
 
 
 @pytest.mark.integration
-class TestEpisodicMemoryWithExtraction:
-    """Test episodic memory with entity extraction."""
+class TestShortTermMemoryWithExtraction:
+    """Test short-term memory with entity extraction."""
 
     @pytest.mark.asyncio
     async def test_add_message_with_entity_extraction(self, memory_client, session_id):
         """Test adding a message with entity extraction enabled."""
-        msg = await memory_client.episodic.add_message(
+        msg = await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "My name is John and I work at Google",
@@ -269,14 +269,14 @@ class TestEpisodicMemoryWithExtraction:
     @pytest.mark.asyncio
     async def test_conversation_with_mentioned_entities(self, memory_client, session_id):
         """Test conversation tracking mentioned entities."""
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Hi, I'm Alice from Microsoft",
             extract_entities=True,
             generate_embedding=False,
         )
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "I met Bob yesterday at the conference",
@@ -285,18 +285,18 @@ class TestEpisodicMemoryWithExtraction:
         )
 
         # Get conversation and verify it has messages
-        conv = await memory_client.episodic.get_conversation(session_id)
+        conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) == 2
 
 
 @pytest.mark.integration
-class TestEpisodicMemoryEdgeCases:
+class TestShortTermMemoryEdgeCases:
     """Test edge cases and error handling."""
 
     @pytest.mark.asyncio
     async def test_empty_message_content(self, memory_client, session_id):
         """Test handling of empty message content."""
-        msg = await memory_client.episodic.add_message(
+        msg = await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "",
@@ -311,7 +311,7 @@ class TestEpisodicMemoryEdgeCases:
         """Test handling of very long messages."""
         long_content = "This is a test message. " * 1000  # ~24KB of text
 
-        msg = await memory_client.episodic.add_message(
+        msg = await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             long_content,
@@ -326,7 +326,7 @@ class TestEpisodicMemoryEdgeCases:
         """Test handling of special characters."""
         special_content = "Hello! @#$%^&*() 你好 مرحبا 🎉 <script>alert('test')</script>"
 
-        msg = await memory_client.episodic.add_message(
+        msg = await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             special_content,
@@ -342,7 +342,7 @@ class TestEpisodicMemoryEdgeCases:
         import asyncio
 
         async def add_message(index):
-            return await memory_client.episodic.add_message(
+            return await memory_client.short_term.add_message(
                 session_id,
                 MessageRole.USER,
                 f"Concurrent message {index}",
@@ -357,7 +357,7 @@ class TestEpisodicMemoryEdgeCases:
         assert len(results) == 10
 
         # Verify all messages were added
-        conv = await memory_client.episodic.get_conversation(session_id)
+        conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) == 10
 
     @pytest.mark.asyncio
@@ -366,7 +366,7 @@ class TestEpisodicMemoryEdgeCases:
         import asyncio
 
         for i in range(5):
-            await memory_client.episodic.add_message(
+            await memory_client.short_term.add_message(
                 session_id,
                 MessageRole.USER,
                 f"Message {i}",
@@ -375,7 +375,7 @@ class TestEpisodicMemoryEdgeCases:
             )
             await asyncio.sleep(0.01)  # Small delay to ensure timestamp ordering
 
-        conv = await memory_client.episodic.get_conversation(session_id)
+        conv = await memory_client.short_term.get_conversation(session_id)
 
         # Verify timestamps are in ascending order
         timestamps = [msg.created_at for msg in conv.messages]

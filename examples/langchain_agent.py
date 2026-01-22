@@ -66,11 +66,11 @@ async def main():
         # Pre-populate some memories
         session_id = "langchain-demo"
 
-        await client.episodic.add_message(session_id, "user", "I prefer spicy food")
-        await client.semantic.add_preference(
+        await client.short_term.add_message(session_id, "user", "I prefer spicy food")
+        await client.long_term.add_preference(
             "food", "Loves spicy dishes", context="Dining preferences"
         )
-        await client.semantic.add_entity(
+        await client.long_term.add_entity(
             name="Thai Kitchen",
             entity_type="ORGANIZATION",
             description="Favorite Thai restaurant",

@@ -96,7 +96,7 @@ class Entity(BaseModel):
 
 # Memory context schemas
 class RecentMessage(BaseModel):
-    """A recent message from episodic memory."""
+    """A recent message from short-term memory."""
 
     id: str
     role: str

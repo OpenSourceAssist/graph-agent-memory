@@ -1,36 +1,36 @@
-"""Memory type implementations: episodic, semantic, and procedural."""
+"""Memory type implementations: short-term, long-term, and procedural."""
 
-from neo4j_agent_memory.memory.episodic import (
-    EpisodicMemory,
-    Message,
-    Conversation,
-    MessageRole,
-)
-from neo4j_agent_memory.memory.semantic import (
-    SemanticMemory,
+from neo4j_agent_memory.memory.long_term import (
     Entity,
     EntityType,
-    Preference,
     Fact,
+    LongTermMemory,
+    Preference,
     Relationship,
 )
 from neo4j_agent_memory.memory.procedural import (
     ProceduralMemory,
-    ReasoningTrace,
     ReasoningStep,
+    ReasoningTrace,
+    Tool,
     ToolCall,
     ToolCallStatus,
-    Tool,
+)
+from neo4j_agent_memory.memory.short_term import (
+    Conversation,
+    Message,
+    MessageRole,
+    ShortTermMemory,
 )
 
 __all__ = [
-    # Episodic
-    "EpisodicMemory",
+    # Short-term
+    "ShortTermMemory",
     "Message",
     "Conversation",
     "MessageRole",
-    # Semantic
-    "SemanticMemory",
+    # Long-term
+    "LongTermMemory",
     "Entity",
     "EntityType",
     "Preference",

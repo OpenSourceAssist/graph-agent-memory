@@ -42,7 +42,7 @@ async def list_threads(
     if memory:
         try:
             # Use the new list_sessions() API for efficient listing
-            sessions = await memory.episodic.list_sessions(
+            sessions = await memory.short_term.list_sessions(
                 limit=limit,
                 offset=offset,
                 order_by="updated_at",
@@ -71,7 +71,7 @@ async def list_threads(
         message_count = 0
         if memory:
             try:
-                conversation = await memory.episodic.get_conversation(thread_id)
+                conversation = await memory.short_term.get_conversation(thread_id)
                 message_count = len(conversation.messages) if conversation else 0
             except Exception:
                 pass
@@ -125,11 +125,11 @@ async def get_thread(
     thread_data = _get_thread_or_404(thread_id)
     memory = get_memory_client()
 
-    # Get messages from episodic memory
+    # Get messages from short-term memory
     messages = []
     if memory:
         try:
-            conversation = await memory.episodic.get_conversation(thread_id)
+            conversation = await memory.short_term.get_conversation(thread_id)
             if conversation and conversation.messages:
                 for msg in conversation.messages:
                     messages.append(

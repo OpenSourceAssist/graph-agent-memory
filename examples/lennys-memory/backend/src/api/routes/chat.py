@@ -17,8 +17,8 @@ from pydantic_ai.messages import (
 from sse_starlette.sse import EventSourceResponse
 
 from neo4j_agent_memory import MemoryClient
-from neo4j_agent_memory.memory.episodic import MessageRole
 from neo4j_agent_memory.memory.procedural import ToolCallStatus
+from neo4j_agent_memory.memory.short_term import MessageRole
 from src.agent.agent import get_podcast_agent
 from src.agent.dependencies import AgentDeps
 from src.api.schemas import ChatRequest
@@ -77,7 +77,7 @@ async def extract_and_store_preferences(
     message: str,
     session_id: str,
 ) -> None:
-    """Extract preferences from user message and store in semantic memory."""
+    """Extract preferences from user message and store in long-term memory."""
     message_lower = message.lower()
 
     # Check if the message contains preference indicators
@@ -117,7 +117,7 @@ async def extract_and_store_preferences(
         category = "topics"
 
     try:
-        await memory.semantic.add_preference(
+        await memory.long_term.add_preference(
             category=category,
             preference=message,
             context=f"Extracted from conversation in session {session_id}",
@@ -151,9 +151,9 @@ async def stream_chat_response(
             memory_enabled=memory_enabled,
         )
 
-        # Store user message in episodic memory
+        # Store user message in short-term memory
         if memory_enabled and memory:
-            await memory.episodic.add_message(
+            await memory.short_term.add_message(
                 session_id=request.thread_id,
                 role=MessageRole.USER,
                 content=request.message,
@@ -291,9 +291,9 @@ async def stream_chat_response(
                             }
                             yield {"data": json.dumps(event)}
 
-        # Store assistant response in episodic memory
+        # Store assistant response in short-term memory
         if memory_enabled and memory:
-            await memory.episodic.add_message(
+            await memory.short_term.add_message(
                 session_id=request.thread_id,
                 role=MessageRole.ASSISTANT,
                 content=full_response,

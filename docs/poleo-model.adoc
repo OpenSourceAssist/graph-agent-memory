@@ -288,7 +288,7 @@ settings = MemorySettings()
 
 async with MemoryClient(settings) as memory:
     # Entities extracted using POLE+O types
-    await memory.episodic.add_message(
+    await memory.short_term.add_message(
         session_id="session-1",
         role="user",
         content="I work at Acme Corp in San Francisco"
@@ -318,7 +318,7 @@ Subtypes are automatically extracted by the LLM extractor and can be specified w
 ----
 async with MemoryClient(settings) as memory:
     # Add entity with subtype
-    await memory.semantic.add_entity(
+    await memory.long_term.add_entity(
         name="Tesla Model 3",
         entity_type="OBJECT",
         subtype="VEHICLE",
@@ -326,7 +326,7 @@ async with MemoryClient(settings) as memory:
     )
 
     # Query by type and subtype
-    vehicles = await memory.semantic.search_entities(
+    vehicles = await memory.long_term.search_entities(
         query="cars",
         entity_type="OBJECT"
     )
@@ -426,20 +426,20 @@ settings = MemorySettings(
 ----
 async with MemoryClient(settings) as memory:
     # Semantic search across all entities
-    entities = await memory.semantic.search_entities(
+    entities = await memory.long_term.search_entities(
         query="companies in technology",
         limit=10
     )
 
     # Filter by type
-    people = await memory.semantic.search_entities(
+    people = await memory.long_term.search_entities(
         query="engineers",
         entity_type="PERSON",
         limit=10
     )
 
     # Get entity by name
-    entity = await memory.semantic.get_entity(
+    entity = await memory.long_term.get_entity(
         name="Acme Corp",
         entity_type="ORGANIZATION"
     )
@@ -464,11 +464,11 @@ settings = MemorySettings(
 
 async with MemoryClient(settings) as memory:
     # These might resolve to the same entity
-    await memory.episodic.add_message(
+    await memory.short_term.add_message(
         session_id="s1", role="user",
         content="I talked to John Smith"
     )
-    await memory.episodic.add_message(
+    await memory.short_term.add_message(
         session_id="s1", role="user",
         content="Johnny Smith called me back"
     )
@@ -562,5 +562,5 @@ For each entity, also identify:
 == Next Steps
 
 * xref:entity-extraction.adoc[Configure the extraction pipeline]
-* xref:memory-types.adoc[Work with entities in semantic memory]
+* xref:memory-types.adoc[Work with entities in long-term memory]
 * xref:configuration.adoc[Full configuration reference]

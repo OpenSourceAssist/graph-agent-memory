@@ -66,8 +66,8 @@ async def main():
         # Pre-populate some memories
         session_id = "pydantic-ai-demo"
 
-        await client.semantic.add_preference("communication", "Prefers concise responses")
-        await client.semantic.add_preference("food", "Vegetarian, loves Indian cuisine")
+        await client.long_term.add_preference("communication", "Prefers concise responses")
+        await client.long_term.add_preference("food", "Vegetarian, loves Indian cuisine")
 
         print("=" * 60)
         print("Neo4j Agent Memory - Pydantic AI Integration Demo")

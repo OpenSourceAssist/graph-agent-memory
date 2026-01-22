@@ -206,12 +206,12 @@ class ResolutionConfig(BaseModel):
 class MemoryConfig(BaseModel):
     """Memory behavior configuration."""
 
-    # Episodic memory
+    # Short-term memory
     default_conversation_limit: int = Field(
         default=50, ge=1, description="Default conversation message limit"
     )
     message_embedding_enabled: bool = Field(default=True, description="Enable message embeddings")
-    # Semantic memory
+    # Long-term memory
     preference_confidence_threshold: float = Field(
         default=0.7, ge=0.0, le=1.0, description="Preference confidence threshold"
     )

@@ -151,7 +151,7 @@ async def load_transcript(
                 print(f"  Loaded {processed}/{total} turns...")
 
         try:
-            await memory.episodic.add_messages_batch(
+            await memory.short_term.add_messages_batch(
                 session_id=session_id,
                 messages=messages,
                 batch_size=50,
@@ -180,7 +180,7 @@ async def load_transcript(
             }
 
             try:
-                await memory.episodic.add_message(
+                await memory.short_term.add_message(
                     session_id=session_id,
                     role=role,
                     content=turn.content,

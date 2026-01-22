@@ -81,7 +81,7 @@ settings = MemorySettings()
 
 async with MemoryClient(settings) as memory:
     # Entities extracted automatically
-    await memory.episodic.add_message(
+    await memory.short_term.add_message(
         session_id="session-1",
         role="user",
         content="I met John Smith at Acme Corp in New York yesterday"
@@ -129,7 +129,7 @@ settings = MemorySettings(
 )
 
 # Or disable per-message
-await memory.episodic.add_message(
+await memory.short_term.add_message(
     session_id="session-1",
     role="user",
     content="...",
@@ -519,4 +519,4 @@ NAM_EXTRACTION__ENTITY_TYPES='["PERSON","ORGANIZATION","LOCATION","EVENT","OBJEC
 
 * xref:poleo-model.adoc[Learn about the POLE+O data model]
 * xref:configuration.adoc[Full configuration reference]
-* xref:memory-types.adoc[Working with extracted entities in semantic memory]
+* xref:memory-types.adoc[Working with extracted entities in long-term memory]

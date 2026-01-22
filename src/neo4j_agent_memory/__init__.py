@@ -4,8 +4,8 @@ Neo4j Agent Memory - A comprehensive memory system for AI agents.
 This package provides a unified memory system for AI agents using Neo4j as the
 persistence layer. It includes three types of memory:
 
-- **Episodic Memory**: Conversation history and experiences
-- **Semantic Memory**: Facts, preferences, and entities
+- **Short-Term Memory**: Conversation history and experiences
+- **Long-Term Memory**: Facts, preferences, and entities
 - **Procedural Memory**: Reasoning traces and tool usage patterns
 
 Example usage:
@@ -18,20 +18,20 @@ Example usage:
 
     async with MemoryClient(settings) as client:
         # Add a message
-        await client.episodic.add_message(
+        await client.short_term.add_message(
             session_id="user-123",
             role="user",
             content="Hi, I'm looking for Italian restaurants"
         )
 
         # Add a preference
-        await client.semantic.add_preference(
+        await client.long_term.add_preference(
             category="food",
             preference="I love Italian cuisine"
         )
 
         # Search memories
-        results = await client.semantic.search_preferences("food preferences")
+        results = await client.long_term.search_preferences("food preferences")
 
         # Get combined context for LLM
         context = await client.get_context("restaurant recommendation")
@@ -102,13 +102,13 @@ class MemoryGraph(BaseModel):
 
 from neo4j_agent_memory.graph.client import Neo4jClient
 from neo4j_agent_memory.graph.schema import SchemaManager
-from neo4j_agent_memory.memory.episodic import (
-    Conversation,
-    ConversationSummary,
-    EpisodicMemory,
-    Message,
-    MessageRole,
-    SessionInfo,
+from neo4j_agent_memory.memory.long_term import (
+    Entity,
+    EntityType,
+    Fact,
+    LongTermMemory,
+    Preference,
+    Relationship,
 )
 from neo4j_agent_memory.memory.procedural import (
     ProceduralMemory,
@@ -120,13 +120,13 @@ from neo4j_agent_memory.memory.procedural import (
     ToolCallStatus,
     ToolStats,
 )
-from neo4j_agent_memory.memory.semantic import (
-    Entity,
-    EntityType,
-    Fact,
-    Preference,
-    Relationship,
-    SemanticMemory,
+from neo4j_agent_memory.memory.short_term import (
+    Conversation,
+    ConversationSummary,
+    Message,
+    MessageRole,
+    SessionInfo,
+    ShortTermMemory,
 )
 
 __version__ = "0.1.0"
@@ -152,15 +152,15 @@ __all__ = [
     "EntityType",
     "ToolCallStatus",
     # Memory types
-    "EpisodicMemory",
-    "SemanticMemory",
+    "ShortTermMemory",
+    "LongTermMemory",
     "ProceduralMemory",
-    # Models - Episodic
+    # Models - Short-term
     "Message",
     "Conversation",
     "ConversationSummary",
     "SessionInfo",
-    # Models - Semantic
+    # Models - Long-term
     "Entity",
     "Preference",
     "Fact",
@@ -199,14 +199,14 @@ class MemoryClient:
     Main client for interacting with the Neo4j Agent Memory system.
 
     Provides unified access to all three memory types:
-    - episodic: Conversation history and experiences
-    - semantic: Facts, preferences, and entities
+    - short_term: Conversation history and experiences
+    - long_term: Facts, preferences, and entities
     - procedural: Reasoning traces and tool usage
 
     Example:
         async with MemoryClient(settings) as client:
-            await client.episodic.add_message(...)
-            await client.semantic.add_preference(...)
+            await client.short_term.add_message(...)
+            await client.long_term.add_preference(...)
             context = await client.get_context(query)
     """
 
@@ -238,8 +238,8 @@ class MemoryClient:
         self._resolver = None
 
         # Memory instances (initialized on connect)
-        self._episodic: EpisodicMemory | None = None
-        self._semantic: SemanticMemory | None = None
+        self._short_term: ShortTermMemory | None = None
+        self._long_term: LongTermMemory | None = None
         self._procedural: ProceduralMemory | None = None
 
     async def __aenter__(self) -> "MemoryClient":
@@ -279,12 +279,12 @@ class MemoryClient:
         self._resolver = self._resolver_override or self._create_resolver()
 
         # Create memory instances
-        self._episodic = EpisodicMemory(
+        self._short_term = ShortTermMemory(
             self._client,
             self._embedder,
             self._extractor,
         )
-        self._semantic = SemanticMemory(
+        self._long_term = LongTermMemory(
             self._client,
             self._embedder,
             self._extractor,
@@ -307,34 +307,34 @@ class MemoryClient:
         return self._client is not None and self._client.is_connected
 
     @property
-    def episodic(self) -> EpisodicMemory:
+    def short_term(self) -> ShortTermMemory:
         """
-        Access episodic memory (conversations, messages).
+        Access short-term memory (conversations, messages).
 
         Returns:
-            EpisodicMemory instance
+            ShortTermMemory instance
 
         Raises:
             NotConnectedError: If client is not connected
         """
-        if self._episodic is None:
+        if self._short_term is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        return self._episodic
+        return self._short_term
 
     @property
-    def semantic(self) -> SemanticMemory:
+    def long_term(self) -> LongTermMemory:
         """
-        Access semantic memory (entities, preferences, facts).
+        Access long-term memory (entities, preferences, facts).
 
         Returns:
-            SemanticMemory instance
+            LongTermMemory instance
 
         Raises:
             NotConnectedError: If client is not connected
         """
-        if self._semantic is None:
+        if self._long_term is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        return self._semantic
+        return self._long_term
 
     @property
     def procedural(self) -> ProceduralMemory:
@@ -371,8 +371,8 @@ class MemoryClient:
         query: str,
         *,
         session_id: str | None = None,
-        include_episodic: bool = True,
-        include_semantic: bool = True,
+        include_short_term: bool = True,
+        include_long_term: bool = True,
         include_procedural: bool = True,
         max_items: int = 10,
     ) -> str:
@@ -384,9 +384,9 @@ class MemoryClient:
 
         Args:
             query: The query to search for relevant context
-            session_id: Optional session ID for episodic filtering
-            include_episodic: Whether to include conversation history
-            include_semantic: Whether to include facts and preferences
+            session_id: Optional session ID for short-term filtering
+            include_short_term: Whether to include conversation history
+            include_long_term: Whether to include facts and preferences
             include_procedural: Whether to include similar task traces
             max_items: Maximum items per memory type
 
@@ -395,22 +395,22 @@ class MemoryClient:
         """
         parts = []
 
-        if include_episodic:
-            episodic_context = await self.episodic.get_context(
+        if include_short_term:
+            short_term_context = await self.short_term.get_context(
                 query,
                 session_id=session_id,
                 max_messages=max_items,
             )
-            if episodic_context:
-                parts.append(f"## Conversation History\n{episodic_context}")
+            if short_term_context:
+                parts.append(f"## Conversation History\n{short_term_context}")
 
-        if include_semantic:
-            semantic_context = await self.semantic.get_context(
+        if include_long_term:
+            long_term_context = await self.long_term.get_context(
                 query,
                 max_items=max_items,
             )
-            if semantic_context:
-                parts.append(f"## Relevant Knowledge\n{semantic_context}")
+            if long_term_context:
+                parts.append(f"## Relevant Knowledge\n{long_term_context}")
 
         if include_procedural:
             procedural_context = await self.procedural.get_context(
@@ -449,7 +449,7 @@ class MemoryClient:
     async def get_graph(
         self,
         *,
-        memory_types: list[Literal["episodic", "semantic", "procedural"]] | None = None,
+        memory_types: list[Literal["short_term", "long_term", "procedural"]] | None = None,
         session_id: str | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
@@ -464,8 +464,8 @@ class MemoryClient:
 
         Args:
             memory_types: Which memory types to include. Defaults to all.
-                         Options: 'episodic', 'semantic', 'procedural'
-            session_id: Filter by session ID (for episodic and procedural)
+                         Options: 'short_term', 'long_term', 'procedural'
+            session_id: Filter by session ID (for short_term and procedural)
             since: Only include data created/updated after this time
             until: Only include data created/updated before this time
             include_embeddings: Whether to include embedding vectors in properties.
@@ -479,7 +479,7 @@ class MemoryClient:
             raise NotConnectedError("Client not connected.")
 
         if memory_types is None:
-            memory_types = ["episodic", "semantic", "procedural"]
+            memory_types = ["short_term", "long_term", "procedural"]
 
         all_nodes: list[GraphNode] = []
         all_relationships: list[GraphRelationship] = []
@@ -493,8 +493,8 @@ class MemoryClient:
             "limit": limit,
         }
 
-        # Fetch episodic memory graph
-        if "episodic" in memory_types:
+        # Fetch short-term memory graph
+        if "short_term" in memory_types:
             try:
                 results = await self._client.execute_read(
                     """
@@ -550,8 +550,8 @@ class MemoryClient:
             except Exception:
                 pass  # Skip if query fails
 
-        # Fetch semantic memory graph
-        if "semantic" in memory_types:
+        # Fetch long-term memory graph
+        if "long_term" in memory_types:
             try:
                 results = await self._client.execute_read(
                     """

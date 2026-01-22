@@ -6,13 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `neo4j-agent-memory` is a Python package that provides a comprehensive memory system for AI agents using Neo4j as the backend. It implements a three-layer memory architecture:
 
-- **Episodic Memory**: Conversations and messages with temporal context
-- **Semantic Memory**: Entities, preferences, and facts (declarative knowledge)
+- **Short-Term Memory**: Conversations and messages with temporal context
+- **Long-Term Memory**: Entities, preferences, and facts (declarative knowledge)
 - **Procedural Memory**: Reasoning traces and tool usage patterns
 
 ### POLE+O Data Model
 
-The semantic memory uses the POLE+O entity model (Person, Object, Location, Event, Organization):
+The long-term memory uses the POLE+O entity model (Person, Object, Location, Event, Organization):
 
 - **PERSON**: Individuals, aliases, personas
 - **OBJECT**: Physical/digital items (vehicles, phones, documents, devices)
@@ -72,8 +72,8 @@ src/neo4j_agent_memory/
 │   ├── __init__.py          # Schema exports
 │   └── models.py            # POLE+O entity types, schema config
 ├── memory/
-│   ├── episodic.py          # Conversations, messages
-│   ├── semantic.py          # Entities, preferences, facts (POLE+O)
+│   ├── short_term.py          # Conversations, messages
+│   ├── long_term.py          # Entities, preferences, facts (POLE+O)
 │   └── procedural.py        # Reasoning traces, tool calls
 ├── extraction/
 │   ├── base.py              # EntityExtractor protocol, ExtractedEntity
@@ -86,7 +86,7 @@ src/neo4j_agent_memory/
 │   ├── base.py              # EntityResolver protocol
 │   ├── exact.py             # Exact string matching
 │   ├── fuzzy.py             # RapidFuzz-based matching
-│   ├── semantic.py          # Embedding similarity
+│   ├── long_term.py          # Embedding similarity
 │   └── composite.py         # Chained strategy resolver (type-aware)
 ├── embeddings/
 │   ├── base.py              # Embedder protocol
@@ -105,8 +105,8 @@ src/neo4j_agent_memory/
 ### Key Classes
 
 - **`MemoryClient`**: Main entry point, manages connections and provides access to all memory types
-- **`EpisodicMemory`**: Handles conversations and messages
-- **`SemanticMemory`**: Handles entities (POLE+O), preferences, and facts
+- **`ShortTermMemory`**: Handles conversations and messages
+- **`LongTermMemory`**: Handles entities (POLE+O), preferences, and facts
 - **`ProceduralMemory`**: Handles reasoning traces and tool calls
 - **`Neo4jClient`**: Async wrapper around neo4j Python driver
 - **`ExtractionPipeline`**: Multi-stage entity extraction (spaCy → GLiNER → LLM)
@@ -115,8 +115,8 @@ src/neo4j_agent_memory/
 ### Neo4j Schema
 
 The package creates these node types:
-- `Conversation`, `Message` (episodic)
-- `Entity` (with `type`, `subtype` for POLE+O), `Preference`, `Fact` (semantic)
+- `Conversation`, `Message` (short-term)
+- `Entity` (with `type`, `subtype` for POLE+O), `Preference`, `Fact` (long-term)
 - `ReasoningTrace`, `ReasoningStep`, `ToolCall`, `Tool` (procedural)
 
 Vector indexes are created for embedding-based search on Message, Entity, Preference, and ReasoningTrace nodes.
@@ -174,19 +174,19 @@ settings = MemorySettings(
 )
 
 async with MemoryClient(settings) as client:
-    # Episodic: Store conversation
-    await client.episodic.add_message(session_id, "user", "Hello")
+    # Short-term: Store conversation
+    await client.short_term.add_message(session_id, "user", "Hello")
     
-    # Semantic: Store entity with POLE+O type
-    await client.semantic.add_entity(
+    # Long-term: Store entity with POLE+O type
+    await client.long_term.add_entity(
         "John Smith",
         "PERSON",
         subtype="INDIVIDUAL",
         description="A customer"
     )
     
-    # Semantic: Store preference
-    await client.semantic.add_preference("food", "Loves Italian cuisine")
+    # Long-term: Store preference
+    await client.long_term.add_preference("food", "Loves Italian cuisine")
     
     # Procedural: Record reasoning
     trace = await client.procedural.start_trace(session_id, "Find restaurant")
@@ -198,15 +198,15 @@ async with MemoryClient(settings) as client:
 ### POLE+O Entity Types
 
 ```python
-from neo4j_agent_memory.memory.semantic import Entity, POLEO_TYPES
+from neo4j_agent_memory.memory.long_term import Entity, POLEO_TYPES
 
 # Add entities with subtypes
-await client.semantic.add_entity("Ford F-150", "OBJECT", subtype="VEHICLE")
-await client.semantic.add_entity("123 Main St", "LOCATION", subtype="ADDRESS")
-await client.semantic.add_entity("Acme Corp", "ORGANIZATION", subtype="COMPANY")
+await client.long_term.add_entity("Ford F-150", "OBJECT", subtype="VEHICLE")
+await client.long_term.add_entity("123 Main St", "LOCATION", subtype="ADDRESS")
+await client.long_term.add_entity("Acme Corp", "ORGANIZATION", subtype="COMPANY")
 
 # Type:subtype string format also works
-await client.semantic.add_entity("Meeting Q1", "EVENT:MEETING")
+await client.long_term.add_entity("Meeting Q1", "EVENT:MEETING")
 ```
 
 ### Extraction Pipeline
@@ -348,7 +348,7 @@ Located in `examples/full-stack-chat-agent/`, this is a complete demonstration o
 - **News Graph Tools**: Search, filter, and analyze news articles
 - **Memory Graph Visualization**: Interactive graph view using Neo4j Visualization Library (NVL)
 - **Automatic Preference Extraction**: Detects and stores user preferences from conversation
-- **Memory Context Panel**: Real-time display of episodic, semantic, and procedural memory
+- **Memory Context Panel**: Real-time display of short-term, long-term, and procedural memory
 
 ### Running the Chat Agent
 

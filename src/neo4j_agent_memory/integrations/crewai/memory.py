@@ -76,17 +76,17 @@ try:
         ) -> None:
             """Async implementation of remember."""
             metadata = metadata or {}
-            memory_type = metadata.get("type", "episodic")
+            memory_type = metadata.get("type", "short_term")
 
-            if memory_type == "episodic":
-                await self._client.episodic.add_message(self._crew_id, "assistant", content)
+            if memory_type == "short_term":
+                await self._client.short_term.add_message(self._crew_id, "assistant", content)
             elif memory_type == "fact":
                 subject = metadata.get("subject", "agent")
                 predicate = metadata.get("predicate", "learned")
-                await self._client.semantic.add_fact(subject, predicate, content)
+                await self._client.long_term.add_fact(subject, predicate, content)
             elif memory_type == "preference":
                 category = metadata.get("category", "general")
-                await self._client.semantic.add_preference(category, content)
+                await self._client.long_term.add_preference(category, content)
 
         def recall(self, query: str, n: int = 5) -> list[str]:
             """
@@ -119,17 +119,17 @@ try:
             """Async implementation of recall."""
             results = []
 
-            # Search episodic
-            messages = await self._client.episodic.search_messages(query, limit=n)
+            # Search short-term
+            messages = await self._client.short_term.search_messages(query, limit=n)
             results.extend([m.content for m in messages])
 
-            # Search semantic
-            entities = await self._client.semantic.search_entities(query, limit=n)
+            # Search long-term
+            entities = await self._client.long_term.search_entities(query, limit=n)
             for e in entities:
                 if e.description:
                     results.append(f"{e.display_name}: {e.description}")
 
-            prefs = await self._client.semantic.search_preferences(query, limit=n)
+            prefs = await self._client.long_term.search_preferences(query, limit=n)
             results.extend([p.preference for p in prefs])
 
             return results[:n]

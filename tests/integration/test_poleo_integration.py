@@ -4,11 +4,11 @@ from uuid import uuid4
 
 import pytest
 
-from neo4j_agent_memory.memory.semantic import (
+from neo4j_agent_memory.memory.long_term import (
     POLEO_TYPES,
     Entity,
     EntityType,
-    SemanticMemory,
+    LongTermMemory,
     normalize_entity_type,
     parse_entity_type,
 )
@@ -120,13 +120,13 @@ class TestPOLEOEntity:
 
 
 @pytest.mark.integration
-class TestSemanticMemoryPOLEO:
-    """Integration tests for semantic memory with POLE+O types."""
+class TestLongTermMemoryPOLEO:
+    """Integration tests for long-term memory with POLE+O types."""
 
     @pytest.mark.asyncio
-    async def test_add_entity_with_string_type(self, semantic_memory: SemanticMemory):
+    async def test_add_entity_with_string_type(self, long_term_memory: LongTermMemory):
         """Test adding entity with string type."""
-        entity = await semantic_memory.add_entity(
+        entity = await long_term_memory.add_entity(
             "John Doe",
             "PERSON",
             description="A test person",
@@ -137,9 +137,9 @@ class TestSemanticMemoryPOLEO:
         assert entity.name == "John Doe"
 
     @pytest.mark.asyncio
-    async def test_add_entity_with_enum_type(self, semantic_memory: SemanticMemory):
+    async def test_add_entity_with_enum_type(self, long_term_memory: LongTermMemory):
         """Test adding entity with EntityType enum (backward compat)."""
-        entity = await semantic_memory.add_entity(
+        entity = await long_term_memory.add_entity(
             "Acme Corp",
             EntityType.ORGANIZATION,
             description="A test company",
@@ -150,9 +150,9 @@ class TestSemanticMemoryPOLEO:
         assert entity.name == "Acme Corp"
 
     @pytest.mark.asyncio
-    async def test_add_entity_with_subtype(self, semantic_memory: SemanticMemory):
+    async def test_add_entity_with_subtype(self, long_term_memory: LongTermMemory):
         """Test adding entity with subtype."""
-        entity = await semantic_memory.add_entity(
+        entity = await long_term_memory.add_entity(
             "Ford F-150",
             "OBJECT",
             subtype="VEHICLE",
@@ -165,9 +165,9 @@ class TestSemanticMemoryPOLEO:
         assert entity.full_type == "OBJECT:VEHICLE"
 
     @pytest.mark.asyncio
-    async def test_add_entity_with_type_subtype_string(self, semantic_memory: SemanticMemory):
+    async def test_add_entity_with_type_subtype_string(self, long_term_memory: LongTermMemory):
         """Test adding entity with type:subtype string format."""
-        entity = await semantic_memory.add_entity(
+        entity = await long_term_memory.add_entity(
             "123 Main St",
             "LOCATION:ADDRESS",
             description="An address",
@@ -178,9 +178,9 @@ class TestSemanticMemoryPOLEO:
         assert entity.subtype == "ADDRESS"
 
     @pytest.mark.asyncio
-    async def test_add_entity_with_attributes(self, semantic_memory: SemanticMemory):
+    async def test_add_entity_with_attributes(self, long_term_memory: LongTermMemory):
         """Test adding entity with custom attributes."""
-        entity = await semantic_memory.add_entity(
+        entity = await long_term_memory.add_entity(
             "iPhone 15",
             "OBJECT",
             subtype="DEVICE",
@@ -192,9 +192,9 @@ class TestSemanticMemoryPOLEO:
         assert entity.attributes["color"] == "blue"
 
     @pytest.mark.asyncio
-    async def test_add_entity_with_aliases(self, semantic_memory: SemanticMemory):
+    async def test_add_entity_with_aliases(self, long_term_memory: LongTermMemory):
         """Test adding entity with aliases."""
-        entity = await semantic_memory.add_entity(
+        entity = await long_term_memory.add_entity(
             "John Smith",
             "PERSON",
             aliases=["Johnny", "J. Smith"],
@@ -204,10 +204,10 @@ class TestSemanticMemoryPOLEO:
         assert "Johnny" in entity.aliases
 
     @pytest.mark.asyncio
-    async def test_get_entity_by_name(self, semantic_memory: SemanticMemory):
+    async def test_get_entity_by_name(self, long_term_memory: LongTermMemory):
         """Test retrieving entity by name."""
         # Create entity
-        created = await semantic_memory.add_entity(
+        created = await long_term_memory.add_entity(
             "Test Entity",
             "OBJECT",
             subtype="DEVICE",
@@ -215,7 +215,7 @@ class TestSemanticMemoryPOLEO:
         )
 
         # Retrieve by name
-        retrieved = await semantic_memory.get_entity_by_name("Test Entity")
+        retrieved = await long_term_memory.get_entity_by_name("Test Entity")
 
         assert retrieved is not None
         assert retrieved.id == created.id
@@ -223,12 +223,12 @@ class TestSemanticMemoryPOLEO:
         assert retrieved.subtype == "DEVICE"
 
     @pytest.mark.asyncio
-    async def test_add_all_poleo_types(self, semantic_memory: SemanticMemory):
+    async def test_add_all_poleo_types(self, long_term_memory: LongTermMemory):
         """Test adding entities of all POLE+O types."""
         entities = []
 
         # PERSON
-        person = await semantic_memory.add_entity(
+        person = await long_term_memory.add_entity(
             "Alice Johnson",
             "PERSON",
             subtype="INDIVIDUAL",
@@ -238,7 +238,7 @@ class TestSemanticMemoryPOLEO:
         assert person.type == "PERSON"
 
         # OBJECT
-        obj = await semantic_memory.add_entity(
+        obj = await long_term_memory.add_entity(
             "Blue Honda Civic",
             "OBJECT",
             subtype="VEHICLE",
@@ -248,7 +248,7 @@ class TestSemanticMemoryPOLEO:
         assert obj.type == "OBJECT"
 
         # LOCATION
-        location = await semantic_memory.add_entity(
+        location = await long_term_memory.add_entity(
             "San Francisco",
             "LOCATION",
             subtype="CITY",
@@ -258,7 +258,7 @@ class TestSemanticMemoryPOLEO:
         assert location.type == "LOCATION"
 
         # EVENT
-        event = await semantic_memory.add_entity(
+        event = await long_term_memory.add_entity(
             "Company Meeting Q1 2024",
             "EVENT",
             subtype="MEETING",
@@ -268,7 +268,7 @@ class TestSemanticMemoryPOLEO:
         assert event.type == "EVENT"
 
         # ORGANIZATION
-        org = await semantic_memory.add_entity(
+        org = await long_term_memory.add_entity(
             "Tech Startup Inc",
             "ORGANIZATION",
             subtype="COMPANY",
@@ -280,22 +280,22 @@ class TestSemanticMemoryPOLEO:
         assert len(entities) == 5
 
     @pytest.mark.asyncio
-    async def test_relationship_between_poleo_entities(self, semantic_memory: SemanticMemory):
+    async def test_relationship_between_poleo_entities(self, long_term_memory: LongTermMemory):
         """Test creating relationships between POLE+O entities."""
         # Create entities
-        person = await semantic_memory.add_entity(
+        person = await long_term_memory.add_entity(
             "Bob Williams",
             "PERSON",
             generate_embedding=False,
         )
 
-        org = await semantic_memory.add_entity(
+        org = await long_term_memory.add_entity(
             "TechCorp",
             "ORGANIZATION",
             generate_embedding=False,
         )
 
-        location = await semantic_memory.add_entity(
+        location = await long_term_memory.add_entity(
             "New York",
             "LOCATION",
             subtype="CITY",
@@ -303,14 +303,14 @@ class TestSemanticMemoryPOLEO:
         )
 
         # Create relationships
-        works_at = await semantic_memory.add_relationship(
+        works_at = await long_term_memory.add_relationship(
             person,
             org,
             "WORKS_AT",
             description="Bob works at TechCorp",
         )
 
-        located_in = await semantic_memory.add_relationship(
+        located_in = await long_term_memory.add_relationship(
             org,
             location,
             "LOCATED_IN",
@@ -322,11 +322,11 @@ class TestSemanticMemoryPOLEO:
         assert located_in.type == "LOCATED_IN"
 
         # Get related entities
-        related = await semantic_memory.get_related_entities(person)
+        related = await long_term_memory.get_related_entities(person)
         assert len(related) >= 1
 
 
 @pytest.fixture
-def semantic_memory(memory_client):
-    """Create semantic memory instance for tests."""
-    return memory_client.semantic
+def long_term_memory(memory_client):
+    """Create long-term memory instance for tests."""
+    return memory_client.long_term

@@ -28,7 +28,7 @@ async def list_threads() -> list[ThreadSummary]:
 
     try:
         # Use the new list_sessions() API for persistent session listing
-        sessions = await memory.episodic.list_sessions(
+        sessions = await memory.short_term.list_sessions(
             limit=100,
             order_by="updated_at",
             order_dir="desc",
@@ -73,7 +73,7 @@ async def create_thread(
         try:
             # Create the session by adding an initial system message
             # This establishes the session in the database with metadata
-            await memory.episodic.add_message(
+            await memory.short_term.add_message(
                 session_id=thread_id,
                 role="system",
                 content=f"Conversation started: {title}",
@@ -109,8 +109,8 @@ async def get_thread(
 
     if memory:
         try:
-            # Get conversation from episodic memory
-            conversation = await memory.episodic.get_conversation(thread_id)
+            # Get conversation from short-term memory
+            conversation = await memory.short_term.get_conversation(thread_id)
             if conversation and conversation.messages:
                 # Extract title from first system message if available
                 for msg in conversation.messages:
@@ -155,7 +155,7 @@ async def get_thread(
     if not messages and memory:
         # Check if session exists at all
         try:
-            sessions = await memory.episodic.list_sessions(prefix=thread_id)
+            sessions = await memory.short_term.list_sessions(prefix=thread_id)
             if not sessions:
                 raise HTTPException(status_code=404, detail="Thread not found")
         except Exception:
@@ -183,13 +183,13 @@ async def delete_thread(
     if memory:
         try:
             # Get all messages in the session
-            conversation = await memory.episodic.get_conversation(thread_id, limit=1000)
+            conversation = await memory.short_term.get_conversation(thread_id, limit=1000)
             if conversation and conversation.messages:
                 # Delete each message
                 deleted_count = 0
                 for msg in conversation.messages:
                     try:
-                        await memory.episodic.delete_message(msg.id, cascade=True)
+                        await memory.short_term.delete_message(msg.id, cascade=True)
                         deleted_count += 1
                     except Exception:
                         pass
@@ -223,7 +223,7 @@ async def update_thread(
     if memory and title:
         try:
             # Get conversation to find system message and count
-            conversation = await memory.episodic.get_conversation(thread_id)
+            conversation = await memory.short_term.get_conversation(thread_id)
             if conversation and conversation.messages:
                 message_count = len([m for m in conversation.messages if m.role.value != "system"])
 
@@ -258,7 +258,7 @@ async def get_thread_summary(
         raise HTTPException(status_code=503, detail="Memory service unavailable")
 
     try:
-        summary = await memory.episodic.get_conversation_summary(
+        summary = await memory.short_term.get_conversation_summary(
             session_id=thread_id,
             max_tokens=500,
             include_entities=True,

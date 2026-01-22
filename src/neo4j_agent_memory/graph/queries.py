@@ -1,7 +1,7 @@
 """Cypher query templates for memory operations."""
 
 # =============================================================================
-# EPISODIC MEMORY QUERIES
+# SHORT-TERM MEMORY QUERIES
 # =============================================================================
 
 CREATE_CONVERSATION = """
@@ -139,7 +139,7 @@ RETURN session_id, title, created_at, updated_at, message_count, first_message_p
 """
 
 # =============================================================================
-# SEMANTIC MEMORY QUERIES
+# LONG-TERM MEMORY QUERIES
 # =============================================================================
 
 CREATE_ENTITY = """
@@ -502,7 +502,7 @@ RETURN conversations, messages, entities, preferences, facts, traces
 # GRAPH EXPORT QUERIES
 # =============================================================================
 
-GET_GRAPH_EPISODIC = """
+GET_GRAPH_SHORT_TERM = """
 MATCH (c:Conversation)-[r:HAS_MESSAGE]->(m:Message)
 WHERE ($session_id IS NULL OR c.session_id = $session_id)
   AND ($since IS NULL OR m.timestamp >= datetime($since))
@@ -515,7 +515,7 @@ RETURN
     collect(DISTINCT {id: id(r), type: type(r), from_node: c.id, to_node: m.id, properties: properties(r)}) AS relationships
 """
 
-GET_GRAPH_SEMANTIC = """
+GET_GRAPH_LONG_TERM = """
 MATCH (e:Entity)
 WHERE ($since IS NULL OR e.created_at >= datetime($since))
   AND ($until IS NULL OR e.created_at <= datetime($until))

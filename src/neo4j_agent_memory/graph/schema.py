@@ -44,10 +44,10 @@ class SchemaManager:
     async def setup_constraints(self) -> None:
         """Create unique constraints for all node types."""
         constraints = [
-            # Episodic memory
+            # Short-term memory
             ("conversation_id", "Conversation", "id"),
             ("message_id", "Message", "id"),
-            # Semantic memory
+            # Long-term memory
             ("entity_id", "Entity", "id"),
             ("preference_id", "Preference", "id"),
             ("fact_id", "Fact", "id"),
@@ -64,11 +64,11 @@ class SchemaManager:
     async def setup_indexes(self) -> None:
         """Create regular indexes for common queries."""
         indexes = [
-            # Episodic memory
+            # Short-term memory
             ("conversation_session_idx", "Conversation", "session_id"),
             ("message_timestamp_idx", "Message", "timestamp"),
             ("message_role_idx", "Message", "role"),
-            # Semantic memory
+            # Long-term memory
             ("entity_type_idx", "Entity", "type"),
             ("entity_name_idx", "Entity", "name"),
             ("entity_canonical_idx", "Entity", "canonical_name"),

@@ -1,4 +1,4 @@
-"""Semantic memory for entities, preferences, and facts."""
+"""Long-term memory for entities, preferences, and facts."""
 
 import json
 from datetime import datetime
@@ -196,9 +196,9 @@ class Fact(MemoryEntry):
         return (self.subject, self.predicate, self.object)
 
 
-class SemanticMemory(BaseMemory[Entity]):
+class LongTermMemory(BaseMemory[Entity]):
     """
-    Semantic/Declarative memory stores facts, preferences, and entities.
+    Long-term/Declarative memory stores facts, preferences, and entities.
 
     Provides:
     - Entity storage with resolution/deduplication
@@ -219,7 +219,7 @@ class SemanticMemory(BaseMemory[Entity]):
         entity_types: list[str] | None = None,
         strict_types: bool = False,
     ):
-        """Initialize semantic memory.
+        """Initialize long-term memory.
 
         Args:
             client: Neo4j client for database operations
@@ -733,13 +733,12 @@ class SemanticMemory(BaseMemory[Entity]):
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
         """
-        Get semantic context for LLM prompts.
+        Get long-term context for LLM prompts.
 
         Args:
             query: Query to find relevant context
             include_entities: Whether to include entities
             include_preferences: Whether to include preferences
-            include_facts: Whether to include facts
             max_items: Maximum items per category
 
         Returns:

@@ -168,7 +168,7 @@ The agent has access to the following tools:
 Conversations are automatically stored:
 
 ```python
-await memory.episodic.add_message(
+await memory.short_term.add_message(
     session_id=thread_id,
     role=MessageRole.USER,
     content=user_message,
@@ -181,14 +181,14 @@ Preferences and entities are extracted from conversations:
 
 ```python
 # Add preference
-await memory.semantic.add_preference(
+await memory.long_term.add_preference(
     category="news",
     preference="Interested in AI startups",
     context="User research",
 )
 
 # Search entities
-entities = await memory.semantic.search_entities("companies")
+entities = await memory.long_term.search_entities("companies")
 ```
 
 ### Procedural Memory

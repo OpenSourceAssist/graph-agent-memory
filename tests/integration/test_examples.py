@@ -5,9 +5,9 @@ These tests verify that example code works correctly against a real Neo4j databa
 
 import pytest
 
-from neo4j_agent_memory.memory.episodic import MessageRole
+from neo4j_agent_memory.memory.long_term import EntityType
 from neo4j_agent_memory.memory.procedural import ToolCallStatus
-from neo4j_agent_memory.memory.semantic import EntityType
+from neo4j_agent_memory.memory.short_term import MessageRole
 
 
 @pytest.mark.integration
@@ -32,17 +32,17 @@ class TestBasicUsageExample:
             assert isinstance(stats, dict)
 
     @pytest.mark.asyncio
-    async def test_episodic_memory_operations(self, memory_client, session_id):
-        """Test episodic memory operations from basic example."""
+    async def test_short_term_memory_operations(self, memory_client, session_id):
+        """Test short-term memory operations from basic example."""
         # Add messages
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Hello, my name is Alice",
             extract_entities=False,
             generate_embedding=True,
         )
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.ASSISTANT,
             "Hello Alice! How can I help you today?",
@@ -51,16 +51,16 @@ class TestBasicUsageExample:
         )
 
         # Get conversation
-        conv = await memory_client.episodic.get_conversation(session_id)
+        conv = await memory_client.short_term.get_conversation(session_id)
 
         assert len(conv.messages) >= 2
         assert any("Alice" in m.content for m in conv.messages)
 
     @pytest.mark.asyncio
-    async def test_semantic_memory_operations(self, memory_client):
-        """Test semantic memory operations from basic example."""
+    async def test_long_term_memory_operations(self, memory_client):
+        """Test long-term memory operations from basic example."""
         # Add entities
-        entity = await memory_client.semantic.add_entity(
+        entity = await memory_client.long_term.add_entity(
             name="Alice Smith",
             entity_type=EntityType.PERSON,
             description="A software engineer",
@@ -72,7 +72,7 @@ class TestBasicUsageExample:
         assert entity.type == EntityType.PERSON
 
         # Add preferences
-        pref = await memory_client.semantic.add_preference(
+        pref = await memory_client.long_term.add_preference(
             category="programming",
             preference="Prefers Python over JavaScript",
             generate_embedding=True,
@@ -81,7 +81,7 @@ class TestBasicUsageExample:
         assert pref.category == "programming"
 
         # Add facts
-        fact = await memory_client.semantic.add_fact(
+        fact = await memory_client.long_term.add_fact(
             subject="Alice Smith",
             predicate="works_at",
             obj="Tech Corp",
@@ -137,14 +137,14 @@ class TestBasicUsageExample:
     async def test_get_context(self, memory_client, session_id):
         """Test combined context retrieval."""
         # Add some data first
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "I enjoy Italian cuisine",
             extract_entities=False,
             generate_embedding=True,
         )
-        await memory_client.semantic.add_preference(
+        await memory_client.long_term.add_preference(
             category="food",
             preference="Loves pasta dishes",
             generate_embedding=True,
@@ -171,7 +171,7 @@ class TestEntityResolutionExample:
         resolver = ExactMatchResolver()
 
         # Create existing entities
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Google",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -207,7 +207,7 @@ class TestEntityResolutionExample:
     async def test_entity_with_resolution(self, memory_client):
         """Test adding entity with resolution enabled."""
         # Add initial entity
-        await memory_client.semantic.add_entity(
+        await memory_client.long_term.add_entity(
             name="Microsoft Corporation",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -215,7 +215,7 @@ class TestEntityResolutionExample:
         )
 
         # Add similar entity with resolution
-        entity = await memory_client.semantic.add_entity(
+        entity = await memory_client.long_term.add_entity(
             name="microsoft corporation",
             entity_type=EntityType.ORGANIZATION,
             resolve=True,
@@ -323,8 +323,8 @@ class TestExampleCodeImports:
     def test_import_basic_types(self):
         """Test importing basic types used in examples."""
         from neo4j_agent_memory import MemoryClient, MemorySettings
-        from neo4j_agent_memory.memory.episodic import MessageRole
-        from neo4j_agent_memory.memory.semantic import EntityType
+        from neo4j_agent_memory.memory.long_term import EntityType
+        from neo4j_agent_memory.memory.short_term import MessageRole
 
         assert MemoryClient is not None
         assert MemorySettings is not None

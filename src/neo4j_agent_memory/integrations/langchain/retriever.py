@@ -24,8 +24,8 @@ try:
         """
 
         memory_client: Any  # MemoryClient
-        search_episodic: bool = True
-        search_semantic: bool = True
+        search_short_term: bool = True
+        search_long_term: bool = True
         search_procedural: bool = True
         k: int = 10
         threshold: float = 0.7
@@ -66,8 +66,8 @@ try:
             """Async implementation of _get_relevant_documents."""
             documents = []
 
-            if self.search_episodic:
-                messages = await self.memory_client.episodic.search_messages(
+            if self.search_short_term:
+                messages = await self.memory_client.short_term.search_messages(
                     query, limit=self.k, threshold=self.threshold
                 )
                 for msg in messages:
@@ -83,8 +83,8 @@ try:
                         )
                     )
 
-            if self.search_semantic:
-                entities = await self.memory_client.semantic.search_entities(
+            if self.search_long_term:
+                entities = await self.memory_client.long_term.search_entities(
                     query, limit=self.k, threshold=self.threshold
                 )
                 for entity in entities:
@@ -103,7 +103,7 @@ try:
                         )
                     )
 
-                preferences = await self.memory_client.semantic.search_preferences(
+                preferences = await self.memory_client.long_term.search_preferences(
                     query, limit=self.k, threshold=self.threshold
                 )
                 for pref in preferences:

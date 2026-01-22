@@ -13,8 +13,8 @@ class Neo4jAgentMemory(BaseModel):
     LangChain memory that uses Neo4j Agent Memory.
 
     Provides:
-    - Conversation history (episodic)
-    - User facts and preferences (semantic)
+    - Conversation history (short-term)
+    - User facts and preferences (long-term)
     - Similar past task traces (procedural)
 
     Example:
@@ -31,8 +31,8 @@ class Neo4jAgentMemory(BaseModel):
 
     memory_client: Any  # MemoryClient - using Any to avoid pydantic issues
     session_id: str
-    include_episodic: bool = True
-    include_semantic: bool = True
+    include_short_term: bool = True
+    include_long_term: bool = True
     include_procedural: bool = True
     max_messages: int = 10
     max_preferences: int = 5
@@ -44,9 +44,9 @@ class Neo4jAgentMemory(BaseModel):
     def memory_variables(self) -> list[str]:
         """Return memory variables."""
         variables = []
-        if self.include_episodic:
+        if self.include_short_term:
             variables.append("history")
-        if self.include_semantic:
+        if self.include_long_term:
             variables.extend(["context", "preferences"])
         if self.include_procedural:
             variables.append("similar_tasks")
@@ -80,19 +80,19 @@ class Neo4jAgentMemory(BaseModel):
         query = inputs.get("input", "")
         result: dict[str, Any] = {}
 
-        if self.include_episodic:
-            conv = await self.memory_client.episodic.get_conversation(
+        if self.include_short_term:
+            conv = await self.memory_client.short_term.get_conversation(
                 self.session_id, limit=self.max_messages
             )
             result["history"] = self._format_messages(conv.messages)
 
-        if self.include_semantic:
-            context = await self.memory_client.semantic.get_context(
+        if self.include_long_term:
+            context = await self.memory_client.long_term.get_context(
                 query, max_items=self.max_preferences
             )
             result["context"] = context
 
-            prefs = await self.memory_client.semantic.search_preferences(
+            prefs = await self.memory_client.long_term.search_preferences(
                 query, limit=self.max_preferences
             )
             result["preferences"] = [
@@ -135,10 +135,10 @@ class Neo4jAgentMemory(BaseModel):
         assistant_output = outputs.get("output", "")
 
         if user_input:
-            await self.memory_client.episodic.add_message(self.session_id, "user", user_input)
+            await self.memory_client.short_term.add_message(self.session_id, "user", user_input)
 
         if assistant_output:
-            await self.memory_client.episodic.add_message(
+            await self.memory_client.short_term.add_message(
                 self.session_id, "assistant", assistant_output
             )
 
@@ -157,11 +157,11 @@ class Neo4jAgentMemory(BaseModel):
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     asyncio.run,
-                    self.memory_client.episodic.clear_session(self.session_id),
+                    self.memory_client.short_term.clear_session(self.session_id),
                 )
                 future.result()
         else:
-            asyncio.run(self.memory_client.episodic.clear_session(self.session_id))
+            asyncio.run(self.memory_client.short_term.clear_session(self.session_id))
 
     def _format_messages(self, messages: list) -> str:
         """Format messages for context."""

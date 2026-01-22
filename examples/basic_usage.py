@@ -3,8 +3,8 @@
 Basic usage example for neo4j-agent-memory.
 
 This example demonstrates the core functionality of the memory system:
-- Adding messages to episodic memory
-- Storing preferences in semantic memory
+- Adding messages to short-term memory
+- Storing preferences in long-term memory
 - Recording reasoning traces in procedural memory
 - Getting combined context for LLM prompts
 
@@ -129,57 +129,57 @@ async def main():
         print("=" * 60)
 
         # =================================================================
-        # EPISODIC MEMORY: Conversation History
+        # SHORT-TERM MEMORY: Conversation History
         # =================================================================
-        print("\n📝 Adding messages to episodic memory...")
+        print("\n📝 Adding messages to short-term memory...")
 
-        await memory.episodic.add_message(
+        await memory.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Hi! I'm looking for restaurant recommendations. I love Italian food.",
         )
 
-        await memory.episodic.add_message(
+        await memory.short_term.add_message(
             session_id,
             MessageRole.ASSISTANT,
             "I'd be happy to help you find Italian restaurants! Do you have any specific preferences like price range or location?",
         )
 
-        await memory.episodic.add_message(
+        await memory.short_term.add_message(
             session_id,
             MessageRole.USER,
             "Something mid-range in downtown. I'm vegetarian.",
         )
 
         # Retrieve conversation
-        conversation = await memory.episodic.get_conversation(session_id)
+        conversation = await memory.short_term.get_conversation(session_id)
         print(f"✅ Stored {len(conversation.messages)} messages")
 
         # =================================================================
-        # SEMANTIC MEMORY: Facts and Preferences
+        # LONG-TERM MEMORY: Facts and Preferences
         # =================================================================
-        print("\n🧠 Adding facts and preferences to semantic memory...")
+        print("\n🧠 Adding facts and preferences to long-term memory...")
 
         # Add user preferences
-        await memory.semantic.add_preference(
+        await memory.long_term.add_preference(
             category="food",
             preference="Loves Italian cuisine",
             context="Restaurant recommendations",
         )
 
-        await memory.semantic.add_preference(
+        await memory.long_term.add_preference(
             category="dietary",
             preference="Vegetarian diet",
             context="All meals",
         )
 
-        await memory.semantic.add_preference(
+        await memory.long_term.add_preference(
             category="budget",
             preference="Prefers mid-range restaurants",
         )
 
         # Add entities (using POLE+O types)
-        await memory.semantic.add_entity(
+        await memory.long_term.add_entity(
             name="Downtown",
             entity_type="LOCATION",  # POLE+O type
             subtype="LANDMARK",  # Optional subtype
@@ -187,7 +187,7 @@ async def main():
         )
 
         # Add facts
-        await memory.semantic.add_fact(
+        await memory.long_term.add_fact(
             subject="User",
             predicate="dietary_restriction",
             obj="vegetarian",
@@ -197,7 +197,7 @@ async def main():
 
         # Search preferences
         print("\n🔍 Searching for food-related preferences...")
-        food_prefs = await memory.semantic.search_preferences("food", limit=5)
+        food_prefs = await memory.long_term.search_preferences("food", limit=5)
         for pref in food_prefs:
             print(f"   [{pref.category}] {pref.preference}")
 
@@ -295,7 +295,7 @@ async def main():
             },
         ]
 
-        loaded_messages = await memory.episodic.add_messages_batch(
+        loaded_messages = await memory.short_term.add_messages_batch(
             bulk_session,
             messages,
             batch_size=2,
@@ -309,7 +309,7 @@ async def main():
         # =================================================================
         print("\n📋 Listing sessions...")
 
-        sessions = await memory.episodic.list_sessions(
+        sessions = await memory.short_term.list_sessions(
             limit=10,
             order_by="updated_at",
             order_dir="desc",
@@ -323,7 +323,7 @@ async def main():
         # =================================================================
         print("\n🔎 Searching messages with metadata filters...")
 
-        weather_messages = await memory.episodic.search_messages(
+        weather_messages = await memory.short_term.search_messages(
             "weather",
             session_id=bulk_session,
             metadata_filters={"topic": "weather"},
@@ -383,7 +383,7 @@ async def main():
         print("\n🌐 Exporting memory graph...")
 
         graph = await memory.get_graph(
-            memory_types=["episodic", "semantic"],
+            memory_types=["short_term", "long_term"],
             session_id=session_id,
             include_embeddings=False,
             limit=100,

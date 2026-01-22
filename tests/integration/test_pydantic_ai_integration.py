@@ -2,8 +2,8 @@
 
 import pytest
 
-from neo4j_agent_memory.memory.episodic import MessageRole
-from neo4j_agent_memory.memory.semantic import EntityType
+from neo4j_agent_memory.memory.short_term import MessageRole
+from neo4j_agent_memory.memory.long_term import EntityType
 
 
 @pytest.mark.integration
@@ -37,14 +37,14 @@ class TestMemoryDependency:
         from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency
 
         # Add some data
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "I love Italian food",
             extract_entities=False,
             generate_embedding=True,
         )
-        await memory_client.semantic.add_preference(
+        await memory_client.long_term.add_preference(
             category="food",
             preference="Loves Italian cuisine",
             generate_embedding=True,
@@ -69,7 +69,7 @@ class TestMemoryDependency:
         )
 
         # Verify messages were saved
-        conv = await memory_client.episodic.get_conversation(session_id)
+        conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) >= 2
 
     @pytest.mark.asyncio
@@ -86,7 +86,7 @@ class TestMemoryDependency:
         )
 
         # Verify preference was saved
-        prefs = await memory_client.semantic.get_preferences_by_category("music")
+        prefs = await memory_client.long_term.get_preferences_by_category("music")
         assert len(prefs) >= 1
         assert any("classical" in p.preference.lower() for p in prefs)
 
@@ -96,12 +96,12 @@ class TestMemoryDependency:
         from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency
 
         # Add preferences
-        await memory_client.semantic.add_preference(
+        await memory_client.long_term.add_preference(
             category="sports",
             preference="Plays tennis on weekends",
             generate_embedding=True,
         )
-        await memory_client.semantic.add_preference(
+        await memory_client.long_term.add_preference(
             category="sports",
             preference="Enjoys watching basketball",
             generate_embedding=True,
@@ -142,7 +142,7 @@ class TestMemoryTools:
         from neo4j_agent_memory.integrations.pydantic_ai import create_memory_tools
 
         # Add some data
-        await memory_client.episodic.add_message(
+        await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
             "I went hiking yesterday",
@@ -179,7 +179,7 @@ class TestMemoryTools:
         from neo4j_agent_memory.integrations.pydantic_ai import create_memory_tools
 
         # Add preferences
-        await memory_client.semantic.add_preference(
+        await memory_client.long_term.add_preference(
             category="drinks",
             preference="Prefers coffee over tea",
             generate_embedding=True,
