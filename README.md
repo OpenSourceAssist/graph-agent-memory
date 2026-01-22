@@ -154,10 +154,11 @@ entities = await memory.long_term.search_entities("Italian restaurants")
 Stores reasoning traces and tool usage patterns:
 
 ```python
-# Start a reasoning trace
+# Start a reasoning trace (optionally linked to a triggering message)
 trace = await memory.procedural.start_trace(
     session_id="user-123",
-    task="Find a restaurant recommendation"
+    task="Find a restaurant recommendation",
+    triggered_by_message_id=user_message.id,  # Optional: link to message
 )
 
 # Add reasoning steps
@@ -167,14 +168,15 @@ step = await memory.procedural.add_step(
     action="search_restaurants"
 )
 
-# Record tool calls
+# Record tool calls (optionally linked to a message)
 await memory.procedural.record_tool_call(
     step.id,
     tool_name="search_api",
     arguments={"query": "Italian restaurants"},
     result=["La Trattoria", "Pasta Palace"],
     status=ToolCallStatus.SUCCESS,
-    duration_ms=150
+    duration_ms=150,
+    message_id=user_message.id,  # Optional: link tool call to message
 )
 
 # Complete the trace
@@ -186,9 +188,38 @@ await memory.procedural.complete_trace(
 
 # Find similar past tasks
 similar = await memory.procedural.get_similar_traces("restaurant recommendation")
+
+# Link an existing trace to a message (post-hoc)
+await memory.procedural.link_trace_to_message(trace.id, message.id)
 ```
 
 ## Advanced Features
+
+### Message Linking
+
+Messages in conversations are automatically linked sequentially in the graph for efficient traversal:
+
+```
+(Conversation) -[:FIRST_MESSAGE]-> (Message)     # O(1) access to first message
+(Conversation) -[:HAS_MESSAGE]-> (Message)       # Membership check
+(Message) -[:NEXT_MESSAGE]-> (Message)           # Sequential chain
+```
+
+This happens automatically when adding messages. For existing data without links:
+
+```python
+# Migrate existing conversations to use message linking
+migrated = await memory.short_term.migrate_message_links()
+print(f"Migrated {len(migrated)} conversations")
+# Returns: {"conversation_id": num_messages_linked, ...}
+```
+
+Cross-memory linking connects procedural memory to messages:
+
+```
+(ReasoningTrace) -[:INITIATED_BY]-> (Message)    # Trace triggered by message
+(ToolCall) -[:TRIGGERED_BY]-> (Message)          # Tool call triggered by message
+```
 
 ### Batch Message Loading
 
@@ -735,6 +766,17 @@ The package automatically creates the following schema:
 - `Conversation`, `Message` - Short-term memory
 - `Entity`, `Preference`, `Fact` - Long-term memory
 - `ReasoningTrace`, `ReasoningStep`, `Tool`, `ToolCall` - Procedural memory
+
+### Relationships
+
+**Short-term memory:**
+- `(Conversation)-[:HAS_MESSAGE]->(Message)` - Membership
+- `(Conversation)-[:FIRST_MESSAGE]->(Message)` - First message in conversation
+- `(Message)-[:NEXT_MESSAGE]->(Message)` - Sequential message chain
+
+**Cross-memory linking:**
+- `(ReasoningTrace)-[:INITIATED_BY]->(Message)` - Trace triggered by message
+- `(ToolCall)-[:TRIGGERED_BY]->(Message)` - Tool call triggered by message
 
 ### Indexes
 - Unique constraints on all ID fields

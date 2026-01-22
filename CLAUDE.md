@@ -119,6 +119,25 @@ The package creates these node types:
 - `Entity` (with `type`, `subtype` for POLE+O), `Preference`, `Fact` (long-term)
 - `ReasoningTrace`, `ReasoningStep`, `ToolCall`, `Tool` (procedural)
 
+#### Short-Term Memory Relationships
+
+Messages in conversations are linked sequentially for efficient traversal:
+
+```
+(Conversation) -[:FIRST_MESSAGE]-> (Message)     # O(1) access to first message
+(Conversation) -[:HAS_MESSAGE]-> (Message)       # Membership (kept for backward compat)
+(Message) -[:NEXT_MESSAGE]-> (Message)           # Sequential chain
+```
+
+#### Cross-Memory Relationships
+
+Procedural memory can link to short-term memory messages:
+
+```
+(ReasoningTrace) -[:INITIATED_BY]-> (Message)    # Trace triggered by user message
+(ToolCall) -[:TRIGGERED_BY]-> (Message)          # Tool call triggered by message
+```
+
 Vector indexes are created for embedding-based search on Message, Entity, Preference, and ReasoningTrace nodes.
 
 ## Testing
@@ -174,8 +193,8 @@ settings = MemorySettings(
 )
 
 async with MemoryClient(settings) as client:
-    # Short-term: Store conversation
-    await client.short_term.add_message(session_id, "user", "Hello")
+    # Short-term: Store conversation (messages are auto-linked sequentially)
+    message = await client.short_term.add_message(session_id, "user", "Hello")
     
     # Long-term: Store entity with POLE+O type
     await client.long_term.add_entity(
@@ -188,11 +207,52 @@ async with MemoryClient(settings) as client:
     # Long-term: Store preference
     await client.long_term.add_preference("food", "Loves Italian cuisine")
     
-    # Procedural: Record reasoning
-    trace = await client.procedural.start_trace(session_id, "Find restaurant")
+    # Procedural: Record reasoning linked to triggering message
+    trace = await client.procedural.start_trace(
+        session_id,
+        "Find restaurant",
+        triggered_by_message_id=message.id,  # Links trace to message
+    )
     
     # Get combined context for LLM
     context = await client.get_context("restaurant recommendation")
+```
+
+### Message Linking
+
+Messages are automatically linked in sequence using `FIRST_MESSAGE` and `NEXT_MESSAGE` relationships:
+
+```python
+# Messages added individually or in batch are automatically linked
+await client.short_term.add_message(session_id, "user", "First message")
+await client.short_term.add_message(session_id, "assistant", "Second message")
+
+# For existing data without links, migrate with:
+migrated = await client.short_term.migrate_message_links()
+# Returns: {"conversation_id": num_messages_linked, ...}
+```
+
+### Linking Procedural Memory to Messages
+
+```python
+# Link a reasoning trace to the message that initiated it
+trace = await client.procedural.start_trace(
+    session_id,
+    task="Handle user request",
+    triggered_by_message_id=message.id,  # Creates INITIATED_BY relationship
+)
+
+# Link a tool call to the message that triggered it
+await client.procedural.record_tool_call(
+    step_id,
+    tool_name="search_api",
+    arguments={"query": "restaurants"},
+    result=[...],
+    message_id=message.id,  # Creates TRIGGERED_BY relationship
+)
+
+# Or link an existing trace to a message post-hoc
+await client.procedural.link_trace_to_message(trace.id, message.id)
 ```
 
 ### POLE+O Entity Types

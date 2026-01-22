@@ -206,10 +206,14 @@ async def main():
         # =================================================================
         print("\n⚙️  Recording reasoning trace...")
 
-        # Start a trace
+        # Get the last user message to link the trace to it
+        last_message = conversation.messages[-1] if conversation.messages else None
+
+        # Start a trace linked to the triggering message
         trace = await memory.procedural.start_trace(
             session_id,
             task="Find vegetarian Italian restaurant in downtown",
+            triggered_by_message_id=last_message.id if last_message else None,
         )
 
         # Add reasoning steps
@@ -219,7 +223,7 @@ async def main():
             action="search_restaurants",
         )
 
-        # Record tool call
+        # Record tool call linked to the message that triggered it
         await memory.procedural.record_tool_call(
             step1.id,
             tool_name="restaurant_search_api",
@@ -234,6 +238,7 @@ async def main():
             ],
             status=ToolCallStatus.SUCCESS,
             duration_ms=250,
+            message_id=last_message.id if last_message else None,  # Link tool call to message
         )
 
         step2 = await memory.procedural.add_step(
@@ -378,6 +383,25 @@ async def main():
             print(f"   - {stat.name}: {stat.total_calls} calls, {stat.success_rate:.0%} success")
 
         # =================================================================
+        # NEW FEATURES: Message Linking (FIRST_MESSAGE, NEXT_MESSAGE)
+        # =================================================================
+        print("\n🔗 Message linking in graph...")
+
+        # Messages are now automatically linked sequentially in the graph:
+        # - FIRST_MESSAGE: Conversation -> first Message
+        # - NEXT_MESSAGE: Message -> Message (sequential chain)
+        # This enables efficient traversal and temporal queries.
+
+        # The bulk session already has linked messages - verify the chain
+        bulk_conv = await memory.short_term.get_conversation(bulk_session)
+        print(f"Bulk session has {len(bulk_conv.messages)} messages linked sequentially")
+        print("Graph structure: (Conversation)-[:FIRST_MESSAGE]->(M1)-[:NEXT_MESSAGE]->(M2)->...")
+
+        # For existing data without links, use the migration utility:
+        # migrated = await memory.short_term.migrate_message_links()
+        # print(f"Migrated {len(migrated)} conversations to use message linking")
+
+        # =================================================================
         # NEW FEATURES: Graph Export
         # =================================================================
         print("\n🌐 Exporting memory graph...")
@@ -389,6 +413,16 @@ async def main():
             limit=100,
         )
         print(f"Graph export: {len(graph.nodes)} nodes, {len(graph.relationships)} relationships")
+
+        # Count message linking relationships in the exported graph
+        next_message_rels = [r for r in graph.relationships if r.type == "NEXT_MESSAGE"]
+        first_message_rels = [r for r in graph.relationships if r.type == "FIRST_MESSAGE"]
+        initiated_by_rels = [r for r in graph.relationships if r.type == "INITIATED_BY"]
+        triggered_by_rels = [r for r in graph.relationships if r.type == "TRIGGERED_BY"]
+        print(f"   FIRST_MESSAGE relationships: {len(first_message_rels)}")
+        print(f"   NEXT_MESSAGE relationships: {len(next_message_rels)}")
+        print(f"   INITIATED_BY (trace->message): {len(initiated_by_rels)}")
+        print(f"   TRIGGERED_BY (tool_call->message): {len(triggered_by_rels)}")
 
         # =================================================================
         # MEMORY STATS

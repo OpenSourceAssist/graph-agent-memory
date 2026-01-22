@@ -185,6 +185,27 @@ deleted = await memory.short_term.delete_message(
 )
 ----
 
+=== Message Linking
+
+Messages in conversations are automatically linked sequentially in the graph for efficient traversal:
+
+[source]
+----
+(Conversation) -[:FIRST_MESSAGE]-> (Message)     # O(1) access to first message
+(Conversation) -[:HAS_MESSAGE]-> (Message)       # Membership check
+(Message) -[:NEXT_MESSAGE]-> (Message)           # Sequential chain
+----
+
+This linking happens automatically when adding messages individually or in batches. For existing data without links, use the migration utility:
+
+[source,python]
+----
+# Migrate existing conversations to use message linking
+migrated = await memory.short_term.migrate_message_links()
+print(f"Migrated {len(migrated)} conversations")
+# Returns: {"conversation_id": num_messages_linked, ...}
+----
+
 === Session Management
 
 List and manage sessions with the `list_sessions()` method:
@@ -447,10 +468,11 @@ Procedural memory stores reasoning traces and tool usage patterns - the "how to 
 
 [source,python]
 ----
-# Start a reasoning trace
+# Start a reasoning trace (optionally linked to a triggering message)
 trace = await memory.procedural.start_trace(
     task="Find restaurants in San Francisco",
-    session_id="session-1"
+    session_id="session-1",
+    triggered_by_message_id=user_message.id,  # Optional: link to message
 )
 
 # Add reasoning steps
@@ -480,14 +502,36 @@ await memory.procedural.complete_trace(
 
 [source,python]
 ----
-# Record a tool call
+# Record a tool call (optionally linked to a message)
 tool_call = await memory.procedural.record_tool_call(
-    trace_id=trace.id,
+    step_id=step.id,
     tool_name="search_api",
-    inputs={"query": "restaurants", "location": "San Francisco"},
-    outputs={"results": [...]},
-    status="success",
-    duration_ms=150
+    arguments={"query": "restaurants", "location": "San Francisco"},
+    result={"results": [...]},
+    status=ToolCallStatus.SUCCESS,
+    duration_ms=150,
+    message_id=user_message.id,  # Optional: link to triggering message
+)
+----
+
+=== Linking Procedural Memory to Messages
+
+Reasoning traces and tool calls can be linked to the messages that triggered them:
+
+[source]
+----
+(ReasoningTrace) -[:INITIATED_BY]-> (Message)    # Trace triggered by message
+(ToolCall) -[:TRIGGERED_BY]-> (Message)          # Tool call triggered by message
+----
+
+This linking can be done at creation time (shown above) or post-hoc:
+
+[source,python]
+----
+# Link an existing trace to a message
+await memory.procedural.link_trace_to_message(
+    trace_id=trace.id,
+    message_id=user_message.id
 )
 ----
 

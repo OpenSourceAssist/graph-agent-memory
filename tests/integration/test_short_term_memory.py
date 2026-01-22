@@ -380,3 +380,236 @@ class TestShortTermMemoryEdgeCases:
         # Verify timestamps are in ascending order
         timestamps = [msg.created_at for msg in conv.messages]
         assert timestamps == sorted(timestamps)
+
+
+@pytest.mark.integration
+class TestMessageLinking:
+    """Test NEXT_MESSAGE and FIRST_MESSAGE relationships."""
+
+    @pytest.mark.asyncio
+    async def test_first_message_creates_first_message_rel(self, memory_client, session_id):
+        """First message should create FIRST_MESSAGE relationship."""
+        msg = await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "First message",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        # Verify FIRST_MESSAGE relationship exists
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (c:Conversation {session_id: $session_id})-[:FIRST_MESSAGE]->(m:Message)
+            RETURN m.id AS message_id
+            """,
+            {"session_id": session_id},
+        )
+        assert len(result) == 1
+        assert result[0]["message_id"] == str(msg.id)
+
+    @pytest.mark.asyncio
+    async def test_sequential_messages_create_next_message_chain(self, memory_client, session_id):
+        """Sequential messages should be linked with NEXT_MESSAGE."""
+        msgs = []
+        for i in range(5):
+            msg = await memory_client.short_term.add_message(
+                session_id,
+                MessageRole.USER,
+                f"Message {i}",
+                extract_entities=False,
+                generate_embedding=False,
+            )
+            msgs.append(msg)
+
+        # Verify chain: each message links to the next
+        for i in range(len(msgs) - 1):
+            result = await memory_client._client.execute_read(
+                """
+                MATCH (m1:Message {id: $id1})-[:NEXT_MESSAGE]->(m2:Message {id: $id2})
+                RETURN count(*) AS count
+                """,
+                {"id1": str(msgs[i].id), "id2": str(msgs[i + 1].id)},
+            )
+            assert result[0]["count"] == 1, f"Missing NEXT_MESSAGE from msg {i} to msg {i + 1}"
+
+    @pytest.mark.asyncio
+    async def test_last_message_has_no_next(self, memory_client, session_id):
+        """Last message should have no outgoing NEXT_MESSAGE relationship."""
+        for i in range(3):
+            await memory_client.short_term.add_message(
+                session_id,
+                MessageRole.USER,
+                f"Message {i}",
+                extract_entities=False,
+                generate_embedding=False,
+            )
+
+        # Find messages with no outgoing NEXT_MESSAGE (should be exactly 1)
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)
+            WHERE NOT (m)-[:NEXT_MESSAGE]->()
+            RETURN count(m) AS count
+            """,
+            {"session_id": session_id},
+        )
+        assert result[0]["count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_batch_messages_maintain_order(self, memory_client, session_id):
+        """Batch-added messages should maintain NEXT_MESSAGE order."""
+        messages = [{"role": "user", "content": f"Batch message {i}"} for i in range(10)]
+
+        created = await memory_client.short_term.add_messages_batch(
+            session_id,
+            messages,
+            generate_embeddings=False,
+            extract_entities=False,
+        )
+
+        # Verify chain traversal matches creation order
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (c:Conversation {session_id: $session_id})-[:FIRST_MESSAGE]->(first:Message)
+            MATCH path = (first)-[:NEXT_MESSAGE*0..]->(m:Message)
+            WITH m, length(path) AS pos
+            ORDER BY pos
+            RETURN collect(m.content) AS contents
+            """,
+            {"session_id": session_id},
+        )
+
+        contents = result[0]["contents"]
+        assert len(contents) == 10
+        for i, content in enumerate(contents):
+            assert content == f"Batch message {i}"
+
+    @pytest.mark.asyncio
+    async def test_mixed_single_and_batch_linking(self, memory_client, session_id):
+        """Single and batch messages should link correctly."""
+        # Add single message
+        msg1 = await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Single 1",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        # Add batch
+        batch = [{"role": "user", "content": f"Batch {i}"} for i in range(3)]
+        await memory_client.short_term.add_messages_batch(
+            session_id,
+            batch,
+            generate_embeddings=False,
+            extract_entities=False,
+        )
+
+        # Add another single
+        msg2 = await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Single 2",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        # Verify complete chain: Single1 -> Batch0 -> Batch1 -> Batch2 -> Single2
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (c:Conversation {session_id: $session_id})-[:FIRST_MESSAGE]->(first:Message)
+            MATCH path = (first)-[:NEXT_MESSAGE*0..]->(last:Message)
+            WHERE NOT (last)-[:NEXT_MESSAGE]->()
+            RETURN length(path) + 1 AS chain_length
+            """,
+            {"session_id": session_id},
+        )
+        assert result[0]["chain_length"] == 5
+
+    @pytest.mark.asyncio
+    async def test_chain_traversal_matches_timestamp_order(self, memory_client, session_id):
+        """NEXT_MESSAGE chain should match timestamp-based ordering."""
+        for i in range(5):
+            await memory_client.short_term.add_message(
+                session_id,
+                MessageRole.USER,
+                f"Message {i}",
+                extract_entities=False,
+                generate_embedding=False,
+            )
+
+        # Get messages via timestamp ordering
+        conv = await memory_client.short_term.get_conversation(session_id)
+        timestamp_order = [msg.content for msg in conv.messages]
+
+        # Get messages via chain traversal
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (c:Conversation {session_id: $session_id})-[:FIRST_MESSAGE]->(first:Message)
+            MATCH path = (first)-[:NEXT_MESSAGE*0..]->(m:Message)
+            WITH m, length(path) AS pos
+            ORDER BY pos
+            RETURN collect(m.content) AS contents
+            """,
+            {"session_id": session_id},
+        )
+        chain_order = result[0]["contents"]
+
+        assert timestamp_order == chain_order
+
+    @pytest.mark.asyncio
+    async def test_migrate_message_links(self, clean_memory_client, session_id):
+        """Migration should create links for pre-existing messages."""
+        # Simulate old data by creating messages without links
+        # First create the conversation
+        conv_id = await clean_memory_client.short_term._ensure_conversation(session_id, None)
+
+        # Insert messages directly without NEXT_MESSAGE links (simulating old behavior)
+        for i in range(3):
+            await clean_memory_client._client.execute_write(
+                """
+                MATCH (c:Conversation {id: $conv_id})
+                CREATE (m:Message {id: $id, role: 'user', content: $content, timestamp: datetime()})
+                CREATE (c)-[:HAS_MESSAGE]->(m)
+                """,
+                {
+                    "conv_id": str(conv_id),
+                    "id": f"old-msg-{i}-{session_id}",
+                    "content": f"Old message {i}",
+                },
+            )
+
+        # Verify no FIRST_MESSAGE exists yet
+        result = await clean_memory_client._client.execute_read(
+            """
+            MATCH (c:Conversation {session_id: $session_id})-[:FIRST_MESSAGE]->()
+            RETURN count(*) AS count
+            """,
+            {"session_id": session_id},
+        )
+        assert result[0]["count"] == 0
+
+        # Run migration
+        migrated = await clean_memory_client.short_term.migrate_message_links()
+
+        # Verify links were created for this conversation
+        result = await clean_memory_client._client.execute_read(
+            """
+            MATCH (c:Conversation {session_id: $session_id})-[:FIRST_MESSAGE]->()
+            RETURN count(*) AS has_first
+            """,
+            {"session_id": session_id},
+        )
+        assert result[0]["has_first"] == 1
+
+        # Verify NEXT_MESSAGE chain
+        result = await clean_memory_client._client.execute_read(
+            """
+            MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)
+            WHERE NOT (m)-[:NEXT_MESSAGE]->()
+            RETURN count(m) AS last_count
+            """,
+            {"session_id": session_id},
+        )
+        assert result[0]["last_count"] == 1  # Only one message should be the last

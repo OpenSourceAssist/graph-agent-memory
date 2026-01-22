@@ -614,3 +614,268 @@ class TestProceduralMemoryEdgeCases:
                 status=status,
             )
             assert call.status == status
+
+
+@pytest.mark.integration
+class TestProceduralMemoryMessageLinking:
+    """Test linking procedural memory to short-term memory messages."""
+
+    @pytest.mark.asyncio
+    async def test_tool_call_with_message_link(self, memory_client, session_id):
+        """Tool call can be linked to triggering message."""
+        from neo4j_agent_memory.memory.short_term import MessageRole
+
+        # Create a message
+        msg = await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Search for restaurants",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        # Create trace and step
+        trace = await memory_client.procedural.start_trace(
+            session_id,
+            "Find restaurants",
+            generate_embedding=False,
+        )
+        step = await memory_client.procedural.add_step(
+            trace.id,
+            thought="Searching",
+            action="search",
+            generate_embedding=False,
+        )
+
+        # Record tool call with message link
+        tool_call = await memory_client.procedural.record_tool_call(
+            step.id,
+            tool_name="restaurant_search",
+            arguments={"query": "Italian"},
+            result={"count": 5},
+            status=ToolCallStatus.SUCCESS,
+            message_id=msg.id,
+        )
+
+        # Verify relationship
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (tc:ToolCall {id: $tc_id})-[:TRIGGERED_BY]->(m:Message {id: $msg_id})
+            RETURN count(*) AS count
+            """,
+            {"tc_id": str(tool_call.id), "msg_id": str(msg.id)},
+        )
+        assert result[0]["count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_tool_call_without_message_link(self, memory_client, session_id):
+        """Tool call without message link should not create relationship."""
+        # Create trace and step
+        trace = await memory_client.procedural.start_trace(
+            session_id,
+            "Background task",
+            generate_embedding=False,
+        )
+        step = await memory_client.procedural.add_step(
+            trace.id,
+            thought="Processing",
+            action="process",
+            generate_embedding=False,
+        )
+
+        # Record tool call without message link
+        tool_call = await memory_client.procedural.record_tool_call(
+            step.id,
+            tool_name="background_tool",
+            arguments={},
+            status=ToolCallStatus.SUCCESS,
+        )
+
+        # Verify no TRIGGERED_BY relationship exists
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (tc:ToolCall {id: $tc_id})-[:TRIGGERED_BY]->()
+            RETURN count(*) AS count
+            """,
+            {"tc_id": str(tool_call.id)},
+        )
+        assert result[0]["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_trace_initiated_by_message(self, memory_client, session_id):
+        """Trace can be linked to initiating message."""
+        from neo4j_agent_memory.memory.short_term import MessageRole
+
+        msg = await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Help me plan a trip",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        trace = await memory_client.procedural.start_trace(
+            session_id,
+            "Plan trip to Paris",
+            generate_embedding=False,
+            triggered_by_message_id=msg.id,
+        )
+
+        # Verify relationship
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (rt:ReasoningTrace {id: $trace_id})-[:INITIATED_BY]->(m:Message {id: $msg_id})
+            RETURN count(*) AS count
+            """,
+            {"trace_id": str(trace.id), "msg_id": str(msg.id)},
+        )
+        assert result[0]["count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_trace_without_message_link(self, memory_client, session_id):
+        """Trace without message link should not create relationship."""
+        trace = await memory_client.procedural.start_trace(
+            session_id,
+            "Standalone task",
+            generate_embedding=False,
+        )
+
+        # Verify no INITIATED_BY relationship exists
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (rt:ReasoningTrace {id: $trace_id})-[:INITIATED_BY]->()
+            RETURN count(*) AS count
+            """,
+            {"trace_id": str(trace.id)},
+        )
+        assert result[0]["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_link_trace_to_message_post_hoc(self, memory_client, session_id):
+        """Test linking trace to message after creation."""
+        from neo4j_agent_memory.memory.short_term import MessageRole
+
+        # Create message
+        msg = await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Process this request",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        # Create trace without initial link
+        trace = await memory_client.procedural.start_trace(
+            session_id,
+            "Process request",
+            generate_embedding=False,
+        )
+
+        # Verify no relationship initially
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (rt:ReasoningTrace {id: $trace_id})-[:INITIATED_BY]->()
+            RETURN count(*) AS count
+            """,
+            {"trace_id": str(trace.id)},
+        )
+        assert result[0]["count"] == 0
+
+        # Link after the fact
+        await memory_client.procedural.link_trace_to_message(trace.id, msg.id)
+
+        # Verify relationship now exists
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (rt:ReasoningTrace {id: $trace_id})-[:INITIATED_BY]->(m:Message {id: $msg_id})
+            RETURN count(*) AS count
+            """,
+            {"trace_id": str(trace.id), "msg_id": str(msg.id)},
+        )
+        assert result[0]["count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_full_conversation_trace_linking(self, memory_client, session_id):
+        """Test complete flow linking conversation to trace and tool calls."""
+        from neo4j_agent_memory.memory.short_term import MessageRole
+
+        # User message triggers processing
+        user_msg = await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "What's the weather in New York?",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        # Create trace linked to user message
+        trace = await memory_client.procedural.start_trace(
+            session_id,
+            "Get weather information",
+            generate_embedding=False,
+            triggered_by_message_id=user_msg.id,
+        )
+
+        # Add step and tool call
+        step = await memory_client.procedural.add_step(
+            trace.id,
+            thought="Need to call weather API",
+            action="get_weather",
+            generate_embedding=False,
+        )
+
+        tool_call = await memory_client.procedural.record_tool_call(
+            step.id,
+            tool_name="weather_api",
+            arguments={"city": "New York"},
+            result={"temperature": 72, "conditions": "sunny"},
+            status=ToolCallStatus.SUCCESS,
+            message_id=user_msg.id,
+        )
+
+        # Complete trace
+        await memory_client.procedural.complete_trace(
+            trace.id,
+            outcome="Weather retrieved successfully",
+            success=True,
+        )
+
+        # Add assistant response
+        assistant_msg = await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.ASSISTANT,
+            "The weather in New York is 72°F and sunny!",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        # Verify the full graph structure
+        # User message -> NEXT_MESSAGE -> Assistant message
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (m1:Message {id: $user_id})-[:NEXT_MESSAGE]->(m2:Message {id: $assistant_id})
+            RETURN count(*) AS count
+            """,
+            {"user_id": str(user_msg.id), "assistant_id": str(assistant_msg.id)},
+        )
+        assert result[0]["count"] == 1
+
+        # Trace -[:INITIATED_BY]-> User message
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (rt:ReasoningTrace {id: $trace_id})-[:INITIATED_BY]->(m:Message {id: $msg_id})
+            RETURN count(*) AS count
+            """,
+            {"trace_id": str(trace.id), "msg_id": str(user_msg.id)},
+        )
+        assert result[0]["count"] == 1
+
+        # ToolCall -[:TRIGGERED_BY]-> User message
+        result = await memory_client._client.execute_read(
+            """
+            MATCH (tc:ToolCall {id: $tc_id})-[:TRIGGERED_BY]->(m:Message {id: $msg_id})
+            RETURN count(*) AS count
+            """,
+            {"tc_id": str(tool_call.id), "msg_id": str(user_msg.id)},
+        )
+        assert result[0]["count"] == 1

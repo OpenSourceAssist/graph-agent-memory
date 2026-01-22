@@ -229,6 +229,10 @@ class ShortTermMemory(BaseMemory[Message]):
         This is significantly faster than calling add_message() repeatedly,
         especially for large datasets like podcast transcripts.
 
+        Messages are automatically linked with NEXT_MESSAGE relationships to
+        maintain sequential order, and the first message gets a FIRST_MESSAGE
+        relationship from the conversation.
+
         Args:
             session_id: Session identifier
             messages: List of message dicts with 'role' and 'content' keys.
@@ -253,6 +257,10 @@ class ShortTermMemory(BaseMemory[Message]):
 
         total = len(messages)
         all_created: list[Message] = []
+
+        # Get existing last message before any inserts (for linking)
+        existing_last_id = await self._get_last_message_id(conv_id)
+        previous_last_id: str | None = existing_last_id
 
         # Process in batches
         for batch_num, i in enumerate(range(0, total, batch_size)):
@@ -310,6 +318,19 @@ class ShortTermMemory(BaseMemory[Message]):
                     "messages": batch_data,
                 },
             )
+
+            # Create message links for this batch
+            msg_ids = [bd["id"] for bd in batch_data]
+            is_first_batch = batch_num == 0 and existing_last_id is None
+            await self._create_message_links(
+                conv_id,
+                msg_ids,
+                previous_last_id,
+                create_first_message=is_first_batch,
+            )
+
+            # Update previous_last_id for next batch
+            previous_last_id = msg_ids[-1] if msg_ids else previous_last_id
 
             all_created.extend(batch_messages)
 
@@ -650,6 +671,31 @@ class ShortTermMemory(BaseMemory[Message]):
         """Clear all data for a session."""
         await self._client.execute_write(queries.DELETE_SESSION_DATA, {"session_id": session_id})
 
+    async def migrate_message_links(self) -> dict[str, int]:
+        """
+        Migrate existing messages to use NEXT_MESSAGE and FIRST_MESSAGE relationships.
+
+        This is a one-time migration for existing data created before sequential
+        message linking was implemented. New messages automatically have these
+        relationships created.
+
+        The migration:
+        - Creates FIRST_MESSAGE relationship from each Conversation to its first message
+        - Creates NEXT_MESSAGE relationships between messages based on timestamp order
+
+        Returns:
+            Dictionary mapping conversation_id to number of messages linked
+
+        Example:
+            # Run migration for existing data
+            migrated = await memory.short_term.migrate_message_links()
+            print(f"Migrated {len(migrated)} conversations")
+            for conv_id, count in migrated.items():
+                print(f"  {conv_id}: {count} messages linked")
+        """
+        results = await self._client.execute_write(queries.MIGRATE_MESSAGE_LINKS)
+        return {row["conversation_id"]: row["messages_linked"] for row in results}
+
     async def list_sessions(
         self,
         *,
@@ -860,6 +906,37 @@ class ShortTermMemory(BaseMemory[Message]):
             },
         )
         return new_id
+
+    async def _get_last_message_id(self, conversation_id: UUID) -> str | None:
+        """Get the ID of the last message in a conversation (one without outgoing NEXT_MESSAGE)."""
+        results = await self._client.execute_read(
+            queries.GET_LAST_MESSAGE,
+            {"conversation_id": str(conversation_id)},
+        )
+        if not results:
+            return None
+        return results[0]["m"]["id"]
+
+    async def _create_message_links(
+        self,
+        conversation_id: UUID,
+        message_ids: list[str],
+        previous_last_id: str | None,
+        create_first_message: bool,
+    ) -> None:
+        """Create NEXT_MESSAGE links for a batch of messages."""
+        if not message_ids:
+            return
+
+        await self._client.execute_write(
+            queries.CREATE_MESSAGE_LINKS,
+            {
+                "conversation_id": str(conversation_id),
+                "message_ids": message_ids,
+                "previous_last_id": previous_last_id,
+                "create_first_message": create_first_message,
+            },
+        )
 
     async def _extract_and_link_entities(self, message: Message) -> None:
         """Extract entities from message and link them."""

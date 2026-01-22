@@ -4,6 +4,29 @@
 # SHORT-TERM MEMORY QUERIES
 # =============================================================================
 
+GET_LAST_MESSAGE = """
+MATCH (c:Conversation {id: $conversation_id})-[:HAS_MESSAGE]->(m:Message)
+WHERE NOT (m)-[:NEXT_MESSAGE]->()
+RETURN m
+LIMIT 1
+"""
+
+MIGRATE_MESSAGE_LINKS = """
+MATCH (c:Conversation)
+MATCH (c)-[:HAS_MESSAGE]->(m:Message)
+WITH c, m ORDER BY m.timestamp ASC
+WITH c, collect(m) AS messages
+WHERE size(messages) > 0
+WITH c, messages, head(messages) AS firstMsg
+MERGE (c)-[:FIRST_MESSAGE]->(firstMsg)
+WITH c, messages
+UNWIND range(0, size(messages) - 2) AS i
+WITH c, messages[i] AS prev, messages[i + 1] AS next
+MERGE (prev)-[:NEXT_MESSAGE]->(next)
+WITH c, count(*) AS links
+RETURN c.id AS conversation_id, links + 1 AS messages_linked
+"""
+
 CREATE_CONVERSATION = """
 CREATE (c:Conversation {
     id: $id,
@@ -36,6 +59,8 @@ LIMIT $limit
 
 CREATE_MESSAGE = """
 MATCH (c:Conversation {id: $conversation_id})
+OPTIONAL MATCH (c)-[:HAS_MESSAGE]->(last:Message)
+WHERE NOT (last)-[:NEXT_MESSAGE]->()
 CREATE (m:Message {
     id: $id,
     role: $role,
@@ -45,6 +70,12 @@ CREATE (m:Message {
     metadata: $metadata
 })
 CREATE (c)-[:HAS_MESSAGE]->(m)
+FOREACH (_ IN CASE WHEN last IS NOT NULL THEN [1] ELSE [] END |
+    CREATE (last)-[:NEXT_MESSAGE]->(m)
+)
+FOREACH (_ IN CASE WHEN last IS NULL THEN [1] ELSE [] END |
+    CREATE (c)-[:FIRST_MESSAGE]->(m)
+)
 SET c.updated_at = datetime()
 RETURN m
 """
@@ -64,6 +95,44 @@ CREATE (c)-[:HAS_MESSAGE]->(m)
 WITH c, count(m) AS created
 SET c.updated_at = datetime()
 RETURN created
+"""
+
+CREATE_MESSAGE_LINKS = """
+// Link messages in order based on the provided message_ids list
+// If previous_last_id is provided, link it to the first message
+// If create_first_message is true, create FIRST_MESSAGE relationship
+MATCH (c:Conversation {id: $conversation_id})
+WITH c, $message_ids AS ids, $previous_last_id AS prevLastId, $create_first_message AS createFirst
+
+// Get all messages in the order specified
+UNWIND range(0, size(ids) - 1) AS idx
+MATCH (m:Message {id: ids[idx]})
+WITH c, collect(m) AS messages, prevLastId, createFirst
+WHERE size(messages) > 0
+
+// Get first message for linking
+WITH c, messages, prevLastId, createFirst, head(messages) AS firstMsg
+
+// Create FIRST_MESSAGE if this is a new conversation
+FOREACH (_ IN CASE WHEN createFirst THEN [1] ELSE [] END |
+    MERGE (c)-[:FIRST_MESSAGE]->(firstMsg)
+)
+
+// Link from previous last message to first of this batch
+WITH c, messages, prevLastId, firstMsg
+OPTIONAL MATCH (prevLast:Message {id: prevLastId})
+WITH c, messages, prevLast, firstMsg
+FOREACH (_ IN CASE WHEN prevLast IS NOT NULL THEN [1] ELSE [] END |
+    CREATE (prevLast)-[:NEXT_MESSAGE]->(firstMsg)
+)
+
+// Create NEXT_MESSAGE chain within the batch
+WITH c, messages
+UNWIND CASE WHEN size(messages) > 1 THEN range(0, size(messages) - 2) ELSE [] END AS i
+WITH c, messages[i] AS prev, messages[i + 1] AS next
+CREATE (prev)-[:NEXT_MESSAGE]->(next)
+
+RETURN count(*) AS linked
 """
 
 UPDATE_MESSAGE_EMBEDDING = """
@@ -463,6 +532,20 @@ MATCH (c:Conversation {id: $conversation_id})
 MATCH (rt:ReasoningTrace {id: $trace_id})
 MERGE (c)-[:HAS_TRACE]->(rt)
 RETURN c, rt
+"""
+
+LINK_TRACE_TO_MESSAGE = """
+MATCH (rt:ReasoningTrace {id: $trace_id})
+MATCH (m:Message {id: $message_id})
+MERGE (rt)-[:INITIATED_BY]->(m)
+RETURN rt, m
+"""
+
+LINK_TOOL_CALL_TO_MESSAGE = """
+MATCH (tc:ToolCall {id: $tool_call_id})
+MATCH (m:Message {id: $message_id})
+MERGE (tc)-[:TRIGGERED_BY]->(m)
+RETURN tc, m
 """
 
 GET_SESSION_CONTEXT = """

@@ -358,6 +358,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
         *,
         generate_embedding: bool = True,
         metadata: dict[str, Any] | None = None,
+        triggered_by_message_id: UUID | str | None = None,
     ) -> ReasoningTrace:
         """
         Start a new reasoning trace.
@@ -367,6 +368,8 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
             task: Task description
             generate_embedding: Whether to generate task embedding
             metadata: Optional metadata
+            triggered_by_message_id: Optional message ID that initiated this trace.
+                Creates an INITIATED_BY relationship from ReasoningTrace to Message.
 
         Returns:
             The created reasoning trace
@@ -397,6 +400,21 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
                 "metadata": _serialize_json(trace.metadata),
             },
         )
+
+        # Link to message if provided
+        if triggered_by_message_id is not None:
+            msg_id_str = (
+                str(triggered_by_message_id)
+                if isinstance(triggered_by_message_id, UUID)
+                else triggered_by_message_id
+            )
+            await self._client.execute_write(
+                queries.LINK_TRACE_TO_MESSAGE,
+                {
+                    "trace_id": str(trace.id),
+                    "message_id": msg_id_str,
+                },
+            )
 
         return trace
 
@@ -483,6 +501,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
         duration_ms: int | None = None,
         error: str | None = None,
         auto_observation: bool = False,
+        message_id: UUID | str | None = None,
     ) -> ToolCall:
         """
         Record a tool call within a reasoning step.
@@ -498,6 +517,8 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
             auto_observation: If True, automatically set the step's observation field
                 from the tool result. Useful for ReAct-style agents where the observation
                 is the tool's output.
+            message_id: Optional message ID that triggered this tool call.
+                Creates a TRIGGERED_BY relationship from ToolCall to Message.
 
         Returns:
             The created tool call
@@ -526,6 +547,17 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
                 "error": error,
             },
         )
+
+        # Link to message if provided
+        if message_id is not None:
+            msg_id_str = str(message_id) if isinstance(message_id, UUID) else message_id
+            await self._client.execute_write(
+                queries.LINK_TOOL_CALL_TO_MESSAGE,
+                {
+                    "tool_call_id": str(tool_call.id),
+                    "message_id": msg_id_str,
+                },
+            )
 
         # Auto-populate the step's observation from the tool result
         if auto_observation and result is not None:
@@ -605,6 +637,37 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
             completed_at=_to_python_datetime(trace_data.get("completed_at"))
             if trace_data.get("completed_at")
             else None,
+        )
+
+    async def link_trace_to_message(
+        self,
+        trace_id: UUID | str,
+        message_id: UUID | str,
+    ) -> None:
+        """
+        Link a reasoning trace to the message that initiated it.
+
+        Creates an INITIATED_BY relationship from ReasoningTrace to Message.
+        This is useful for linking traces after they've been created, for example
+        when the message context wasn't available at trace creation time.
+
+        Args:
+            trace_id: The reasoning trace ID
+            message_id: The message ID that initiated this trace
+
+        Example:
+            # Link a trace to its triggering message
+            await memory.procedural.link_trace_to_message(trace.id, user_message.id)
+        """
+        trace_id_str = str(trace_id) if isinstance(trace_id, UUID) else trace_id
+        msg_id_str = str(message_id) if isinstance(message_id, UUID) else message_id
+
+        await self._client.execute_write(
+            queries.LINK_TRACE_TO_MESSAGE,
+            {
+                "trace_id": trace_id_str,
+                "message_id": msg_id_str,
+            },
         )
 
     async def _generate_step_embeddings_batch(self, trace_id: UUID) -> int:

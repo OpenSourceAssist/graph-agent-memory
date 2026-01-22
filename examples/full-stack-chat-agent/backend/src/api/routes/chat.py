@@ -158,12 +158,14 @@ async def stream_chat_response(
             )
 
             # Store user message in short-term memory
+            user_message_id = None
             if memory_enabled and memory:
-                await memory.short_term.add_message(
+                user_message = await memory.short_term.add_message(
                     session_id=request.thread_id,
                     role=MessageRole.USER,
                     content=request.message,
                 )
+                user_message_id = user_message.id
 
                 # Extract and store any preferences from the user message
                 await extract_and_store_preferences(
@@ -172,11 +174,12 @@ async def stream_chat_response(
                     session_id=request.thread_id,
                 )
 
-            # Start procedural trace if memory enabled
+            # Start procedural trace if memory enabled, linked to user message
             if memory_enabled and memory:
                 trace = await memory.procedural.start_trace(
                     session_id=request.thread_id,
                     task=request.message,
+                    triggered_by_message_id=user_message_id,  # Link trace to triggering message
                 )
                 trace_id = trace.id
 
