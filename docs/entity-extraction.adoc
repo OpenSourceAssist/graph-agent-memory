@@ -1,0 +1,522 @@
+= Entity Extraction Pipeline
+:toc: left
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+Neo4j Agent Memory includes a powerful, configurable entity extraction pipeline that automatically identifies and classifies entities from text using the xref:poleo-model.adoc[POLE+O data model].
+
+== Overview
+
+The extraction pipeline supports three extraction engines that can be used individually or combined:
+
+[cols="1,1,2,1"]
+|===
+|Engine |Type |Best For |Speed
+
+|**spaCy**
+|Statistical NER
+|Common entities (people, organizations, locations)
+|Fast
+
+|**GLiNER**
+|Zero-shot NER
+|Domain-specific entities without training
+|Medium
+
+|**LLM**
+|Language Model
+|Complex extraction, relations, preferences
+|Slow
+|===
+
+== Pipeline Architecture
+
+[source]
+----
+                    Input Text
+                        │
+                        ▼
+            ┌───────────────────────┐
+            │   Stage 1: spaCy      │  Fast statistical NER
+            │   (en_core_web_sm)    │  → PERSON, ORG, GPE, etc.
+            └───────────┬───────────┘
+                        │
+                        ▼
+            ┌───────────────────────┐
+            │   Stage 2: GLiNER     │  Zero-shot NER with
+            │   (gliner_medium)     │  custom entity labels
+            └───────────┬───────────┘
+                        │
+                        ▼
+            ┌───────────────────────┐
+            │   Stage 3: LLM        │  Complex extraction,
+            │   (gpt-4o-mini)       │  relations, preferences
+            └───────────┬───────────┘
+                        │
+                        ▼
+            ┌───────────────────────┐
+            │    Merge Results      │  Combine using strategy:
+            │    (CONFIDENCE)       │  union/intersection/
+            └───────────┬───────────┘  confidence/cascade
+                        │
+                        ▼
+              ExtractionResult
+              - entities[]
+              - relations[]
+              - preferences[]
+----
+
+== Quick Configuration
+
+=== Using Default Pipeline (Recommended)
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+# Default: PIPELINE with spaCy + GLiNER + LLM fallback
+settings = MemorySettings()
+
+async with MemoryClient(settings) as memory:
+    # Entities extracted automatically
+    await memory.episodic.add_message(
+        session_id="session-1",
+        role="user",
+        content="I met John Smith at Acme Corp in New York yesterday"
+    )
+----
+
+=== Using a Single Extractor
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ExtractionConfig, ExtractorType
+
+# spaCy only (fast, local)
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.SPACY
+    )
+)
+
+# GLiNER only (local, zero-shot)
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.GLINER
+    )
+)
+
+# LLM only (most accurate, requires API)
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.LLM
+    )
+)
+----
+
+=== Disabling Extraction
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ExtractionConfig, ExtractorType
+
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.NONE
+    )
+)
+
+# Or disable per-message
+await memory.episodic.add_message(
+    session_id="session-1",
+    role="user",
+    content="...",
+    extract_entities=False  # Skip extraction for this message
+)
+----
+
+== Extractor Configuration
+
+=== spaCy Extractor
+
+spaCy provides fast statistical NER using pre-trained models.
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ExtractionConfig
+
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.SPACY,
+
+        # spaCy settings
+        spacy_model="en_core_web_sm",  # or en_core_web_lg for better accuracy
+        spacy_confidence=0.85,          # Default confidence score
+    )
+)
+----
+
+==== spaCy to POLE+O Type Mapping
+
+[cols="1,1,2"]
+|===
+|spaCy Label |POLE+O Type |Description
+
+|`PERSON`
+|PERSON
+|People, including fictional
+
+|`ORG`
+|ORGANIZATION
+|Companies, agencies, institutions
+
+|`NORP`
+|ORGANIZATION
+|Nationalities, religious/political groups
+
+|`GPE`
+|LOCATION
+|Countries, cities, states
+
+|`LOC`
+|LOCATION
+|Non-GPE locations (mountains, bodies of water)
+
+|`FAC`
+|LOCATION
+|Buildings, airports, highways
+
+|`EVENT`
+|EVENT
+|Named hurricanes, battles, wars
+
+|`DATE`, `TIME`
+|EVENT
+|Temporal expressions
+
+|`PRODUCT`
+|OBJECT
+|Objects, vehicles, foods
+
+|`WORK_OF_ART`
+|OBJECT
+|Titles of books, songs, etc.
+
+|`MONEY`, `QUANTITY`
+|OBJECT
+|Monetary values, measurements
+|===
+
+=== GLiNER Extractor
+
+GLiNER provides zero-shot NER - it can extract custom entity types without training.
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ExtractionConfig
+
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.GLINER,
+
+        # GLiNER settings
+        gliner_model="urchade/gliner_medium-v2.1",
+        gliner_threshold=0.5,      # Confidence threshold (0.0-1.0)
+        gliner_device="cpu",       # or "cuda" for GPU
+    )
+)
+----
+
+==== Default GLiNER Labels (POLE+O Optimized)
+
+[source,python]
+----
+DEFAULT_POLEO_LABELS = [
+    # Core POLE+O types
+    "person", "organization", "location", "event", "object",
+
+    # Common subtypes
+    "vehicle", "phone number", "email address", "document",
+    "device", "weapon", "address", "city", "country",
+    "company", "meeting", "transaction",
+]
+----
+
+=== LLM Extractor
+
+The LLM extractor uses OpenAI for comprehensive extraction including relations and preferences.
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ExtractionConfig, LLMConfig
+from pydantic import SecretStr
+
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.LLM,
+        llm_model="gpt-4o-mini",
+        extract_relations=True,     # Extract relationships between entities
+        extract_preferences=True,   # Extract user preferences
+    ),
+    llm=LLMConfig(
+        api_key=SecretStr("sk-..."),
+        temperature=0.0,
+    )
+)
+----
+
+==== LLM Extraction Capabilities
+
+[cols="1,3"]
+|===
+|Feature |Description
+
+|**Entities**
+|Extracts all POLE+O types with subtypes and descriptions
+
+|**Relations**
+|Identifies relationships between entities (WORKS_AT, OWNS, LOCATED_AT, etc.)
+
+|**Preferences**
+|Extracts user preferences with categories (food, travel, technology, etc.)
+
+|**Context**
+|Uses surrounding text for better disambiguation
+|===
+
+== Multi-Stage Pipeline Configuration
+
+=== Configuring Pipeline Stages
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ExtractionConfig, ExtractorType
+
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.PIPELINE,
+
+        # Enable/disable stages
+        enable_spacy=True,          # Stage 1: Fast NER
+        enable_gliner=True,         # Stage 2: Zero-shot NER
+        enable_llm_fallback=True,   # Stage 3: LLM for complex cases
+
+        # Continue to next stage if current returns empty
+        fallback_on_empty=True,
+    )
+)
+----
+
+=== Merge Strategies
+
+When using multiple extractors, results are merged using one of these strategies:
+
+[cols="1,3"]
+|===
+|Strategy |Behavior
+
+|`UNION`
+|Keep all unique entities from all stages
+
+|`INTERSECTION`
+|Only keep entities found by multiple extractors (higher confidence)
+
+|`CONFIDENCE`
+|Keep the highest-confidence version of each unique entity (default)
+
+|`CASCADE`
+|Use first stage results, fill gaps with subsequent stages
+
+|`FIRST_SUCCESS`
+|Stop after the first stage that returns results
+|===
+
+[source,python]
+----
+from neo4j_agent_memory import ExtractionConfig, MergeStrategy
+
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.PIPELINE,
+        merge_strategy=MergeStrategy.CONFIDENCE,
+    )
+)
+----
+
+== Custom Entity Types
+
+=== Configuring Entity Types
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ExtractionConfig
+
+# Extract only specific types
+settings = MemorySettings(
+    extraction=ExtractionConfig(
+        entity_types=["PERSON", "ORGANIZATION", "LOCATION"],
+    )
+)
+----
+
+=== Domain-Specific Types
+
+For domain-specific applications, you can define custom entity types:
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ExtractionConfig, SchemaConfig, SchemaModel
+
+settings = MemorySettings(
+    schema=SchemaConfig(
+        model=SchemaModel.CUSTOM,
+        entity_types=["CUSTOMER", "PRODUCT", "ORDER", "STORE"],
+    ),
+    extraction=ExtractionConfig(
+        entity_types=["CUSTOMER", "PRODUCT", "ORDER", "STORE"],
+    )
+)
+----
+
+== Using the Builder Pattern
+
+For complex configurations, use the `ExtractorBuilder`:
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import ExtractorBuilder, MergeStrategy
+
+extractor = (
+    ExtractorBuilder()
+    .with_spacy("en_core_web_lg")
+    .with_gliner(
+        model="urchade/gliner_medium-v2.1",
+        threshold=0.6,
+        device="cuda"
+    )
+    .with_llm_fallback("gpt-4o-mini")
+    .with_entity_types(["PERSON", "ORGANIZATION", "LOCATION", "EVENT"])
+    .merge_by_confidence()
+    .extract_relations(True)
+    .extract_preferences(True)
+    .build()
+)
+
+# Use with MemoryClient
+async with MemoryClient(settings, extractor=extractor) as memory:
+    # ...
+----
+
+== Direct Extractor Usage
+
+You can use extractors directly without the MemoryClient:
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import (
+    SpacyEntityExtractor,
+    GLiNEREntityExtractor,
+    LLMEntityExtractor,
+)
+
+# spaCy extraction
+spacy_extractor = SpacyEntityExtractor(model="en_core_web_sm")
+result = await spacy_extractor.extract("John works at Acme Corp")
+
+for entity in result.entities:
+    print(f"{entity.name} ({entity.type}): {entity.confidence}")
+
+# GLiNER with POLE+O optimization
+gliner_extractor = GLiNEREntityExtractor.for_poleo(
+    threshold=0.5,
+    device="cpu"
+)
+result = await gliner_extractor.extract("Meeting with Sarah at 3pm")
+
+# LLM extraction with relations
+llm_extractor = LLMEntityExtractor.for_poleo(
+    model="gpt-4o-mini",
+    api_key="sk-..."
+)
+result = await llm_extractor.extract("Bob owns a Tesla and lives in Austin")
+
+for relation in result.relations:
+    print(f"{relation.source} --{relation.type}--> {relation.target}")
+----
+
+== Environment Variables
+
+Configure extraction via environment variables:
+
+[source,bash]
+----
+# Extractor type: none, llm, spacy, gliner, pipeline
+NAM_EXTRACTION__EXTRACTOR_TYPE=pipeline
+
+# Pipeline stages
+NAM_EXTRACTION__ENABLE_SPACY=true
+NAM_EXTRACTION__ENABLE_GLINER=true
+NAM_EXTRACTION__ENABLE_LLM_FALLBACK=true
+
+# Merge strategy: union, intersection, confidence, cascade, first_success
+NAM_EXTRACTION__MERGE_STRATEGY=confidence
+
+# spaCy settings
+NAM_EXTRACTION__SPACY_MODEL=en_core_web_sm
+NAM_EXTRACTION__SPACY_CONFIDENCE=0.85
+
+# GLiNER settings
+NAM_EXTRACTION__GLINER_MODEL=urchade/gliner_medium-v2.1
+NAM_EXTRACTION__GLINER_THRESHOLD=0.5
+NAM_EXTRACTION__GLINER_DEVICE=cpu
+
+# LLM settings
+NAM_EXTRACTION__LLM_MODEL=gpt-4o-mini
+NAM_EXTRACTION__EXTRACT_RELATIONS=true
+NAM_EXTRACTION__EXTRACT_PREFERENCES=true
+
+# Entity types (JSON array)
+NAM_EXTRACTION__ENTITY_TYPES='["PERSON","ORGANIZATION","LOCATION","EVENT","OBJECT"]'
+----
+
+== Performance Considerations
+
+[cols="1,1,1,1"]
+|===
+|Configuration |Speed |Accuracy |Cost
+
+|spaCy only
+|~1000 msgs/sec
+|Good for common entities
+|Free (local)
+
+|GLiNER only
+|~100 msgs/sec
+|Good for custom types
+|Free (local)
+
+|LLM only
+|~5 msgs/sec
+|Best accuracy
+|API costs
+
+|Pipeline (all)
+|~5 msgs/sec
+|Best coverage
+|API costs + local compute
+|===
+
+=== Optimization Tips
+
+1. **For bulk loading**: Disable extraction or use spaCy only
+2. **For real-time chat**: Use spaCy + GLiNER, skip LLM
+3. **For high accuracy**: Use full pipeline with CONFIDENCE merge
+4. **For specific domains**: Configure custom entity types and labels
+
+== Next Steps
+
+* xref:poleo-model.adoc[Learn about the POLE+O data model]
+* xref:configuration.adoc[Full configuration reference]
+* xref:memory-types.adoc[Working with extracted entities in semantic memory]

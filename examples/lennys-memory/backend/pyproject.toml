@@ -1,0 +1,32 @@
+[project]
+name = "lennys-memory-backend"
+version = "0.1.0"
+description = "Lenny's Podcast Memory Explorer - Backend"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic-ai>=0.0.39",
+    "pydantic-settings>=2.6.0",
+    "neo4j>=5.26.0",
+    "sse-starlette>=2.2.0",
+    "python-dotenv>=1.0.0",
+    "neo4j-agent-memory[extraction,openai]",
+    "spacy>=3.7.0",
+    "gliner>=0.2.0",
+    "en-core-web-sm",
+]
+
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+neo4j-agent-memory = { path = "../../..", editable = true }
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]

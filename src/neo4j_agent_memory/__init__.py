@@ -422,24 +422,28 @@ class MemoryClient:
             return None
 
     def _create_extractor(self):
-        """Create extractor based on settings."""
+        """Create extractor based on settings.
+
+        Uses the extraction factory to create the appropriate extractor
+        based on configuration. Supports:
+        - NONE: No extraction
+        - LLM: LLM-based extraction (OpenAI)
+        - SPACY: spaCy NER extraction (local)
+        - GLINER: GLiNER zero-shot NER (local)
+        - PIPELINE: Multi-stage pipeline combining multiple extractors
+        """
+        from neo4j_agent_memory.extraction.factory import create_extractor
+
         config = self._settings.extraction
 
         if config.extractor_type == ExtractorType.NONE:
             return None
 
-        if config.extractor_type == ExtractorType.LLM:
-            from neo4j_agent_memory.extraction.llm_extractor import LLMEntityExtractor
-
-            llm_config = self._settings.llm
-            return LLMEntityExtractor(
-                model=llm_config.model,
-                api_key=llm_config.api_key.get_secret_value() if llm_config.api_key else None,
-                entity_types=config.entity_types,
-                temperature=llm_config.temperature,
-            )
-
-        return None
+        return create_extractor(
+            extraction_config=config,
+            schema_config=self._settings.schema,
+            llm_config=self._settings.llm,
+        )
 
     def _create_resolver(self):
         """Create resolver based on settings."""

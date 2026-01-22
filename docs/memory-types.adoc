@@ -1,0 +1,495 @@
+= Memory Types
+:toc: left
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+Neo4j Agent Memory provides three complementary memory types that work together to give AI agents comprehensive memory capabilities.
+
+== Overview
+
+[cols="1,2,2"]
+|===
+|Memory Type |Purpose |Examples
+
+|**Episodic**
+|What happened and when
+|Conversations, messages, experiences
+
+|**Semantic**
+|What the agent knows
+|Entities, facts, preferences
+
+|**Procedural**
+|How to solve problems
+|Reasoning traces, tool usage patterns
+|===
+
+[source]
+----
+┌─────────────────────────────────────────────────────────────┐
+│                      MemoryClient                           │
+├───────────────────┬───────────────────┬─────────────────────┤
+│                   │                   │                     │
+│     EPISODIC      │     SEMANTIC      │    PROCEDURAL       │
+│                   │                   │                     │
+│  ┌─────────────┐  │  ┌─────────────┐  │  ┌───────────────┐  │
+│  │Conversation │  │  │   Entity    │  │  │ReasoningTrace │  │
+│  │   Message   │  │  │  Preference │  │  │ ReasoningStep │  │
+│  └─────────────┘  │  │    Fact     │  │  │   ToolCall    │  │
+│                   │  └─────────────┘  │  └───────────────┘  │
+└───────────────────┴───────────────────┴─────────────────────┘
+----
+
+== Episodic Memory
+
+Episodic memory stores conversation history and experiences - the "what happened" of agent interactions.
+
+=== Core Concepts
+
+**Conversation**:: A session or thread of messages with a unique `session_id`
+**Message**:: A single message within a conversation (user or assistant)
+
+=== Adding Messages
+
+[source,python]
+----
+async with MemoryClient(settings) as memory:
+    # Add a user message
+    message = await memory.episodic.add_message(
+        session_id="user-123-session-1",
+        role="user",
+        content="What's the weather like in San Francisco?",
+        metadata={"source": "web_chat"}
+    )
+
+    # Add an assistant response
+    await memory.episodic.add_message(
+        session_id="user-123-session-1",
+        role="assistant",
+        content="It's currently 65°F and sunny in San Francisco.",
+    )
+----
+
+=== Message Options
+
+[source,python]
+----
+await memory.episodic.add_message(
+    session_id="session-id",
+    role="user",                      # "user" or "assistant"
+    content="Message content",
+
+    # Optional parameters
+    conversation_id=None,             # Specific conversation UUID
+    extract_entities=True,            # Extract entities (default: True)
+    generate_embedding=True,          # Generate embedding (default: True)
+    metadata={"key": "value"},        # Custom metadata
+)
+----
+
+=== Retrieving Messages
+
+[source,python]
+----
+# Get recent messages from a session
+messages = await memory.episodic.get_messages(
+    session_id="user-123-session-1",
+    limit=20,
+    include_metadata=True
+)
+
+for msg in messages:
+    print(f"[{msg.role}] {msg.content}")
+    print(f"  Time: {msg.created_at}")
+    print(f"  Metadata: {msg.metadata}")
+----
+
+=== Searching Messages
+
+[source,python]
+----
+# Semantic search across messages
+results = await memory.episodic.search_messages(
+    query="weather questions",
+    session_id="user-123-session-1",  # Optional: filter by session
+    limit=10
+)
+
+for msg, score in results:
+    print(f"[{score:.2f}] {msg.content}")
+----
+
+=== Getting Conversation Context
+
+[source,python]
+----
+# Get formatted context for LLM prompts
+context = await memory.episodic.get_context(
+    query="weather information",
+    session_id="user-123-session-1",
+    max_messages=10
+)
+
+print(context)
+# Output:
+# User: What's the weather like in San Francisco?
+# Assistant: It's currently 65°F and sunny in San Francisco.
+----
+
+=== Managing Conversations
+
+[source,python]
+----
+# List all conversations
+conversations = await memory.episodic.list_conversations(
+    limit=10
+)
+
+# Get a specific conversation
+conversation = await memory.episodic.get_conversation(
+    session_id="user-123-session-1"
+)
+
+# Get conversation with messages
+conversation = await memory.episodic.get_conversation_with_messages(
+    session_id="user-123-session-1",
+    message_limit=50
+)
+----
+
+== Semantic Memory
+
+Semantic memory stores facts, entities, and preferences - the "what the agent knows" about the world and users.
+
+=== Core Concepts
+
+**Entity**:: A person, place, thing, or concept (using xref:poleo-model.adoc[POLE+O model])
+**Preference**:: A user preference or inclination
+**Fact**:: A piece of factual information
+
+=== Working with Entities
+
+==== Automatic Extraction
+
+Entities are automatically extracted when adding messages:
+
+[source,python]
+----
+await memory.episodic.add_message(
+    session_id="session-1",
+    role="user",
+    content="I work at Acme Corp with John Smith in San Francisco"
+)
+# Automatically extracts:
+# - "Acme Corp" (ORGANIZATION)
+# - "John Smith" (PERSON)
+# - "San Francisco" (LOCATION)
+----
+
+==== Manual Entity Creation
+
+[source,python]
+----
+# Add an entity manually
+entity = await memory.semantic.add_entity(
+    name="Acme Corporation",
+    entity_type="ORGANIZATION",
+    subtype="COMPANY",
+    description="A technology company",
+    aliases=["Acme Corp", "Acme"],
+    attributes={"industry": "technology", "founded": 2010},
+    generate_embedding=True
+)
+----
+
+==== Searching Entities
+
+[source,python]
+----
+# Semantic search
+entities = await memory.semantic.search_entities(
+    query="technology companies",
+    limit=10
+)
+
+# Filter by type
+people = await memory.semantic.search_entities(
+    query="engineers",
+    entity_type="PERSON",
+    limit=10
+)
+
+# Get entity by name
+entity = await memory.semantic.get_entity(
+    name="Acme Corp",
+    entity_type="ORGANIZATION"
+)
+----
+
+=== Working with Preferences
+
+[source,python]
+----
+# Add a preference
+preference = await memory.semantic.add_preference(
+    category="food",
+    preference="Prefers vegetarian options",
+    importance=0.9,
+    metadata={"source": "user_profile"}
+)
+
+# Add preference with user context
+preference = await memory.semantic.add_preference(
+    category="communication",
+    preference="Prefers email over phone calls",
+    importance=0.8,
+    user_id="user-123"
+)
+
+# Search preferences
+preferences = await memory.semantic.search_preferences(
+    query="dietary restrictions",
+    limit=5
+)
+
+# Get preferences by category
+food_prefs = await memory.semantic.get_preferences_by_category(
+    category="food"
+)
+----
+
+=== Working with Facts
+
+[source,python]
+----
+# Add a fact
+fact = await memory.semantic.add_fact(
+    subject="Earth",
+    predicate="orbits",
+    object="Sun",
+    confidence=1.0,
+    source="astronomy"
+)
+
+# Search facts
+facts = await memory.semantic.search_facts(
+    query="solar system",
+    limit=10
+)
+----
+
+=== Getting Semantic Context
+
+[source,python]
+----
+# Get combined semantic context for LLM
+context = await memory.semantic.get_context(
+    query="restaurant recommendation",
+    max_items=10
+)
+
+print(context)
+# Output:
+# Entities:
+# - John Smith (PERSON): Works at Acme Corp
+# - San Francisco (LOCATION): City in California
+#
+# Preferences:
+# - food: Prefers vegetarian options (importance: 0.9)
+----
+
+== Procedural Memory
+
+Procedural memory stores reasoning traces and tool usage patterns - the "how to solve problems" knowledge.
+
+=== Core Concepts
+
+**ReasoningTrace**:: A complete reasoning process for a task
+**ReasoningStep**:: A single step in the reasoning process
+**ToolCall**:: A tool/function invocation with inputs and outputs
+
+=== Recording Reasoning Traces
+
+[source,python]
+----
+# Start a reasoning trace
+trace = await memory.procedural.start_trace(
+    task="Find restaurants in San Francisco",
+    session_id="session-1"
+)
+
+# Add reasoning steps
+await memory.procedural.add_step(
+    trace_id=trace.id,
+    thought="I need to search for restaurants in the specified location",
+    action="search_restaurants",
+    observation="Found 10 restaurants"
+)
+
+await memory.procedural.add_step(
+    trace_id=trace.id,
+    thought="I should filter by the user's dietary preferences",
+    action="filter_by_preference",
+    observation="3 vegetarian restaurants found"
+)
+
+# Complete the trace
+await memory.procedural.complete_trace(
+    trace_id=trace.id,
+    result="Recommended: Green Garden Cafe",
+    success=True
+)
+----
+
+=== Recording Tool Calls
+
+[source,python]
+----
+# Record a tool call
+tool_call = await memory.procedural.record_tool_call(
+    trace_id=trace.id,
+    tool_name="search_api",
+    inputs={"query": "restaurants", "location": "San Francisco"},
+    outputs={"results": [...]},
+    status="success",
+    duration_ms=150
+)
+----
+
+=== Searching Similar Traces
+
+[source,python]
+----
+# Find similar past reasoning
+similar_traces = await memory.procedural.search_traces(
+    query="restaurant recommendations",
+    limit=5
+)
+
+for trace in similar_traces:
+    print(f"Task: {trace.task}")
+    print(f"Success: {trace.success}")
+    print(f"Steps: {len(trace.steps)}")
+----
+
+=== Getting Procedural Context
+
+[source,python]
+----
+# Get procedural context for similar tasks
+context = await memory.procedural.get_context(
+    query="find restaurants",
+    max_traces=3
+)
+
+print(context)
+# Output:
+# Similar past tasks:
+# 1. "Find restaurants in San Francisco" (success)
+#    - Searched for restaurants
+#    - Filtered by dietary preferences
+#    - Recommended: Green Garden Cafe
+----
+
+== Combined Context
+
+The `MemoryClient` provides a unified method to get context from all memory types:
+
+[source,python]
+----
+async with MemoryClient(settings) as memory:
+    # Get combined context
+    context = await memory.get_context(
+        query="restaurant recommendation",
+        session_id="user-123-session-1",
+
+        # Control which memory types to include
+        include_episodic=True,    # Recent conversation
+        include_semantic=True,     # Facts and preferences
+        include_procedural=True,   # Past reasoning patterns
+
+        max_items=10
+    )
+
+    # Use in LLM prompt
+    prompt = f"""
+    Based on the following context:
+
+    {context}
+
+    Please recommend a restaurant.
+    """
+----
+
+=== Context Output Format
+
+[source]
+----
+## Conversation History
+User: I'm looking for a restaurant for dinner tonight
+Assistant: I'd be happy to help! Do you have any preferences?
+User: I prefer vegetarian food
+
+## Relevant Knowledge
+Entities:
+- San Francisco (LOCATION): User's current city
+
+Preferences:
+- food: Prefers vegetarian options (importance: 0.9)
+- dining: Likes casual atmosphere (importance: 0.7)
+
+## Similar Past Tasks
+Task: "Find vegetarian restaurants" (success)
+- Searched restaurant database
+- Filtered by vegetarian options
+- Recommended: Green Garden Cafe
+----
+
+== Memory Statistics
+
+[source,python]
+----
+# Get memory statistics
+stats = await memory.get_stats()
+
+print(f"Conversations: {stats['conversations']}")
+print(f"Messages: {stats['messages']}")
+print(f"Entities: {stats['entities']}")
+print(f"Preferences: {stats['preferences']}")
+print(f"Facts: {stats['facts']}")
+print(f"Traces: {stats['traces']}")
+----
+
+== Best Practices
+
+=== Session Management
+
+* Use consistent `session_id` values for related conversations
+* Include user identifiers in session IDs for multi-user systems
+* Consider session expiration for privacy
+
+=== Entity Extraction
+
+* Enable extraction by default for rich memory
+* Disable for bulk loading or sensitive content
+* Use appropriate extraction pipeline for your use case
+
+=== Preferences
+
+* Use consistent categories across your application
+* Set appropriate importance scores (0.0-1.0)
+* Update preferences when user behavior changes
+
+=== Procedural Memory
+
+* Record both successful and failed reasoning traces
+* Include detailed observations for learning
+* Use for few-shot prompting with similar tasks
+
+== Next Steps
+
+* xref:entity-extraction.adoc[Configure entity extraction]
+* xref:poleo-model.adoc[Understand the POLE+O data model]
+* xref:configuration.adoc[Full configuration reference]

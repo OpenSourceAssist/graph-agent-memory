@@ -1,0 +1,152 @@
+= Neo4j Agent Memory
+:toc: left
+:toclevels: 3
+:sectanchors:
+:sectlinks:
+:icons: font
+:source-highlighter: highlight.js
+:experimental:
+
+A comprehensive memory system for AI agents using Neo4j as the persistence layer.
+
+[.lead]
+Neo4j Agent Memory provides episodic, semantic, and procedural memory capabilities for AI agents, enabling them to remember conversations, learn facts, and recall past reasoning patterns.
+
+== Overview
+
+Neo4j Agent Memory is designed to give AI agents persistent, queryable memory across three dimensions:
+
+[cols="1,3"]
+|===
+|Memory Type |Description
+
+|**Episodic**
+|Conversation history and experiences - what happened and when
+
+|**Semantic**
+|Facts, preferences, and entities - what the agent knows
+
+|**Procedural**
+|Reasoning traces and tool usage - how the agent solved problems
+|===
+
+== Key Features
+
+* **Graph-Native Storage** - Leverages Neo4j's graph database for connected memory
+* **Vector Search** - Semantic similarity search across all memory types
+* **Entity Extraction** - Automatic extraction using spaCy, GLiNER, and LLM
+* **POLE+O Data Model** - Industry-standard entity classification (Person, Object, Location, Event, Organization)
+* **Framework Integrations** - Works with LangChain, LlamaIndex, PydanticAI, and CrewAI
+
+== Quick Start
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from pydantic import SecretStr
+
+# Configure the memory client
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": SecretStr("password")}
+)
+
+# Use as async context manager
+async with MemoryClient(settings) as memory:
+    # Store a conversation message
+    await memory.episodic.add_message(
+        session_id="user-123",
+        role="user",
+        content="I'm looking for Italian restaurants in San Francisco"
+    )
+
+    # Add a preference
+    await memory.semantic.add_preference(
+        category="food",
+        preference="Loves Italian cuisine",
+        importance=0.9
+    )
+
+    # Get context for LLM prompts
+    context = await memory.get_context(
+        query="restaurant recommendation",
+        session_id="user-123"
+    )
+----
+
+== Installation
+
+[source,bash]
+----
+# Basic installation
+pip install neo4j-agent-memory
+
+# With OpenAI embeddings
+pip install neo4j-agent-memory[openai]
+
+# With local entity extraction (spaCy + GLiNER)
+pip install neo4j-agent-memory[extraction]
+
+# Full installation with all features
+pip install neo4j-agent-memory[full]
+----
+
+== Documentation
+
+[cols="1,2"]
+|===
+|Guide |Description
+
+|xref:getting-started.adoc[Getting Started]
+|Installation, setup, and your first memory operations
+
+|xref:memory-types.adoc[Memory Types]
+|Deep dive into episodic, semantic, and procedural memory
+
+|xref:entity-extraction.adoc[Entity Extraction]
+|Configuring the extraction pipeline (spaCy, GLiNER, LLM)
+
+|xref:poleo-model.adoc[POLE+O Data Model]
+|Understanding and customizing the entity classification model
+
+|xref:configuration.adoc[Configuration Reference]
+|Complete configuration options and environment variables
+
+|xref:integrations.adoc[Framework Integrations]
+|Using with LangChain, LlamaIndex, PydanticAI, and CrewAI
+|===
+
+== Architecture
+
+[source]
+----
+┌─────────────────────────────────────────────────────────────┐
+│                      MemoryClient                           │
+├─────────────────┬─────────────────┬─────────────────────────┤
+│    Episodic     │    Semantic     │      Procedural         │
+│    Memory       │    Memory       │      Memory             │
+├─────────────────┴─────────────────┴─────────────────────────┤
+│                   Extraction Pipeline                        │
+│         ┌─────────┬─────────┬─────────┐                     │
+│         │ spaCy   │ GLiNER  │  LLM    │                     │
+│         └─────────┴─────────┴─────────┘                     │
+├─────────────────────────────────────────────────────────────┤
+│                    Neo4j Graph Database                      │
+│              (Nodes, Relationships, Vectors)                 │
+└─────────────────────────────────────────────────────────────┘
+----
+
+== Requirements
+
+* Python 3.10+
+* Neo4j 5.20+ (with APOC plugin recommended)
+* OpenAI API key (for embeddings and LLM extraction)
+
+== License
+
+Apache License 2.0
+
+== Links
+
+* https://github.com/neo4j-labs/neo4j-agent-memory[GitHub Repository]
+* https://github.com/neo4j-labs/neo4j-agent-memory/issues[Issue Tracker]
+* https://neo4j.com[Neo4j]
