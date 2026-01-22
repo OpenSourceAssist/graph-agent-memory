@@ -66,6 +66,24 @@ Or load the full dataset (299 transcripts):
 make load-full
 ```
 
+**Additional loading options:**
+
+```bash
+# Fast loading without entity extraction (significantly faster)
+make load-fast
+
+# Resume an interrupted load (skip already loaded transcripts)
+make load-resume
+
+# Preview what would be loaded without actually loading
+make load-dry-run
+```
+
+The loader shows real-time progress with ETA:
+```
+Overall  [████████████░░░░░░░░░░░░░░░░░░] 450/1200 (38%) ETA: 2m 15s [3/10] Brian Chesky.txt
+```
+
 ### 5. Run the Application
 
 Backend (port 8000):
@@ -161,6 +179,34 @@ The following observations were made during implementation that could improve th
 - Implement a TypeScript client library for easy integration with frontend applications and JavaScript agent frameworks like Mastra and Vercel AI SDK
 
 ---
+
+## Data Loading Script
+
+The `scripts/load_transcripts.py` script provides several options for loading podcast transcripts:
+
+```bash
+# Basic usage
+python scripts/load_transcripts.py --data-dir data
+
+# Options
+--sample N          Load only N transcripts (for testing)
+--no-entities       Skip entity extraction (faster loading)
+--no-embeddings     Skip embedding generation (faster loading)
+--resume            Skip transcripts that are already loaded
+--dry-run           Preview what would be loaded without loading
+--batch-size N      Number of messages per batch (default: 50)
+-v, --verbose       Show detailed progress
+
+# Examples
+python scripts/load_transcripts.py --sample 10 --no-entities
+python scripts/load_transcripts.py --resume --batch-size 100
+```
+
+**Features:**
+- Real-time progress bar with ETA
+- Automatic retry with exponential backoff for transient failures
+- Resume capability for interrupted loads
+- Detailed statistics on completion (files, turns, speakers, throughput)
 
 ## Project Structure
 

@@ -1,4 +1,4 @@
-.PHONY: help install load-sample load-full run-backend run-frontend neo4j clean
+.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend neo4j clean
 
 # Default target
 help:
@@ -11,6 +11,9 @@ help:
 	@echo "Data Loading:"
 	@echo "  make load-sample    Load 5 sample transcripts (for testing)"
 	@echo "  make load-full      Load all 299 transcripts"
+	@echo "  make load-fast      Load all transcripts without entity extraction (faster)"
+	@echo "  make load-resume    Resume loading (skip already loaded transcripts)"
+	@echo "  make load-dry-run   Preview what would be loaded without loading"
 	@echo ""
 	@echo "Development:"
 	@echo "  make run-backend    Start FastAPI backend (port 8000)"
@@ -35,16 +38,37 @@ neo4j:
 	@sleep 10
 	@echo "Neo4j available at http://localhost:7474"
 
+# Environment variables to suppress warnings during loading
+LOAD_ENV = PYTHONWARNINGS="ignore" HF_HUB_DISABLE_PROGRESS_BARS=1 TOKENIZERS_PARALLELISM=false
+
 # Load sample transcripts (5 files for quick testing)
 load-sample:
-	cd backend && uv run python ../scripts/load_transcripts.py \
+	cd backend && $(LOAD_ENV) uv run python ../scripts/load_transcripts.py \
 		--data-dir ../data \
 		--sample 5
 
 # Load all transcripts (full dataset)
 load-full:
-	cd backend && uv run python ../scripts/load_transcripts.py \
+	cd backend && $(LOAD_ENV) uv run python ../scripts/load_transcripts.py \
 		--data-dir ../data
+
+# Load all transcripts without entity extraction (faster)
+load-fast:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/load_transcripts.py \
+		--data-dir ../data \
+		--no-entities
+
+# Resume loading (skip already loaded transcripts)
+load-resume:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/load_transcripts.py \
+		--data-dir ../data \
+		--resume
+
+# Preview what would be loaded (dry run)
+load-dry-run:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/load_transcripts.py \
+		--data-dir ../data \
+		--dry-run
 
 # Run backend
 run-backend:
