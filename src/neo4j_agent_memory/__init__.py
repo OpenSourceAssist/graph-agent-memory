@@ -762,7 +762,7 @@ class MemoryClient:
 
         return create_extractor(
             extraction_config=config,
-            schema_config=self._settings.schema,
+            schema_config=self._settings.schema_config,
             llm_config=self._settings.llm,
         )
 

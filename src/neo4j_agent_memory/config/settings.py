@@ -308,7 +308,7 @@ class MemorySettings(BaseSettings):
     neo4j: Neo4jConfig = Field(default_factory=lambda: Neo4jConfig(password=SecretStr("")))
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
-    schema: SchemaConfig = Field(default_factory=SchemaConfig)
+    schema_config: SchemaConfig = Field(default_factory=SchemaConfig)
     extraction: ExtractionConfig = Field(default_factory=ExtractionConfig)
     resolution: ResolutionConfig = Field(default_factory=ResolutionConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
