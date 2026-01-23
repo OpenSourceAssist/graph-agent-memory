@@ -1,6 +1,5 @@
 """Comprehensive integration tests for procedural memory."""
 
-
 import pytest
 
 from neo4j_agent_memory.memory.procedural import ToolCallStatus

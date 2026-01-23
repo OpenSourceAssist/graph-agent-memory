@@ -332,11 +332,12 @@ class TestGLiNERWithRelationsExtractorFactoryMethods:
         """Test for_schema creates both extractors."""
         # This will fail if GLiNER is not installed, which is expected
         # We're testing the factory method logic
-        with patch(
-            "neo4j_agent_memory.extraction.gliner_extractor.GLiNEREntityExtractor.for_schema"
-        ) as mock_gliner, patch(
-            "neo4j_agent_memory.extraction.gliner_extractor.GLiRELExtractor"
-        ) as mock_glirel:
+        with (
+            patch(
+                "neo4j_agent_memory.extraction.gliner_extractor.GLiNEREntityExtractor.for_schema"
+            ) as mock_gliner,
+            patch("neo4j_agent_memory.extraction.gliner_extractor.GLiRELExtractor") as mock_glirel,
+        ):
             mock_gliner.return_value = MagicMock()
             mock_glirel.return_value = MagicMock()
 

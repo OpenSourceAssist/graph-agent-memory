@@ -1,6 +1,5 @@
 """Tests for query builder utilities."""
 
-
 from neo4j_agent_memory.graph.query_builder import (
     VALID_ENTITY_TYPES,
     VALID_SUBTYPES,

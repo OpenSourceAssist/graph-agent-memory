@@ -1,6 +1,5 @@
 """Tests for POLE+O schema configuration."""
 
-
 from neo4j_agent_memory.schema.models import (
     EntitySchemaConfig,
     EntityTypeConfig,
