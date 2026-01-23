@@ -256,11 +256,12 @@ class TestLangChainAgentExample:
 
             retriever = Neo4jMemoryRetriever(
                 memory_client=memory_client,
-                session_id=session_id,
-                max_results=10,
+                k=10,
+                threshold=0.7,
             )
 
-            assert retriever.session_id == session_id
+            assert retriever.memory_client == memory_client
+            assert retriever.k == 10
         except ImportError:
             pytest.skip("LangChain not installed")
 
