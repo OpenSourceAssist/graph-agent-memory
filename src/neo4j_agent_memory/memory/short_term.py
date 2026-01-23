@@ -860,6 +860,7 @@ class ShortTermMemory(BaseMemory[Message]):
                             "embedding": None,
                             "confidence": entity.confidence,
                             "metadata": None,
+                            "location": None,  # Required for LOCATION entities
                         },
                     )
 
@@ -971,6 +972,7 @@ class ShortTermMemory(BaseMemory[Message]):
                     "embedding": None,
                     "confidence": entity.confidence,
                     "metadata": None,  # Serialized as null for empty
+                    "location": None,  # Required for LOCATION entities
                 },
             )
 
