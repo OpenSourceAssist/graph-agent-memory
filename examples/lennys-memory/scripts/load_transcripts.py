@@ -48,6 +48,7 @@ from dotenv import load_dotenv
 from pydantic import SecretStr
 
 from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
+from neo4j_agent_memory.graph.schema import SchemaManager
 
 # Load .env file from backend directory
 load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
@@ -428,6 +429,58 @@ async def check_session_exists(memory: MemoryClient, session_id: str) -> bool:
         return False
 
 
+async def check_sessions_exist_batch(memory: MemoryClient, session_ids: list[str]) -> set[str]:
+    """Check which sessions already exist in the database (batch operation).
+
+    This is much more efficient than checking sessions one at a time,
+    especially when there are many sessions to check.
+
+    Args:
+        memory: MemoryClient instance
+        session_ids: List of session IDs to check
+
+    Returns:
+        Set of session IDs that already exist
+    """
+    if not session_ids:
+        return set()
+
+    query = """
+    UNWIND $session_ids AS sid
+    OPTIONAL MATCH (c:Conversation {session_id: sid})
+    WITH sid, c IS NOT NULL AS exists
+    WHERE exists
+    RETURN sid
+    """
+    try:
+        results = await memory._client.execute_read(query, {"session_ids": session_ids})
+        return {row["sid"] for row in results}
+    except Exception:
+        # Fallback to individual checks if batch query fails
+        existing = set()
+        for sid in session_ids:
+            if await check_session_exists(memory, sid):
+                existing.add(sid)
+        return existing
+
+
+async def setup_database_schema(memory: MemoryClient, verbose: bool = False) -> None:
+    """Ensure database indexes and constraints exist for optimal performance.
+
+    This creates:
+    - Unique constraints on Conversation.id, Message.id, etc.
+    - Index on Conversation.session_id for fast lookups
+    - Index on Message.timestamp for ordering
+    - Vector indexes for semantic search (if Neo4j 5.11+)
+
+    Args:
+        memory: MemoryClient instance
+        verbose: Whether to print status messages
+    """
+    schema = SchemaManager(memory._client)
+    await schema.setup_all()
+
+
 async def load_transcript(
     memory: MemoryClient,
     file_path: Path,
@@ -506,6 +559,114 @@ async def load_transcript(
     return stats
 
 
+async def extract_entities_from_loaded_sessions(
+    memory: MemoryClient,
+    data_dir: Path,
+    sample_size: int | None = None,
+    batch_size: int = 100,
+    concurrency: int = 3,
+) -> None:
+    """Extract entities from already loaded transcripts.
+
+    This is useful for running entity extraction separately after the initial
+    data load (which can be done faster with --no-entities).
+
+    Args:
+        memory: MemoryClient instance
+        data_dir: Directory containing transcript files (used to determine session IDs)
+        sample_size: Optional limit on number of sessions to process
+        batch_size: Number of messages per batch
+        concurrency: Number of sessions to process concurrently
+    """
+    files = sorted(data_dir.glob("*.txt"))
+
+    if not files:
+        print(f"No .txt files found in {data_dir}")
+        return
+
+    if sample_size:
+        files = files[:sample_size]
+
+    # Get session IDs for all files
+    session_ids = [f"lenny-podcast-{slugify(f.stem)}" for f in files]
+
+    # Check which sessions exist
+    print("Checking for loaded sessions...", end=" ", flush=True)
+    existing_sessions = await check_sessions_exist_batch(memory, session_ids)
+    print(color("Done!", Colors.GREEN))
+
+    sessions_to_process = [sid for sid in session_ids if sid in existing_sessions]
+
+    if not sessions_to_process:
+        print(color("No loaded sessions found to extract entities from.", Colors.YELLOW))
+        return
+
+    print(f"\nExtracting entities from {len(sessions_to_process)} session(s)...")
+    print()
+
+    total_processed = 0
+    total_entities = 0
+    start_time = time.time()
+
+    # Create a semaphore for concurrency control
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def process_session(session_id: str, index: int) -> dict:
+        """Process a single session with entity extraction."""
+        async with semaphore:
+            try:
+                result = await memory.short_term.extract_entities_from_session(
+                    session_id,
+                    batch_size=batch_size,
+                    skip_existing=True,
+                )
+                return {
+                    "session_id": session_id,
+                    "messages": result.get("messages_processed", 0),
+                    "entities": result.get("entities_extracted", 0),
+                    "error": None,
+                }
+            except Exception as e:
+                return {
+                    "session_id": session_id,
+                    "messages": 0,
+                    "entities": 0,
+                    "error": str(e),
+                }
+
+    # Process all sessions concurrently with progress bar
+    progress_bar = ProgressBar(len(sessions_to_process), prefix="Extracting")
+
+    with progress_bar:
+        tasks = [process_session(sid, i) for i, sid in enumerate(sessions_to_process, 1)]
+
+        for i, coro in enumerate(asyncio.as_completed(tasks), 1):
+            result = await coro
+            total_processed += result["messages"]
+            total_entities += result["entities"]
+
+            if result["error"]:
+                progress_bar.add_warning(f"{result['session_id']}: {result['error']}")
+
+            progress_bar.update(i)
+
+    progress_bar.finish(color("Done!", Colors.GREEN))
+
+    # Print summary
+    elapsed = time.time() - start_time
+    print()
+    print(color("═" * 60, Colors.CYAN))
+    print(color("  Entity Extraction Complete!", Colors.BOLD + Colors.GREEN))
+    print(color("═" * 60, Colors.CYAN))
+    print()
+    print(f"  {color('Sessions processed:', Colors.DIM)} {len(sessions_to_process)}")
+    print(f"  {color('Messages processed:', Colors.DIM)} {total_processed:,}")
+    print(f"  {color('Entities extracted:', Colors.DIM)} {total_entities:,}")
+    print(f"  {color('Elapsed time:', Colors.DIM)} {format_duration(elapsed)}")
+    print(f"  {color('Throughput:', Colors.DIM)} {format_rate(total_processed, elapsed)}")
+    print()
+
+
 async def load_all_transcripts(
     memory: MemoryClient,
     data_dir: Path,
@@ -513,8 +674,8 @@ async def load_all_transcripts(
     extract_entities: bool = True,
     generate_embeddings: bool = True,
     skip_existing: bool = False,
-    batch_size: int = 50,
-    concurrency: int = 1,
+    batch_size: int = 100,
+    concurrency: int = 3,
     dry_run: bool = False,
 ) -> LoadStats:
     """Load all transcripts from the data directory.
@@ -547,19 +708,22 @@ async def load_all_transcripts(
     # Check which files to skip if resume mode
     files_to_load = []
     if skip_existing:
-        print("Checking for existing transcripts...")
-        check_bar = ProgressBar(len(files), prefix="Scanning")
-        with check_bar:
-            for i, file_path in enumerate(files):
-                session_id = f"lenny-podcast-{slugify(file_path.stem)}"
-                exists = await check_session_exists(memory, session_id)
-                if exists:
-                    stats.files_skipped += 1
-                else:
-                    files_to_load.append(file_path)
-                check_bar.update(i + 1)
-        check_bar.finish()
+        print("Checking for existing transcripts...", end=" ", flush=True)
+        # Build list of session IDs to check
+        session_ids = [f"lenny-podcast-{slugify(f.stem)}" for f in files]
+        file_by_session = {f"lenny-podcast-{slugify(f.stem)}": f for f in files}
 
+        # Batch check all sessions at once (much faster than individual checks)
+        existing_sessions = await check_sessions_exist_batch(memory, session_ids)
+
+        # Filter files
+        for session_id in session_ids:
+            if session_id in existing_sessions:
+                stats.files_skipped += 1
+            else:
+                files_to_load.append(file_by_session[session_id])
+
+        print(color("Done!", Colors.GREEN))
         if stats.files_skipped > 0:
             print(
                 f"  {color(f'Skipping {stats.files_skipped} already loaded', Colors.YELLOW)}, "
@@ -661,19 +825,47 @@ async def load_all_transcripts(
 
     # Show pipeline info
     print(f"  {color('Pipeline:', Colors.DIM)} {pipeline_desc}")
+    if concurrency > 1:
+        print(f"  {color('Concurrency:', Colors.DIM)} {concurrency} transcripts in parallel")
     print()
 
     # Process files with buffered output to prevent log disruption
     # Use context manager to buffer logs during progress bar updates
-    with overall_bar:
-        for i, file_path in enumerate(files_to_load, 1):
-            result = await load_one(file_path, i)
-            if result:
-                stats.files_loaded += 1
-                stats.turns_loaded += result["turns"]
-                stats.speakers.update(result["speakers"])
-            else:
-                stats.files_failed += 1
+    if concurrency <= 1:
+        # Sequential processing (original behavior)
+        with overall_bar:
+            for i, file_path in enumerate(files_to_load, 1):
+                result = await load_one(file_path, i)
+                if result:
+                    stats.files_loaded += 1
+                    stats.turns_loaded += result["turns"]
+                    stats.speakers.update(result["speakers"])
+                else:
+                    stats.files_failed += 1
+    else:
+        # Concurrent processing with semaphore
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def load_one_with_semaphore(file_path: Path, file_index: int) -> dict | None:
+            async with semaphore:
+                return await load_one(file_path, file_index)
+
+        with overall_bar:
+            # Create tasks for all files
+            tasks = [
+                load_one_with_semaphore(file_path, i)
+                for i, file_path in enumerate(files_to_load, 1)
+            ]
+
+            # Process as they complete
+            for coro in asyncio.as_completed(tasks):
+                result = await coro
+                if result:
+                    stats.files_loaded += 1
+                    stats.turns_loaded += result["turns"]
+                    stats.speakers.update(result["speakers"])
+                else:
+                    stats.files_failed += 1
 
     overall_bar.finish(color("Done!", Colors.GREEN))
 
@@ -686,11 +878,14 @@ async def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Fast initial load (skip entities, extract later)
+  %(prog)s --no-entities
+
+  # Then extract entities from loaded transcripts
+  %(prog)s --extract-entities-only
+
   # Load 5 sample transcripts for testing
   %(prog)s --sample 5
-
-  # Load all transcripts without entity extraction (faster)
-  %(prog)s --no-entities
 
   # Resume loading (skip already loaded transcripts)
   %(prog)s --resume
@@ -698,8 +893,16 @@ Examples:
   # Preview what would be loaded
   %(prog)s --dry-run
 
+  # Maximum speed: no entities, no embeddings, high concurrency
+  %(prog)s --no-entities --no-embeddings --concurrency 5
+
   # Verbose output with larger batches
-  %(prog)s -v --batch-size 100
+  %(prog)s -v --batch-size 200
+
+Performance Tips:
+  - Use --no-entities for initial load, then --extract-entities-only
+  - Default batch size (100) and concurrency (3) are optimized for most cases
+  - Database indexes are automatically created on first run
 """,
     )
     parser.add_argument(
@@ -747,14 +950,31 @@ Examples:
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=50,
+        default=100,
         metavar="N",
-        help="Number of messages per batch (default: 50)",
+        help="Number of messages per batch (default: 100)",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=3,
+        metavar="N",
+        help="Number of transcripts to load concurrently (default: 3)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be loaded without loading",
+    )
+    parser.add_argument(
+        "--skip-schema-setup",
+        action="store_true",
+        help="Skip database schema/index setup (use if already configured)",
+    )
+    parser.add_argument(
+        "--extract-entities-only",
+        action="store_true",
+        help="Only extract entities from already loaded transcripts (run after initial load)",
     )
     parser.add_argument(
         "--verbose",
@@ -798,8 +1018,11 @@ Examples:
         f"  {color('Resume mode:', Colors.DIM)} {color('enabled', Colors.GREEN) if args.resume else color('disabled', Colors.DIM)}"
     )
     print(f"  {color('Batch size:', Colors.DIM)} {args.batch_size}")
+    print(f"  {color('Concurrency:', Colors.DIM)} {args.concurrency}")
     if args.dry_run:
         print(f"  {color('Mode:', Colors.DIM)} {color('DRY RUN', Colors.YELLOW)}")
+    if args.extract_entities_only:
+        print(f"  {color('Mode:', Colors.DIM)} {color('EXTRACT ENTITIES ONLY', Colors.BLUE)}")
     print()
 
     settings = MemorySettings(
@@ -823,6 +1046,23 @@ Examples:
             if not args.dry_run:
                 print(color("Connected!", Colors.GREEN))
 
+            # Set up database schema (indexes and constraints) for optimal performance
+            if not args.skip_schema_setup and not args.dry_run:
+                print("Setting up database indexes...", end=" ", flush=True)
+                await setup_database_schema(memory, verbose=args.verbose)
+                print(color("Done!", Colors.GREEN))
+
+            # Handle extract-entities-only mode
+            if args.extract_entities_only:
+                await extract_entities_from_loaded_sessions(
+                    memory,
+                    args.data_dir,
+                    sample_size=args.sample,
+                    batch_size=args.batch_size,
+                    concurrency=args.concurrency,
+                )
+                sys.exit(0)
+
             stats = await load_all_transcripts(
                 memory,
                 args.data_dir,
@@ -831,6 +1071,7 @@ Examples:
                 generate_embeddings=not args.no_embeddings,
                 skip_existing=args.resume,
                 batch_size=args.batch_size,
+                concurrency=args.concurrency,
                 dry_run=args.dry_run,
             )
 

@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from neo4j_agent_memory.extraction.base import EntityExtractor
     from neo4j_agent_memory.graph.client import Neo4jClient
     from neo4j_agent_memory.resolution.base import EntityResolver
+    from neo4j_agent_memory.services.geocoder import Geocoder
 
 
 class EntityType(str, Enum):
@@ -217,6 +218,7 @@ class LongTermMemory(BaseMemory[Entity]):
         embedder: "Embedder | None" = None,
         extractor: "EntityExtractor | None" = None,
         resolver: "EntityResolver | None" = None,
+        geocoder: "Geocoder | None" = None,
         entity_types: list[str] | None = None,
         strict_types: bool = False,
     ):
@@ -227,11 +229,13 @@ class LongTermMemory(BaseMemory[Entity]):
             embedder: Optional embedder for semantic search
             extractor: Optional entity extractor
             resolver: Optional entity resolver for deduplication
+            geocoder: Optional geocoder for Location entities
             entity_types: Allowed entity types (defaults to POLE+O)
             strict_types: If True, reject entities with unknown types
         """
         super().__init__(client, embedder, extractor)
         self._resolver = resolver
+        self._geocoder = geocoder
         self._entity_types = entity_types or POLEO_TYPES
         self._strict_types = strict_types
 
@@ -264,6 +268,8 @@ class LongTermMemory(BaseMemory[Entity]):
         attributes: dict[str, Any] | None = None,
         resolve: bool = True,
         generate_embedding: bool = True,
+        geocode: bool = True,
+        coordinates: tuple[float, float] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Entity:
         """
@@ -278,6 +284,8 @@ class LongTermMemory(BaseMemory[Entity]):
             attributes: Optional additional attributes
             resolve: Whether to resolve against existing entities
             generate_embedding: Whether to generate embedding
+            geocode: Whether to geocode LOCATION entities (requires geocoder)
+            coordinates: Optional (latitude, longitude) tuple to set directly
             metadata: Optional metadata
 
         Returns:
@@ -307,6 +315,18 @@ class LongTermMemory(BaseMemory[Entity]):
         if generate_embedding and self._embedder is not None:
             embedding = await self._embedder.embed(name)
 
+        # Geocode if this is a LOCATION entity
+        location_point: dict[str, float] | None = None
+        if parsed_type == "LOCATION":
+            if coordinates is not None:
+                # Use provided coordinates
+                location_point = {"latitude": coordinates[0], "longitude": coordinates[1]}
+            elif geocode and self._geocoder is not None:
+                # Geocode the location name
+                geocode_result = await self._geocoder.geocode(name)
+                if geocode_result is not None:
+                    location_point = geocode_result.as_neo4j_point()
+
         # Create entity
         entity = Entity(
             id=uuid4(),
@@ -321,6 +341,10 @@ class LongTermMemory(BaseMemory[Entity]):
             attributes=attributes or {},
             metadata=metadata or {},
         )
+
+        # Store coordinates in attributes for later access
+        if location_point is not None:
+            entity.attributes["coordinates"] = location_point
 
         # Merge attributes into metadata for storage
         storage_metadata = {**entity.metadata}
@@ -343,6 +367,7 @@ class LongTermMemory(BaseMemory[Entity]):
                 "embedding": entity.embedding,
                 "confidence": entity.confidence,
                 "metadata": _serialize_metadata(storage_metadata) if storage_metadata else None,
+                "location": location_point,  # Neo4j Point for LOCATION entities
             },
         )
 
@@ -947,3 +972,179 @@ class LongTermMemory(BaseMemory[Entity]):
             created_at=_to_python_datetime(data.get("created_at")),
             metadata=_deserialize_metadata(data.get("metadata")),
         )
+
+    # =========================================================================
+    # Geospatial Methods
+    # =========================================================================
+
+    async def geocode_locations(
+        self,
+        *,
+        batch_size: int = 50,
+        skip_existing: bool = True,
+        on_progress: Callable[[int, int], None] | None = None,
+    ) -> dict[str, int]:
+        """
+        Geocode all Location entities that don't have coordinates.
+
+        This is useful for batch processing existing Location entities
+        that were created without geocoding enabled.
+
+        Args:
+            batch_size: Number of locations to process per batch
+            skip_existing: Skip locations that already have coordinates
+            on_progress: Progress callback (processed_count, total_count)
+
+        Returns:
+            Dict with 'processed' and 'geocoded' counts
+        """
+        if self._geocoder is None:
+            return {"processed": 0, "geocoded": 0}
+
+        # Get locations without coordinates
+        results = await self._client.execute_read(
+            queries.GET_LOCATIONS_WITHOUT_COORDINATES,
+            {},
+        )
+
+        if not results:
+            return {"processed": 0, "geocoded": 0}
+
+        total = len(results)
+        processed = 0
+        geocoded = 0
+
+        # Process in batches
+        for i in range(0, total, batch_size):
+            batch = results[i : i + batch_size]
+
+            for row in batch:
+                entity_id = row["id"]
+                name = row["name"]
+
+                # Geocode the location
+                geocode_result = await self._geocoder.geocode(name)
+
+                if geocode_result is not None:
+                    # Update the entity with coordinates
+                    await self._client.execute_write(
+                        queries.UPDATE_ENTITY_LOCATION,
+                        {
+                            "id": entity_id,
+                            "latitude": geocode_result.latitude,
+                            "longitude": geocode_result.longitude,
+                        },
+                    )
+                    geocoded += 1
+
+                processed += 1
+
+            # Report progress after each batch
+            if on_progress:
+                on_progress(processed, total)
+
+        return {"processed": processed, "geocoded": geocoded}
+
+    async def search_locations_near(
+        self,
+        latitude: float,
+        longitude: float,
+        *,
+        radius_km: float = 10.0,
+        limit: int = 10,
+    ) -> list[Entity]:
+        """
+        Find Location entities within a radius of a point.
+
+        Args:
+            latitude: Latitude of the center point
+            longitude: Longitude of the center point
+            radius_km: Search radius in kilometers (default 10km)
+            limit: Maximum number of results
+
+        Returns:
+            List of Location entities sorted by distance, with distance_meters in metadata
+        """
+        # Convert km to meters for Neo4j query
+        radius_meters = radius_km * 1000
+
+        results = await self._client.execute_read(
+            queries.SEARCH_LOCATIONS_NEAR,
+            {
+                "latitude": latitude,
+                "longitude": longitude,
+                "radius_meters": radius_meters,
+                "limit": limit,
+            },
+        )
+
+        entities = []
+        for row in results:
+            entity = self._parse_entity(dict(row["e"]))
+            entity.metadata["distance_meters"] = row["distance_meters"]
+            entity.metadata["distance_km"] = row["distance_meters"] / 1000
+            entities.append(entity)
+
+        return entities
+
+    async def search_locations_in_bounding_box(
+        self,
+        min_lat: float,
+        min_lon: float,
+        max_lat: float,
+        max_lon: float,
+        *,
+        limit: int = 100,
+    ) -> list[Entity]:
+        """
+        Find Location entities within a bounding box.
+
+        Args:
+            min_lat: Minimum latitude (south)
+            min_lon: Minimum longitude (west)
+            max_lat: Maximum latitude (north)
+            max_lon: Maximum longitude (east)
+            limit: Maximum number of results
+
+        Returns:
+            List of Location entities within the bounding box
+        """
+        results = await self._client.execute_read(
+            queries.SEARCH_LOCATIONS_IN_BOUNDING_BOX,
+            {
+                "min_lat": min_lat,
+                "min_lon": min_lon,
+                "max_lat": max_lat,
+                "max_lon": max_lon,
+                "limit": limit,
+            },
+        )
+
+        return [self._parse_entity(dict(row["e"])) for row in results]
+
+    async def get_location_coordinates(
+        self,
+        entity_id: UUID | str,
+    ) -> tuple[float, float] | None:
+        """
+        Get coordinates for a Location entity.
+
+        Args:
+            entity_id: Entity ID
+
+        Returns:
+            (latitude, longitude) tuple or None if not geocoded
+        """
+        if isinstance(entity_id, UUID):
+            entity_id = str(entity_id)
+
+        results = await self._client.execute_read(
+            queries.GET_LOCATION_COORDINATES,
+            {"id": entity_id},
+        )
+
+        if not results:
+            return None
+
+        row = results[0]
+        return (row["latitude"], row["longitude"])

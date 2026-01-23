@@ -8,6 +8,8 @@ from neo4j_agent_memory.config.settings import (
     EmbeddingProvider,
     ExtractionConfig,
     ExtractorType,
+    GeocodingConfig,
+    GeocodingProvider,
     LLMConfig,
     LLMProvider,
     MemorySettings,
@@ -118,6 +120,45 @@ class TestResolutionConfig:
         assert config.fuzzy_threshold == 0.9
 
 
+class TestGeocodingConfig:
+    """Tests for geocoding configuration."""
+
+    def test_default_values(self):
+        """Test default geocoding config."""
+        config = GeocodingConfig()
+
+        assert config.enabled is False
+        assert config.provider == GeocodingProvider.NOMINATIM
+        assert config.api_key is None
+        assert config.cache_results is True
+        assert config.rate_limit_per_second == 1.0
+        assert config.user_agent == "neo4j-agent-memory"
+
+    def test_google_provider(self):
+        """Test Google provider configuration."""
+        config = GeocodingConfig(
+            enabled=True,
+            provider=GeocodingProvider.GOOGLE,
+            api_key=SecretStr("test-api-key"),
+        )
+
+        assert config.provider == GeocodingProvider.GOOGLE
+        assert config.api_key is not None
+        assert config.api_key.get_secret_value() == "test-api-key"
+
+    def test_nominatim_with_custom_rate_limit(self):
+        """Test Nominatim with custom rate limit."""
+        config = GeocodingConfig(
+            enabled=True,
+            provider=GeocodingProvider.NOMINATIM,
+            rate_limit_per_second=0.5,
+            user_agent="my-app/1.0",
+        )
+
+        assert config.rate_limit_per_second == 0.5
+        assert config.user_agent == "my-app/1.0"
+
+
 class TestMemorySettings:
     """Tests for main settings class."""
 
@@ -164,3 +205,25 @@ class TestMemorySettings:
         settings = MemorySettings.from_dict(config_dict)
 
         assert settings.neo4j.uri == "bolt://localhost:7687"
+
+    def test_geocoding_config_default(self):
+        """Test that geocoding config has sensible defaults."""
+        settings = MemorySettings(neo4j=Neo4jConfig(password=SecretStr("test")))
+
+        assert settings.geocoding.enabled is False
+        assert settings.geocoding.provider == GeocodingProvider.NOMINATIM
+
+    def test_settings_with_geocoding(self):
+        """Test creating settings with geocoding enabled."""
+        settings = MemorySettings(
+            neo4j=Neo4jConfig(password=SecretStr("test")),
+            geocoding=GeocodingConfig(
+                enabled=True,
+                provider=GeocodingProvider.GOOGLE,
+                api_key=SecretStr("google-api-key"),
+            ),
+        )
+
+        assert settings.geocoding.enabled is True
+        assert settings.geocoding.provider == GeocodingProvider.GOOGLE
+        assert settings.geocoding.api_key.get_secret_value() == "google-api-key"

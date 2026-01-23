@@ -98,6 +98,10 @@ def create_gliner_extractor(
 ) -> "EntityExtractor":
     """Create a GLiNER entity extractor.
 
+    GLiNER2 supports domain schemas with entity type descriptions for
+    improved extraction accuracy. If a schema is specified in the config,
+    it will be used for extraction.
+
     Args:
         extraction_config: Extraction configuration
         schema_config: Optional schema configuration for entity labels
@@ -108,8 +112,26 @@ def create_gliner_extractor(
     Raises:
         ImportError: If GLiNER is not installed
     """
-    from neo4j_agent_memory.extraction.gliner_extractor import GLiNEREntityExtractor
+    from neo4j_agent_memory.extraction.gliner_extractor import (
+        GLiNEREntityExtractor,
+        get_schema,
+    )
 
+    # Check if a domain schema is specified
+    if extraction_config.gliner_schema:
+        # Use the pre-defined domain schema with descriptions
+        try:
+            schema = get_schema(extraction_config.gliner_schema)
+            return GLiNEREntityExtractor(
+                model=extraction_config.gliner_model,
+                schema=schema,
+                threshold=extraction_config.gliner_threshold,
+                device=extraction_config.gliner_device,
+            )
+        except ValueError as e:
+            logger.warning(f"Invalid GLiNER schema: {e}. Using default labels.")
+
+    # Fall back to simple labels from schema config or defaults
     entity_labels = _get_entity_labels_for_schema(schema_config) if schema_config else None
 
     return GLiNEREntityExtractor(
@@ -281,12 +303,22 @@ class ExtractorBuilder:
 
     Example:
         ```python
+        # Basic pipeline with GLiNER2
         extractor = (
             ExtractorBuilder()
             .with_spacy("en_core_web_lg")
             .with_gliner(threshold=0.6)
             .with_llm_fallback()
             .merge_by_confidence()
+            .build()
+        )
+
+        # Using a domain schema for better accuracy
+        extractor = (
+            ExtractorBuilder()
+            .with_spacy()
+            .with_gliner_schema("podcast")  # Use podcast domain schema
+            .with_llm_fallback()
             .build()
         )
         ```
@@ -298,9 +330,10 @@ class ExtractorBuilder:
         self._enable_gliner = False
         self._enable_llm = False
         self._spacy_model = "en_core_web_sm"
-        self._gliner_model = "urchade/gliner_medium-v2.1"
+        self._gliner_model = "gliner-community/gliner_medium-v2.5"
         self._gliner_threshold = 0.5
         self._gliner_device = "cpu"
+        self._gliner_schema: str | None = None
         self._llm_model = "gpt-4o-mini"
         self._merge_strategy = MergeStrategy.CONFIDENCE
         self._entity_types: list[str] = [
@@ -321,15 +354,41 @@ class ExtractorBuilder:
 
     def with_gliner(
         self,
-        model: str = "urchade/gliner_medium-v2.1",
+        model: str = "gliner-community/gliner_medium-v2.5",
         threshold: float = 0.5,
         device: str = "cpu",
     ) -> "ExtractorBuilder":
-        """Add GLiNER extractor to pipeline."""
+        """Add GLiNER2 extractor to pipeline with simple labels."""
         self._enable_gliner = True
         self._gliner_model = model
         self._gliner_threshold = threshold
         self._gliner_device = device
+        return self
+
+    def with_gliner_schema(
+        self,
+        schema_name: str,
+        model: str = "gliner-community/gliner_medium-v2.5",
+        threshold: float = 0.5,
+        device: str = "cpu",
+    ) -> "ExtractorBuilder":
+        """Add GLiNER2 extractor with a domain schema for better accuracy.
+
+        Using domain schemas with entity type descriptions significantly
+        improves extraction accuracy.
+
+        Args:
+            schema_name: Name of the schema (poleo, podcast, news, scientific,
+                        business, entertainment, medical, legal)
+            model: GLiNER2 model to use
+            threshold: Confidence threshold
+            device: Device to run on (cpu, cuda, mps)
+        """
+        self._enable_gliner = True
+        self._gliner_model = model
+        self._gliner_threshold = threshold
+        self._gliner_device = device
+        self._gliner_schema = schema_name
         return self
 
     def with_llm_fallback(self, model: str = "gpt-4o-mini") -> "ExtractorBuilder":
@@ -383,15 +442,30 @@ class ExtractorBuilder:
             stages.append(SpacyEntityExtractor(model=self._spacy_model))
 
         if self._enable_gliner:
-            from neo4j_agent_memory.extraction.gliner_extractor import GLiNEREntityExtractor
-
-            stages.append(
-                GLiNEREntityExtractor(
-                    model=self._gliner_model,
-                    threshold=self._gliner_threshold,
-                    device=self._gliner_device,
-                )
+            from neo4j_agent_memory.extraction.gliner_extractor import (
+                GLiNEREntityExtractor,
+                get_schema,
             )
+
+            if self._gliner_schema:
+                # Use domain schema for better accuracy
+                schema = get_schema(self._gliner_schema)
+                stages.append(
+                    GLiNEREntityExtractor(
+                        model=self._gliner_model,
+                        schema=schema,
+                        threshold=self._gliner_threshold,
+                        device=self._gliner_device,
+                    )
+                )
+            else:
+                stages.append(
+                    GLiNEREntityExtractor(
+                        model=self._gliner_model,
+                        threshold=self._gliner_threshold,
+                        device=self._gliner_device,
+                    )
+                )
 
         if self._enable_llm:
             from neo4j_agent_memory.extraction.llm_extractor import LLMEntityExtractor

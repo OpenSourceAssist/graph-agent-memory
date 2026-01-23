@@ -1,4 +1,4 @@
-.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend neo4j clean
+.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend neo4j clean geocode-locations extract-entities
 
 # Default target
 help:
@@ -14,6 +14,10 @@ help:
 	@echo "  make load-fast      Load all transcripts without entity extraction (faster)"
 	@echo "  make load-resume    Resume loading (skip already loaded transcripts)"
 	@echo "  make load-dry-run   Preview what would be loaded without loading"
+	@echo ""
+	@echo "Post-Processing:"
+	@echo "  make extract-entities   Extract entities from loaded sessions"
+	@echo "  make geocode-locations  Geocode Location entities (add lat/lon coordinates)"
 	@echo ""
 	@echo "Development:"
 	@echo "  make run-backend    Start FastAPI backend (port 8000)"
@@ -69,6 +73,17 @@ load-dry-run:
 	cd backend && $(LOAD_ENV) uv run python ../scripts/load_transcripts.py \
 		--data-dir ../data \
 		--dry-run
+
+# Extract entities from already loaded sessions (post-processing)
+extract-entities:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/load_transcripts.py \
+		--data-dir ../data \
+		--extract-entities-only
+
+# Geocode Location entities (add lat/lon coordinates)
+# Uses Nominatim (OpenStreetMap) by default - rate limited to 1 req/sec
+geocode-locations:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/geocode_locations.py
 
 # Run backend
 run-backend:

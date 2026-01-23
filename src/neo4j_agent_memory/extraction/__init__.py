@@ -13,12 +13,14 @@ The default configuration uses a pipeline approach:
 """
 
 from neo4j_agent_memory.extraction.base import (
+    ENTITY_STOPWORDS,
     EntityExtractor,
     ExtractedEntity,
     ExtractedPreference,
     ExtractedRelation,
     ExtractionResult,
     NoOpExtractor,
+    is_valid_entity_name,
 )
 from neo4j_agent_memory.extraction.factory import (
     ExtractorBuilder,
@@ -46,6 +48,9 @@ __all__ = [
     "ExtractedRelation",
     "ExtractionResult",
     "NoOpExtractor",
+    # Entity filtering
+    "ENTITY_STOPWORDS",
+    "is_valid_entity_name",
     # Pipeline
     "ExtractionPipeline",
     "ConditionalPipeline",
@@ -61,12 +66,18 @@ __all__ = [
     "create_gliner_extractor",
     "create_llm_extractor",
     "create_spacy_extractor",
+    # GLiNER2 domain schemas
+    "DomainSchema",
+    "DOMAIN_SCHEMAS",
+    "get_schema",
+    "list_schemas",
+    "is_gliner_available",
 ]
 
 
-# Lazy imports for optional extractors
+# Lazy imports for optional extractors and schema utilities
 def __getattr__(name: str):
-    """Lazy import optional extractors."""
+    """Lazy import optional extractors and GLiNER2 schemas."""
     if name == "SpacyEntityExtractor":
         from neo4j_agent_memory.extraction.spacy_extractor import SpacyEntityExtractor
 
@@ -79,4 +90,24 @@ def __getattr__(name: str):
         from neo4j_agent_memory.extraction.llm_extractor import LLMEntityExtractor
 
         return LLMEntityExtractor
+    elif name == "DomainSchema":
+        from neo4j_agent_memory.extraction.gliner_extractor import DomainSchema
+
+        return DomainSchema
+    elif name == "DOMAIN_SCHEMAS":
+        from neo4j_agent_memory.extraction.gliner_extractor import DOMAIN_SCHEMAS
+
+        return DOMAIN_SCHEMAS
+    elif name == "get_schema":
+        from neo4j_agent_memory.extraction.gliner_extractor import get_schema
+
+        return get_schema
+    elif name == "list_schemas":
+        from neo4j_agent_memory.extraction.gliner_extractor import list_schemas
+
+        return list_schemas
+    elif name == "is_gliner_available":
+        from neo4j_agent_memory.extraction.gliner_extractor import is_gliner_available
+
+        return is_gliner_available
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

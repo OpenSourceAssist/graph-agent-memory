@@ -79,6 +79,16 @@ make load-resume
 make load-dry-run
 ```
 
+**Post-processing options:**
+
+```bash
+# Extract entities from already loaded sessions (if you used --no-entities initially)
+make extract-entities
+
+# Geocode Location entities (add lat/lon coordinates for spatial queries)
+make geocode-locations
+```
+
 The loader shows real-time progress with ETA:
 ```
 Overall  [████████████░░░░░░░░░░░░░░░░░░] 450/1200 (38%) ETA: 2m 15s [3/10] Brian Chesky.txt
@@ -144,6 +154,114 @@ Visit http://localhost:3000 to start exploring Lenny's Podcast!
   - `ReasoningStep`: Individual reasoning steps with thoughts and actions
   - `ToolCall`: Tool invocations with arguments, results, and timing
 
+### Entity Extraction Pipeline
+
+The system uses a **multi-stage extraction pipeline** that combines three complementary extractors to identify people, organizations, locations, events, and objects mentioned in the podcasts:
+
+```
+Text Input
+    ↓
+[Stage 1: spaCy] → Fast statistical NER
+    ↓
+[Stage 2: GLiNER] → Zero-shot NER for domain-specific entities
+    ↓
+[Stage 3: LLM Fallback] → Complex cases & relationship extraction
+    ↓
+[Merge by Confidence] → Combine results
+    ↓
+[Stopword Filtering] → Remove invalid entities (pronouns, numbers, etc.)
+    ↓
+Neo4j Storage
+```
+
+**The Three Extractors:**
+
+| Extractor | Speed | Accuracy | Extracts Relations | Use Case |
+|-----------|-------|----------|-------------------|----------|
+| **spaCy** | Fast | Good for common entities | No | PERSON, ORG, GPE, DATE |
+| **GLiNER2** | Medium | Zero-shot, domain-flexible | No | Custom entity types with descriptions |
+| **LLM** | Slow | Highest, context-aware | Yes | Complex text, preferences |
+
+**GLiNER2 Improvements:**
+
+The entity extraction pipeline uses GLiNER2 (`gliner-community/gliner_medium-v2.5`), which provides:
+
+- **Entity type descriptions**: GLiNER2 accepts descriptions for each entity type, significantly improving accuracy
+- **Domain schemas**: Pre-defined schemas for different domains (podcast, news, scientific, etc.)
+- **Better accuracy**: GLiNER2 v2.5 is more accurate than the previous v2.1 model
+
+**Available Domain Schemas:**
+
+| Schema | Entity Types | Best For |
+|--------|-------------|----------|
+| `poleo` | person, organization, location, event, object | General POLE+O model |
+| `podcast` | person, company, product, concept, book, role, metric, technology | Podcast transcripts |
+| `news` | person, organization, location, event, date | News articles |
+| `scientific` | author, institution, method, dataset, metric, concept, tool | Research papers |
+| `business` | company, person, product, industry, financial_metric, location | Business content |
+| `entertainment` | actor, director, film, tv_show, character, award, studio, genre | Entertainment |
+| `medical` | disease, drug, symptom, procedure, body_part, gene, organism | Medical/health |
+| `legal` | case, person, organization, law, court, date, monetary_amount | Legal documents |
+
+**Using the Podcast Schema:**
+
+The `podcast` schema is optimized for Lenny's Podcast content:
+
+```python
+from neo4j_agent_memory.extraction import GLiNEREntityExtractor, get_schema
+
+# Create extractor with podcast schema
+extractor = GLiNEREntityExtractor.for_schema("podcast")
+
+# Or configure in ExtractionConfig
+from neo4j_agent_memory.config import ExtractionConfig
+
+config = ExtractionConfig(
+    gliner_schema="podcast",  # Use the podcast domain schema
+    gliner_model="gliner-community/gliner_medium-v2.5",
+)
+```
+
+The podcast schema extracts these entity types with descriptions:
+- **person**: Hosts, guests, and people discussed in the podcast
+- **company**: Startups, businesses, and organizations mentioned
+- **product**: Products, services, apps, and software tools
+- **concept**: Business methodologies, frameworks, and strategies
+- **book**: Books and publications mentioned
+- **technology**: Technologies, platforms, and technical tools
+- **role**: Job titles and professional positions
+- **metric**: Business metrics and KPIs
+
+**Merge Strategy:** By default uses **CONFIDENCE** merge - keeps highest confidence version of each entity.
+
+**Stopword Filtering:** After extraction, entities are automatically filtered to remove noise:
+- Pronouns: "they", "them", "you", "me", "it"
+- Common verbs: "is", "are", "was", "have", "do"
+- Articles: "a", "an", "the"
+- Numeric values: "10", "123.45", "50%"
+- Conversation artifacts: "um", "uh", "hmm"
+
+**Loading Options:**
+
+```bash
+# Default: Load with entity extraction (all 3 stages)
+make load-full
+
+# Fast: Skip entity extraction during load
+make load-fast
+
+# Later: Extract entities from already-loaded transcripts
+make extract-entities
+```
+
+**Neo4j Storage:** Extracted entities are stored with dynamic labels and linked to messages:
+
+```
+(Conversation) -[:HAS_MESSAGE]-> (Message) -[:MENTIONS]-> (Entity:Person)
+                                           -[:MENTIONS]-> (Entity:Organization)
+                                           -[:MENTIONS]-> (Entity:Location)
+```
+
 ### Procedural Memory Usage
 
 This example demonstrates full procedural memory integration:
@@ -189,24 +307,61 @@ The `scripts/load_transcripts.py` script provides several options for loading po
 python scripts/load_transcripts.py --data-dir data
 
 # Options
---sample N          Load only N transcripts (for testing)
---no-entities       Skip entity extraction (faster loading)
---no-embeddings     Skip embedding generation (faster loading)
---resume            Skip transcripts that are already loaded
---dry-run           Preview what would be loaded without loading
---batch-size N      Number of messages per batch (default: 50)
--v, --verbose       Show detailed progress
+--sample N              Load only N transcripts (for testing)
+--no-entities           Skip entity extraction (faster loading)
+--no-embeddings         Skip embedding generation (faster loading)
+--resume                Skip transcripts that are already loaded
+--dry-run               Preview what would be loaded without loading
+--batch-size N          Number of messages per batch (default: 100)
+--concurrency N         Number of concurrent transcript loaders (default: 3)
+--extract-entities-only Only extract entities from already loaded sessions
+--skip-schema-setup     Skip database schema setup
+-v, --verbose           Show detailed progress
 
 # Examples
 python scripts/load_transcripts.py --sample 10 --no-entities
 python scripts/load_transcripts.py --resume --batch-size 100
+python scripts/load_transcripts.py --extract-entities-only  # Post-process entities
 ```
 
 **Features:**
 - Real-time progress bar with ETA
 - Automatic retry with exponential backoff for transient failures
 - Resume capability for interrupted loads
+- Concurrent loading for faster ingestion
+- Batch session existence checking for efficient resume
 - Detailed statistics on completion (files, turns, speakers, throughput)
+
+## Geocoding Script
+
+The `scripts/geocode_locations.py` script adds latitude/longitude coordinates to Location entities:
+
+```bash
+# Basic usage (uses free Nominatim/OpenStreetMap, rate limited to 1 req/sec)
+python scripts/geocode_locations.py
+
+# Options
+--provider nominatim|google  Geocoding provider (default: nominatim)
+--api-key KEY               API key (required for Google)
+--batch-size N              Batch size for processing (default: 50)
+--skip-existing             Skip locations that already have coordinates
+-v, --verbose               Show detailed progress
+
+# Examples
+python scripts/geocode_locations.py --verbose
+python scripts/geocode_locations.py --provider google --api-key YOUR_KEY
+```
+
+After geocoding, you can run spatial queries like finding locations within a radius:
+
+```python
+# Find locations near a point
+nearby = await memory.long_term.search_locations_near(
+    latitude=37.7749,
+    longitude=-122.4194,
+    radius_km=50.0
+)
+```
 
 ## Project Structure
 
@@ -214,7 +369,8 @@ python scripts/load_transcripts.py --resume --batch-size 100
 lennys-memory/
 ├── data/                      # Podcast transcript files (299 .txt files)
 ├── scripts/
-│   └── load_transcripts.py    # Data loading script
+│   ├── load_transcripts.py    # Data loading script
+│   └── geocode_locations.py   # Geocoding script for Location entities
 ├── backend/
 │   ├── pyproject.toml
 │   ├── .env.example

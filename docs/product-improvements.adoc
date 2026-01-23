@@ -1,0 +1,345 @@
+= Product Improvement Suggestions
+:toc: left
+:toclevels: 2
+:sectanchors:
+:sectlinks:
+:icons: font
+:source-highlighter: highlight.js
+
+This document tracks product improvement suggestions identified during the development and testing of neo4j-agent-memory features.
+
+== Summary by Priority
+
+=== High Priority
+
+* <<batch-extraction,Batch Extraction API>>
+* <<entity-deduplication,Entity Deduplication on Ingest>>
+
+=== Medium Priority
+
+* <<gliner-relations,Relationship Extraction from GLiNER2>>
+* <<custom-schema-persistence,Custom Schema Persistence>>
+* <<streaming-extraction,Streaming Extraction for Long Documents>>
+* <<provenance-tracking,Provenance Tracking>>
+* <<cli-extraction,CLI for Entity Extraction>>
+* <<opentelemetry,OpenTelemetry Tracing>>
+* <<benchmarks,Extraction Quality Benchmarks>>
+
+=== Low Priority
+
+* <<schema-auto-detection,Schema Auto-Detection>>
+* <<confidence-calibration,Entity Confidence Calibration>>
+* <<result-caching,Extraction Result Caching>>
+* <<temporal-versioning,Temporal Entity Versioning>>
+* <<pipeline-dsl,Extraction Pipeline Builder DSL>>
+* <<schema-validation,Schema Validation and Testing>>
+* <<websocket-streaming,WebSocket Streaming>>
+* <<interactive-explorer,Interactive Schema Explorer>>
+
+
+== Entity Extraction Improvements
+
+[[gliner-relations]]
+=== Relationship Extraction from GLiNER2
+
+[horizontal]
+Priority:: Medium
+Current State:: GLiNER2 only extracts entities, not relationships. Users must enable the LLM extractor stage to extract relationships.
+
+**Suggestion**: Explore integration with relation extraction models like GLiREL (GLiNER for Relations) to provide relationship extraction without requiring LLM calls.
+
+.Benefits
+* Lower cost (no API calls)
+* Faster extraction
+* Better offline support
+
+'''
+
+[[schema-auto-detection]]
+=== Schema Auto-Detection
+
+[horizontal]
+Priority:: Low
+Current State:: Users must manually select a domain schema for entity extraction.
+
+**Suggestion**: Add automatic schema detection that analyzes input text and selects the most appropriate domain schema.
+
+.Implementation Ideas
+* Use text classification to identify document type
+* Support confidence scores and fallback to generic POLEO schema
+* Allow schema blending for mixed-domain content
+
+'''
+
+[[custom-schema-persistence]]
+=== Custom Schema Persistence
+
+[horizontal]
+Priority:: Medium
+Current State:: Custom schemas must be defined in code.
+
+**Suggestion**: Allow custom schemas to be stored in Neo4j and loaded by name, enabling schema management through configuration.
+
+.Benefits
+* No code changes required for new domains
+* Schema versioning and audit trails
+* Multi-tenant schema management
+
+'''
+
+[[confidence-calibration]]
+=== Entity Confidence Calibration
+
+[horizontal]
+Priority:: Low
+Current State:: Confidence scores from different extractors are not calibrated against each other.
+
+**Suggestion**: Implement confidence score calibration so that scores from spaCy, GLiNER, and LLM extractors are comparable.
+
+.Implementation Ideas
+* Use a calibration dataset with ground truth
+* Apply Platt scaling or isotonic regression
+* Normalize scores to a common scale
+
+
+== Pipeline and Performance Improvements
+
+[[streaming-extraction]]
+=== Streaming Extraction for Long Documents
+
+[horizontal]
+Priority:: Medium
+Current State:: Entire documents are processed in memory.
+
+**Suggestion**: Add streaming extraction for very long documents (>100K tokens) that processes chunks and streams results.
+
+.Benefits
+* Handle arbitrarily long documents
+* Lower memory footprint
+* Real-time progress updates
+
+'''
+
+[[result-caching]]
+=== Extraction Result Caching
+
+[horizontal]
+Priority:: Low
+Current State:: No caching of extraction results.
+
+**Suggestion**: Add optional caching layer for extraction results keyed by content hash.
+
+.Benefits
+* Avoid reprocessing identical content
+* Speed up re-runs and testing
+* Reduce API costs for LLM extraction
+
+'''
+
+[[batch-extraction]]
+=== Batch Extraction API
+
+[horizontal]
+Priority:: High
+Current State:: `extract()` method processes one text at a time.
+
+**Suggestion**: Add a `extract_batch()` method that efficiently processes multiple texts in parallel.
+
+.Benefits
+* Better GPU utilization for GLiNER
+* Parallelized LLM calls
+* Progress tracking for batch operations
+
+
+== Neo4j Storage Improvements
+
+[[entity-deduplication]]
+=== Entity Deduplication on Ingest
+
+[horizontal]
+Priority:: High
+Current State:: Entities are stored with MERGE but deduplication logic is basic (exact name match).
+
+**Suggestion**: Integrate entity resolution during ingest to automatically link similar entities.
+
+.Implementation Ideas
+* Use embedding similarity during MERGE
+* Apply fuzzy matching rules
+* Create `SAME_AS` relationships for ambiguous matches
+
+'''
+
+[[provenance-tracking]]
+=== Provenance Tracking
+
+[horizontal]
+Priority:: Medium
+Current State:: Entity source is stored in attributes but not structured.
+
+**Suggestion**: Add formal provenance tracking that links entities to their source documents and extraction contexts.
+
+.Schema Design
+[source,cypher]
+----
+(Entity)-[:EXTRACTED_FROM {confidence, position}]->(Message)
+(Entity)-[:EXTRACTED_BY]->(Extractor {name, version, config})
+----
+
+.Benefits
+* Audit trail for extracted entities
+* Confidence aggregation across sources
+* Easy cleanup if extraction improves
+
+'''
+
+[[temporal-versioning]]
+=== Temporal Entity Versioning
+
+[horizontal]
+Priority:: Low
+Current State:: Entities are updated in place; no history is maintained.
+
+**Suggestion**: Add temporal versioning for entities to track changes over time.
+
+.Implementation Ideas
+* Add `valid_from` and `valid_to` timestamps
+* Create new entity versions on update
+* Support point-in-time queries
+
+
+== API and Developer Experience Improvements
+
+[[pipeline-dsl]]
+=== Extraction Pipeline Builder DSL
+
+[horizontal]
+Priority:: Low
+Current State:: `ExtractorBuilder` provides a fluent API but is somewhat verbose.
+
+**Suggestion**: Create a more declarative DSL for pipeline configuration.
+
+.Example
+[source,python]
+----
+pipeline = Pipeline.from_config("""
+stages:
+  - spacy:
+      model: en_core_web_sm
+  - gliner:
+      schema: podcast
+      threshold: 0.5
+  - llm:
+      model: gpt-4o-mini
+      extract_relations: true
+merge: confidence
+""")
+----
+
+'''
+
+[[cli-extraction]]
+=== CLI for Entity Extraction
+
+[horizontal]
+Priority:: Medium
+Current State:: All extraction must be done via Python API.
+
+**Suggestion**: Add a CLI tool for one-off entity extraction.
+
+.Example
+[source,bash]
+----
+# Extract entities from a file
+neo4j-memory extract --schema podcast document.txt
+
+# Pipe input
+cat document.txt | neo4j-memory extract --schema news --format json
+----
+
+'''
+
+[[schema-validation]]
+=== Schema Validation and Testing
+
+[horizontal]
+Priority:: Low
+Current State:: No tooling for validating custom schemas.
+
+**Suggestion**: Add a schema validation tool that tests extraction against sample documents.
+
+.Implementation Ideas
+* Define test cases with expected entities
+* Calculate precision/recall
+* Suggest threshold adjustments
+
+
+== Integration Improvements
+
+[[opentelemetry]]
+=== OpenTelemetry Tracing
+
+[horizontal]
+Priority:: Medium
+Current State:: Basic logging but no structured observability.
+
+**Suggestion**: Add OpenTelemetry instrumentation for tracing extraction pipelines.
+
+.Benefits
+* Performance monitoring
+* Cost tracking for LLM calls
+* Debug long extraction times
+
+'''
+
+[[websocket-streaming]]
+=== WebSocket Streaming for Real-Time Extraction
+
+[horizontal]
+Priority:: Low
+Current State:: Extraction is request/response only.
+
+**Suggestion**: Add WebSocket support for streaming extraction results in real-time, useful for interactive applications.
+
+
+== Documentation Improvements
+
+[[interactive-explorer]]
+=== Interactive Schema Explorer
+
+[horizontal]
+Priority:: Low
+Current State:: Schema documentation is static text.
+
+**Suggestion**: Create an interactive web-based schema explorer that shows entity types, descriptions, and sample extractions.
+
+'''
+
+[[benchmarks]]
+=== Extraction Quality Benchmarks
+
+[horizontal]
+Priority:: Medium
+Current State:: No published benchmarks for extraction quality.
+
+**Suggestion**: Create benchmarks comparing extraction quality across schemas and model sizes.
+
+.Metrics to Track
+* Precision/Recall by entity type
+* Latency by model size
+* Cost per 1000 entities
+
+
+== Contributing
+
+If you have additional improvement suggestions, please:
+
+. Open an issue on https://github.com/neo4j-labs/neo4j-agent-memory/issues[GitHub]
+. Add to this document via PR
+. Include priority assessment and implementation ideas
+
+
+== See Also
+
+* xref:entity-extraction.adoc[Entity Extraction Guide]
+* xref:faq.adoc[FAQ]
+* https://github.com/neo4j-labs/neo4j-agent-memory[GitHub Repository]

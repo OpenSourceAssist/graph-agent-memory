@@ -659,3 +659,49 @@ RETURN
         properties: properties(r)
     }) AS relationships
 """
+
+# =============================================================================
+# GEOSPATIAL QUERIES
+# =============================================================================
+
+UPDATE_ENTITY_LOCATION = """
+MATCH (e:Entity {id: $id})
+SET e.location = point({latitude: $latitude, longitude: $longitude})
+RETURN e
+"""
+
+GET_LOCATIONS_WITHOUT_COORDINATES = """
+MATCH (e:Entity)
+WHERE e.type = 'LOCATION' AND e.location IS NULL
+RETURN e.id AS id, e.name AS name, e.subtype AS subtype
+ORDER BY e.created_at
+"""
+
+SEARCH_LOCATIONS_NEAR = """
+MATCH (e:Entity)
+WHERE e.type = 'LOCATION'
+  AND e.location IS NOT NULL
+  AND point.distance(e.location, point({latitude: $latitude, longitude: $longitude})) <= $radius_meters
+RETURN e, point.distance(e.location, point({latitude: $latitude, longitude: $longitude})) AS distance_meters
+ORDER BY distance_meters
+LIMIT $limit
+"""
+
+SEARCH_LOCATIONS_IN_BOUNDING_BOX = """
+MATCH (e:Entity)
+WHERE e.type = 'LOCATION'
+  AND e.location IS NOT NULL
+  AND point.withinBBox(
+      e.location,
+      point({latitude: $min_lat, longitude: $min_lon}),
+      point({latitude: $max_lat, longitude: $max_lon})
+  )
+RETURN e
+LIMIT $limit
+"""
+
+GET_LOCATION_COORDINATES = """
+MATCH (e:Entity {id: $id})
+WHERE e.location IS NOT NULL
+RETURN e.id AS id, e.name AS name, e.location.latitude AS latitude, e.location.longitude AS longitude
+"""

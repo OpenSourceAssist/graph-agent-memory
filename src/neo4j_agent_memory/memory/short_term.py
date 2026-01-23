@@ -840,6 +840,9 @@ class ShortTermMemory(BaseMemory[Message]):
                 # Extract entities
                 extraction_result = await self._extractor.extract(content)
 
+                # Filter out invalid entities (stopwords, numbers, etc.)
+                extraction_result = extraction_result.filter_invalid_entities()
+
                 for entity in extraction_result.entities:
                     # Create or get entity with dynamic labels for type/subtype
                     entity_id = str(uuid4())
@@ -947,6 +950,9 @@ class ShortTermMemory(BaseMemory[Message]):
             return
 
         result = await self._extractor.extract(message.content)
+
+        # Filter out invalid entities (stopwords, numbers, etc.)
+        result = result.filter_invalid_entities()
 
         for entity in result.entities:
             # Create or get entity with dynamic labels for type/subtype

@@ -91,6 +91,9 @@ src/neo4j_agent_memory/
 ├── embeddings/
 │   ├── base.py              # Embedder protocol
 │   └── openai.py            # OpenAI embeddings
+├── services/
+│   ├── __init__.py          # Service exports
+│   └── geocoder.py          # Geocoding services (Nominatim, Google, cached)
 ├── graph/
 │   ├── client.py            # Async Neo4j client wrapper
 │   ├── schema.py            # Index/constraint management
@@ -271,6 +274,57 @@ await client.long_term.add_entity("Acme Corp", "ORGANIZATION", subtype="COMPANY"
 await client.long_term.add_entity("Meeting Q1", "EVENT:MEETING")
 ```
 
+### Geocoding Location Entities
+
+Location entities can be geocoded to add latitude/longitude coordinates as a Neo4j `Point` property, enabling geospatial queries:
+
+```python
+from neo4j_agent_memory.services.geocoder import create_geocoder
+
+# Create geocoder (Nominatim is free, Google requires API key)
+geocoder = create_geocoder(provider="nominatim", cache_results=True)
+
+# Pass geocoder to LongTermMemory or set on existing instance
+client.long_term._geocoder = geocoder
+
+# Add location with automatic geocoding
+location = await client.long_term.add_entity(
+    "Empire State Building, New York",
+    "LOCATION",
+    subtype="LANDMARK",
+    geocode=True,  # Auto-geocode if geocoder is configured
+)
+
+# Or provide coordinates directly
+location = await client.long_term.add_entity(
+    "Central Park",
+    "LOCATION",
+    coordinates=(40.7829, -73.9654),  # (latitude, longitude)
+)
+
+# Batch geocode existing locations without coordinates
+stats = await client.long_term.geocode_locations(skip_existing=True)
+# Returns: {"processed": 100, "geocoded": 85, "skipped": 10, "failed": 5}
+
+# Spatial search - find locations within radius
+nearby = await client.long_term.search_locations_near(
+    latitude=40.75,
+    longitude=-73.98,
+    radius_km=5.0,
+    limit=10,
+)
+
+# Bounding box search
+locations = await client.long_term.search_locations_in_bounding_box(
+    min_lat=40.7, min_lon=-74.0,
+    max_lat=40.8, max_lon=-73.9,
+)
+
+# Get coordinates for a specific location entity
+coords = await client.long_term.get_location_coordinates(entity_id)
+# Returns: (40.748817, -73.985428) or None
+```
+
 ### Extraction Pipeline
 
 ```python
@@ -304,6 +358,83 @@ for entity in result.entities:
     print(f"{entity.name}: {entity.full_type}")  # e.g., "John: PERSON"
 ```
 
+### GLiNER2 Domain Schemas
+
+GLiNER2 supports domain-specific schemas that improve extraction accuracy:
+
+```python
+from neo4j_agent_memory.extraction import (
+    GLiNEREntityExtractor,
+    get_schema,
+    list_schemas,
+)
+
+# List available schemas
+print(list_schemas())
+# ['poleo', 'podcast', 'news', 'scientific', 'business', 'entertainment', 'medical', 'legal']
+
+# Create extractor with domain schema
+extractor = GLiNEREntityExtractor.for_schema("podcast")
+
+# Or use with ExtractorBuilder
+extractor = (
+    ExtractorBuilder()
+    .with_spacy()
+    .with_gliner_schema("podcast", threshold=0.5)  # Use schema with descriptions
+    .with_llm_fallback()
+    .build()
+)
+
+# Or via config
+config = ExtractionConfig(
+    gliner_schema="podcast",  # Use podcast domain schema
+    gliner_model="gliner-community/gliner_medium-v2.5",
+)
+```
+
+Available schemas:
+- `poleo` - POLE+O model for investigations/intelligence
+- `podcast` - Podcast transcripts (person, company, product, concept, book, technology)
+- `news` - News articles (person, organization, location, event, date)
+- `scientific` - Research papers (author, institution, method, dataset, metric, tool)
+- `business` - Business documents (company, person, product, industry, financial_metric)
+- `entertainment` - Movies/TV (actor, director, film, tv_show, character, award)
+- `medical` - Healthcare (disease, drug, symptom, procedure, body_part, gene)
+- `legal` - Legal documents (case, person, organization, law, court, monetary_amount)
+
+**Checking GLiNER Availability:**
+
+```python
+from neo4j_agent_memory.extraction import is_gliner_available
+
+if not is_gliner_available():
+    print("GLiNER not installed. Install with: uv sync --all-extras")
+else:
+    extractor = GLiNEREntityExtractor.for_schema("podcast")
+```
+
+**Creating Custom Schemas:**
+
+```python
+from neo4j_agent_memory.extraction.domain_schemas import DomainSchema
+
+real_estate_schema = DomainSchema(
+    name="real_estate",
+    entity_types={
+        "property": "A real estate property, building, or land parcel",
+        "agent": "A real estate agent or broker",
+        "buyer": "A property buyer or purchaser",
+        "seller": "A property seller or owner",
+        "price": "A property price, valuation, or asking price",
+        "location": "A neighborhood, city, or street address",
+    },
+)
+
+extractor = GLiNEREntityExtractor(schema=real_estate_schema, threshold=0.5)
+```
+
+See `docs/entity-extraction.md` for detailed documentation and `examples/domain-schemas/` for example applications.
+
 ### Framework Integrations
 
 ```python
@@ -336,12 +467,19 @@ deps = MemoryDependency(client=client, session_id="user-123")
 
 9. **Entity Type Labels**: Entity `type` and `subtype` are added as PascalCase Neo4j node labels (e.g., `:Entity:Person:Individual`) for efficient querying. The `query_builder.py` module sanitizes types to ensure they are valid Neo4j label identifiers and converts them to PascalCase. Both POLE+O types and custom types become labels. For POLE+O types, subtypes are validated against known subtypes; for custom types, any valid identifier works as a subtype.
 
+10. **Entity Stopword Filtering**: Extracted entities are filtered to exclude common stopwords (pronouns like "they", "them", articles, common verbs), purely numeric values, and single-character names. The `ENTITY_STOPWORDS` frozenset in `extraction/base.py` contains ~200 filtered words. Use `is_valid_entity_name()` to check if a name is valid, or `ExtractionResult.filter_invalid_entities()` to filter a result.
+
+11. **Geocoding for Locations**: Location entities can have a `location` property containing Neo4j Point coordinates. Use `GeocodingConfig` to configure providers (Nominatim free, Google requires API key). The `geocoder.py` module provides `NominatimGeocoder`, `GoogleGeocoder`, and `CachedGeocoder` classes. A Point index is created on `Entity.location` for efficient spatial queries.
+
+12. **GLiNER Availability Check**: GLiNER is an optional dependency. Use `is_gliner_available()` from `neo4j_agent_memory.extraction` to check if GLiNER is installed before creating extractors. The GLiNER model is lazy-loaded on first `extract()` call, so ImportError may occur during extraction rather than at extractor creation time.
+
 ## Environment Variables
 
 - `NEO4J_URI` - Neo4j connection URI (default: `bolt://localhost:7687`)
 - `NEO4J_USERNAME` - Neo4j username (default: `neo4j`)
 - `NEO4J_PASSWORD` - Neo4j password (default for tests: `test-password`)
 - `OPENAI_API_KEY` - Required for OpenAI embeddings and LLM extraction
+- `GOOGLE_GEOCODING_API_KEY` - API key for Google Geocoding (optional, for geocoding Location entities)
 - `RUN_INTEGRATION_TESTS` - Set to `1` to enable integration tests
 - `AUTO_START_DOCKER` - Set to `true` to auto-start Neo4j Docker (default)
 

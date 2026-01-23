@@ -547,7 +547,7 @@ spacy_extractor = SpacyEntityExtractor(model="en_core_web_sm")
 
 # GLiNER - Zero-shot NER with custom entity types
 gliner_extractor = GLiNEREntityExtractor(
-    model="urchade/gliner_medium-v2.1",
+    model="gliner-community/gliner_medium-v2.5",
     entity_types=["person", "organization", "location", "vehicle", "weapon"],
     threshold=0.5,
 )
@@ -558,6 +558,56 @@ llm_extractor = LLMEntityExtractor(
     entity_types=["PERSON", "ORGANIZATION", "LOCATION", "EVENT", "OBJECT"],
 )
 ```
+
+### GLiNER2 Domain Schemas
+
+GLiNER2 supports domain-specific schemas that improve extraction accuracy by providing entity type descriptions:
+
+```python
+from neo4j_agent_memory.extraction import (
+    GLiNEREntityExtractor,
+    get_schema,
+    list_schemas,
+)
+
+# List available pre-defined schemas
+print(list_schemas())
+# ['poleo', 'podcast', 'news', 'scientific', 'business', 'entertainment', 'medical', 'legal']
+
+# Create extractor with domain schema
+extractor = GLiNEREntityExtractor.for_schema("podcast", threshold=0.45)
+
+# Or use with the ExtractorBuilder
+from neo4j_agent_memory.extraction import ExtractorBuilder
+
+extractor = (
+    ExtractorBuilder()
+    .with_spacy()
+    .with_gliner_schema("scientific", threshold=0.5)
+    .with_llm_fallback()
+    .build()
+)
+
+# Extract entities from domain-specific content
+result = await extractor.extract(podcast_transcript)
+for entity in result.filter_invalid_entities().entities:
+    print(f"{entity.name}: {entity.type} ({entity.confidence:.0%})")
+```
+
+**Available schemas:**
+
+| Schema | Use Case | Key Entity Types |
+|--------|----------|------------------|
+| `poleo` | Investigations/Intelligence | person, organization, location, event, object |
+| `podcast` | Podcast transcripts | person, company, product, concept, book, technology |
+| `news` | News articles | person, organization, location, event, date |
+| `scientific` | Research papers | author, institution, method, dataset, metric, tool |
+| `business` | Business documents | company, person, product, industry, financial_metric |
+| `entertainment` | Movies/TV content | actor, director, film, tv_show, character, award |
+| `medical` | Healthcare content | disease, drug, symptom, procedure, body_part, gene |
+| `legal` | Legal documents | case, person, organization, law, court, monetary_amount |
+
+See `examples/domain-schemas/` for complete example applications for each schema.
 
 ## Agent Framework Integrations
 
@@ -821,6 +871,7 @@ Examples are located in `examples/` and demonstrate various features:
 | `entity_resolution.py` | Entity matching strategies | None |
 | `langchain_agent.py` | LangChain integration | Neo4j, OpenAI, langchain extra |
 | `pydantic_ai_agent.py` | Pydantic AI integration | Neo4j, OpenAI, pydantic-ai extra |
+| `domain-schemas/` | GLiNER2 domain schema examples (8 domains) | GLiNER extra, optional Neo4j |
 | `full-stack-chat-agent/` | Complete web app with FastAPI backend and Next.js frontend | Neo4j, OpenAI, Node.js |
 
 #### Environment Setup

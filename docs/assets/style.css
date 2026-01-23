@@ -1,0 +1,722 @@
+/**
+ * Neo4j Agent Memory Documentation Theme
+ * A modern, dark theme for developer documentation
+ */
+
+/* ============================================
+   CSS Variables / Design Tokens
+   ============================================ */
+
+:root {
+  /* Colors - Dark Theme */
+  --color-bg-primary: #0d1117;
+  --color-bg-secondary: #161b22;
+  --color-bg-tertiary: #21262d;
+  --color-bg-hover: #30363d;
+  --color-bg-active: #388bfd1a;
+
+  --color-border-default: #30363d;
+  --color-border-muted: #21262d;
+
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #8b949e;
+  --color-text-muted: #6e7681;
+  --color-text-link: #58a6ff;
+  --color-text-link-hover: #79c0ff;
+
+  /* Accent colors */
+  --color-accent-primary: #238636;
+  --color-accent-blue: #1f6feb;
+  --color-accent-purple: #8957e5;
+  --color-accent-orange: #d29922;
+  --color-accent-red: #f85149;
+  --color-accent-cyan: #39c5cf;
+
+  /* Neo4j brand colors */
+  --color-neo4j-blue: #018bff;
+  --color-neo4j-green: #00a86b;
+
+  /* Typography */
+  --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* Spacing */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+
+  /* Layout */
+  --nav-width: 280px;
+  --content-max-width: 900px;
+  --toc-width: 240px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   Layout
+   ============================================ */
+
+.docs-wrapper {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ============================================
+   Navigation
+   ============================================ */
+
+.docs-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--nav-width);
+  height: 100vh;
+  background-color: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border-default);
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.nav-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-5) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  text-decoration: none;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: var(--font-size-lg);
+}
+
+.nav-logo:hover {
+  color: var(--color-neo4j-blue);
+}
+
+.logo-icon {
+  font-size: 1.5rem;
+}
+
+.version-badge {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  padding: var(--spacing-1) var(--spacing-2);
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+}
+
+.nav-links {
+  padding: var(--spacing-4);
+}
+
+.nav-section {
+  margin-bottom: var(--spacing-6);
+}
+
+.nav-section-title {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-2);
+  padding: 0 var(--spacing-2);
+}
+
+.nav-links a {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  margin: var(--spacing-1) 0;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  transition: all var(--transition-fast);
+}
+
+.nav-links a:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-hover);
+}
+
+.nav-links a.active {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-active);
+  font-weight: 500;
+}
+
+.nav-links a.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 24px;
+  background-color: var(--color-neo4j-blue);
+  border-radius: 0 2px 2px 0;
+}
+
+/* ============================================
+   Main Content
+   ============================================ */
+
+.docs-content {
+  flex: 1;
+  margin-left: var(--nav-width);
+  padding: var(--spacing-8) var(--spacing-10);
+  max-width: calc(var(--nav-width) + var(--content-max-width) + var(--spacing-10) * 2);
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: var(--spacing-8);
+  margin-bottom: var(--spacing-4);
+  font-weight: 600;
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+h1 {
+  font-size: var(--font-size-3xl);
+  margin-top: 0;
+  padding-bottom: var(--spacing-4);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+h2 {
+  font-size: var(--font-size-2xl);
+  margin-top: var(--spacing-12);
+  padding-bottom: var(--spacing-2);
+  border-bottom: 1px solid var(--color-border-muted);
+}
+
+h3 {
+  font-size: var(--font-size-xl);
+}
+
+h4 {
+  font-size: var(--font-size-lg);
+}
+
+h5, h6 {
+  font-size: var(--font-size-base);
+}
+
+p {
+  margin: 0 0 var(--spacing-4);
+}
+
+a {
+  color: var(--color-text-link);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-text-link-hover);
+  text-decoration: underline;
+}
+
+/* Section anchors */
+.sectanchors a::before {
+  content: '#';
+  margin-right: var(--spacing-2);
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+h2:hover .sectanchors a::before,
+h3:hover .sectanchors a::before,
+h4:hover .sectanchors a::before {
+  opacity: 1;
+}
+
+/* Lead paragraph */
+.lead, .paragraph.lead p {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ============================================
+   Code Blocks
+   ============================================ */
+
+code {
+  font-family: var(--font-family-mono);
+  font-size: 0.875em;
+}
+
+/* Inline code */
+p code, li code, td code {
+  padding: 0.2em 0.4em;
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+  color: var(--color-accent-cyan);
+}
+
+/* Code blocks */
+.listingblock {
+  margin: var(--spacing-4) 0;
+}
+
+.listingblock .content {
+  position: relative;
+}
+
+.listingblock pre {
+  margin: 0;
+  padding: var(--spacing-4);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+}
+
+.listingblock pre code {
+  background: none;
+  padding: 0;
+  color: var(--color-text-primary);
+}
+
+/* Code block title */
+.listingblock .title {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-2);
+}
+
+/* ============================================
+   Tables
+   ============================================ */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--spacing-4) 0;
+  font-size: var(--font-size-sm);
+}
+
+table thead {
+  background-color: var(--color-bg-secondary);
+}
+
+table th {
+  text-align: left;
+  padding: var(--spacing-3) var(--spacing-4);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  border-bottom: 2px solid var(--color-border-default);
+}
+
+table td {
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border-muted);
+}
+
+table tbody tr:hover {
+  background-color: var(--color-bg-hover);
+}
+
+/* ============================================
+   Lists
+   ============================================ */
+
+ul, ol {
+  margin: var(--spacing-4) 0;
+  padding-left: var(--spacing-6);
+}
+
+li {
+  margin: var(--spacing-2) 0;
+}
+
+/* Definition lists */
+dl {
+  margin: var(--spacing-4) 0;
+}
+
+dt {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-top: var(--spacing-4);
+}
+
+dd {
+  margin-left: var(--spacing-4);
+  color: var(--color-text-secondary);
+}
+
+/* Horizontal definition list */
+.hdlist table {
+  border: none;
+}
+
+.hdlist td {
+  padding: var(--spacing-2) var(--spacing-4);
+  border: none;
+  vertical-align: top;
+}
+
+.hdlist td:first-child {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  padding-right: var(--spacing-4);
+  white-space: nowrap;
+}
+
+/* ============================================
+   Admonitions
+   ============================================ */
+
+.admonitionblock {
+  margin: var(--spacing-6) 0;
+  padding: var(--spacing-4);
+  border-radius: var(--radius-lg);
+  border-left: 4px solid;
+}
+
+.admonitionblock table {
+  margin: 0;
+  border: none;
+}
+
+.admonitionblock td {
+  padding: 0;
+  border: none;
+  vertical-align: top;
+}
+
+.admonitionblock td.icon {
+  padding-right: var(--spacing-4);
+  font-size: var(--font-size-lg);
+}
+
+.admonitionblock.note {
+  background-color: rgba(56, 139, 253, 0.1);
+  border-color: var(--color-accent-blue);
+}
+
+.admonitionblock.tip {
+  background-color: rgba(35, 134, 54, 0.1);
+  border-color: var(--color-accent-primary);
+}
+
+.admonitionblock.important {
+  background-color: rgba(137, 87, 229, 0.1);
+  border-color: var(--color-accent-purple);
+}
+
+.admonitionblock.warning {
+  background-color: rgba(210, 153, 34, 0.1);
+  border-color: var(--color-accent-orange);
+}
+
+.admonitionblock.caution {
+  background-color: rgba(248, 81, 73, 0.1);
+  border-color: var(--color-accent-red);
+}
+
+/* ============================================
+   Sidebar / Aside
+   ============================================ */
+
+.sidebarblock {
+  margin: var(--spacing-6) 0;
+  padding: var(--spacing-4) var(--spacing-5);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+}
+
+.sidebarblock .title {
+  font-weight: 600;
+  margin-bottom: var(--spacing-3);
+  color: var(--color-text-primary);
+}
+
+/* ============================================
+   Collapsible Sections
+   ============================================ */
+
+details {
+  margin: var(--spacing-4) 0;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-secondary);
+}
+
+details summary {
+  padding: var(--spacing-3) var(--spacing-4);
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  user-select: none;
+}
+
+details summary:hover {
+  background-color: var(--color-bg-hover);
+}
+
+details[open] summary {
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+details .content {
+  padding: var(--spacing-4);
+}
+
+/* ============================================
+   Table of Contents (in-page)
+   ============================================ */
+
+#toc {
+  position: fixed;
+  top: var(--spacing-8);
+  right: var(--spacing-8);
+  width: var(--toc-width);
+  max-height: calc(100vh - var(--spacing-8) * 2);
+  overflow-y: auto;
+  padding: var(--spacing-4);
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+}
+
+#toc .title {
+  font-weight: 600;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-3);
+}
+
+#toc ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#toc li {
+  margin: var(--spacing-1) 0;
+}
+
+#toc a {
+  color: var(--color-text-secondary);
+  display: block;
+  padding: var(--spacing-1) 0;
+}
+
+#toc a:hover {
+  color: var(--color-text-primary);
+}
+
+/* Nested TOC levels */
+#toc ul ul {
+  padding-left: var(--spacing-4);
+}
+
+/* Hide TOC on smaller screens */
+@media (max-width: 1400px) {
+  #toc {
+    display: none;
+  }
+}
+
+/* ============================================
+   Images
+   ============================================ */
+
+.imageblock {
+  margin: var(--spacing-6) 0;
+}
+
+.imageblock img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+}
+
+.imageblock .title {
+  margin-top: var(--spacing-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+  font-style: italic;
+}
+
+/* ============================================
+   Example Blocks
+   ============================================ */
+
+.exampleblock {
+  margin: var(--spacing-6) 0;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+
+.exampleblock .title {
+  padding: var(--spacing-3) var(--spacing-4);
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-default);
+  font-weight: 500;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.exampleblock .content {
+  padding: var(--spacing-4);
+}
+
+/* ============================================
+   Blockquotes
+   ============================================ */
+
+.quoteblock {
+  margin: var(--spacing-6) 0;
+  padding-left: var(--spacing-5);
+  border-left: 4px solid var(--color-border-default);
+}
+
+.quoteblock blockquote {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.quoteblock .attribution {
+  margin-top: var(--spacing-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (max-width: 1024px) {
+  .docs-nav {
+    transform: translateX(-100%);
+    transition: transform var(--transition-normal);
+  }
+
+  .docs-nav.open {
+    transform: translateX(0);
+  }
+
+  .docs-content {
+    margin-left: 0;
+    padding: var(--spacing-6) var(--spacing-4);
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+
+@media print {
+  .docs-nav,
+  #toc {
+    display: none;
+  }
+
+  .docs-content {
+    margin-left: 0;
+    max-width: 100%;
+  }
+
+  .listingblock pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.font-mono {
+  font-family: var(--font-family-mono);
+}
+
+.hidden {
+  display: none;
+}
