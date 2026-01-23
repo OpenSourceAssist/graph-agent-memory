@@ -1,6 +1,5 @@
 """Unit tests for configuration."""
 
-import pytest
 from pydantic import SecretStr
 
 from neo4j_agent_memory.config.settings import (
@@ -10,8 +9,6 @@ from neo4j_agent_memory.config.settings import (
     ExtractorType,
     GeocodingConfig,
     GeocodingProvider,
-    LLMConfig,
-    LLMProvider,
     MemorySettings,
     Neo4jConfig,
     ResolutionConfig,

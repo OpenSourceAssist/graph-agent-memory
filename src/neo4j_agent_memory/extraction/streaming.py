@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, AsyncIterator, Callable
+from typing import TYPE_CHECKING
 
 from neo4j_agent_memory.extraction.base import (
     ExtractedEntity,
@@ -347,7 +348,7 @@ class StreamingExtractor:
 
     def __init__(
         self,
-        extractor: "EntityExtractor",
+        extractor: EntityExtractor,
         *,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         overlap: int = DEFAULT_OVERLAP,
@@ -581,7 +582,7 @@ class StreamingExtractor:
 
 
 def create_streaming_extractor(
-    extractor: "EntityExtractor",
+    extractor: EntityExtractor,
     *,
     chunk_size: int | None = None,
     overlap: int | None = None,

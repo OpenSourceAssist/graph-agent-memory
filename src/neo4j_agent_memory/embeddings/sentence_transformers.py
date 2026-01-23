@@ -39,7 +39,7 @@ class SentenceTransformerEmbedder(BaseEmbedder):
         """
         self._model_name = model_name
         self._device = device
-        self._model: "SentenceTransformer | None" = None
+        self._model: SentenceTransformer | None = None
         self._dimensions: int | None = None
 
     def _ensure_model(self) -> "SentenceTransformer":

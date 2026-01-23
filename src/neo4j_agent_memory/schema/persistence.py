@@ -115,7 +115,7 @@ class StoredSchema:
     created_by: str | None
 
     @classmethod
-    def from_node(cls, node: dict) -> "StoredSchema":
+    def from_node(cls, node: dict) -> StoredSchema:
         """Create a StoredSchema from a Neo4j node."""
         config_data = json.loads(node["config"])
         return cls(
@@ -176,7 +176,7 @@ class SchemaManager:
         ```
     """
 
-    def __init__(self, client: "Neo4jClient"):
+    def __init__(self, client: Neo4jClient):
         """Initialize the schema manager.
 
         Args:

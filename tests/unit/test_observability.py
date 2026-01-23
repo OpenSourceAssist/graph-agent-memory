@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -73,9 +73,8 @@ class TestNoOpTracer:
     def test_span_context_manager_with_exception(self):
         """Test span context manager handles exceptions."""
         tracer = NoOpTracer()
-        with pytest.raises(ValueError):
-            with tracer.span("test_span") as span:
-                raise ValueError("test error")
+        with pytest.raises(ValueError), tracer.span("test_span") as span:
+            raise ValueError("test error")
 
     @pytest.mark.asyncio
     async def test_async_span_context_manager(self):
@@ -321,10 +320,9 @@ class TestOpikTracer:
         from neo4j_agent_memory.observability.opik import OpikTracer
 
         # This will require proper Opik configuration
-        with patch("opik.Opik"):
-            with patch("opik.configure"):
-                tracer = OpikTracer(service_name="test-service")
-                assert tracer.service_name == "test-service"
+        with patch("opik.Opik"), patch("opik.configure"):
+            tracer = OpikTracer(service_name="test-service")
+            assert tracer.service_name == "test-service"
 
 
 class TestIntegration:

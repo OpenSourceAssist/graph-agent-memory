@@ -1,9 +1,10 @@
 """Short-term memory for conversations and messages."""
 
 import json
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field

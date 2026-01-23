@@ -13,7 +13,6 @@ from neo4j_agent_memory.config.settings import (
 )
 from neo4j_agent_memory.extraction.base import (
     EntityExtractor,
-    ExtractionResult,
     NoOpExtractor,
 )
 from neo4j_agent_memory.extraction.pipeline import (

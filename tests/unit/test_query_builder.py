@@ -1,13 +1,11 @@
 """Tests for query builder utilities."""
 
-import pytest
 
 from neo4j_agent_memory.graph.query_builder import (
     VALID_ENTITY_TYPES,
     VALID_SUBTYPES,
     build_create_entity_query,
     build_label_set_clause,
-    is_poleo_subtype,
     is_poleo_type,
     sanitize_label,
     to_pascal_case,

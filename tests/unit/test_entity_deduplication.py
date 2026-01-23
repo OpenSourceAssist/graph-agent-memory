@@ -1,6 +1,6 @@
 """Tests for entity deduplication on ingest."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -10,7 +10,6 @@ from neo4j_agent_memory.memory.long_term import (
     DeduplicationResult,
     DeduplicationStats,
     DuplicateCandidate,
-    Entity,
     LongTermMemory,
 )
 

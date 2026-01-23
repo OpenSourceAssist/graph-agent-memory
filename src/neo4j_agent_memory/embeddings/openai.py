@@ -41,7 +41,7 @@ class OpenAIEmbedder(BaseEmbedder):
         self._api_key = api_key
         self._requested_dimensions = dimensions
         self._batch_size = batch_size
-        self._client: "AsyncOpenAI | None" = None
+        self._client: AsyncOpenAI | None = None
 
         # Determine dimensions
         if dimensions is not None:

@@ -334,30 +334,29 @@ class TestGLiNERWithRelationsExtractorFactoryMethods:
         # We're testing the factory method logic
         with patch(
             "neo4j_agent_memory.extraction.gliner_extractor.GLiNEREntityExtractor.for_schema"
-        ) as mock_gliner:
-            with patch(
-                "neo4j_agent_memory.extraction.gliner_extractor.GLiRELExtractor"
-            ) as mock_glirel:
-                mock_gliner.return_value = MagicMock()
-                mock_glirel.return_value = MagicMock()
+        ) as mock_gliner, patch(
+            "neo4j_agent_memory.extraction.gliner_extractor.GLiRELExtractor"
+        ) as mock_glirel:
+            mock_gliner.return_value = MagicMock()
+            mock_glirel.return_value = MagicMock()
 
-                extractor = GLiNERWithRelationsExtractor.for_schema(
-                    "poleo",
-                    entity_threshold=0.6,
-                    relation_threshold=0.7,
-                    device="cuda",
-                )
+            extractor = GLiNERWithRelationsExtractor.for_schema(
+                "poleo",
+                entity_threshold=0.6,
+                relation_threshold=0.7,
+                device="cuda",
+            )
 
-                mock_gliner.assert_called_once_with(
-                    "poleo",
-                    model="gliner-community/gliner_medium-v2.5",
-                    threshold=0.6,
-                    device="cuda",
-                )
-                mock_glirel.assert_called_once()
-                glirel_kwargs = mock_glirel.call_args[1]
-                assert glirel_kwargs["threshold"] == 0.7
-                assert glirel_kwargs["device"] == "cuda"
+            mock_gliner.assert_called_once_with(
+                "poleo",
+                model="gliner-community/gliner_medium-v2.5",
+                threshold=0.6,
+                device="cuda",
+            )
+            mock_glirel.assert_called_once()
+            glirel_kwargs = mock_glirel.call_args[1]
+            assert glirel_kwargs["threshold"] == 0.7
+            assert glirel_kwargs["device"] == "cuda"
 
     def test_for_poleo_uses_poleo_schema(self):
         """Test for_poleo uses poleo schema."""

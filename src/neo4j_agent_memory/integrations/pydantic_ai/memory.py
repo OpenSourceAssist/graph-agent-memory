@@ -1,7 +1,8 @@
 """Pydantic AI integration for neo4j-agent-memory."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
     from pydantic_ai.result import RunResult

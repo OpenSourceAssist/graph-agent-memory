@@ -184,7 +184,30 @@ select = [
     "ARG", # flake8-unused-arguments
     "SIM", # flake8-simplify
 ]
-ignore = ["E501"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "ARG001", # unused function argument (common in factory functions)
+    "ARG002", # unused method argument (common in base classes/interfaces)
+    "SIM108", # ternary operator (can reduce readability)
+    "SIM105", # contextlib.suppress (explicit try/except can be clearer)
+    "SIM102", # nested if statements (can be clearer than combined conditions)
+    "SIM103", # return condition directly (explicit if/else can be clearer)
+    "SIM113", # use enumerate (manual index can be clearer in some cases)
+    "B004",   # hasattr callable check (sometimes intentional)
+    "B007",   # unused loop variable (sometimes intentional for iteration)
+    "B904",   # raise from in except (can add noise without benefit)
+    "B905",   # zip strict parameter (not always needed)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/neo4j_agent_memory/__init__.py" = ["E402"]  # module level imports not at top (intentional for lazy loading)
+"tests/**/*.py" = [
+    "E402",  # module level imports not at top (common in tests with importorskip)
+    "F401",  # imported but unused (common for type checking in tests)
+    "F841",  # local variable assigned but never used (common in tests for side effects)
+    "B017",  # assert blind exception (acceptable in tests)
+    "E741",  # ambiguous variable name (acceptable in tests)
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["neo4j_agent_memory"]

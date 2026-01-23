@@ -1,6 +1,5 @@
 """Comprehensive integration tests for procedural memory."""
 
-from datetime import datetime
 
 import pytest
 

@@ -1,7 +1,8 @@
 """Mock implementations of memory classes for testing."""
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from neo4j_agent_memory.memory.long_term import (
@@ -186,7 +187,6 @@ class MockShortTermMemory:
         if message_id_str not in self._messages:
             return False
 
-        message = self._messages[message_id_str]
         del self._messages[message_id_str]
 
         # Remove from conversation

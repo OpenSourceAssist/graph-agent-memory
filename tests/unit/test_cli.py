@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-from io import StringIO
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -492,7 +490,6 @@ class TestSchemasCommand:
     @patch("neo4j_agent_memory.schema.SchemaManager")
     def test_schemas_list_json(self, mock_manager_class, mock_driver_class, runner):
         """Test schemas list with JSON output."""
-        from datetime import datetime
 
         from neo4j_agent_memory.schema import SchemaListItem
 

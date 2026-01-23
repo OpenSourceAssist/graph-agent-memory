@@ -172,7 +172,7 @@ class SchemaManager:
             }}
             """
             await self._client.execute_write(query)
-        except Exception as e:
+        except Exception:
             # Vector indexes require Neo4j 5.11+, log warning but don't fail
             # as the package can still work without vector search
             pass
@@ -195,7 +195,7 @@ class SchemaManager:
             ON (n.{property_name})
             """
             await self._client.execute_write(query)
-        except Exception as e:
+        except Exception:
             # Point indexes require Neo4j 5.0+, log warning but don't fail
             pass
 

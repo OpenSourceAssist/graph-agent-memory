@@ -3,7 +3,6 @@
 This example doesn't require Neo4j - it tests resolution algorithms only.
 """
 
-import asyncio
 import subprocess
 import sys
 from pathlib import Path

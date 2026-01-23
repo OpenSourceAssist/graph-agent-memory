@@ -5,7 +5,6 @@ from uuid import uuid4
 import pytest
 
 from neo4j_agent_memory.memory.long_term import (
-    POLEO_TYPES,
     Entity,
     EntityType,
     LongTermMemory,

@@ -9,8 +9,6 @@ Note: These are NOT runtime tests - they validate structure and imports only.
 Running the full apps requires separate infrastructure (Docker, Neo4j, API keys).
 """
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import pytest

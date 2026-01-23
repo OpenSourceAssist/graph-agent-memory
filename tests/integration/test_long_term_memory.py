@@ -1,6 +1,6 @@
 """Comprehensive integration tests for long-term memory."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pytest
 

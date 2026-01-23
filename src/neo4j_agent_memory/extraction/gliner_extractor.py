@@ -9,12 +9,14 @@ Reference: https://github.com/urchade/GLiNER
 
 import asyncio
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from neo4j_agent_memory.extraction.base import (
     ExtractedEntity,
+    ExtractedRelation,
     ExtractionResult,
 )
 
@@ -996,10 +998,8 @@ class GLiRELExtractor:
         text: str,
         entities: list[ExtractedEntity],
         relation_types: list[str] | None = None,
-    ) -> list["ExtractedRelation"]:
+    ) -> list[ExtractedRelation]:
         """Synchronous relation extraction using GLiREL."""
-        from neo4j_agent_memory.extraction.base import ExtractedRelation
-
         if not entities or len(entities) < 2:
             # Need at least 2 entities for relations
             return []
@@ -1017,9 +1017,6 @@ class GLiRELExtractor:
 
         # Convert entities to GLiREL format
         ner_entities = self._entities_to_glirel_format(entities)
-
-        # Create entity name to entity mapping for later lookup
-        entity_map = {e.name: e for e in entities}
 
         # Run GLiREL prediction
         predictions = self.model.predict_relations(
@@ -1053,7 +1050,7 @@ class GLiRELExtractor:
         entities: list[ExtractedEntity],
         *,
         relation_types: list[str] | None = None,
-    ) -> list["ExtractedRelation"]:
+    ) -> list[ExtractedRelation]:
         """Extract relations between entities using GLiREL.
 
         Args:
@@ -1065,7 +1062,6 @@ class GLiRELExtractor:
         Returns:
             List of extracted relations
         """
-        from neo4j_agent_memory.extraction.base import ExtractedRelation
 
         if not text or not text.strip() or not entities:
             return []

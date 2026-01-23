@@ -2,11 +2,10 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Protocol, runtime_checkable
-
-from pydantic import BaseModel, Field
+from typing import Any, Protocol, runtime_checkable
 
 from neo4j_agent_memory.extraction.base import (
     EntityExtractor,

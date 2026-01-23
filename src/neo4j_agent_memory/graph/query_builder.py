@@ -11,14 +11,13 @@ Labels are converted to PascalCase following Neo4j naming conventions.
 """
 
 import re
-from typing import Set
 
 # Valid POLE+O entity types (stored uppercase internally, converted to PascalCase for labels)
-VALID_ENTITY_TYPES: Set[str] = {"PERSON", "OBJECT", "LOCATION", "EVENT", "ORGANIZATION"}
+VALID_ENTITY_TYPES: set[str] = {"PERSON", "OBJECT", "LOCATION", "EVENT", "ORGANIZATION"}
 
 # Valid subtypes by entity type (from schema/models.py)
 # Stored uppercase internally, converted to PascalCase for labels
-VALID_SUBTYPES: dict[str, Set[str]] = {
+VALID_SUBTYPES: dict[str, set[str]] = {
     "PERSON": {"INDIVIDUAL", "ALIAS", "PERSONA", "SUSPECT", "WITNESS", "VICTIM"},
     "OBJECT": {
         "VEHICLE",

@@ -9,10 +9,11 @@ from __future__ import annotations
 import functools
 import time
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncIterator, Callable, Iterator, TypeVar
+from typing import Any, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -198,7 +199,7 @@ class Tracer(ABC):
                                 "function.duration_ms", (time.perf_counter() - start) * 1000
                             )
                             return result
-                        except Exception as e:
+                        except Exception:
                             span.set_attribute(
                                 "function.duration_ms", (time.perf_counter() - start) * 1000
                             )
@@ -219,7 +220,7 @@ class Tracer(ABC):
                                 "function.duration_ms", (time.perf_counter() - start) * 1000
                             )
                             return result
-                        except Exception as e:
+                        except Exception:
                             span.set_attribute(
                                 "function.duration_ms", (time.perf_counter() - start) * 1000
                             )

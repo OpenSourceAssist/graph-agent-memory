@@ -3,7 +3,7 @@
 import asyncio
 import hashlib
 import os
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from uuid import uuid4
 
 import pytest
@@ -15,7 +15,6 @@ from neo4j_agent_memory.extraction.base import (
     EntityExtractor,
     ExtractedEntity,
     ExtractedPreference,
-    ExtractedRelation,
     ExtractionResult,
 )
 from neo4j_agent_memory.resolution.base import EntityResolver, ResolvedEntity
