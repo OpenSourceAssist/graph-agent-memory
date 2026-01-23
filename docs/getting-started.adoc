@@ -230,6 +230,44 @@ async with MemoryClient(settings) as memory:
     """
 ----
 
+=== Geocoding Locations (Optional)
+
+Enable geocoding to automatically add coordinates to LOCATION entities, enabling geospatial queries:
+
+[source,python]
+----
+from neo4j_agent_memory import (
+    MemoryClient,
+    MemorySettings,
+    GeocodingConfig,
+    GeocodingProvider,
+)
+
+settings = MemorySettings(
+    geocoding=GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.NOMINATIM,  # Free, or GOOGLE for higher accuracy
+    )
+)
+
+async with MemoryClient(settings) as memory:
+    # LOCATION entities are automatically geocoded
+    await memory.short_term.add_message(
+        session_id="session-123",
+        role="user",
+        content="I'm visiting the Eiffel Tower in Paris",
+    )
+
+    # Find locations near a point
+    nearby = await memory.long_term.search_locations_near(
+        latitude=48.8584,
+        longitude=2.2945,
+        radius_km=5.0,
+    )
+----
+
+See xref:configuration.adoc#_geocoding_configuration[Geocoding Configuration] for more details.
+
 == Configuration with Environment Variables
 
 You can configure neo4j-agent-memory using environment variables with the `NAM_` prefix:

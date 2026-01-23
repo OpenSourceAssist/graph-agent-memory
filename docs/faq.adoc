@@ -656,6 +656,126 @@ cli:
 ----
 
 
+== Geocoding and Geospatial Queries
+
+[[geocoding-enable]]
+=== How do I enable geocoding for LOCATION entities?
+
+Configure geocoding in your settings:
+
+[source,python]
+----
+from neo4j_agent_memory import (
+    MemorySettings,
+    GeocodingConfig,
+    GeocodingProvider,
+)
+
+settings = MemorySettings(
+    geocoding=GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.NOMINATIM,  # Free, 1 req/sec limit
+    )
+)
+----
+
+Or use environment variables:
+
+[source,bash]
+----
+NAM_GEOCODING__ENABLED=true
+NAM_GEOCODING__PROVIDER=nominatim
+----
+
+[[geocoding-providers]]
+=== What geocoding providers are supported?
+
+[cols="1,2,2"]
+|===
+|Provider |Pros |Cons
+
+|**Nominatim**
+|Free, no API key needed
+|Rate-limited to 1 request/second
+
+|**Google Maps**
+|Higher accuracy, better address parsing
+|Requires API key, pay-per-use
+|===
+
+For Google Maps:
+
+[source,python]
+----
+from pydantic import SecretStr
+
+settings = MemorySettings(
+    geocoding=GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.GOOGLE,
+        api_key=SecretStr("your-google-api-key"),
+    )
+)
+----
+
+[[geocoding-batch]]
+=== How do I geocode existing locations?
+
+Use the batch geocoding method for LOCATION entities without coordinates:
+
+[source,python]
+----
+async with MemoryClient(settings) as memory:
+    stats = await memory.long_term.geocode_locations(
+        batch_size=50,
+        skip_existing=True,  # Don't re-geocode
+    )
+    print(f"Geocoded {stats['geocoded']} of {stats['processed']} locations")
+----
+
+[[geospatial-queries]]
+=== What geospatial queries are supported?
+
+Once locations are geocoded, you can:
+
+[source,python]
+----
+# Find locations near a point
+nearby = await memory.long_term.search_locations_near(
+    latitude=40.7128,
+    longitude=-74.0060,
+    radius_km=10.0,
+    limit=20,
+)
+
+# Find locations within a bounding box
+in_area = await memory.long_term.search_locations_in_bounds(
+    min_lat=40.70,
+    max_lat=40.80,
+    min_lon=-74.02,
+    max_lon=-73.95,
+)
+
+# Get coordinates for a specific location
+coords = await memory.long_term.get_entity_coordinates(entity_id)
+----
+
+[[geocoding-skip]]
+=== Can I disable geocoding for specific entities?
+
+Yes, use the `geocode=False` parameter:
+
+[source,python]
+----
+entity, _ = await memory.long_term.add_entity(
+    name="Custom Location",
+    entity_type="LOCATION",
+    geocode=False,  # Skip geocoding
+    coordinates=(40.7128, -74.0060),  # Provide coordinates directly
+)
+----
+
+
 == Observability and Tracing
 
 [[observability-setup]]

@@ -47,6 +47,8 @@ from neo4j_agent_memory.config.settings import (
     EmbeddingProvider,
     ExtractionConfig,
     ExtractorType,
+    GeocodingConfig,
+    GeocodingProvider,
     LLMConfig,
     LLMProvider,
     MemoryConfig,
@@ -143,11 +145,13 @@ __all__ = [
     "ResolutionConfig",
     "MemoryConfig",
     "SearchConfig",
+    "GeocodingConfig",
     # Enums
     "EmbeddingProvider",
     "LLMProvider",
     "ExtractorType",
     "ResolverStrategy",
+    "GeocodingProvider",
     "MessageRole",
     "EntityType",
     "ToolCallStatus",
@@ -217,6 +221,7 @@ class MemoryClient:
         embedder=None,
         extractor=None,
         resolver=None,
+        geocoder=None,
     ):
         """
         Initialize the memory client.
@@ -226,6 +231,7 @@ class MemoryClient:
             embedder: Optional embedder override (for testing)
             extractor: Optional extractor override (for testing)
             resolver: Optional resolver override (for testing)
+            geocoder: Optional geocoder override (for testing)
         """
         self._settings = settings or MemorySettings()
         self._client: Neo4jClient | None = None
@@ -233,9 +239,11 @@ class MemoryClient:
         self._embedder_override = embedder
         self._extractor_override = extractor
         self._resolver_override = resolver
+        self._geocoder_override = geocoder
         self._embedder = None
         self._extractor = None
         self._resolver = None
+        self._geocoder = None
 
         # Memory instances (initialized on connect)
         self._short_term: ShortTermMemory | None = None
@@ -278,6 +286,9 @@ class MemoryClient:
         # Initialize resolver (use override if provided)
         self._resolver = self._resolver_override or self._create_resolver()
 
+        # Initialize geocoder (use override if provided)
+        self._geocoder = self._geocoder_override or self._create_geocoder()
+
         # Create memory instances
         self._short_term = ShortTermMemory(
             self._client,
@@ -289,6 +300,7 @@ class MemoryClient:
             self._embedder,
             self._extractor,
             self._resolver,
+            self._geocoder,
         )
         self._procedural = ProceduralMemory(
             self._client,
@@ -792,3 +804,25 @@ class MemoryClient:
             )
 
         return None
+
+    def _create_geocoder(self):
+        """Create geocoder based on settings.
+
+        Returns a configured geocoder for Location entities, or None if
+        geocoding is disabled. Supports Nominatim (free, rate-limited) and
+        Google (requires API key).
+        """
+        config = self._settings.geocoding
+
+        if not config.enabled:
+            return None
+
+        from neo4j_agent_memory.services.geocoder import create_geocoder
+
+        return create_geocoder(
+            provider=config.provider.value,
+            api_key=config.api_key.get_secret_value() if config.api_key else None,
+            cache_results=config.cache_results,
+            rate_limit=config.rate_limit_per_second,
+            user_agent=config.user_agent,
+        )

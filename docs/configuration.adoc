@@ -536,6 +536,184 @@ NAM_SEARCH__SIMILARITY_THRESHOLD=0.7
 NAM_SEARCH__INCLUDE_METADATA=true
 ----
 
+== Geocoding Configuration
+
+Settings for automatic geocoding of LOCATION entities. When enabled, location names are converted to latitude/longitude coordinates stored as Neo4j Point properties, enabling geospatial queries.
+
+=== Python Configuration (Nominatim - Free)
+
+[source,python]
+----
+from neo4j_agent_memory import GeocodingConfig, GeocodingProvider
+
+# Nominatim is free but rate-limited to 1 request/second
+geocoding_config = GeocodingConfig(
+    enabled=True,
+    provider=GeocodingProvider.NOMINATIM,
+    cache_results=True,                   # Cache to avoid repeated API calls
+    rate_limit_per_second=1.0,            # Nominatim requires <= 1 req/sec
+    user_agent="my-app/1.0",              # Required by Nominatim ToS
+)
+----
+
+=== Python Configuration (Google Maps - Higher Accuracy)
+
+[source,python]
+----
+from neo4j_agent_memory import GeocodingConfig, GeocodingProvider
+from pydantic import SecretStr
+
+# Google Maps API requires an API key and has usage costs
+geocoding_config = GeocodingConfig(
+    enabled=True,
+    provider=GeocodingProvider.GOOGLE,
+    api_key=SecretStr("your-google-api-key"),
+    cache_results=True,
+)
+----
+
+=== Environment Variables
+
+[source,bash]
+----
+# Enable geocoding
+NAM_GEOCODING__ENABLED=true
+
+# Provider selection
+NAM_GEOCODING__PROVIDER=nominatim        # nominatim or google
+
+# API key (required for Google)
+NAM_GEOCODING__API_KEY=your-google-api-key
+
+# Caching
+NAM_GEOCODING__CACHE_RESULTS=true
+
+# Nominatim-specific settings
+NAM_GEOCODING__RATE_LIMIT_PER_SECOND=1.0
+NAM_GEOCODING__USER_AGENT=my-app/1.0
+----
+
+=== Parameters
+
+[cols="2,1,1,3"]
+|===
+|Parameter |Type |Default |Description
+
+|`enabled`
+|bool
+|`False`
+|Enable automatic geocoding of LOCATION entities
+
+|`provider`
+|GeocodingProvider
+|`NOMINATIM`
+|Geocoding provider (NOMINATIM or GOOGLE)
+
+|`api_key`
+|SecretStr
+|None
+|API key (required for Google)
+
+|`cache_results`
+|bool
+|`True`
+|Cache geocoding results in-memory
+
+|`rate_limit_per_second`
+|float
+|1.0
+|Rate limit for requests (Nominatim requires ≤1)
+
+|`user_agent`
+|str
+|`neo4j-agent-memory`
+|User-Agent header for Nominatim (required by ToS)
+|===
+
+=== Geocoding Providers
+
+[cols="1,2,2,2"]
+|===
+|Provider |Cost |Rate Limit |Notes
+
+|`NOMINATIM`
+|Free
+|1 request/second
+|Uses OpenStreetMap data. Good for most use cases.
+
+|`GOOGLE`
+|Pay per use
+|50 requests/second
+|Higher accuracy, better address parsing. Requires API key.
+|===
+
+=== Usage Example
+
+[source,python]
+----
+from neo4j_agent_memory import (
+    MemoryClient,
+    MemorySettings,
+    GeocodingConfig,
+    GeocodingProvider,
+)
+
+# Configure with geocoding enabled
+settings = MemorySettings(
+    geocoding=GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.NOMINATIM,
+    )
+)
+
+async with MemoryClient(settings) as client:
+    # LOCATION entities are automatically geocoded
+    entity, dedup_result = await client.long_term.add_entity(
+        "Empire State Building, New York",
+        "LOCATION",
+    )
+
+    # Get coordinates
+    coords = await client.long_term.get_entity_coordinates(entity.id)
+    if coords:
+        lat, lon = coords
+        print(f"Coordinates: {lat}, {lon}")
+
+    # Search for nearby locations (within 5km)
+    nearby = await client.long_term.search_locations_near(
+        latitude=40.7484,
+        longitude=-73.9857,
+        radius_km=5.0,
+    )
+
+    # Batch geocode existing locations without coordinates
+    stats = await client.long_term.geocode_locations()
+    print(f"Geocoded {stats['geocoded']} of {stats['processed']} locations")
+----
+
+=== Geospatial Queries
+
+Once locations are geocoded, you can run geospatial queries:
+
+[source,python]
+----
+# Find locations within a bounding box
+locations = await client.long_term.search_locations_in_bounds(
+    min_lat=40.70,
+    max_lat=40.80,
+    min_lon=-74.02,
+    max_lon=-73.95,
+)
+
+# Find locations near a point
+nearby = await client.long_term.search_locations_near(
+    latitude=40.7484,
+    longitude=-73.9857,
+    radius_km=10.0,
+    limit=20,
+)
+----
+
 == Deduplication Configuration
 
 Settings for entity deduplication during ingest.
@@ -810,6 +988,8 @@ from neo4j_agent_memory import (
     LLMProvider,
     DeduplicationConfig,
     DeduplicationStrategy,
+    GeocodingConfig,
+    GeocodingProvider,
     ObservabilityConfig,
     TracingProvider,
 )
@@ -845,6 +1025,11 @@ settings = MemorySettings(
         enabled=True,
         strategy=DeduplicationStrategy.COMPOSITE,
         embedding_threshold=0.92,
+    ),
+    geocoding=GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.NOMINATIM,
+        cache_results=True,
     ),
     llm=LLMConfig(
         provider=LLMProvider.OPENAI,
@@ -890,6 +1075,14 @@ NAM_RESOLUTION__STRATEGY=composite
 NAM_DEDUPLICATION__ENABLED=true
 NAM_DEDUPLICATION__STRATEGY=composite
 NAM_DEDUPLICATION__EMBEDDING_THRESHOLD=0.92
+
+# Geocoding (for LOCATION entities)
+NAM_GEOCODING__ENABLED=true
+NAM_GEOCODING__PROVIDER=nominatim
+NAM_GEOCODING__CACHE_RESULTS=true
+# For Google Maps (instead of Nominatim):
+# NAM_GEOCODING__PROVIDER=google
+# NAM_GEOCODING__API_KEY=your-google-api-key
 
 # Observability
 NAM_OBSERVABILITY__ENABLED=true

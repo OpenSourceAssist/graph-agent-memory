@@ -454,6 +454,87 @@ print(context)
 # - food: Prefers vegetarian options (importance: 0.9)
 ----
 
+=== Location Geocoding
+
+LOCATION entities can be automatically geocoded to add latitude/longitude coordinates, enabling geospatial queries. See xref:configuration.adoc#_geocoding_configuration[Geocoding Configuration] for setup details.
+
+[source,python]
+----
+from neo4j_agent_memory import (
+    MemoryClient,
+    MemorySettings,
+    GeocodingConfig,
+    GeocodingProvider,
+)
+
+# Enable geocoding in settings
+settings = MemorySettings(
+    geocoding=GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.NOMINATIM,  # Free, or use GOOGLE for higher accuracy
+    )
+)
+
+async with MemoryClient(settings) as memory:
+    # LOCATION entities are automatically geocoded when added
+    entity, _ = await memory.long_term.add_entity(
+        name="Empire State Building, New York",
+        entity_type="LOCATION",
+    )
+
+    # Get coordinates for a location
+    coords = await memory.long_term.get_entity_coordinates(entity.id)
+    if coords:
+        lat, lon = coords
+        print(f"Location: {lat}, {lon}")  # 40.7484, -73.9857
+
+    # Find locations near a point
+    nearby = await memory.long_term.search_locations_near(
+        latitude=40.7484,
+        longitude=-73.9857,
+        radius_km=5.0,
+        limit=10,
+    )
+
+    # Find locations within a bounding box
+    in_area = await memory.long_term.search_locations_in_bounds(
+        min_lat=40.70,
+        max_lat=40.80,
+        min_lon=-74.02,
+        max_lon=-73.95,
+    )
+
+    # Batch geocode existing locations without coordinates
+    stats = await memory.long_term.geocode_locations(
+        batch_size=50,
+        skip_existing=True,
+    )
+    print(f"Geocoded {stats['geocoded']} of {stats['processed']} locations")
+----
+
+==== Controlling Geocoding
+
+[source,python]
+----
+# Add location without geocoding (coordinates provided directly)
+entity, _ = await memory.long_term.add_entity(
+    name="Custom Location",
+    entity_type="LOCATION",
+    geocode=False,  # Skip geocoding
+    coordinates=(40.7128, -74.0060),  # Provide coordinates directly
+)
+
+# Add location without geocoding (to geocode later in batch)
+entity, _ = await memory.long_term.add_entity(
+    name="Some Location",
+    entity_type="LOCATION",
+    geocode=False,
+)
+
+# Later: batch geocode all locations without coordinates
+await memory.long_term.geocode_locations()
+----
+
 === Entity Deduplication
 
 Long-term memory supports automatic entity deduplication when adding entities:

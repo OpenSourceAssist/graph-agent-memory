@@ -1254,6 +1254,101 @@ entity, _ = await long_term.add_entity(
 ----
 
 
+== Location Geocoding
+
+Extracted LOCATION entities can be automatically geocoded to add latitude/longitude coordinates, enabling geospatial queries like "find nearby locations" or "locations within a bounding box".
+
+=== Enabling Geocoding
+
+[source,python]
+----
+from neo4j_agent_memory import (
+    MemorySettings,
+    GeocodingConfig,
+    GeocodingProvider,
+)
+
+# Enable geocoding with Nominatim (free, rate-limited)
+settings = MemorySettings(
+    geocoding=GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.NOMINATIM,
+    )
+)
+
+# Or with Google Maps (higher accuracy, requires API key)
+settings = MemorySettings(
+    geocoding=GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.GOOGLE,
+        api_key=SecretStr("your-google-api-key"),
+    )
+)
+----
+
+=== Automatic Geocoding During Extraction
+
+When geocoding is enabled and a LOCATION entity is extracted from text, it is automatically geocoded:
+
+[source,python]
+----
+async with MemoryClient(settings) as memory:
+    # Entity extraction from messages automatically geocodes LOCATION entities
+    await memory.short_term.add_message(
+        session_id="user-123",
+        role="user",
+        content="I visited the Eiffel Tower in Paris last week",
+        extract_entities=True,
+    )
+    # "Eiffel Tower" and "Paris" LOCATION entities are geocoded automatically
+----
+
+=== Batch Geocoding
+
+For existing LOCATION entities without coordinates:
+
+[source,python]
+----
+# Batch geocode all locations without coordinates
+stats = await memory.long_term.geocode_locations(
+    batch_size=50,
+    skip_existing=True,  # Skip locations that already have coordinates
+)
+print(f"Geocoded {stats['geocoded']} of {stats['processed']} locations")
+----
+
+=== Geospatial Queries
+
+Once locations are geocoded, you can run geospatial queries:
+
+[source,python]
+----
+# Find locations within 10km of a point
+nearby = await memory.long_term.search_locations_near(
+    latitude=48.8584,
+    longitude=2.2945,
+    radius_km=10.0,
+    limit=20,
+)
+
+# Find locations within a bounding box
+in_area = await memory.long_term.search_locations_in_bounds(
+    min_lat=48.80,
+    max_lat=48.90,
+    min_lon=2.20,
+    max_lon=2.40,
+)
+
+# Get coordinates for a specific entity
+coords = await memory.long_term.get_entity_coordinates(entity_id)
+if coords:
+    lat, lon = coords
+    print(f"Location: {lat}, {lon}")
+----
+
+See xref:configuration.adoc#_geocoding_configuration[Geocoding Configuration] for full configuration options.
+
+
 == Environment Variables
 
 [source,bash]

@@ -74,33 +74,37 @@ async def main():
         args.api_key = api_key
 
     # Import after path setup
-    from neo4j_agent_memory import MemoryClient
-    from neo4j_agent_memory.config import GeocodingConfig, GeocodingProvider, MemorySettings
-    from neo4j_agent_memory.services.geocoder import create_geocoder
+    from pydantic import SecretStr
+
+    from neo4j_agent_memory import (
+        GeocodingConfig,
+        GeocodingProvider,
+        MemoryClient,
+        MemorySettings,
+    )
 
     # Get Neo4j connection settings from environment
     neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     neo4j_password = os.getenv("NEO4J_PASSWORD", "password")
 
+    # Configure geocoding - the MemoryClient will automatically create and
+    # wire the geocoder to LongTermMemory
+    geocoding_config = GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.GOOGLE
+        if args.provider == "google"
+        else GeocodingProvider.NOMINATIM,
+        api_key=SecretStr(args.api_key) if args.api_key else None,
+        cache_results=True,
+        user_agent="lennys-memory/1.0",
+    )
+
     settings = MemorySettings(
         neo4j={
             "uri": neo4j_uri,
-            "password": neo4j_password,
+            "password": SecretStr(neo4j_password),
         },
-        geocoding=GeocodingConfig(
-            enabled=True,
-            provider=GeocodingProvider.GOOGLE
-            if args.provider == "google"
-            else GeocodingProvider.NOMINATIM,
-        ),
-    )
-
-    # Create geocoder
-    geocoder = create_geocoder(
-        provider=args.provider,
-        api_key=args.api_key,
-        cache_results=True,
-        user_agent="lennys-memory/1.0",
+        geocoding=geocoding_config,
     )
 
     print(f"Geocoding Location entities using {args.provider.title()}")
@@ -108,8 +112,6 @@ async def main():
     print()
 
     async with MemoryClient(settings) as client:
-        # Set geocoder on long-term memory
-        client.long_term._geocoder = geocoder
 
         def on_progress(processed: int, total: int):
             if args.verbose or processed % 10 == 0 or processed == total:
