@@ -8,6 +8,11 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+# Skip entire module if click is not installed
+click = pytest.importorskip("click", reason="click not installed")
+rich = pytest.importorskip("rich", reason="rich not installed")
+
 from click.testing import CliRunner
 
 from neo4j_agent_memory.cli.main import (
