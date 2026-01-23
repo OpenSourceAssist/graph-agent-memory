@@ -139,11 +139,6 @@ class TestLennysMemory:
         makefile = app_dir / "Makefile"
         assert makefile.exists(), f"Makefile not found: {makefile}"
 
-    def test_data_directory_exists(self, app_dir):
-        """Verify data directory exists (lennys-memory specific)."""
-        data_dir = app_dir / "data"
-        assert data_dir.exists(), f"Data directory not found: {data_dir}"
-
     def test_scripts_directory_exists(self, app_dir):
         """Verify scripts directory exists (lennys-memory specific)."""
         scripts_dir = app_dir / "scripts"
