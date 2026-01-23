@@ -134,7 +134,22 @@ If you need to customize the build, you can set:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DOCS_BASE_URL` | Base URL for the docs site | `/` |
-| `DOCS_VERSION` | Version shown in navigation | `0.1.0` |
+| `DOCS_VERSION` | Version shown in navigation | Current version |
+
+### Application Environment Variables
+
+When deploying applications using neo4j-agent-memory, you may need these environment variables:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NAM_NEO4J__URI` | Neo4j connection URI | Yes |
+| `NAM_NEO4J__USERNAME` | Neo4j username | Yes |
+| `NAM_NEO4J__PASSWORD` | Neo4j password | Yes |
+| `OPENAI_API_KEY` | OpenAI API key (for embeddings/LLM) | Recommended |
+| `OPIK_API_KEY` | Opik API key (for observability) | Optional |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry endpoint | Optional |
+
+See [Configuration Reference](configuration.adoc) for all available settings.
 
 ## Automatic Deployments
 

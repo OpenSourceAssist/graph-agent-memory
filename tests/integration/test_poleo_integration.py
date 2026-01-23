@@ -126,7 +126,7 @@ class TestLongTermMemoryPOLEO:
     @pytest.mark.asyncio
     async def test_add_entity_with_string_type(self, long_term_memory: LongTermMemory):
         """Test adding entity with string type."""
-        entity = await long_term_memory.add_entity(
+        entity, _ = await long_term_memory.add_entity(
             "John Doe",
             "PERSON",
             description="A test person",
@@ -139,7 +139,7 @@ class TestLongTermMemoryPOLEO:
     @pytest.mark.asyncio
     async def test_add_entity_with_enum_type(self, long_term_memory: LongTermMemory):
         """Test adding entity with EntityType enum (backward compat)."""
-        entity = await long_term_memory.add_entity(
+        entity, _ = await long_term_memory.add_entity(
             "Acme Corp",
             EntityType.ORGANIZATION,
             description="A test company",
@@ -152,7 +152,7 @@ class TestLongTermMemoryPOLEO:
     @pytest.mark.asyncio
     async def test_add_entity_with_subtype(self, long_term_memory: LongTermMemory):
         """Test adding entity with subtype."""
-        entity = await long_term_memory.add_entity(
+        entity, _ = await long_term_memory.add_entity(
             "Ford F-150",
             "OBJECT",
             subtype="VEHICLE",
@@ -167,7 +167,7 @@ class TestLongTermMemoryPOLEO:
     @pytest.mark.asyncio
     async def test_add_entity_with_type_subtype_string(self, long_term_memory: LongTermMemory):
         """Test adding entity with type:subtype string format."""
-        entity = await long_term_memory.add_entity(
+        entity, _ = await long_term_memory.add_entity(
             "123 Main St",
             "LOCATION:ADDRESS",
             description="An address",
@@ -180,7 +180,7 @@ class TestLongTermMemoryPOLEO:
     @pytest.mark.asyncio
     async def test_add_entity_with_attributes(self, long_term_memory: LongTermMemory):
         """Test adding entity with custom attributes."""
-        entity = await long_term_memory.add_entity(
+        entity, _ = await long_term_memory.add_entity(
             "iPhone 15",
             "OBJECT",
             subtype="DEVICE",
@@ -194,7 +194,7 @@ class TestLongTermMemoryPOLEO:
     @pytest.mark.asyncio
     async def test_add_entity_with_aliases(self, long_term_memory: LongTermMemory):
         """Test adding entity with aliases."""
-        entity = await long_term_memory.add_entity(
+        entity, _ = await long_term_memory.add_entity(
             "John Smith",
             "PERSON",
             aliases=["Johnny", "J. Smith"],
@@ -207,7 +207,7 @@ class TestLongTermMemoryPOLEO:
     async def test_get_entity_by_name(self, long_term_memory: LongTermMemory):
         """Test retrieving entity by name."""
         # Create entity
-        created = await long_term_memory.add_entity(
+        created, _ = await long_term_memory.add_entity(
             "Test Entity",
             "OBJECT",
             subtype="DEVICE",
@@ -228,7 +228,7 @@ class TestLongTermMemoryPOLEO:
         entities = []
 
         # PERSON
-        person = await long_term_memory.add_entity(
+        person, _ = await long_term_memory.add_entity(
             "Alice Johnson",
             "PERSON",
             subtype="INDIVIDUAL",
@@ -238,7 +238,7 @@ class TestLongTermMemoryPOLEO:
         assert person.type == "PERSON"
 
         # OBJECT
-        obj = await long_term_memory.add_entity(
+        obj, _ = await long_term_memory.add_entity(
             "Blue Honda Civic",
             "OBJECT",
             subtype="VEHICLE",
@@ -248,7 +248,7 @@ class TestLongTermMemoryPOLEO:
         assert obj.type == "OBJECT"
 
         # LOCATION
-        location = await long_term_memory.add_entity(
+        location, _ = await long_term_memory.add_entity(
             "San Francisco",
             "LOCATION",
             subtype="CITY",
@@ -258,7 +258,7 @@ class TestLongTermMemoryPOLEO:
         assert location.type == "LOCATION"
 
         # EVENT
-        event = await long_term_memory.add_entity(
+        event, _ = await long_term_memory.add_entity(
             "Company Meeting Q1 2024",
             "EVENT",
             subtype="MEETING",
@@ -268,7 +268,7 @@ class TestLongTermMemoryPOLEO:
         assert event.type == "EVENT"
 
         # ORGANIZATION
-        org = await long_term_memory.add_entity(
+        org, _ = await long_term_memory.add_entity(
             "Tech Startup Inc",
             "ORGANIZATION",
             subtype="COMPANY",
@@ -283,19 +283,19 @@ class TestLongTermMemoryPOLEO:
     async def test_relationship_between_poleo_entities(self, long_term_memory: LongTermMemory):
         """Test creating relationships between POLE+O entities."""
         # Create entities
-        person = await long_term_memory.add_entity(
+        person, _ = await long_term_memory.add_entity(
             "Bob Williams",
             "PERSON",
             generate_embedding=False,
         )
 
-        org = await long_term_memory.add_entity(
+        org, _ = await long_term_memory.add_entity(
             "TechCorp",
             "ORGANIZATION",
             generate_embedding=False,
         )
 
-        location = await long_term_memory.add_entity(
+        location, _ = await long_term_memory.add_entity(
             "New York",
             "LOCATION",
             subtype="CITY",

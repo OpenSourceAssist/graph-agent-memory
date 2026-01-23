@@ -54,9 +54,21 @@ Choose the extras that match your needs:
 |Local embeddings with Sentence Transformers
 |`pip install neo4j-agent-memory[sentence-transformers]`
 
-|`full`
+|`cli`
+|Command-line interface for extraction and schemas
+|`pip install neo4j-agent-memory[cli]`
+
+|`opentelemetry`
+|OpenTelemetry tracing for observability
+|`pip install neo4j-agent-memory[opentelemetry]`
+
+|`opik`
+|Opik LLM-focused observability
+|`pip install neo4j-agent-memory[opik]`
+
+|`all`
 |All features including local models
-|`pip install neo4j-agent-memory[full]`
+|`pip install neo4j-agent-memory[all]`
 |===
 
 === Download spaCy Model

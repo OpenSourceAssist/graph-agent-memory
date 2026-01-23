@@ -14,7 +14,7 @@ class TestLongTermMemoryEntities:
     @pytest.mark.asyncio
     async def test_add_entity_basic(self, memory_client):
         """Test adding a basic entity."""
-        entity = await memory_client.long_term.add_entity(
+        entity, dedup_result = await memory_client.long_term.add_entity(
             name="John Smith",
             entity_type=EntityType.PERSON,
             description="A test person",
@@ -27,6 +27,7 @@ class TestLongTermMemoryEntities:
         assert entity.type == EntityType.PERSON
         assert entity.description == "A test person"
         assert entity.id is not None
+        assert dedup_result is not None
 
     @pytest.mark.asyncio
     async def test_add_entity_all_types(self, memory_client):
@@ -40,7 +41,7 @@ class TestLongTermMemoryEntities:
         ]
 
         for etype in entity_types:
-            entity = await memory_client.long_term.add_entity(
+            entity, _ = await memory_client.long_term.add_entity(
                 name=f"Test {etype.value}",
                 entity_type=etype,
                 resolve=False,
@@ -51,7 +52,7 @@ class TestLongTermMemoryEntities:
     @pytest.mark.asyncio
     async def test_add_entity_with_embedding(self, memory_client):
         """Test adding an entity with embedding generation."""
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="Google Inc",
             entity_type=EntityType.ORGANIZATION,
             description="A major technology company",
@@ -337,13 +338,13 @@ class TestLongTermMemoryRelationships:
     async def test_add_relationship_between_entities(self, memory_client):
         """Test creating relationships between entities."""
         # Add entities
-        entity1 = await memory_client.long_term.add_entity(
+        entity1, _ = await memory_client.long_term.add_entity(
             name="Company A",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
             generate_embedding=False,
         )
-        entity2 = await memory_client.long_term.add_entity(
+        entity2, _ = await memory_client.long_term.add_entity(
             name="Company B",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -363,13 +364,13 @@ class TestLongTermMemoryRelationships:
     async def test_get_entity_relationships(self, memory_client):
         """Test getting relationships for an entity."""
         # Add entities and relationships
-        entity1 = await memory_client.long_term.add_entity(
+        entity1, _ = await memory_client.long_term.add_entity(
             name="RelTestEntity1",
             entity_type=EntityType.PERSON,
             resolve=False,
             generate_embedding=False,
         )
-        entity2 = await memory_client.long_term.add_entity(
+        entity2, _ = await memory_client.long_term.add_entity(
             name="RelTestEntity2",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -395,7 +396,7 @@ class TestLongTermMemoryEdgeCases:
     @pytest.mark.asyncio
     async def test_entity_with_special_characters(self, memory_client):
         """Test entity with special characters in name."""
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="O'Brien & Co.",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -455,7 +456,7 @@ class TestLongTermMemoryEdgeCases:
     async def test_duplicate_entity_handling(self, memory_client):
         """Test handling of duplicate entities."""
         # Add same entity twice (should use resolution or update)
-        entity1 = await memory_client.long_term.add_entity(
+        entity1, _ = await memory_client.long_term.add_entity(
             name="DuplicateTestEntity",
             entity_type=EntityType.PERSON,
             description="First description",
@@ -463,7 +464,7 @@ class TestLongTermMemoryEdgeCases:
             generate_embedding=False,
         )
 
-        entity2 = await memory_client.long_term.add_entity(
+        entity2, _ = await memory_client.long_term.add_entity(
             name="DuplicateTestEntity",
             entity_type=EntityType.PERSON,
             description="Second description",
@@ -513,7 +514,7 @@ class TestEntityNodeLabels:
     @pytest.mark.asyncio
     async def test_entity_has_type_label(self, memory_client):
         """Test that created entities have type as a PascalCase node label."""
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="Label Test Person",
             entity_type="PERSON",
             resolve=False,
@@ -533,7 +534,7 @@ class TestEntityNodeLabels:
     @pytest.mark.asyncio
     async def test_entity_has_subtype_label(self, memory_client):
         """Test that created entities have subtype as a PascalCase node label."""
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="Tesla Model 3",
             entity_type="OBJECT",
             subtype="VEHICLE",
@@ -565,7 +566,7 @@ class TestEntityNodeLabels:
         ]
 
         for entity_type, subtype, expected_label in test_cases:
-            entity = await memory_client.long_term.add_entity(
+            entity, _ = await memory_client.long_term.add_entity(
                 name=f"Test {entity_type}",
                 entity_type=entity_type,
                 subtype=subtype,
@@ -596,7 +597,7 @@ class TestEntityNodeLabels:
         ]
 
         for entity_type, subtype, expected_type_label, expected_subtype_label in test_cases:
-            entity = await memory_client.long_term.add_entity(
+            entity, _ = await memory_client.long_term.add_entity(
                 name=f"Test {entity_type} {subtype}",
                 entity_type=entity_type,
                 subtype=subtype,
@@ -693,7 +694,7 @@ class TestEntityNodeLabels:
     async def test_custom_type_has_label(self, memory_client):
         """Test that custom entity types are also added as PascalCase labels."""
         # Custom types (valid identifiers) should become labels
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="Custom Entity",
             entity_type="PRODUCT",  # Custom type (not POLE+O)
             resolve=False,
@@ -713,7 +714,7 @@ class TestEntityNodeLabels:
     @pytest.mark.asyncio
     async def test_custom_type_and_subtype_have_labels(self, memory_client):
         """Test that custom types with custom subtypes have both as PascalCase labels."""
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="iPhone 15 Pro",
             entity_type="PRODUCT",
             subtype="ELECTRONICS",
@@ -768,7 +769,7 @@ class TestEntityNodeLabels:
     async def test_invalid_label_format_no_extra_label(self, memory_client):
         """Test that invalid label formats don't add extra labels."""
         # Types with invalid label format should still create Entity but without type label
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="Entity with bad type",
             entity_type="has-dash",  # Invalid: contains dash
             resolve=False,
@@ -788,7 +789,7 @@ class TestEntityNodeLabels:
     @pytest.mark.asyncio
     async def test_type_subtype_string_format(self, memory_client):
         """Test adding entity with TYPE:SUBTYPE string format."""
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="123 Main St",
             entity_type="LOCATION:ADDRESS",  # Combined format
             resolve=False,

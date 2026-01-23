@@ -57,6 +57,21 @@ extraction = ["spacy>=3.7.0", "gliner>=0.2.0"]
 # Entity resolution
 fuzzy = ["rapidfuzz>=3.0.0"]
 
+# CLI tools
+cli = ["click>=8.0.0", "rich>=13.0.0"]
+
+# Observability
+opentelemetry = [
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp>=1.20.0",
+]
+opik = ["opik>=1.0.0"]
+observability = [
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+]
+
 # Framework integrations
 langchain = ["langchain-core>=0.2.0"]
 llamaindex = ["llama-index-core>=0.10.0"]
@@ -72,6 +87,9 @@ all = [
 full = [
     "neo4j-agent-memory[all,sentence-transformers,spacy,gliner]",
 ]
+
+[project.scripts]
+neo4j-memory = "neo4j_agent_memory.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/neo4j-labs/neo4j-agent-memory"

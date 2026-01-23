@@ -9,7 +9,7 @@ Reference: https://github.com/urchade/GLiNER
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import BaseModel, Field
 
@@ -29,6 +29,22 @@ def is_gliner_available() -> bool:
     """
     try:
         import gliner  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def is_glirel_available() -> bool:
+    """Check if GLiREL is installed and available.
+
+    GLiREL is a separate package for relation extraction that works with GLiNER entities.
+
+    Returns:
+        True if GLiREL can be imported, False otherwise.
+    """
+    try:
+        import glirel  # noqa: F401
 
         return True
     except ImportError:
@@ -545,6 +561,162 @@ class GLiNEREntityExtractor:
             source_text=text,
         )
 
+    def _extract_batch_sync(
+        self,
+        texts: list[str],
+        entity_types: list[str] | None = None,
+    ) -> list[list[ExtractedEntity]]:
+        """Synchronous batch extraction using GLiNER2's native batch support.
+
+        GLiNER models support batch inference which is more efficient on GPU
+        as it processes multiple texts in a single forward pass.
+        """
+        # Determine which labels to use
+        if self._use_descriptions:
+            all_labels = list(self.entity_labels.keys())
+        else:
+            all_labels = list(self.entity_labels)
+
+        # Filter labels if specific entity types requested
+        if entity_types:
+            entity_types_lower = [t.lower() for t in entity_types]
+            labels = [
+                label
+                for label in all_labels
+                if label.lower() in entity_types_lower
+                or self._map_label_to_poleo(label)[0] in entity_types
+            ]
+        else:
+            labels = all_labels
+
+        if not labels:
+            labels = all_labels
+
+        # Prepare labels for GLiNER
+        if self._use_descriptions:
+            predict_labels = {
+                label: self.entity_labels[label] for label in labels if label in self.entity_labels
+            }
+        else:
+            predict_labels = labels
+
+        # GLiNER batch prediction - more efficient than sequential
+        # predict_entities can accept a list of texts
+        batch_predictions = self.model.batch_predict_entities(
+            texts,
+            predict_labels,
+            threshold=self.threshold,
+            flat_ner=self.flat_ner,
+            multi_label=self.multi_label,
+        )
+
+        # Process predictions for each text
+        all_entities: list[list[ExtractedEntity]] = []
+
+        for text, predictions in zip(texts, batch_predictions):
+            entities = []
+            for pred in predictions:
+                # Map to POLE+O type
+                entity_type, subtype = self._map_label_to_poleo(pred["label"])
+
+                # Filter by requested types
+                if entity_types and entity_type not in entity_types:
+                    continue
+
+                entity = ExtractedEntity(
+                    name=pred["text"].strip(),
+                    type=entity_type,
+                    subtype=subtype,
+                    start_pos=pred["start"],
+                    end_pos=pred["end"],
+                    confidence=pred["score"],
+                    context=self._get_context(text, pred["start"], pred["end"]),
+                    extractor="gliner",
+                    attributes={
+                        "gliner_label": pred["label"],
+                        "gliner_score": pred["score"],
+                    },
+                )
+                entities.append(entity)
+            all_entities.append(entities)
+
+        return all_entities
+
+    async def extract_batch(
+        self,
+        texts: list[str],
+        *,
+        entity_types: list[str] | None = None,
+        batch_size: int = 32,
+        on_progress: "Callable[[int, int], None] | None" = None,
+    ) -> list[ExtractionResult]:
+        """
+        Extract entities from multiple texts using GLiNER batch inference.
+
+        This method uses GLiNER's native batch processing which is significantly
+        more efficient than processing texts one at a time, especially on GPU.
+
+        Args:
+            texts: List of texts to extract from
+            entity_types: Optional list of POLE+O entity types to filter
+            batch_size: Number of texts to process in each batch (for memory management)
+            on_progress: Optional callback called after each batch.
+                        Receives (completed_count, total_count).
+
+        Returns:
+            List of ExtractionResult objects, one per input text
+
+        Example:
+            ```python
+            extractor = GLiNEREntityExtractor.for_schema("podcast", device="cuda")
+            texts = ["Episode 1 transcript...", "Episode 2 transcript...", ...]
+            results = await extractor.extract_batch(texts, batch_size=16)
+            ```
+        """
+        if not texts:
+            return []
+
+        loop = asyncio.get_event_loop()
+        all_results: list[ExtractionResult] = []
+        total = len(texts)
+        completed = 0
+
+        # Process in batches to manage memory
+        for batch_start in range(0, total, batch_size):
+            batch_end = min(batch_start + batch_size, total)
+            batch_texts = texts[batch_start:batch_end]
+
+            # Run batch extraction in thread pool
+            batch_entities = await loop.run_in_executor(
+                None, self._extract_batch_sync, batch_texts, entity_types
+            )
+
+            # Convert to ExtractionResults
+            for text, entities in zip(batch_texts, batch_entities):
+                all_results.append(
+                    ExtractionResult(
+                        entities=entities,
+                        relations=[],
+                        preferences=[],
+                        source_text=text,
+                    )
+                )
+                completed += 1
+
+            # Report progress
+            if on_progress:
+                try:
+                    on_progress(completed, total)
+                except Exception as e:
+                    logger.warning(f"Progress callback error: {e}")
+
+        logger.debug(
+            f"GLiNER batch extracted {sum(r.entity_count for r in all_results)} entities "
+            f"from {len(texts)} texts"
+        )
+
+        return all_results
+
     def update_labels(self, labels: list[str]) -> None:
         """Update entity labels for extraction."""
         self.entity_labels = labels.copy()
@@ -637,3 +809,451 @@ class GLiNEREntityExtractor:
                 threshold=threshold,
                 device=device,
             )
+
+
+# =============================================================================
+# GLiREL Relation Extraction
+# =============================================================================
+
+# Default GLiREL model
+DEFAULT_GLIREL_MODEL = "jackboyla/glirel-large-v0"
+
+# Default relation types for POLE+O model
+DEFAULT_RELATION_TYPES: dict[str, str] = {
+    # Person relations
+    "works_at": "Person works at or is employed by an organization",
+    "lives_in": "Person lives in or resides at a location",
+    "born_in": "Person was born in a location",
+    "member_of": "Person is a member of an organization or group",
+    "knows": "Person knows or is acquainted with another person",
+    "related_to": "Person is related to (family) another person",
+    "spouse_of": "Person is married to another person",
+    "parent_of": "Person is a parent of another person",
+    "child_of": "Person is a child of another person",
+    # Organization relations
+    "located_in": "Organization or object is located in a place",
+    "subsidiary_of": "Organization is a subsidiary of another organization",
+    "partner_of": "Organization is a partner of another organization",
+    "founded_by": "Organization was founded by a person",
+    "ceo_of": "Person is CEO of an organization",
+    "owns": "Person or organization owns an object or another organization",
+    # Event relations
+    "occurred_at": "Event occurred at a location",
+    "participated_in": "Person participated in an event",
+    "organized_by": "Event was organized by a person or organization",
+    # Object relations
+    "manufactured_by": "Object was manufactured by an organization",
+    "used_by": "Object is used by a person or organization",
+    "part_of": "Object or entity is part of another entity",
+}
+
+
+class GLiRELConfig(BaseModel):
+    """Configuration for GLiREL relation extractor."""
+
+    model: str = Field(
+        default=DEFAULT_GLIREL_MODEL,
+        description="GLiREL model to use",
+    )
+    relation_types: dict[str, str] = Field(
+        default_factory=lambda: DEFAULT_RELATION_TYPES.copy(),
+        description="Relation types with descriptions",
+    )
+    threshold: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Confidence threshold for relations"
+    )
+    device: str = Field(default="cpu", description="Device to run model on (cpu, cuda, mps)")
+
+
+class GLiRELExtractor:
+    """Relation extraction using GLiREL (GLiNER for Relations).
+
+    GLiREL extracts relationships between entities without requiring LLM calls.
+    It works best when combined with GLiNER for entity extraction.
+
+    Note: Requires the glirel package: pip install glirel
+
+    Example:
+        ```python
+        from neo4j_agent_memory.extraction import GLiRELExtractor, GLiNEREntityExtractor
+
+        # First extract entities with GLiNER
+        entity_extractor = GLiNEREntityExtractor.for_schema("poleo")
+        entity_result = await entity_extractor.extract(text)
+
+        # Then extract relations with GLiREL
+        relation_extractor = GLiRELExtractor()
+        relations = await relation_extractor.extract_relations(
+            text,
+            entities=entity_result.entities,
+        )
+        ```
+    """
+
+    def __init__(
+        self,
+        model: str = DEFAULT_GLIREL_MODEL,
+        relation_types: dict[str, str] | list[str] | None = None,
+        threshold: float = 0.5,
+        device: str = "cpu",
+    ):
+        """Initialize GLiREL relation extractor.
+
+        Args:
+            model: GLiREL model name from HuggingFace
+            relation_types: Relation types to extract. Can be:
+                - dict[str, str]: Relation names with descriptions (recommended)
+                - list[str]: Simple list of relation names
+                - None: Use default POLE+O relation types
+            threshold: Confidence threshold for including relations
+            device: Device to run on (cpu, cuda, mps)
+        """
+        self._model_name = model
+        self._model = None  # Lazy load
+        self._nlp = None  # spaCy model for tokenization
+
+        if relation_types is None:
+            self.relation_types = DEFAULT_RELATION_TYPES.copy()
+        elif isinstance(relation_types, list):
+            self.relation_types = {rt: rt for rt in relation_types}
+        else:
+            self.relation_types = relation_types
+
+        self.threshold = threshold
+        self.device = device
+
+    @property
+    def model(self) -> Any:
+        """Lazy load GLiREL model."""
+        if self._model is None:
+            try:
+                from glirel import GLiREL
+
+                logger.info(f"Loading GLiREL model: {self._model_name}")
+                self._model = GLiREL.from_pretrained(self._model_name)
+                # GLiREL uses .to() for device placement
+                if hasattr(self._model, "to"):
+                    self._model.to(self.device)
+                logger.info(f"GLiREL model loaded on {self.device}")
+            except ImportError:
+                raise ImportError(
+                    "GLiREL is required for GLiRELExtractor. Install with: pip install glirel"
+                )
+            except Exception as e:
+                raise RuntimeError(f"Could not load GLiREL model '{self._model_name}': {e}") from e
+        return self._model
+
+    @property
+    def nlp(self) -> Any:
+        """Lazy load spaCy model for tokenization."""
+        if self._nlp is None:
+            try:
+                import spacy
+
+                self._nlp = spacy.load("en_core_web_sm")
+                logger.info("spaCy model loaded for tokenization")
+            except ImportError:
+                raise ImportError(
+                    "spaCy is required for GLiREL tokenization. "
+                    "Install with: pip install spacy && python -m spacy download en_core_web_sm"
+                )
+            except OSError:
+                raise RuntimeError(
+                    "spaCy model not found. Download with: python -m spacy download en_core_web_sm"
+                )
+        return self._nlp
+
+    def _tokenize(self, text: str) -> list[str]:
+        """Tokenize text using spaCy."""
+        doc = self.nlp(text)
+        return [token.text for token in doc]
+
+    def _entities_to_glirel_format(
+        self,
+        entities: list[ExtractedEntity],
+    ) -> list[list[int | str]]:
+        """Convert ExtractedEntity list to GLiREL NER format.
+
+        GLiREL expects entities as: [[start_token, end_token, type, text], ...]
+        But it also accepts character positions when using predict_relations with text.
+        """
+        glirel_entities = []
+        for entity in entities:
+            # GLiREL format: [start, end, type, text]
+            # Using character positions
+            glirel_entities.append(
+                [
+                    entity.start_pos or 0,
+                    entity.end_pos or len(entity.name),
+                    entity.type,
+                    entity.name,
+                ]
+            )
+        return glirel_entities
+
+    def _extract_relations_sync(
+        self,
+        text: str,
+        entities: list[ExtractedEntity],
+        relation_types: list[str] | None = None,
+    ) -> list["ExtractedRelation"]:
+        """Synchronous relation extraction using GLiREL."""
+        from neo4j_agent_memory.extraction.base import ExtractedRelation
+
+        if not entities or len(entities) < 2:
+            # Need at least 2 entities for relations
+            return []
+
+        # Determine relation types to use
+        if relation_types:
+            labels = [rt for rt in relation_types if rt in self.relation_types]
+            if not labels:
+                labels = relation_types
+        else:
+            labels = list(self.relation_types.keys())
+
+        # Tokenize text
+        tokens = self._tokenize(text)
+
+        # Convert entities to GLiREL format
+        ner_entities = self._entities_to_glirel_format(entities)
+
+        # Create entity name to entity mapping for later lookup
+        entity_map = {e.name: e for e in entities}
+
+        # Run GLiREL prediction
+        predictions = self.model.predict_relations(
+            tokens,
+            labels,
+            threshold=self.threshold,
+            ner=ner_entities,
+        )
+
+        relations = []
+        for pred in predictions:
+            head_text = pred.get("head_text", "")
+            tail_text = pred.get("tail_text", "")
+            label = pred.get("label", "RELATED_TO")
+            score = pred.get("score", 0.0)
+
+            # Create relation
+            relation = ExtractedRelation(
+                source=head_text,
+                target=tail_text,
+                relation_type=label.upper().replace(" ", "_"),
+                confidence=score,
+            )
+            relations.append(relation)
+
+        return relations
+
+    async def extract_relations(
+        self,
+        text: str,
+        entities: list[ExtractedEntity],
+        *,
+        relation_types: list[str] | None = None,
+    ) -> list["ExtractedRelation"]:
+        """Extract relations between entities using GLiREL.
+
+        Args:
+            text: The source text
+            entities: Pre-extracted entities (from GLiNER or other extractor)
+            relation_types: Optional list of relation types to extract.
+                           Defaults to all configured relation types.
+
+        Returns:
+            List of extracted relations
+        """
+        from neo4j_agent_memory.extraction.base import ExtractedRelation
+
+        if not text or not text.strip() or not entities:
+            return []
+
+        # Run in thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        relations = await loop.run_in_executor(
+            None,
+            self._extract_relations_sync,
+            text,
+            entities,
+            relation_types,
+        )
+
+        logger.debug(f"GLiREL extracted {len(relations)} relations")
+        return relations
+
+    @classmethod
+    def from_config(cls, config: GLiRELConfig) -> "GLiRELExtractor":
+        """Create extractor from configuration."""
+        return cls(
+            model=config.model,
+            relation_types=config.relation_types,
+            threshold=config.threshold,
+            device=config.device,
+        )
+
+    @classmethod
+    def for_poleo(
+        cls,
+        model: str = DEFAULT_GLIREL_MODEL,
+        threshold: float = 0.5,
+        device: str = "cpu",
+    ) -> "GLiRELExtractor":
+        """Create extractor with default POLE+O relation types."""
+        return cls(
+            model=model,
+            relation_types=DEFAULT_RELATION_TYPES,
+            threshold=threshold,
+            device=device,
+        )
+
+
+class GLiNERWithRelationsExtractor:
+    """Combined entity and relation extraction using GLiNER + GLiREL.
+
+    This extractor combines GLiNER for entity extraction and GLiREL for
+    relation extraction, providing a complete extraction solution without
+    requiring LLM calls.
+
+    Example:
+        ```python
+        extractor = GLiNERWithRelationsExtractor.for_schema("poleo")
+        result = await extractor.extract("John works at Acme Corp in New York.")
+        print(f"Entities: {result.entities}")
+        print(f"Relations: {result.relations}")
+        ```
+    """
+
+    def __init__(
+        self,
+        entity_extractor: GLiNEREntityExtractor,
+        relation_extractor: GLiRELExtractor,
+    ):
+        """Initialize combined extractor.
+
+        Args:
+            entity_extractor: GLiNER entity extractor
+            relation_extractor: GLiREL relation extractor
+        """
+        self._entity_extractor = entity_extractor
+        self._relation_extractor = relation_extractor
+
+    async def extract(
+        self,
+        text: str,
+        *,
+        entity_types: list[str] | None = None,
+        relation_types: list[str] | None = None,
+        extract_relations: bool = True,
+        extract_preferences: bool = False,
+    ) -> ExtractionResult:
+        """Extract entities and relations from text.
+
+        Args:
+            text: The text to extract from
+            entity_types: Optional list of entity types to extract
+            relation_types: Optional list of relation types to extract
+            extract_relations: Whether to extract relations (default True)
+            extract_preferences: Ignored (GLiNER/GLiREL don't extract preferences)
+
+        Returns:
+            ExtractionResult with entities and relations
+        """
+        if not text or not text.strip():
+            return ExtractionResult(source_text=text)
+
+        # Extract entities
+        entity_result = await self._entity_extractor.extract(
+            text,
+            entity_types=entity_types,
+        )
+
+        # Extract relations if requested and we have enough entities
+        relations = []
+        if extract_relations and len(entity_result.entities) >= 2:
+            relations = await self._relation_extractor.extract_relations(
+                text,
+                entity_result.entities,
+                relation_types=relation_types,
+            )
+
+        return ExtractionResult(
+            entities=entity_result.entities,
+            relations=relations,
+            preferences=[],  # GLiNER/GLiREL don't extract preferences
+            source_text=text,
+        )
+
+    @classmethod
+    def for_schema(
+        cls,
+        schema_name: str,
+        *,
+        gliner_model: str = DEFAULT_GLINER2_MODEL,
+        glirel_model: str = DEFAULT_GLIREL_MODEL,
+        entity_threshold: float = 0.5,
+        relation_threshold: float = 0.5,
+        device: str = "cpu",
+        relation_types: dict[str, str] | None = None,
+    ) -> "GLiNERWithRelationsExtractor":
+        """Create combined extractor for a domain schema.
+
+        Args:
+            schema_name: Domain schema name (poleo, podcast, news, etc.)
+            gliner_model: GLiNER model for entity extraction
+            glirel_model: GLiREL model for relation extraction
+            entity_threshold: Confidence threshold for entities
+            relation_threshold: Confidence threshold for relations
+            device: Device to run models on
+            relation_types: Custom relation types (defaults to POLE+O relations)
+
+        Returns:
+            GLiNERWithRelationsExtractor instance
+        """
+        entity_extractor = GLiNEREntityExtractor.for_schema(
+            schema_name,
+            model=gliner_model,
+            threshold=entity_threshold,
+            device=device,
+        )
+
+        relation_extractor = GLiRELExtractor(
+            model=glirel_model,
+            relation_types=relation_types or DEFAULT_RELATION_TYPES,
+            threshold=relation_threshold,
+            device=device,
+        )
+
+        return cls(entity_extractor, relation_extractor)
+
+    @classmethod
+    def for_poleo(
+        cls,
+        *,
+        gliner_model: str = DEFAULT_GLINER2_MODEL,
+        glirel_model: str = DEFAULT_GLIREL_MODEL,
+        entity_threshold: float = 0.5,
+        relation_threshold: float = 0.5,
+        device: str = "cpu",
+    ) -> "GLiNERWithRelationsExtractor":
+        """Create combined extractor optimized for POLE+O extraction.
+
+        Args:
+            gliner_model: GLiNER model for entity extraction
+            glirel_model: GLiREL model for relation extraction
+            entity_threshold: Confidence threshold for entities
+            relation_threshold: Confidence threshold for relations
+            device: Device to run models on
+
+        Returns:
+            GLiNERWithRelationsExtractor instance
+        """
+        return cls.for_schema(
+            "poleo",
+            gliner_model=gliner_model,
+            glirel_model=glirel_model,
+            entity_threshold=entity_threshold,
+            relation_threshold=relation_threshold,
+            device=device,
+        )

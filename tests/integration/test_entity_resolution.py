@@ -172,7 +172,7 @@ class TestEntityResolutionInMemoryOperations:
     async def test_add_entity_with_resolution_enabled(self, memory_client):
         """Test adding entity with resolution finds existing."""
         # Add original entity
-        original = await memory_client.long_term.add_entity(
+        original, _ = await memory_client.long_term.add_entity(
             name="Google LLC",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -180,7 +180,7 @@ class TestEntityResolutionInMemoryOperations:
         )
 
         # Add similar entity with resolution
-        similar = await memory_client.long_term.add_entity(
+        similar, _ = await memory_client.long_term.add_entity(
             name="google llc",  # Different case
             entity_type=EntityType.ORGANIZATION,
             resolve=True,  # Enable resolution
@@ -216,7 +216,7 @@ class TestEntityResolutionInMemoryOperations:
     async def test_resolution_across_sessions(self, memory_client):
         """Test that resolution works when adding entities with same name (different case)."""
         # Add first entity without resolution
-        entity1 = await memory_client.long_term.add_entity(
+        entity1, _ = await memory_client.long_term.add_entity(
             name="UniqueCompany123",
             entity_type=EntityType.ORGANIZATION,
             resolve=False,
@@ -228,7 +228,7 @@ class TestEntityResolutionInMemoryOperations:
 
         # Add similar entity with resolution enabled
         # Note: Resolution requires the resolver to find the existing entity
-        entity2 = await memory_client.long_term.add_entity(
+        entity2, _ = await memory_client.long_term.add_entity(
             name="uniquecompany123",  # Different case
             entity_type=EntityType.ORGANIZATION,
             resolve=True,

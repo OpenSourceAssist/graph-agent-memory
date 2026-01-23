@@ -70,7 +70,8 @@ src/neo4j_agent_memory/
 ├── core/memory.py           # Base protocols and models
 ├── schema/
 │   ├── __init__.py          # Schema exports
-│   └── models.py            # POLE+O entity types, schema config
+│   ├── models.py            # POLE+O entity types, schema config
+│   └── persistence.py       # Schema persistence (Neo4j storage)
 ├── memory/
 │   ├── short_term.py          # Conversations, messages
 │   ├── long_term.py          # Entities, preferences, facts (POLE+O)
@@ -79,8 +80,9 @@ src/neo4j_agent_memory/
 │   ├── base.py              # EntityExtractor protocol, ExtractedEntity
 │   ├── llm_extractor.py     # LLM-based extraction (OpenAI)
 │   ├── spacy_extractor.py   # spaCy NER extraction
-│   ├── gliner_extractor.py  # GLiNER zero-shot NER
+│   ├── gliner_extractor.py  # GLiNER zero-shot NER, GLiREL relations
 │   ├── pipeline.py          # Multi-stage extraction pipeline
+│   ├── streaming.py         # Streaming extraction for long documents
 │   └── factory.py           # Extractor factory and builder
 ├── resolution/
 │   ├── base.py              # EntityResolver protocol
@@ -99,11 +101,24 @@ src/neo4j_agent_memory/
 │   ├── schema.py            # Index/constraint management
 │   ├── queries.py           # Cypher query templates
 │   └── query_builder.py     # Dynamic query builder with label validation
+├── cli/
+│   ├── __init__.py          # CLI exports
+│   └── main.py              # CLI commands (extract, schemas, stats)
+├── observability/
+│   ├── __init__.py          # Observability exports
+│   ├── base.py              # Abstract Tracer/Span interfaces, NoOp implementations
+│   ├── otel.py              # OpenTelemetry provider
+│   └── opik.py              # Opik provider (LLM-focused observability)
 └── integrations/
     ├── langchain/           # LangChain memory + retriever
     ├── pydantic_ai/         # Pydantic AI dependency + tools
     ├── llamaindex/          # LlamaIndex memory
     └── crewai/              # CrewAI memory
+
+benchmarks/                   # Extraction quality benchmarks (separate module)
+├── __init__.py              # Benchmark exports
+├── metrics.py               # Precision/recall/F1 calculations
+└── runner.py                # Benchmark runner and test case definitions
 ```
 
 ### Key Classes
@@ -185,6 +200,199 @@ Key fixtures in `tests/conftest.py`:
 - `memory_client` - Connected MemoryClient with mock embedder/extractor/resolver
 - `clean_memory_client` - Same as above but cleans database before/after each test
 - `mock_embedder`, `mock_extractor`, `mock_resolver` - Mock implementations for testing
+
+## CLI (Command Line Interface)
+
+The package provides a CLI for entity extraction and schema management. Install with CLI extras:
+
+```bash
+uv pip install neo4j-agent-memory[cli]
+```
+
+### Commands
+
+```bash
+# Extract entities from text
+neo4j-memory extract "John Smith works at Acme Corp in New York"
+
+# Extract from a file
+neo4j-memory extract --file document.txt
+
+# Extract with specific entity types
+neo4j-memory extract "..." -e Person -e Organization
+
+# Extract with different output formats
+neo4j-memory extract "..." --format json    # JSON output
+neo4j-memory extract "..." --format jsonl   # JSON Lines (streaming)
+neo4j-memory extract "..." --format table   # Rich table (default)
+
+# Use different extractors
+neo4j-memory extract "..." --extractor gliner  # GLiNER (default)
+neo4j-memory extract "..." --extractor llm     # LLM-based
+neo4j-memory extract "..." --extractor hybrid  # GLiNER + LLM
+
+# Pipe from stdin
+echo "John works at Acme" | neo4j-memory extract -
+
+# Schema management (requires Neo4j connection)
+neo4j-memory schemas list --password $NEO4J_PASSWORD
+neo4j-memory schemas show my_schema --format yaml
+neo4j-memory schemas validate schema.yaml
+
+# Statistics
+neo4j-memory stats --password $NEO4J_PASSWORD --format json
+```
+
+### Environment Variables
+
+- `NEO4J_URI` - Neo4j connection URI (default: bolt://localhost:7687)
+- `NEO4J_USER` - Neo4j username (default: neo4j)
+- `NEO4J_PASSWORD` - Neo4j password (required for schemas/stats commands)
+
+## Observability
+
+The package supports tracing via OpenTelemetry and Opik for monitoring extraction pipelines.
+
+### Installation
+
+```bash
+# OpenTelemetry support
+uv pip install neo4j-agent-memory[opentelemetry]
+
+# Opik support (LLM-focused observability)
+uv pip install neo4j-agent-memory[opik]
+```
+
+### Usage
+
+```python
+from neo4j_agent_memory.observability import get_tracer, TracingProvider
+
+# Auto-detect available provider (Opik > OpenTelemetry > NoOp)
+tracer = get_tracer()
+
+# Or specify explicitly
+tracer = get_tracer(provider="opentelemetry", service_name="my-extraction-service")
+tracer = get_tracer(provider="opik", project_name="my-project")
+
+# Use decorator for tracing functions
+@tracer.trace("extract_entities")
+async def extract(text: str):
+    ...
+
+# Or use context manager for manual spans
+async with tracer.async_span("extraction", {"text_length": len(text)}) as span:
+    result = await extractor.extract(text)
+    span.set_attribute("entity_count", len(result.entities))
+```
+
+### Providers
+
+- **OpenTelemetry**: Standard observability with OTLP export support
+- **Opik**: LLM-focused observability with nested traces, feedback scores, and dashboards
+- **NoOp**: Disabled tracing (zero overhead)
+
+## Extraction Quality Benchmarks
+
+The `benchmarks/` module provides tools for measuring extraction quality with precision, recall, and F1 metrics.
+
+### Running Benchmarks
+
+```python
+from benchmarks import (
+    BenchmarkRunner,
+    BenchmarkSuite,
+    BenchmarkTestCase,
+    BenchmarkConfig,
+    ExpectedEntity,
+    create_sample_benchmark_suite,
+)
+from neo4j_agent_memory.extraction import GLiNEREntityExtractor
+
+# Create extractor
+extractor = GLiNEREntityExtractor.for_schema("poleo")
+
+# Load or create a benchmark suite
+suite = BenchmarkSuite.from_json_file("my_benchmark.json")
+# Or use sample suite
+suite = create_sample_benchmark_suite()
+
+# Run benchmarks
+runner = BenchmarkRunner(extractor)
+result = await runner.run_suite(suite)
+
+# Access metrics
+print(f"Micro F1: {result.metrics.micro_f1:.3f}")
+print(f"Macro F1: {result.metrics.macro_f1:.3f}")
+print(f"Avg latency: {result.avg_latency_ms:.1f}ms")
+print(f"Throughput: {result.throughput_docs_per_sec:.2f} docs/sec")
+
+# Per-entity-type metrics
+for entity_type, metrics in result.metrics.entity_metrics.items():
+    print(f"{entity_type}: P={metrics.precision:.2f}, R={metrics.recall:.2f}, F1={metrics.f1_score:.2f}")
+```
+
+### Creating Benchmark Suites
+
+```python
+# Define test cases with expected entities
+test_cases = [
+    BenchmarkTestCase(
+        id="tc-001",
+        text="John Smith works at Acme Corporation.",
+        expected_entities=[
+            ExpectedEntity(name="John Smith", entity_type="PERSON"),
+            ExpectedEntity(
+                name="Acme Corporation",
+                entity_type="ORGANIZATION",
+                aliases=["Acme Corp", "Acme"],  # Alternative names that match
+            ),
+        ],
+    ),
+]
+
+suite = BenchmarkSuite(
+    name="my_benchmark",
+    description="Custom benchmark suite",
+    test_cases=test_cases,
+    config=BenchmarkConfig(
+        warmup_runs=1,      # Warmup iterations (not counted)
+        num_runs=3,         # Iterations per test case
+        timeout_seconds=30, # Timeout per extraction
+    ),
+)
+
+# Save to JSON for reuse
+suite.to_json_file("my_benchmark.json")
+```
+
+### Comparing Extractors
+
+```python
+from neo4j_agent_memory.extraction import (
+    GLiNEREntityExtractor,
+    SpacyEntityExtractor,
+)
+
+extractors = [
+    GLiNEREntityExtractor.for_schema("poleo"),
+    SpacyEntityExtractor("en_core_web_sm"),
+]
+
+runner = BenchmarkRunner(extractors[0])
+results = await runner.compare_extractors(extractors, suite)
+
+for result in results:
+    print(f"{result.extractor_name}: F1={result.metrics.micro_f1:.3f}")
+```
+
+### Metrics
+
+- **Precision**: TP / (TP + FP) - How many extracted entities are correct
+- **Recall**: TP / (TP + FN) - How many expected entities were found
+- **F1 Score**: Harmonic mean of precision and recall
+- **Micro averages**: Aggregate across all entity types
+- **Macro averages**: Average of per-type metrics
 
 ## Common Patterns
 
@@ -274,6 +482,185 @@ await client.long_term.add_entity("Acme Corp", "ORGANIZATION", subtype="COMPANY"
 await client.long_term.add_entity("Meeting Q1", "EVENT:MEETING")
 ```
 
+### Entity Deduplication on Ingest
+
+Long-term memory supports automatic entity deduplication when adding entities. This uses embedding similarity and optional fuzzy string matching to identify potential duplicates:
+
+```python
+from neo4j_agent_memory.memory import (
+    LongTermMemory,
+    DeduplicationConfig,
+    DeduplicationResult,
+)
+
+# Configure deduplication thresholds
+dedup_config = DeduplicationConfig(
+    enabled=True,                    # Enable deduplication (default)
+    auto_merge_threshold=0.95,       # Auto-merge if similarity >= 0.95
+    flag_threshold=0.85,             # Flag for review if >= 0.85 but < 0.95
+    use_fuzzy_matching=True,         # Also use fuzzy string matching
+    fuzzy_threshold=0.9,             # Fuzzy match threshold
+    max_candidates=10,               # Max candidates to check
+    match_same_type_only=True,       # Only match entities of same type
+)
+
+# Pass config when creating LongTermMemory
+long_term = LongTermMemory(
+    client=neo4j_client,
+    embedder=embedder,
+    deduplication=dedup_config,
+)
+
+# add_entity now returns (entity, dedup_result) tuple
+entity, dedup_result = await long_term.add_entity(
+    name="Jon Smith",
+    entity_type="PERSON",
+)
+
+# Check what happened
+if dedup_result.action == "merged":
+    print(f"Auto-merged with {dedup_result.matched_entity_name}")
+    # entity is the existing entity, new name added as alias
+elif dedup_result.action == "flagged":
+    print(f"Flagged as potential duplicate of {dedup_result.matched_entity_name}")
+    # entity is created, SAME_AS relationship added for review
+else:
+    print("No duplicates found, entity created normally")
+
+# Disable deduplication for specific entity
+entity, _ = await long_term.add_entity(
+    name="Unique Entity",
+    entity_type="OBJECT",
+    deduplicate=False,  # Skip deduplication check
+)
+```
+
+**Managing Duplicates:**
+
+```python
+# Find potential duplicates pending review
+duplicates = await long_term.find_potential_duplicates(limit=100)
+for entity1, entity2, confidence in duplicates:
+    print(f"{entity1.name} might be same as {entity2.name} ({confidence:.1%})")
+
+# Review a duplicate pair
+await long_term.review_duplicate(
+    source_id=entity1.id,
+    target_id=entity2.id,
+    confirm=True,  # True to merge, False to reject
+)
+
+# Get all entities in a SAME_AS cluster
+cluster = await long_term.get_same_as_cluster(entity_id)
+
+# Get deduplication statistics
+stats = await long_term.get_deduplication_stats()
+print(f"Total: {stats.total_entities}, Merged: {stats.merged_entities}")
+print(f"Pending reviews: {stats.pending_reviews}")
+```
+
+**SAME_AS Relationships:**
+
+When entities are flagged as potential duplicates, a `SAME_AS` relationship is created:
+
+```cypher
+(Entity)-[:SAME_AS {
+    confidence: 0.88,
+    match_type: "embedding",  # or "fuzzy" or "both"
+    status: "pending",        # or "confirmed" or "rejected"
+    created_at: datetime()
+}]->(Entity)
+```
+
+### Provenance Tracking
+
+Track where entities were extracted from and which extractor produced them:
+
+```python
+# Register an extractor (auto-created on first link, but can be explicit)
+await client.long_term.register_extractor(
+    "GLiNEREntityExtractor",
+    version="1.0.0",
+    config={"threshold": 0.5, "schema": "podcast"},
+)
+
+# Link entity to source message
+entity, _ = await client.long_term.add_entity("John Smith", "PERSON")
+await client.long_term.link_entity_to_message(
+    entity,
+    message_id,
+    confidence=0.95,
+    start_pos=10,
+    end_pos=20,
+    context="... mentioned John Smith in the meeting ...",
+)
+
+# Link entity to extractor
+await client.long_term.link_entity_to_extractor(
+    entity,
+    "GLiNEREntityExtractor",
+    confidence=0.95,
+    extraction_time_ms=150.5,
+)
+
+# Get provenance for an entity
+provenance = await client.long_term.get_entity_provenance(entity)
+for source in provenance["sources"]:
+    print(f"From message {source['message_id']} at position {source['start_pos']}")
+for extractor in provenance["extractors"]:
+    print(f"Extracted by {extractor['name']} v{extractor['version']}")
+
+# Get all entities extracted from a message
+entities = await client.long_term.get_entities_from_message(message_id)
+for entity, info in entities:
+    print(f"{entity.name} at {info['start_pos']}-{info['end_pos']}")
+
+# Get entities by extractor
+entities = await client.long_term.get_entities_by_extractor("GLiNEREntityExtractor")
+
+# List all extractors with stats
+extractors = await client.long_term.list_extractors()
+for ex in extractors:
+    print(f"{ex['name']}: {ex['entity_count']} entities")
+
+# Get extraction statistics
+stats = await client.long_term.get_extraction_stats()
+print(f"Total entities: {stats['total_entities']}")
+print(f"From {stats['source_messages']} messages")
+
+# Delete provenance for an entity
+deleted = await client.long_term.delete_entity_provenance(entity)
+```
+
+**Provenance Schema:**
+
+```cypher
+// Extractor node
+(:Extractor {
+    id: "uuid",
+    name: "GLiNEREntityExtractor",
+    version: "1.0.0",
+    config: "{...}",
+    created_at: datetime()
+})
+
+// EXTRACTED_FROM relationship (Entity -> Message)
+(Entity)-[:EXTRACTED_FROM {
+    confidence: 0.95,
+    start_pos: 10,
+    end_pos: 20,
+    context: "...",
+    created_at: datetime()
+}]->(Message)
+
+// EXTRACTED_BY relationship (Entity -> Extractor)
+(Entity)-[:EXTRACTED_BY {
+    confidence: 0.95,
+    extraction_time_ms: 150.5,
+    created_at: datetime()
+}]->(Extractor)
+```
+
 ### Geocoding Location Entities
 
 Location entities can be geocoded to add latitude/longitude coordinates as a Neo4j `Point` property, enabling geospatial queries:
@@ -356,6 +743,284 @@ extractor = (
 result = await extractor.extract("John works at Acme Corp in NYC")
 for entity in result.entities:
     print(f"{entity.name}: {entity.full_type}")  # e.g., "John: PERSON"
+```
+
+### Batch Extraction
+
+For processing multiple texts efficiently, use `extract_batch()`:
+
+```python
+from neo4j_agent_memory.extraction import (
+    ExtractionPipeline,
+    BatchExtractionResult,
+)
+
+# Create pipeline
+pipeline = ExtractionPipeline(stages=[extractor1, extractor2])
+
+# Process multiple texts in parallel
+texts = ["John works at Acme.", "Sarah lives in NYC.", "Bob met Jane at the conference."]
+
+def on_progress(completed: int, total: int) -> None:
+    print(f"Progress: {completed}/{total}")
+
+result: BatchExtractionResult = await pipeline.extract_batch(
+    texts,
+    batch_size=10,           # Texts per batch (memory management)
+    max_concurrency=5,       # Parallel extractions
+    on_progress=on_progress, # Progress callback
+    fail_fast=False,         # Continue on errors (default)
+)
+
+# Access results
+print(f"Processed: {result.total_items}, Success: {result.successful_items}")
+print(f"Total entities: {result.total_entities}")
+print(f"Success rate: {result.success_rate:.1%}")
+
+# Get all entities across texts
+all_entities = result.get_all_entities()
+
+# Get errors for failed items
+for index, error_msg in result.get_errors():
+    print(f"Item {index} failed: {error_msg}")
+
+# Individual results maintain input order
+for item in result.results:
+    print(f"Text {item.index}: {item.result.entity_count} entities, {item.duration_ms:.1f}ms")
+```
+
+**GLiNER Batch Extraction (GPU-optimized):**
+
+```python
+from neo4j_agent_memory.extraction import GLiNEREntityExtractor
+
+# GLiNER supports native batch inference for better GPU utilization
+extractor = GLiNEREntityExtractor.for_schema("podcast", device="cuda")
+
+# Batch extraction uses native GLiNER batch_predict_entities
+results = await extractor.extract_batch(
+    texts,
+    batch_size=32,  # Larger batches for GPU efficiency
+    on_progress=on_progress,
+)
+```
+
+### Streaming Extraction for Long Documents
+
+For very long documents (>100K tokens), use streaming extraction to process chunks efficiently:
+
+```python
+from neo4j_agent_memory.extraction import (
+    StreamingExtractor,
+    create_streaming_extractor,
+    GLiNEREntityExtractor,
+)
+
+# Create base extractor
+extractor = GLiNEREntityExtractor.for_schema("podcast")
+
+# Wrap with streaming extractor
+streamer = StreamingExtractor(
+    extractor,
+    chunk_size=4000,      # Characters per chunk
+    overlap=200,          # Overlap between chunks
+    split_on_sentences=True,  # Try to split on sentence boundaries
+)
+
+# Or use factory with defaults
+streamer = create_streaming_extractor(extractor)
+
+# Stream results chunk by chunk (memory efficient)
+async for chunk_result in streamer.extract_streaming(long_document):
+    print(f"Chunk {chunk_result.chunk.index}: {chunk_result.entity_count} entities")
+    if not chunk_result.success:
+        print(f"  Error: {chunk_result.error}")
+
+# Or get complete result with automatic deduplication
+result = await streamer.extract(
+    long_document,
+    deduplicate=True,  # Remove duplicate entities across chunks
+    on_progress=lambda done, total: print(f"Progress: {done}/{total}"),
+)
+
+print(f"Stats: {result.stats.total_chunks} chunks, "
+      f"{result.stats.deduplicated_entities} entities "
+      f"(from {result.stats.total_entities} raw)")
+
+# Convert to standard ExtractionResult
+extraction_result = result.to_extraction_result(source_text=long_document)
+```
+
+**Token-based Chunking:**
+
+```python
+# Chunk by approximate token count instead of characters
+streamer = StreamingExtractor(
+    extractor,
+    chunk_size=1000,     # Tokens per chunk
+    overlap=50,          # Token overlap
+    chunk_by_tokens=True,
+)
+```
+
+**Chunk Utilities:**
+
+```python
+from neo4j_agent_memory.extraction import chunk_text_by_chars, chunk_text_by_tokens
+
+# Manual chunking for custom processing
+chunks = chunk_text_by_chars(text, chunk_size=4000, overlap=200)
+for chunk in chunks:
+    print(f"Chunk {chunk.index}: chars {chunk.start_char}-{chunk.end_char}")
+    print(f"  First: {chunk.is_first}, Last: {chunk.is_last}")
+    print(f"  Approx tokens: {chunk.approx_token_count}")
+```
+
+### GLiREL Relation Extraction (without LLM)
+
+GLiREL extracts relationships between entities without requiring LLM calls:
+
+```python
+from neo4j_agent_memory.extraction import (
+    is_glirel_available,
+    GLiRELExtractor,
+    GLiNERWithRelationsExtractor,
+    DEFAULT_RELATION_TYPES,
+)
+
+# Check if GLiREL is available
+if is_glirel_available():
+    # Option 1: Separate entity and relation extraction
+    from neo4j_agent_memory.extraction import GLiNEREntityExtractor
+
+    entity_extractor = GLiNEREntityExtractor.for_schema("poleo")
+    entity_result = await entity_extractor.extract(text)
+
+    relation_extractor = GLiRELExtractor()
+    relations = await relation_extractor.extract_relations(
+        text,
+        entities=entity_result.entities,
+    )
+
+    # Option 2: Combined extraction (recommended)
+    extractor = GLiNERWithRelationsExtractor.for_poleo()
+    result = await extractor.extract("John works at Acme Corp in NYC.")
+    print(f"Entities: {result.entities}")   # John, Acme Corp, NYC
+    print(f"Relations: {result.relations}")  # John -[WORKS_AT]-> Acme Corp
+
+# Default relation types for POLE+O model
+print(DEFAULT_RELATION_TYPES.keys())
+# works_at, lives_in, member_of, knows, located_in, founded_by, owns, etc.
+```
+
+### Schema Persistence
+
+Schemas can be stored in and loaded from Neo4j, enabling schema management without code changes:
+
+```python
+from neo4j_agent_memory.schema import (
+    EntitySchemaConfig,
+    EntityTypeConfig,
+    RelationTypeConfig,
+    SchemaManager,
+    StoredSchema,
+)
+
+# Create schema manager with connected client
+manager = SchemaManager(client._client)  # or pass Neo4jClient directly
+
+# Create a custom schema
+medical_schema = EntitySchemaConfig(
+    name="medical",
+    version="1.0",
+    description="Medical records schema",
+    entity_types=[
+        EntityTypeConfig(
+            name="PATIENT",
+            description="A patient",
+            subtypes=["ADULT", "PEDIATRIC"],
+            attributes=["name", "dob", "mrn"],
+        ),
+        EntityTypeConfig(
+            name="CONDITION",
+            description="Medical condition or diagnosis",
+            subtypes=["CHRONIC", "ACUTE"],
+        ),
+    ],
+    relation_types=[
+        RelationTypeConfig(
+            name="DIAGNOSED_WITH",
+            source_types=["PATIENT"],
+            target_types=["CONDITION"],
+        ),
+    ],
+)
+
+# Save schema to Neo4j
+stored = await manager.save_schema(medical_schema, created_by="admin")
+print(f"Saved schema {stored.name} v{stored.version} (id: {stored.id})")
+
+# Load schema by name (gets latest active version)
+loaded_schema = await manager.load_schema("medical")
+
+# Load specific version
+v1_schema = await manager.load_schema_version("medical", "1.0")
+
+# List all schemas
+schemas = await manager.list_schemas()
+for s in schemas:
+    print(f"{s.name}: v{s.latest_version} ({s.version_count} versions)")
+
+# List all versions of a schema
+versions = await manager.list_schema_versions("medical")
+
+# Set a specific version as active
+await manager.set_active_version("medical", "1.0")
+
+# Check if schema exists
+if await manager.schema_exists("medical"):
+    print("Medical schema is available")
+
+# Delete schema
+await manager.delete_schema(stored.id)  # Single version
+await manager.delete_all_versions("medical")  # All versions
+```
+
+**Schema Versioning:**
+
+When saving a schema with the same name, a new version is created. By default, the new version becomes active:
+
+```python
+# Create v1.0
+await manager.save_schema(schema_v1)
+
+# Update schema
+schema_v2 = EntitySchemaConfig(name="medical", version="2.0", ...)
+await manager.save_schema(schema_v2)  # Now v2.0 is active
+
+# Save without activating
+schema_v3 = EntitySchemaConfig(name="medical", version="3.0-beta", ...)
+await manager.save_schema(schema_v3, set_active=False)
+
+# Activate v3.0-beta later
+await manager.set_active_version("medical", "3.0-beta")
+```
+
+**Neo4j Schema Node:**
+
+Schemas are stored as `(:Schema)` nodes:
+
+```cypher
+(:Schema {
+    id: "uuid",
+    name: "medical",
+    version: "1.0",
+    description: "Medical records schema",
+    config: "{...}",  // JSON-serialized EntitySchemaConfig
+    is_active: true,
+    created_at: datetime(),
+    created_by: "admin"
+})
 ```
 
 ### GLiNER2 Domain Schemas
@@ -472,6 +1137,14 @@ deps = MemoryDependency(client=client, session_id="user-123")
 11. **Geocoding for Locations**: Location entities can have a `location` property containing Neo4j Point coordinates. Use `GeocodingConfig` to configure providers (Nominatim free, Google requires API key). The `geocoder.py` module provides `NominatimGeocoder`, `GoogleGeocoder`, and `CachedGeocoder` classes. A Point index is created on `Entity.location` for efficient spatial queries.
 
 12. **GLiNER Availability Check**: GLiNER is an optional dependency. Use `is_gliner_available()` from `neo4j_agent_memory.extraction` to check if GLiNER is installed before creating extractors. The GLiNER model is lazy-loaded on first `extract()` call, so ImportError may occur during extraction rather than at extractor creation time.
+
+13. **Entity Deduplication**: `add_entity()` now returns a tuple `(Entity, DeduplicationResult)` instead of just `Entity`. Deduplication is enabled by default with `DeduplicationConfig()`. Use `deduplicate=False` parameter to skip deduplication for specific entities. Duplicates above `auto_merge_threshold` (default 0.95) are automatically merged; those between `flag_threshold` (0.85) and auto_merge are flagged with `SAME_AS` relationships for human review.
+
+14. **Schema Persistence**: Custom schemas can be stored in Neo4j using `SchemaManager`. Schemas are stored as `(:Schema)` nodes with JSON-serialized config. Multiple versions of the same schema can exist, with one marked as active. Use `save_schema()` to store, `load_schema()` to retrieve by name, and `load_schema_version()` for specific versions. Indexes are created on `Schema.name` and `Schema.id` for efficient lookups.
+
+15. **Streaming Extraction**: For very long documents (>100K tokens), use `StreamingExtractor` to process chunks efficiently. It yields results as each chunk is processed (async generator), handles entity position adjustment to document-level coordinates, and automatically deduplicates entities across chunks. Configure `chunk_size` (chars or tokens), `overlap`, and `chunk_by_tokens` for different chunking strategies.
+
+16. **Provenance Tracking**: Entities can be linked to their source messages via `EXTRACTED_FROM` relationships and to extractors via `EXTRACTED_BY` relationships. Use `link_entity_to_message()` and `link_entity_to_extractor()` to create provenance links. Query with `get_entity_provenance()`, `get_entities_from_message()`, or `get_entities_by_extractor()`. Extractor nodes (`(:Extractor)`) are auto-created when linking.
 
 ## Environment Variables
 

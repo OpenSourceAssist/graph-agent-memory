@@ -101,7 +101,7 @@ class TestMemoryClientMemoryAccess:
         """Test accessing long-term memory through client."""
         assert memory_client.long_term is not None
 
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             "TestEntity",
             EntityType.PERSON,
             resolve=False,
@@ -464,7 +464,7 @@ class TestMemoryClientConfiguration:
             resolver=mock_resolver,
         ) as client:
             # Verify embedder is used
-            entity = await client.long_term.add_entity(
+            entity, _ = await client.long_term.add_entity(
                 "TestEntity",
                 EntityType.PERSON,
                 resolve=False,

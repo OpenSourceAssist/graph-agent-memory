@@ -60,7 +60,7 @@ class TestBasicUsageExample:
     async def test_long_term_memory_operations(self, memory_client):
         """Test long-term memory operations from basic example."""
         # Add entities
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="Alice Smith",
             entity_type=EntityType.PERSON,
             description="A software engineer",
@@ -215,7 +215,7 @@ class TestEntityResolutionExample:
         )
 
         # Add similar entity with resolution
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="microsoft corporation",
             entity_type=EntityType.ORGANIZATION,
             resolve=True,

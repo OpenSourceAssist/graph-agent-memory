@@ -1,5 +1,6 @@
 """Multi-stage entity extraction pipeline."""
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -16,6 +17,10 @@ from neo4j_agent_memory.extraction.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Type alias for progress callback: (completed_count, total_count) -> None
+ProgressCallback = Callable[[int, int], None]
 
 
 class MergeStrategy(str, Enum):
@@ -67,6 +72,76 @@ class PipelineResult:
                 result[extractor] = []
             result[extractor].append(entity)
         return result
+
+
+@dataclass
+class BatchItemResult:
+    """Result for a single item in batch extraction."""
+
+    index: int
+    result: ExtractionResult
+    success: bool = True
+    error: str | None = None
+    duration_ms: float = 0.0
+
+
+@dataclass
+class BatchExtractionResult:
+    """Result from batch extraction of multiple texts.
+
+    Provides both individual results and aggregate statistics.
+    """
+
+    results: list[BatchItemResult] = field(default_factory=list)
+    total_duration_ms: float = 0.0
+
+    @property
+    def total_items(self) -> int:
+        """Total number of items processed."""
+        return len(self.results)
+
+    @property
+    def successful_items(self) -> int:
+        """Number of successfully processed items."""
+        return sum(1 for r in self.results if r.success)
+
+    @property
+    def failed_items(self) -> int:
+        """Number of failed items."""
+        return sum(1 for r in self.results if not r.success)
+
+    @property
+    def success_rate(self) -> float:
+        """Success rate as a fraction (0.0-1.0)."""
+        if not self.results:
+            return 0.0
+        return self.successful_items / len(self.results)
+
+    @property
+    def total_entities(self) -> int:
+        """Total entities extracted across all successful items."""
+        return sum(r.result.entity_count for r in self.results if r.success)
+
+    @property
+    def total_relations(self) -> int:
+        """Total relations extracted across all successful items."""
+        return sum(r.result.relation_count for r in self.results if r.success)
+
+    def get_extraction_results(self) -> list[ExtractionResult]:
+        """Get just the ExtractionResult objects (successful only)."""
+        return [r.result for r in self.results if r.success]
+
+    def get_all_entities(self) -> list[ExtractedEntity]:
+        """Get all entities from successful extractions."""
+        entities = []
+        for r in self.results:
+            if r.success:
+                entities.extend(r.result.entities)
+        return entities
+
+    def get_errors(self) -> list[tuple[int, str]]:
+        """Get list of (index, error_message) for failed items."""
+        return [(r.index, r.error or "Unknown error") for r in self.results if not r.success]
 
 
 @runtime_checkable
@@ -443,6 +518,143 @@ class ExtractionPipeline:
             final_result=final_result,
             stage_results=stage_results,
             merge_strategy=self.merge_strategy,
+            total_duration_ms=total_duration,
+        )
+
+    async def extract_batch(
+        self,
+        texts: list[str],
+        *,
+        batch_size: int = 10,
+        max_concurrency: int = 5,
+        entity_types: list[str] | None = None,
+        extract_relations: bool = True,
+        extract_preferences: bool = True,
+        on_progress: ProgressCallback | None = None,
+        fail_fast: bool = False,
+    ) -> BatchExtractionResult:
+        """
+        Extract entities from multiple texts in parallel.
+
+        This method efficiently processes multiple texts using concurrent extraction,
+        providing better throughput than sequential extraction. It supports progress
+        tracking and configurable error handling.
+
+        Args:
+            texts: List of texts to extract from
+            batch_size: Number of texts to process in each batch (for memory management)
+            max_concurrency: Maximum number of concurrent extractions
+            entity_types: Optional list of entity types to extract
+            extract_relations: Whether to extract relations
+            extract_preferences: Whether to extract preferences
+            on_progress: Optional callback called after each text is processed.
+                        Receives (completed_count, total_count).
+            fail_fast: If True, stop on first error. If False, continue and collect errors.
+
+        Returns:
+            BatchExtractionResult containing individual results and aggregate statistics
+
+        Example:
+            ```python
+            texts = ["John works at Acme.", "Sarah lives in NYC.", ...]
+
+            def progress(done, total):
+                print(f"Progress: {done}/{total}")
+
+            result = await pipeline.extract_batch(
+                texts,
+                max_concurrency=10,
+                on_progress=progress
+            )
+
+            print(f"Extracted {result.total_entities} entities from {result.successful_items} texts")
+            ```
+        """
+        import time
+
+        start_time = time.time()
+        total = len(texts)
+        completed = 0
+        item_results: list[BatchItemResult] = []
+
+        # Semaphore for concurrency control
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def process_one(index: int, text: str) -> BatchItemResult:
+            """Process a single text with semaphore control."""
+            nonlocal completed
+
+            async with semaphore:
+                item_start = time.time()
+                try:
+                    result = await self.extract(
+                        text,
+                        entity_types=entity_types,
+                        extract_relations=extract_relations,
+                        extract_preferences=extract_preferences,
+                    )
+                    duration = (time.time() - item_start) * 1000
+                    return BatchItemResult(
+                        index=index,
+                        result=result,
+                        success=True,
+                        duration_ms=duration,
+                    )
+                except Exception as e:
+                    duration = (time.time() - item_start) * 1000
+                    logger.warning(f"Batch extraction failed for item {index}: {e}")
+                    if fail_fast:
+                        raise
+                    return BatchItemResult(
+                        index=index,
+                        result=ExtractionResult(source_text=text),
+                        success=False,
+                        error=str(e),
+                        duration_ms=duration,
+                    )
+
+        # Process in batches for memory management
+        for batch_start in range(0, total, batch_size):
+            batch_end = min(batch_start + batch_size, total)
+            batch_texts = texts[batch_start:batch_end]
+            batch_indices = range(batch_start, batch_end)
+
+            # Create tasks for this batch
+            tasks = [process_one(idx, text) for idx, text in zip(batch_indices, batch_texts)]
+
+            # Run batch concurrently
+            batch_results = await asyncio.gather(*tasks, return_exceptions=not fail_fast)
+
+            # Process results
+            for result in batch_results:
+                if isinstance(result, Exception):
+                    # This shouldn't happen with return_exceptions=True, but handle it
+                    logger.error(f"Unexpected exception in batch: {result}")
+                    continue
+
+                item_results.append(result)
+                completed += 1
+
+                # Report progress
+                if on_progress:
+                    try:
+                        on_progress(completed, total)
+                    except Exception as e:
+                        logger.warning(f"Progress callback error: {e}")
+
+        # Sort results by index to maintain order
+        item_results.sort(key=lambda r: r.index)
+
+        total_duration = (time.time() - start_time) * 1000
+
+        logger.info(
+            f"Batch extraction completed: {len(item_results)}/{total} texts, "
+            f"{sum(r.result.entity_count for r in item_results if r.success)} entities, "
+            f"{total_duration:.1f}ms"
+        )
+
+        return BatchExtractionResult(
+            results=item_results,
             total_duration_ms=total_duration,
         )
 

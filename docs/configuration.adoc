@@ -232,6 +232,11 @@ extraction_config = ExtractionConfig(
     gliner_threshold=0.5,
     gliner_device="cpu",
 
+    # GLiREL relation extraction (optional)
+    enable_gliner_relations=False,
+    gliner_relations_model="jackboyla/glirel-large-v0",
+    gliner_relations_threshold=0.3,
+
     # LLM settings
     llm_model="gpt-4o-mini",
 
@@ -241,6 +246,14 @@ extraction_config = ExtractionConfig(
     # Extraction options
     extract_relations=True,
     extract_preferences=True,
+
+    # Batch extraction settings
+    batch_size=10,
+    batch_max_concurrent=5,
+
+    # Streaming extraction settings
+    streaming_chunk_size=4000,
+    streaming_chunk_overlap=200,
 )
 ----
 
@@ -269,6 +282,11 @@ NAM_EXTRACTION__GLINER_MODEL=urchade/gliner_medium-v2.1
 NAM_EXTRACTION__GLINER_THRESHOLD=0.5
 NAM_EXTRACTION__GLINER_DEVICE=cpu
 
+# GLiREL relation extraction (optional)
+NAM_EXTRACTION__ENABLE_GLINER_RELATIONS=false
+NAM_EXTRACTION__GLINER_RELATIONS_MODEL=jackboyla/glirel-large-v0
+NAM_EXTRACTION__GLINER_RELATIONS_THRESHOLD=0.3
+
 # LLM settings
 NAM_EXTRACTION__LLM_MODEL=gpt-4o-mini
 
@@ -278,6 +296,14 @@ NAM_EXTRACTION__ENTITY_TYPES='["PERSON","ORGANIZATION","LOCATION","EVENT","OBJEC
 # Extraction options
 NAM_EXTRACTION__EXTRACT_RELATIONS=true
 NAM_EXTRACTION__EXTRACT_PREFERENCES=true
+
+# Batch extraction settings
+NAM_EXTRACTION__BATCH_SIZE=10
+NAM_EXTRACTION__BATCH_MAX_CONCURRENT=5
+
+# Streaming extraction settings
+NAM_EXTRACTION__STREAMING_CHUNK_SIZE=4000
+NAM_EXTRACTION__STREAMING_CHUNK_OVERLAP=200
 ----
 
 === Extractor Types
@@ -510,6 +536,258 @@ NAM_SEARCH__SIMILARITY_THRESHOLD=0.7
 NAM_SEARCH__INCLUDE_METADATA=true
 ----
 
+== Deduplication Configuration
+
+Settings for entity deduplication during ingest.
+
+=== Python Configuration
+
+[source,python]
+----
+from neo4j_agent_memory import DeduplicationConfig, DeduplicationStrategy
+
+dedup_config = DeduplicationConfig(
+    enabled=True,                         # Enable deduplication
+    strategy=DeduplicationStrategy.COMPOSITE,
+    embedding_threshold=0.92,             # Similarity for auto-merge
+    fuzzy_threshold=0.85,                 # Fuzzy match threshold
+    create_same_as=True,                  # Create SAME_AS for ambiguous matches
+    same_as_threshold=0.85,               # Threshold for SAME_AS relationships
+    batch_size=100,                       # Entities to process per batch
+)
+----
+
+=== Environment Variables
+
+[source,bash]
+----
+NAM_DEDUPLICATION__ENABLED=true
+NAM_DEDUPLICATION__STRATEGY=composite     # none, exact, fuzzy, embedding, composite
+NAM_DEDUPLICATION__EMBEDDING_THRESHOLD=0.92
+NAM_DEDUPLICATION__FUZZY_THRESHOLD=0.85
+NAM_DEDUPLICATION__CREATE_SAME_AS=true
+NAM_DEDUPLICATION__SAME_AS_THRESHOLD=0.85
+NAM_DEDUPLICATION__BATCH_SIZE=100
+----
+
+=== Deduplication Strategies
+
+[cols="1,3"]
+|===
+|Strategy |Description
+
+|`NONE`
+|Disable deduplication
+
+|`EXACT`
+|Exact name matching only
+
+|`FUZZY`
+|Fuzzy string matching (rapidfuzz)
+
+|`EMBEDDING`
+|Vector similarity matching
+
+|`COMPOSITE`
+|Combine fuzzy and embedding (default)
+|===
+
+== Observability Configuration
+
+Settings for tracing and monitoring with OpenTelemetry or Opik.
+
+=== Python Configuration (OpenTelemetry)
+
+[source,python]
+----
+from neo4j_agent_memory import ObservabilityConfig, TracingProvider
+
+observability_config = ObservabilityConfig(
+    enabled=True,
+    provider=TracingProvider.OPENTELEMETRY,
+    service_name="my-agent-memory",
+    endpoint="http://localhost:4317",     # OTLP endpoint
+    sample_rate=1.0,                      # Trace all requests
+    log_level="INFO",
+)
+----
+
+=== Python Configuration (Opik)
+
+[source,python]
+----
+from neo4j_agent_memory import ObservabilityConfig, TracingProvider
+
+observability_config = ObservabilityConfig(
+    enabled=True,
+    provider=TracingProvider.OPIK,
+    project_name="my-agent-memory",
+    workspace="my-workspace",             # Optional Opik workspace
+    track_llm_calls=True,                 # Track LLM interactions
+    track_extraction=True,                # Track extraction pipeline
+    track_memory_ops=True,                # Track memory operations
+)
+----
+
+=== Environment Variables
+
+[source,bash]
+----
+# Common settings
+NAM_OBSERVABILITY__ENABLED=true
+NAM_OBSERVABILITY__PROVIDER=opentelemetry  # opentelemetry, opik, auto
+
+# OpenTelemetry settings
+NAM_OBSERVABILITY__SERVICE_NAME=my-agent-memory
+NAM_OBSERVABILITY__ENDPOINT=http://localhost:4317
+NAM_OBSERVABILITY__SAMPLE_RATE=1.0
+NAM_OBSERVABILITY__LOG_LEVEL=INFO
+
+# Opik settings
+NAM_OBSERVABILITY__PROJECT_NAME=my-agent-memory
+NAM_OBSERVABILITY__WORKSPACE=my-workspace
+NAM_OBSERVABILITY__TRACK_LLM_CALLS=true
+NAM_OBSERVABILITY__TRACK_EXTRACTION=true
+NAM_OBSERVABILITY__TRACK_MEMORY_OPS=true
+
+# Opik API (if using cloud)
+OPIK_API_KEY=your-api-key
+OPIK_WORKSPACE=your-workspace
+----
+
+=== Parameters
+
+[cols="2,1,1,3"]
+|===
+|Parameter |Type |Default |Description
+
+|`enabled`
+|bool
+|`False`
+|Enable observability
+
+|`provider`
+|TracingProvider
+|`AUTO`
+|Tracing provider to use
+
+|`service_name`
+|str
+|`neo4j-agent-memory`
+|Service name for traces
+
+|`sample_rate`
+|float
+|1.0
+|Percentage of requests to trace (0.0-1.0)
+
+|`track_llm_calls`
+|bool
+|`True`
+|Track LLM API calls
+
+|`track_extraction`
+|bool
+|`True`
+|Track extraction pipeline stages
+
+|`track_memory_ops`
+|bool
+|`True`
+|Track memory read/write operations
+|===
+
+=== Tracing Providers
+
+[cols="1,2,2"]
+|===
+|Provider |Description |Required Package
+
+|`OPENTELEMETRY`
+|Standard OpenTelemetry tracing
+|`pip install neo4j-agent-memory[opentelemetry]`
+
+|`OPIK`
+|Comet Opik for LLM observability
+|`pip install neo4j-agent-memory[opik]`
+
+|`AUTO`
+|Auto-detect available provider
+|Whichever is installed
+|===
+
+== CLI Configuration
+
+The CLI tool uses environment variables and optional configuration files.
+
+=== Environment Variables
+
+[source,bash]
+----
+# Neo4j connection (required for memory commands)
+NAM_NEO4J__URI=bolt://localhost:7687
+NAM_NEO4J__USERNAME=neo4j
+NAM_NEO4J__PASSWORD=your-password
+
+# Extraction settings
+NAM_EXTRACTION__EXTRACTOR_TYPE=pipeline
+NAM_EXTRACTION__ENABLE_GLINER=true
+
+# Output format
+NAM_CLI__OUTPUT_FORMAT=json              # json, table, yaml
+NAM_CLI__VERBOSE=false
+NAM_CLI__COLOR=true
+----
+
+=== Configuration File
+
+Create a `.neo4j-memory.yaml` file in your project or home directory:
+
+[source,yaml]
+----
+# .neo4j-memory.yaml
+neo4j:
+  uri: bolt://localhost:7687
+  username: neo4j
+  password: your-password
+
+extraction:
+  extractor_type: pipeline
+  enable_gliner: true
+  gliner_threshold: 0.5
+
+cli:
+  output_format: json
+  verbose: false
+  color: true
+----
+
+=== CLI Commands
+
+[source,bash]
+----
+# Extract entities from text
+neo4j-memory extract "John works at Acme Corp in New York"
+
+# Extract with specific schema
+neo4j-memory extract --schema poleo "..."
+
+# Extract from file
+neo4j-memory extract --input document.txt
+
+# List available schemas
+neo4j-memory schemas list
+
+# Show schema details
+neo4j-memory schemas show poleo
+
+# Get extraction statistics
+neo4j-memory stats
+
+# Output as table
+neo4j-memory extract --format table "..."
+----
+
 == Complete Example
 
 === Python Configuration
@@ -530,6 +808,10 @@ from neo4j_agent_memory import (
     ResolverStrategy,
     LLMConfig,
     LLMProvider,
+    DeduplicationConfig,
+    DeduplicationStrategy,
+    ObservabilityConfig,
+    TracingProvider,
 )
 from pydantic import SecretStr
 
@@ -549,6 +831,8 @@ settings = MemorySettings(
         enable_gliner=True,
         enable_llm_fallback=True,
         merge_strategy=MergeStrategy.CONFIDENCE,
+        # GLiREL for relation extraction
+        enable_gliner_relations=True,
     ),
     schema=SchemaConfig(
         model=SchemaModel.POLEO,
@@ -557,9 +841,19 @@ settings = MemorySettings(
     resolution=ResolutionConfig(
         strategy=ResolverStrategy.COMPOSITE,
     ),
+    deduplication=DeduplicationConfig(
+        enabled=True,
+        strategy=DeduplicationStrategy.COMPOSITE,
+        embedding_threshold=0.92,
+    ),
     llm=LLMConfig(
         provider=LLMProvider.OPENAI,
         model="gpt-4o-mini",
+    ),
+    observability=ObservabilityConfig(
+        enabled=True,
+        provider=TracingProvider.OPIK,
+        project_name="my-agent-memory",
     ),
 )
 ----
@@ -583,6 +877,7 @@ NAM_EXTRACTION__ENABLE_SPACY=true
 NAM_EXTRACTION__ENABLE_GLINER=true
 NAM_EXTRACTION__ENABLE_LLM_FALLBACK=true
 NAM_EXTRACTION__MERGE_STRATEGY=confidence
+NAM_EXTRACTION__ENABLE_GLINER_RELATIONS=true
 
 # Schema
 NAM_SCHEMA__MODEL=poleo
@@ -590,6 +885,16 @@ NAM_SCHEMA__ENABLE_SUBTYPES=true
 
 # Resolution
 NAM_RESOLUTION__STRATEGY=composite
+
+# Deduplication
+NAM_DEDUPLICATION__ENABLED=true
+NAM_DEDUPLICATION__STRATEGY=composite
+NAM_DEDUPLICATION__EMBEDDING_THRESHOLD=0.92
+
+# Observability
+NAM_OBSERVABILITY__ENABLED=true
+NAM_OBSERVABILITY__PROVIDER=opik
+NAM_OBSERVABILITY__PROJECT_NAME=my-agent-memory
 
 # LLM
 NAM_LLM__PROVIDER=openai
@@ -649,3 +954,5 @@ except ValidationError as e:
 * xref:getting-started.adoc[Get started with neo4j-agent-memory]
 * xref:entity-extraction.adoc[Configure entity extraction]
 * xref:memory-types.adoc[Learn about memory types]
+* xref:integrations.adoc[Framework integrations]
+* xref:faq.adoc[Frequently asked questions]

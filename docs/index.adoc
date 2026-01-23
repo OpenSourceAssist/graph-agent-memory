@@ -35,9 +35,15 @@ Neo4j Agent Memory is designed to give AI agents persistent, queryable memory ac
 * **Graph-Native Storage** - Leverages Neo4j's graph database for connected memory
 * **Vector Search** - Semantic similarity search across all memory types
 * **Entity Extraction** - Multi-stage pipeline using spaCy, GLiNER2, and LLM extractors
+* **Batch & Streaming Extraction** - Process multiple texts in parallel or stream results for long documents
+* **GLiREL Relation Extraction** - Extract relationships without LLM calls
 * **Domain Schemas** - Pre-defined extraction schemas for 8 domains (podcast, news, scientific, business, entertainment, medical, legal, POLE+O)
 * **POLE+O Data Model** - Industry-standard entity classification (Person, Object, Location, Event, Organization)
-* **Message Linking** - Sequential message chains and cross-memory relationships (procedural → episodic)
+* **Entity Deduplication** - Automatic duplicate detection with configurable auto-merge and flagging
+* **Provenance Tracking** - Track where entities were extracted from and which extractor produced them
+* **Message Linking** - Sequential message chains and cross-memory relationships (procedural → short-term)
+* **CLI Tool** - Command-line interface for entity extraction and schema management
+* **Observability** - OpenTelemetry and Opik tracing for monitoring extraction pipelines
 * **Framework Integrations** - Works with LangChain, LlamaIndex, PydanticAI, and CrewAI
 
 == Quick Start
@@ -88,8 +94,14 @@ pip install neo4j-agent-memory[openai]
 # With local entity extraction (spaCy + GLiNER)
 pip install neo4j-agent-memory[extraction]
 
+# With CLI tools
+pip install neo4j-agent-memory[cli]
+
+# With observability (OpenTelemetry)
+pip install neo4j-agent-memory[opentelemetry]
+
 # Full installation with all features
-pip install neo4j-agent-memory[full]
+pip install neo4j-agent-memory[all]
 ----
 
 == Documentation
@@ -130,13 +142,13 @@ pip install neo4j-agent-memory[full]
 ┌─────────────────────────────────────────────────────────────┐
 │                      MemoryClient                           │
 ├─────────────────┬─────────────────┬─────────────────────────┤
-│    Episodic     │    Semantic     │      Procedural         │
+│   Short-Term    │   Long-Term     │      Procedural         │
 │    Memory       │    Memory       │      Memory             │
 ├─────────────────┴─────────────────┴─────────────────────────┤
 │                   Extraction Pipeline                        │
-│         ┌─────────┬─────────┬─────────┐                     │
-│         │ spaCy   │ GLiNER  │  LLM    │                     │
-│         └─────────┴─────────┴─────────┘                     │
+│     ┌─────────┬─────────┬─────────┬─────────┐              │
+│     │ spaCy   │ GLiNER  │ GLiREL  │  LLM    │              │
+│     └─────────┴─────────┴─────────┴─────────┘              │
 ├─────────────────────────────────────────────────────────────┤
 │                    Neo4j Graph Database                      │
 │              (Nodes, Relationships, Vectors)                 │

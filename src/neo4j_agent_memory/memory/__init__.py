@@ -1,6 +1,10 @@
 """Memory type implementations: short-term, long-term, and procedural."""
 
 from neo4j_agent_memory.memory.long_term import (
+    DeduplicationConfig,
+    DeduplicationResult,
+    DeduplicationStats,
+    DuplicateCandidate,
     Entity,
     EntityType,
     Fact,
@@ -36,6 +40,11 @@ __all__ = [
     "Preference",
     "Fact",
     "Relationship",
+    # Deduplication
+    "DeduplicationConfig",
+    "DeduplicationResult",
+    "DeduplicationStats",
+    "DuplicateCandidate",
     # Procedural
     "ProceduralMemory",
     "ReasoningTrace",

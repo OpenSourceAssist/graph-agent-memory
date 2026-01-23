@@ -705,3 +705,218 @@ MATCH (e:Entity {id: $id})
 WHERE e.location IS NOT NULL
 RETURN e.id AS id, e.name AS name, e.location.latitude AS latitude, e.location.longitude AS longitude
 """
+
+# =============================================================================
+# PROVENANCE TRACKING QUERIES
+# =============================================================================
+
+# Create or update an Extractor node
+CREATE_EXTRACTOR = """
+MERGE (ex:Extractor {name: $name})
+ON CREATE SET
+    ex.id = $id,
+    ex.version = $version,
+    ex.config = $config,
+    ex.created_at = datetime()
+ON MATCH SET
+    ex.version = COALESCE($version, ex.version),
+    ex.config = COALESCE($config, ex.config)
+RETURN ex
+"""
+
+# Link entity to source message with extraction metadata
+CREATE_EXTRACTED_FROM_RELATIONSHIP = """
+MATCH (e:Entity {id: $entity_id})
+MATCH (m:Message {id: $message_id})
+MERGE (e)-[r:EXTRACTED_FROM]->(m)
+ON CREATE SET
+    r.confidence = $confidence,
+    r.start_pos = $start_pos,
+    r.end_pos = $end_pos,
+    r.context = $context,
+    r.created_at = datetime()
+ON MATCH SET
+    r.confidence = CASE WHEN $confidence > r.confidence THEN $confidence ELSE r.confidence END
+RETURN r
+"""
+
+# Link entity to extractor
+CREATE_EXTRACTED_BY_RELATIONSHIP = """
+MATCH (e:Entity {id: $entity_id})
+MATCH (ex:Extractor {name: $extractor_name})
+MERGE (e)-[r:EXTRACTED_BY]->(ex)
+ON CREATE SET
+    r.confidence = $confidence,
+    r.extraction_time_ms = $extraction_time_ms,
+    r.created_at = datetime()
+RETURN r
+"""
+
+# Get provenance for an entity
+GET_ENTITY_PROVENANCE = """
+MATCH (e:Entity {id: $entity_id})
+OPTIONAL MATCH (e)-[ef:EXTRACTED_FROM]->(m:Message)
+OPTIONAL MATCH (e)-[eb:EXTRACTED_BY]->(ex:Extractor)
+RETURN e,
+       collect(DISTINCT {message: m, relationship: ef}) AS sources,
+       collect(DISTINCT {extractor: ex, relationship: eb}) AS extractors
+"""
+
+# Get all entities extracted from a message
+GET_ENTITIES_FROM_MESSAGE = """
+MATCH (m:Message {id: $message_id})<-[r:EXTRACTED_FROM]-(e:Entity)
+RETURN e, r
+ORDER BY r.start_pos
+"""
+
+# Get all entities extracted by an extractor
+GET_ENTITIES_BY_EXTRACTOR = """
+MATCH (ex:Extractor {name: $extractor_name})<-[r:EXTRACTED_BY]-(e:Entity)
+RETURN e, r
+ORDER BY e.created_at DESC
+LIMIT $limit
+"""
+
+# Get extraction statistics
+GET_EXTRACTION_STATS = """
+MATCH (e:Entity)
+OPTIONAL MATCH (e)-[:EXTRACTED_FROM]->(m:Message)
+OPTIONAL MATCH (e)-[:EXTRACTED_BY]->(ex:Extractor)
+WITH count(DISTINCT e) AS total_entities,
+     count(DISTINCT m) AS source_messages,
+     collect(DISTINCT ex.name) AS extractors
+RETURN total_entities, source_messages, extractors
+"""
+
+# Get extractor statistics
+GET_EXTRACTOR_STATS = """
+MATCH (ex:Extractor)
+OPTIONAL MATCH (ex)<-[r:EXTRACTED_BY]-(e:Entity)
+RETURN ex.name AS name,
+       ex.version AS version,
+       count(e) AS entity_count,
+       avg(r.confidence) AS avg_confidence
+ORDER BY entity_count DESC
+"""
+
+# List all extractors
+LIST_EXTRACTORS = """
+MATCH (ex:Extractor)
+OPTIONAL MATCH (ex)<-[:EXTRACTED_BY]-(e:Entity)
+RETURN ex, count(e) AS entity_count
+ORDER BY entity_count DESC
+"""
+
+# Delete provenance for an entity
+DELETE_ENTITY_PROVENANCE = """
+MATCH (e:Entity {id: $entity_id})
+OPTIONAL MATCH (e)-[r1:EXTRACTED_FROM]->()
+OPTIONAL MATCH (e)-[r2:EXTRACTED_BY]->()
+DELETE r1, r2
+RETURN count(r1) + count(r2) AS deleted
+"""
+
+# =============================================================================
+# ENTITY DEDUPLICATION QUERIES
+# =============================================================================
+
+# Find similar entities using embedding similarity
+FIND_SIMILAR_ENTITIES_BY_EMBEDDING = """
+CALL db.index.vector.queryNodes('entity_embedding_idx', $limit, $embedding)
+YIELD node, score
+WHERE score >= $threshold AND ($type IS NULL OR node.type = $type)
+RETURN node AS e, score
+ORDER BY score DESC
+"""
+
+# Create SAME_AS relationship for potential duplicates
+CREATE_SAME_AS_RELATIONSHIP = """
+MATCH (e1:Entity {id: $source_id})
+MATCH (e2:Entity {id: $target_id})
+WHERE NOT (e1)-[:SAME_AS]-(e2)
+CREATE (e1)-[r:SAME_AS {
+    confidence: $confidence,
+    match_type: $match_type,
+    created_at: datetime(),
+    status: $status
+}]->(e2)
+RETURN r
+"""
+
+# Get entities that might be duplicates (have SAME_AS relationships)
+GET_POTENTIAL_DUPLICATES = """
+MATCH (e1:Entity)-[r:SAME_AS]-(e2:Entity)
+WHERE r.status = 'pending'
+RETURN e1, e2, r
+ORDER BY r.confidence DESC
+LIMIT $limit
+"""
+
+# Get all entities in a SAME_AS cluster
+GET_SAME_AS_CLUSTER = """
+MATCH (e:Entity {id: $entity_id})
+MATCH path = (e)-[:SAME_AS*1..3]-(other:Entity)
+RETURN DISTINCT other AS entity, length(path) AS distance
+ORDER BY distance
+"""
+
+# Merge two entities (mark source as merged into target)
+MERGE_ENTITIES = """
+MATCH (source:Entity {id: $source_id})
+MATCH (target:Entity {id: $target_id})
+// Transfer relationships from source to target
+OPTIONAL MATCH (source)<-[r:MENTIONS]-(m:Message)
+WITH source, target, collect({msg: m, rel: r}) AS mentions
+FOREACH (item IN mentions |
+    MERGE (item.msg)-[:MENTIONS]->(target)
+)
+// Update SAME_AS to point to target
+OPTIONAL MATCH (source)-[r:SAME_AS]-(other:Entity)
+WHERE other <> target
+WITH source, target, collect({other: other, rel: r}) AS sameAs
+FOREACH (item IN sameAs |
+    MERGE (target)-[:SAME_AS {
+        confidence: item.rel.confidence,
+        match_type: 'merged',
+        created_at: datetime()
+    }]-(item.other)
+)
+// Mark source as merged
+SET source.merged_into = target.id,
+    source.merged_at = datetime()
+// Add source name as alias on target
+SET target.aliases = CASE
+    WHEN target.aliases IS NULL THEN [source.name]
+    WHEN NOT source.name IN target.aliases THEN target.aliases + source.name
+    ELSE target.aliases
+END
+RETURN source, target
+"""
+
+# Get existing entities of a type with embeddings for deduplication
+GET_ENTITIES_WITH_EMBEDDINGS = """
+MATCH (e:Entity {type: $type})
+WHERE e.embedding IS NOT NULL AND e.merged_into IS NULL
+RETURN e.id AS id, e.name AS name, e.canonical_name AS canonical_name, e.embedding AS embedding
+ORDER BY e.created_at DESC
+LIMIT $limit
+"""
+
+# Update SAME_AS relationship status
+UPDATE_SAME_AS_STATUS = """
+MATCH (e1:Entity {id: $source_id})-[r:SAME_AS]-(e2:Entity {id: $target_id})
+SET r.status = $status, r.updated_at = datetime()
+RETURN r
+"""
+
+# Get entity deduplication stats
+GET_DEDUPLICATION_STATS = """
+MATCH (e:Entity)
+OPTIONAL MATCH (e)-[r:SAME_AS]-()
+WITH count(DISTINCT e) AS total_entities,
+     count(DISTINCT CASE WHEN e.merged_into IS NOT NULL THEN e END) AS merged_entities,
+     count(DISTINCT r) AS same_as_relationships
+OPTIONAL MATCH ()-[pending:SAME_AS {status: 'pending'}]-()
+WITH total_entities, merged_entities, same_as_relationships, count(DISTINCT pending) AS pending_reviews
+RETURN total_entities, merged_entities, same_as_relationships, pending_reviews
+"""

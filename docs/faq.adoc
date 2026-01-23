@@ -402,7 +402,82 @@ For high-throughput scenarios, consider:
 * Using a faster model like `gpt-3.5-turbo`
 
 
-== Entity Resolution
+== Batch and Streaming Extraction
+
+[[batch-extraction]]
+=== How do I process multiple documents at once?
+
+Use the batch extraction API:
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import ExtractionPipeline
+
+pipeline = ExtractionPipeline()
+
+# Extract from multiple texts in parallel
+results = await pipeline.extract_batch(
+    texts=["Document 1...", "Document 2...", "Document 3..."],
+    batch_size=10,           # Process 10 at a time
+    on_progress=lambda done, total: print(f"{done}/{total}"),
+)
+----
+
+Benefits:
+* Parallel processing with configurable concurrency
+* Progress tracking callback
+* GPU batch processing for GLiNER (native batch support)
+
+[[streaming-extraction]]
+=== How do I handle very long documents?
+
+Use streaming extraction for documents over 100K tokens:
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import StreamingExtractor
+
+extractor = StreamingExtractor(
+    chunk_size=4000,      # Tokens per chunk
+    chunk_overlap=200,    # Overlap to preserve context
+)
+
+# Stream results as they're extracted
+async for partial_result in extractor.stream(long_document):
+    print(f"Found {len(partial_result.entities)} entities in chunk")
+
+# Or get all results with automatic deduplication
+result = await extractor.extract(long_document)
+----
+
+[[relation-extraction-llm-free]]
+=== Can I extract relationships without LLM calls?
+
+Yes, use GLiREL (GLiNER + Relation Extraction):
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import (
+    ExtractorBuilder,
+    GLiNEREntityExtractor,
+)
+
+# Enable GLiREL for relation extraction
+extractor = (
+    ExtractorBuilder()
+    .with_gliner_schema("podcast")
+    .with_gliner_relations(threshold=0.3)  # GLiREL for relations
+    .build()
+)
+
+result = await extractor.extract(text)
+# result.relations populated without LLM calls
+----
+
+GLiREL extracts relations using a fine-tuned model -- no API costs.
+
+
+== Entity Resolution and Deduplication
 
 [[what-is-resolution]]
 === What is entity resolution?
@@ -437,6 +512,44 @@ Entity resolution identifies when different text mentions refer to the same enti
 === Is resolution type-aware?
 
 Yes, the `CompositeResolver` is type-aware. Entities of different types (e.g., a PERSON named "Paris" vs a LOCATION named "Paris") are never merged, even if they have identical names.
+
+[[deduplication-on-ingest]]
+=== How does entity deduplication on ingest work?
+
+Entity deduplication automatically merges similar entities during extraction:
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, DeduplicationConfig
+
+settings = MemorySettings(
+    deduplication=DeduplicationConfig(
+        enabled=True,
+        embedding_threshold=0.92,     # High similarity = auto-merge
+        same_as_threshold=0.85,       # Medium similarity = SAME_AS link
+        create_same_as=True,
+    )
+)
+----
+
+* **High confidence matches** (>0.92) are automatically merged
+* **Medium confidence matches** (0.85-0.92) create `SAME_AS` relationships for manual review
+* **Type-aware** -- only compares entities of the same type
+
+[[same-as-relationships]]
+=== What are SAME_AS relationships?
+
+`SAME_AS` relationships link entities that may refer to the same real-world entity but weren't merged automatically due to lower confidence:
+
+[source,cypher]
+----
+// Find potential duplicates
+MATCH (e1:Entity)-[r:SAME_AS]->(e2:Entity)
+RETURN e1.name, e2.name, r.confidence
+ORDER BY r.confidence DESC
+----
+
+You can manually merge or keep them separate based on your domain knowledge.
 
 
 == Neo4j and Storage
@@ -485,6 +598,128 @@ RETURN o
 ----
 
 
+== CLI Tool
+
+[[cli-installation]]
+=== How do I install the CLI?
+
+Install with the CLI extra:
+
+[source,bash]
+----
+pip install neo4j-agent-memory[cli]
+----
+
+[[cli-usage]]
+=== How do I use the CLI?
+
+[source,bash]
+----
+# Extract entities from text
+neo4j-memory extract "John works at Acme Corp in New York"
+
+# Extract with specific schema
+neo4j-memory extract --schema podcast "..."
+
+# Extract from file
+neo4j-memory extract --input document.txt
+
+# Output as table
+neo4j-memory extract --format table "..."
+
+# List available schemas
+neo4j-memory schemas list
+
+# Get statistics
+neo4j-memory stats
+----
+
+[[cli-configuration]]
+=== How do I configure the CLI?
+
+The CLI reads from environment variables or a `.neo4j-memory.yaml` config file:
+
+[source,yaml]
+----
+# .neo4j-memory.yaml
+neo4j:
+  uri: bolt://localhost:7687
+  username: neo4j
+  password: your-password
+
+extraction:
+  extractor_type: pipeline
+  enable_gliner: true
+
+cli:
+  output_format: json
+----
+
+
+== Observability and Tracing
+
+[[observability-setup]]
+=== How do I enable tracing?
+
+Install and configure a tracing provider:
+
+[source,bash]
+----
+# For OpenTelemetry
+pip install neo4j-agent-memory[opentelemetry]
+
+# For Opik (LLM-focused)
+pip install neo4j-agent-memory[opik]
+----
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ObservabilityConfig, TracingProvider
+
+settings = MemorySettings(
+    observability=ObservabilityConfig(
+        enabled=True,
+        provider=TracingProvider.OPIK,  # or OPENTELEMETRY
+        project_name="my-agent",
+    )
+)
+----
+
+[[what-is-traced]]
+=== What operations are traced?
+
+With tracing enabled, you get visibility into:
+
+* **Memory operations** -- reads, writes, searches with timing
+* **Extraction pipeline** -- each stage (spaCy, GLiNER, LLM) with duration
+* **LLM calls** -- tokens, latency, costs
+* **Entity resolution** -- matches, merges, SAME_AS creation
+
+[[opik-vs-otel]]
+=== Should I use OpenTelemetry or Opik?
+
+[cols="1,2,2"]
+|===
+|Aspect |OpenTelemetry |Opik
+
+|Focus
+|General observability
+|LLM-specific observability
+
+|Best for
+|Existing APM infrastructure
+|LLM application monitoring
+
+|Dashboard
+|Jaeger, Zipkin, Datadog
+|Opik UI (local or cloud)
+
+|LLM metrics
+|Basic spans
+|Token counts, costs, evaluations
+|===
+
+
 == Performance and Optimization
 
 [[speed-up-extraction]]
@@ -508,11 +743,18 @@ config = ExtractionConfig(
 extractor = GLiNEREntityExtractor(device="cuda")  # or "mps" for Mac
 ----
 
-. **Process texts in parallel**:
+. **Use batch extraction for multiple documents**:
 +
 [source,python]
 ----
-results = await asyncio.gather(*[extractor.extract(t) for t in texts])
+results = await pipeline.extract_batch(texts, batch_size=10)
+----
+
+. **Use GLiREL instead of LLM for relations**:
++
+[source,python]
+----
+extractor = ExtractorBuilder().with_gliner_relations().build()
 ----
 
 . **Use a smaller GLiNER model**:
@@ -638,8 +880,11 @@ else:
 
 == See Also
 
+* xref:getting-started.adoc[Getting Started] -- Quick start guide
 * xref:entity-extraction.adoc[Entity Extraction Guide] -- Detailed extraction documentation
+* xref:memory-types.adoc[Memory Types] -- Short-term, long-term, and procedural memory
 * xref:poleo-model.adoc[POLE+O Data Model] -- Entity type classification
 * xref:configuration.adoc[Configuration Reference] -- All configuration options
+* xref:integrations.adoc[Framework Integrations] -- PydanticAI, LangChain, LlamaIndex, CrewAI
 * link:../examples/domain-schemas/[Domain Schema Examples] -- Working code examples
 * https://github.com/neo4j-labs/neo4j-agent-memory/issues[GitHub Issues] -- Report bugs or request features

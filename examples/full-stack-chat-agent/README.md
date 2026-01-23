@@ -1,17 +1,18 @@
 # Full-Stack Chat Agent Example
 
-A complete example demonstrating **neo4j-agent-memory** integration with a PydanticAI chat agent and Next.js frontend. This example implements a news research assistant that uses all three memory types (episodic, semantic, procedural).
+A complete example demonstrating **neo4j-agent-memory** integration with a PydanticAI chat agent and Next.js frontend. This example implements a news research assistant that uses all three memory types (short-term, long-term, procedural).
 
 ## Features
 
 - **PydanticAI Agent**: News research assistant with memory-enhanced system prompts
 - **Three Memory Types**: 
-  - Episodic: Conversation history stored in Neo4j
-  - Semantic: User preferences and extracted entities
+  - Short-term: Conversation history stored in Neo4j
+  - Long-term: User preferences and extracted entities
   - Procedural: Reasoning traces for learning from past interactions
 - **News Graph Tools**: Search, filter, and analyze news articles
 - **SSE Streaming**: Real-time response streaming with tool call visibility
-- **Next.js Frontend**: Modern React UI with Chakra UI components
+- **Next.js Frontend**: Modern React UI with Chakra UI v3 components
+- **Memory Graph Visualization**: Interactive graph view using Neo4j Visualization Library (NVL)
 - **Memory Context Panel**: Visual display of stored preferences and entities
 
 ## Architecture
@@ -163,7 +164,7 @@ The agent has access to the following tools:
 
 ## Memory Integration
 
-### Episodic Memory
+### Short-Term Memory
 
 Conversations are automatically stored:
 
@@ -175,7 +176,7 @@ await memory.short_term.add_message(
 )
 ```
 
-### Semantic Memory
+### Long-Term Memory
 
 Preferences and entities are extracted from conversations:
 

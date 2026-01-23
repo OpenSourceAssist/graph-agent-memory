@@ -12,9 +12,15 @@ A comprehensive memory system for AI agents using Neo4j as the persistence layer
 - **Three Memory Types**: Short-Term (conversations), Long-Term (facts/preferences), and Procedural (reasoning traces)
 - **POLE+O Data Model**: Configurable entity schema based on Person, Object, Location, Event, Organization types with subtypes
 - **Multi-Stage Entity Extraction**: Pipeline combining spaCy, GLiNER2, and LLM extractors with configurable merge strategies
+- **Batch & Streaming Extraction**: Process multiple texts in parallel or stream results for long documents
 - **Entity Resolution**: Multi-strategy deduplication (exact, fuzzy, semantic matching) with type-aware resolution
+- **Entity Deduplication on Ingest**: Automatic duplicate detection with configurable auto-merge and flagging
+- **Provenance Tracking**: Track where entities were extracted from and which extractor produced them
+- **GLiREL Relation Extraction**: Extract relationships without LLM calls using GLiREL
 - **Vector Search**: Semantic similarity search across all memory types
 - **Temporal Relationships**: Track when facts become valid or invalid
+- **CLI Tool**: Command-line interface for entity extraction and schema management
+- **Observability**: OpenTelemetry and Opik tracing for monitoring extraction pipelines
 - **Agent Framework Integrations**: LangChain, Pydantic AI, LlamaIndex, CrewAI
 
 ## Installation
@@ -32,6 +38,12 @@ python -m spacy download en_core_web_sm
 
 # With LangChain integration
 pip install neo4j-agent-memory[langchain]
+
+# With CLI tools
+pip install neo4j-agent-memory[cli]
+
+# With observability (OpenTelemetry)
+pip install neo4j-agent-memory[opentelemetry]
 
 # With all optional dependencies
 pip install neo4j-agent-memory[all]
@@ -609,6 +621,151 @@ for entity in result.filter_invalid_entities().entities:
 
 See `examples/domain-schemas/` for complete example applications for each schema.
 
+### Batch Extraction
+
+Process multiple texts in parallel for efficient bulk extraction:
+
+```python
+from neo4j_agent_memory.extraction import ExtractionPipeline
+
+pipeline = ExtractionPipeline(stages=[extractor])
+
+result = await pipeline.extract_batch(
+    texts=["Text 1...", "Text 2...", "Text 3..."],
+    batch_size=10,
+    max_concurrency=5,
+    on_progress=lambda done, total: print(f"{done}/{total}"),
+)
+
+print(f"Success rate: {result.success_rate:.1%}")
+print(f"Total entities: {result.total_entities}")
+```
+
+### Streaming Extraction for Long Documents
+
+Process very long documents (>100K tokens) efficiently:
+
+```python
+from neo4j_agent_memory.extraction import StreamingExtractor, create_streaming_extractor
+
+# Create streaming extractor
+streamer = create_streaming_extractor(extractor, chunk_size=4000, overlap=200)
+
+# Stream results chunk by chunk
+async for chunk_result in streamer.extract_streaming(long_document):
+    print(f"Chunk {chunk_result.chunk.index}: {chunk_result.entity_count} entities")
+
+# Or get complete result with automatic deduplication
+result = await streamer.extract(long_document, deduplicate=True)
+```
+
+### GLiREL Relation Extraction
+
+Extract relationships between entities without LLM calls:
+
+```python
+from neo4j_agent_memory.extraction import GLiNERWithRelationsExtractor, is_glirel_available
+
+if is_glirel_available():
+    extractor = GLiNERWithRelationsExtractor.for_poleo()
+    result = await extractor.extract("John works at Acme Corp in NYC.")
+    print(result.entities)   # John, Acme Corp, NYC
+    print(result.relations)  # John -[WORKS_AT]-> Acme Corp
+```
+
+## Entity Deduplication
+
+Automatic duplicate detection when adding entities:
+
+```python
+from neo4j_agent_memory.memory import LongTermMemory, DeduplicationConfig
+
+config = DeduplicationConfig(
+    auto_merge_threshold=0.95,  # Auto-merge above 95% similarity
+    flag_threshold=0.85,        # Flag for review above 85%
+    use_fuzzy_matching=True,
+)
+
+memory = LongTermMemory(client, embedder, deduplication=config)
+
+# add_entity returns (entity, dedup_result) tuple
+entity, result = await memory.add_entity("Jon Smith", "PERSON")
+if result.action == "merged":
+    print(f"Auto-merged with {result.matched_entity_name}")
+elif result.action == "flagged":
+    print(f"Flagged for review")
+```
+
+## Provenance Tracking
+
+Track where entities were extracted from:
+
+```python
+# Link entity to source message
+await memory.long_term.link_entity_to_message(
+    entity, message_id,
+    confidence=0.95, start_pos=10, end_pos=20,
+)
+
+# Link to extractor
+await memory.long_term.link_entity_to_extractor(
+    entity, "GLiNEREntityExtractor", confidence=0.95,
+)
+
+# Get provenance
+provenance = await memory.long_term.get_entity_provenance(entity)
+```
+
+## CLI Tool
+
+Command-line interface for entity extraction and schema management:
+
+```bash
+# Install CLI extras
+pip install neo4j-agent-memory[cli]
+
+# Extract entities from text
+neo4j-memory extract "John Smith works at Acme Corp in New York"
+
+# Extract from a file with JSON output
+neo4j-memory extract --file document.txt --format json
+
+# Use different extractors
+neo4j-memory extract "..." --extractor gliner
+neo4j-memory extract "..." --extractor llm
+
+# Schema management
+neo4j-memory schemas list --password $NEO4J_PASSWORD
+neo4j-memory schemas show my_schema --format yaml
+
+# Statistics
+neo4j-memory stats --password $NEO4J_PASSWORD
+```
+
+## Observability
+
+Monitor extraction pipelines with OpenTelemetry or Opik:
+
+```python
+from neo4j_agent_memory.observability import get_tracer
+
+# Auto-detect available provider
+tracer = get_tracer()
+
+# Or specify explicitly
+tracer = get_tracer(provider="opentelemetry", service_name="my-service")
+
+# Decorator-based tracing
+@tracer.trace("extract_entities")
+async def extract(text: str):
+    return await extractor.extract(text)
+
+# Context manager for manual spans
+async with tracer.async_span("extraction") as span:
+    span.set_attribute("text_length", len(text))
+    result = await extract(text)
+```
+
 ## Agent Framework Integrations
 
 ### LangChain
@@ -936,4 +1093,113 @@ Apache License 2.0
 
 ## Contributing
 
-Contributions are welcome! Please read our contributing guidelines before submitting a pull request.
+Contributions are welcome! Please read the guidelines below before submitting a pull request.
+
+### CI/CD Pipeline
+
+This project uses GitHub Actions for continuous integration and deployment. The pipeline automatically runs on every push to `main` and on all pull requests.
+
+#### Workflow Overview
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| **CI** (`ci.yml`) | Push to `main`, PRs | Linting, type checking, tests, build validation |
+| **Release** (`release.yml`) | Git tags (`v*`) | Build and publish to PyPI, create GitHub releases |
+
+#### CI Jobs
+
+The CI workflow runs the following jobs:
+
+1. **Lint** - Code quality checks using Ruff
+   - `ruff check` for linting errors
+   - `ruff format --check` for formatting consistency
+
+2. **Type Check** - Static type analysis using mypy
+   - Validates type annotations in `src/`
+
+3. **Unit Tests** - Fast tests without external dependencies
+   - Runs on Python 3.10, 3.11, 3.12, and 3.13
+   - Generates code coverage reports (uploaded to Codecov)
+   - Command: `pytest tests/unit -v --cov`
+
+4. **Integration Tests** - Tests with Neo4j database
+   - Uses GitHub Actions services to spin up Neo4j 5.26
+   - Runs on Python 3.12 first, then matrix across all versions
+   - Command: `pytest tests/integration -v`
+
+5. **Example Tests** - Validates example code works
+   - Quick validation (no Neo4j): import checks, basic functionality
+   - Full validation (with Neo4j): smoke tests for examples
+
+6. **Build** - Package build validation
+   - Builds wheel and sdist
+   - Validates package can be installed and imported
+   - Uploads build artifacts
+
+#### Running CI Locally
+
+Before submitting a PR, run the same checks locally:
+
+```bash
+# Run all checks (recommended before PR)
+make ci
+
+# Or run individual checks:
+make lint        # Ruff linting
+make format      # Auto-format code
+make typecheck   # Mypy type checking
+make test        # Unit tests only
+make test-all    # Unit + integration tests
+```
+
+#### Pull Request Requirements
+
+All PRs must pass these checks before merging:
+- ✅ Lint (ruff check)
+- ✅ Format (ruff format)
+- ✅ Unit tests (all Python versions)
+- ✅ Integration tests
+- ✅ Build validation
+
+#### Release Process
+
+Releases are automated via GitHub Actions:
+
+1. Update version in `pyproject.toml`
+2. Create and push a git tag: `git tag v0.2.0 && git push --tags`
+3. GitHub Actions automatically:
+   - Builds the package
+   - Publishes to PyPI (using trusted publishing)
+   - Creates a GitHub release with auto-generated notes
+
+#### Test Categories
+
+```bash
+# Unit tests (fast, no external dependencies)
+pytest tests/unit -v
+
+# Integration tests (requires Neo4j)
+pytest tests/integration -v
+
+# Example validation tests
+pytest tests/examples -v
+
+# All tests with coverage
+pytest --cov=neo4j_agent_memory --cov-report=html
+```
+
+### Code Style
+
+- **Formatter**: Ruff (line length: 88)
+- **Linter**: Ruff
+- **Type Checker**: mypy (strict mode)
+- **Docstrings**: Google style
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Make your changes
+4. Run `make ci` to validate
+5. Commit with descriptive messages
+6. Push and open a PR against `main`
