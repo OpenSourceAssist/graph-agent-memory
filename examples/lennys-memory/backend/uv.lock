@@ -2043,6 +2043,7 @@ openai = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.20.0" },
+    { name = "click", marker = "extra == 'cli'", specifier = ">=8.0.0" },
     { name = "crewai", marker = "extra == 'crewai'", specifier = ">=0.50.0" },
     { name = "gliner", marker = "extra == 'extraction'", specifier = ">=0.2.0" },
     { name = "gliner", marker = "extra == 'gliner'", specifier = ">=0.2.0" },
@@ -2052,15 +2053,22 @@ requires-dist = [
     { name = "neo4j-agent-memory", extras = ["all", "sentence-transformers", "spacy", "gliner"], marker = "extra == 'full'" },
     { name = "neo4j-agent-memory", extras = ["openai", "anthropic", "fuzzy", "langchain", "llamaindex", "pydantic-ai", "crewai"], marker = "extra == 'all'" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.0.0" },
+    { name = "opentelemetry-api", marker = "extra == 'observability'", specifier = ">=1.20.0" },
+    { name = "opentelemetry-api", marker = "extra == 'opentelemetry'", specifier = ">=1.20.0" },
+    { name = "opentelemetry-exporter-otlp", marker = "extra == 'opentelemetry'", specifier = ">=1.20.0" },
+    { name = "opentelemetry-sdk", marker = "extra == 'observability'", specifier = ">=1.20.0" },
+    { name = "opentelemetry-sdk", marker = "extra == 'opentelemetry'", specifier = ">=1.20.0" },
+    { name = "opik", marker = "extra == 'opik'", specifier = ">=1.0.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-ai", marker = "extra == 'pydantic-ai'", specifier = ">=0.1.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "rapidfuzz", marker = "extra == 'fuzzy'", specifier = ">=3.0.0" },
+    { name = "rich", marker = "extra == 'cli'", specifier = ">=13.0.0" },
     { name = "sentence-transformers", marker = "extra == 'sentence-transformers'", specifier = ">=2.2.0" },
     { name = "spacy", marker = "extra == 'extraction'", specifier = ">=3.7.0" },
     { name = "spacy", marker = "extra == 'spacy'", specifier = ">=3.7.0" },
 ]
-provides-extras = ["openai", "anthropic", "sentence-transformers", "spacy", "gliner", "extraction", "fuzzy", "langchain", "llamaindex", "pydantic-ai", "crewai", "all", "full"]
+provides-extras = ["openai", "anthropic", "sentence-transformers", "spacy", "gliner", "extraction", "fuzzy", "cli", "opentelemetry", "opik", "observability", "langchain", "llamaindex", "pydantic-ai", "crewai", "all", "full"]
 
 [package.metadata.requires-dev]
 dev = [

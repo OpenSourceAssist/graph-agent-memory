@@ -48,6 +48,10 @@ from dotenv import load_dotenv
 from pydantic import SecretStr
 
 from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
+from neo4j_agent_memory.config.settings import (
+    ExtractionConfig,
+    ExtractorType,
+)
 from neo4j_agent_memory.graph.schema import SchemaManager
 
 # Load .env file from backend directory
@@ -1025,12 +1029,23 @@ Performance Tips:
         print(f"  {color('Mode:', Colors.DIM)} {color('EXTRACT ENTITIES ONLY', Colors.BLUE)}")
     print()
 
+    # Configure extraction settings for podcast transcripts
+    extraction_config = ExtractionConfig(
+        extractor_type=ExtractorType.PIPELINE,
+        enable_spacy=True,
+        enable_gliner=True,
+        enable_llm_fallback=False,  # Don't use LLM for faster extraction
+        gliner_schema="podcast",  # Use podcast-optimized schema
+        gliner_threshold=0.4,  # Lower threshold to capture more entities
+    )
+
     settings = MemorySettings(
         neo4j=Neo4jConfig(
             uri=args.neo4j_uri,
             username=args.neo4j_user,
             password=SecretStr(args.neo4j_password),
-        )
+        ),
+        extraction=extraction_config,
     )
 
     if not args.dry_run:
