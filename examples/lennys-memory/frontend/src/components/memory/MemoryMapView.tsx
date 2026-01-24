@@ -62,10 +62,6 @@ const LayersControl = dynamic(
   () => import("react-leaflet").then((mod) => mod.LayersControl),
   { ssr: false },
 );
-const useMap = dynamic(
-  () => import("react-leaflet").then((mod) => mod.useMap),
-  { ssr: false },
-) as any;
 
 // Layer type for visualization mode
 type LayerMode = "markers" | "clusters" | "heatmap";
@@ -111,7 +107,8 @@ const SUBTYPE_COLORS: Record<string, string> = {
 interface MemoryMapViewProps {
   isOpen: boolean;
   onClose: () => void;
-  threadId?: string; // NEW: conversation scoping
+  threadId?: string; // conversation scoping
+  initialShowAll?: boolean; // start with all locations visible
 }
 
 // Component for map controls and interactions
@@ -139,6 +136,7 @@ export default function MemoryMapView({
   isOpen,
   onClose,
   threadId,
+  initialShowAll = true, // Default to showing all locations
 }: MemoryMapViewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [locations, setLocations] = useState<LocationEntity[]>([]);
@@ -150,6 +148,7 @@ export default function MemoryMapView({
   const [basemap, setBasemap] = useState<BasemapType>("osm");
   const [measureMode, setMeasureMode] = useState(false);
   const [drawMode, setDrawMode] = useState<"polygon" | "circle" | null>(null);
+  const [showAllLocations, setShowAllLocations] = useState(initialShowAll);
 
   // Selection state
   const [selectedLocations, setSelectedLocations] = useState<LocationEntity[]>(
@@ -178,17 +177,19 @@ export default function MemoryMapView({
     setIsLoading(true);
     setError(null);
     try {
+      // Only filter by threadId if not showing all locations
+      const sessionFilter = showAllLocations ? undefined : threadId;
       const data = await api.locations.list({
-        threadId,
+        threadId: sessionFilter,
         hasCoordinates: true,
         limit: 500,
       });
       setLocations(data);
 
       if (data.length === 0) {
-        if (threadId) {
+        if (!showAllLocations && threadId) {
           setError(
-            "No geocoded locations found in this conversation. Try viewing all locations or chat about specific places.",
+            "No geocoded locations found in this conversation. Toggle 'Show All' to see all podcast locations.",
           );
         } else {
           setError(
@@ -203,7 +204,7 @@ export default function MemoryMapView({
     } finally {
       setIsLoading(false);
     }
-  }, [threadId]);
+  }, [threadId, showAllLocations]);
 
   // Calculate map bounds from locations
   const mapBounds = useMemo(() => {
@@ -361,12 +362,12 @@ export default function MemoryMapView({
     }
   }, [isOpen, loadLocations, clearPath]);
 
-  // Reload when threadId changes
+  // Reload when threadId or showAllLocations changes
   useEffect(() => {
     if (isOpen) {
       loadLocations();
     }
-  }, [threadId, isOpen, loadLocations]);
+  }, [threadId, showAllLocations, isOpen, loadLocations]);
 
   if (!isOpen) return null;
 
@@ -418,16 +419,22 @@ export default function MemoryMapView({
                 <Text fontSize="xl" fontWeight="bold">
                   Location Map
                 </Text>
-                {threadId && (
+                {showAllLocations ? (
+                  <Badge colorPalette="blue" fontSize="xs">
+                    All Podcasts
+                  </Badge>
+                ) : threadId ? (
                   <Badge colorPalette="purple" fontSize="xs">
                     Conversation Filtered
                   </Badge>
-                )}
+                ) : null}
               </HStack>
               <Text fontSize="xs" color="gray.600">
-                {threadId
-                  ? "Locations mentioned in this conversation"
-                  : "All locations from podcast transcripts"}
+                {showAllLocations
+                  ? "All locations from podcast transcripts"
+                  : threadId
+                    ? "Locations mentioned in this conversation"
+                    : "All locations from podcast transcripts"}
               </Text>
               {locations.length > 0 && (
                 <HStack gap={2} mt={1}>
@@ -526,6 +533,31 @@ export default function MemoryMapView({
                   {BASEMAPS[type].name}
                 </Button>
               ))}
+            </HStack>
+
+            {/* Data Scope */}
+            <HStack gap={1}>
+              <Text fontSize="xs" color="gray.500" mr={1}>
+                Scope:
+              </Text>
+              <Button
+                size="xs"
+                variant={showAllLocations ? "solid" : "outline"}
+                colorPalette={showAllLocations ? "blue" : "gray"}
+                onClick={() => setShowAllLocations(true)}
+              >
+                All Podcasts
+              </Button>
+              {threadId && (
+                <Button
+                  size="xs"
+                  variant={!showAllLocations ? "solid" : "outline"}
+                  colorPalette={!showAllLocations ? "purple" : "gray"}
+                  onClick={() => setShowAllLocations(false)}
+                >
+                  This Conversation
+                </Button>
+              )}
             </HStack>
 
             {/* Tools */}

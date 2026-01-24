@@ -252,12 +252,19 @@ async def stream_chat_response(
                 if isinstance(msg, ModelResponse):
                     for part in msg.parts:
                         if isinstance(part, ToolCallPart):
-                            # Get args safely
+                            # Get args safely using args_as_dict() method
                             args = {}
-                            if hasattr(part.args, "args_dict"):
-                                args = safe_serialize(part.args.args_dict)
-                            elif hasattr(part.args, "model_dump"):
-                                args = safe_serialize(part.args.model_dump())
+                            try:
+                                args = safe_serialize(part.args_as_dict())
+                            except Exception:
+                                # Fallback: try direct access if args is already a dict
+                                if isinstance(part.args, dict):
+                                    args = safe_serialize(part.args)
+                                elif isinstance(part.args, str):
+                                    try:
+                                        args = json.loads(part.args)
+                                    except json.JSONDecodeError:
+                                        args = {"raw": part.args}
 
                             tool_call_id = part.tool_call_id or str(uuid.uuid4())
 
