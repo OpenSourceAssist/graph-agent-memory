@@ -85,6 +85,63 @@ export const entities = {
     const queryStr = params.toString();
     return fetchAPI<Entity[]>(`/entities${queryStr ? `?${queryStr}` : ""}`);
   },
+
+  /**
+   * Get most mentioned entities across all podcasts.
+   */
+  top: (entityType?: string, limit: number = 10) => {
+    const params = new URLSearchParams();
+    if (entityType) params.set("entity_type", entityType);
+    params.set("limit", String(limit));
+    return fetchAPI<
+      Array<{
+        id: string;
+        name: string;
+        type: string;
+        subtype?: string;
+        description?: string;
+        wikipedia_url?: string;
+        enriched_description?: string;
+        mentions: number;
+      }>
+    >(`/entities/top?${params}`);
+  },
+
+  /**
+   * Get full context for an entity including enrichment and mentions.
+   */
+  context: (entityName: string) =>
+    fetchAPI<{
+      entity: {
+        id: string;
+        name: string;
+        type: string;
+        subtype?: string;
+        description?: string;
+        enriched_description?: string;
+        wikipedia_url?: string;
+      };
+      mentions: Array<{
+        content: string;
+        speaker: string;
+        session_id: string;
+      }>;
+    }>(`/entities/${encodeURIComponent(entityName)}/context`),
+
+  /**
+   * Get entities related to a given entity through co-occurrence.
+   */
+  related: (entityName: string, limit: number = 10) =>
+    fetchAPI<
+      Array<{
+        id: string;
+        name: string;
+        type: string;
+        subtype?: string;
+        description?: string;
+        co_occurrences: number;
+      }>
+    >(`/entities/related/${encodeURIComponent(entityName)}?limit=${limit}`),
 };
 
 // Memory API
@@ -116,6 +173,33 @@ export const memory = {
     return fetchAPI<MemoryGraph>(
       `/memory/graph/neighbors/${encodeURIComponent(nodeId)}?${params}`,
     );
+  },
+
+  /**
+   * Find similar past reasoning traces for a given task.
+   */
+  getSimilarTraces: (
+    task: string,
+    limit: number = 3,
+    successOnly: boolean = true,
+  ) => {
+    const params = new URLSearchParams({
+      task,
+      limit: String(limit),
+      success_only: String(successOnly),
+    });
+    return fetchAPI<
+      Array<{
+        id: string;
+        session_id?: string;
+        task: string;
+        outcome?: string;
+        success?: boolean;
+        started_at?: string;
+        completed_at?: string;
+        similarity?: number;
+      }>
+    >(`/memory/similar-traces?${params}`);
   },
 };
 
@@ -201,6 +285,28 @@ export const locations = {
     }>(
       `/locations/path?from_location_id=${encodeURIComponent(fromId)}&to_location_id=${encodeURIComponent(toId)}`,
     ),
+
+  /**
+   * Get location clusters for heatmap visualization.
+   */
+  clusters: (threadId?: string) => {
+    const params = new URLSearchParams();
+    if (threadId) params.set("session_id", threadId);
+    const query = params.toString();
+    return fetchAPI<
+      Array<{
+        country: string;
+        location_count: number;
+        locations: Array<{
+          name: string;
+          latitude: number;
+          longitude: number;
+        }>;
+        center_lat: number;
+        center_lon: number;
+      }>
+    >(`/locations/clusters${query ? `?${query}` : ""}`);
+  },
 };
 
 // Chat API with SSE streaming

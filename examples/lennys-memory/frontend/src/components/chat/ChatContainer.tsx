@@ -1,8 +1,8 @@
 "use client";
 
-import { Box, Flex, Stack, Text, SimpleGrid } from "@chakra-ui/react";
+import { Box, Flex, Stack, Text, SimpleGrid, Spinner } from "@chakra-ui/react";
 import { useRef, useEffect } from "react";
-import { LuMessageSquare } from "react-icons/lu";
+import { LuMessageSquare, LuBot } from "react-icons/lu";
 import { MessageList } from "./MessageList";
 import { PromptInput } from "./PromptInput";
 import type { Message } from "@/lib/types";
@@ -132,7 +132,41 @@ export function ChatContainer({
             </Stack>
           </Flex>
         ) : (
-          <MessageList messages={messages} />
+          <Stack gap="4" maxW="4xl" mx="auto">
+            <MessageList messages={messages} />
+
+            {/* Streaming indicator */}
+            {isStreaming && (
+              <Flex gap="3" alignItems="flex-start" px="4" pb="4">
+                <Flex
+                  w="8"
+                  h="8"
+                  borderRadius="full"
+                  bg="green.subtle"
+                  alignItems="center"
+                  justifyContent="center"
+                  flexShrink={0}
+                >
+                  <LuBot size={16} />
+                </Flex>
+                <Flex
+                  alignItems="center"
+                  gap="3"
+                  px="4"
+                  py="3"
+                  bg="blue.subtle"
+                  borderRadius="lg"
+                  border="1px solid"
+                  borderColor="blue.200"
+                >
+                  <Spinner size="sm" color="blue.500" borderWidth="2px" />
+                  <Text fontSize="sm" color="blue.700" fontWeight="medium">
+                    Thinking and searching podcasts...
+                  </Text>
+                </Flex>
+              </Flex>
+            )}
+          </Stack>
         )}
       </Box>
 

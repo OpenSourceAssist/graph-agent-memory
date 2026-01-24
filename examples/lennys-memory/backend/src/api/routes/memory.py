@@ -434,6 +434,175 @@ async def list_entities(
     return entities
 
 
+@router.get("/entities/top")
+async def get_top_entities(
+    entity_type: str | None = Query(default=None, description="Filter by entity type"),
+    limit: int = Query(default=10, ge=1, le=100),
+) -> list[dict]:
+    """Get the most mentioned entities across all podcasts.
+
+    Args:
+        entity_type: Optional filter by PERSON, ORGANIZATION, CONCEPT, LOCATION.
+        limit: Number of results to return (default 10).
+
+    Returns:
+        List of entities with mention counts.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        return []
+
+    try:
+        query = """
+        MATCH (e:Entity)<-[r:MENTIONS]-()
+        WHERE $type IS NULL OR e.type = $type
+        WITH e, count(r) AS mentions
+        ORDER BY mentions DESC
+        LIMIT $limit
+        RETURN e.id AS id, e.name AS name, e.type AS type, e.subtype AS subtype,
+               e.description AS description, e.wikipedia_url AS wikipedia_url,
+               e.enriched_description AS enriched_description,
+               mentions
+        """
+        results = await memory._client.execute_read(query, {"type": entity_type, "limit": limit})
+
+        return [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "type": r["type"],
+                "subtype": r["subtype"],
+                "description": r["description"],
+                "wikipedia_url": r["wikipedia_url"],
+                "enriched_description": r["enriched_description"],
+                "mentions": r["mentions"],
+            }
+            for r in results
+        ]
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return []
+
+
+@router.get("/entities/{entity_name}/context")
+async def get_entity_full_context(
+    entity_name: str,
+) -> dict:
+    """Get full context for an entity including enrichment and mentions.
+
+    Args:
+        entity_name: Name of the entity to retrieve.
+
+    Returns:
+        Entity details with Wikipedia data and podcast mentions.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        raise HTTPException(status_code=503, detail="Memory service unavailable")
+
+    try:
+        # Get entity by name
+        entity = await memory.long_term.get_entity_by_name(entity_name)
+        if not entity:
+            raise HTTPException(status_code=404, detail="Entity not found")
+
+        # Get mention context
+        query = """
+        MATCH (e:Entity {name: $name})<-[:MENTIONS]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+        RETURN m.content AS content, m.metadata AS metadata, c.session_id AS session_id
+        LIMIT 5
+        """
+        mentions = await memory._client.execute_read(query, {"name": entity_name})
+
+        import json as json_lib
+
+        mention_list = []
+        for m in mentions:
+            metadata = m.get("metadata", {})
+            if isinstance(metadata, str):
+                try:
+                    metadata = json_lib.loads(metadata)
+                except json_lib.JSONDecodeError:
+                    metadata = {}
+            mention_list.append(
+                {
+                    "content": m["content"][:300] + "..."
+                    if len(m["content"]) > 300
+                    else m["content"],
+                    "speaker": metadata.get("speaker", "Unknown"),
+                    "session_id": m["session_id"],
+                }
+            )
+
+        return {
+            "entity": {
+                "id": str(entity.id),
+                "name": entity.name,
+                "type": entity.type if isinstance(entity.type, str) else entity.type.value,
+                "subtype": getattr(entity, "subtype", None),
+                "description": entity.description,
+                "enriched_description": getattr(entity, "enriched_description", None),
+                "wikipedia_url": getattr(entity, "wikipedia_url", None),
+            },
+            "mentions": mention_list,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/entities/related/{entity_name}")
+async def get_related_entities(
+    entity_name: str,
+    limit: int = Query(default=10, ge=1, le=50),
+) -> list[dict]:
+    """Get entities that co-occur with the given entity.
+
+    Args:
+        entity_name: Name of the entity to find relations for.
+        limit: Maximum number of related entities to return.
+
+    Returns:
+        List of related entities with co-occurrence counts.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        return []
+
+    try:
+        query = """
+        MATCH (e1:Entity {name: $name})<-[:MENTIONS]-(m:Message)-[:MENTIONS]->(e2:Entity)
+        WHERE e1 <> e2
+        WITH e2, count(m) AS co_occurrences
+        ORDER BY co_occurrences DESC
+        LIMIT $limit
+        RETURN e2.id AS id, e2.name AS name, e2.type AS type, e2.subtype AS subtype,
+               e2.description AS description, co_occurrences
+        """
+        results = await memory._client.execute_read(query, {"name": entity_name, "limit": limit})
+
+        return [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "type": r["type"],
+                "subtype": r["subtype"],
+                "description": r["description"],
+                "co_occurrences": r["co_occurrences"],
+            }
+            for r in results
+        ]
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return []
+
+
 def serialize_neo4j_value(value: Any) -> Any:
     """Serialize Neo4j values to JSON-compatible format."""
     if value is None:
@@ -742,6 +911,73 @@ async def get_locations_in_bounds(
         import traceback
 
         print(f"Error fetching locations in bounds: {e}")
+        traceback.print_exc()
+        return []
+
+
+@router.get("/locations/clusters")
+async def get_location_clusters(
+    session_id: str | None = Query(default=None, description="Filter by conversation session"),
+) -> list[dict]:
+    """Analyze geographic clusters of locations mentioned in podcasts.
+
+    Returns location density by country/region, useful for heatmap visualization.
+
+    Args:
+        session_id: Optional session ID to filter to conversation-specific locations.
+
+    Returns:
+        List of clusters with country, location count, and center coordinates.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        return []
+
+    try:
+        # Get locations with coordinates
+        locations_data = await memory.get_locations(
+            session_id=session_id,
+            has_coordinates=True,
+            limit=500,
+        )
+
+        # Group by country
+        country_clusters: dict[str, list[dict]] = {}
+        for loc in locations_data:
+            country = loc.get("country") or "Unknown"
+            if country not in country_clusters:
+                country_clusters[country] = []
+            if loc.get("latitude") is not None and loc.get("longitude") is not None:
+                country_clusters[country].append(
+                    {
+                        "name": loc["name"],
+                        "latitude": loc["latitude"],
+                        "longitude": loc["longitude"],
+                    }
+                )
+
+        # Calculate cluster centers
+        clusters = []
+        for country, locs in sorted(country_clusters.items(), key=lambda x: -len(x[1])):
+            if not locs:
+                continue
+            center_lat = sum(l["latitude"] for l in locs) / len(locs)
+            center_lon = sum(l["longitude"] for l in locs) / len(locs)
+            clusters.append(
+                {
+                    "country": country,
+                    "location_count": len(locs),
+                    "locations": locs[:5],  # Top 5 locations per country
+                    "center_lat": center_lat,
+                    "center_lon": center_lon,
+                }
+            )
+
+        return clusters
+
+    except Exception as e:
+        import traceback
+
         traceback.print_exc()
         return []
 

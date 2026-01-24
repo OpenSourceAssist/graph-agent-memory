@@ -11,8 +11,11 @@ from fastapi import APIRouter
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
+    SystemPromptPart,
+    TextPart,
     ToolCallPart,
     ToolReturnPart,
+    UserPromptPart,
 )
 from sse_starlette.sse import EventSourceResponse
 
@@ -70,6 +73,48 @@ PREFERENCE_INDICATORS = [
     "avoid",
     "don't give me",
 ]
+
+
+async def get_conversation_history(
+    memory: MemoryClient,
+    session_id: str,
+    limit: int = 20,
+) -> list[ModelRequest | ModelResponse]:
+    """Fetch conversation history and convert to PydanticAI message format.
+
+    Args:
+        memory: The memory client.
+        session_id: The conversation session ID.
+        limit: Maximum number of messages to retrieve.
+
+    Returns:
+        List of PydanticAI messages suitable for message_history parameter.
+    """
+    try:
+        conversation = await memory.short_term.get_conversation(
+            session_id=session_id,
+            limit=limit,
+        )
+
+        if not conversation or not conversation.messages:
+            return []
+
+        history: list[ModelRequest | ModelResponse] = []
+
+        for msg in conversation.messages:
+            if msg.role == MessageRole.USER:
+                # User messages become ModelRequest with UserPromptPart
+                history.append(ModelRequest(parts=[UserPromptPart(content=msg.content)]))
+            elif msg.role == MessageRole.ASSISTANT:
+                # Assistant messages become ModelResponse with TextPart
+                history.append(ModelResponse(parts=[TextPart(content=msg.content)]))
+            # Skip system messages as they're handled by the system prompt
+
+        return history
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch conversation history: {e}")
+        return []
 
 
 async def extract_and_store_preferences(
@@ -144,11 +189,22 @@ async def stream_chat_response(
     tool_call_start_times: dict[str, float] = {}
 
     try:
-        # Create agent dependencies
+        # Get conversation history before adding the new message
+        message_history: list[ModelRequest | ModelResponse] = []
+        if memory_enabled and memory:
+            message_history = await get_conversation_history(
+                memory=memory,
+                session_id=request.thread_id,
+                limit=20,  # Last 20 messages for context
+            )
+            logger.info(f"Loaded {len(message_history)} messages from conversation history")
+
+        # Create agent dependencies with current query for similar trace lookup
         deps = AgentDeps.create(
             memory=memory,
             session_id=request.thread_id,
             memory_enabled=memory_enabled,
+            current_query=request.message,
         )
 
         # Store user message in short-term memory
@@ -176,13 +232,14 @@ async def stream_chat_response(
             trace_id = trace.id
             logger.info(f"Started procedural trace: {trace_id}")
 
-        # Run agent with streaming
+        # Run agent with streaming and conversation history
         full_response = ""
         agent = get_podcast_agent()
 
         async with agent.run_stream(
             request.message,
             deps=deps,
+            message_history=message_history if message_history else None,
         ) as result:
             # Stream text tokens
             async for text in result.stream_text(delta=True):

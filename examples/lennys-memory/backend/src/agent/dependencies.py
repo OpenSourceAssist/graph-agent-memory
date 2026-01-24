@@ -14,6 +14,7 @@ class AgentDeps(MemoryDependency):
     """
 
     memory_enabled: bool = True
+    current_query: str | None = None
 
     @classmethod
     def create(
@@ -21,10 +22,12 @@ class AgentDeps(MemoryDependency):
         memory: MemoryClient | None,
         session_id: str,
         memory_enabled: bool = True,
+        current_query: str | None = None,
     ) -> "AgentDeps":
         """Create agent dependencies with memory client."""
         return cls(
             client=memory,  # MemoryDependency uses 'client' field
             session_id=session_id,
             memory_enabled=memory_enabled,
+            current_query=current_query,
         )

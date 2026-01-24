@@ -8,8 +8,18 @@ import {
   IconButton,
   Flex,
   Heading,
+  Link,
+  Separator,
 } from "@chakra-ui/react";
-import { LuPlus, LuTrash2, LuMessageSquare, LuBrain } from "react-icons/lu";
+import {
+  LuPlus,
+  LuTrash2,
+  LuMessageSquare,
+  LuBrain,
+  LuGithub,
+  LuExternalLink,
+  LuDatabase,
+} from "react-icons/lu";
 import type { Thread } from "@/lib/types";
 
 interface SidebarProps {
@@ -134,6 +144,117 @@ export function Sidebar({
             </Flex>
           ))
         )}
+      </Stack>
+
+      {/* Branding footer */}
+      <Stack gap="3" pt="2">
+        <Separator />
+
+        {/* Powered by section */}
+        <Stack gap="2">
+          <Text fontSize="xs" color="fg.muted" fontWeight="medium">
+            Powered by
+          </Text>
+
+          <Link
+            href="https://github.com/neo4j-labs/neo4j-agent-memory"
+            target="_blank"
+            rel="noopener noreferrer"
+            _hover={{ textDecoration: "none" }}
+          >
+            <Flex
+              px="3"
+              py="2"
+              bg="blue.subtle"
+              borderRadius="md"
+              alignItems="center"
+              gap="2"
+              _hover={{ bg: "blue.100" }}
+              transition="background 0.2s"
+            >
+              <LuDatabase size={16} color="var(--chakra-colors-blue-600)" />
+              <Text fontSize="sm" fontWeight="medium" color="blue.700" flex="1">
+                neo4j-agent-memory
+              </Text>
+              <LuExternalLink size={12} color="var(--chakra-colors-blue-500)" />
+            </Flex>
+          </Link>
+
+          <Flex gap="2">
+            <Link
+              href="https://neo4j.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              flex="1"
+              _hover={{ textDecoration: "none" }}
+            >
+              <Flex
+                px="2"
+                py="1.5"
+                bg="bg.muted"
+                borderRadius="md"
+                alignItems="center"
+                justifyContent="center"
+                gap="1"
+                _hover={{ bg: "bg.emphasized" }}
+                transition="background 0.2s"
+              >
+                <Text fontSize="xs" color="fg.muted">
+                  Neo4j
+                </Text>
+              </Flex>
+            </Link>
+
+            <Link
+              href="https://www.lennysnewsletter.com/podcast"
+              target="_blank"
+              rel="noopener noreferrer"
+              flex="1"
+              _hover={{ textDecoration: "none" }}
+            >
+              <Flex
+                px="2"
+                py="1.5"
+                bg="bg.muted"
+                borderRadius="md"
+                alignItems="center"
+                justifyContent="center"
+                gap="1"
+                _hover={{ bg: "bg.emphasized" }}
+                transition="background 0.2s"
+              >
+                <Text fontSize="xs" color="fg.muted">
+                  Lenny's Podcast
+                </Text>
+              </Flex>
+            </Link>
+          </Flex>
+        </Stack>
+
+        {/* GitHub link */}
+        <Link
+          href="https://github.com/neo4j-labs/neo4j-agent-memory/tree/main/examples/lennys-memory"
+          target="_blank"
+          rel="noopener noreferrer"
+          _hover={{ textDecoration: "none" }}
+        >
+          <Flex
+            px="3"
+            py="2"
+            bg="bg.muted"
+            borderRadius="md"
+            alignItems="center"
+            gap="2"
+            _hover={{ bg: "bg.emphasized" }}
+            transition="background 0.2s"
+          >
+            <LuGithub size={16} />
+            <Text fontSize="xs" color="fg.muted" flex="1">
+              View source on GitHub
+            </Text>
+            <LuExternalLink size={12} />
+          </Flex>
+        </Link>
       </Stack>
     </Stack>
   );
