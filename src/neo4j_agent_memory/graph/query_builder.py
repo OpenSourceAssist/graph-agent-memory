@@ -11,14 +11,13 @@ Labels are converted to PascalCase following Neo4j naming conventions.
 """
 
 import re
-from typing import Set
 
 # Valid POLE+O entity types (stored uppercase internally, converted to PascalCase for labels)
-VALID_ENTITY_TYPES: Set[str] = {"PERSON", "OBJECT", "LOCATION", "EVENT", "ORGANIZATION"}
+VALID_ENTITY_TYPES: set[str] = {"PERSON", "OBJECT", "LOCATION", "EVENT", "ORGANIZATION"}
 
 # Valid subtypes by entity type (from schema/models.py)
 # Stored uppercase internally, converted to PascalCase for labels
-VALID_SUBTYPES: dict[str, Set[str]] = {
+VALID_SUBTYPES: dict[str, set[str]] = {
     "PERSON": {"INDIVIDUAL", "ALIAS", "PERSONA", "SUSPECT", "WITNESS", "VICTIM"},
     "OBJECT": {
         "VEHICLE",
@@ -235,7 +234,9 @@ def build_label_set_clause(entity_type: str, subtype: str | None, node_var: str 
     return f"SET {label_additions}"
 
 
-def build_create_entity_query(entity_type: str, subtype: str | None) -> str:
+def build_create_entity_query(
+    entity_type: str, subtype: str | None, *, include_location: bool = False
+) -> str:
     """Build the CREATE_ENTITY query with dynamic type/subtype labels.
 
     The query MERGEs on :Entity with name+type properties for uniqueness,
@@ -244,6 +245,7 @@ def build_create_entity_query(entity_type: str, subtype: str | None) -> str:
     Args:
         entity_type: The entity type (e.g., "PERSON", "OBJECT")
         subtype: Optional subtype (e.g., "VEHICLE", "ADDRESS")
+        include_location: If True, include location Point property (for LOCATION entities)
 
     Returns:
         Complete Cypher query string with dynamic labels
@@ -251,10 +253,21 @@ def build_create_entity_query(entity_type: str, subtype: str | None) -> str:
     Example:
         >>> query = build_create_entity_query("OBJECT", "VEHICLE")
         >>> # Returns query that creates (:Entity:OBJECT:VEHICLE {...})
+
+        >>> query = build_create_entity_query("LOCATION", "CITY", include_location=True)
+        >>> # Returns query that also sets e.location = $location
     """
     label_set_clause = build_label_set_clause(entity_type, subtype)
 
-    query = """MERGE (e:Entity {name: $name, type: $type})
+    # Build location clause for LOCATION entities
+    location_on_create = ""
+    location_on_match = ""
+    if include_location or entity_type.upper() == "LOCATION":
+        # Use CASE to only set location if $location is not null
+        location_on_create = ",\n    e.location = CASE WHEN $location IS NOT NULL THEN point({latitude: $location.latitude, longitude: $location.longitude}) ELSE null END"
+        location_on_match = ",\n    e.location = CASE WHEN $location IS NOT NULL THEN point({latitude: $location.latitude, longitude: $location.longitude}) ELSE e.location END"
+
+    query = f"""MERGE (e:Entity {{name: $name, type: $type}})
 ON CREATE SET
     e.id = $id,
     e.subtype = $subtype,
@@ -263,13 +276,13 @@ ON CREATE SET
     e.embedding = $embedding,
     e.confidence = $confidence,
     e.created_at = datetime(),
-    e.metadata = $metadata
+    e.metadata = $metadata{location_on_create}
 ON MATCH SET
     e.subtype = COALESCE($subtype, e.subtype),
     e.canonical_name = COALESCE($canonical_name, e.canonical_name),
     e.description = COALESCE($description, e.description),
     e.embedding = COALESCE($embedding, e.embedding),
-    e.updated_at = datetime()"""
+    e.updated_at = datetime(){location_on_match}"""
 
     # Add label SET clause if we have valid labels
     if label_set_clause:

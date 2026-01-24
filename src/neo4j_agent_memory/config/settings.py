@@ -156,12 +156,19 @@ class ExtractionConfig(BaseModel):
         default=0.85, ge=0.0, le=1.0, description="Default confidence score for spaCy extractions"
     )
 
-    # GLiNER settings
-    gliner_model: str = Field(default="urchade/gliner_medium-v2.1", description="GLiNER model name")
+    # GLiNER settings (GLiNER2 models recommended)
+    gliner_model: str = Field(
+        default="gliner-community/gliner_medium-v2.5",
+        description="GLiNER model name (GLiNER2 v2.5 recommended for best accuracy)",
+    )
     gliner_threshold: float = Field(
         default=0.5, ge=0.0, le=1.0, description="GLiNER confidence threshold"
     )
-    gliner_device: str = Field(default="cpu", description="Device for GLiNER model (cpu/cuda)")
+    gliner_device: str = Field(default="cpu", description="Device for GLiNER model (cpu/cuda/mps)")
+    gliner_schema: str | None = Field(
+        default=None,
+        description="Domain schema for GLiNER extraction (poleo, podcast, news, scientific, business, entertainment, medical, legal)",
+    )
 
     # LLM settings (for LLM extractor or fallback)
     llm_model: str = Field(default="gpt-4o-mini", description="LLM model for extraction")
@@ -234,6 +241,47 @@ class SearchConfig(BaseModel):
     graph_depth: int = Field(default=2, ge=1, description="Graph traversal depth for search")
 
 
+class GeocodingProvider(str, Enum):
+    """Supported geocoding providers."""
+
+    NOMINATIM = "nominatim"
+    GOOGLE = "google"
+
+
+class GeocodingConfig(BaseModel):
+    """Geocoding configuration for Location entities.
+
+    Enables automatic geocoding of Location entities to add latitude/longitude
+    coordinates as a Neo4j Point property, enabling geospatial queries.
+
+    Providers:
+    - NOMINATIM: Free OpenStreetMap-based geocoding (rate limited to 1 req/sec)
+    - GOOGLE: Google Maps geocoding (requires API key, has usage costs)
+    """
+
+    enabled: bool = Field(
+        default=False, description="Enable automatic geocoding of Location entities"
+    )
+    provider: GeocodingProvider = Field(
+        default=GeocodingProvider.NOMINATIM, description="Geocoding provider to use"
+    )
+    api_key: SecretStr | None = Field(
+        default=None, description="API key for geocoding provider (required for Google)"
+    )
+    cache_results: bool = Field(
+        default=True, description="Cache geocoding results to avoid repeated API calls"
+    )
+    rate_limit_per_second: float = Field(
+        default=1.0,
+        gt=0,
+        description="Rate limit for geocoding requests (Nominatim requires <= 1 req/sec)",
+    )
+    user_agent: str = Field(
+        default="neo4j-agent-memory",
+        description="User agent string for Nominatim requests (required by their ToS)",
+    )
+
+
 class MemorySettings(BaseSettings):
     """
     Main configuration class for neo4j-agent-memory.
@@ -260,11 +308,12 @@ class MemorySettings(BaseSettings):
     neo4j: Neo4jConfig = Field(default_factory=lambda: Neo4jConfig(password=SecretStr("")))
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     llm: LLMConfig = Field(default_factory=LLMConfig)
-    schema: SchemaConfig = Field(default_factory=SchemaConfig)
+    schema_config: SchemaConfig = Field(default_factory=SchemaConfig)
     extraction: ExtractionConfig = Field(default_factory=ExtractionConfig)
     resolution: ResolutionConfig = Field(default_factory=ResolutionConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
+    geocoding: GeocodingConfig = Field(default_factory=GeocodingConfig)
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]) -> "MemorySettings":

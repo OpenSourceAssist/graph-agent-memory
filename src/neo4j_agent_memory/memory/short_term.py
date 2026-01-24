@@ -1,9 +1,10 @@
 """Short-term memory for conversations and messages."""
 
 import json
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -840,6 +841,9 @@ class ShortTermMemory(BaseMemory[Message]):
                 # Extract entities
                 extraction_result = await self._extractor.extract(content)
 
+                # Filter out invalid entities (stopwords, numbers, etc.)
+                extraction_result = extraction_result.filter_invalid_entities()
+
                 for entity in extraction_result.entities:
                     # Create or get entity with dynamic labels for type/subtype
                     entity_id = str(uuid4())
@@ -857,6 +861,7 @@ class ShortTermMemory(BaseMemory[Message]):
                             "embedding": None,
                             "confidence": entity.confidence,
                             "metadata": None,
+                            "location": None,  # Required for LOCATION entities
                         },
                     )
 
@@ -948,6 +953,9 @@ class ShortTermMemory(BaseMemory[Message]):
 
         result = await self._extractor.extract(message.content)
 
+        # Filter out invalid entities (stopwords, numbers, etc.)
+        result = result.filter_invalid_entities()
+
         for entity in result.entities:
             # Create or get entity with dynamic labels for type/subtype
             entity_id = str(uuid4())
@@ -965,6 +973,7 @@ class ShortTermMemory(BaseMemory[Message]):
                     "embedding": None,
                     "confidence": entity.confidence,
                     "metadata": None,  # Serialized as null for empty
+                    "location": None,  # Required for LOCATION entities
                 },
             )
 

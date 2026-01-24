@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from neo4j_agent_memory import MemoryClient
+    pass
 
 try:
     from langchain_core.callbacks import CallbackManagerForRetrieverRun

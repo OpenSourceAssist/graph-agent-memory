@@ -60,7 +60,7 @@ class TestBasicUsageExample:
     async def test_long_term_memory_operations(self, memory_client):
         """Test long-term memory operations from basic example."""
         # Add entities
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="Alice Smith",
             entity_type=EntityType.PERSON,
             description="A software engineer",
@@ -215,7 +215,7 @@ class TestEntityResolutionExample:
         )
 
         # Add similar entity with resolution
-        entity = await memory_client.long_term.add_entity(
+        entity, _ = await memory_client.long_term.add_entity(
             name="microsoft corporation",
             entity_type=EntityType.ORGANIZATION,
             resolve=True,
@@ -256,11 +256,12 @@ class TestLangChainAgentExample:
 
             retriever = Neo4jMemoryRetriever(
                 memory_client=memory_client,
-                session_id=session_id,
-                max_results=10,
+                k=10,
+                threshold=0.7,
             )
 
-            assert retriever.session_id == session_id
+            assert retriever.memory_client == memory_client
+            assert retriever.k == 10
         except ImportError:
             pytest.skip("LangChain not installed")
 

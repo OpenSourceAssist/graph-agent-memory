@@ -3,7 +3,6 @@
 import pytest
 
 from neo4j_agent_memory.memory.short_term import MessageRole
-from neo4j_agent_memory.memory.long_term import EntityType
 
 
 @pytest.mark.integration

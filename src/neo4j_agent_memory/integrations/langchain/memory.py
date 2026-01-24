@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
-    from neo4j_agent_memory import MemoryClient
+    pass
 
 
 class Neo4jAgentMemory(BaseModel):

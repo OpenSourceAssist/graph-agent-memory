@@ -56,7 +56,11 @@ help:
 	@echo "  make clean            Remove build artifacts"
 	@echo ""
 	@echo "Documentation:"
-	@echo "  make docs             Build documentation"
+	@echo "  make docs-install     Install documentation build dependencies"
+	@echo "  make docs             Build documentation to HTML"
+	@echo "  make docs-serve       Build and serve with live reload (http://localhost:8080)"
+	@echo "  make docs-watch       Watch for changes and rebuild"
+	@echo "  make docs-clean       Remove built documentation"
 
 # =============================================================================
 # Setup
@@ -279,9 +283,33 @@ publish-test: build
 # Documentation
 # =============================================================================
 
+# Install docs dependencies
+docs-install:
+	@echo "Installing documentation dependencies..."
+	cd docs && npm install
+
+# Build documentation to HTML
 docs:
-	@echo "Documentation build not yet configured"
-	@echo "Consider using mkdocs or sphinx"
+	@echo "Building documentation..."
+	cd docs && npm run build
+	@echo ""
+	@echo "Documentation built to docs/_site/"
+	@echo "Open docs/_site/index.html in your browser"
+
+# Build and serve with live reload
+docs-serve:
+	@echo "Starting documentation server with live reload..."
+	cd docs && npm run serve
+
+# Watch for changes and rebuild
+docs-watch:
+	@echo "Watching for documentation changes..."
+	cd docs && npm run watch
+
+# Clean built documentation
+docs-clean:
+	@echo "Cleaning built documentation..."
+	cd docs && npm run clean
 
 # =============================================================================
 # Development Shortcuts

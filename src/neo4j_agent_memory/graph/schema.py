@@ -40,6 +40,7 @@ class SchemaManager:
         await self.setup_constraints()
         await self.setup_indexes()
         await self.setup_vector_indexes()
+        await self.setup_point_indexes()
 
     async def setup_constraints(self) -> None:
         """Create unique constraints for all node types."""
@@ -94,6 +95,16 @@ class SchemaManager:
 
         for index_name, label, property_name in vector_indexes:
             await self._create_vector_index(index_name, label, property_name)
+
+    async def setup_point_indexes(self) -> None:
+        """Create point indexes for geospatial queries."""
+        point_indexes = [
+            # Location entities have a 'location' Point property for coordinates
+            ("entity_location_idx", "Entity", "location"),
+        ]
+
+        for index_name, label, property_name in point_indexes:
+            await self._create_point_index(index_name, label, property_name)
 
     async def _create_constraint(
         self,
@@ -161,9 +172,31 @@ class SchemaManager:
             }}
             """
             await self._client.execute_write(query)
-        except Exception as e:
+        except Exception:
             # Vector indexes require Neo4j 5.11+, log warning but don't fail
             # as the package can still work without vector search
+            pass
+
+    async def _create_point_index(
+        self,
+        index_name: str,
+        label: str,
+        property_name: str,
+    ) -> None:
+        """Create a point index for geospatial queries if it doesn't exist."""
+        try:
+            exists = await self._client.check_index_exists(index_name)
+            if exists:
+                return
+
+            query = f"""
+            CREATE POINT INDEX {index_name} IF NOT EXISTS
+            FOR (n:{label})
+            ON (n.{property_name})
+            """
+            await self._client.execute_write(query)
+        except Exception:
+            # Point indexes require Neo4j 5.0+, log warning but don't fail
             pass
 
     async def drop_all(self) -> None:

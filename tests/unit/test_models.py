@@ -3,16 +3,14 @@
 from datetime import datetime
 from uuid import UUID
 
-import pytest
-
-from neo4j_agent_memory.memory.short_term import Conversation, Message, MessageRole
+from neo4j_agent_memory.memory.long_term import Entity, EntityType, Fact, Preference
 from neo4j_agent_memory.memory.procedural import (
     ReasoningStep,
     ReasoningTrace,
     ToolCall,
     ToolCallStatus,
 )
-from neo4j_agent_memory.memory.long_term import Entity, EntityType, Fact, Preference
+from neo4j_agent_memory.memory.short_term import Conversation, Message, MessageRole
 
 
 class TestMessageModel:

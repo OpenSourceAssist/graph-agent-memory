@@ -49,6 +49,10 @@ yarn-error.log*
 # Build outputs
 *.log
 
+# Documentation build output
+docs/_site/
+docs/node_modules/
+
 # Neo4j data (if running locally)
 data/
 logs/

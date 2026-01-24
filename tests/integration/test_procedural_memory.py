@@ -1,7 +1,5 @@
 """Comprehensive integration tests for procedural memory."""
 
-from datetime import datetime
-
 import pytest
 
 from neo4j_agent_memory.memory.procedural import ToolCallStatus

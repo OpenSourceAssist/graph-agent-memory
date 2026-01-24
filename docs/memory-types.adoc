@@ -13,11 +13,11 @@ Neo4j Agent Memory provides three complementary memory types that work together 
 |===
 |Memory Type |Purpose |Examples
 
-|**Episodic**
+|**Short-Term**
 |What happened and when
 |Conversations, messages, experiences
 
-|**Semantic**
+|**Long-Term**
 |What the agent knows
 |Entities, facts, preferences
 
@@ -32,7 +32,7 @@ Neo4j Agent Memory provides three complementary memory types that work together 
 │                      MemoryClient                           │
 ├───────────────────┬───────────────────┬─────────────────────┤
 │                   │                   │                     │
-│     EPISODIC      │     SEMANTIC      │    PROCEDURAL       │
+│   SHORT-TERM      │    LONG-TERM      │    PROCEDURAL       │
 │                   │                   │                     │
 │  ┌─────────────┐  │  ┌─────────────┐  │  ┌───────────────┐  │
 │  │Conversation │  │  │   Entity    │  │  │ReasoningTrace │  │
@@ -42,7 +42,7 @@ Neo4j Agent Memory provides three complementary memory types that work together 
 └───────────────────┴───────────────────┴─────────────────────┘
 ----
 
-== Episodic Memory
+== Short-Term Memory
 
 Short-term memory stores conversation history and experiences - the "what happened" of agent interactions.
 
@@ -313,7 +313,7 @@ print(f"Messages processed: {stats['messages_processed']}")
 print(f"Entities extracted: {stats['entities_extracted']}")
 ----
 
-== Semantic Memory
+== Long-Term Memory
 
 Long-term memory stores facts, entities, and preferences - the "what the agent knows" about the world and users.
 
@@ -452,6 +452,168 @@ print(context)
 #
 # Preferences:
 # - food: Prefers vegetarian options (importance: 0.9)
+----
+
+=== Location Geocoding
+
+LOCATION entities can be automatically geocoded to add latitude/longitude coordinates, enabling geospatial queries. See xref:configuration.adoc#_geocoding_configuration[Geocoding Configuration] for setup details.
+
+[source,python]
+----
+from neo4j_agent_memory import (
+    MemoryClient,
+    MemorySettings,
+    GeocodingConfig,
+    GeocodingProvider,
+)
+
+# Enable geocoding in settings
+settings = MemorySettings(
+    geocoding=GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.NOMINATIM,  # Free, or use GOOGLE for higher accuracy
+    )
+)
+
+async with MemoryClient(settings) as memory:
+    # LOCATION entities are automatically geocoded when added
+    entity, _ = await memory.long_term.add_entity(
+        name="Empire State Building, New York",
+        entity_type="LOCATION",
+    )
+
+    # Get coordinates for a location
+    coords = await memory.long_term.get_entity_coordinates(entity.id)
+    if coords:
+        lat, lon = coords
+        print(f"Location: {lat}, {lon}")  # 40.7484, -73.9857
+
+    # Find locations near a point
+    nearby = await memory.long_term.search_locations_near(
+        latitude=40.7484,
+        longitude=-73.9857,
+        radius_km=5.0,
+        limit=10,
+    )
+
+    # Find locations within a bounding box
+    in_area = await memory.long_term.search_locations_in_bounds(
+        min_lat=40.70,
+        max_lat=40.80,
+        min_lon=-74.02,
+        max_lon=-73.95,
+    )
+
+    # Batch geocode existing locations without coordinates
+    stats = await memory.long_term.geocode_locations(
+        batch_size=50,
+        skip_existing=True,
+    )
+    print(f"Geocoded {stats['geocoded']} of {stats['processed']} locations")
+----
+
+==== Controlling Geocoding
+
+[source,python]
+----
+# Add location without geocoding (coordinates provided directly)
+entity, _ = await memory.long_term.add_entity(
+    name="Custom Location",
+    entity_type="LOCATION",
+    geocode=False,  # Skip geocoding
+    coordinates=(40.7128, -74.0060),  # Provide coordinates directly
+)
+
+# Add location without geocoding (to geocode later in batch)
+entity, _ = await memory.long_term.add_entity(
+    name="Some Location",
+    entity_type="LOCATION",
+    geocode=False,
+)
+
+# Later: batch geocode all locations without coordinates
+await memory.long_term.geocode_locations()
+----
+
+=== Entity Deduplication
+
+Long-term memory supports automatic entity deduplication when adding entities:
+
+[source,python]
+----
+from neo4j_agent_memory.memory import DeduplicationConfig
+
+# Configure deduplication thresholds
+config = DeduplicationConfig(
+    enabled=True,                    # Enable deduplication (default)
+    auto_merge_threshold=0.95,       # Auto-merge if similarity >= 0.95
+    flag_threshold=0.85,             # Flag for review if >= 0.85 but < 0.95
+    use_fuzzy_matching=True,         # Also use fuzzy string matching
+    fuzzy_threshold=0.9,             # Fuzzy match threshold
+)
+
+# add_entity returns (entity, dedup_result) tuple
+entity, dedup_result = await memory.long_term.add_entity(
+    name="Jon Smith",
+    entity_type="PERSON",
+)
+
+# Check what happened
+if dedup_result.action == "merged":
+    print(f"Auto-merged with {dedup_result.matched_entity_name}")
+elif dedup_result.action == "flagged":
+    print(f"Flagged as potential duplicate of {dedup_result.matched_entity_name}")
+else:
+    print("No duplicates found, entity created normally")
+
+# Find and review potential duplicates
+duplicates = await memory.long_term.find_potential_duplicates(limit=100)
+for entity1, entity2, confidence in duplicates:
+    await memory.long_term.review_duplicate(
+        source_id=entity1.id,
+        target_id=entity2.id,
+        confirm=True,  # True to merge, False to reject
+    )
+----
+
+=== Provenance Tracking
+
+Track where entities were extracted from and which extractor produced them:
+
+[source,python]
+----
+# Link entity to source message
+await memory.long_term.link_entity_to_message(
+    entity,
+    message_id,
+    confidence=0.95,
+    start_pos=10,
+    end_pos=20,
+    context="... mentioned John Smith in the meeting ...",
+)
+
+# Link entity to extractor
+await memory.long_term.link_entity_to_extractor(
+    entity,
+    "GLiNEREntityExtractor",
+    confidence=0.95,
+    extraction_time_ms=150.5,
+)
+
+# Get provenance for an entity
+provenance = await memory.long_term.get_entity_provenance(entity)
+for source in provenance["sources"]:
+    print(f"From message {source['message_id']} at position {source['start_pos']}")
+for extractor in provenance["extractors"]:
+    print(f"Extracted by {extractor['name']} v{extractor['version']}")
+
+# Get all entities extracted from a message
+entities = await memory.long_term.get_entities_from_message(message_id)
+
+# Get extraction statistics
+stats = await memory.long_term.get_extraction_stats()
+print(f"Total entities: {stats['total_entities']}")
+print(f"From {stats['source_messages']} messages")
 ----
 
 == Procedural Memory

@@ -169,7 +169,7 @@ try:
             # Get similar past traces
             traces = await self._client.procedural.get_similar_traces(task, limit=3)
 
-            context_parts = [f"## Past experience with similar tasks:"]
+            context_parts = ["## Past experience with similar tasks:"]
             for trace in traces:
                 context_parts.append(f"- Task: {trace.task}")
                 if trace.outcome:

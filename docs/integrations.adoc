@@ -532,9 +532,70 @@ except ExtractionError:
 * Reuse `MemoryClient` instances across requests
 * Use connection pooling for high-throughput applications
 * Consider disabling extraction for bulk operations
+* Use batch extraction for processing multiple documents
+* Enable streaming extraction for large documents
+
+=== Observability
+
+Enable tracing for debugging and monitoring agent memory operations:
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, ObservabilityConfig, TracingProvider
+
+# Enable Opik tracing for LLM observability
+settings = MemorySettings(
+    observability=ObservabilityConfig(
+        enabled=True,
+        provider=TracingProvider.OPIK,
+        project_name="my-agent",
+        track_llm_calls=True,
+        track_extraction=True,
+        track_memory_ops=True,
+    )
+)
+
+# All memory operations will now be traced
+async with MemoryClient(settings) as memory:
+    # Operations are automatically traced
+    context = await memory.get_context(query="user query", session_id="123")
+----
+
+Traces include:
+* Memory read/write operations with timing
+* Entity extraction pipeline stages
+* LLM API calls with token counts
+* Error tracking and debugging info
+
+=== Entity Deduplication
+
+Enable deduplication to prevent duplicate entities during ingest:
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings, DeduplicationConfig
+
+settings = MemorySettings(
+    deduplication=DeduplicationConfig(
+        enabled=True,
+        embedding_threshold=0.92,
+        create_same_as=True,  # Link similar entities
+    )
+)
+
+# Entities are automatically deduplicated during extraction
+async with MemoryClient(settings) as memory:
+    await memory.long_term.add_message(
+        session_id="123",
+        role="user",
+        content="I met John Smith at Acme Corp"  # Deduped with existing "John Smith"
+    )
+----
 
 == Next Steps
 
 * xref:getting-started.adoc[Get started with neo4j-agent-memory]
 * xref:memory-types.adoc[Learn about memory types]
+* xref:entity-extraction.adoc[Configure entity extraction]
 * xref:configuration.adoc[Configuration reference]
+* xref:faq.adoc[Frequently asked questions]

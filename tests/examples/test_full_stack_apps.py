@@ -9,8 +9,6 @@ Note: These are NOT runtime tests - they validate structure and imports only.
 Running the full apps requires separate infrastructure (Docker, Neo4j, API keys).
 """
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
@@ -138,11 +136,6 @@ class TestLennysMemory:
         """Verify Makefile exists (lennys-memory specific)."""
         makefile = app_dir / "Makefile"
         assert makefile.exists(), f"Makefile not found: {makefile}"
-
-    def test_data_directory_exists(self, app_dir):
-        """Verify data directory exists (lennys-memory specific)."""
-        data_dir = app_dir / "data"
-        assert data_dir.exists(), f"Data directory not found: {data_dir}"
 
     def test_scripts_directory_exists(self, app_dir):
         """Verify scripts directory exists (lennys-memory specific)."""

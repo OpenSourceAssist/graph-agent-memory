@@ -1,8 +1,267 @@
 """Base extraction classes and protocols."""
 
+import re
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
+
+# Stopwords and invalid entity patterns to filter out during extraction
+# These are common words that should never be extracted as named entities
+ENTITY_STOPWORDS: frozenset[str] = frozenset(
+    {
+        # Pronouns
+        "i",
+        "me",
+        "my",
+        "myself",
+        "we",
+        "our",
+        "ours",
+        "ourselves",
+        "you",
+        "your",
+        "yours",
+        "yourself",
+        "yourselves",
+        "he",
+        "him",
+        "his",
+        "himself",
+        "she",
+        "her",
+        "hers",
+        "herself",
+        "it",
+        "its",
+        "itself",
+        "they",
+        "them",
+        "their",
+        "theirs",
+        "themselves",
+        "what",
+        "which",
+        "who",
+        "whom",
+        "this",
+        "that",
+        "these",
+        "those",
+        # Common verbs
+        "am",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "having",
+        "do",
+        "does",
+        "did",
+        "doing",
+        "would",
+        "should",
+        "could",
+        "ought",
+        "might",
+        "must",
+        "shall",
+        "will",
+        "can",
+        # Articles and determiners
+        "a",
+        "an",
+        "the",
+        "some",
+        "any",
+        "no",
+        "every",
+        "each",
+        "either",
+        "neither",
+        # Prepositions
+        "in",
+        "on",
+        "at",
+        "by",
+        "for",
+        "with",
+        "about",
+        "against",
+        "between",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "to",
+        "from",
+        "up",
+        "down",
+        "out",
+        "off",
+        "over",
+        "under",
+        # Conjunctions
+        "and",
+        "but",
+        "or",
+        "nor",
+        "so",
+        "yet",
+        "both",
+        "not",
+        "only",
+        "than",
+        "when",
+        "where",
+        "while",
+        "if",
+        "because",
+        "although",
+        # Adverbs
+        "here",
+        "there",
+        "why",
+        "how",
+        "all",
+        "few",
+        "more",
+        "most",
+        "other",
+        "such",
+        "own",
+        "same",
+        "too",
+        "very",
+        "just",
+        "also",
+        "now",
+        "then",
+        "once",
+        "always",
+        "never",
+        "often",
+        "still",
+        "already",
+        # Common nouns that are too generic
+        "thing",
+        "things",
+        "stuff",
+        "way",
+        "ways",
+        "something",
+        "anything",
+        "nothing",
+        "someone",
+        "anyone",
+        "everyone",
+        "nobody",
+        "everybody",
+        "somebody",
+        "people",
+        "person",
+        "man",
+        "woman",
+        "men",
+        "women",
+        "guy",
+        "guys",
+        "time",
+        "times",
+        "day",
+        "days",
+        "year",
+        "years",
+        "today",
+        "tomorrow",
+        "yesterday",
+        # Generic references
+        "one",
+        "ones",
+        "two",
+        "first",
+        "second",
+        "third",
+        "last",
+        "next",
+        # Filler words
+        "like",
+        "really",
+        "actually",
+        "basically",
+        "literally",
+        "maybe",
+        "probably",
+        "perhaps",
+        "well",
+        "okay",
+        "ok",
+        "yes",
+        "yeah",
+        "yep",
+        "nope",
+        # Conversation artifacts
+        "um",
+        "uh",
+        "ah",
+        "oh",
+        "hmm",
+        "hm",
+        "er",
+        "eh",
+    }
+)
+
+# Minimum length for entity names (single characters and very short strings are usually noise)
+MIN_ENTITY_LENGTH = 2
+
+# Pattern for purely numeric entities (these are usually not named entities)
+NUMERIC_PATTERN = re.compile(r"^[\d\s.,%-]+$")
+
+# Pattern for entities that are just punctuation or special characters
+INVALID_CHARS_PATTERN = re.compile(r"^[\s\W]+$")
+
+
+def is_valid_entity_name(name: str) -> bool:
+    """Check if an entity name is valid (not a stopword or noise).
+
+    Args:
+        name: The entity name to validate
+
+    Returns:
+        True if the entity name is valid, False otherwise
+    """
+    if not name:
+        return False
+
+    # Normalize for comparison
+    normalized = name.lower().strip()
+
+    # Check minimum length
+    if len(normalized) < MIN_ENTITY_LENGTH:
+        return False
+
+    # Check if it's a stopword
+    if normalized in ENTITY_STOPWORDS:
+        return False
+
+    # Check if it's purely numeric
+    if NUMERIC_PATTERN.match(normalized):
+        return False
+
+    # Check if it's just punctuation/special characters
+    if INVALID_CHARS_PATTERN.match(normalized):
+        return False
+
+    return True
 
 
 class ExtractedEntity(BaseModel):
@@ -99,6 +358,41 @@ class ExtractionResult(BaseModel):
     def get_entities_of_type(self, entity_type: str) -> list[ExtractedEntity]:
         """Get entities of a specific type."""
         return [e for e in self.entities if e.type.upper() == entity_type.upper()]
+
+    def filter_invalid_entities(self) -> "ExtractionResult":
+        """Return a new ExtractionResult with invalid entities filtered out.
+
+        Filters entities that are:
+        - Stopwords (pronouns, articles, common verbs, etc.)
+        - Too short (less than 2 characters)
+        - Purely numeric
+        - Only punctuation/special characters
+
+        Also filters relations that reference removed entities.
+
+        Returns:
+            New ExtractionResult with only valid entities and relations
+        """
+        # Filter entities
+        valid_entities = [e for e in self.entities if is_valid_entity_name(e.name)]
+
+        # Get set of valid entity names for relation filtering
+        valid_entity_names = {e.normalized_name for e in valid_entities}
+
+        # Filter relations to only include those between valid entities
+        valid_relations = [
+            r
+            for r in self.relations
+            if r.source.lower().strip() in valid_entity_names
+            and r.target.lower().strip() in valid_entity_names
+        ]
+
+        return ExtractionResult(
+            entities=valid_entities,
+            relations=valid_relations,
+            preferences=self.preferences,  # Preferences don't need filtering
+            source_text=self.source_text,
+        )
 
 
 @runtime_checkable

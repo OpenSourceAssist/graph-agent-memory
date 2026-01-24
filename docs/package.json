@@ -1,0 +1,25 @@
+{
+  "name": "neo4j-agent-memory-docs",
+  "version": "1.0.0",
+  "description": "Documentation build tools for neo4j-agent-memory",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch",
+    "serve": "node build.js --serve",
+    "clean": "rm -rf _site",
+    "vercel-build": "npm run build"
+  },
+  "dependencies": {
+    "@asciidoctor/core": "^3.0.4",
+    "asciidoctor": "^3.0.4"
+  },
+  "devDependencies": {
+    "asciidoctor-kroki": "^0.18.1",
+    "chokidar": "^3.6.0",
+    "live-server": "^1.2.2"
+  }
+}

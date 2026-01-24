@@ -154,7 +154,7 @@ class LLMEntityExtractor(EntityExtractor):
         self._temperature = temperature
         self._extract_relations = extract_relations
         self._extract_preferences = extract_preferences
-        self._client: "AsyncOpenAI | None" = None
+        self._client: AsyncOpenAI | None = None
 
     @property
     def name(self) -> str:

@@ -1,12 +1,13 @@
 """Async Neo4j client wrapper."""
 
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncSession
 from neo4j.exceptions import AuthError, ServiceUnavailable
 
 from neo4j_agent_memory.config.settings import Neo4jConfig
-from neo4j_agent_memory.core.exceptions import ConnectionError, MemoryError
+from neo4j_agent_memory.core.exceptions import ConnectionError
 
 
 class Neo4jClient:

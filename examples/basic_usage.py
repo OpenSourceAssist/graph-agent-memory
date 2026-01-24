@@ -64,6 +64,8 @@ from neo4j_agent_memory import (
     EmbeddingProvider,
     ExtractionConfig,
     ExtractorType,
+    GeocodingConfig,
+    GeocodingProvider,
     MemoryClient,
     MemorySettings,
     MessageRole,
@@ -110,6 +112,15 @@ async def main():
             )
             return
 
+    # Configure geocoding (optional - enable to add coordinates to LOCATION entities)
+    # Uses Nominatim (OpenStreetMap) by default - free but rate-limited to 1 req/sec
+    # For higher accuracy, use GeocodingProvider.GOOGLE with an API key
+    geocoding_config = GeocodingConfig(
+        enabled=True,
+        provider=GeocodingProvider.NOMINATIM,
+        cache_results=True,  # Cache results to avoid repeated API calls
+    )
+
     # Configure the memory client
     settings = MemorySettings(
         neo4j=Neo4jConfig(
@@ -119,6 +130,7 @@ async def main():
         ),
         embedding=embedding_config,
         extraction=extraction_config,
+        geocoding=geocoding_config,
     )
 
     async with MemoryClient(settings) as memory:
@@ -207,6 +219,38 @@ async def main():
         )
 
         print("✅ Stored preferences, entities, and facts")
+
+        # =================================================================
+        # GEOCODING: Automatic coordinate lookup for LOCATION entities
+        # =================================================================
+        print("\n🌍 Demonstrating location geocoding...")
+
+        # Add a location entity - it will be automatically geocoded
+        # because we enabled geocoding in the settings
+        location_entity, _ = await memory.long_term.add_entity(
+            name="Empire State Building, New York",
+            entity_type="LOCATION",
+            subtype="LANDMARK",
+            description="Famous skyscraper in Manhattan",
+        )
+
+        # Check if coordinates were added
+        coords = await memory.long_term.get_entity_coordinates(location_entity.id)
+        if coords:
+            lat, lon = coords
+            print(f"✅ Geocoded: {location_entity.name}")
+            print(f"   Coordinates: {lat:.4f}, {lon:.4f}")
+
+            # Search for nearby locations (within 10km)
+            nearby = await memory.long_term.search_locations_near(
+                latitude=lat,
+                longitude=lon,
+                radius_km=10.0,
+                limit=5,
+            )
+            print(f"   Found {len(nearby)} location(s) within 10km")
+        else:
+            print("   (Geocoding may be rate-limited or location not found)")
 
         # Search preferences
         print("\n🔍 Searching for food-related preferences...")

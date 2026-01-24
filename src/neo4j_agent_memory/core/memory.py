@@ -1,8 +1,9 @@
 """Base memory classes and protocols."""
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, AsyncIterator, Generic, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
