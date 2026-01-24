@@ -30,6 +30,7 @@ interface SidebarProps {
   onDeleteThread: (id: string) => void;
   memoryEnabled: boolean;
   onToggleMemory: (enabled: boolean) => void;
+  onThreadSelect?: () => void; // Called after selecting a thread (for mobile drawer close)
 }
 
 export function Sidebar({
@@ -40,9 +41,20 @@ export function Sidebar({
   onDeleteThread,
   memoryEnabled,
   onToggleMemory,
+  onThreadSelect,
 }: SidebarProps) {
+  const handleSelectThread = (id: string) => {
+    onSelectThread(id);
+    onThreadSelect?.();
+  };
+
+  const handleCreateThread = () => {
+    onCreateThread();
+    onThreadSelect?.();
+  };
+
   return (
-    <Stack h="full" p="4" gap="4">
+    <Stack h="full" p={{ base: 3, md: 4 }} gap={{ base: 3, md: 4 }}>
       {/* Header */}
       <Flex alignItems="center" gap="2">
         <LuMessageSquare size={20} />
@@ -56,7 +68,8 @@ export function Sidebar({
         w="full"
         size="sm"
         variant="outline"
-        onClick={() => onCreateThread()}
+        onClick={handleCreateThread}
+        minH={{ base: "44px", md: "auto" }}
       >
         <LuPlus />
         New Conversation
@@ -67,7 +80,8 @@ export function Sidebar({
         alignItems="center"
         gap="2"
         px="3"
-        py="2"
+        py={{ base: 3, md: 2 }}
+        minH={{ base: "44px", md: "auto" }}
         bg={memoryEnabled ? "green.subtle" : "bg.muted"}
         borderRadius="md"
         cursor="pointer"
@@ -109,14 +123,16 @@ export function Sidebar({
             <Flex
               key={thread.id}
               px="3"
-              py="2"
+              py={{ base: 3, md: 2 }}
+              minH={{ base: "44px", md: "auto" }}
               bg={
                 activeThreadId === thread.id ? "bg.emphasized" : "transparent"
               }
               borderRadius="md"
               cursor="pointer"
               _hover={{ bg: "bg.muted" }}
-              onClick={() => onSelectThread(thread.id)}
+              _active={{ bg: "bg.emphasized" }}
+              onClick={() => handleSelectThread(thread.id)}
               alignItems="center"
               gap="2"
             >
@@ -147,11 +163,11 @@ export function Sidebar({
       </Stack>
 
       {/* Branding footer */}
-      <Stack gap="3" pt="2">
+      <Stack gap={{ base: 2, md: 3 }} pt="2">
         <Separator />
 
         {/* Powered by section */}
-        <Stack gap="2">
+        <Stack gap={{ base: 1.5, md: 2 }}>
           <Text fontSize="xs" color="fg.muted" fontWeight="medium">
             Powered by
           </Text>
@@ -164,12 +180,14 @@ export function Sidebar({
           >
             <Flex
               px="3"
-              py="2"
+              py={{ base: 2.5, md: 2 }}
+              minH={{ base: "44px", md: "auto" }}
               bg="blue.subtle"
               borderRadius="md"
               alignItems="center"
               gap="2"
               _hover={{ bg: "blue.100" }}
+              _active={{ bg: "blue.200" }}
               transition="background 0.2s"
             >
               <LuDatabase size={16} color="var(--chakra-colors-blue-600)" />
@@ -190,13 +208,15 @@ export function Sidebar({
             >
               <Flex
                 px="2"
-                py="1.5"
+                py={{ base: 2, md: 1.5 }}
+                minH={{ base: "40px", md: "auto" }}
                 bg="bg.muted"
                 borderRadius="md"
                 alignItems="center"
                 justifyContent="center"
                 gap="1"
                 _hover={{ bg: "bg.emphasized" }}
+                _active={{ bg: "bg.subtle" }}
                 transition="background 0.2s"
               >
                 <Text fontSize="xs" color="fg.muted">
@@ -214,13 +234,15 @@ export function Sidebar({
             >
               <Flex
                 px="2"
-                py="1.5"
+                py={{ base: 2, md: 1.5 }}
+                minH={{ base: "40px", md: "auto" }}
                 bg="bg.muted"
                 borderRadius="md"
                 alignItems="center"
                 justifyContent="center"
                 gap="1"
                 _hover={{ bg: "bg.emphasized" }}
+                _active={{ bg: "bg.subtle" }}
                 transition="background 0.2s"
               >
                 <Text fontSize="xs" color="fg.muted">
@@ -240,12 +262,14 @@ export function Sidebar({
         >
           <Flex
             px="3"
-            py="2"
+            py={{ base: 2.5, md: 2 }}
+            minH={{ base: "44px", md: "auto" }}
             bg="bg.muted"
             borderRadius="md"
             alignItems="center"
             gap="2"
             _hover={{ bg: "bg.emphasized" }}
+            _active={{ bg: "bg.subtle" }}
             transition="background 0.2s"
           >
             <LuGithub size={16} />

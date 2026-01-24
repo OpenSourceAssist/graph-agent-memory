@@ -14,26 +14,22 @@ export function Message({ message }: MessageProps) {
   const isUser = message.role === "user";
 
   return (
-    <Flex gap="3" alignItems="flex-start">
+    <Flex gap={{ base: 2, md: 3 }} alignItems="flex-start">
       {/* Avatar */}
       <Flex
-        w="8"
-        h="8"
+        w={{ base: 7, md: 8 }}
+        h={{ base: 7, md: 8 }}
         borderRadius="full"
         bg={isUser ? "blue.subtle" : "green.subtle"}
         alignItems="center"
         justifyContent="center"
         flexShrink={0}
       >
-        {isUser ? (
-          <LuUser size={16} />
-        ) : (
-          <LuBot size={16} />
-        )}
+        {isUser ? <LuUser size={16} /> : <LuBot size={16} />}
       </Flex>
 
       {/* Content */}
-      <Stack gap="2" flex="1" minW="0">
+      <Stack gap={{ base: 1.5, md: 2 }} flex="1" minW="0">
         <Text fontSize="sm" fontWeight="medium" color="fg.muted">
           {isUser ? "You" : "Assistant"}
         </Text>
@@ -70,7 +66,7 @@ export function Message({ message }: MessageProps) {
 
         {/* Tool calls */}
         {message.toolCalls && message.toolCalls.length > 0 && (
-          <Stack gap="2">
+          <Stack gap={{ base: 1.5, md: 2 }}>
             {message.toolCalls.map((toolCall) => (
               <ToolCallDisplay key={toolCall.id} toolCall={toolCall} />
             ))}

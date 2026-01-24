@@ -1,6 +1,13 @@
 "use client";
 
-import { Box, Flex, Textarea, IconButton } from "@chakra-ui/react";
+import {
+  Box,
+  Flex,
+  Textarea,
+  IconButton,
+  HStack,
+  Text,
+} from "@chakra-ui/react";
 import { useState, KeyboardEvent } from "react";
 import { LuSend, LuLoader } from "react-icons/lu";
 
@@ -21,6 +28,13 @@ export function PromptInput({
     if (value.trim() && !isLoading) {
       onSend(value.trim());
       setValue("");
+      // Reset textarea height
+      const textarea = document.querySelector(
+        'textarea[name="prompt"]',
+      ) as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.style.height = "auto";
+      }
     }
   };
 
@@ -32,9 +46,24 @@ export function PromptInput({
   };
 
   return (
-    <Flex gap="2" alignItems="flex-end">
-      <Box flex="1" position="relative">
+    <Box maxW="4xl" mx="auto" w="full">
+      <Flex
+        bg="bg.muted"
+        borderRadius={{ base: "xl", md: "2xl" }}
+        border="1px solid"
+        borderColor="border.subtle"
+        px={{ base: 3, md: 4 }}
+        py={{ base: 2, md: 3 }}
+        alignItems="flex-end"
+        gap={{ base: 2, md: 3 }}
+        _focusWithin={{
+          borderColor: "blue.500",
+          boxShadow: "0 0 0 1px var(--chakra-colors-blue-500)",
+        }}
+        transition="all 0.2s"
+      >
         <Textarea
+          name="prompt"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -42,15 +71,17 @@ export function PromptInput({
           disabled={isLoading}
           rows={1}
           resize="none"
-          minH="44px"
+          minH={{ base: "40px", md: "44px" }}
           maxH="200px"
-          py="3"
-          pr="12"
-          borderRadius="xl"
-          bg="bg.subtle"
+          py={{ base: 2, md: 2 }}
+          px="0"
+          border="none"
+          outline="none"
+          bg="transparent"
+          fontSize={{ base: "sm", md: "md" }}
           _focus={{
-            bg: "bg.panel",
-            borderColor: "border.emphasized",
+            outline: "none",
+            boxShadow: "none",
           }}
           css={{
             overflow: "hidden",
@@ -65,17 +96,30 @@ export function PromptInput({
             target.style.height = `${Math.min(target.scrollHeight, 200)}px`;
           }}
         />
-      </Box>
-      <IconButton
-        aria-label="Send message"
-        onClick={handleSend}
-        disabled={!value.trim() || isLoading}
-        colorPalette="blue"
-        borderRadius="full"
-        size="md"
+        <HStack gap={1} flexShrink={0}>
+          <IconButton
+            aria-label="Send message"
+            onClick={handleSend}
+            disabled={!value.trim() || isLoading}
+            colorPalette="blue"
+            borderRadius="full"
+            size={{ base: "sm", md: "md" }}
+            minW={{ base: "36px", md: "40px" }}
+            minH={{ base: "36px", md: "40px" }}
+          >
+            {isLoading ? <LuLoader className="animate-spin" /> : <LuSend />}
+          </IconButton>
+        </HStack>
+      </Flex>
+      <Text
+        fontSize="xs"
+        color="fg.muted"
+        textAlign="center"
+        mt="2"
+        hideBelow="sm"
       >
-        {isLoading ? <LuLoader className="animate-spin" /> : <LuSend />}
-      </IconButton>
-    </Flex>
+        Press Enter to send, Shift+Enter for new line
+      </Text>
+    </Box>
   );
 }

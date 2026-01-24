@@ -12,6 +12,8 @@ import {
   IconButton,
   Link,
   Tabs,
+  Flex,
+  useBreakpointValue,
 } from "@chakra-ui/react";
 import {
   HiX,
@@ -142,6 +144,28 @@ export default function MemoryMapView({
   const [locations, setLocations] = useState<LocationEntity[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [leafletReady, setLeafletReady] = useState(false);
+
+  // Fix Leaflet default marker icon issue with Next.js/Webpack
+  // This must run client-side only
+  useEffect(() => {
+    (async () => {
+      const L = (await import("leaflet")).default;
+
+      // Fix the default icon URLs
+      delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })
+        ._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        iconRetinaUrl:
+          "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+        shadowUrl:
+          "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      });
+
+      setLeafletReady(true);
+    })();
+  }, []);
 
   // UI state
   const [layerMode, setLayerMode] = useState<LayerMode>("markers");
@@ -393,14 +417,14 @@ export default function MemoryMapView({
       {/* Map View Modal */}
       <Box
         position="fixed"
-        top="50%"
-        left="50%"
-        transform="translate(-50%, -50%)"
-        width={{ base: "95%", md: "90%", lg: "85%" }}
-        height={{ base: "90%", md: "85%" }}
+        top={{ base: 0, md: "50%" }}
+        left={{ base: 0, md: "50%" }}
+        transform={{ base: "none", md: "translate(-50%, -50%)" }}
+        width={{ base: "100%", md: "90%", lg: "85%" }}
+        height={{ base: "100%", md: "85%" }}
         bg="white"
-        borderRadius="xl"
-        boxShadow="2xl"
+        borderRadius={{ base: 0, md: "xl" }}
+        boxShadow={{ base: "none", md: "2xl" }}
         zIndex={1001}
         display="flex"
         flexDirection="column"
@@ -479,13 +503,18 @@ export default function MemoryMapView({
             bg="white"
             borderTop="1px solid"
             borderColor="gray.100"
-            gap={4}
-            flexWrap="wrap"
-            justifyContent="space-between"
+            gap={{ base: 2, md: 4 }}
+            flexWrap={{ base: "nowrap", md: "wrap" }}
+            justifyContent={{ base: "flex-start", md: "space-between" }}
+            overflowX={{ base: "auto", md: "visible" }}
+            css={{
+              "&::-webkit-scrollbar": { display: "none" },
+              scrollbarWidth: "none",
+            }}
           >
             {/* Layer Mode Toggle */}
-            <HStack gap={1}>
-              <Text fontSize="xs" color="gray.500" mr={1}>
+            <HStack gap={1} flexShrink={0}>
+              <Text fontSize="xs" color="gray.500" mr={1} whiteSpace="nowrap">
                 View:
               </Text>
               <Button
@@ -518,8 +547,8 @@ export default function MemoryMapView({
             </HStack>
 
             {/* Basemap Toggle */}
-            <HStack gap={1}>
-              <Text fontSize="xs" color="gray.500" mr={1}>
+            <HStack gap={1} flexShrink={0}>
+              <Text fontSize="xs" color="gray.500" mr={1} whiteSpace="nowrap">
                 Map:
               </Text>
               {(Object.keys(BASEMAPS) as BasemapType[]).map((type) => (
@@ -536,8 +565,8 @@ export default function MemoryMapView({
             </HStack>
 
             {/* Data Scope */}
-            <HStack gap={1}>
-              <Text fontSize="xs" color="gray.500" mr={1}>
+            <HStack gap={1} flexShrink={0}>
+              <Text fontSize="xs" color="gray.500" mr={1} whiteSpace="nowrap">
                 Scope:
               </Text>
               <Button
@@ -561,8 +590,8 @@ export default function MemoryMapView({
             </HStack>
 
             {/* Tools */}
-            <HStack gap={1}>
-              <Text fontSize="xs" color="gray.500" mr={1}>
+            <HStack gap={1} flexShrink={0}>
+              <Text fontSize="xs" color="gray.500" mr={1} whiteSpace="nowrap">
                 Tools:
               </Text>
               <Button
@@ -610,7 +639,7 @@ export default function MemoryMapView({
                   Try Again
                 </Button>
               </VStack>
-            ) : mapReady && locations.length > 0 ? (
+            ) : mapReady && leafletReady && locations.length > 0 ? (
               <Box height="100%" width="100%">
                 <MapContainer
                   center={mapBounds.center}

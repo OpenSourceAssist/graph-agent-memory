@@ -10,7 +10,12 @@ interface MessageListProps {
 
 export function MessageList({ messages }: MessageListProps) {
   return (
-    <Stack gap="4" maxW="4xl" mx="auto">
+    <Stack
+      gap={{ base: 3, md: 4 }}
+      maxW="4xl"
+      mx="auto"
+      px={{ base: 1, md: 0 }}
+    >
       {messages.map((message) => (
         <Message key={message.id} message={message} />
       ))}

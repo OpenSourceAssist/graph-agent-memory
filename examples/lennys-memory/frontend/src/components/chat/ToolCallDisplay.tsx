@@ -16,8 +16,8 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
     toolCall.status === "success"
       ? "green"
       : toolCall.status === "error"
-      ? "red"
-      : "yellow";
+        ? "red"
+        : "yellow";
 
   return (
     <Box
@@ -28,14 +28,16 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
     >
       {/* Header */}
       <Flex
-        px="3"
-        py="2"
+        px={{ base: 2, md: 3 }}
+        py={{ base: 2.5, md: 2 }}
+        minH={{ base: "44px", md: "auto" }}
         bg="bg.muted"
         alignItems="center"
         gap="2"
         cursor="pointer"
         onClick={() => setIsExpanded(!isExpanded)}
         _hover={{ bg: "bg.emphasized" }}
+        _active={{ bg: "bg.subtle" }}
       >
         {isExpanded ? (
           <LuChevronDown size={14} />
@@ -43,14 +45,14 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
           <LuChevronRight size={14} />
         )}
         <LuWrench size={14} />
-        <Text fontSize="sm" fontWeight="medium" flex="1">
+        <Text fontSize="sm" fontWeight="medium" flex="1" truncate>
           {toolCall.name}
         </Text>
         <Badge colorPalette={statusColor} size="sm">
           {toolCall.status}
         </Badge>
         {toolCall.duration_ms !== undefined && (
-          <Text fontSize="xs" color="fg.muted">
+          <Text fontSize="xs" color="fg.muted" hideBelow="sm">
             {toolCall.duration_ms.toFixed(0)}ms
           </Text>
         )}
@@ -58,7 +60,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
 
       {/* Expandable content */}
       {isExpanded && (
-        <Stack p="3" gap="3">
+        <Stack p={{ base: 2, md: 3 }} gap={{ base: 2, md: 3 }}>
           {/* Arguments */}
           <Box>
             <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb="1">
@@ -71,6 +73,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
               borderRadius="md"
               fontSize="xs"
               bg="bg.subtle"
+              overflowX="auto"
             >
               {JSON.stringify(toolCall.args, null, 2)}
             </Code>
@@ -89,8 +92,9 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
                 borderRadius="md"
                 fontSize="xs"
                 bg="bg.subtle"
-                maxH="200px"
+                maxH={{ base: "150px", md: "200px" }}
                 overflowY="auto"
+                overflowX="auto"
               >
                 {typeof toolCall.result === "string"
                   ? toolCall.result

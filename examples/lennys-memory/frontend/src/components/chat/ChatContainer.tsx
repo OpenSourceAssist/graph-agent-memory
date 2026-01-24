@@ -1,6 +1,14 @@
 "use client";
 
-import { Box, Flex, Stack, Text, SimpleGrid, Spinner } from "@chakra-ui/react";
+import {
+  Box,
+  Flex,
+  Stack,
+  Text,
+  SimpleGrid,
+  Spinner,
+  useBreakpointValue,
+} from "@chakra-ui/react";
 import { useRef, useEffect } from "react";
 import { LuMessageSquare, LuBot } from "react-icons/lu";
 import { MessageList } from "./MessageList";
@@ -52,6 +60,10 @@ export function ChatContainer({
 }: ChatContainerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Responsive values
+  const isMobile = useBreakpointValue({ base: true, sm: false });
+  const promptColumns = useBreakpointValue({ base: 1, sm: 2, lg: 3 });
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -74,26 +86,36 @@ export function ChatContainer({
   return (
     <Flex direction="column" h="full" overflow="hidden" flex="1">
       {/* Messages area */}
-      <Box ref={scrollRef} flex="1" overflowY="auto" p="4">
+      <Box ref={scrollRef} flex="1" overflowY="auto" p={{ base: 2, md: 4 }}>
         {messages.length === 0 ? (
-          <Flex h="full" alignItems="center" justifyContent="center" p={4}>
-            <Stack textAlign="center" gap="6" maxW="3xl" w="full">
+          <Flex
+            h="full"
+            alignItems="center"
+            justifyContent="center"
+            p={{ base: 2, md: 4 }}
+          >
+            <Stack
+              textAlign="center"
+              gap={{ base: 4, md: 6 }}
+              maxW="3xl"
+              w="full"
+            >
               <Stack gap="2">
-                <Text fontSize="xl" fontWeight="semibold">
+                <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="semibold">
                   Ask about Lenny's Podcast
                 </Text>
-                <Text color="fg.muted" fontSize="sm">
+                <Text color="fg.muted" fontSize={{ base: "xs", md: "sm" }}>
                   Explore insights from 299 podcast episodes. Click a topic
                   below or type your own question.
                 </Text>
               </Stack>
 
-              <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap={3}>
-                {SUGGESTED_PROMPTS.map((item) => (
+              <SimpleGrid columns={promptColumns} gap={{ base: 2, md: 3 }}>
+                {SUGGESTED_PROMPTS.slice(0, isMobile ? 4 : 6).map((item) => (
                   <Box
                     key={item.title}
                     as="button"
-                    p={4}
+                    p={{ base: 3, md: 4 }}
                     borderRadius="lg"
                     border="1px solid"
                     borderColor="border.subtle"
@@ -107,23 +129,32 @@ export function ChatContainer({
                       transform: "translateY(-1px)",
                       boxShadow: "sm",
                     }}
+                    _active={{
+                      transform: "scale(0.98)",
+                    }}
                     onClick={() => !isStreaming && onSendMessage(item.prompt)}
                     opacity={isStreaming ? 0.5 : 1}
                     pointerEvents={isStreaming ? "none" : "auto"}
+                    minH={{ base: "80px", md: "auto" }}
                   >
-                    <Flex align="center" gap={2} mb={2}>
+                    <Flex align="center" gap={2} mb={{ base: 1, md: 2 }}>
                       <Box color="blue.500">
                         <LuMessageSquare size={16} />
                       </Box>
                       <Text
-                        fontSize="sm"
+                        fontSize={{ base: "xs", md: "sm" }}
                         fontWeight="medium"
                         color="fg.default"
                       >
                         {item.title}
                       </Text>
                     </Flex>
-                    <Text fontSize="xs" color="fg.muted" lineHeight="tall">
+                    <Text
+                      fontSize="xs"
+                      color="fg.muted"
+                      lineHeight="tall"
+                      lineClamp={{ base: 2, md: 3 }}
+                    >
                       {item.prompt}
                     </Text>
                   </Box>
@@ -132,7 +163,7 @@ export function ChatContainer({
             </Stack>
           </Flex>
         ) : (
-          <Stack gap="4" maxW="4xl" mx="auto">
+          <Stack gap={{ base: 3, md: 4 }} maxW="4xl" mx="auto">
             <MessageList messages={messages} />
 
             {/* Streaming indicator */}
@@ -171,7 +202,12 @@ export function ChatContainer({
       </Box>
 
       {/* Input area */}
-      <Box p="4" borderTopWidth="1px" borderColor="border.subtle" bg="bg.panel">
+      <Box
+        p={{ base: 2, md: 4 }}
+        borderTopWidth="1px"
+        borderColor="border.subtle"
+        bg="bg.panel"
+      >
         <PromptInput
           onSend={onSendMessage}
           isLoading={isStreaming}

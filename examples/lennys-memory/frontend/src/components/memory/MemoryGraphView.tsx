@@ -579,14 +579,14 @@ export default function MemoryGraphView({
       {/* Graph View Modal */}
       <Box
         position="fixed"
-        top="50%"
-        left="50%"
-        transform="translate(-50%, -50%)"
-        width={{ base: "95%", md: "90%", lg: "85%" }}
-        height={{ base: "90%", md: "85%" }}
+        top={{ base: 0, md: "50%" }}
+        left={{ base: 0, md: "50%" }}
+        transform={{ base: "none", md: "translate(-50%, -50%)" }}
+        width={{ base: "100%", md: "90%", lg: "85%" }}
+        height={{ base: "100%", md: "85%" }}
         bg="white"
-        borderRadius="xl"
-        boxShadow="2xl"
+        borderRadius={{ base: 0, md: "xl" }}
+        boxShadow={{ base: "none", md: "2xl" }}
         zIndex={1001}
         display="flex"
         flexDirection="column"
@@ -1364,7 +1364,8 @@ export default function MemoryGraphView({
             bg="gray.50"
           >
             <Text fontSize="xs" color="gray.600">
-              Click nodes or relationships to view details | Drag to pan |
+              Click to select |{" "}
+              <strong>Double-click to expand neighbors</strong> | Drag to pan |
               Scroll to zoom
             </Text>
           </HStack>
