@@ -738,6 +738,111 @@ class MemoryClient:
             },
         )
 
+    async def get_locations(
+        self,
+        *,
+        session_id: str | None = None,
+        has_coordinates: bool = True,
+        limit: int = 500,
+    ) -> list[dict]:
+        """
+        Get location entities, optionally filtered by conversation session.
+
+        This method retrieves Location entities from the knowledge graph,
+        with optional filtering to only include locations mentioned in a
+        specific conversation (identified by session_id).
+
+        Args:
+            session_id: Filter to locations mentioned in this conversation.
+                       When provided, only returns locations that have an
+                       EXTRACTED_FROM relationship to messages in this session.
+            has_coordinates: Only return locations with lat/lon coordinates.
+                           Defaults to True for map visualization use cases.
+            limit: Maximum number of locations to return. Defaults to 500.
+
+        Returns:
+            List of location dictionaries with:
+                - id: Entity UUID
+                - name: Location name
+                - subtype: Location subtype (city, country, landmark, etc.)
+                - description: Entity description
+                - enriched_description: Enhanced description from enrichment
+                - wikipedia_url: Wikipedia link if available
+                - latitude: Latitude coordinate
+                - longitude: Longitude coordinate
+                - conversations: List of conversations mentioning this location
+        """
+        if self._client is None:
+            raise NotConnectedError("Client not connected.")
+
+        # Build the query based on whether session_id filtering is needed
+        if session_id:
+            # Filter to locations mentioned in the specific conversation
+            query = """
+                MATCH (e:Entity {type: 'LOCATION'})<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
+                WITH DISTINCT e
+                WHERE $has_coordinates = false OR (e.location.latitude IS NOT NULL AND e.location.longitude IS NOT NULL)
+                WITH e LIMIT $limit
+                OPTIONAL MATCH (e)<-[:EXTRACTED_FROM]-(m2:Message)<-[:HAS_MESSAGE]-(c2:Conversation)
+                WITH e, collect(DISTINCT {id: c2.id, title: c2.title, session_id: c2.session_id}) as conversations
+                RETURN e.id as id,
+                       e.name as name,
+                       e.subtype as subtype,
+                       e.description as description,
+                       e.enriched_description as enriched_description,
+                       e.wikipedia_url as wikipedia_url,
+                       e.location.latitude as latitude,
+                       e.location.longitude as longitude,
+                       conversations
+            """
+        else:
+            # Return all locations (no session filtering)
+            query = """
+                MATCH (e:Entity {type: 'LOCATION'})
+                WHERE $has_coordinates = false OR (e.location.latitude IS NOT NULL AND e.location.longitude IS NOT NULL)
+                WITH e LIMIT $limit
+                OPTIONAL MATCH (e)<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+                WITH e, collect(DISTINCT {id: c.id, title: c.title, session_id: c.session_id}) as conversations
+                RETURN e.id as id,
+                       e.name as name,
+                       e.subtype as subtype,
+                       e.description as description,
+                       e.enriched_description as enriched_description,
+                       e.wikipedia_url as wikipedia_url,
+                       e.location.latitude as latitude,
+                       e.location.longitude as longitude,
+                       conversations
+            """
+
+        params = {
+            "session_id": session_id,
+            "has_coordinates": has_coordinates,
+            "limit": limit,
+        }
+
+        try:
+            results = await self._client.execute_read(query, params)
+            locations = []
+            for row in results:
+                # Filter out null conversation entries
+                convs = [c for c in (row.get("conversations") or []) if c.get("id")]
+                locations.append(
+                    {
+                        "id": row["id"],
+                        "name": row["name"],
+                        "subtype": row.get("subtype"),
+                        "description": row.get("description"),
+                        "enriched_description": row.get("enriched_description"),
+                        "wikipedia_url": row.get("wikipedia_url"),
+                        "latitude": row.get("latitude"),
+                        "longitude": row.get("longitude"),
+                        "conversations": convs,
+                    }
+                )
+            return locations
+        except Exception:
+            return []
+
     def _create_embedder(self):
         """Create embedder based on settings."""
         config = self._settings.embedding

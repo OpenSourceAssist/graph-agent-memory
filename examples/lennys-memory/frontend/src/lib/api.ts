@@ -121,12 +121,86 @@ export const memory = {
 
 // Locations API (for map view)
 export const locations = {
-  list: (hasCoordinates: boolean = true, limit: number = 500) => {
+  /**
+   * Get locations, optionally filtered by conversation thread.
+   */
+  list: (options?: {
+    threadId?: string;
+    hasCoordinates?: boolean;
+    limit?: number;
+  }) => {
     const params = new URLSearchParams();
-    params.set("has_coordinates", String(hasCoordinates));
-    params.set("limit", String(limit));
-    return fetchAPI<LocationEntity[]>(`/locations?${params.toString()}`);
+    if (options?.threadId) params.set("session_id", options.threadId);
+    if (options?.hasCoordinates !== undefined)
+      params.set("has_coordinates", String(options.hasCoordinates));
+    if (options?.limit) params.set("limit", String(options.limit));
+    const query = params.toString();
+    return fetchAPI<LocationEntity[]>(`/locations${query ? `?${query}` : ""}`);
   },
+
+  /**
+   * Find locations near a point.
+   */
+  nearby: (
+    lat: number,
+    lon: number,
+    radiusKm: number = 10,
+    threadId?: string,
+  ) => {
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+      radius_km: String(radiusKm),
+    });
+    if (threadId) params.set("session_id", threadId);
+    return fetchAPI<LocationEntity[]>(`/locations/nearby?${params}`);
+  },
+
+  /**
+   * Find locations within a bounding box.
+   */
+  inBounds: (
+    bounds: {
+      minLat: number;
+      maxLat: number;
+      minLon: number;
+      maxLon: number;
+    },
+    threadId?: string,
+  ) => {
+    const params = new URLSearchParams({
+      min_lat: String(bounds.minLat),
+      max_lat: String(bounds.maxLat),
+      min_lon: String(bounds.minLon),
+      max_lon: String(bounds.maxLon),
+    });
+    if (threadId) params.set("session_id", threadId);
+    return fetchAPI<LocationEntity[]>(`/locations/bounds?${params}`);
+  },
+
+  /**
+   * Get shortest path between two locations in the graph.
+   */
+  shortestPath: (fromId: string, toId: string) =>
+    fetchAPI<{
+      nodes: Array<{
+        id: string;
+        name: string;
+        type: string;
+        labels: string[];
+        latitude?: number;
+        longitude?: number;
+      }>;
+      relationships: Array<{
+        type: string;
+        from_id: string;
+        to_id: string;
+      }>;
+      hops: number;
+      found: boolean;
+    }>(
+      `/locations/path?from_location_id=${encodeURIComponent(fromId)}&to_location_id=${encodeURIComponent(toId)}`,
+    ),
 };
 
 // Chat API with SSE streaming

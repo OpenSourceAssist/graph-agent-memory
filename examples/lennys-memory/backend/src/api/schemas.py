@@ -211,3 +211,6 @@ class LocationEntity(BaseModel):
     latitude: float
     longitude: float
     conversations: list[ConversationRef] = Field(default_factory=list)
+    distance_km: float | None = Field(
+        default=None, description="Distance from search point (for nearby queries)"
+    )

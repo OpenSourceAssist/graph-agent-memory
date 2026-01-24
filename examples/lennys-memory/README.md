@@ -154,6 +154,30 @@ The application includes an interactive graph visualization powered by Neo4j Vis
 - `GET /api/memory/graph?session_id={thread_id}` - Get conversation-scoped graph
 - `GET /api/memory/graph/neighbors/{node_id}?depth=1&limit=50` - Get neighbors of a node for expansion
 
+### Map Visualization Features
+
+The application includes an advanced map visualization for exploring Location entities with geospatial analysis capabilities:
+
+- **Conversation-Scoped Filtering**: Like the graph view, the map shows only locations mentioned in the current conversation/thread
+- **Multiple View Modes**: Toggle between individual markers, marker clusters (for better performance with many locations), and heatmap visualization
+- **Basemap Switching**: Choose between OpenStreetMap, ESRI Satellite, and OpenTopoMap basemaps
+- **Color-Coded Markers**: Locations are color-coded by subtype (cities, countries, regions, etc.)
+- **Distance Measurement**: Click two locations to calculate the great-circle distance between them using Turf.js
+- **Shortest Path Visualization**: Select two locations to find the shortest path between them in the knowledge graph, visualized as a polyline overlay
+- **Location Statistics**: Side panel shows statistics about displayed locations including count by type
+
+**Map Features Powered By:**
+- **Leaflet**: Core mapping library
+- **react-leaflet-cluster**: Automatic marker clustering for performance
+- **leaflet.heat**: Heatmap visualization layer
+- **@turf/turf**: Client-side geospatial calculations (distances, bounds)
+
+**API Endpoints for Locations:**
+- `GET /api/memory/locations?session_id={thread_id}` - Get locations filtered by conversation
+- `GET /api/memory/locations/nearby?lat={lat}&lon={lon}&radius_km={radius}&session_id={thread_id}` - Find locations within a radius
+- `GET /api/memory/locations/bounds?min_lat={}&max_lat={}&min_lon={}&max_lon={}&session_id={thread_id}` - Find locations within a bounding box
+- `GET /api/memory/locations/path?from_location_id={id}&to_location_id={id}` - Get shortest path between two locations in the graph
+
 ### Memory Structure
 
 - **Conversation**: One per episode (session_id: `lenny-podcast-{guest-slug}`)

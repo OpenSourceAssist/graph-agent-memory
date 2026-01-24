@@ -393,6 +393,48 @@ conversation_graph = await memory.get_graph(
 
 This is particularly useful for visualization UIs that want to show contextually relevant data rather than the entire knowledge graph.
 
+### Location Queries
+
+Query location entities with optional conversation filtering:
+
+```python
+# Get all locations with coordinates
+locations = await memory.get_locations(has_coordinates=True)
+
+# Get locations mentioned in a specific conversation
+locations = await memory.get_locations(
+    session_id="thread-abc123",  # Only locations from this conversation
+    has_coordinates=True,
+    limit=100,
+)
+
+# Each location includes:
+# - id, name, subtype (city, country, landmark, etc.)
+# - latitude, longitude coordinates
+# - conversations referencing this location
+```
+
+**Geospatial Queries**: Search for locations by proximity or bounding box:
+
+```python
+# Find locations within 50km of a point
+nearby = await memory.long_term.search_locations_near(
+    latitude=40.7128,
+    longitude=-74.0060,
+    radius_km=50,
+    session_id="thread-123",  # Optional: filter by conversation
+)
+
+# Find locations in a bounding box (useful for map viewports)
+in_view = await memory.long_term.search_locations_in_bounding_box(
+    min_lat=40.0,
+    max_lat=42.0,
+    min_lon=-75.0,
+    max_lon=-73.0,
+    session_id="thread-123",  # Optional: filter by conversation
+)
+```
+
 ### PydanticAI Trace Recording
 
 Automatically record PydanticAI agent runs as reasoning traces:

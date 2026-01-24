@@ -1908,6 +1908,7 @@ class LongTermMemory(BaseMemory[Entity]):
         longitude: float,
         *,
         radius_km: float = 10.0,
+        session_id: str | None = None,
         limit: int = 10,
     ) -> list[Entity]:
         """
@@ -1917,6 +1918,7 @@ class LongTermMemory(BaseMemory[Entity]):
             latitude: Latitude of the center point
             longitude: Longitude of the center point
             radius_km: Search radius in kilometers (default 10km)
+            session_id: Optional session ID to filter locations by conversation
             limit: Maximum number of results
 
         Returns:
@@ -1925,12 +1927,31 @@ class LongTermMemory(BaseMemory[Entity]):
         # Convert km to meters for Neo4j query
         radius_meters = radius_km * 1000
 
+        if session_id:
+            # Filter to locations mentioned in the specific conversation
+            query = """
+                MATCH (e:Entity {type: 'LOCATION'})<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
+                WITH DISTINCT e
+                WHERE e.location IS NOT NULL
+                WITH e, point.distance(
+                    point({latitude: $latitude, longitude: $longitude}),
+                    point({latitude: e.location.latitude, longitude: e.location.longitude})
+                ) AS distance_meters
+                WHERE distance_meters <= $radius_meters
+                RETURN e, distance_meters
+                ORDER BY distance_meters ASC
+                LIMIT $limit
+            """
+        else:
+            query = queries.SEARCH_LOCATIONS_NEAR
+
         results = await self._client.execute_read(
-            queries.SEARCH_LOCATIONS_NEAR,
+            query,
             {
                 "latitude": latitude,
                 "longitude": longitude,
                 "radius_meters": radius_meters,
+                "session_id": session_id,
                 "limit": limit,
             },
         )
@@ -1951,6 +1972,7 @@ class LongTermMemory(BaseMemory[Entity]):
         max_lat: float,
         max_lon: float,
         *,
+        session_id: str | None = None,
         limit: int = 100,
     ) -> list[Entity]:
         """
@@ -1961,18 +1983,36 @@ class LongTermMemory(BaseMemory[Entity]):
             min_lon: Minimum longitude (west)
             max_lat: Maximum latitude (north)
             max_lon: Maximum longitude (east)
+            session_id: Optional session ID to filter locations by conversation
             limit: Maximum number of results
 
         Returns:
             List of Location entities within the bounding box
         """
+        if session_id:
+            # Filter to locations mentioned in the specific conversation
+            query = """
+                MATCH (e:Entity {type: 'LOCATION'})<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
+                WITH DISTINCT e
+                WHERE e.location IS NOT NULL
+                  AND e.location.latitude >= $min_lat
+                  AND e.location.latitude <= $max_lat
+                  AND e.location.longitude >= $min_lon
+                  AND e.location.longitude <= $max_lon
+                RETURN e
+                LIMIT $limit
+            """
+        else:
+            query = queries.SEARCH_LOCATIONS_IN_BOUNDING_BOX
+
         results = await self._client.execute_read(
-            queries.SEARCH_LOCATIONS_IN_BOUNDING_BOX,
+            query,
             {
                 "min_lat": min_lat,
                 "min_lon": min_lon,
                 "max_lat": max_lat,
                 "max_lon": max_lon,
+                "session_id": session_id,
                 "limit": limit,
             },
         )

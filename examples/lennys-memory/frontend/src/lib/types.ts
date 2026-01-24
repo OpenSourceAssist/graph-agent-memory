@@ -137,4 +137,5 @@ export interface LocationEntity {
   latitude: number;
   longitude: number;
   conversations: ConversationRef[];
+  distance_km?: number | null; // Distance from search point (for nearby queries)
 }

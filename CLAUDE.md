@@ -1355,3 +1355,31 @@ make chat-agent-frontend
 - `frontend/src/components/chat/` - Chat UI components (MessageList, PromptInput, ToolCallDisplay)
 - `frontend/src/components/memory/MemoryContext.tsx` - Memory context panel showing preferences, entities, recent messages
 - `frontend/src/components/memory/MemoryGraphView.tsx` - Interactive NVL graph visualization of memory nodes
+
+## Lenny's Memory Example
+
+Located in `examples/lennys-memory/`, this is a podcast transcript analysis demo with advanced visualization features:
+
+### Map Visualization Features
+
+The map view (`MemoryMapView.tsx`) supports:
+- **Conversation-scoped filtering**: Pass `threadId` to show only locations mentioned in the current conversation
+- **Multiple view modes**: Markers, Clusters, and Heatmap visualizations
+- **Multiple basemaps**: OpenStreetMap, Satellite (ESRI), and Terrain views
+- **Distance measurement**: Click locations to measure distances using Turf.js great-circle calculations
+- **Shortest path visualization**: Select two locations to find and display the graph path between them
+- **Color-coded markers**: Locations colored by subtype (city, country, landmark, etc.)
+
+### Location API Endpoints
+
+- `GET /locations` - List locations with optional `session_id` filtering
+- `GET /locations/nearby` - Find locations within radius of a point
+- `GET /locations/bounds` - Find locations within a bounding box
+- `GET /locations/path` - Get shortest graph path between two locations
+
+### Graph Visualization Features
+
+Similar to the full-stack-chat-agent example:
+- Conversation-scoped filtering via `threadId` prop
+- Double-click to expand node neighbors
+- Memory type filtering (short-term, long-term, procedural)

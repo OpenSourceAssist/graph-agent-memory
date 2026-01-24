@@ -128,6 +128,7 @@ export function AppLayout({
       <MemoryMapView
         isOpen={mapViewOpen}
         onClose={() => setMapViewOpen(false)}
+        threadId={activeThreadId || undefined}
       />
     </Flex>
   );

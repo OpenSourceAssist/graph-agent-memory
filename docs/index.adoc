@@ -41,6 +41,8 @@ Neo4j Agent Memory is designed to give AI agents persistent, queryable memory ac
 * **POLE+O Data Model** - Industry-standard entity classification (Person, Object, Location, Event, Organization)
 * **Entity Deduplication** - Automatic duplicate detection with configurable auto-merge and flagging
 * **Provenance Tracking** - Track where entities were extracted from and which extractor produced them
+* **Geocoding & Location Queries** - Automatic coordinate lookup for LOCATION entities with geospatial search (nearby, bounding box)
+* **Session-Scoped Queries** - Filter locations and graph data by conversation for focused visualizations
 * **Message Linking** - Sequential message chains and cross-memory relationships (procedural → short-term)
 * **CLI Tool** - Command-line interface for entity extraction and schema management
 * **Observability** - OpenTelemetry and Opik tracing for monitoring extraction pipelines
@@ -127,6 +129,9 @@ pip install neo4j-agent-memory[all]
 
 |xref:integrations.adoc[Framework Integrations]
 |Using with LangChain, LlamaIndex, PydanticAI, and CrewAI
+
+|xref:enrichment.adoc[Background Enrichment]
+|Enrich entities with Wikipedia and Diffbot data
 
 |xref:faq.adoc[FAQ]
 |Frequently asked questions about extraction, schemas, and more

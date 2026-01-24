@@ -512,6 +512,55 @@ async with MemoryClient(settings) as memory:
     print(f"Geocoded {stats['geocoded']} of {stats['processed']} locations")
 ----
 
+==== Session-Scoped Location Queries
+
+Location queries can be filtered by conversation session, returning only locations mentioned in a specific conversation. This is useful for building conversation-aware map visualizations.
+
+[source,python]
+----
+# Get all locations (no session filter)
+locations = await memory.get_locations(
+    has_coordinates=True,  # Only locations with lat/lon
+    limit=500,
+)
+
+# Get locations mentioned in a specific conversation
+locations = await memory.get_locations(
+    session_id="user-123-session-1",
+    has_coordinates=True,
+    limit=500,
+)
+
+for loc in locations:
+    print(f"{loc['name']}: ({loc['latitude']}, {loc['longitude']})")
+    print(f"  Conversations: {loc['conversations']}")
+
+# Session-scoped geospatial queries
+nearby = await memory.long_term.search_locations_near(
+    latitude=40.7484,
+    longitude=-73.9857,
+    radius_km=10.0,
+    session_id="user-123-session-1",  # Only locations from this conversation
+    limit=50,
+)
+
+in_bounds = await memory.long_term.search_locations_in_bounds(
+    min_lat=40.70,
+    max_lat=40.80,
+    min_lon=-74.02,
+    max_lon=-73.95,
+    session_id="user-123-session-1",  # Only locations from this conversation
+)
+----
+
+The `get_locations()` method returns location entities with:
+
+* `id` - Entity UUID
+* `name` - Location name
+* `subtype` - Location subtype (CITY, COUNTRY, REGION, etc.)
+* `latitude` / `longitude` - Coordinates (if geocoded)
+* `conversations` - List of conversations that mention this location
+
 ==== Controlling Geocoding
 
 [source,python]

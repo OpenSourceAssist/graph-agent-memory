@@ -532,12 +532,15 @@ async def get_memory_graph(
 
 @router.get("/locations", response_model=list[LocationEntity])
 async def get_locations(
-    limit: int = 500,
-    has_coordinates: bool = True,
+    session_id: str | None = Query(default=None, description="Filter by conversation session ID"),
+    limit: int = Query(default=500, ge=1, le=2000),
+    has_coordinates: bool = Query(default=True),
 ) -> list[LocationEntity]:
     """Get Location entities with coordinates for map display.
 
     Args:
+        session_id: Optional session ID to filter locations to those mentioned
+                   in a specific conversation.
         limit: Maximum number of locations to return (default 500, max 2000).
         has_coordinates: If True, only return locations with coordinates.
 
@@ -548,87 +551,41 @@ async def get_locations(
     if memory is None:
         return []
 
-    # Clamp limit
-    limit = min(max(1, limit), 2000)
-
     try:
-        # Query for Location entities with coordinates and their related conversations
-        # The relationship path: Entity <- EXTRACTED_FROM - Message <- HAS_MESSAGE - Conversation
-        if has_coordinates:
-            query = """
-            MATCH (e:Entity)
-            WHERE e.type = 'LOCATION' AND e.location IS NOT NULL
-            OPTIONAL MATCH (e)<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
-            WITH e,
-                 e.location.latitude AS lat,
-                 e.location.longitude AS lng,
-                 collect(DISTINCT CASE WHEN c IS NOT NULL
-                    THEN {id: c.session_id, title: coalesce(c.title, c.session_id)}
-                    ELSE NULL END) AS convs
-            WHERE lat IS NOT NULL AND lng IS NOT NULL
-            RETURN e.id AS id,
-                   e.name AS name,
-                   e.subtype AS subtype,
-                   e.description AS description,
-                   e.enriched_description AS enriched_description,
-                   e.wikipedia_url AS wikipedia_url,
-                   lat AS latitude,
-                   lng AS longitude,
-                   [c IN convs WHERE c IS NOT NULL] AS conversations
-            LIMIT $limit
-            """
-        else:
-            query = """
-            MATCH (e:Entity)
-            WHERE e.type = 'LOCATION'
-            OPTIONAL MATCH (e)<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
-            WITH e,
-                 e.location.latitude AS lat,
-                 e.location.longitude AS lng,
-                 collect(DISTINCT CASE WHEN c IS NOT NULL
-                    THEN {id: c.session_id, title: coalesce(c.title, c.session_id)}
-                    ELSE NULL END) AS convs
-            RETURN e.id AS id,
-                   e.name AS name,
-                   e.subtype AS subtype,
-                   e.description AS description,
-                   e.enriched_description AS enriched_description,
-                   e.wikipedia_url AS wikipedia_url,
-                   lat AS latitude,
-                   lng AS longitude,
-                   [c IN convs WHERE c IS NOT NULL] AS conversations
-            LIMIT $limit
-            """
-
-        results = await memory._client.execute_read(query, {"limit": limit})
+        # Use the new get_locations() API from MemoryClient
+        locations_data = await memory.get_locations(
+            session_id=session_id,
+            has_coordinates=has_coordinates,
+            limit=limit,
+        )
 
         locations = []
-        for row in results:
-            # Skip if no coordinates (shouldn't happen with has_coordinates=True)
-            if row["latitude"] is None or row["longitude"] is None:
+        for loc in locations_data:
+            # Skip if no coordinates
+            if loc.get("latitude") is None or loc.get("longitude") is None:
                 continue
 
             # Parse conversations
             convs = []
-            for c in row["conversations"] or []:
-                if c and isinstance(c, dict):
+            for c in loc.get("conversations") or []:
+                if c and isinstance(c, dict) and c.get("id"):
                     convs.append(
                         ConversationRef(
-                            id=c.get("id", ""),
+                            id=c.get("session_id") or c.get("id", ""),
                             title=c.get("title"),
                         )
                     )
 
             locations.append(
                 LocationEntity(
-                    id=row["id"],
-                    name=row["name"],
-                    subtype=row["subtype"],
-                    description=row["description"],
-                    enriched_description=row["enriched_description"],
-                    wikipedia_url=row["wikipedia_url"],
-                    latitude=float(row["latitude"]),
-                    longitude=float(row["longitude"]),
+                    id=loc["id"],
+                    name=loc["name"],
+                    subtype=loc.get("subtype"),
+                    description=loc.get("description"),
+                    enriched_description=loc.get("enriched_description"),
+                    wikipedia_url=loc.get("wikipedia_url"),
+                    latitude=float(loc["latitude"]),
+                    longitude=float(loc["longitude"]),
                     conversations=convs,
                 )
             )
@@ -641,6 +598,219 @@ async def get_locations(
         print(f"Error fetching locations: {e}")
         traceback.print_exc()
         return []
+
+
+@router.get("/locations/nearby", response_model=list[LocationEntity])
+async def get_locations_nearby(
+    lat: float = Query(..., description="Latitude of center point"),
+    lon: float = Query(..., description="Longitude of center point"),
+    radius_km: float = Query(default=10.0, ge=0.1, le=500, description="Search radius in km"),
+    session_id: str | None = Query(default=None, description="Filter by conversation session"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> list[LocationEntity]:
+    """Find locations within a radius of a point.
+
+    Uses the geospatial query capabilities of the memory system to find
+    Location entities near a specified point, optionally filtered by
+    conversation session.
+
+    Args:
+        lat: Latitude of the center point.
+        lon: Longitude of the center point.
+        radius_km: Search radius in kilometers (default 10km, max 500km).
+        session_id: Optional session ID to filter to conversation-specific locations.
+        limit: Maximum number of results to return.
+
+    Returns:
+        List of location entities sorted by distance, with distance_km in metadata.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        return []
+
+    try:
+        entities = await memory.long_term.search_locations_near(
+            latitude=lat,
+            longitude=lon,
+            radius_km=radius_km,
+            session_id=session_id,
+            limit=limit,
+        )
+
+        locations = []
+        for ent in entities:
+            # Get coordinates from entity
+            coords = ent.attributes.get("coordinates", {})
+            lat_val = coords.get("latitude") if isinstance(coords, dict) else None
+            lon_val = coords.get("longitude") if isinstance(coords, dict) else None
+
+            # Try location property if coordinates not in attributes
+            if lat_val is None or lon_val is None:
+                if hasattr(ent, "metadata") and ent.metadata:
+                    # Distance was added to metadata by search_locations_near
+                    pass
+
+            if lat_val is not None and lon_val is not None:
+                locations.append(
+                    LocationEntity(
+                        id=str(ent.id),
+                        name=ent.name,
+                        subtype=getattr(ent, "subtype", None),
+                        description=ent.description,
+                        enriched_description=ent.attributes.get("enriched_description"),
+                        wikipedia_url=ent.attributes.get("wikipedia_url"),
+                        latitude=float(lat_val),
+                        longitude=float(lon_val),
+                        conversations=[],
+                        distance_km=ent.metadata.get("distance_km") if ent.metadata else None,
+                    )
+                )
+
+        return locations
+
+    except Exception as e:
+        import traceback
+
+        print(f"Error fetching nearby locations: {e}")
+        traceback.print_exc()
+        return []
+
+
+@router.get("/locations/bounds", response_model=list[LocationEntity])
+async def get_locations_in_bounds(
+    min_lat: float = Query(..., description="Minimum latitude (south)"),
+    max_lat: float = Query(..., description="Maximum latitude (north)"),
+    min_lon: float = Query(..., description="Minimum longitude (west)"),
+    max_lon: float = Query(..., description="Maximum longitude (east)"),
+    session_id: str | None = Query(default=None, description="Filter by conversation session"),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[LocationEntity]:
+    """Find locations within a bounding box.
+
+    Useful for fetching locations visible in the current map viewport.
+
+    Args:
+        min_lat: Minimum latitude (south boundary).
+        max_lat: Maximum latitude (north boundary).
+        min_lon: Minimum longitude (west boundary).
+        max_lon: Maximum longitude (east boundary).
+        session_id: Optional session ID to filter to conversation-specific locations.
+        limit: Maximum number of results to return.
+
+    Returns:
+        List of location entities within the bounding box.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        return []
+
+    try:
+        entities = await memory.long_term.search_locations_in_bounding_box(
+            min_lat=min_lat,
+            min_lon=min_lon,
+            max_lat=max_lat,
+            max_lon=max_lon,
+            session_id=session_id,
+            limit=limit,
+        )
+
+        locations = []
+        for ent in entities:
+            # Get coordinates from entity
+            coords = ent.attributes.get("coordinates", {})
+            lat_val = coords.get("latitude") if isinstance(coords, dict) else None
+            lon_val = coords.get("longitude") if isinstance(coords, dict) else None
+
+            if lat_val is not None and lon_val is not None:
+                locations.append(
+                    LocationEntity(
+                        id=str(ent.id),
+                        name=ent.name,
+                        subtype=getattr(ent, "subtype", None),
+                        description=ent.description,
+                        enriched_description=ent.attributes.get("enriched_description"),
+                        wikipedia_url=ent.attributes.get("wikipedia_url"),
+                        latitude=float(lat_val),
+                        longitude=float(lon_val),
+                        conversations=[],
+                    )
+                )
+
+        return locations
+
+    except Exception as e:
+        import traceback
+
+        print(f"Error fetching locations in bounds: {e}")
+        traceback.print_exc()
+        return []
+
+
+@router.get("/locations/path")
+async def get_shortest_path(
+    from_location_id: str = Query(..., description="Source location ID"),
+    to_location_id: str = Query(..., description="Target location ID"),
+) -> dict:
+    """Get the shortest path between two locations in the knowledge graph.
+
+    Finds the shortest path through the graph relationships connecting
+    two Location entities, useful for visualization overlays.
+
+    Args:
+        from_location_id: Source location entity ID.
+        to_location_id: Target location entity ID.
+
+    Returns:
+        Dictionary with path nodes, relationships, and total hops.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        raise HTTPException(status_code=503, detail="Memory service unavailable")
+
+    try:
+        # Find shortest path between two entities
+        query = """
+        MATCH (from:Entity {id: $from_id}), (to:Entity {id: $to_id})
+        MATCH path = shortestPath((from)-[*..10]-(to))
+        WITH path, nodes(path) AS pathNodes, relationships(path) AS pathRels
+        RETURN [n IN pathNodes | {
+            id: n.id,
+            name: n.name,
+            type: n.type,
+            labels: labels(n),
+            latitude: n.location.latitude,
+            longitude: n.location.longitude
+        }] AS nodes,
+        [r IN pathRels | {
+            type: type(r),
+            from_id: startNode(r).id,
+            to_id: endNode(r).id
+        }] AS relationships,
+        length(path) AS hops
+        """
+
+        results = await memory._client.execute_read(
+            query,
+            {"from_id": from_location_id, "to_id": to_location_id},
+        )
+
+        if not results:
+            return {"nodes": [], "relationships": [], "hops": 0, "found": False}
+
+        row = results[0]
+        return {
+            "nodes": row["nodes"],
+            "relationships": row["relationships"],
+            "hops": row["hops"],
+            "found": True,
+        }
+
+    except Exception as e:
+        import traceback
+
+        print(f"Error finding shortest path: {e}")
+        traceback.print_exc()
+        return {"nodes": [], "relationships": [], "hops": 0, "found": False, "error": str(e)}
 
 
 @router.get("/memory/graph/neighbors/{node_id}", response_model=MemoryGraph)
