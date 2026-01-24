@@ -16,6 +16,7 @@ A comprehensive memory system for AI agents using Neo4j as the persistence layer
 - **Entity Resolution**: Multi-strategy deduplication (exact, fuzzy, semantic matching) with type-aware resolution
 - **Entity Deduplication on Ingest**: Automatic duplicate detection with configurable auto-merge and flagging
 - **Provenance Tracking**: Track where entities were extracted from and which extractor produced them
+- **Background Entity Enrichment**: Automatically enrich entities with Wikipedia and Diffbot data
 - **GLiREL Relation Extraction**: Extract relationships without LLM calls using GLiREL
 - **Vector Search**: Semantic similarity search across all memory types
 - **Temporal Relationships**: Track when facts become valid or invalid
@@ -714,6 +715,46 @@ await memory.long_term.link_entity_to_extractor(
 
 # Get provenance
 provenance = await memory.long_term.get_entity_provenance(entity)
+```
+
+## Background Entity Enrichment
+
+Automatically enrich entities with additional data from Wikipedia and Diffbot:
+
+```python
+from neo4j_agent_memory import MemorySettings, MemoryClient
+from neo4j_agent_memory.config.settings import EnrichmentConfig, EnrichmentProvider
+
+settings = MemorySettings(
+    enrichment=EnrichmentConfig(
+        enabled=True,
+        providers=[EnrichmentProvider.WIKIMEDIA],  # Free, no API key needed
+        background_enabled=True,  # Async processing
+        entity_types=["PERSON", "ORGANIZATION", "LOCATION"],
+    ),
+)
+
+async with MemoryClient(settings) as client:
+    # Entities are automatically enriched in the background
+    entity, _ = await client.long_term.add_entity(
+        "Albert Einstein", "PERSON", confidence=0.9,
+    )
+    # After enrichment: entity gains enriched_description, wikipedia_url, wikidata_id
+
+# Direct provider usage
+from neo4j_agent_memory.enrichment import WikimediaProvider
+
+provider = WikimediaProvider()
+result = await provider.enrich("Albert Einstein", "PERSON")
+print(result.description)  # "German-born theoretical physicist..."
+print(result.wikipedia_url)  # "https://en.wikipedia.org/wiki/Albert_Einstein"
+```
+
+Environment variables:
+```bash
+NAM_ENRICHMENT__ENABLED=true
+NAM_ENRICHMENT__PROVIDERS=["wikimedia", "diffbot"]
+NAM_ENRICHMENT__DIFFBOT_API_KEY=your-api-key  # For Diffbot
 ```
 
 ## CLI Tool

@@ -154,6 +154,7 @@ def _to_python_datetime(neo4j_datetime) -> datetime:
 
 if TYPE_CHECKING:
     from neo4j_agent_memory.embeddings.base import Embedder
+    from neo4j_agent_memory.enrichment.background import BackgroundEnrichmentService
     from neo4j_agent_memory.extraction.base import EntityExtractor
     from neo4j_agent_memory.graph.client import Neo4jClient
     from neo4j_agent_memory.resolution.base import EntityResolver
@@ -328,6 +329,7 @@ class LongTermMemory(BaseMemory[Entity]):
         extractor: "EntityExtractor | None" = None,
         resolver: "EntityResolver | None" = None,
         geocoder: "Geocoder | None" = None,
+        enrichment_service: "BackgroundEnrichmentService | None" = None,
         entity_types: list[str] | None = None,
         strict_types: bool = False,
         deduplication: DeduplicationConfig | None = None,
@@ -340,6 +342,7 @@ class LongTermMemory(BaseMemory[Entity]):
             extractor: Optional entity extractor
             resolver: Optional entity resolver for deduplication
             geocoder: Optional geocoder for Location entities
+            enrichment_service: Optional background enrichment service
             entity_types: Allowed entity types (defaults to POLE+O)
             strict_types: If True, reject entities with unknown types
             deduplication: Optional deduplication configuration (defaults to enabled)
@@ -347,6 +350,7 @@ class LongTermMemory(BaseMemory[Entity]):
         super().__init__(client, embedder, extractor)
         self._resolver = resolver
         self._geocoder = geocoder
+        self._enrichment_service = enrichment_service
         self._entity_types = entity_types or POLEO_TYPES
         self._strict_types = strict_types
         self._deduplication = deduplication or DeduplicationConfig()
@@ -382,6 +386,7 @@ class LongTermMemory(BaseMemory[Entity]):
         generate_embedding: bool = True,
         deduplicate: bool = True,
         geocode: bool = True,
+        enrich: bool = True,
         coordinates: tuple[float, float] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> tuple[Entity, DeduplicationResult]:
@@ -399,6 +404,7 @@ class LongTermMemory(BaseMemory[Entity]):
             generate_embedding: Whether to generate embedding
             deduplicate: Whether to check for duplicate entities
             geocode: Whether to geocode LOCATION entities (requires geocoder)
+            enrich: Whether to queue for background enrichment
             coordinates: Optional (latitude, longitude) tuple to set directly
             metadata: Optional metadata
 
@@ -517,6 +523,16 @@ class LongTermMemory(BaseMemory[Entity]):
                     "match_type": dedup_result.match_type or "embedding",
                     "status": "pending",
                 },
+            )
+
+        # Queue for background enrichment (non-blocking)
+        if enrich and self._enrichment_service is not None and self._enrichment_service.is_running:
+            await self._enrichment_service.enqueue(
+                entity_id=entity.id,
+                entity_name=entity.name,
+                entity_type=entity.type,
+                context=entity.description,
+                confidence=entity.confidence,
             )
 
         return entity, dedup_result

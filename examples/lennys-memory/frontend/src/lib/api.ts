@@ -9,6 +9,7 @@ import type {
   Entity,
   MemoryContext,
   MemoryGraph,
+  LocationEntity,
   SSEEvent,
 } from "./types";
 
@@ -101,6 +102,16 @@ export const memory = {
   getGraph: () => fetchAPI<MemoryGraph>("/memory/graph"),
 };
 
+// Locations API (for map view)
+export const locations = {
+  list: (hasCoordinates: boolean = true, limit: number = 500) => {
+    const params = new URLSearchParams();
+    params.set("has_coordinates", String(hasCoordinates));
+    params.set("limit", String(limit));
+    return fetchAPI<LocationEntity[]>(`/locations?${params.toString()}`);
+  },
+};
+
 // Chat API with SSE streaming
 export async function* streamChat(
   threadId: string,
@@ -166,5 +177,6 @@ export const api = {
   preferences,
   entities,
   memory,
+  locations,
   streamChat,
 };

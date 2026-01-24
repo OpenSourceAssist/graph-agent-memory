@@ -7,9 +7,11 @@ from fastapi import APIRouter, HTTPException
 
 from neo4j_agent_memory.memory.long_term import Preference as LongTermPreference
 from src.api.schemas import (
+    ConversationRef,
     Entity,
     GraphNode,
     GraphRelationship,
+    LocationEntity,
     MemoryContext,
     MemoryGraph,
     Preference,
@@ -526,3 +528,116 @@ async def get_memory_graph(
         print(f"Error fetching memory graph: {e}")
         traceback.print_exc()
         return MemoryGraph(nodes=[], relationships=[])
+
+
+@router.get("/locations", response_model=list[LocationEntity])
+async def get_locations(
+    limit: int = 500,
+    has_coordinates: bool = True,
+) -> list[LocationEntity]:
+    """Get Location entities with coordinates for map display.
+
+    Args:
+        limit: Maximum number of locations to return (default 500, max 2000).
+        has_coordinates: If True, only return locations with coordinates.
+
+    Returns:
+        List of location entities with coordinates and related conversations.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        return []
+
+    # Clamp limit
+    limit = min(max(1, limit), 2000)
+
+    try:
+        # Query for Location entities with coordinates and their related conversations
+        # The relationship path: Entity <- EXTRACTED_FROM - Message <- HAS_MESSAGE - Conversation
+        if has_coordinates:
+            query = """
+            MATCH (e:Entity)
+            WHERE e.type = 'LOCATION' AND e.location IS NOT NULL
+            OPTIONAL MATCH (e)<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+            WITH e,
+                 e.location.latitude AS lat,
+                 e.location.longitude AS lng,
+                 collect(DISTINCT CASE WHEN c IS NOT NULL
+                    THEN {id: c.session_id, title: coalesce(c.title, c.session_id)}
+                    ELSE NULL END) AS convs
+            WHERE lat IS NOT NULL AND lng IS NOT NULL
+            RETURN e.id AS id,
+                   e.name AS name,
+                   e.subtype AS subtype,
+                   e.description AS description,
+                   e.enriched_description AS enriched_description,
+                   e.wikipedia_url AS wikipedia_url,
+                   lat AS latitude,
+                   lng AS longitude,
+                   [c IN convs WHERE c IS NOT NULL] AS conversations
+            LIMIT $limit
+            """
+        else:
+            query = """
+            MATCH (e:Entity)
+            WHERE e.type = 'LOCATION'
+            OPTIONAL MATCH (e)<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+            WITH e,
+                 e.location.latitude AS lat,
+                 e.location.longitude AS lng,
+                 collect(DISTINCT CASE WHEN c IS NOT NULL
+                    THEN {id: c.session_id, title: coalesce(c.title, c.session_id)}
+                    ELSE NULL END) AS convs
+            RETURN e.id AS id,
+                   e.name AS name,
+                   e.subtype AS subtype,
+                   e.description AS description,
+                   e.enriched_description AS enriched_description,
+                   e.wikipedia_url AS wikipedia_url,
+                   lat AS latitude,
+                   lng AS longitude,
+                   [c IN convs WHERE c IS NOT NULL] AS conversations
+            LIMIT $limit
+            """
+
+        results = await memory._client.execute_read(query, {"limit": limit})
+
+        locations = []
+        for row in results:
+            # Skip if no coordinates (shouldn't happen with has_coordinates=True)
+            if row["latitude"] is None or row["longitude"] is None:
+                continue
+
+            # Parse conversations
+            convs = []
+            for c in row["conversations"] or []:
+                if c and isinstance(c, dict):
+                    convs.append(
+                        ConversationRef(
+                            id=c.get("id", ""),
+                            title=c.get("title"),
+                        )
+                    )
+
+            locations.append(
+                LocationEntity(
+                    id=row["id"],
+                    name=row["name"],
+                    subtype=row["subtype"],
+                    description=row["description"],
+                    enriched_description=row["enriched_description"],
+                    wikipedia_url=row["wikipedia_url"],
+                    latitude=float(row["latitude"]),
+                    longitude=float(row["longitude"]),
+                    conversations=convs,
+                )
+            )
+
+        return locations
+
+    except Exception as e:
+        import traceback
+
+        print(f"Error fetching locations: {e}")
+        traceback.print_exc()
+        return []

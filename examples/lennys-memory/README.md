@@ -262,6 +262,52 @@ make extract-entities
                                            -[:MENTIONS]-> (Entity:Location)
 ```
 
+### Background Entity Enrichment
+
+Entities can be automatically enriched with additional context from external knowledge sources like Wikipedia and Diffbot. This adds descriptions, Wikipedia URLs, Wikidata IDs, and images to extracted entities.
+
+**How it works:**
+1. When an entity is extracted and stored, it is queued for background enrichment
+2. The enrichment service fetches data from Wikipedia (free) or Diffbot (API key required)
+3. The entity is updated in Neo4j with enriched properties
+
+**Enrichment is enabled by default** in this example. To configure:
+
+```bash
+# In backend/.env
+ENRICHMENT_ENABLED=true           # Enable/disable enrichment
+DIFFBOT_API_KEY=your-api-key      # Optional: for richer Diffbot data
+```
+
+**Enriched properties added to entities:**
+- `enriched_description`: Summary from Wikipedia/Diffbot
+- `wikipedia_url`: Link to Wikipedia page
+- `wikidata_id`: Wikidata Q identifier (e.g., Q937)
+- `image_url`: Primary image URL
+- `enriched_at`: Timestamp of enrichment
+
+**Example: Checking enriched entities in Neo4j:**
+
+```cypher
+// Find all enriched Person entities
+MATCH (e:Entity:Person)
+WHERE e.enriched_description IS NOT NULL
+RETURN e.name, e.enriched_description, e.wikipedia_url
+LIMIT 10
+
+// Find entities pending enrichment
+MATCH (e:Entity)
+WHERE e.enriched_at IS NULL
+RETURN e.name, e.type
+```
+
+**Providers:**
+
+| Provider | Cost | Features |
+|----------|------|----------|
+| **Wikimedia** | Free | Descriptions, Wikipedia links, Wikidata IDs, images |
+| **Diffbot** | Paid API | Richer data, related entities, importance scores |
+
 ### Procedural Memory Usage
 
 This example demonstrates full procedural memory integration:

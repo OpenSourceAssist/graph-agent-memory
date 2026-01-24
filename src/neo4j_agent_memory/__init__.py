@@ -45,6 +45,8 @@ from pydantic import BaseModel, Field
 from neo4j_agent_memory.config.settings import (
     EmbeddingConfig,
     EmbeddingProvider,
+    EnrichmentConfig,
+    EnrichmentProvider,
     ExtractionConfig,
     ExtractorType,
     GeocodingConfig,
@@ -146,12 +148,14 @@ __all__ = [
     "MemoryConfig",
     "SearchConfig",
     "GeocodingConfig",
+    "EnrichmentConfig",
     # Enums
     "EmbeddingProvider",
     "LLMProvider",
     "ExtractorType",
     "ResolverStrategy",
     "GeocodingProvider",
+    "EnrichmentProvider",
     "MessageRole",
     "EntityType",
     "ToolCallStatus",
@@ -222,6 +226,7 @@ class MemoryClient:
         extractor=None,
         resolver=None,
         geocoder=None,
+        enrichment_provider=None,
     ):
         """
         Initialize the memory client.
@@ -232,6 +237,7 @@ class MemoryClient:
             extractor: Optional extractor override (for testing)
             resolver: Optional resolver override (for testing)
             geocoder: Optional geocoder override (for testing)
+            enrichment_provider: Optional enrichment provider override (for testing)
         """
         self._settings = settings or MemorySettings()
         self._client: Neo4jClient | None = None
@@ -240,10 +246,13 @@ class MemoryClient:
         self._extractor_override = extractor
         self._resolver_override = resolver
         self._geocoder_override = geocoder
+        self._enrichment_provider_override = enrichment_provider
         self._embedder = None
         self._extractor = None
         self._resolver = None
         self._geocoder = None
+        self._enrichment_provider = None
+        self._enrichment_service = None
 
         # Memory instances (initialized on connect)
         self._short_term: ShortTermMemory | None = None
@@ -289,6 +298,12 @@ class MemoryClient:
         # Initialize geocoder (use override if provided)
         self._geocoder = self._geocoder_override or self._create_geocoder()
 
+        # Initialize enrichment (use override if provided)
+        self._enrichment_provider = (
+            self._enrichment_provider_override or self._create_enrichment_provider()
+        )
+        self._enrichment_service = await self._create_enrichment_service()
+
         # Create memory instances
         self._short_term = ShortTermMemory(
             self._client,
@@ -301,6 +316,7 @@ class MemoryClient:
             self._extractor,
             self._resolver,
             self._geocoder,
+            self._enrichment_service,
         )
         self._procedural = ProceduralMemory(
             self._client,
@@ -308,7 +324,12 @@ class MemoryClient:
         )
 
     async def close(self) -> None:
-        """Close the Neo4j connection."""
+        """Close the Neo4j connection and stop background services."""
+        # Stop enrichment service gracefully
+        if self._enrichment_service is not None:
+            await self._enrichment_service.stop()
+            self._enrichment_service = None
+
         if self._client is not None:
             await self._client.close()
             self._client = None
@@ -826,3 +847,42 @@ class MemoryClient:
             rate_limit=config.rate_limit_per_second,
             user_agent=config.user_agent,
         )
+
+    def _create_enrichment_provider(self):
+        """Create enrichment provider based on settings.
+
+        Returns a configured enrichment provider, or None if enrichment
+        is disabled. Supports Wikimedia (free) and Diffbot (requires API key).
+        """
+        from neo4j_agent_memory.enrichment.factory import create_enrichment_service
+
+        return create_enrichment_service(self._settings.enrichment)
+
+    async def _create_enrichment_service(self):
+        """Create and start the background enrichment service.
+
+        Returns a BackgroundEnrichmentService if enrichment is enabled and
+        background processing is enabled, otherwise None.
+        """
+        if self._enrichment_provider is None:
+            return None
+
+        if not self._settings.enrichment.background_enabled:
+            return None
+
+        if self._client is None:
+            return None
+
+        from neo4j_agent_memory.enrichment.background import BackgroundEnrichmentService
+
+        service = BackgroundEnrichmentService(
+            client=self._client,
+            provider=self._enrichment_provider,
+            max_queue_size=self._settings.enrichment.queue_max_size,
+            max_retries=self._settings.enrichment.max_retries,
+            retry_delay=self._settings.enrichment.retry_delay_seconds,
+            min_confidence=self._settings.enrichment.min_confidence,
+            entity_types=self._settings.enrichment.entity_types or None,
+        )
+        await service.start()
+        return service

@@ -1,11 +1,20 @@
 "use client";
 
-import { Box, Flex, Stack, IconButton, Text, Button } from "@chakra-ui/react";
-import { LuPanelLeftClose, LuPanelLeft } from "react-icons/lu";
+import {
+  Box,
+  Flex,
+  Stack,
+  IconButton,
+  Text,
+  Button,
+  HStack,
+} from "@chakra-ui/react";
+import { LuPanelLeftClose, LuPanelLeft, LuMapPin } from "react-icons/lu";
 import { HiOutlineShare } from "react-icons/hi";
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import MemoryGraphView from "@/components/memory/MemoryGraphView";
+import MemoryMapView from "@/components/memory/MemoryMapView";
 import type { Thread } from "@/lib/types";
 
 interface AppLayoutProps {
@@ -31,6 +40,7 @@ export function AppLayout({
 }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [graphViewOpen, setGraphViewOpen] = useState(false);
+  const [mapViewOpen, setMapViewOpen] = useState(false);
 
   return (
     <Flex h="100vh" overflow="hidden" bg="bg.canvas">
@@ -81,14 +91,24 @@ export function AppLayout({
             </Text>
           </Flex>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setGraphViewOpen(true)}
-          >
-            <HiOutlineShare />
-            <Text ml="2">View Memory Graph</Text>
-          </Button>
+          <HStack gap={2}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setMapViewOpen(true)}
+            >
+              <LuMapPin />
+              <Text ml="2">View Map</Text>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setGraphViewOpen(true)}
+            >
+              <HiOutlineShare />
+              <Text ml="2">View Graph</Text>
+            </Button>
+          </HStack>
         </Flex>
 
         {/* Content area */}
@@ -101,6 +121,12 @@ export function AppLayout({
       <MemoryGraphView
         isOpen={graphViewOpen}
         onClose={() => setGraphViewOpen(false)}
+      />
+
+      {/* Memory Map View Modal */}
+      <MemoryMapView
+        isOpen={mapViewOpen}
+        onClose={() => setMapViewOpen(false)}
       />
     </Flex>
   );

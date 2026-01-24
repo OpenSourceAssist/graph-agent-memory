@@ -120,3 +120,21 @@ export interface MemoryGraph {
   nodes: GraphNode[];
   relationships: GraphRelationship[];
 }
+
+// Location Types for Map View
+export interface ConversationRef {
+  id: string;
+  title: string | null;
+}
+
+export interface LocationEntity {
+  id: string;
+  name: string;
+  subtype: string | null;
+  description: string | null;
+  enriched_description: string | null;
+  wikipedia_url: string | null;
+  latitude: number;
+  longitude: number;
+  conversations: ConversationRef[];
+}
