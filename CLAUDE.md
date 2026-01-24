@@ -1314,6 +1314,10 @@ Located in `examples/full-stack-chat-agent/`, this is a complete demonstration o
 - **Frontend**: Next.js 14 + Chakra UI with SSE streaming
 - **News Graph Tools**: Search, filter, and analyze news articles
 - **Memory Graph Visualization**: Interactive graph view using Neo4j Visualization Library (NVL)
+  - Conversation-scoped filtering: Shows only nodes relevant to the current thread
+  - Double-click to expand: Click a node twice to fetch and display its neighbors
+  - "Expand Neighbors" button in the property panel for alternative expansion
+  - Memory type filtering (short-term, user-profile, procedural)
 - **Automatic Preference Extraction**: Detects and stores user preferences from conversation
 - **Memory Context Panel**: Real-time display of short-term, long-term, and procedural memory
 

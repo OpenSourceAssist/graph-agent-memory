@@ -318,6 +318,136 @@ class TestPydanticAIAgentExample:
 
 
 @pytest.mark.integration
+class TestGraphExportExample:
+    """Test graph export functionality used by full-stack example apps."""
+
+    @pytest.mark.asyncio
+    async def test_graph_endpoint_returns_memory_graph(self, memory_client, session_id):
+        """Test that get_graph returns a MemoryGraph structure."""
+        from neo4j_agent_memory import MemoryGraph
+
+        # Add some data first
+        await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Test message for graph export",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        graph = await memory_client.get_graph()
+
+        assert isinstance(graph, MemoryGraph)
+        assert hasattr(graph, "nodes")
+        assert hasattr(graph, "relationships")
+
+    @pytest.mark.asyncio
+    async def test_graph_endpoint_accepts_session_id(self, memory_client):
+        """Test that get_graph accepts session_id parameter for filtering."""
+        session1 = "test-graph-session-1"
+        session2 = "test-graph-session-2"
+
+        # Add messages to different sessions
+        await memory_client.short_term.add_message(
+            session1,
+            MessageRole.USER,
+            "Session 1 message",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+        await memory_client.short_term.add_message(
+            session2,
+            MessageRole.USER,
+            "Session 2 message",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        # Filter by session1
+        graph = await memory_client.get_graph(session_id=session1)
+
+        # Verify filtering works - only session1 data should appear
+        for node in graph.nodes:
+            if "Conversation" in node.labels:
+                assert node.properties.get("session_id") == session1
+
+    @pytest.mark.asyncio
+    async def test_graph_endpoint_accepts_memory_types(self, memory_client, session_id):
+        """Test that get_graph accepts memory_types parameter."""
+        # Add data to multiple memory types
+        await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Short term message",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+        await memory_client.long_term.add_entity(
+            "GraphTestEntity",
+            EntityType.PERSON,
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        # Get only long-term memory
+        graph = await memory_client.get_graph(memory_types=["long_term"])
+
+        labels = set()
+        for node in graph.nodes:
+            labels.update(node.labels)
+
+        # Should have Entity but not Message/Conversation
+        assert "Entity" in labels
+        assert "Message" not in labels
+        assert "Conversation" not in labels
+
+    @pytest.mark.asyncio
+    async def test_graph_nodes_have_valid_structure(self, memory_client, session_id):
+        """Test that graph nodes have the expected structure for visualization."""
+        await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Test structure message",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        graph = await memory_client.get_graph()
+
+        for node in graph.nodes:
+            # All nodes must have id, labels, and properties
+            assert node.id is not None
+            assert isinstance(node.labels, list)
+            assert len(node.labels) > 0
+            assert isinstance(node.properties, dict)
+
+    @pytest.mark.asyncio
+    async def test_graph_relationships_have_valid_structure(self, memory_client, session_id):
+        """Test that graph relationships have the expected structure."""
+        await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Test relationship message",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        graph = await memory_client.get_graph()
+
+        node_ids = {node.id for node in graph.nodes}
+
+        for rel in graph.relationships:
+            # All relationships must have required fields
+            assert rel.id is not None
+            assert rel.type is not None
+            assert rel.from_node is not None
+            assert rel.to_node is not None
+            # Relationship endpoints must reference existing nodes
+            assert rel.from_node in node_ids
+            assert rel.to_node in node_ids
+
+
+@pytest.mark.integration
 class TestExampleCodeImports:
     """Test that example code modules can be imported."""
 

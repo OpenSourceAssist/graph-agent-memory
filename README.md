@@ -353,13 +353,13 @@ print(f"Migrated stats for {len(migrated)} tools")
 
 ### Graph Export for Visualization
 
-Export memory graph data for visualization:
+Export memory graph data for visualization with flexible filtering:
 
 ```python
 # Export the full memory graph
 graph = await memory.get_graph(
     memory_types=["short_term", "long_term", "procedural"],  # Optional filter
-    session_id="user-123",  # Optional session filter
+    session_id="user-123",  # Optional: scope to a specific conversation
     include_embeddings=False,  # Don't include large embedding vectors
     limit=1000,
 )
@@ -374,6 +374,24 @@ for node in graph.nodes:
 for rel in graph.relationships:
     print(f"{rel.from_node} -[{rel.type}]-> {rel.to_node}")
 ```
+
+**Conversation-Scoped Graphs**: Use `session_id` to export only the memory associated with a specific conversation:
+
+```python
+# Get graph for a specific conversation (thread)
+conversation_graph = await memory.get_graph(
+    session_id="thread-abc123",  # Only nodes related to this session
+    include_embeddings=False,
+)
+
+# This returns:
+# - Messages in that conversation
+# - Entities mentioned in those messages
+# - Procedural traces from that session
+# - Relationships connecting them
+```
+
+This is particularly useful for visualization UIs that want to show contextually relevant data rather than the entire knowledge graph.
 
 ### PydanticAI Trace Recording
 

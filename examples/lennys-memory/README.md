@@ -140,6 +140,20 @@ Visit http://localhost:3000 to start exploring Lenny's Podcast!
 3. **Memory**: Agent retrieves relevant transcript segments via semantic search
 4. **Visualization**: NVL renders the memory graph for exploration
 
+### Graph Visualization Features
+
+The application includes an interactive graph visualization powered by Neo4j Visualization Library (NVL):
+
+- **Conversation-Scoped Filtering**: The graph shows only nodes relevant to the current conversation/thread, making it easier to explore contextually relevant data
+- **Double-Click to Expand**: Double-click any node to fetch and display its neighbors, enabling incremental graph exploration
+- **Expand Neighbors Button**: Alternative expansion method via the property panel
+- **Memory Type Filtering**: Toggle visibility of short-term, user-profile, and procedural memory nodes
+- **Map View**: Location entities with coordinates can be viewed on an interactive map
+
+**API Endpoints for Graph:**
+- `GET /api/memory/graph?session_id={thread_id}` - Get conversation-scoped graph
+- `GET /api/memory/graph/neighbors/{node_id}?depth=1&limit=50` - Get neighbors of a node for expansion
+
 ### Memory Structure
 
 - **Conversation**: One per episode (session_id: `lenny-podcast-{guest-slug}`)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Box,
   VStack,
@@ -12,6 +12,7 @@ import {
   IconButton,
 } from "@chakra-ui/react";
 import { HiX, HiRefresh } from "react-icons/hi";
+import { LuExpand } from "react-icons/lu";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
 import type { MemoryGraph, GraphNode, GraphRelationship } from "@/lib/types";
@@ -59,6 +60,7 @@ const InteractiveNvlWrapper = dynamic(
 interface MemoryGraphViewProps {
   isOpen: boolean;
   onClose: () => void;
+  threadId?: string;
 }
 
 // Memory type classification
@@ -115,6 +117,7 @@ const MEMORY_TYPE_COLORS = {
 export default function MemoryGraphView({
   isOpen,
   onClose,
+  threadId,
 }: MemoryGraphViewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [graphData, setGraphData] = useState<MemoryGraph | null>(null);
@@ -130,13 +133,26 @@ export default function MemoryGraphView({
     procedural: true,
   });
 
+  // Double-click detection state
+  const [lastClickedNodeId, setLastClickedNodeId] = useState<string | null>(
+    null,
+  );
+  const [lastClickTime, setLastClickTime] = useState<number>(0);
+  const DOUBLE_CLICK_DELAY = 300; // ms
+
+  // Node expansion state
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [expandingNode, setExpandingNode] = useState<string | null>(null);
+
   const loadGraphData = async () => {
     setIsLoading(true);
     setError(null);
     setSelectedNode(null);
     setSelectedRelationship(null);
+    setExpandedNodes(new Set());
+    setExpandingNode(null);
     try {
-      const data = await api.memory.getGraph();
+      const data = await api.memory.getGraph(threadId);
       setGraphData(data);
 
       if (data.nodes.length === 0) {
@@ -152,6 +168,56 @@ export default function MemoryGraphView({
       setIsLoading(false);
     }
   };
+
+  // Handle node expansion (fetch neighbors)
+  const handleNodeExpand = useCallback(
+    async (nodeId: string) => {
+      // Skip if already expanded or currently expanding
+      if (expandedNodes.has(nodeId) || expandingNode) return;
+
+      setExpandingNode(nodeId);
+
+      try {
+        const neighbors = await api.memory.getNodeNeighbors(nodeId, 1, 50);
+
+        // Merge new nodes and relationships into existing graph
+        setGraphData((prev) => {
+          if (!prev) return prev;
+
+          const existingNodeIds = new Set(prev.nodes.map((n) => n.id));
+          const existingRelIds = new Set(prev.relationships.map((r) => r.id));
+
+          const newNodes = neighbors.nodes.filter(
+            (n) => !existingNodeIds.has(n.id),
+          );
+          const newRels = neighbors.relationships.filter(
+            (r) => !existingRelIds.has(r.id),
+          );
+
+          if (newNodes.length === 0 && newRels.length === 0) {
+            // No new data to add
+            return prev;
+          }
+
+          return {
+            nodes: [...prev.nodes, ...newNodes],
+            relationships: [...prev.relationships, ...newRels],
+          };
+        });
+
+        setExpandedNodes((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(nodeId);
+          return newSet;
+        });
+      } catch (err) {
+        console.error("Failed to expand node:", err);
+      } finally {
+        setExpandingNode(null);
+      }
+    },
+    [expandedNodes, expandingNode],
+  );
 
   // Helper function to get node label (primary label)
   const getNodeLabel = (node: GraphNode): string => {
@@ -395,6 +461,8 @@ export default function MemoryGraphView({
     return filteredNodes.map((node) => {
       const nodeType = getNodeLabel(node);
       const isSelected = selectedNode?.id === node.id;
+      const isExpanded = expandedNodes.has(node.id);
+      const isExpanding = expandingNode === node.id;
       const caption = getNodeCaption(node);
 
       // Size based on node type
@@ -418,16 +486,21 @@ export default function MemoryGraphView({
       )
         baseSize = 18;
 
+      // Visual feedback for expanded/expanding nodes
+      let size = baseSize;
+      if (isSelected) size += 5;
+      if (isExpanded) size += 3;
+
       return {
         id: node.id,
-        caption,
-        size: isSelected ? baseSize + 5 : baseSize,
+        caption: isExpanding ? `${caption} ...` : caption,
+        size,
         color: NODE_COLORS[nodeType] || "#CCCCCC",
-        selected: isSelected,
+        selected: isSelected || isExpanded,
         data: node,
       };
     });
-  }, [filteredNodes, selectedNode]);
+  }, [filteredNodes, selectedNode, expandedNodes, expandingNode]);
 
   const nvlRelationships = useMemo<NvlRelationship[]>(() => {
     if (!filteredRelationships) return [];
@@ -448,10 +521,27 @@ export default function MemoryGraphView({
   const mouseEventCallbacks: MouseEventCallbacks = useMemo(
     () => ({
       onNodeClick: (node: NvlNode) => {
+        const now = Date.now();
+        const nodeId = node.id;
         const originalData = node.data;
-        if (originalData) {
-          setSelectedNode(originalData);
-          setSelectedRelationship(null);
+
+        // Check for double-click
+        if (
+          nodeId === lastClickedNodeId &&
+          now - lastClickTime < DOUBLE_CLICK_DELAY
+        ) {
+          // Double-click detected - expand node
+          handleNodeExpand(nodeId);
+          setLastClickedNodeId(null);
+          setLastClickTime(0);
+        } else {
+          // Single click - select node
+          if (originalData) {
+            setSelectedNode(originalData);
+            setSelectedRelationship(null);
+          }
+          setLastClickedNodeId(nodeId);
+          setLastClickTime(now);
         }
       },
       onRelationshipClick: (rel: NvlRelationship) => {
@@ -467,7 +557,7 @@ export default function MemoryGraphView({
       onZoom: true,
       onDrag: true,
     }),
-    [graphData],
+    [graphData, lastClickedNodeId, lastClickTime, handleNodeExpand],
   );
 
   // Load data when opened
@@ -985,6 +1075,58 @@ export default function MemoryGraphView({
                                 ),
                               )}
                             </VStack>
+                          </Box>
+
+                          {/* Expand Node Button */}
+                          <Box
+                            pt={2}
+                            borderTop="1px solid"
+                            borderColor="gray.200"
+                          >
+                            <Button
+                              size="sm"
+                              width="100%"
+                              colorPalette={
+                                expandedNodes.has(selectedNode.id)
+                                  ? "green"
+                                  : "blue"
+                              }
+                              variant={
+                                expandedNodes.has(selectedNode.id)
+                                  ? "outline"
+                                  : "solid"
+                              }
+                              onClick={() => handleNodeExpand(selectedNode.id)}
+                              disabled={
+                                expandedNodes.has(selectedNode.id) ||
+                                expandingNode !== null
+                              }
+                            >
+                              {expandingNode === selectedNode.id ? (
+                                <>
+                                  <Spinner size="sm" mr={2} />
+                                  Expanding...
+                                </>
+                              ) : expandedNodes.has(selectedNode.id) ? (
+                                <>
+                                  <LuExpand />
+                                  <Text ml={2}>Already Expanded</Text>
+                                </>
+                              ) : (
+                                <>
+                                  <LuExpand />
+                                  <Text ml={2}>Expand Neighbors</Text>
+                                </>
+                              )}
+                            </Button>
+                            <Text
+                              fontSize="xs"
+                              color="gray.500"
+                              mt={1}
+                              textAlign="center"
+                            >
+                              Double-click nodes to expand
+                            </Text>
                           </Box>
                         </>
                       ) : selectedRelationship && graphData ? (

@@ -13,6 +13,10 @@ A complete example demonstrating **neo4j-agent-memory** integration with a Pydan
 - **SSE Streaming**: Real-time response streaming with tool call visibility
 - **Next.js Frontend**: Modern React UI with Chakra UI v3 components
 - **Memory Graph Visualization**: Interactive graph view using Neo4j Visualization Library (NVL)
+  - Conversation-scoped filtering: Shows only nodes relevant to the current thread
+  - Double-click to expand: Click a node twice to fetch and display its neighbors
+  - "Expand Neighbors" button in the property panel for alternative expansion
+  - Memory type filtering (short-term, user-profile, procedural)
 - **Memory Context Panel**: Visual display of stored preferences and entities
 
 ## Architecture
@@ -222,6 +226,8 @@ await memory.procedural.complete_trace(
 
 ### Memory
 - `GET /api/memory/context` - Get memory context
+- `GET /api/memory/graph?session_id={thread_id}` - Get conversation-scoped memory graph
+- `GET /api/memory/graph/neighbors/{node_id}?depth=1&limit=50` - Get neighbors of a node for expansion
 - `GET /api/preferences` - List preferences
 - `POST /api/preferences` - Add preference
 - `GET /api/entities` - List entities

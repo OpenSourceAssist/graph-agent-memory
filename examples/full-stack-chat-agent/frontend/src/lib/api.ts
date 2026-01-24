@@ -98,7 +98,24 @@ export const memory = {
     );
   },
 
-  getGraph: () => fetchAPI<MemoryGraph>("/memory/graph"),
+  getGraph: (threadId?: string) => {
+    const params = new URLSearchParams();
+    if (threadId) {
+      params.set("session_id", threadId);
+    }
+    const query = params.toString();
+    return fetchAPI<MemoryGraph>(`/memory/graph${query ? `?${query}` : ""}`);
+  },
+
+  getNodeNeighbors: (nodeId: string, depth: number = 1, limit: number = 50) => {
+    const params = new URLSearchParams({
+      depth: String(depth),
+      limit: String(limit),
+    });
+    return fetchAPI<MemoryGraph>(
+      `/memory/graph/neighbors/${encodeURIComponent(nodeId)}?${params}`,
+    );
+  },
 };
 
 // Chat API with SSE streaming

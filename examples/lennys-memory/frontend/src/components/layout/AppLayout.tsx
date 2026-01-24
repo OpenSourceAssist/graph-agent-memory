@@ -121,6 +121,7 @@ export function AppLayout({
       <MemoryGraphView
         isOpen={graphViewOpen}
         onClose={() => setGraphViewOpen(false)}
+        threadId={activeThreadId || undefined}
       />
 
       {/* Memory Map View Modal */}
