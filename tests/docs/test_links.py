@@ -27,6 +27,10 @@ class TestXrefLinks:
             for match in xref_pattern.finditer(content):
                 target = match.group(1)
 
+                # Strip anchor references (e.g., #section_name)
+                if "#" in target:
+                    target = target.split("#")[0]
+
                 # Handle relative paths
                 if target.startswith("../"):
                     target_path = (file_dir / target).resolve()

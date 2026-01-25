@@ -621,6 +621,6 @@ For each entity, also identify:
 
 == Next Steps
 
-* xref:entity-extraction.adoc[Configure the extraction pipeline]
-* xref:memory-types.adoc[Work with entities in long-term memory]
-* xref:configuration.adoc[Full configuration reference]
+* xref:../how-to/entity-extraction.adoc[Configure the extraction pipeline]
+* xref:../memory-types.adoc[Work with entities in long-term memory]
+* xref:../reference/configuration.adoc[Full configuration reference]
