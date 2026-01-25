@@ -5,6 +5,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Lenny's Podcast Explorer",
   description: "Explore Lenny's Podcast with AI-powered memory",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
