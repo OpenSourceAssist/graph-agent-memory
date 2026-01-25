@@ -81,6 +81,14 @@ function copyAssets() {
     console.log(`  Copied: style.css`);
   }
 
+  // Copy favicon
+  const faviconSource = path.join(CONFIG.assetsDir, "favicon.svg");
+  const faviconDest = path.join(assetsOutDir, "favicon.svg");
+  if (fs.existsSync(faviconSource)) {
+    fs.copyFileSync(faviconSource, faviconDest);
+    console.log(`  Copied: favicon.svg`);
+  }
+
   // Copy any images
   const imagesDir = path.join(CONFIG.assetsDir, "images");
   const imagesOutDir = path.join(assetsOutDir, "images");
@@ -167,6 +175,7 @@ function wrapInTemplate(content, sourceFile, docTitle) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} | Neo4j Agent Memory</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
