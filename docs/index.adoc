@@ -19,8 +19,8 @@
     </div>
     <div class="hero-actions">
       <a href="tutorials/first-agent-memory.html" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Get Started</a>
-      <a href="https://github.com/neo4j-labs/agent-memory" class="btn btn-secondary" target="_blank"><i class="fab fa-github"></i> GitHub</a>
-      <a href="https://pypi.org/project/neo4j-agent-memory/" class="btn btn-secondary" target="_blank"><i class="fab fa-python"></i> PyPI</a>
+      <a href="https://github.com/neo4j-labs/agent-memory" class="btn btn-secondary" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i> GitHub</a>
+      <a href="https://pypi.org/project/neo4j-agent-memory/" class="btn btn-secondary" target="_blank" rel="noopener noreferrer"><i class="fab fa-python"></i> PyPI</a>
     </div>
     <div class="hero-install">
       <code>pip install neo4j-agent-memory</code>
