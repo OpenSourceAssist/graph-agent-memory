@@ -8,4 +8,4 @@ sse-starlette>=2.2.0
 python-dotenv>=1.0.0
 
 # neo4j-agent-memory from GitHub
-neo4j-agent-memory @ git+https://github.com/neo4j-labs/agent-memory@main#subdirectory=neo4j-agent-memory
+neo4j-agent-memory @ git+https://github.com/neo4j-labs/agent-memory@main
