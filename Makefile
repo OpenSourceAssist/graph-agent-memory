@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all test-docker test-ci test-no-docker test-quick test-file test-match coverage coverage-all coverage-ci test-examples test-examples-quick test-examples-no-neo4j neo4j-start neo4j-stop neo4j-logs clean build publish docs example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all test-docker test-ci test-no-docker test-quick test-file test-match coverage coverage-all coverage-ci test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
 
 # Default target
 help:
@@ -28,6 +28,12 @@ help:
 	@echo "  make test-examples         Run all example smoke tests (uses testcontainers)"
 	@echo "  make test-examples-quick   Run quick example validation (no Neo4j needed)"
 	@echo "  make test-examples-no-neo4j Run example tests that don't need Neo4j"
+	@echo ""
+	@echo "Documentation Testing:"
+	@echo "  make test-docs             Run all documentation tests (syntax, links, build)"
+	@echo "  make test-docs-syntax      Run syntax validation for code snippets (fast)"
+	@echo "  make test-docs-build       Run documentation build pipeline tests"
+	@echo "  make test-docs-links       Run internal link validation tests"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make example-basic    Run basic usage example"
@@ -200,6 +206,39 @@ test-examples-ci:
 	NEO4J_URI=bolt://localhost:7687 NEO4J_USERNAME=neo4j NEO4J_PASSWORD=test-password \
 		uv run pytest tests/examples -v --timeout=120
 	@docker compose -f docker-compose.test.yml down
+
+# =============================================================================
+# Documentation Testing
+# =============================================================================
+
+# Run all documentation tests (syntax validation, link checking, build tests)
+# Does not include integration tests that require Neo4j
+test-docs:
+	@echo "Running all documentation tests..."
+	uv run pytest tests/docs -v \
+		--ignore=tests/docs/test_tutorial_examples.py \
+		--ignore=tests/docs/test_howto_examples.py \
+		--timeout=120
+
+# Run only syntax validation tests (fast, no external dependencies)
+test-docs-syntax:
+	@echo "Running documentation syntax validation..."
+	uv run pytest tests/docs/test_code_snippets.py -v -m "syntax or docs" --timeout=60
+
+# Run documentation build pipeline tests (requires npm/node)
+test-docs-build:
+	@echo "Running documentation build tests..."
+	uv run pytest tests/docs/test_build_pipeline.py -v --timeout=180
+
+# Run internal link validation tests
+test-docs-links:
+	@echo "Running documentation link validation..."
+	uv run pytest tests/docs/test_links.py -v --timeout=60
+
+# Run documentation integration tests (requires Neo4j)
+test-docs-integration:
+	@echo "Running documentation integration tests with testcontainers..."
+	uv run pytest tests/docs/test_tutorial_examples.py tests/docs/test_howto_examples.py -v --timeout=300
 
 # =============================================================================
 # Neo4j Docker Management
