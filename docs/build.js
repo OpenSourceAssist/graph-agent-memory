@@ -480,7 +480,7 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
       <i class="fa-solid fa-bars"></i>
     </button>
     <a href="${rootPath}index.html" class="nav-logo">
-      <span class="logo-icon">🧠</span>
+      <img src="${rootPath}favicon.svg" alt="Neo4j Agent Memory" class="logo-icon" width="24" height="24">
       <span class="logo-text">Agent Memory</span>
     </a>
     <button class="search-trigger" aria-label="Search documentation" title="Search (Ctrl+K)">
@@ -499,7 +499,7 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
     <nav class="docs-nav" aria-label="Main navigation">
       <div class="nav-header">
         <a href="${rootPath}index.html" class="nav-logo">
-          <span class="logo-icon">🧠</span>
+          <img src="${rootPath}favicon.svg" alt="Neo4j Agent Memory" class="logo-icon" width="24" height="24">
           <span class="logo-text">Agent Memory</span>
         </a>
         <span class="version-badge">v0.1.0</span>

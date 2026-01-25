@@ -97,6 +97,9 @@
     --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 8px;
+
+    /* Labs banner height */
+    --labs-banner-height: 40px;
 }
 
 /* Dark Theme */
@@ -170,10 +173,10 @@ body {
 
 .docs-nav {
     position: fixed;
-    top: 0;
+    top: var(--labs-banner-height);
     left: 0;
     width: var(--nav-width);
-    height: 100vh;
+    height: calc(100vh - var(--labs-banner-height));
     background-color: var(--color-bg-secondary);
     border-right: 1px solid var(--color-border-default);
     overflow-y: auto;
@@ -203,7 +206,9 @@ body {
 }
 
 .logo-icon {
-    font-size: 1.5rem;
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
 }
 
 .version-badge {
@@ -275,6 +280,7 @@ body {
 .docs-content {
     flex: 1;
     margin-left: var(--nav-width);
+    margin-top: var(--labs-banner-height);
     padding: var(--spacing-8) var(--spacing-10);
     max-width: calc(
         var(--nav-width) + var(--content-max-width) + var(--spacing-10) * 2
@@ -757,7 +763,7 @@ details .content {
         align-items: center;
         gap: var(--spacing-3);
         position: sticky;
-        top: 0;
+        top: var(--labs-banner-height);
         z-index: 50;
         background-color: var(--color-bg-secondary);
         border-bottom: 1px solid var(--color-border-default);
@@ -1037,9 +1043,10 @@ details .content {
 
 .hero-actions {
     display: flex;
-    gap: var(--spacing-3);
+    gap: var(--spacing-4);
     justify-content: center;
     flex-wrap: wrap;
+    margin-top: var(--spacing-6);
     margin-bottom: var(--spacing-6);
 }
 
@@ -1094,7 +1101,7 @@ details .content {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-2);
-    padding: var(--spacing-2) var(--spacing-5);
+    padding: var(--spacing-3) var(--spacing-6);
     border-radius: var(--radius-md);
     font-size: var(--font-size-sm);
     font-weight: 600;
@@ -2166,8 +2173,16 @@ body.search-open {
     padding: var(--spacing-2) var(--spacing-4);
     font-size: var(--font-size-sm);
     text-align: center;
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 200;
+    height: var(--labs-banner-height, 40px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2);
 }
 
 .labs-banner a {
