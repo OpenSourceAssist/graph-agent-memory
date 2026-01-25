@@ -365,7 +365,7 @@ RETURN r
 """
 
 # =============================================================================
-# PROCEDURAL MEMORY QUERIES
+# REASONING MEMORY QUERIES
 # =============================================================================
 
 CREATE_REASONING_TRACE = """
@@ -621,7 +621,7 @@ RETURN
     collect(DISTINCT {id: id(r), type: type(r), from_node: e.id, to_node: e2.id, properties: properties(r)}) AS relationships
 """
 
-GET_GRAPH_PROCEDURAL = """
+GET_GRAPH_REASONING = """
 MATCH (rt:ReasoningTrace)
 WHERE ($session_id IS NULL OR rt.session_id = $session_id)
   AND ($since IS NULL OR rt.started_at >= datetime($since))

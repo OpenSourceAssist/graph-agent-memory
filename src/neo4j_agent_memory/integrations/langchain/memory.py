@@ -15,7 +15,7 @@ class Neo4jAgentMemory(BaseModel):
     Provides:
     - Conversation history (short-term)
     - User facts and preferences (long-term)
-    - Similar past task traces (procedural)
+    - Similar past task traces (reasoning)
 
     Example:
         from neo4j_agent_memory import MemoryClient, MemorySettings
@@ -33,7 +33,7 @@ class Neo4jAgentMemory(BaseModel):
     session_id: str
     include_short_term: bool = True
     include_long_term: bool = True
-    include_procedural: bool = True
+    include_reasoning: bool = True
     max_messages: int = 10
     max_preferences: int = 5
     max_traces: int = 3
@@ -48,7 +48,7 @@ class Neo4jAgentMemory(BaseModel):
             variables.append("history")
         if self.include_long_term:
             variables.extend(["context", "preferences"])
-        if self.include_procedural:
+        if self.include_reasoning:
             variables.append("similar_tasks")
         return variables
 
@@ -99,8 +99,8 @@ class Neo4jAgentMemory(BaseModel):
                 {"category": p.category, "preference": p.preference} for p in prefs
             ]
 
-        if self.include_procedural:
-            traces = await self.memory_client.procedural.get_similar_traces(
+        if self.include_reasoning:
+            traces = await self.memory_client.reasoning.get_similar_traces(
                 query, limit=self.max_traces
             )
             result["similar_tasks"] = self._format_traces(traces)

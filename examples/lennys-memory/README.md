@@ -156,7 +156,7 @@ Visit http://localhost:3000 to start exploring.
 ┌──────────────────────────────────────────────────────────────────────┐
 │                    neo4j-agent-memory                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐   │
-│  │  Short-Term  │  │  Long-Term   │  │     Procedural           │   │
+│  │  Short-Term  │  │  Long-Term   │  │     Reasoning           │   │
 │  │  Memory      │  │  Memory      │  │     Memory               │   │
 │  │              │  │              │  │                            │   │
 │  │ Conversations│  │ Entities     │  │  Reasoning Traces         │   │
@@ -218,7 +218,7 @@ User preferences are also stored in long-term memory, automatically extracted fr
               importance: 0.8})
 ```
 
-#### Procedural Memory: Reasoning Traces
+#### Reasoning Memory: Reasoning Traces
 
 Every agent interaction is recorded as a reasoning trace, capturing the full chain of thought:
 
@@ -291,8 +291,8 @@ async def add_memory_context(ctx: RunContext[AgentDeps]) -> str:
     if preferences:
         parts.append("## User Preferences\n" + format_preferences(preferences))
     
-    # 2. Similar past reasoning traces from procedural memory
-    similar_traces = await memory.procedural.get_similar_traces(current_task)
+    # 2. Similar past reasoning traces from reasoning memory
+    similar_traces = await memory.reasoning.get_similar_traces(current_task)
     if similar_traces:
         parts.append("## Relevant Past Interactions\n" + format_traces(similar_traces))
     
@@ -447,7 +447,7 @@ The graph visualization is powered by the Neo4j Visualization Library:
 - **Conversation-scoped**: Shows only nodes and relationships relevant to the current thread
 - **Color-coded nodes**: Messages (blue), Entities (green/orange/red by type), Preferences (purple), Traces (gray)
 - **Double-click to expand**: Click any node to fetch and display its neighbors from the graph
-- **Memory type filtering**: Toggle visibility of short-term, long-term, and procedural memory nodes
+- **Memory type filtering**: Toggle visibility of short-term, long-term, and reasoning memory nodes
 - **Property panel**: Click a node to see all its properties, including Wikipedia enrichment data with images
 
 #### Interactive Map View (Leaflet)
@@ -631,9 +631,9 @@ The loaded data creates this schema in Neo4j:
 | `Message` | Short-term | Each speaker turn with metadata |
 | `Entity` | Long-term | Extracted people, companies, locations, etc. |
 | `Preference` | Long-term | User preferences learned from conversation |
-| `ReasoningTrace` | Procedural | Complete trace of an agent task |
-| `ReasoningStep` | Procedural | Individual reasoning step |
-| `ToolCall` | Procedural | Tool invocation with timing |
+| `ReasoningTrace` | Reasoning | Complete trace of an agent task |
+| `ReasoningStep` | Reasoning | Individual reasoning step |
+| `ToolCall` | Reasoning | Tool invocation with timing |
 
 Entity nodes have additional type labels: `:Person`, `:Organization`, `:Location`, `:Event`, `:Object`.
 
@@ -650,7 +650,7 @@ Entity nodes have additional type labels: `:Person`, `:Organization`, `:Location
 (Entity)-[:EXTRACTED_FROM]->(Message)
 (Entity)-[:SAME_AS]->(Entity)  // deduplication
 
-// Procedural memory (reasoning)
+// Reasoning memory (reasoning)
 (ReasoningTrace)-[:INITIATED_BY]->(Message)
 (ReasoningTrace)-[:HAS_STEP]->(ReasoningStep)
 (ReasoningStep)-[:USED_TOOL]->(ToolCall)
@@ -710,7 +710,7 @@ The three-memory architecture mirrors how human memory works:
 
 - **Short-term** (episodic): What happened in this conversation? What did the user just ask?
 - **Long-term** (semantic): What do we know about Brian Chesky? What are the user's preferences?
-- **Procedural** (procedural): How did we successfully answer "compare two guests" last time?
+- **Reasoning** (reasoning): How did we successfully answer "compare two guests" last time?
 
 Each type has different storage patterns, query patterns, and lifecycle requirements. Combining them gives the agent both context and wisdom.
 
@@ -798,7 +798,7 @@ Most RAG applications treat documents as flat chunks in a vector store. This dem
 
 ### vs. ChatGPT Memory
 
-ChatGPT's memory is a flat list of facts. neo4j-agent-memory provides **structured, typed memory** with three distinct layers, graph relationships between entities, and procedural memory that lets the agent learn from its own reasoning patterns.
+ChatGPT's memory is a flat list of facts. neo4j-agent-memory provides **structured, typed memory** with three distinct layers, graph relationships between entities, and reasoning memory that lets the agent learn from its own reasoning patterns.
 
 ### vs. LangGraph/MemGPT
 

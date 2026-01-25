@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Short-Term Memory**: Conversations and messages with temporal context
 - **Long-Term Memory**: Entities, preferences, and facts (declarative knowledge)
-- **Procedural Memory**: Reasoning traces and tool usage patterns
+- **Reasoning Memory**: Reasoning traces and tool usage patterns
 
 ### POLE+O Data Model
 
@@ -75,7 +75,7 @@ src/neo4j_agent_memory/
 ├── memory/
 │   ├── short_term.py          # Conversations, messages
 │   ├── long_term.py          # Entities, preferences, facts (POLE+O)
-│   └── procedural.py        # Reasoning traces, tool calls
+│   └── reasoning.py        # Reasoning traces, tool calls
 ├── extraction/
 │   ├── base.py              # EntityExtractor protocol, ExtractedEntity
 │   ├── llm_extractor.py     # LLM-based extraction (OpenAI)
@@ -133,7 +133,7 @@ benchmarks/                   # Extraction quality benchmarks (separate module)
 - **`MemoryClient`**: Main entry point, manages connections and provides access to all memory types
 - **`ShortTermMemory`**: Handles conversations and messages
 - **`LongTermMemory`**: Handles entities (POLE+O), preferences, and facts
-- **`ProceduralMemory`**: Handles reasoning traces and tool calls
+- **`ReasoningMemory`**: Handles reasoning traces and tool calls
 - **`Neo4jClient`**: Async wrapper around neo4j Python driver
 - **`ExtractionPipeline`**: Multi-stage entity extraction (spaCy → GLiNER → LLM)
 - **`CompositeResolver`**: Type-aware entity resolution
@@ -144,7 +144,7 @@ The package creates these node types:
 - `Conversation`, `Message` (short-term)
 - `Entity` (with `type`, `subtype` for POLE+O), `Preference`, `Fact` (long-term)
   - Entity nodes have dynamic PascalCase labels for type/subtype (e.g., `:Entity:Person:Individual`, `:Entity:Object:Vehicle`)
-- `ReasoningTrace`, `ReasoningStep`, `ToolCall`, `Tool` (procedural)
+- `ReasoningTrace`, `ReasoningStep`, `ToolCall`, `Tool` (reasoning)
 
 #### Short-Term Memory Relationships
 
@@ -158,7 +158,7 @@ Messages in conversations are linked sequentially for efficient traversal:
 
 #### Cross-Memory Relationships
 
-Procedural memory can link to short-term memory messages:
+Reasoning memory can link to short-term memory messages:
 
 ```
 (ReasoningTrace) -[:INITIATED_BY]-> (Message)    # Trace triggered by user message
@@ -427,8 +427,8 @@ async with MemoryClient(settings) as client:
     # Long-term: Store preference
     await client.long_term.add_preference("food", "Loves Italian cuisine")
     
-    # Procedural: Record reasoning linked to triggering message
-    trace = await client.procedural.start_trace(
+    # Reasoning: Record reasoning linked to triggering message
+    trace = await client.reasoning.start_trace(
         session_id,
         "Find restaurant",
         triggered_by_message_id=message.id,  # Links trace to message
@@ -452,18 +452,18 @@ migrated = await client.short_term.migrate_message_links()
 # Returns: {"conversation_id": num_messages_linked, ...}
 ```
 
-### Linking Procedural Memory to Messages
+### Linking Reasoning Memory to Messages
 
 ```python
 # Link a reasoning trace to the message that initiated it
-trace = await client.procedural.start_trace(
+trace = await client.reasoning.start_trace(
     session_id,
     task="Handle user request",
     triggered_by_message_id=message.id,  # Creates INITIATED_BY relationship
 )
 
 # Link a tool call to the message that triggered it
-await client.procedural.record_tool_call(
+await client.reasoning.record_tool_call(
     step_id,
     tool_name="search_api",
     arguments={"query": "restaurants"},
@@ -472,7 +472,7 @@ await client.procedural.record_tool_call(
 )
 
 # Or link an existing trace to a message post-hoc
-await client.procedural.link_trace_to_message(trace.id, message.id)
+await client.reasoning.link_trace_to_message(trace.id, message.id)
 ```
 
 ### POLE+O Entity Types
@@ -1317,9 +1317,9 @@ Located in `examples/full-stack-chat-agent/`, this is a complete demonstration o
   - Conversation-scoped filtering: Shows only nodes relevant to the current thread
   - Double-click to expand: Click a node twice to fetch and display its neighbors
   - "Expand Neighbors" button in the property panel for alternative expansion
-  - Memory type filtering (short-term, user-profile, procedural)
+  - Memory type filtering (short-term, user-profile, reasoning)
 - **Automatic Preference Extraction**: Detects and stores user preferences from conversation
-- **Memory Context Panel**: Real-time display of short-term, long-term, and procedural memory
+- **Memory Context Panel**: Real-time display of short-term, long-term, and reasoning memory
 
 ### Running the Chat Agent
 
@@ -1370,8 +1370,8 @@ Located in `examples/lennys-memory/`, this is the flagship demo for the library 
 
 ### Key Features
 
-- **19 agent tools**: Podcast search, entity queries, geospatial analysis, preferences, procedural memory
-- **Three memory types**: Short-term (conversations), long-term (entities, preferences), procedural (reasoning traces)
+- **19 agent tools**: Podcast search, entity queries, geospatial analysis, preferences, reasoning memory
+- **Three memory types**: Short-term (conversations), long-term (entities, preferences), reasoning (reasoning traces)
 - **Wikipedia enrichment**: Entities auto-enriched with descriptions, images, Wikipedia URLs
 - **SSE streaming**: Real-time token delivery with tool call visualization
 - **Automatic preference learning**: Detects user preferences from natural conversation
@@ -1390,7 +1390,7 @@ Located in `examples/lennys-memory/`, this is the flagship demo for the library 
 
 - Conversation-scoped filtering via `threadId` prop
 - Double-click to expand node neighbors
-- Memory type filtering (short-term, long-term, procedural)
+- Memory type filtering (short-term, long-term, reasoning)
 - Wikipedia enrichment section in node property panel with images
 
 ### Map Visualization Features

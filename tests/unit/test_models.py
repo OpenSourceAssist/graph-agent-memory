@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from neo4j_agent_memory.memory.long_term import Entity, EntityType, Fact, Preference
-from neo4j_agent_memory.memory.procedural import (
+from neo4j_agent_memory.memory.reasoning import (
     ReasoningStep,
     ReasoningTrace,
     ToolCall,

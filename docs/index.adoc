@@ -10,7 +10,7 @@
 A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and let your agents learn from their own reasoning -- all backed by Neo4j.
 
 [.lead]
-Neo4j Agent Memory provides short-term, long-term, and procedural memory capabilities for AI agents, enabling them to remember conversations, learn facts, and recall past reasoning patterns.
+Neo4j Agent Memory provides short-term, long-term, and reasoning memory capabilities for AI agents, enabling them to remember conversations, learn facts, and recall past reasoning patterns.
 
 TIP: **See it in action**: The https://github.com/neo4j-labs/neo4j-agent-memory/tree/main/examples/lennys-memory[Lenny's Podcast Memory Explorer] demo loads 299 podcast episodes into a searchable knowledge graph with an AI chat agent, interactive graph visualization, geospatial map view, and Wikipedia-enriched entity cards.
 
@@ -28,7 +28,7 @@ Neo4j Agent Memory is designed to give AI agents persistent, queryable memory ac
 |**Long-Term**
 |Facts, preferences, and entities - what the agent knows
 
-|**Procedural**
+|**Reasoning**
 |Reasoning traces and tool usage - how the agent solved problems
 |===
 
@@ -46,7 +46,7 @@ Neo4j Agent Memory is designed to give AI agents persistent, queryable memory ac
 * **Background Entity Enrichment** - Automatically enrich entities with Wikipedia and Diffbot data (descriptions, images, external links)
 * **Geocoding & Location Queries** - Automatic coordinate lookup for LOCATION entities with geospatial search (nearby, bounding box)
 * **Session-Scoped Queries** - Filter locations and graph data by conversation for focused visualizations
-* **Message Linking** - Sequential message chains and cross-memory relationships (procedural -> short-term)
+* **Message Linking** - Sequential message chains and cross-memory relationships (reasoning -> short-term)
 * **CLI Tool** - Command-line interface for entity extraction and schema management
 * **Observability** - OpenTelemetry and Opik tracing for monitoring extraction pipelines
 * **Framework Integrations** - Works with LangChain, LlamaIndex, PydanticAI, and CrewAI
@@ -119,7 +119,7 @@ pip install neo4j-agent-memory[all]
 |Installation, setup, and your first memory operations
 
 |xref:memory-types.adoc[Memory Types]
-|Deep dive into short-term, long-term, and procedural memory
+|Deep dive into short-term, long-term, and reasoning memory
 
 |xref:entity-extraction.adoc[Entity Extraction]
 |Configuring the extraction pipeline (spaCy, GLiNER2, LLM) and domain schemas
@@ -174,7 +174,7 @@ make run-frontend   # Start Next.js (port 3000)
 ┌─────────────────────────────────────────────────────────────┐
 │                      MemoryClient                           │
 ├─────────────────┬─────────────────┬─────────────────────────┤
-│   Short-Term    │   Long-Term     │      Procedural         │
+│   Short-Term    │   Long-Term     │      Reasoning         │
 │    Memory       │    Memory       │      Memory             │
 ├─────────────────┴─────────────────┴─────────────────────────┤
 │                   Extraction Pipeline                        │

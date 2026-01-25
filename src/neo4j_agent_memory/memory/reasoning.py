@@ -1,4 +1,4 @@
-"""Procedural memory for reasoning traces and tool usage."""
+"""Reasoning memory for reasoning traces and tool usage."""
 
 import json
 from datetime import datetime
@@ -125,7 +125,7 @@ class StreamingTraceRecorder:
     tool calls and observations during streaming responses.
 
     Example:
-        async with StreamingTraceRecorder(memory.procedural, session_id, "Find restaurants") as recorder:
+        async with StreamingTraceRecorder(memory.reasoning, session_id, "Find restaurants") as recorder:
             step = await recorder.start_step(thought="Searching for restaurants")
 
             start = time.time()
@@ -146,7 +146,7 @@ class StreamingTraceRecorder:
 
     def __init__(
         self,
-        procedural_memory: "ProceduralMemory",
+        reasoning_memory: "ReasoningMemory",
         session_id: str,
         task: str,
         *,
@@ -157,7 +157,7 @@ class StreamingTraceRecorder:
         Initialize the streaming trace recorder.
 
         Args:
-            procedural_memory: The ProceduralMemory instance to use
+            reasoning_memory: The ReasoningMemory instance to use
             session_id: Session identifier
             task: Task description
             generate_task_embedding: Whether to generate embedding for the task
@@ -165,7 +165,7 @@ class StreamingTraceRecorder:
                                      recording. If False, can batch generate at completion
                                      using complete_trace(generate_step_embeddings=True)
         """
-        self.memory = procedural_memory
+        self.memory = reasoning_memory
         self.session_id = session_id
         self.task = task
         self.generate_task_embedding = generate_task_embedding
@@ -321,9 +321,9 @@ class StreamingTraceRecorder:
         return self.current_step.id if self.current_step else None
 
 
-class ProceduralMemory(BaseMemory[ReasoningStep]):
+class ReasoningMemory(BaseMemory[ReasoningStep]):
     """
-    Procedural memory stores reasoning traces and tool usage patterns.
+    Reasoning memory stores reasoning traces and tool usage patterns.
 
     Provides:
     - Reasoning trace recording
@@ -336,7 +336,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
         client: "Neo4jClient",
         embedder: "Embedder | None" = None,
     ):
-        """Initialize procedural memory."""
+        """Initialize reasoning memory."""
         super().__init__(client, embedder, None)
 
     async def add(self, content: str, **kwargs: Any) -> ReasoningStep:
@@ -657,7 +657,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
 
         Example:
             # Link a trace to its triggering message
-            await memory.procedural.link_trace_to_message(trace.id, user_message.id)
+            await memory.reasoning.link_trace_to_message(trace.id, user_message.id)
         """
         trace_id_str = str(trace_id) if isinstance(trace_id, UUID) else trace_id
         msg_id_str = str(message_id) if isinstance(message_id, UUID) else message_id
@@ -727,7 +727,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
         return len(step_ids)
 
     async def search(self, query: str, **kwargs: Any) -> list[ReasoningStep]:
-        """Search is not directly supported for procedural memory."""
+        """Search is not directly supported for reasoning memory."""
         return []
 
     async def get_similar_traces(
@@ -833,12 +833,12 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
 
         Example:
             # Get stats for all tools
-            stats = await memory.procedural.get_tool_stats()
+            stats = await memory.reasoning.get_tool_stats()
             for tool in stats:
                 print(f"{tool.name}: {tool.total_calls} calls, {tool.success_rate:.1%} success")
 
             # Get stats for a specific tool
-            stats = await memory.procedural.get_tool_stats("search_memory")
+            stats = await memory.reasoning.get_tool_stats("search_memory")
         """
         results = await self._client.execute_read(queries.GET_TOOL_STATS)
 
@@ -881,7 +881,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
 
         Example:
             # Run migration for existing data
-            migrated = await memory.procedural.migrate_tool_stats()
+            migrated = await memory.reasoning.migrate_tool_stats()
             print(f"Migrated stats for {len(migrated)} tools")
             for tool, count in migrated.items():
                 print(f"  {tool}: {count} calls")
@@ -892,7 +892,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
         """
-        Get procedural context for similar tasks.
+        Get reasoning context for similar tasks.
 
         Args:
             query: Task description to find similar traces
@@ -1095,3 +1095,7 @@ class ProceduralMemory(BaseMemory[ReasoningStep]):
             traces.append(trace)
 
         return traces
+
+
+# Backward compatibility alias (deprecated)
+ProceduralMemory = ReasoningMemory

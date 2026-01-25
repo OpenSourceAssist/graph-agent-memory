@@ -217,7 +217,7 @@ async with MemoryClient(settings) as memory:
         session_id="session-123",
         include_short_term=True,   # Recent conversation
         include_long_term=True,    # Facts and preferences
-        include_procedural=True,  # Past reasoning patterns
+        include_reasoning=True,  # Past reasoning patterns
         max_items=10
     )
 

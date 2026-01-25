@@ -174,9 +174,9 @@ async def stream_chat_response(
                     session_id=request.thread_id,
                 )
 
-            # Start procedural trace if memory enabled, linked to user message
+            # Start reasoning trace if memory enabled, linked to user message
             if memory_enabled and memory:
-                trace = await memory.procedural.start_trace(
+                trace = await memory.reasoning.start_trace(
                     session_id=request.thread_id,
                     task=request.message,
                     triggered_by_message_id=user_message_id,  # Link trace to triggering message
@@ -238,9 +238,9 @@ async def stream_chat_response(
                     content=full_response,
                 )
 
-            # Complete procedural trace
+            # Complete reasoning trace
             if trace_id and memory:
-                await memory.procedural.complete_trace(
+                await memory.reasoning.complete_trace(
                     trace_id,
                     outcome=full_response[:500],
                     success=True,

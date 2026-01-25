@@ -281,7 +281,7 @@ async def get_memory_graph(
     try:
         # Use the new get_graph() API
         graph = await memory.get_graph(
-            memory_types=["short_term", "long_term", "procedural"],
+            memory_types=["short_term", "long_term", "reasoning"],
             session_id=session_id,
             include_embeddings=include_embeddings,
             limit=500,
@@ -334,7 +334,7 @@ async def list_traces(
         return []
 
     try:
-        traces = await memory.procedural.list_traces(
+        traces = await memory.reasoning.list_traces(
             session_id=session_id,
             success_only=success_only,
             limit=limit,
@@ -372,7 +372,7 @@ async def get_tool_stats() -> list[dict]:
         return []
 
     try:
-        stats = await memory.procedural.get_tool_stats()
+        stats = await memory.reasoning.get_tool_stats()
 
         return [
             {

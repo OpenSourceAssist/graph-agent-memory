@@ -19,7 +19,7 @@ neo4j-agent-memory is a Python package that provides a comprehensive memory syst
 [horizontal]
 Short-Term Memory:: Conversations and messages
 Long-Term Memory:: Entities, preferences, and facts (using the POLE+O data model)
-Procedural Memory:: Reasoning traces and tool usage patterns
+Reasoning Memory:: Reasoning traces and tool usage patterns
 
 See xref:index.adoc[Overview] for more details.
 
@@ -1002,7 +1002,7 @@ else:
 
 * xref:getting-started.adoc[Getting Started] -- Quick start guide
 * xref:entity-extraction.adoc[Entity Extraction Guide] -- Detailed extraction documentation
-* xref:memory-types.adoc[Memory Types] -- Short-term, long-term, and procedural memory
+* xref:memory-types.adoc[Memory Types] -- Short-term, long-term, and reasoning memory
 * xref:poleo-model.adoc[POLE+O Data Model] -- Entity type classification
 * xref:configuration.adoc[Configuration Reference] -- All configuration options
 * xref:integrations.adoc[Framework Integrations] -- PydanticAI, LangChain, LlamaIndex, CrewAI

@@ -6,7 +6,7 @@ These tests verify that example code works correctly against a real Neo4j databa
 import pytest
 
 from neo4j_agent_memory.memory.long_term import EntityType
-from neo4j_agent_memory.memory.procedural import ToolCallStatus
+from neo4j_agent_memory.memory.reasoning import ToolCallStatus
 from neo4j_agent_memory.memory.short_term import MessageRole
 
 
@@ -92,10 +92,10 @@ class TestBasicUsageExample:
         assert fact.predicate == "works_at"
 
     @pytest.mark.asyncio
-    async def test_procedural_memory_operations(self, memory_client, session_id):
-        """Test procedural memory operations from basic example."""
+    async def test_reasoning_memory_operations(self, memory_client, session_id):
+        """Test reasoning memory operations from basic example."""
         # Start a reasoning trace
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Find nearby restaurants",
             generate_embedding=True,
@@ -104,7 +104,7 @@ class TestBasicUsageExample:
         assert trace.task == "Find nearby restaurants"
 
         # Add steps
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="I need to search for restaurants",
             action="search_restaurants",
@@ -114,7 +114,7 @@ class TestBasicUsageExample:
         assert step.thought == "I need to search for restaurants"
 
         # Record tool call
-        tool_call = await memory_client.procedural.record_tool_call(
+        tool_call = await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="restaurant_api",
             arguments={"location": "downtown", "cuisine": "italian"},
@@ -125,7 +125,7 @@ class TestBasicUsageExample:
         assert tool_call.tool_name == "restaurant_api"
 
         # Complete trace
-        completed = await memory_client.procedural.complete_trace(
+        completed = await memory_client.reasoning.complete_trace(
             trace.id,
             outcome="Found 1 restaurant",
             success=True,

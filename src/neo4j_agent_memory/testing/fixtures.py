@@ -10,7 +10,7 @@ from neo4j_agent_memory.memory.long_term import (
     Fact,
     Preference,
 )
-from neo4j_agent_memory.memory.procedural import (
+from neo4j_agent_memory.memory.reasoning import (
     ReasoningStep,
     ReasoningTrace,
     ToolCall,

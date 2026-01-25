@@ -1,4 +1,4 @@
-"""Memory type implementations: short-term, long-term, and procedural."""
+"""Memory type implementations: short-term, long-term, and reasoning."""
 
 from neo4j_agent_memory.memory.long_term import (
     DeduplicationConfig,
@@ -12,8 +12,8 @@ from neo4j_agent_memory.memory.long_term import (
     Preference,
     Relationship,
 )
-from neo4j_agent_memory.memory.procedural import (
-    ProceduralMemory,
+from neo4j_agent_memory.memory.reasoning import (
+    ReasoningMemory,
     ReasoningStep,
     ReasoningTrace,
     Tool,
@@ -45,8 +45,8 @@ __all__ = [
     "DeduplicationResult",
     "DeduplicationStats",
     "DuplicateCandidate",
-    # Procedural
-    "ProceduralMemory",
+    # Reasoning
+    "ReasoningMemory",
     "ReasoningTrace",
     "ReasoningStep",
     "ToolCall",

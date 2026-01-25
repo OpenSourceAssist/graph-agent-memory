@@ -52,7 +52,7 @@ class SchemaManager:
             ("entity_id", "Entity", "id"),
             ("preference_id", "Preference", "id"),
             ("fact_id", "Fact", "id"),
-            # Procedural memory
+            # Reasoning memory
             ("reasoning_trace_id", "ReasoningTrace", "id"),
             ("reasoning_step_id", "ReasoningStep", "id"),
             ("tool_name", "Tool", "name"),
@@ -74,7 +74,7 @@ class SchemaManager:
             ("entity_name_idx", "Entity", "name"),
             ("entity_canonical_idx", "Entity", "canonical_name"),
             ("preference_category_idx", "Preference", "category"),
-            # Procedural memory
+            # Reasoning memory
             ("trace_session_idx", "ReasoningTrace", "session_id"),
             ("trace_success_idx", "ReasoningTrace", "success"),
             ("tool_call_status_idx", "ToolCall", "status"),

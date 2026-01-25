@@ -27,7 +27,8 @@ from neo4j_agent_memory.testing.fixtures import MemoryFixtures
 from neo4j_agent_memory.testing.mocks import (
     MockLongTermMemory,
     MockMemoryClient,
-    MockProceduralMemory,
+    MockProceduralMemory,  # backward compatibility alias
+    MockReasoningMemory,
     MockShortTermMemory,
 )
 
@@ -35,6 +36,7 @@ __all__ = [
     "MockMemoryClient",
     "MockShortTermMemory",
     "MockLongTermMemory",
-    "MockProceduralMemory",
+    "MockReasoningMemory",
+    "MockProceduralMemory",  # backward compatibility alias
     "MemoryFixtures",
 ]

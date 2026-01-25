@@ -105,7 +105,7 @@ async def main():
             session_id=session_id,
             include_episodic=True,
             include_semantic=True,
-            include_procedural=True,
+            include_reasoning=True,
         )
 
         # Load memory variables (using async method directly since we're in async context)

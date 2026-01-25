@@ -98,21 +98,21 @@ class TestBasicUsageExample:
         assert len(food_prefs) >= 1
 
     @pytest.mark.asyncio
-    async def test_procedural_memory_operations(self, memory_client):
-        """Test procedural memory operations from the example."""
-        session_id = f"test-procedural-{uuid4()}"
+    async def test_reasoning_memory_operations(self, memory_client):
+        """Test reasoning memory operations from the example."""
+        session_id = f"test-reasoning-{uuid4()}"
 
         from neo4j_agent_memory import ToolCallStatus
 
         # Start trace
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Find vegetarian restaurant",
         )
         assert trace.id is not None
 
         # Add step
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Need to search for restaurants",
             action="search_restaurants",
@@ -120,7 +120,7 @@ class TestBasicUsageExample:
         assert step.id is not None
 
         # Record tool call
-        tool_call = await memory_client.procedural.record_tool_call(
+        tool_call = await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="restaurant_api",
             arguments={"cuisine": "vegetarian"},
@@ -131,7 +131,7 @@ class TestBasicUsageExample:
         assert tool_call.id is not None
 
         # Complete trace
-        completed = await memory_client.procedural.complete_trace(
+        completed = await memory_client.reasoning.complete_trace(
             trace.id,
             outcome="Found restaurant",
             success=True,
@@ -205,7 +205,7 @@ class TestBasicUsageExample:
         from neo4j_agent_memory import StreamingTraceRecorder
 
         async with StreamingTraceRecorder(
-            memory_client.procedural, session_id, "Process request"
+            memory_client.reasoning, session_id, "Process request"
         ) as recorder:
             step = await recorder.start_step(
                 thought="Analyzing request",
@@ -222,7 +222,7 @@ class TestBasicUsageExample:
             await recorder.add_observation("User is greeting")
 
         # Trace should be auto-completed
-        traces = await memory_client.procedural.list_traces(session_id=session_id)
+        traces = await memory_client.reasoning.list_traces(session_id=session_id)
         assert len(traces) >= 1
 
     @pytest.mark.asyncio
@@ -231,11 +231,11 @@ class TestBasicUsageExample:
         session_id = f"test-list-traces-{uuid4()}"
 
         # Create a trace
-        trace = await memory_client.procedural.start_trace(session_id, task="Test task")
-        await memory_client.procedural.complete_trace(trace.id, success=True)
+        trace = await memory_client.reasoning.start_trace(session_id, task="Test task")
+        await memory_client.reasoning.complete_trace(trace.id, success=True)
 
         # List traces
-        traces = await memory_client.procedural.list_traces(
+        traces = await memory_client.reasoning.list_traces(
             session_id=session_id,
             success_only=True,
             limit=5,
@@ -250,9 +250,9 @@ class TestBasicUsageExample:
         from neo4j_agent_memory import ToolCallStatus
 
         # Create trace with tool calls
-        trace = await memory_client.procedural.start_trace(session_id, task="Test")
-        step = await memory_client.procedural.add_step(trace.id, action="test")
-        await memory_client.procedural.record_tool_call(
+        trace = await memory_client.reasoning.start_trace(session_id, task="Test")
+        step = await memory_client.reasoning.add_step(trace.id, action="test")
+        await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="test_tool",
             arguments={},
@@ -260,10 +260,10 @@ class TestBasicUsageExample:
             status=ToolCallStatus.SUCCESS,
             duration_ms=50,
         )
-        await memory_client.procedural.complete_trace(trace.id)
+        await memory_client.reasoning.complete_trace(trace.id)
 
         # Get tool stats
-        stats = await memory_client.procedural.get_tool_stats()
+        stats = await memory_client.reasoning.get_tool_stats()
         assert isinstance(stats, list)
 
     @pytest.mark.asyncio
@@ -319,7 +319,7 @@ class TestBasicUsageExample:
         # Check for key sections
         assert "SHORT-TERM MEMORY" in content
         assert "LONG-TERM MEMORY" in content
-        assert "PROCEDURAL MEMORY" in content
+        assert "REASONING MEMORY" in content
         assert "Batch Loading" in content
         assert "Session Listing" in content
         assert "StreamingTraceRecorder" in content

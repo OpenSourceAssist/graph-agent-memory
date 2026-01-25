@@ -11,7 +11,7 @@ from neo4j_agent_memory.memory.long_term import (
     Fact,
     Preference,
 )
-from neo4j_agent_memory.memory.procedural import (
+from neo4j_agent_memory.memory.reasoning import (
     ReasoningStep,
     ReasoningTrace,
     ToolCall,
@@ -425,8 +425,8 @@ class MockLongTermMemory:
         return "\n".join(parts)
 
 
-class MockProceduralMemory:
-    """In-memory mock of ProceduralMemory for unit testing."""
+class MockReasoningMemory:
+    """In-memory mock of ReasoningMemory for unit testing."""
 
     def __init__(self):
         self._traces: dict[str, ReasoningTrace] = {}
@@ -626,7 +626,7 @@ class MockProceduralMemory:
         return results
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
-        """Get procedural context."""
+        """Get reasoning context."""
         traces = await self.get_similar_traces(query, limit=3)
         if not traces:
             return ""
@@ -660,7 +660,7 @@ class MockMemoryClient:
     def __init__(self):
         self.short_term = MockShortTermMemory()
         self.long_term = MockLongTermMemory()
-        self.procedural = MockProceduralMemory()
+        self.reasoning = MockReasoningMemory()
 
     async def __aenter__(self) -> "MockMemoryClient":
         """Async context manager entry."""
@@ -685,7 +685,7 @@ class MockMemoryClient:
         session_id: str | None = None,
         include_short_term: bool = True,
         include_long_term: bool = True,
-        include_procedural: bool = True,
+        include_reasoning: bool = True,
     ) -> str:
         """Get combined context from all memory types."""
         parts = []
@@ -700,10 +700,10 @@ class MockMemoryClient:
             if long_term_ctx:
                 parts.append(long_term_ctx)
 
-        if include_procedural:
-            procedural_ctx = await self.procedural.get_context(query)
-            if procedural_ctx:
-                parts.append(procedural_ctx)
+        if include_reasoning:
+            reasoning_ctx = await self.reasoning.get_context(query)
+            if reasoning_ctx:
+                parts.append(reasoning_ctx)
 
         return "\n\n".join(parts)
 
@@ -711,4 +711,8 @@ class MockMemoryClient:
         """Clear all mock data."""
         self.short_term = MockShortTermMemory()
         self.long_term = MockLongTermMemory()
-        self.procedural = MockProceduralMemory()
+        self.reasoning = MockReasoningMemory()
+
+
+# Backward compatibility alias (deprecated)
+MockProceduralMemory = MockReasoningMemory

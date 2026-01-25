@@ -31,7 +31,7 @@ class TestNeo4jAgentMemory:
         assert memory.session_id == session_id
         assert memory.include_episodic is True
         assert memory.include_semantic is True
-        assert memory.include_procedural is True
+        assert memory.include_reasoning is True
 
     @pytest.mark.asyncio
     async def test_memory_variables(self, memory_client, session_id):
@@ -58,7 +58,7 @@ class TestNeo4jAgentMemory:
             memory_client=memory_client,
             session_id=session_id,
             include_episodic=False,
-            include_procedural=False,
+            include_reasoning=False,
         )
 
         variables = memory.memory_variables
@@ -75,7 +75,7 @@ class TestNeo4jAgentMemory:
             memory_client=memory_client,
             session_id=session_id,
             include_semantic=False,
-            include_procedural=False,
+            include_reasoning=False,
         )
 
         # Save context
@@ -114,7 +114,7 @@ class TestNeo4jAgentMemory:
             memory_client=memory_client,
             session_id=session_id,
             include_episodic=False,
-            include_procedural=False,
+            include_reasoning=False,
         )
 
         variables = memory.load_memory_variables({"input": "food recommendations"})
@@ -188,7 +188,7 @@ class TestLangChainIntegrationEdgeCases:
             memory_client=memory_client,
             session_id=session_id,
             include_semantic=False,
-            include_procedural=False,
+            include_reasoning=False,
         )
 
         variables = memory.load_memory_variables({"input": "Hello"})
@@ -206,7 +206,7 @@ class TestLangChainIntegrationEdgeCases:
             memory_client=memory_client,
             session_id=session_id,
             include_semantic=False,
-            include_procedural=False,
+            include_reasoning=False,
         )
 
         # Save multiple exchanges

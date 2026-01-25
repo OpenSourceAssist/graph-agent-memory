@@ -166,7 +166,7 @@ async def main():
 
         # Automatically record the trace
         trace = await record_agent_trace(
-            memory.procedural,
+            memory.reasoning,
             session_id="user-123",
             result=result,
             task="Search for Python tutorials",
@@ -192,8 +192,8 @@ Parameters:
 |===
 |Parameter |Description |Default
 
-|`procedural_memory`
-|The ProceduralMemory instance
+|`reasoning_memory`
+|The ReasoningMemory instance
 |Required
 
 |`session_id`
@@ -440,7 +440,7 @@ class MemoryContextProvider:
             session_id=self.session_id,
             include_short_term=True,
             include_long_term=True,
-            include_procedural=True
+            include_reasoning=True
         )
 
     async def store_interaction(self, user_msg: str, assistant_msg: str):

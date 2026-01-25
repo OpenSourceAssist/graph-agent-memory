@@ -21,7 +21,7 @@ from src.agent.tools import (
     get_memory_stats,
     get_most_mentioned_entities,
     get_speaker_list,
-    # Preferences and procedural memory tools
+    # Preferences and reasoning memory tools
     get_user_preferences,
     search_by_episode,
     search_by_speaker,
@@ -164,7 +164,7 @@ Tailor your responses to match these preferences where relevant.""")
         try:
             # Get similar past traces if there's a current query
             if ctx.deps.current_query:
-                similar_traces = await ctx.deps.client.procedural.get_similar_traces(
+                similar_traces = await ctx.deps.client.reasoning.get_similar_traces(
                     task=ctx.deps.current_query,
                     limit=2,
                     success_only=True,
@@ -449,7 +449,7 @@ You've successfully handled similar queries before. Consider these approaches:
         return json.dumps(result, default=str)
 
     # ==========================================================================
-    # Preferences and Procedural Memory Tools
+    # Preferences and Reasoning Memory Tools
     # ==========================================================================
 
     @agent.tool
