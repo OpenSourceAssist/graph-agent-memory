@@ -778,12 +778,13 @@ class MemoryClient:
         # Build the query based on whether session_id filtering is needed
         if session_id:
             # Filter to locations mentioned in the specific conversation
+            # EXTRACTED_FROM direction: (Entity)-[:EXTRACTED_FROM]->(Message)
             query = """
-                MATCH (e:Entity {type: 'LOCATION'})<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
+                MATCH (e:Entity {type: 'LOCATION'})-[:EXTRACTED_FROM]->(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
                 WITH DISTINCT e
                 WHERE $has_coordinates = false OR (e.location.latitude IS NOT NULL AND e.location.longitude IS NOT NULL)
                 WITH e LIMIT $limit
-                OPTIONAL MATCH (e)<-[:EXTRACTED_FROM]-(m2:Message)<-[:HAS_MESSAGE]-(c2:Conversation)
+                OPTIONAL MATCH (e)-[:EXTRACTED_FROM]->(m2:Message)<-[:HAS_MESSAGE]-(c2:Conversation)
                 WITH e, collect(DISTINCT {id: c2.id, title: c2.title, session_id: c2.session_id}) as conversations
                 RETURN e.id as id,
                        e.name as name,
@@ -801,7 +802,7 @@ class MemoryClient:
                 MATCH (e:Entity {type: 'LOCATION'})
                 WHERE $has_coordinates = false OR (e.location.latitude IS NOT NULL AND e.location.longitude IS NOT NULL)
                 WITH e LIMIT $limit
-                OPTIONAL MATCH (e)<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+                OPTIONAL MATCH (e)-[:EXTRACTED_FROM]->(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
                 WITH e, collect(DISTINCT {id: c.id, title: c.title, session_id: c.session_id}) as conversations
                 RETURN e.id as id,
                        e.name as name,

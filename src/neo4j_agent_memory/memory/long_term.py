@@ -1930,7 +1930,7 @@ class LongTermMemory(BaseMemory[Entity]):
         if session_id:
             # Filter to locations mentioned in the specific conversation
             query = """
-                MATCH (e:Entity {type: 'LOCATION'})<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
+                MATCH (e:Entity {type: 'LOCATION'})-[:EXTRACTED_FROM]->(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
                 WITH DISTINCT e
                 WHERE e.location IS NOT NULL
                 WITH e, point.distance(
@@ -1992,7 +1992,7 @@ class LongTermMemory(BaseMemory[Entity]):
         if session_id:
             # Filter to locations mentioned in the specific conversation
             query = """
-                MATCH (e:Entity {type: 'LOCATION'})<-[:EXTRACTED_FROM]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
+                MATCH (e:Entity {type: 'LOCATION'})-[:EXTRACTED_FROM]->(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
                 WITH DISTINCT e
                 WHERE e.location IS NOT NULL
                   AND e.location.latitude >= $min_lat
