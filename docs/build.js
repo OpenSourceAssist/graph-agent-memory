@@ -458,7 +458,7 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
   <div class="labs-banner">
     <span class="labs-badge">🧪 Neo4j Labs</span>
     Experimental project — Community supported.
-    <a href="https://community.neo4j.com" target="_blank">Get help →</a>
+    <a href="https://community.neo4j.com" target="_blank" rel="noopener noreferrer">Get help →</a>
   </div>
 
   <!-- Search modal -->
