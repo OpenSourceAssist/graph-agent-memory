@@ -1007,4 +1007,4 @@ else:
 * xref:configuration.adoc[Configuration Reference] -- All configuration options
 * xref:integrations.adoc[Framework Integrations] -- PydanticAI, LangChain, LlamaIndex, CrewAI
 * link:../examples/domain-schemas/[Domain Schema Examples] -- Working code examples
-* https://github.com/neo4j-labs/neo4j-agent-memory/issues[GitHub Issues] -- Report bugs or request features
+* https://github.com/neo4j-labs/agent-memory/issues[GitHub Issues] -- Report bugs or request features

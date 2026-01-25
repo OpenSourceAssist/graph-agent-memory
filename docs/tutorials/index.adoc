@@ -83,5 +83,5 @@ If you need to look up configuration options or API details, see the xref:../ref
 If you get stuck:
 
 1. Check the xref:../reference/configuration.adoc[Configuration Reference] for environment setup
-2. See the https://github.com/neo4j-labs/neo4j-agent-memory/discussions[GitHub Discussions] for community help
-3. Report issues at https://github.com/neo4j-labs/neo4j-agent-memory/issues[GitHub Issues]
+2. See the https://github.com/neo4j-labs/agent-memory/discussions[GitHub Discussions] for community help
+3. Report issues at https://github.com/neo4j-labs/agent-memory/issues[GitHub Issues]

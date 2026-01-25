@@ -44,7 +44,7 @@ const CONFIG = {
       // Custom attributes
       "project-name": "Neo4j Agent Memory",
       "project-version": "0.1.0",
-      "project-repo": "https://github.com/neo4j-labs/neo4j-agent-memory",
+      "project-repo": "https://github.com/neo4j-labs/agent-memory",
     },
   },
 };
@@ -529,7 +529,7 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
         ${quadrantNavHtml}
         <div class="nav-section">
           <span class="nav-section-title">Resources</span>
-          <a href="https://github.com/neo4j-labs/neo4j-agent-memory" target="_blank">
+          <a href="https://github.com/neo4j-labs/agent-memory" target="_blank">
             <i class="fab fa-github"></i> GitHub
           </a>
           <a href="https://pypi.org/project/neo4j-agent-memory/" target="_blank">

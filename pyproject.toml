@@ -92,11 +92,11 @@ full = [
 neo4j-memory = "neo4j_agent_memory.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/neo4j-labs/neo4j-agent-memory"
-Documentation = "https://neo4j-labs.github.io/neo4j-agent-memory"
-Repository = "https://github.com/neo4j-labs/neo4j-agent-memory"
-Issues = "https://github.com/neo4j-labs/neo4j-agent-memory/issues"
-Changelog = "https://github.com/neo4j-labs/neo4j-agent-memory/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/neo4j-labs/agent-memory"
+Documentation = "https://neo4j-labs.github.io/agent-memory"
+Repository = "https://github.com/neo4j-labs/agent-memory"
+Issues = "https://github.com/neo4j-labs/agent-memory/issues"
+Changelog = "https://github.com/neo4j-labs/agent-memory/blob/main/neo4j-agent-memory/CHANGELOG.md"
 
 [dependency-groups]
 dev = [

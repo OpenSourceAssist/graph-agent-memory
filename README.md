@@ -5,7 +5,7 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 [![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)](https://neo4j.com/labs/)
 [![Status: Experimental](https://img.shields.io/badge/Status-Experimental-F59E0B)](https://neo4j.com/labs/)
 [![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)](https://community.neo4j.com)
-[![CI](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml)
+[![CI](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/neo4j-agent-memory.svg)](https://badge.fury.io/py/neo4j-agent-memory)
 [![Python versions](https://img.shields.io/pypi/pyversions/neo4j-agent-memory.svg)](https://pypi.org/project/neo4j-agent-memory/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -1103,7 +1103,7 @@ See the [Lenny's Memory README](examples/lennys-memory/README.md) for a full arc
 
 ```bash
 # Clone the repository
-git clone https://github.com/neo4j-labs/neo4j-agent-memory.git
+git clone https://github.com/neo4j-labs/agent-memory.git
 cd neo4j-agent-memory
 
 # Install with uv
@@ -1226,7 +1226,7 @@ The integration test script supports several options:
 ## Support
 
 - 💬 [Neo4j Community Forum](https://community.neo4j.com) - Ask questions and get help
-- 🐛 [GitHub Issues](https://github.com/neo4j-labs/neo4j-agent-memory/issues) - Report bugs or request features
+- 🐛 [GitHub Issues](https://github.com/neo4j-labs/agent-memory/issues) - Report bugs or request features
 - 📖 [Documentation](https://neo4j-agent-memory.vercel.app/) - Full documentation site
 
 ## License

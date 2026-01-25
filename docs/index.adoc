@@ -19,7 +19,7 @@
     </div>
     <div class="hero-actions">
       <a href="tutorials/first-agent-memory.html" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Get Started</a>
-      <a href="https://github.com/neo4j-labs/neo4j-agent-memory" class="btn btn-secondary" target="_blank"><i class="fab fa-github"></i> GitHub</a>
+      <a href="https://github.com/neo4j-labs/agent-memory" class="btn btn-secondary" target="_blank"><i class="fab fa-github"></i> GitHub</a>
       <a href="https://pypi.org/project/neo4j-agent-memory/" class="btn btn-secondary" target="_blank"><i class="fab fa-python"></i> PyPI</a>
     </div>
     <div class="hero-install">
@@ -162,7 +162,7 @@ async with MemoryClient(settings) as memory:
         <div class="demo-feature"><i class="fa-solid fa-circle-check"></i> FastAPI + PydanticAI + Next.js + Chakra UI</div>
       </div>
       <div class="demo-actions">
-        <a href="https://github.com/neo4j-labs/neo4j-agent-memory/tree/main/examples/lennys-memory" class="btn btn-primary" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> View on GitHub</a>
+        <a href="https://github.com/neo4j-labs/agent-memory/tree/main/examples/lennys-memory" class="btn btn-primary" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> View on GitHub</a>
       </div>
     </div>
   </div>
@@ -176,7 +176,7 @@ async with MemoryClient(settings) as memory:
         <div class="demo-feature"><i class="fa-solid fa-circle-check"></i> Dual Neo4j databases (memory + news)</div>
       </div>
       <div class="demo-actions">
-        <a href="https://github.com/neo4j-labs/neo4j-agent-memory/tree/main/examples/full-stack-chat-agent" class="btn btn-secondary" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> View on GitHub</a>
+        <a href="https://github.com/neo4j-labs/agent-memory/tree/main/examples/full-stack-chat-agent" class="btn btn-secondary" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> View on GitHub</a>
       </div>
     </div>
   </div>
@@ -195,7 +195,7 @@ async with MemoryClient(settings) as memory:
         <span class="demo-tag">POLE+O</span>
       </div>
       <div class="demo-actions">
-        <a href="https://github.com/neo4j-labs/neo4j-agent-memory/tree/main/examples/domain-schemas" class="btn btn-secondary" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> View on GitHub</a>
+        <a href="https://github.com/neo4j-labs/agent-memory/tree/main/examples/domain-schemas" class="btn btn-secondary" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> View on GitHub</a>
       </div>
     </div>
   </div>
@@ -396,7 +396,7 @@ asyncio.run(main())
   <h3>Ready to give your agents memory?</h3>
   <div class="hero-actions">
     <a href="tutorials/first-agent-memory.html" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Get Started</a>
-    <a href="https://github.com/neo4j-labs/neo4j-agent-memory" class="btn btn-secondary" target="_blank"><i class="fab fa-github"></i> Star on GitHub</a>
+    <a href="https://github.com/neo4j-labs/agent-memory" class="btn btn-secondary" target="_blank"><i class="fab fa-github"></i> Star on GitHub</a>
   </div>
 </div>
 ++++

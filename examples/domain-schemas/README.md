@@ -2,7 +2,7 @@
 
 This directory contains example applications demonstrating GLiNER2 domain schemas for entity extraction in different domains.
 
-> ⚠️ This example is part of [neo4j-agent-memory](https://github.com/neo4j-labs/neo4j-agent-memory), a **Neo4j Labs project**. It is actively maintained but not officially supported. For questions, use the [Neo4j Community Forum](https://community.neo4j.com).
+> ⚠️ This example is part of [neo4j-agent-memory](https://github.com/neo4j-labs/agent-memory), a **Neo4j Labs project**. It is actively maintained but not officially supported. For questions, use the [Neo4j Community Forum](https://community.neo4j.com).
 
 ## Overview
 
