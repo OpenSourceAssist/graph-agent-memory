@@ -1596,3 +1596,546 @@ details .content {
         align-items: center;
     }
 }
+
+/* ============================================
+   Diataxis Quadrant Colors
+   ============================================ */
+
+:root {
+    --color-tutorial: #8250df; /* Purple - learning */
+    --color-howto: #1a7f37; /* Green - task */
+    --color-reference: #0969da; /* Blue - information */
+    --color-explanation: #9a6700; /* Orange - understanding */
+}
+
+[data-theme="dark"] {
+    --color-tutorial: #a371f7;
+    --color-howto: #3fb950;
+    --color-reference: #58a6ff;
+    --color-explanation: #d29922;
+}
+
+/* Quadrant indicators in navigation */
+.nav-section-quadrant[data-quadrant="tutorials"] .nav-section-title {
+    color: var(--color-tutorial);
+}
+
+.nav-section-quadrant[data-quadrant="how-to"] .nav-section-title {
+    color: var(--color-howto);
+}
+
+.nav-section-quadrant[data-quadrant="reference"] .nav-section-title {
+    color: var(--color-reference);
+}
+
+.nav-section-quadrant[data-quadrant="explanation"] .nav-section-title {
+    color: var(--color-explanation);
+}
+
+/* Active quadrant title styling */
+.nav-section-title.current {
+    font-weight: 700;
+}
+
+/* ============================================
+   Diataxis Grid on Landing Page
+   ============================================ */
+
+.diataxis-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-5);
+    margin: var(--spacing-6) 0;
+}
+
+.diataxis-card {
+    display: block;
+    padding: var(--spacing-5);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--color-border-default);
+    background-color: var(--color-bg-secondary);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+}
+
+.diataxis-card:hover {
+    text-decoration: none;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.diataxis-card h4 {
+    margin-top: var(--spacing-3);
+    margin-bottom: var(--spacing-2);
+    font-size: var(--font-size-lg);
+    color: var(--color-text-primary);
+}
+
+.diataxis-card p {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-3);
+}
+
+.diataxis-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.diataxis-card li {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    padding: var(--spacing-1) 0;
+    margin: 0;
+}
+
+.diataxis-card li::before {
+    content: "\2192";
+    margin-right: var(--spacing-2);
+    opacity: 0.5;
+}
+
+.diataxis-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+/* Quadrant-specific styling */
+.diataxis-tutorials {
+    border-color: var(--color-tutorial);
+}
+
+.diataxis-tutorials .diataxis-icon {
+    background-color: rgba(130, 80, 223, 0.12);
+    color: var(--color-tutorial);
+}
+
+.diataxis-tutorials:hover {
+    border-color: var(--color-tutorial);
+    background-color: rgba(130, 80, 223, 0.04);
+}
+
+.diataxis-howto {
+    border-color: var(--color-howto);
+}
+
+.diataxis-howto .diataxis-icon {
+    background-color: rgba(26, 127, 55, 0.12);
+    color: var(--color-howto);
+}
+
+.diataxis-howto:hover {
+    border-color: var(--color-howto);
+    background-color: rgba(26, 127, 55, 0.04);
+}
+
+.diataxis-reference {
+    border-color: var(--color-reference);
+}
+
+.diataxis-reference .diataxis-icon {
+    background-color: rgba(9, 105, 218, 0.12);
+    color: var(--color-reference);
+}
+
+.diataxis-reference:hover {
+    border-color: var(--color-reference);
+    background-color: rgba(9, 105, 218, 0.04);
+}
+
+.diataxis-explanation {
+    border-color: var(--color-explanation);
+}
+
+.diataxis-explanation .diataxis-icon {
+    background-color: rgba(154, 103, 0, 0.12);
+    color: var(--color-explanation);
+}
+
+.diataxis-explanation:hover {
+    border-color: var(--color-explanation);
+    background-color: rgba(154, 103, 0, 0.04);
+}
+
+@media (max-width: 768px) {
+    .diataxis-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+   Breadcrumb Navigation
+   ============================================ */
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-6);
+    padding: var(--spacing-2) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.breadcrumb-link {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+}
+
+.breadcrumb-link:hover {
+    color: var(--color-text-link);
+    text-decoration: underline;
+}
+
+.breadcrumb-separator {
+    color: var(--color-text-muted);
+    opacity: 0.5;
+}
+
+.breadcrumb-current {
+    color: var(--color-text-primary);
+    font-weight: 500;
+}
+
+/* ============================================
+   Code Copy Button
+   ============================================ */
+
+.code-copy-btn {
+    position: absolute;
+    top: var(--spacing-2);
+    right: var(--spacing-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+}
+
+.listingblock:hover .code-copy-btn,
+.code-copy-btn:focus {
+    opacity: 1;
+}
+
+.code-copy-btn:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+    border-color: var(--color-border-default);
+}
+
+/* ============================================
+   Body Quadrant Styling
+   ============================================ */
+
+/* Add subtle border to content area based on quadrant */
+body[data-quadrant="tutorials"] .docs-content h1 {
+    border-bottom-color: var(--color-tutorial);
+}
+
+body[data-quadrant="how-to"] .docs-content h1 {
+    border-bottom-color: var(--color-howto);
+}
+
+body[data-quadrant="reference"] .docs-content h1 {
+    border-bottom-color: var(--color-reference);
+}
+
+body[data-quadrant="explanation"] .docs-content h1 {
+    border-bottom-color: var(--color-explanation);
+}
+
+/* ============================================
+   Enhanced Print Styles
+   ============================================ */
+
+@media print {
+    .docs-nav,
+    #toc,
+    .mobile-header,
+    .breadcrumb,
+    .code-copy-btn,
+    .theme-toggle {
+        display: none !important;
+    }
+
+    .docs-content {
+        margin-left: 0;
+        max-width: 100%;
+        padding: 0;
+    }
+
+    .listingblock pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        border: 1px solid #ccc;
+    }
+
+    h2 {
+        page-break-before: always;
+    }
+
+    h2:first-of-type {
+        page-break-before: avoid;
+    }
+
+    pre,
+    table,
+    .admonitionblock {
+        page-break-inside: avoid;
+    }
+
+    a[href]::after {
+        content: " (" attr(href) ")";
+        font-size: 0.8em;
+        color: #666;
+    }
+
+    a[href^="#"]::after,
+    a[href^="javascript:"]::after {
+        content: "";
+    }
+}
+
+/* ============================================
+   Navigation Quadrant Indicators
+   ============================================ */
+
+.nav-section-quadrant a::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: var(--spacing-2);
+    flex-shrink: 0;
+}
+
+.nav-section-quadrant[data-quadrant="tutorials"] a::before {
+    background-color: var(--color-tutorial);
+}
+
+.nav-section-quadrant[data-quadrant="how-to"] a::before {
+    background-color: var(--color-howto);
+}
+
+.nav-section-quadrant[data-quadrant="reference"] a::before {
+    background-color: var(--color-reference);
+}
+
+.nav-section-quadrant[data-quadrant="explanation"] a::before {
+    background-color: var(--color-explanation);
+}
+
+/* ============================================
+   Search Modal
+   ============================================ */
+
+.search-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+}
+
+.search-modal.open {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 10vh;
+}
+
+.search-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .search-modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.search-modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    max-height: 70vh;
+    margin: 0 var(--spacing-4);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.search-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-4);
+    border-bottom: 1px solid var(--color-border-default);
+}
+
+.search-modal-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    margin: 0;
+    color: var(--color-text-primary);
+}
+
+.search-modal-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-md);
+    background-color: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.search-modal-close:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+}
+
+#search-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-4);
+}
+
+.search-modal-footer {
+    padding: var(--spacing-3) var(--spacing-4);
+    border-top: 1px solid var(--color-border-default);
+    background-color: var(--color-bg-secondary);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+.search-modal-footer kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--spacing-1);
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-family-sans);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/* Search trigger button */
+.search-trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+}
+
+.search-trigger:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+    border-color: var(--color-border-default);
+}
+
+.search-shortcut {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: var(--spacing-2);
+}
+
+.search-shortcut kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 var(--spacing-1);
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-family-sans);
+    font-size: 10px;
+    color: var(--color-text-muted);
+}
+
+/* Hide shortcut on mobile */
+@media (max-width: 1024px) {
+    .search-shortcut {
+        display: none;
+    }
+
+    .search-trigger {
+        padding: var(--spacing-2);
+    }
+}
+
+/* Prevent body scroll when search is open */
+body.search-open {
+    overflow: hidden;
+}
+
+/* Pagefind UI customizations */
+.pagefind-ui {
+    --pagefind-ui-scale: 1;
+    --pagefind-ui-primary: var(--color-neo4j-blue);
+    --pagefind-ui-text: var(--color-text-primary);
+    --pagefind-ui-background: var(--color-bg-primary);
+    --pagefind-ui-border: var(--color-border-default);
+    --pagefind-ui-tag: var(--color-bg-tertiary);
+    --pagefind-ui-border-width: 1px;
+    --pagefind-ui-border-radius: var(--radius-md);
+    --pagefind-ui-image-border-radius: var(--radius-md);
+    --pagefind-ui-font: var(--font-family-sans);
+}
+
+.pagefind-ui .pagefind-ui__search-input {
+    font-size: var(--font-size-base);
+    background-color: var(--color-bg-secondary);
+}
+
+.pagefind-ui .pagefind-ui__result-link {
+    color: var(--color-text-link);
+}
+
+.pagefind-ui .pagefind-ui__result-link:hover {
+    color: var(--color-text-link-hover);
+}
+
+.pagefind-ui .pagefind-ui__result-excerpt {
+    color: var(--color-text-secondary);
+}

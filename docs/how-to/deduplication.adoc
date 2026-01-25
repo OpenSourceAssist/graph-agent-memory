@@ -1,0 +1,356 @@
+= Handle Duplicate Entities
+:toc: right
+:toclevels: 3
+:sectanchors:
+:sectlinks:
+:icons: font
+:source-highlighter: highlight.js
+
+How to configure and manage entity deduplication to maintain a clean context graph.
+
+== Overview
+
+When building context graphs from conversations and documents, the same real-world entity often appears with different names or spellings. Deduplication ensures your graph remains clean and connected.
+
+== Prerequisites
+
+* Neo4j database running with vector indexes
+* `neo4j-agent-memory` installed
+* Embedding model configured
+
+== Configure Deduplication
+
+=== Basic Configuration
+
+Enable deduplication when adding entities:
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory.memory import DeduplicationConfig
+
+client = MemoryClient(
+    neo4j_uri="bolt://localhost:7687",
+    neo4j_user="neo4j",
+    neo4j_password="password",
+)
+
+# Configure deduplication
+dedup_config = DeduplicationConfig(
+    auto_merge_threshold=0.95,  # Auto-merge above 95% similarity
+    flag_threshold=0.85,         # Flag for review between 85-95%
+    use_fuzzy_matching=True,     # Also use string similarity
+    match_same_type_only=True,   # Only match within same entity type
+)
+
+# Add entity with deduplication
+entity, result = await client.long_term.add_entity(
+    name="JPMorgan Chase",
+    entity_type="ORGANIZATION",
+    deduplication=dedup_config,
+)
+
+# Check what happened
+if result.action == "created":
+    print(f"Created new entity: {entity.name}")
+elif result.action == "merged":
+    print(f"Merged with existing: {result.matched_entity_name}")
+elif result.action == "flagged":
+    print(f"Flagged for review against: {result.matched_entity_name}")
+----
+
+=== Domain-Specific Thresholds
+
+Adjust thresholds based on your domain's accuracy requirements:
+
+.Financial Services (High Precision)
+[source,python]
+----
+# Conservative - compliance-sensitive data
+financial_config = DeduplicationConfig(
+    auto_merge_threshold=0.98,    # Very high confidence required
+    flag_threshold=0.90,          # Review more candidates
+    use_fuzzy_matching=True,
+    match_same_type_only=True,
+)
+----
+
+.Ecommerce Retail (Balanced)
+[source,python]
+----
+# Standard settings for product catalog
+ecommerce_config = DeduplicationConfig(
+    auto_merge_threshold=0.95,
+    flag_threshold=0.85,
+    use_fuzzy_matching=True,
+    match_same_type_only=True,
+)
+----
+
+.Content/Media (High Recall)
+[source,python]
+----
+# Aggressive deduplication
+content_config = DeduplicationConfig(
+    auto_merge_threshold=0.92,
+    flag_threshold=0.75,
+    use_fuzzy_matching=True,
+    match_same_type_only=False,  # Cross-type matching
+)
+----
+
+== Review Flagged Duplicates
+
+=== Find Pending Reviews
+
+[source,python]
+----
+# Get entities flagged for review
+duplicates = await client.long_term.find_potential_duplicates(
+    min_confidence=0.85,
+    status="pending",
+    limit=50,
+)
+
+for entity1, entity2, confidence in duplicates:
+    print(f"\nPotential duplicate ({confidence:.1%} confidence):")
+    print(f"  Entity 1: {entity1.name} ({entity1.type})")
+    print(f"  Entity 2: {entity2.name} ({entity2.type})")
+    print(f"  E1 properties: {entity1.properties}")
+    print(f"  E2 properties: {entity2.properties}")
+----
+
+=== Confirm or Reject Duplicates
+
+[source,python]
+----
+# After human review, confirm they are the same entity
+await client.long_term.review_duplicate(
+    entity1_id=entity1.id,
+    entity2_id=entity2.id,
+    confirm=True,  # True = same entity, False = different entities
+)
+
+# Or reject - they are different entities
+await client.long_term.review_duplicate(
+    entity1_id=entity1.id,
+    entity2_id=entity2.id,
+    confirm=False,
+)
+----
+
+=== Automated Review Rules
+
+Create rules for automatic review:
+
+[source,python]
+----
+async def auto_review_duplicates():
+    """Apply automated rules to pending duplicates."""
+
+    duplicates = await client.long_term.find_potential_duplicates(
+        status="pending",
+        limit=100,
+    )
+
+    for entity1, entity2, confidence in duplicates:
+        # Rule 1: Same SKU = definitely same product
+        if (entity1.type == "PRODUCT" and
+            entity1.properties.get("sku") == entity2.properties.get("sku")):
+            await client.long_term.review_duplicate(
+                entity1.id, entity2.id, confirm=True
+            )
+            continue
+
+        # Rule 2: Same ticker = same security
+        if (entity1.type == "SECURITY" and
+            entity1.properties.get("ticker") == entity2.properties.get("ticker")):
+            await client.long_term.review_duplicate(
+                entity1.id, entity2.id, confirm=True
+            )
+            continue
+
+        # Rule 3: Very high confidence = auto-confirm
+        if confidence > 0.97:
+            await client.long_term.review_duplicate(
+                entity1.id, entity2.id, confirm=True
+            )
+            continue
+
+        # Others remain for human review
+----
+
+== Manual Entity Merging
+
+=== Merge Specific Entities
+
+[source,python]
+----
+# Manually merge two entities you know are the same
+await client.long_term.merge_entities(
+    primary_id=entity1.id,      # Entity to keep
+    duplicate_id=entity2.id,    # Entity to merge and delete
+    merge_properties=True,       # Combine properties from both
+    keep_aliases=True,           # Store duplicate name as alias
+)
+----
+
+=== Merge with Property Strategy
+
+[source,python]
+----
+# Custom property merging
+await client.long_term.merge_entities(
+    primary_id=entity1.id,
+    duplicate_id=entity2.id,
+    property_strategy={
+        "description": "longest",     # Keep longer description
+        "confidence": "highest",      # Keep higher confidence
+        "created_at": "earliest",     # Keep earliest date
+        "updated_at": "latest",       # Keep latest date
+    },
+)
+----
+
+== Disable Deduplication
+
+=== Per-Entity Bypass
+
+Skip deduplication for specific entities:
+
+[source,python]
+----
+# Product variants that should NOT be deduplicated
+entity = await client.long_term.add_entity(
+    name="iPhone 15 Pro - Blue Titanium",
+    entity_type="PRODUCT",
+    deduplicate=False,  # Skip deduplication
+)
+----
+
+=== Bulk Import Without Deduplication
+
+For trusted data sources:
+
+[source,python]
+----
+# Import from verified source without deduplication
+for item in verified_product_catalog:
+    await client.long_term.add_entity(
+        name=item["name"],
+        entity_type="PRODUCT",
+        properties=item["properties"],
+        deduplicate=False,  # Trust the source
+    )
+----
+
+== Monitor Deduplication Quality
+
+=== Get Statistics
+
+[source,python]
+----
+stats = await client.long_term.get_deduplication_stats()
+
+print(f"Total entities: {stats.total_entities}")
+print(f"Auto-merged: {stats.auto_merged_count}")
+print(f"Pending review: {stats.pending_review_count}")
+print(f"Confirmed merges: {stats.confirmed_count}")
+print(f"Rejected (different): {stats.rejected_count}")
+
+# Calculate quality metrics
+if stats.confirmed_count + stats.rejected_count > 0:
+    precision = stats.confirmed_count / (stats.confirmed_count + stats.rejected_count)
+    print(f"Flagging precision: {precision:.1%}")
+----
+
+=== Adjust Thresholds Based on Quality
+
+[source,python]
+----
+# If rejection rate is high, raise thresholds
+if stats.rejected_count > stats.confirmed_count:
+    print("High rejection rate - consider raising thresholds")
+
+    new_config = DeduplicationConfig(
+        auto_merge_threshold=0.98,  # More conservative
+        flag_threshold=0.90,
+    )
+
+# If too many pending reviews, raise auto-merge threshold
+if stats.pending_review_count > 1000:
+    print("Large review queue - consider raising auto-merge threshold")
+----
+
+== Best Practices
+
+=== 1. Start Conservative
+
+Begin with high thresholds and adjust based on quality:
+
+[source,python]
+----
+# Initial deployment
+config = DeduplicationConfig(
+    auto_merge_threshold=0.98,
+    flag_threshold=0.92,
+)
+
+# After validating quality, relax if needed
+config = DeduplicationConfig(
+    auto_merge_threshold=0.95,
+    flag_threshold=0.85,
+)
+----
+
+=== 2. Use Specific Entity Types
+
+More specific types reduce false matches:
+
+[source,python]
+----
+# Too generic
+entity_type = "ORGANIZATION"  # Bank and retailer might match
+
+# Better
+entity_type = "FINANCIAL_INSTITUTION"  # More specific matching
+entity_type = "RETAIL_BRAND"
+----
+
+=== 3. Add Known Aliases Upfront
+
+[source,python]
+----
+await client.long_term.add_entity(
+    name="JPMorgan Chase & Co.",
+    entity_type="FINANCIAL_INSTITUTION",
+    properties={
+        "aliases": ["JPMorgan", "Chase", "JPMC", "Chase Bank"],
+    },
+)
+----
+
+=== 4. Regular Review Cycles
+
+[source,python]
+----
+# Daily: High-confidence flags
+daily = await client.long_term.find_potential_duplicates(
+    min_confidence=0.90,
+    limit=50,
+)
+
+# Weekly: Lower-confidence flags
+weekly = await client.long_term.find_potential_duplicates(
+    min_confidence=0.85,
+    max_confidence=0.90,
+    limit=200,
+)
+----
+
+== See Also
+
+* xref:entities.adoc[Work with Entities]
+* xref:entity-extraction.adoc[Configure Entity Extraction]
+* xref:../explanation/resolution-deduplication.adoc[Entity Resolution Concepts]
+* xref:../reference/configuration.adoc#deduplication[Deduplication Configuration Reference]

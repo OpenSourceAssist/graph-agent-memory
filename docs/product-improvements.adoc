@@ -991,6 +991,276 @@ loaded = BenchmarkSuite.from_json_file("my_benchmark.json")
 ----
 
 
+== Documentation Restructuring (Diataxis Framework)
+
+[horizontal]
+Priority:: High
+Status:: **DONE**
+Started:: January 2026
+Completed:: January 2026
+
+The documentation is being restructured following the https://diataxis.fr/[Diataxis framework] to improve user experience by organizing content into four distinct quadrants based on user needs.
+
+=== Progress Tracking
+
+[cols="1,2,1,1"]
+|===
+|Phase |Description |Status |Notes
+
+|Phase 0
+|Create skill file and update CLAUDE.md
+|✅ DONE
+|`.claude/skills/docs-diataxis.md` created
+
+|Phase 1
+|Create directory structure, convert DEPLOYMENT.md
+|✅ DONE
+|All directories created, build.js updated
+
+|Phase 2
+|Create index files and navigation
+|✅ DONE
+|Quadrant index pages with navigation grid
+
+|Phase 3
+|CSS enhancements (quadrant colors, code blocks, mobile)
+|✅ DONE
+|Added quadrant visual differentiation
+
+|Phase 4
+|Reference content (configuration, deployment, API docs)
+|✅ DONE
+|10 reference pages created
+
+|Phase 5
+|Explanation content (memory-types, poleo-model, pipeline)
+|✅ DONE
+|5 pages created including graph-architecture, resolution-deduplication
+
+|Phase 6
+|How-to guides (messages, entities, integrations)
+|✅ DONE
+|14 how-to guides created with financial/ecommerce examples
+
+|Phase 7
+|Tutorials (first-agent-memory, conversation-memory, knowledge-graph)
+|✅ DONE
+|3 complete tutorials with enterprise examples
+
+|Phase 8
+|Search, final polish, cleanup old files
+|✅ DONE
+|Pagefind search integrated, Cmd+K shortcut, links validated
+|===
+
+=== New Directory Structure
+
+[source]
+----
+docs/
+├── tutorials/           # Learning-oriented (Purple)
+├── how-to/              # Task-oriented (Green)
+│   └── integrations/    # Framework-specific guides
+├── reference/           # Information-oriented (Blue)
+│   └── api/             # API documentation
+├── explanation/         # Understanding-oriented (Orange)
+└── assets/
+    ├── css/
+    └── images/
+----
+
+=== Content Created
+
+.Reference Content (Phase 4)
+* `reference/configuration.adoc` - Complete configuration options
+* `reference/deployment.adoc` - Deployment guide (converted from MD)
+* `reference/environment-variables.adoc` - Environment variable reference
+* `reference/cli.adoc` - CLI command reference
+* `reference/extractors.adoc` - Extractor classes reference
+* `reference/schemas.adoc` - Domain schemas reference
+* `reference/api/memory-client.adoc` - MemoryClient API
+* `reference/api/short-term.adoc` - ShortTermMemory API
+* `reference/api/long-term.adoc` - LongTermMemory API
+* `reference/api/reasoning.adoc` - ReasoningMemory API
+
+.Explanation Content (Phase 5 - Complete)
+* `explanation/memory-types.adoc` - Three memory types explained
+* `explanation/poleo-model.adoc` - POLE+O data model concepts
+* `explanation/extraction-pipeline.adoc` - Entity extraction pipeline
+* `explanation/graph-architecture.adoc` - Why Neo4j for agent memory
+* `explanation/resolution-deduplication.adoc` - Entity resolution concepts
+
+.How-To Guides Created (Phase 6 - Complete)
+* `how-to/messages.adoc` - Store and search messages
+* `how-to/entities.adoc` - Work with entities
+* `how-to/preferences.adoc` - Manage user preferences
+* `how-to/reasoning-traces.adoc` - Record reasoning traces
+* `how-to/entity-extraction.adoc` - Configure extraction with custom schemas
+* `how-to/batch-processing.adoc` - Process documents in batch
+* `how-to/deduplication.adoc` - Handle duplicate entities
+* `how-to/integrations/pydantic-ai.adoc` - PydanticAI integration
+* `how-to/integrations/langchain.adoc` - LangChain integration
+* `how-to/integrations/llamaindex.adoc` - LlamaIndex integration
+* `how-to/integrations/crewai.adoc` - CrewAI integration
+
+.Tutorials Created (Phase 7 - Complete)
+* `tutorials/first-agent-memory.adoc` - Build your first memory-enabled agent
+* `tutorials/conversation-memory.adoc` - Add conversation memory to a chatbot
+* `tutorials/knowledge-graph.adoc` - Build a knowledge graph from documents
+
+=== How-To Guides Planned (Phase 6)
+
+[cols="2,3"]
+|===
+|Guide |Description
+
+|`messages.adoc`
+|Store and search messages
+
+|`entities.adoc`
+|Work with entities
+
+|`preferences.adoc`
+|Manage user preferences
+
+|`reasoning-traces.adoc`
+|Record and query reasoning traces
+
+|`entity-extraction.adoc`
+|Configure entity extraction pipeline
+
+|`batch-processing.adoc`
+|Process documents in batch
+
+|`geocoding.adoc`
+|Enable location geocoding
+
+|`enrichment.adoc`
+|Enrich entities with external data
+
+|`deduplication.adoc`
+|Handle duplicate entities
+
+|`integrations/pydantic-ai.adoc`
+|Use with PydanticAI
+
+|`integrations/langchain.adoc`
+|Use with LangChain
+
+|`integrations/llamaindex.adoc`
+|Use with LlamaIndex
+
+|`integrations/crewai.adoc`
+|Use with CrewAI
+|===
+
+=== Tutorials Planned (Phase 7)
+
+[cols="2,3"]
+|===
+|Tutorial |Description
+
+|`first-agent-memory.adoc`
+|Build your first memory-enabled agent (beginner)
+
+|`conversation-memory.adoc`
+|Add conversation memory to a chatbot
+
+|`knowledge-graph.adoc`
+|Build a knowledge graph from documents
+|===
+
+'''
+
+== Future Product Ideas
+
+=== Multi-Agent Memory Coordination
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Enable multiple agents to share and coordinate memory access with conflict resolution.
+
+.Implementation Ideas
+* Agent-scoped memory namespaces
+* Memory locking for concurrent writes
+* Cross-agent memory subscriptions
+* Shared vs private memory partitioning
+
+'''
+
+=== Memory Compression and Summarization
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Automatically compress old messages and entities to reduce storage while preserving key information.
+
+.Implementation Ideas
+* LLM-based conversation summarization
+* Entity importance scoring
+* Tiered storage (hot/warm/cold)
+* Time-based summarization triggers
+
+'''
+
+=== Memory Export/Import
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Export memory state for backup, migration, or sharing between environments.
+
+.Implementation Ideas
+* JSON/YAML export format
+* Selective export (by session, entity type, date range)
+* Import with conflict resolution
+* Memory snapshots for testing
+
+'''
+
+=== Agent Framework Adapters
+
+[horizontal]
+Priority:: High
+Status:: Partial (demos exist)
+
+First-class adapters for popular agent frameworks beyond the current demo implementations.
+
+.Frameworks to Support
+* **PydanticAI** - Current demo adapter, needs packaging
+* **LangChain** - Memory integration via LangChain memory classes
+* **LlamaIndex** - Integration with LlamaIndex storage
+* **CrewAI** - Multi-agent memory sharing
+* **AutoGen** - Microsoft's multi-agent framework
+* **Semantic Kernel** - Microsoft's AI orchestration
+
+.Benefits
+* Drop-in memory replacement for framework users
+* Framework-native APIs
+* Automatic tool registration
+
+'''
+
+=== Vector Index Management
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Utilities for managing and optimizing Neo4j vector indexes.
+
+.Implementation Ideas
+* Index health monitoring
+* Automatic re-indexing on embedding model changes
+* Index statistics and performance metrics
+* Migration utilities between embedding models
+
+'''
+
 == Contributing
 
 If you have additional improvement suggestions, please:

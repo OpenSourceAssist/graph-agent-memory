@@ -1,0 +1,119 @@
+= Reference
+:toc: left
+:toclevels: 2
+
+Technical reference for neo4j-agent-memory APIs, configuration, and tools.
+
+[.lead]
+Reference guides are *information-oriented*. They describe the machinery and how to operate it. They are accurate and complete.
+
+== Configuration
+
+[cols="1,2", options="header"]
+|===
+| Reference | Description
+
+| xref:configuration.adoc[Configuration Reference]
+| All configuration options for MemorySettings, extraction, embeddings, and more.
+
+| xref:environment-variables.adoc[Environment Variables]
+| Complete list of environment variables and their effects.
+|===
+
+== API Reference
+
+[cols="1,2", options="header"]
+|===
+| Reference | Description
+
+| xref:api/memory-client.adoc[MemoryClient API]
+| Main entry point for all memory operations.
+
+| xref:api/short-term.adoc[ShortTermMemory API]
+| Conversation and message storage API.
+
+| xref:api/long-term.adoc[LongTermMemory API]
+| Entity, preference, and fact storage API.
+
+| xref:api/reasoning.adoc[ReasoningMemory API]
+| Reasoning trace and tool call API.
+|===
+
+== Extraction Reference
+
+[cols="1,2", options="header"]
+|===
+| Reference | Description
+
+| xref:extractors.adoc[Extractor Classes]
+| SpacyEntityExtractor, GLiNEREntityExtractor, LLMEntityExtractor, ExtractionPipeline.
+
+| xref:schemas.adoc[Domain Schemas]
+| Built-in schemas (POLE+O, podcast, news, etc.) and custom schema creation.
+|===
+
+== Tools
+
+[cols="1,2", options="header"]
+|===
+| Reference | Description
+
+| xref:cli.adoc[CLI Reference]
+| Command-line interface for extraction and schema management.
+
+| xref:deployment.adoc[Deployment Guide]
+| Deploy documentation and applications to Vercel, Netlify, etc.
+|===
+
+== Quick Links
+
+=== Installation
+
+[source,bash]
+----
+# Basic installation
+pip install neo4j-agent-memory
+
+# With all extras
+pip install neo4j-agent-memory[all]
+
+# Specific extras
+pip install neo4j-agent-memory[gliner,openai,cli]
+----
+
+=== Minimal Example
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "password"}
+)
+
+async with MemoryClient(settings) as client:
+    # Store a message
+    await client.short_term.add_message(
+        session_id="session-1",
+        role="user",
+        content="Hello, I'm interested in AI agents"
+    )
+
+    # Get context for LLM
+    context = await client.get_context("AI agents")
+----
+
+== Reference Philosophy
+
+Reference documentation:
+
+* *Describes*: What things are and how they work
+* *Accurate*: Matches the actual code behavior
+* *Complete*: Documents all options, not just common ones
+* *Neutral*: States facts without opinions
+
+For learning the library from scratch, see the xref:../tutorials/index.adoc[Tutorials].
+
+For solving specific problems, see the xref:../how-to/index.adoc[How-To Guides].
+
+For understanding concepts and design decisions, see the xref:../explanation/index.adoc[Explanation] section.

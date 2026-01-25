@@ -1436,3 +1436,88 @@ make run-frontend   # Next.js on :3000
 ```
 
 See `examples/lennys-memory/README.md` for a full deep dive.
+
+## Documentation
+
+The documentation is located in `docs/` and follows the [Diataxis framework](https://diataxis.fr/) for organizing technical documentation into four distinct types.
+
+### Documentation Structure
+
+```
+docs/
+├── index.adoc                    # Landing page
+├── tutorials/                    # Learning-oriented guides
+│   ├── first-agent-memory.adoc   # Build your first memory-enabled agent
+│   ├── conversation-memory.adoc  # Add memory to a chatbot
+│   └── knowledge-graph.adoc      # Build a knowledge graph from documents
+├── how-to/                       # Task-oriented guides
+│   ├── messages.adoc             # Store and search messages
+│   ├── entities.adoc             # Work with entities
+│   ├── entity-extraction.adoc    # Configure extraction pipeline
+│   └── integrations/             # Framework-specific guides
+├── reference/                    # Information-oriented content
+│   ├── configuration.adoc        # All configuration options
+│   ├── cli.adoc                  # CLI command reference
+│   └── api/                      # API documentation
+└── explanation/                  # Understanding-oriented content
+    ├── memory-types.adoc         # The three memory types explained
+    ├── poleo-model.adoc          # POLE+O data model concepts
+    └── extraction-pipeline.adoc  # How entity extraction works
+```
+
+### Diataxis Quadrants
+
+| Quadrant | Purpose | Style | Example |
+|----------|---------|-------|---------|
+| **Tutorials** | Teach through doing | Step-by-step, beginner-friendly | "Build your first agent with memory" |
+| **How-To Guides** | Solve specific problems | Concise, goal-focused | "How to configure entity extraction" |
+| **Reference** | Provide facts | Comprehensive, scannable | "Configuration options reference" |
+| **Explanation** | Build understanding | Conceptual, discursive | "Why we use the POLE+O model" |
+
+### Building Documentation
+
+```bash
+# Install dependencies
+cd docs && npm install
+
+# Build documentation
+npm run build
+
+# Serve with live reload
+npm run serve
+
+# Validate links
+npm run lint
+```
+
+### Writing Documentation
+
+When adding or modifying documentation:
+
+1. **Identify the quadrant**: Is this teaching (tutorial), helping accomplish a task (how-to), providing facts (reference), or explaining concepts (explanation)?
+
+2. **Use the right tone**:
+   - Tutorials: "We will..." (inclusive, guiding)
+   - How-To: "Do X to achieve Y" (direct, practical)
+   - Reference: Neutral, factual descriptions
+   - Explanation: "This works because..." (conceptual)
+
+3. **Cross-reference appropriately**: Use `xref:` links to connect related content across quadrants
+
+4. **Add diagram/screenshot placeholders**: Use NOTE blocks for images to be added later:
+   ```asciidoc
+   [NOTE]
+   ====
+   **[SCREENSHOT PLACEHOLDER]**
+   _Description: What the screenshot should show_
+   Image path: `images/screenshots/filename.png`
+   ====
+   ```
+
+### Documentation Build System
+
+- **Format**: AsciiDoc (`.adoc` files)
+- **Builder**: Custom Node.js script using `@asciidoctor/core`
+- **Features**: Auto-navigation generation, search (Pagefind), dark/light theme
+- **Output**: Static HTML in `docs/_site/`
+- **Deployment**: Vercel (auto-deploys on push to main)
