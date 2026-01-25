@@ -301,6 +301,8 @@ async def get_memory_context(
             entity_results = await memory.long_term.search_entities("", limit=10)
 
         for ent in entity_results:
+            # Extract enrichment fields from entity attributes
+            attrs = getattr(ent, "attributes", {}) or {}
             entities.append(
                 Entity(
                     id=str(ent.id),
@@ -308,6 +310,10 @@ async def get_memory_context(
                     type=ent.type if isinstance(ent.type, str) else ent.type.value,
                     subtype=getattr(ent, "subtype", None),
                     description=ent.description,
+                    enriched_description=attrs.get("enriched_description")
+                    or getattr(ent, "enriched_description", None),
+                    wikipedia_url=attrs.get("wikipedia_url") or getattr(ent, "wikipedia_url", None),
+                    image_url=attrs.get("image_url") or getattr(ent, "image_url", None),
                 )
             )
 
@@ -418,6 +424,7 @@ async def list_entities(
         for ent in results:
             ent_type = ent.type if isinstance(ent.type, str) else ent.type.value
             if type is None or ent_type == type:
+                attrs = getattr(ent, "attributes", {}) or {}
                 entities.append(
                     Entity(
                         id=str(ent.id),
@@ -425,6 +432,11 @@ async def list_entities(
                         type=ent_type,
                         subtype=getattr(ent, "subtype", None),
                         description=ent.description,
+                        enriched_description=attrs.get("enriched_description")
+                        or getattr(ent, "enriched_description", None),
+                        wikipedia_url=attrs.get("wikipedia_url")
+                        or getattr(ent, "wikipedia_url", None),
+                        image_url=attrs.get("image_url") or getattr(ent, "image_url", None),
                     )
                 )
 
@@ -462,6 +474,7 @@ async def get_top_entities(
         RETURN e.id AS id, e.name AS name, e.type AS type, e.subtype AS subtype,
                e.description AS description, e.wikipedia_url AS wikipedia_url,
                e.enriched_description AS enriched_description,
+               e.image_url AS image_url,
                mentions
         """
         results = await memory._client.execute_read(query, {"type": entity_type, "limit": limit})
@@ -475,6 +488,7 @@ async def get_top_entities(
                 "description": r["description"],
                 "wikipedia_url": r["wikipedia_url"],
                 "enriched_description": r["enriched_description"],
+                "image_url": r["image_url"],
                 "mentions": r["mentions"],
             }
             for r in results
@@ -536,6 +550,7 @@ async def get_entity_full_context(
                 }
             )
 
+        attrs = getattr(entity, "attributes", {}) or {}
         return {
             "entity": {
                 "id": str(entity.id),
@@ -543,8 +558,11 @@ async def get_entity_full_context(
                 "type": entity.type if isinstance(entity.type, str) else entity.type.value,
                 "subtype": getattr(entity, "subtype", None),
                 "description": entity.description,
-                "enriched_description": getattr(entity, "enriched_description", None),
-                "wikipedia_url": getattr(entity, "wikipedia_url", None),
+                "enriched_description": attrs.get("enriched_description")
+                or getattr(entity, "enriched_description", None),
+                "wikipedia_url": attrs.get("wikipedia_url")
+                or getattr(entity, "wikipedia_url", None),
+                "image_url": attrs.get("image_url") or getattr(entity, "image_url", None),
             },
             "mentions": mention_list,
         }

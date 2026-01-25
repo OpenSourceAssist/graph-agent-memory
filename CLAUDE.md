@@ -1356,9 +1356,42 @@ make chat-agent-frontend
 - `frontend/src/components/memory/MemoryContext.tsx` - Memory context panel showing preferences, entities, recent messages
 - `frontend/src/components/memory/MemoryGraphView.tsx` - Interactive NVL graph visualization of memory nodes
 
-## Lenny's Memory Example
+## Lenny's Memory Example (Flagship Demo)
 
-Located in `examples/lennys-memory/`, this is a podcast transcript analysis demo with advanced visualization features:
+Located in `examples/lennys-memory/`, this is the flagship demo for the library launch. It loads 299 Lenny's Podcast episodes into a knowledge graph with a full-stack AI chat agent.
+
+### Tech Stack
+- **Backend**: FastAPI + PydanticAI + neo4j-agent-memory
+- **Frontend**: Next.js 14 + Chakra UI v3 + TypeScript
+- **Graph Viz**: Neo4j Visualization Library (NVL)
+- **Map Viz**: Leaflet + react-leaflet + Turf.js
+- **Database**: Neo4j 5.x with APOC
+- **LLM**: OpenAI GPT-4o
+
+### Key Features
+
+- **19 agent tools**: Podcast search, entity queries, geospatial analysis, preferences, procedural memory
+- **Three memory types**: Short-term (conversations), long-term (entities, preferences), procedural (reasoning traces)
+- **Wikipedia enrichment**: Entities auto-enriched with descriptions, images, Wikipedia URLs
+- **SSE streaming**: Real-time token delivery with tool call visualization
+- **Automatic preference learning**: Detects user preferences from natural conversation
+
+### Agent Tools (19 total)
+
+**Podcast Content Search (6):** `search_podcast_content`, `search_by_speaker`, `search_by_episode`, `get_episode_list`, `get_speaker_list`, `get_memory_stats`
+
+**Entity Knowledge Graph (4):** `search_entities`, `get_entity_context`, `find_related_entities`, `get_most_mentioned_entities`
+
+**Geospatial Analysis (6):** `search_locations`, `find_locations_near`, `get_episode_locations`, `find_location_path`, `get_location_clusters`, `calculate_location_distances`
+
+**Personalization (2):** `get_user_preferences`, `find_similar_past_queries`
+
+### Graph Visualization Features
+
+- Conversation-scoped filtering via `threadId` prop
+- Double-click to expand node neighbors
+- Memory type filtering (short-term, long-term, procedural)
+- Wikipedia enrichment section in node property panel with images
 
 ### Map Visualization Features
 
@@ -1370,16 +1403,36 @@ The map view (`MemoryMapView.tsx`) supports:
 - **Shortest path visualization**: Select two locations to find and display the graph path between them
 - **Color-coded markers**: Locations colored by subtype (city, country, landmark, etc.)
 
-### Location API Endpoints
+### Memory Context Panel
 
-- `GET /locations` - List locations with optional `session_id` filtering
-- `GET /locations/nearby` - Find locations within radius of a point
-- `GET /locations/bounds` - Find locations within a bounding box
-- `GET /locations/path` - Get shortest graph path between two locations
+- Entity cards with images, descriptions, Wikipedia links
+- User preferences displayed by category
+- Agent tools accordion
+- Responsive: side panel on desktop, bottom sheet on mobile
 
-### Graph Visualization Features
+### API Endpoints
 
-Similar to the full-stack-chat-agent example:
-- Conversation-scoped filtering via `threadId` prop
-- Double-click to expand node neighbors
-- Memory type filtering (short-term, long-term, procedural)
+**Chat:** `POST /api/chat` (SSE streaming)
+
+**Threads:** `GET/POST /api/threads`, `GET/PATCH/DELETE /api/threads/{id}`
+
+**Memory:** `GET /api/memory/context`, `GET /api/memory/graph`, `GET /api/memory/graph/neighbors/{node_id}`, `GET /api/memory/traces`, `GET /api/memory/traces/{id}`, `GET /api/memory/similar-traces`, `GET /api/memory/tool-stats`
+
+**Entities:** `GET /api/entities`, `GET /api/entities/top`, `GET /api/entities/{name}/context`, `GET /api/entities/related/{name}`
+
+**Preferences:** `GET/POST /api/preferences`, `DELETE /api/preferences/{id}`
+
+**Locations:** `GET /api/locations`, `GET /api/locations/nearby`, `GET /api/locations/bounds`, `GET /api/locations/clusters`, `GET /api/locations/path`
+
+### Running
+
+```bash
+cd examples/lennys-memory
+make neo4j          # Start Neo4j
+make install        # Install dependencies
+make load-sample    # Load 5 episodes (quick test)
+make run-backend    # FastAPI on :8000
+make run-frontend   # Next.js on :3000
+```
+
+See `examples/lennys-memory/README.md` for a full deep dive.

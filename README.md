@@ -1,11 +1,13 @@
 # Neo4j Agent Memory
 
-A comprehensive memory system for AI agents using Neo4j as the persistence layer.
+A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and let your agents learn from their own reasoning -- all backed by Neo4j.
 
 [![CI](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/neo4j-agent-memory.svg)](https://badge.fury.io/py/neo4j-agent-memory)
 [![Python versions](https://img.shields.io/pypi/pyversions/neo4j-agent-memory.svg)](https://pypi.org/project/neo4j-agent-memory/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+> **See it in action**: The [Lenny's Podcast Memory Explorer](examples/lennys-memory/) demo loads 299 podcast episodes into a searchable knowledge graph with an AI chat agent, interactive graph visualization, geospatial map view, and Wikipedia-enriched entity cards.
 
 ## Features
 
@@ -18,7 +20,8 @@ A comprehensive memory system for AI agents using Neo4j as the persistence layer
 - **Provenance Tracking**: Track where entities were extracted from and which extractor produced them
 - **Background Entity Enrichment**: Automatically enrich entities with Wikipedia and Diffbot data
 - **GLiREL Relation Extraction**: Extract relationships without LLM calls using GLiREL
-- **Vector Search**: Semantic similarity search across all memory types
+- **Vector + Graph Search**: Semantic similarity search and graph traversal in a single database
+- **Geospatial Queries**: Spatial indexes on Location entities for radius and bounding box search
 - **Temporal Relationships**: Track when facts become valid or invalid
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Observability**: OpenTelemetry and Opik tracing for monitoring extraction pipelines
@@ -1060,6 +1063,32 @@ The package automatically creates the following schema:
 - Vector indexes for semantic search (requires Neo4j 5.11+)
 - Regular indexes on frequently queried properties
 
+## Demo: Lenny's Podcast Memory Explorer
+
+The flagship demo in [`examples/lennys-memory/`](examples/lennys-memory/) showcases every major feature of neo4j-agent-memory by loading 299 episodes of Lenny's Podcast into a knowledge graph with a full-stack AI chat agent.
+
+**What it demonstrates:**
+
+- **19 specialized agent tools** for semantic search, entity queries, geospatial analysis, and personalization
+- **Three memory types working together**: conversations inform entity extraction, entities build a knowledge graph, reasoning traces help the agent improve
+- **Wikipedia enrichment**: Entities are automatically enriched with descriptions, images, and external links
+- **Interactive graph visualization** using Neo4j Visualization Library (NVL) with double-click-to-expand exploration
+- **Geospatial map view** with Leaflet -- marker clusters, heatmaps, distance measurement, and shortest-path visualization
+- **SSE streaming** for real-time token delivery with tool call visualization
+- **Automatic preference learning** from natural conversation
+- **Responsive design** -- fully usable on mobile and desktop
+
+```bash
+cd examples/lennys-memory
+make neo4j          # Start Neo4j
+make install        # Install dependencies
+make load-sample    # Load 5 episodes for testing
+make run-backend    # Start FastAPI (port 8000)
+make run-frontend   # Start Next.js (port 3000)
+```
+
+See the [Lenny's Memory README](examples/lennys-memory/README.md) for a full architecture deep dive, API reference, and example Cypher queries.
+
 ## Requirements
 
 - Python 3.10+
@@ -1125,12 +1154,13 @@ Examples are located in `examples/` and demonstrate various features:
 
 | Example | Description | Requirements |
 |---------|-------------|--------------|
+| [`lennys-memory/`](examples/lennys-memory/) | **Flagship demo**: Podcast knowledge graph with AI chat, graph visualization, map view, entity enrichment | Neo4j, OpenAI, Node.js |
+| `full-stack-chat-agent/` | Full-stack web app with FastAPI backend and Next.js frontend | Neo4j, OpenAI, Node.js |
 | `basic_usage.py` | Core memory operations (short-term, long-term, procedural) | Neo4j, OpenAI API key |
 | `entity_resolution.py` | Entity matching strategies | None |
 | `langchain_agent.py` | LangChain integration | Neo4j, OpenAI, langchain extra |
 | `pydantic_ai_agent.py` | Pydantic AI integration | Neo4j, OpenAI, pydantic-ai extra |
 | `domain-schemas/` | GLiNER2 domain schema examples (8 domains) | GLiNER extra, optional Neo4j |
-| `full-stack-chat-agent/` | Complete web app with FastAPI backend and Next.js frontend | Neo4j, OpenAI, Node.js |
 
 #### Environment Setup
 

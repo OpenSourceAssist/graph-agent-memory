@@ -12,6 +12,8 @@ import {
   Drawer,
   Portal,
   IconButton,
+  Image,
+  Link,
   useBreakpointValue,
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
@@ -28,9 +30,11 @@ import {
   LuGlobe,
   LuSettings,
   LuX,
+  LuExternalLink,
+  LuSparkles,
 } from "react-icons/lu";
 import { api } from "@/lib/api";
-import type { MemoryContext as MemoryContextType } from "@/lib/types";
+import type { MemoryContext as MemoryContextType, Entity } from "@/lib/types";
 
 // Agent tools configuration - matches the backend tools
 const AGENT_TOOLS = {
@@ -107,6 +111,99 @@ const entityTypeIcons: Record<string, React.ReactNode> = {
   LOCATION: <LuMapPin size={12} />,
 };
 
+// Entity type color mapping
+const entityTypeColors: Record<string, string> = {
+  PERSON: "blue",
+  ORGANIZATION: "purple",
+  LOCATION: "green",
+  EVENT: "orange",
+  CONCEPT: "cyan",
+  TOPIC: "teal",
+};
+
+function EntityCard({ entity }: { entity: Entity }) {
+  const hasEnrichment =
+    entity.enriched_description || entity.wikipedia_url || entity.image_url;
+  const colorPalette = entityTypeColors[entity.type] || "gray";
+
+  return (
+    <Box
+      p="2"
+      bg="bg.muted"
+      borderRadius="md"
+      borderWidth={hasEnrichment ? "1px" : "0"}
+      borderColor={hasEnrichment ? "purple.subtle" : "transparent"}
+    >
+      <Flex gap="2" alignItems="flex-start">
+        {/* Entity image or icon */}
+        {hasEnrichment && (
+          <Box flexShrink={0}>
+            {entity.image_url ? (
+              <Image
+                src={entity.image_url}
+                alt={entity.name}
+                boxSize="40px"
+                borderRadius="md"
+                objectFit="cover"
+              />
+            ) : (
+              <Flex
+                w="40px"
+                h="40px"
+                bg={`${colorPalette}.subtle`}
+                borderRadius="md"
+                alignItems="center"
+                justifyContent="center"
+              >
+                {entityTypeIcons[entity.type] || <LuGlobe size={16} />}
+              </Flex>
+            )}
+          </Box>
+        )}
+
+        <Stack gap="0.5" flex="1" minW="0">
+          {/* Name and type */}
+          <Flex alignItems="center" gap="1" flexWrap="wrap">
+            {!hasEnrichment && (
+              <Box flexShrink={0}>{entityTypeIcons[entity.type] || null}</Box>
+            )}
+            <Text fontSize="xs" fontWeight="semibold" truncate>
+              {entity.name}
+            </Text>
+            <Badge size="sm" colorPalette={colorPalette} variant="subtle">
+              {entity.type}
+            </Badge>
+          </Flex>
+
+          {/* Enriched description from Wikipedia */}
+          {entity.enriched_description && (
+            <Text fontSize="xs" color="fg.muted" lineClamp={2}>
+              {entity.enriched_description}
+            </Text>
+          )}
+
+          {/* Wikipedia link */}
+          {entity.wikipedia_url && (
+            <Link
+              href={entity.wikipedia_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              fontSize="xs"
+              color="blue.500"
+              display="inline-flex"
+              alignItems="center"
+              gap="1"
+              _hover={{ textDecoration: "underline" }}
+            >
+              Wikipedia <LuExternalLink size={10} />
+            </Link>
+          )}
+        </Stack>
+      </Flex>
+    </Box>
+  );
+}
+
 export function MemoryContextPanel({
   threadId,
   isVisible,
@@ -182,24 +279,32 @@ export function MemoryContextPanel({
           {/* Entities */}
           {context.entities.length > 0 && (
             <Stack gap="2">
-              <Text fontSize="sm" fontWeight="medium">
-                Known Entities
-              </Text>
-              <Flex flexWrap="wrap" gap="1">
-                {context.entities.slice(0, 10).map((entity) => (
+              <Flex alignItems="center" gap="2">
+                <LuGlobe size={14} />
+                <Text fontSize="sm" fontWeight="medium">
+                  Known Entities
+                </Text>
+                {context.entities.some(
+                  (e) => e.enriched_description || e.wikipedia_url,
+                ) && (
                   <Badge
-                    key={entity.id}
                     size="sm"
+                    colorPalette="purple"
                     variant="subtle"
                     display="flex"
                     alignItems="center"
                     gap="1"
                   >
-                    {entityTypeIcons[entity.type] || null}
-                    {entity.name}
+                    <LuSparkles size={10} />
+                    Enriched
                   </Badge>
-                ))}
+                )}
               </Flex>
+              <Stack gap="2">
+                {context.entities.slice(0, 10).map((entity) => (
+                  <EntityCard key={entity.id} entity={entity} />
+                ))}
+              </Stack>
             </Stack>
           )}
 

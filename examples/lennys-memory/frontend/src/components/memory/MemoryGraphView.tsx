@@ -10,9 +10,11 @@ import {
   Spinner,
   Badge,
   IconButton,
+  Image,
+  Link,
 } from "@chakra-ui/react";
 import { HiX, HiRefresh } from "react-icons/hi";
-import { LuExpand } from "react-icons/lu";
+import { LuExpand, LuExternalLink, LuSparkles } from "react-icons/lu";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
 import type { MemoryGraph, GraphNode, GraphRelationship } from "@/lib/types";
@@ -1001,6 +1003,88 @@ export default function MemoryGraphView({
                             </HStack>
                           </Box>
 
+                          {/* Wikipedia Enrichment Section */}
+                          {(typeof selectedNode.properties
+                            .enriched_description === "string" ||
+                            typeof selectedNode.properties.wikipedia_url ===
+                              "string" ||
+                            typeof selectedNode.properties.image_url ===
+                              "string") && (
+                            <Box
+                              p={2.5}
+                              bg="purple.50"
+                              borderRadius="md"
+                              border="1px solid"
+                              borderColor="purple.100"
+                            >
+                              <HStack gap={1} mb={2}>
+                                <LuSparkles
+                                  size={12}
+                                  color="var(--chakra-colors-purple-500)"
+                                />
+                                <Text
+                                  fontSize="xs"
+                                  fontWeight="semibold"
+                                  color="purple.700"
+                                >
+                                  Wikipedia Enrichment
+                                </Text>
+                              </HStack>
+
+                              {typeof selectedNode.properties.image_url ===
+                                "string" && (
+                                <Image
+                                  src={selectedNode.properties.image_url}
+                                  alt={String(
+                                    selectedNode.properties.name || "Entity",
+                                  )}
+                                  w="100%"
+                                  maxH="120px"
+                                  objectFit="cover"
+                                  borderRadius="md"
+                                  mb={2}
+                                />
+                              )}
+
+                              {typeof selectedNode.properties
+                                .enriched_description === "string" && (
+                                <Text
+                                  fontSize="xs"
+                                  color="gray.700"
+                                  mb={2}
+                                  lineHeight="tall"
+                                >
+                                  {selectedNode.properties.enriched_description.slice(
+                                    0,
+                                    300,
+                                  )}
+                                  {selectedNode.properties.enriched_description
+                                    .length > 300 && "..."}
+                                </Text>
+                              )}
+
+                              {typeof selectedNode.properties.wikipedia_url ===
+                                "string" && (
+                                <Link
+                                  href={selectedNode.properties.wikipedia_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  fontSize="xs"
+                                  color="blue.600"
+                                  fontWeight="medium"
+                                  display="inline-flex"
+                                  alignItems="center"
+                                  gap={1}
+                                  _hover={{
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  View on Wikipedia <LuExternalLink size={10} />
+                                </Link>
+                              )}
+                            </Box>
+                          )}
+
                           <Box>
                             <Text
                               fontSize="xs"
@@ -1033,8 +1117,20 @@ export default function MemoryGraphView({
                               Properties
                             </Text>
                             <VStack align="stretch" gap={2}>
-                              {Object.entries(selectedNode.properties).map(
-                                ([key, value]) => (
+                              {Object.entries(selectedNode.properties)
+                                .filter(
+                                  ([key]) =>
+                                    ![
+                                      "enriched_description",
+                                      "wikipedia_url",
+                                      "image_url",
+                                      "enrichment_provider",
+                                      "enriched_at",
+                                      "enrichment_metadata",
+                                      "wikidata_id",
+                                    ].includes(key),
+                                )
+                                .map(([key, value]) => (
                                   <Box key={key}>
                                     <Text
                                       fontSize="xs"
@@ -1053,8 +1149,7 @@ export default function MemoryGraphView({
                                       {formatPropertyValue(value)}
                                     </Text>
                                   </Box>
-                                ),
-                              )}
+                                ))}
                             </VStack>
                           </Box>
 

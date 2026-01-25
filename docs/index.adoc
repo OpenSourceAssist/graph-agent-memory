@@ -7,10 +7,12 @@
 :source-highlighter: highlight.js
 :experimental:
 
-A comprehensive memory system for AI agents using Neo4j as the persistence layer.
+A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and let your agents learn from their own reasoning -- all backed by Neo4j.
 
 [.lead]
 Neo4j Agent Memory provides short-term, long-term, and procedural memory capabilities for AI agents, enabling them to remember conversations, learn facts, and recall past reasoning patterns.
+
+TIP: **See it in action**: The https://github.com/neo4j-labs/neo4j-agent-memory/tree/main/examples/lennys-memory[Lenny's Podcast Memory Explorer] demo loads 299 podcast episodes into a searchable knowledge graph with an AI chat agent, interactive graph visualization, geospatial map view, and Wikipedia-enriched entity cards.
 
 == Overview
 
@@ -32,8 +34,8 @@ Neo4j Agent Memory is designed to give AI agents persistent, queryable memory ac
 
 == Key Features
 
-* **Graph-Native Storage** - Leverages Neo4j's graph database for connected memory
-* **Vector Search** - Semantic similarity search across all memory types
+* **Graph-Native Storage** - Leverages Neo4j's graph database for connected memory with vector, graph, and spatial queries in a single system
+* **Vector + Graph Search** - Semantic similarity search and graph traversal across all memory types
 * **Entity Extraction** - Multi-stage pipeline using spaCy, GLiNER2, and LLM extractors
 * **Batch & Streaming Extraction** - Process multiple texts in parallel or stream results for long documents
 * **GLiREL Relation Extraction** - Extract relationships without LLM calls
@@ -41,9 +43,10 @@ Neo4j Agent Memory is designed to give AI agents persistent, queryable memory ac
 * **POLE+O Data Model** - Industry-standard entity classification (Person, Object, Location, Event, Organization)
 * **Entity Deduplication** - Automatic duplicate detection with configurable auto-merge and flagging
 * **Provenance Tracking** - Track where entities were extracted from and which extractor produced them
+* **Background Entity Enrichment** - Automatically enrich entities with Wikipedia and Diffbot data (descriptions, images, external links)
 * **Geocoding & Location Queries** - Automatic coordinate lookup for LOCATION entities with geospatial search (nearby, bounding box)
 * **Session-Scoped Queries** - Filter locations and graph data by conversation for focused visualizations
-* **Message Linking** - Sequential message chains and cross-memory relationships (procedural → short-term)
+* **Message Linking** - Sequential message chains and cross-memory relationships (procedural -> short-term)
 * **CLI Tool** - Command-line interface for entity extraction and schema management
 * **Observability** - OpenTelemetry and Opik tracing for monitoring extraction pipelines
 * **Framework Integrations** - Works with LangChain, LlamaIndex, PydanticAI, and CrewAI
@@ -124,14 +127,14 @@ pip install neo4j-agent-memory[all]
 |xref:poleo-model.adoc[POLE+O Data Model]
 |Understanding and customizing the entity classification model
 
+|xref:enrichment.adoc[Background Enrichment]
+|Enrich entities with Wikipedia and Diffbot data
+
 |xref:configuration.adoc[Configuration Reference]
 |Complete configuration options and environment variables
 
 |xref:integrations.adoc[Framework Integrations]
 |Using with LangChain, LlamaIndex, PydanticAI, and CrewAI
-
-|xref:enrichment.adoc[Background Enrichment]
-|Enrich entities with Wikipedia and Diffbot data
 
 |xref:faq.adoc[FAQ]
 |Frequently asked questions about extraction, schemas, and more
@@ -139,6 +142,30 @@ pip install neo4j-agent-memory[all]
 |xref:product-improvements.adoc[Product Improvements]
 |Roadmap and improvement suggestions
 |===
+
+== Demo: Lenny's Podcast Memory Explorer
+
+The flagship demo in https://github.com/neo4j-labs/neo4j-agent-memory/tree/main/examples/lennys-memory[examples/lennys-memory/] showcases every major feature by loading 299 podcast episodes into a knowledge graph with a full-stack AI chat agent.
+
+**What it demonstrates:**
+
+* **19 specialized agent tools** for semantic search, entity queries, geospatial analysis, and personalization
+* **Three memory types working together** -- conversations inform entity extraction, entities build a knowledge graph, reasoning traces help the agent improve
+* **Wikipedia enrichment** -- entities are automatically enriched with descriptions, images, and external links
+* **Interactive graph visualization** using Neo4j Visualization Library (NVL)
+* **Geospatial map view** with Leaflet -- marker clusters, heatmaps, distance measurement
+* **SSE streaming** for real-time token delivery with tool call visualization
+* **Responsive design** -- fully usable on mobile and desktop
+
+[source,bash]
+----
+cd examples/lennys-memory
+make neo4j          # Start Neo4j
+make install        # Install dependencies
+make load-sample    # Load 5 episodes for testing
+make run-backend    # Start FastAPI (port 8000)
+make run-frontend   # Start Next.js (port 3000)
+----
 
 == Architecture
 

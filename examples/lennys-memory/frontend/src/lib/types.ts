@@ -46,6 +46,9 @@ export interface Entity {
   type: string;
   subtype?: string;
   description?: string;
+  enriched_description?: string | null;
+  wikipedia_url?: string | null;
+  image_url?: string | null;
 }
 
 export interface RecentMessage {

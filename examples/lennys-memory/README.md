@@ -1,29 +1,47 @@
 # Lenny's Podcast Memory Explorer
 
-A full-stack application that loads Lenny's Podcast transcripts into neo4j-agent-memory and provides an AI agent for exploring podcast content with graph visualization.
+A full-stack AI agent application that transforms 299 episodes of Lenny's Podcast into a searchable knowledge graph with conversational AI, interactive graph visualization, geospatial analysis, and Wikipedia-enriched entity cards -- all powered by [neo4j-agent-memory](https://github.com/neo4j-labs/neo4j-agent-memory).
 
-## Overview
+---
 
-This example demonstrates how to use the `neo4j-agent-memory` package to:
-- Load and store conversational content (podcast transcripts)
-- Build AI agents that can search and retrieve relevant content
-- Visualize the memory graph using NVL (Neo4j Visualization Library)
+## What This Demo Shows
+
+This is the flagship demo application for the `neo4j-agent-memory` library. It demonstrates how to build a production-grade AI agent that:
+
+- **Remembers conversations** across sessions using short-term memory
+- **Builds a knowledge graph** of people, companies, locations, and concepts extracted from unstructured text
+- **Learns user preferences** from natural conversation and uses them to personalize responses
+- **Records reasoning traces** so the agent can learn from its own past behavior
+- **Enriches entities** with Wikipedia descriptions, images, and external links
+- **Visualizes memory** as an interactive graph and geospatial map
+
+> Think of it as RAG with a graph-powered memory layer -- your agent doesn't just retrieve documents, it understands the relationships between entities, remembers what you've asked before, and gets smarter over time.
+
+---
 
 ## Tech Stack
 
-- **Backend**: FastAPI + PydanticAI + neo4j-agent-memory
-- **Frontend**: Next.js 14 + Chakra UI v3 + NVL
-- **Database**: Neo4j 5.x
-- **Package Management**: uv (Python), npm (Node.js)
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | FastAPI + PydanticAI + neo4j-agent-memory |
+| **Frontend** | Next.js 14 + Chakra UI v3 + TypeScript |
+| **Graph Visualization** | Neo4j Visualization Library (NVL) |
+| **Map Visualization** | Leaflet + react-leaflet + Turf.js |
+| **Database** | Neo4j 5.x (with APOC plugin) |
+| **LLM** | OpenAI GPT-4o |
+| **Entity Extraction** | spaCy + GLiNER2 + LLM pipeline |
+| **Entity Enrichment** | Wikipedia/Wikimedia API |
 
-## Prerequisites
+---
 
-- Python 3.11+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 - Node.js 18+
 - Docker (for Neo4j)
 - OpenAI API key
-
-## Quick Start
 
 ### 1. Start Neo4j
 
@@ -31,7 +49,7 @@ This example demonstrates how to use the `neo4j-agent-memory` package to:
 make neo4j
 ```
 
-This starts Neo4j at http://localhost:7474 (user: `neo4j`, password: `password`)
+This starts Neo4j at http://localhost:7474 (user: `neo4j`, password: `password`).
 
 ### 2. Install Dependencies
 
@@ -106,389 +124,688 @@ Frontend (port 3000):
 make run-frontend
 ```
 
-Visit http://localhost:3000 to start exploring Lenny's Podcast!
+Visit http://localhost:3000 to start exploring.
 
-## Example Questions
+---
 
-- "What did Brian Chesky say about product management?"
-- "Find discussions about growth strategies"
-- "What advice did guests give about career transitions?"
-- "What episodes cover mental health?"
-- "Who talked about startup fundraising?"
+## How It Works: A Deep Dive
 
-## Architecture
+### Architecture Overview
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│   Next.js       │────▶│   FastAPI       │────▶│   Neo4j         │
-│   Frontend      │     │   + PydanticAI  │     │   + Memory      │
-│                 │     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                              │
-                              ▼
-                        ┌─────────────────┐
-                        │   OpenAI        │
-                        │   GPT-4o        │
-                        └─────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Next.js Frontend                             │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────────────────┐ │
+│  │   Chat    │  │  Memory  │  │  Graph   │  │   Map               │ │
+│  │   UI      │  │  Context │  │  View    │  │   View              │ │
+│  │  (SSE)    │  │  Panel   │  │  (NVL)   │  │  (Leaflet)          │ │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬────────────────┘ │
+└───────┼──────────────┼─────────────┼─────────────┼──────────────────┘
+        │              │             │             │
+        ▼              ▼             ▼             ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                       FastAPI Backend                                 │
+│  ┌─────────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐ │
+│  │ PydanticAI  │  │ Memory   │  │  Entity  │  │  Location        │ │
+│  │ Agent       │  │ Context  │  │  Routes  │  │  Routes          │ │
+│  │ (19 tools)  │  │ Routes   │  │          │  │  (geospatial)    │ │
+│  └──────┬──────┘  └────┬─────┘  └────┬─────┘  └────┬─────────────┘ │
+└─────────┼───────────────┼─────────────┼─────────────┼───────────────┘
+          │               │             │             │
+          ▼               ▼             ▼             ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    neo4j-agent-memory                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐   │
+│  │  Short-Term  │  │  Long-Term   │  │     Procedural           │   │
+│  │  Memory      │  │  Memory      │  │     Memory               │   │
+│  │              │  │              │  │                            │   │
+│  │ Conversations│  │ Entities     │  │  Reasoning Traces         │   │
+│  │ Messages     │  │ Preferences  │  │  Tool Call Records        │   │
+│  │ Embeddings   │  │ Facts        │  │  Performance Stats        │   │
+│  └──────┬───────┘  └──────┬───────┘  └────────────┬─────────────┘   │
+│         │                 │                        │                  │
+│         ▼                 ▼                        ▼                  │
+│  ┌──────────────────────────────────────────────────────────────┐    │
+│  │           Neo4j Graph Database                               │    │
+│  │   Nodes: Conversation, Message, Entity, Preference,          │    │
+│  │          ReasoningTrace, ReasoningStep, ToolCall              │    │
+│  │   Vectors: Semantic search on messages, entities              │    │
+│  │   Spatial: Point indexes on Location entities                 │    │
+│  └──────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+### The Three Memory Types in Action
 
-1. **Data Loading**: Transcripts are parsed and stored as Messages in short-term memory
-2. **Chat**: User questions trigger agent tool calls to search memory
-3. **Memory**: Agent retrieves relevant transcript segments via semantic search
-4. **Visualization**: NVL renders the memory graph for exploration
+#### Short-Term Memory: Conversation History
 
-### Graph Visualization Features
+Every user message and assistant response is stored as a `Message` node in Neo4j, linked sequentially within a `Conversation`:
 
-The application includes an interactive graph visualization powered by Neo4j Visualization Library (NVL):
+```
+(Conversation: "lenny-podcast-brian-chesky")
+    -[:FIRST_MESSAGE]-> (Message: "What did Brian say about...")
+    -[:NEXT_MESSAGE]->  (Message: "Brian Chesky discussed...")
+    -[:NEXT_MESSAGE]->  (Message: "Can you tell me more about...")
+```
 
-- **Conversation-Scoped Filtering**: The graph shows only nodes relevant to the current conversation/thread, making it easier to explore contextually relevant data
-- **Double-Click to Expand**: Double-click any node to fetch and display its neighbors, enabling incremental graph exploration
-- **Expand Neighbors Button**: Alternative expansion method via the property panel
-- **Memory Type Filtering**: Toggle visibility of short-term, user-profile, and procedural memory nodes
-- **Map View**: Location entities with coordinates can be viewed on an interactive map
+This enables:
+- **Semantic search** across all past conversations using vector indexes
+- **Session isolation** -- each thread has its own conversation history
+- **Temporal ordering** -- messages are linked in sequence for context reconstruction
 
-**API Endpoints for Graph:**
-- `GET /api/memory/graph?session_id={thread_id}` - Get conversation-scoped graph
-- `GET /api/memory/graph/neighbors/{node_id}?depth=1&limit=50` - Get neighbors of a node for expansion
+#### Long-Term Memory: The Knowledge Graph
 
-### Map Visualization Features
+Entities are extracted from podcast transcripts using a multi-stage pipeline and stored as typed nodes in Neo4j with the POLE+O model (Person, Object, Location, Event, Organization):
 
-The application includes an advanced map visualization for exploring Location entities with geospatial analysis capabilities:
+```cypher
+// Entities extracted from transcripts
+(:Entity:Person {name: "Brian Chesky", enriched_description: "American businessman...", 
+                 wikipedia_url: "https://en.wikipedia.org/wiki/Brian_Chesky",
+                 image_url: "https://upload.wikimedia.org/..."})
 
-- **Conversation-Scoped Filtering**: Like the graph view, the map shows only locations mentioned in the current conversation/thread
-- **Multiple View Modes**: Toggle between individual markers, marker clusters (for better performance with many locations), and heatmap visualization
-- **Basemap Switching**: Choose between OpenStreetMap, ESRI Satellite, and OpenTopoMap basemaps
-- **Color-Coded Markers**: Locations are color-coded by subtype (cities, countries, regions, etc.)
-- **Distance Measurement**: Click two locations to calculate the great-circle distance between them using Turf.js
-- **Shortest Path Visualization**: Select two locations to find the shortest path between them in the knowledge graph, visualized as a polyline overlay
-- **Location Statistics**: Side panel shows statistics about displayed locations including count by type
+(:Entity:Organization {name: "Airbnb", enriched_description: "American company..."})
 
-**Map Features Powered By:**
-- **Leaflet**: Core mapping library
-- **react-leaflet-cluster**: Automatic marker clustering for performance
-- **leaflet.heat**: Heatmap visualization layer
-- **@turf/turf**: Client-side geospatial calculations (distances, bounds)
+(:Entity:Location {name: "San Francisco", location: point({latitude: 37.77, longitude: -122.41})})
 
-**API Endpoints for Locations:**
-- `GET /api/memory/locations?session_id={thread_id}` - Get locations filtered by conversation
-- `GET /api/memory/locations/nearby?lat={lat}&lon={lon}&radius_km={radius}&session_id={thread_id}` - Find locations within a radius
-- `GET /api/memory/locations/bounds?min_lat={}&max_lat={}&min_lon={}&max_lon={}&session_id={thread_id}` - Find locations within a bounding box
-- `GET /api/memory/locations/path?from_location_id={id}&to_location_id={id}` - Get shortest path between two locations in the graph
+// Entities are linked to source messages with provenance
+(Message)-[:MENTIONS]->(Entity:Person)
+```
 
-### Memory Structure
+User preferences are also stored in long-term memory, automatically extracted from conversation:
 
-- **Conversation**: One per episode (session_id: `lenny-podcast-{guest-slug}`)
-- **Message**: Each speaker turn with metadata:
-  - `speaker`: "Lenny" or guest name
-  - `episode_guest`: Guest name from filename
-  - `timestamp`: Original HH:MM:SS
-  - `source`: "lenny_podcast"
-- **Entities**: Extracted people, companies, topics (when enabled)
-- **Procedural Memory**: Reasoning traces and tool usage patterns
-  - `ReasoningTrace`: Complete trace of an agent task
-  - `ReasoningStep`: Individual reasoning steps with thoughts and actions
-  - `ToolCall`: Tool invocations with arguments, results, and timing
+```cypher
+(:Preference {category: "format", preference: "Prefers detailed summaries with quotes", 
+              importance: 0.8})
+```
+
+#### Procedural Memory: Reasoning Traces
+
+Every agent interaction is recorded as a reasoning trace, capturing the full chain of thought:
+
+```cypher
+(ReasoningTrace {task: "Compare growth strategies", success: true})
+    -[:HAS_STEP]-> (ReasoningStep {thought: "Search Brian Chesky's comments on growth"})
+        -[:USED_TOOL]-> (ToolCall {tool: "search_by_speaker", duration_ms: 245, status: "success"})
+    -[:HAS_STEP]-> (ReasoningStep {thought: "Now search Andy Johns' perspective"})
+        -[:USED_TOOL]-> (ToolCall {tool: "search_by_speaker", duration_ms: 198, status: "success"})
+```
+
+This enables the agent to:
+- **Find similar past queries** and reuse successful strategies
+- **Track tool performance** (success rates, latency)
+- **Improve over time** by learning which tool sequences work best
+
+### Agent Tool Suite (19 Tools)
+
+The PydanticAI agent has access to 19 specialized tools organized into categories:
+
+#### Podcast Content Search
+
+| Tool | Description |
+|------|-------------|
+| `search_podcast_content` | Semantic search across all transcripts with similarity scoring |
+| `search_by_speaker` | Find what a specific person said (e.g., "What did Brian Chesky say about growth?") |
+| `search_by_episode` | Search within a specific guest's episode |
+| `get_episode_list` | List all available episodes with guest names |
+| `get_speaker_list` | Get unique speakers with appearance counts |
+| `get_memory_stats` | Total counts of conversations, messages, entities |
+
+#### Entity Knowledge Graph
+
+| Tool | Description |
+|------|-------------|
+| `search_entities` | Find people, companies, and concepts with type filtering |
+| `get_entity_context` | Full entity details including Wikipedia enrichment and podcast mentions |
+| `find_related_entities` | Discover co-occurring entities through the knowledge graph |
+| `get_most_mentioned_entities` | Top entities by mention count, filterable by type |
+
+#### Geospatial Analysis
+
+| Tool | Description |
+|------|-------------|
+| `search_locations` | Find locations mentioned in podcasts with coordinates |
+| `find_locations_near` | Radius-based geospatial query using haversine distance |
+| `get_episode_locations` | Geographic profile of a specific episode |
+| `find_location_path` | Shortest path between two locations through the knowledge graph |
+| `get_location_clusters` | Group locations by country for heatmap visualization |
+| `calculate_location_distances` | Pairwise distances between multiple locations |
+
+#### Personalization and Learning
+
+| Tool | Description |
+|------|-------------|
+| `get_user_preferences` | Retrieve stored user preferences for response tailoring |
+| `find_similar_past_queries` | Find successful reasoning traces for similar tasks |
+
+### Dynamic System Prompt with Memory Context
+
+The agent's system prompt is dynamically constructed before each response, injecting relevant memory:
+
+```python
+@agent.system_prompt
+async def add_memory_context(ctx: RunContext[AgentDeps]) -> str:
+    parts = []
+    
+    # 1. User preferences from long-term memory
+    preferences = await memory.long_term.search_preferences(...)
+    if preferences:
+        parts.append("## User Preferences\n" + format_preferences(preferences))
+    
+    # 2. Similar past reasoning traces from procedural memory
+    similar_traces = await memory.procedural.get_similar_traces(current_task)
+    if similar_traces:
+        parts.append("## Relevant Past Interactions\n" + format_traces(similar_traces))
+    
+    return "\n\n".join(parts)
+```
+
+This means the agent:
+- **Adapts its response format** based on learned user preferences (bullet points vs. detailed analysis)
+- **Reuses successful strategies** from past interactions with similar queries
+- **Personalizes content** based on the user's stated interests
+
+### Automatic Preference Learning
+
+The chat endpoint automatically detects and stores user preferences from natural conversation:
+
+```python
+PREFERENCE_INDICATORS = [
+    "i prefer", "i like", "i want", "i love", "i enjoy",
+    "please always", "please don't", "can you always",
+    "i'm interested in", "i care about",
+]
+```
+
+When a user says "I prefer detailed answers with direct quotes," this is automatically categorized and stored as a preference that influences future responses.
 
 ### Entity Extraction Pipeline
 
-The system uses a **multi-stage extraction pipeline** that combines three complementary extractors to identify people, organizations, locations, events, and objects mentioned in the podcasts:
+The system uses a three-stage extraction pipeline for optimal accuracy and cost:
 
 ```
-Text Input
-    ↓
-[Stage 1: spaCy] → Fast statistical NER
-    ↓
-[Stage 2: GLiNER] → Zero-shot NER for domain-specific entities
-    ↓
-[Stage 3: LLM Fallback] → Complex cases & relationship extraction
-    ↓
-[Merge by Confidence] → Combine results
-    ↓
-[Stopword Filtering] → Remove invalid entities (pronouns, numbers, etc.)
-    ↓
-Neo4j Storage
+Podcast Transcript Text
+         │
+         ▼
+┌─────────────────┐
+│   Stage 1:      │   Fast, free, good for common entities
+│   spaCy NER     │   PERSON, ORG, GPE, DATE
+│   (statistical) │   ~5ms per segment
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│   Stage 2:      │   Zero-shot, domain-flexible with descriptions
+│   GLiNER2       │   Custom entity types + POLE+O categories
+│   (transformer) │   ~50ms per segment
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│   Stage 3:      │   Highest accuracy, context-aware
+│   LLM Fallback  │   Complex cases, relationship extraction
+│   (GPT-4o-mini) │   ~500ms per segment
+└────────┬────────┘
+         ▼
+┌─────────────────┐
+│   Merge by      │   Keep highest confidence version of each entity
+│   Confidence    │   Filter stopwords (pronouns, articles, numbers)
+└────────┬────────┘
+         ▼
+    Neo4j Storage
+    (with POLE+O type labels)
 ```
 
-**The Three Extractors:**
+The **podcast domain schema** for GLiNER2 is optimized for this content:
 
-| Extractor | Speed | Accuracy | Extracts Relations | Use Case |
-|-----------|-------|----------|-------------------|----------|
-| **spaCy** | Fast | Good for common entities | No | PERSON, ORG, GPE, DATE |
-| **GLiNER2** | Medium | Zero-shot, domain-flexible | No | Custom entity types with descriptions |
-| **LLM** | Slow | Highest, context-aware | Yes | Complex text, preferences |
-
-**GLiNER2 Improvements:**
-
-The entity extraction pipeline uses GLiNER2 (`gliner-community/gliner_medium-v2.5`), which provides:
-
-- **Entity type descriptions**: GLiNER2 accepts descriptions for each entity type, significantly improving accuracy
-- **Domain schemas**: Pre-defined schemas for different domains (podcast, news, scientific, etc.)
-- **Better accuracy**: GLiNER2 v2.5 is more accurate than the previous v2.1 model
-
-**Available Domain Schemas:**
-
-| Schema | Entity Types | Best For |
-|--------|-------------|----------|
-| `poleo` | person, organization, location, event, object | General POLE+O model |
-| `podcast` | person, company, product, concept, book, role, metric, technology | Podcast transcripts |
-| `news` | person, organization, location, event, date | News articles |
-| `scientific` | author, institution, method, dataset, metric, concept, tool | Research papers |
-| `business` | company, person, product, industry, financial_metric, location | Business content |
-| `entertainment` | actor, director, film, tv_show, character, award, studio, genre | Entertainment |
-| `medical` | disease, drug, symptom, procedure, body_part, gene, organism | Medical/health |
-| `legal` | case, person, organization, law, court, date, monetary_amount | Legal documents |
-
-**Using the Podcast Schema:**
-
-The `podcast` schema is optimized for Lenny's Podcast content:
-
-```python
-from neo4j_agent_memory.extraction import GLiNEREntityExtractor, get_schema
-
-# Create extractor with podcast schema
-extractor = GLiNEREntityExtractor.for_schema("podcast")
-
-# Or configure in ExtractionConfig
-from neo4j_agent_memory.config import ExtractionConfig
-
-config = ExtractionConfig(
-    gliner_schema="podcast",  # Use the podcast domain schema
-    gliner_model="gliner-community/gliner_medium-v2.5",
-)
-```
-
-The podcast schema extracts these entity types with descriptions:
-- **person**: Hosts, guests, and people discussed in the podcast
-- **company**: Startups, businesses, and organizations mentioned
-- **product**: Products, services, apps, and software tools
-- **concept**: Business methodologies, frameworks, and strategies
-- **book**: Books and publications mentioned
-- **technology**: Technologies, platforms, and technical tools
-- **role**: Job titles and professional positions
-- **metric**: Business metrics and KPIs
-
-**Merge Strategy:** By default uses **CONFIDENCE** merge - keeps highest confidence version of each entity.
-
-**Stopword Filtering:** After extraction, entities are automatically filtered to remove noise:
-- Pronouns: "they", "them", "you", "me", "it"
-- Common verbs: "is", "are", "was", "have", "do"
-- Articles: "a", "an", "the"
-- Numeric values: "10", "123.45", "50%"
-- Conversation artifacts: "um", "uh", "hmm"
-
-**Loading Options:**
-
-```bash
-# Default: Load with entity extraction (all 3 stages)
-make load-full
-
-# Fast: Skip entity extraction during load
-make load-fast
-
-# Later: Extract entities from already-loaded transcripts
-make extract-entities
-```
-
-**Neo4j Storage:** Extracted entities are stored with dynamic labels and linked to messages:
-
-```
-(Conversation) -[:HAS_MESSAGE]-> (Message) -[:MENTIONS]-> (Entity:Person)
-                                           -[:MENTIONS]-> (Entity:Organization)
-                                           -[:MENTIONS]-> (Entity:Location)
-```
+| Entity Type | Description | Examples |
+|-------------|-------------|----------|
+| person | Hosts, guests, people discussed | Brian Chesky, Lenny Rachitsky |
+| company | Startups, businesses, organizations | Airbnb, Stripe, Y Combinator |
+| product | Products, services, apps, tools | Figma, Notion, Slack |
+| concept | Methodologies, frameworks, strategies | Product-market fit, North Star metric |
+| book | Books and publications | "The Hard Thing About Hard Things" |
+| technology | Platforms and technical tools | React, Kubernetes, GPT-4 |
+| role | Job titles and positions | CPO, VP of Growth, PM |
+| metric | Business KPIs | DAU, NPS, Retention rate |
 
 ### Background Entity Enrichment
 
-Entities can be automatically enriched with additional context from external knowledge sources like Wikipedia and Diffbot. This adds descriptions, Wikipedia URLs, Wikidata IDs, and images to extracted entities.
+After extraction, entities are automatically enriched with Wikipedia data in the background:
 
-**How it works:**
-1. When an entity is extracted and stored, it is queued for background enrichment
-2. The enrichment service fetches data from Wikipedia (free) or Diffbot (API key required)
-3. The entity is updated in Neo4j with enriched properties
-
-**Enrichment is enabled by default** in this example. To configure:
-
-```bash
-# In backend/.env
-ENRICHMENT_ENABLED=true           # Enable/disable enrichment
-DIFFBOT_API_KEY=your-api-key      # Optional: for richer Diffbot data
+```
+Entity stored in Neo4j
+         │
+         ▼
+┌─────────────────────────┐
+│  Background Enrichment  │
+│  Service (async queue)  │
+│                         │
+│  1. Query Wikipedia API │
+│  2. Fetch description   │
+│  3. Get image URL       │
+│  4. Get Wikidata ID     │
+│  5. Update Neo4j node   │
+└─────────────────────────┘
+         │
+         ▼
+(:Entity:Person {
+    name: "Brian Chesky",
+    enriched_description: "American businessman and industrial designer...",
+    wikipedia_url: "https://en.wikipedia.org/wiki/Brian_Chesky",
+    image_url: "https://upload.wikimedia.org/...",
+    wikidata_id: "Q4429008",
+    enriched_at: datetime()
+})
 ```
 
-**Enriched properties added to entities:**
-- `enriched_description`: Summary from Wikipedia/Diffbot
-- `wikipedia_url`: Link to Wikipedia page
-- `wikidata_id`: Wikidata Q identifier (e.g., Q937)
-- `image_url`: Primary image URL
-- `enriched_at`: Timestamp of enrichment
+Enrichment data is surfaced throughout the UI:
+- **Memory Context panel**: Entity cards show images, descriptions, and Wikipedia links
+- **Graph View**: Node property panel displays enrichment section with image and description
+- **Map View**: Location popups include enrichment context
 
-**Example: Checking enriched entities in Neo4j:**
+### SSE Streaming Architecture
 
-```cypher
-// Find all enriched Person entities
-MATCH (e:Entity:Person)
-WHERE e.enriched_description IS NOT NULL
-RETURN e.name, e.enriched_description, e.wikipedia_url
-LIMIT 10
+The chat endpoint uses Server-Sent Events for real-time streaming:
 
-// Find entities pending enrichment
-MATCH (e:Entity)
-WHERE e.enriched_at IS NULL
-RETURN e.name, e.type
+```
+Client                    Server                    Agent
+  │                         │                         │
+  │ POST /api/chat          │                         │
+  │ ──────────────────────> │                         │
+  │                         │ Start reasoning trace   │
+  │                         │ ───────────────────────>│
+  │                         │                         │
+  │ SSE: {"type":"token"}   │ Token stream            │
+  │ <────────────────────── │ <───────────────────────│
+  │ SSE: {"type":"token"}   │                         │
+  │ <────────────────────── │                         │
+  │                         │                         │
+  │ SSE: {"type":"tool_call"}│ Tool invocation         │
+  │ <────────────────────── │ <───────────────────────│
+  │                         │                         │
+  │ SSE: {"type":"tool_result"}│ Tool result           │
+  │ <────────────────────── │ ───────────────────────>│
+  │                         │                         │
+  │ SSE: {"type":"token"}   │ More tokens             │
+  │ <────────────────────── │ <───────────────────────│
+  │                         │                         │
+  │ SSE: {"type":"done"}    │ Complete trace           │
+  │ <────────────────────── │ ───────────────────────>│
 ```
 
-**Providers:**
+Event types:
+- `token` -- Streamed text content as the agent generates its response
+- `tool_call` -- Agent invoked a tool (name, arguments)
+- `tool_result` -- Tool execution result with timing data
+- `done` -- Response complete (includes message ID and trace ID)
+- `error` -- Error occurred during processing
 
-| Provider | Cost | Features |
-|----------|------|----------|
-| **Wikimedia** | Free | Descriptions, Wikipedia links, Wikidata IDs, images |
-| **Diffbot** | Paid API | Richer data, related entities, importance scores |
+### Frontend Visualization Features
 
-### Procedural Memory Usage
+#### Interactive Graph View (NVL)
 
-This example demonstrates full procedural memory integration:
+The graph visualization is powered by the Neo4j Visualization Library:
 
-1. **Trace Lifecycle**: Each chat request creates a reasoning trace
-2. **Step Tracking**: Tool calls are recorded as reasoning steps with thoughts and actions
-3. **Tool Call Recording**: Arguments, results, duration, and status are captured
-4. **Error Handling**: Failed tasks are properly recorded with error information
-5. **Similar Task Retrieval**: Find past successful traces for similar tasks
+- **Conversation-scoped**: Shows only nodes and relationships relevant to the current thread
+- **Color-coded nodes**: Messages (blue), Entities (green/orange/red by type), Preferences (purple), Traces (gray)
+- **Double-click to expand**: Click any node to fetch and display its neighbors from the graph
+- **Memory type filtering**: Toggle visibility of short-term, long-term, and procedural memory nodes
+- **Property panel**: Click a node to see all its properties, including Wikipedia enrichment data with images
 
-API endpoints for procedural memory:
-- `GET /api/memory/traces` - List all reasoning traces
-- `GET /api/memory/traces/{trace_id}` - Get trace with steps and tool calls
-- `GET /api/memory/tool-stats` - Get tool usage statistics
-- `GET /api/memory/similar-traces?task=...` - Find similar past traces
+#### Interactive Map View (Leaflet)
+
+The map visualization supports advanced geospatial exploration:
+
+- **Three view modes**: Individual markers, marker clusters, and heatmap
+- **Three basemaps**: OpenStreetMap, ESRI Satellite, OpenTopoMap
+- **Color-coded markers**: Locations colored by subtype (city, country, region, landmark)
+- **Distance measurement**: Click two locations to calculate great-circle distance
+- **Shortest path**: Select two locations to find and visualize the graph path between them
+- **Location statistics**: Side panel with counts by type and subtype
+- **Conversation-scoped**: Filter to show only locations from the current thread
+
+#### Memory Context Panel
+
+A persistent side panel (or bottom sheet on mobile) showing:
+
+- **Entity cards**: With images, descriptions, and Wikipedia links for enriched entities
+- **User preferences**: Learned from conversation, categorized by type
+- **Recent messages**: Summary of the current conversation
+- **Agent tools**: Expandable accordion listing all 19 available tools
 
 ---
 
-## Improvement Notes for neo4j-agent-memory
+## Example Questions
 
-The following observations were made during implementation that could improve the `neo4j-agent-memory` package:
+Here are questions that showcase different capabilities:
 
+### Semantic Search
+- "What did Brian Chesky say about product management?"
+- "Find discussions about growth strategies"
+- "What advice did guests give about career transitions?"
 
-### 8. TypeScript/JavaScript Client
+### Entity Knowledge Graph
+- "Who are the most frequently mentioned people across all episodes?"
+- "What companies are related to Airbnb in the knowledge graph?"
+- "Tell me about Y Combinator -- what do guests say about it?"
 
-**Issue**: Frontend visualization requires custom API endpoints.
+### Geospatial Analysis
+- "What locations are mentioned in the Brian Chesky episode?"
+- "Find all cities mentioned within 100km of San Francisco"
+- "Which countries are discussed most frequently?"
 
-**Suggestions**:
-- Publish a TypeScript client package
-- Mirror the Python API for consistency
-- Include type definitions
-- Provide documentation and examples for easy integration
-- Implement a TypeScript client library for easy integration with frontend applications and JavaScript agent frameworks like Mastra and Vercel AI SDK
+### Cross-Reference and Comparison
+- "Compare what Brian Chesky and Andy Johns said about growth"
+- "What topics do Melissa Perri and Marty Cagan agree on?"
+- "Find episodes that mention both startups and mental health"
+
+### Personalization
+- "I prefer detailed answers with direct quotes from guests"
+- "I'm interested in B2B SaaS topics"
+- (The agent remembers these preferences for future responses)
 
 ---
 
-## Data Loading Script
+## API Reference
 
-The `scripts/load_transcripts.py` script provides several options for loading podcast transcripts:
+### Chat
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/chat` | SSE streaming chat with the AI agent |
+
+### Threads
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/threads` | List conversation threads |
+| POST | `/api/threads` | Create a new thread |
+| GET | `/api/threads/{id}` | Get thread with messages |
+| PATCH | `/api/threads/{id}` | Update thread title |
+| DELETE | `/api/threads/{id}` | Delete a thread |
+
+### Memory
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/memory/context` | Get preferences, entities, recent messages for a thread |
+| GET | `/api/memory/graph` | Export memory graph (nodes + relationships) |
+| GET | `/api/memory/graph/neighbors/{node_id}` | Get neighbors for incremental graph exploration |
+| GET | `/api/memory/traces` | List reasoning traces |
+| GET | `/api/memory/traces/{id}` | Get trace with steps and tool calls |
+| GET | `/api/memory/similar-traces` | Find similar past reasoning traces |
+| GET | `/api/memory/tool-stats` | Tool usage statistics |
+
+### Entities
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/entities` | List entities (type/query filtering) |
+| GET | `/api/entities/top` | Most mentioned entities by type |
+| GET | `/api/entities/{name}/context` | Entity details with enrichment and mentions |
+| GET | `/api/entities/related/{name}` | Related entities via co-occurrence |
+
+### Preferences
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/preferences` | List preferences (category filtering) |
+| POST | `/api/preferences` | Add a preference |
+| DELETE | `/api/preferences/{id}` | Delete a preference |
+
+### Locations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/locations` | Get locations with optional session filtering |
+| GET | `/api/locations/nearby` | Find locations within a radius (lat, lon, radius_km) |
+| GET | `/api/locations/bounds` | Find locations in a bounding box |
+| GET | `/api/locations/clusters` | Location density by country |
+| GET | `/api/locations/path` | Shortest graph path between two locations |
+
+### Health
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check with memory connection status |
+
+---
+
+## Data Loading Pipeline
+
+### Loading Transcripts
+
+The `scripts/load_transcripts.py` script processes podcast transcripts with:
+
+- **Concurrent loading**: Parallel transcript processing for throughput
+- **Resume capability**: Skip already-loaded transcripts for interrupted loads
+- **Real-time progress**: Rich progress bars with ETA
+- **Entity extraction**: Multi-stage NER pipeline (spaCy + GLiNER2 + LLM)
+- **Retry logic**: Exponential backoff for transient failures
+- **Detailed statistics**: Files, turns, speakers, and throughput on completion
 
 ```bash
-# Basic usage
+# Usage
 python scripts/load_transcripts.py --data-dir data
 
 # Options
 --sample N              Load only N transcripts (for testing)
 --no-entities           Skip entity extraction (faster loading)
---no-embeddings         Skip embedding generation (faster loading)
---resume                Skip transcripts that are already loaded
---dry-run               Preview what would be loaded without loading
---batch-size N          Number of messages per batch (default: 100)
---concurrency N         Number of concurrent transcript loaders (default: 3)
---extract-entities-only Only extract entities from already loaded sessions
+--no-embeddings         Skip embedding generation
+--resume                Skip already-loaded transcripts
+--dry-run               Preview what would be loaded
+--batch-size N          Messages per batch (default: 100)
+--concurrency N         Concurrent transcript loaders (default: 3)
+--extract-entities-only Extract entities from already loaded sessions
 --skip-schema-setup     Skip database schema setup
 -v, --verbose           Show detailed progress
-
-# Examples
-python scripts/load_transcripts.py --sample 10 --no-entities
-python scripts/load_transcripts.py --resume --batch-size 100
-python scripts/load_transcripts.py --extract-entities-only  # Post-process entities
 ```
 
-**Features:**
-- Real-time progress bar with ETA
-- Automatic retry with exponential backoff for transient failures
-- Resume capability for interrupted loads
-- Concurrent loading for faster ingestion
-- Batch session existence checking for efficient resume
-- Detailed statistics on completion (files, turns, speakers, throughput)
+### Geocoding Locations
 
-## Geocoding Script
-
-The `scripts/geocode_locations.py` script adds latitude/longitude coordinates to Location entities:
+The `scripts/geocode_locations.py` script adds coordinates to Location entities:
 
 ```bash
-# Basic usage (uses free Nominatim/OpenStreetMap, rate limited to 1 req/sec)
+# Free geocoding via OpenStreetMap (rate limited: 1 req/sec)
 python scripts/geocode_locations.py
 
 # Options
 --provider nominatim|google  Geocoding provider (default: nominatim)
---api-key KEY               API key (required for Google)
---batch-size N              Batch size for processing (default: 50)
---skip-existing             Skip locations that already have coordinates
+--api-key KEY               Google Maps API key
+--batch-size N              Batch processing size (default: 50)
+--skip-existing             Skip locations with existing coordinates
 -v, --verbose               Show detailed progress
-
-# Examples
-python scripts/geocode_locations.py --verbose
-python scripts/geocode_locations.py --provider google --api-key YOUR_KEY
 ```
 
-After geocoding, you can run spatial queries like finding locations within a radius:
+After geocoding, spatial queries like `find_locations_near` become available to the agent.
 
-```python
-# Find locations near a point
-nearby = await memory.long_term.search_locations_near(
-    latitude=37.7749,
-    longitude=-122.4194,
-    radius_km=50.0
-)
+---
+
+## Neo4j Graph Schema
+
+The loaded data creates this schema in Neo4j:
+
+### Node Types
+
+| Label | Memory Type | Description |
+|-------|-------------|-------------|
+| `Conversation` | Short-term | One per podcast episode |
+| `Message` | Short-term | Each speaker turn with metadata |
+| `Entity` | Long-term | Extracted people, companies, locations, etc. |
+| `Preference` | Long-term | User preferences learned from conversation |
+| `ReasoningTrace` | Procedural | Complete trace of an agent task |
+| `ReasoningStep` | Procedural | Individual reasoning step |
+| `ToolCall` | Procedural | Tool invocation with timing |
+
+Entity nodes have additional type labels: `:Person`, `:Organization`, `:Location`, `:Event`, `:Object`.
+
+### Key Relationships
+
+```cypher
+// Short-term memory (conversation chain)
+(Conversation)-[:FIRST_MESSAGE]->(Message)
+(Conversation)-[:HAS_MESSAGE]->(Message)
+(Message)-[:NEXT_MESSAGE]->(Message)
+
+// Knowledge graph (entities)
+(Message)-[:MENTIONS]->(Entity)
+(Entity)-[:EXTRACTED_FROM]->(Message)
+(Entity)-[:SAME_AS]->(Entity)  // deduplication
+
+// Procedural memory (reasoning)
+(ReasoningTrace)-[:INITIATED_BY]->(Message)
+(ReasoningTrace)-[:HAS_STEP]->(ReasoningStep)
+(ReasoningStep)-[:USED_TOOL]->(ToolCall)
 ```
+
+### Example Cypher Queries
+
+```cypher
+// Find the most mentioned people across all episodes
+MATCH (e:Entity:Person)<-[:MENTIONS]-(m:Message)
+RETURN e.name, count(m) AS mentions
+ORDER BY mentions DESC LIMIT 20
+
+// Find enriched entities with Wikipedia data
+MATCH (e:Entity)
+WHERE e.enriched_description IS NOT NULL
+RETURN e.name, e.type, e.enriched_description, e.wikipedia_url, e.image_url
+LIMIT 10
+
+// Find entities mentioned together (co-occurrence)
+MATCH (e1:Entity)<-[:MENTIONS]-(m:Message)-[:MENTIONS]->(e2:Entity)
+WHERE e1.name < e2.name
+RETURN e1.name, e2.name, count(m) AS co_mentions
+ORDER BY co_mentions DESC LIMIT 20
+
+// Geospatial: find locations near San Francisco
+MATCH (e:Entity:Location)
+WHERE e.location IS NOT NULL
+  AND point.distance(e.location, point({latitude: 37.77, longitude: -122.42})) < 50000
+RETURN e.name, e.location.latitude, e.location.longitude
+
+// Get a conversation's full context
+MATCH (c:Conversation {session_id: "lenny-podcast-brian-chesky"})
+MATCH (c)-[:HAS_MESSAGE]->(m:Message)
+OPTIONAL MATCH (m)-[:MENTIONS]->(e:Entity)
+RETURN m.content, m.speaker, collect(e.name) AS mentioned_entities
+ORDER BY m.created_at
+```
+
+---
+
+## Key Architectural Decisions
+
+### Why Neo4j for Agent Memory?
+
+1. **Connected data is first-class**: Entity co-occurrence, conversation chains, and reasoning traces are naturally expressed as graph relationships. A relational database would require complex JOINs; a vector store would miss the relationship structure entirely.
+
+2. **Vector + graph in one database**: Neo4j 5.x supports both vector indexes (for semantic search) and graph traversal (for relationship queries) in a single system. No need to sync between a vector store and a graph store.
+
+3. **Spatial indexing built in**: Neo4j's `Point` type and spatial functions enable geospatial queries (radius search, bounding box) without an external service.
+
+4. **Schema flexibility**: Dynamic node labels (`:Entity:Person:Individual`) allow the POLE+O type system to be expressed directly in the graph schema, enabling efficient type-specific queries.
+
+### Why Three Memory Types?
+
+The three-memory architecture mirrors how human memory works:
+
+- **Short-term** (episodic): What happened in this conversation? What did the user just ask?
+- **Long-term** (semantic): What do we know about Brian Chesky? What are the user's preferences?
+- **Procedural** (procedural): How did we successfully answer "compare two guests" last time?
+
+Each type has different storage patterns, query patterns, and lifecycle requirements. Combining them gives the agent both context and wisdom.
+
+### Why PydanticAI?
+
+PydanticAI provides structured, type-safe agent development with:
+- Type-checked tool definitions using Python type hints
+- Dependency injection for the memory client
+- Built-in support for multi-step reasoning
+- Clean separation between agent logic and tools
+
+### Why SSE Over WebSockets?
+
+Server-Sent Events are simpler than WebSockets for this use case:
+- Unidirectional streaming (server to client) is all we need
+- Works through proxies and load balancers without special configuration
+- Built-in reconnection in the browser
+- Each chat message is a separate HTTP request, making it stateless
+
+---
 
 ## Project Structure
 
 ```
 lennys-memory/
-├── data/                      # Podcast transcript files (299 .txt files)
+├── data/                          # Podcast transcript files (299 .txt files)
 ├── scripts/
-│   ├── load_transcripts.py    # Data loading script
-│   └── geocode_locations.py   # Geocoding script for Location entities
+│   ├── load_transcripts.py        # Data loading with entity extraction
+│   └── geocode_locations.py       # Geocoding for Location entities
 ├── backend/
 │   ├── pyproject.toml
 │   ├── .env.example
 │   └── src/
-│       ├── main.py            # FastAPI entry point
-│       ├── config.py          # Settings
-│       ├── agent/             # PydanticAI agent
-│       │   ├── agent.py
-│       │   ├── dependencies.py
-│       │   └── tools.py
-│       ├── api/               # API routes
+│       ├── main.py                # FastAPI entry point with CORS
+│       ├── config.py              # Settings (Neo4j, OpenAI, enrichment)
+│       ├── agent/
+│       │   ├── agent.py           # PydanticAI agent + system prompt
+│       │   ├── dependencies.py    # Agent dependency injection
+│       │   └── tools.py           # 19 agent tools
+│       ├── api/
+│       │   ├── schemas.py         # Pydantic request/response models
 │       │   └── routes/
-│       │       ├── chat.py    # SSE streaming
-│       │       ├── threads.py
-│       │       └── memory.py
+│       │       ├── chat.py        # SSE streaming + preference extraction
+│       │       ├── threads.py     # Thread CRUD operations
+│       │       └── memory.py      # Memory context, graph, traces, entities,
+│       │                          # preferences, locations
 │       └── memory/
-│           └── client.py      # Memory singleton
+│           └── client.py          # Memory client singleton
 ├── frontend/
 │   ├── package.json
 │   └── src/
-│       ├── app/               # Next.js pages
-│       ├── components/        # React components
+│       ├── app/                   # Next.js app router
+│       ├── components/
 │       │   ├── chat/
+│       │   │   ├── ChatContainer.tsx    # Main chat interface
+│       │   │   ├── MessageList.tsx      # Message display
+│       │   │   ├── Message.tsx          # Individual message
+│       │   │   ├── ToolCallDisplay.tsx  # Expandable tool call UI
+│       │   │   └── PromptInput.tsx      # Input with suggested prompts
 │       │   ├── layout/
-│       │   └── memory/        # Including MemoryGraphView
+│       │   │   ├── AppLayout.tsx        # Responsive layout with drawer
+│       │   │   └── Sidebar.tsx          # Thread list + branding
+│       │   └── memory/
+│       │       ├── MemoryContext.tsx     # Entity cards + preferences panel
+│       │       ├── MemoryGraphView.tsx  # NVL graph visualization
+│       │       └── MemoryMapView.tsx    # Leaflet map visualization
 │       ├── hooks/
+│       │   ├── useChat.ts              # SSE streaming hook
+│       │   └── useThreads.ts           # Thread management hook
 │       └── lib/
-│           ├── api.ts
-│           └── types.ts
-├── Makefile
-├── docker-compose.yml
+│           ├── api.ts                  # API client functions
+│           └── types.ts                # TypeScript type definitions
+├── Makefile                       # All build/run/load commands
+├── docker-compose.yml             # Neo4j container configuration
 └── README.md
 ```
 
+---
+
+## What Makes This Different
+
+### vs. Standard RAG
+
+Most RAG applications treat documents as flat chunks in a vector store. This demo builds a **knowledge graph** where entities are connected by co-occurrence, enriched with external knowledge, and queryable by type, relationship, and geography. The agent doesn't just find relevant text -- it understands the structure of the knowledge.
+
+### vs. ChatGPT Memory
+
+ChatGPT's memory is a flat list of facts. neo4j-agent-memory provides **structured, typed memory** with three distinct layers, graph relationships between entities, and procedural memory that lets the agent learn from its own reasoning patterns.
+
+### vs. LangGraph/MemGPT
+
+These frameworks focus on agent orchestration. neo4j-agent-memory is **specifically designed for memory persistence** with a graph-native data model, entity extraction pipeline, deduplication, enrichment, and spatial queries. It complements orchestration frameworks rather than competing with them.
+
+---
+
 ## License
 
-This example is part of the neo4j-agent-memory project.
+This example is part of the [neo4j-agent-memory](https://github.com/neo4j-labs/neo4j-agent-memory) project, licensed under Apache 2.0.

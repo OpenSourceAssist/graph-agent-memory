@@ -92,6 +92,9 @@ class Entity(BaseModel):
     type: str
     subtype: str | None = None
     description: str | None = None
+    enriched_description: str | None = None
+    wikipedia_url: str | None = None
+    image_url: str | None = None
 
 
 # Memory context schemas
