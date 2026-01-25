@@ -191,3 +191,67 @@ When converting asciidoc placeholder diagrams like:
 ```
 
 Map to proper Excalidraw elements with appropriate sizing, colors, and connections.
+
+## Documentation Diagram Workflow
+
+This project uses a structured workflow for managing documentation diagrams:
+
+### Finding Placeholders
+
+Placeholder diagrams in AsciiDoc files use this pattern:
+```asciidoc
+.Diagram Title
+[cols="1", options="header"]
+|===
+| [DIAGRAM PLACEHOLDER: Diagram Name]
+
+a|
+[source,text]
+----
+ASCII art representation here
+----
+|===
+```
+
+### Using the Management Script
+
+```bash
+# List all placeholder diagrams
+make docs-diagrams-list
+
+# Show status (which have Excalidraw files)
+make docs-diagrams-status
+
+# Show only missing diagrams
+make docs-diagrams-missing
+
+# Add image references after generating diagrams
+make docs-diagrams-add-refs
+```
+
+### File Locations
+
+- **Excalidraw JSON**: `docs/assets/images/diagrams/excalidraw/{slug}.excalidraw`
+- **Exported PNG**: `docs/assets/images/diagrams/{slug}.png`
+- **Management script**: `scripts/manage_diagrams.py`
+
+### Generating a Diagram
+
+1. Run `make docs-diagrams-missing` to see what's needed
+2. Read the ASCII art from the placeholder table
+3. Generate Excalidraw JSON following this skill's patterns
+4. Save to `docs/assets/images/diagrams/excalidraw/{slug}.excalidraw`
+5. Export to PNG using Excalidraw (https://excalidraw.com)
+6. Run `make docs-diagrams-add-refs` to update AsciiDoc files
+
+### Diagram Style Guidelines for This Project
+
+- **Memory types**: Use distinct colors per memory type
+  - Short-Term: Green (`#b2f2bb` / `#2f9e44`)
+  - Long-Term: Yellow (`#ffec99` / `#f08c00`)
+  - Reasoning: Purple (`#d0bfff` / `#9c36b5`)
+  - Neo4j/Storage: Blue (`#a5d8ff` / `#1971c2`)
+
+- **Pipeline stages**: Use vertical flow with colored boxes
+- **Graph schemas**: Use ellipses for nodes, labeled arrows for relationships
+- **Architecture**: Use rectangles with hierarchy (top-level → components → storage)
