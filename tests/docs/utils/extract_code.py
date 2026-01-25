@@ -29,7 +29,13 @@ class CodeSnippet:
             return False
 
         # Must have at least one import statement
-        has_import = "import " in self.code or "from " in self.code
+        # Use regex to match actual import statements, not just "from" in comments
+        import re
+
+        has_import = bool(
+            re.search(r"^\s*import\s+\w", self.code, re.MULTILINE)
+            or re.search(r"^\s*from\s+\w+\s+import\s+", self.code, re.MULTILINE)
+        )
 
         # Check for common incomplete patterns
         is_continuation = self.code.strip().startswith("...")
