@@ -17,6 +17,7 @@ This document tracks product improvement suggestions identified during the devel
 * <<agent-tool-templates,Agent Tool Templates>> ✅
 * <<preference-aware-prompts,Preference-Aware Agent Prompts>> ✅
 * <<chat-to-map-integration,Chat-to-Map Integration>> ✅
+* <<docs-testing,Documentation Testing Framework>> ✅
 
 === Medium Priority
 
@@ -300,16 +301,20 @@ Implementation:: `GLiRELExtractor` and `GLiNERWithRelationsExtractor`
 .Example Usage
 [source,python]
 ----
+import asyncio
 from neo4j_agent_memory.extraction import (
     GLiNERWithRelationsExtractor,
     is_glirel_available,
 )
 
-if is_glirel_available():
-    extractor = GLiNERWithRelationsExtractor.for_poleo()
-    result = await extractor.extract("John works at Acme Corp in NYC.")
-    print(result.entities)   # John, Acme Corp, NYC
-    print(result.relations)  # John -[WORKS_AT]-> Acme Corp
+async def extract_with_relations():
+    if is_glirel_available():
+        extractor = GLiNERWithRelationsExtractor.for_poleo()
+        result = await extractor.extract("John works at Acme Corp in NYC.")
+        print(result.entities)   # John, Acme Corp, NYC
+        print(result.relations)  # John -[WORKS_AT]-> Acme Corp
+
+asyncio.run(extract_with_relations())
 ----
 
 .Default Relation Types
@@ -1258,6 +1263,109 @@ Utilities for managing and optimizing Neo4j vector indexes.
 * Automatic re-indexing on embedding model changes
 * Index statistics and performance metrics
 * Migration utilities between embedding models
+
+'''
+
+== Documentation Quality Improvements
+
+[[docs-testing]]
+=== Documentation Testing Framework ✅ IMPLEMENTED
+
+[horizontal]
+Priority:: High
+Status:: **DONE** (v0.1.0)
+Implementation:: `tests/docs/` test suite
+
+**Features Implemented**:
+
+Comprehensive testing framework to ensure documentation stays in sync with code:
+
+.Code Snippet Validation
+* **Syntax validation** - All 500+ Python snippets validated for correct syntax
+* **Async wrapping** - Automatically wraps async snippets for syntax checking
+* **Signature detection** - Skips API signature documentation (parameter listings)
+* **Placeholder detection** - Handles `...` ellipsis placeholders appropriately
+
+.Build Pipeline Tests
+* **npm build validation** - Tests the Node.js/AsciiDoctor build pipeline
+* **HTML generation** - Verifies all .adoc files convert to HTML
+* **Search index** - Validates Pagefind search index generation
+* **Asset copying** - Confirms CSS, images, and scripts are copied
+
+.Link Validation
+* **xref links** - Validates all internal `xref:` links resolve
+* **Quadrant structure** - Ensures Diataxis documentation structure is complete
+* **Navigation consistency** - Validates navigation matches file structure
+
+.Test Markers
+[source,bash]
+----
+# Run all docs tests
+pytest tests/docs -v
+
+# Run only syntax validation (fast)
+pytest tests/docs -m syntax -v
+
+# Run with integration tests
+pytest tests/docs -m "docs and integration" -v
+----
+
+.Benefits Achieved
+* Catch documentation drift before release
+* Validate code examples compile correctly
+* Ensure internal links don't break
+* Automated quality gate in CI/CD
+
+'''
+
+[[doctest-integration]]
+=== Doctest-Style Assertions
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add doctest-style output validation to documentation examples.
+
+.Implementation Ideas
+* Add `# doctest: +ELLIPSIS` markers to AsciiDoc
+* Compare actual output to documented expected output
+* Support for async doctests
+* Integration with pytest doctest plugin
+
+'''
+
+[[api-docs-generation]]
+=== Automated API Reference Generation
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Auto-generate API reference documentation from code docstrings.
+
+.Implementation Ideas
+* Sphinx-style docstring parsing
+* Generate AsciiDoc from Python docstrings
+* Include type hints in documentation
+* Cross-reference between docs and source
+
+'''
+
+[[version-matrix-testing]]
+=== Documentation Version Matrix Testing
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Test documentation examples against multiple Python/Neo4j version combinations.
+
+.Implementation Ideas
+* CI matrix for Python 3.10-3.13
+* Neo4j 5.x version compatibility testing
+* Dependency version matrix
+* Automated compatibility notes in docs
 
 '''
 

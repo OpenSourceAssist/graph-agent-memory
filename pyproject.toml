@@ -108,6 +108,7 @@ dev = [
     "ruff>=0.3.0",
     "pre-commit>=3.6.0",
     "testcontainers[neo4j]>=4.0.0",
+    "beautifulsoup4>=4.12.0",
 ]
 
 docs = [
@@ -143,6 +144,10 @@ testpaths = ["tests"]
 markers = [
     "integration: marks tests as integration tests (require Neo4j)",
     "benchmark: marks tests as benchmark tests",
+    "docs: marks tests as documentation tests",
+    "syntax: marks tests as syntax-only validation (fast)",
+    "imports: marks tests as import validation (medium)",
+    "slow: marks tests as slow (external link checks, full builds)",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

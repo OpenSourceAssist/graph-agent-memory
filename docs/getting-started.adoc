@@ -300,7 +300,8 @@ from neo4j_agent_memory import MemoryClient, MemorySettings
 # Settings loaded from environment variables
 settings = MemorySettings()
 async with MemoryClient(settings) as memory:
-    # ...
+    # Your memory operations here
+    pass
 ----
 
 == Error Handling
