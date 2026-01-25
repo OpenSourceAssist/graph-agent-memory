@@ -1072,6 +1072,8 @@ The package automatically creates the following schema:
 
 The flagship demo in [`examples/lennys-memory/`](examples/lennys-memory/) showcases every major feature of neo4j-agent-memory by loading 299 episodes of Lenny's Podcast into a knowledge graph with a full-stack AI chat agent.
 
+**[Try the live demo →](https://lennys-memory.vercel.app)**
+
 **What it demonstrates:**
 
 - **19 specialized agent tools** for semantic search, entity queries, geospatial analysis, and personalization
