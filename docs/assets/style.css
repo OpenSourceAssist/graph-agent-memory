@@ -1,119 +1,326 @@
 /**
  * Neo4j Agent Memory Documentation Theme
- * A modern, dark theme for developer documentation
+ * Chakra UI Design Tokens + Neo4j Labs Branding
  */
 
 /* ============================================
    CSS Variables / Design Tokens
+   Inspired by Chakra UI with Neo4j Labs colors
    ============================================ */
 
 :root {
-    /* Colors - Light Theme (default) */
-    --color-bg-primary: #ffffff;
-    --color-bg-secondary: #f6f8fa;
-    --color-bg-tertiary: #eaeef2;
-    --color-bg-hover: #d0d7de;
-    --color-bg-active: #ddf4ff;
+    /* ========================================
+       Color Scales (Chakra UI pattern)
+       ======================================== */
 
-    --color-border-default: #d0d7de;
-    --color-border-muted: #d8dee4;
+    /* Neo4j Labs Purple Scale (Primary Brand) */
+    --color-labs-purple-50: #eef2ff;
+    --color-labs-purple-100: #e0e7ff;
+    --color-labs-purple-200: #c7d2fe;
+    --color-labs-purple-300: #a5b4fc;
+    --color-labs-purple-400: #818cf8;
+    --color-labs-purple-500: #6366f1;
+    --color-labs-purple-600: #4f46e5;
+    --color-labs-purple-700: #4338ca;
+    --color-labs-purple-800: #3730a3;
+    --color-labs-purple-900: #312e81;
+    --color-labs-purple-950: #1e1b4b;
 
-    --color-text-primary: #1f2328;
-    --color-text-secondary: #656d76;
-    --color-text-muted: #8b949e;
-    --color-text-link: #0969da;
-    --color-text-link-hover: #0550ae;
+    /* Neo4j Teal Scale (Secondary/Links) */
+    --color-teal-50: #f0fdfa;
+    --color-teal-100: #ccfbf1;
+    --color-teal-200: #99f6e4;
+    --color-teal-300: #5eead4;
+    --color-teal-400: #2dd4bf;
+    --color-teal-500: #009999;
+    --color-teal-600: #0d9488;
+    --color-teal-700: #0f766e;
+    --color-teal-800: #115e59;
+    --color-teal-900: #134e4a;
+    --color-teal-950: #042f2e;
+
+    /* Gray Scale (Neutral) */
+    --color-gray-50: #f9fafb;
+    --color-gray-100: #f3f4f6;
+    --color-gray-200: #e5e7eb;
+    --color-gray-300: #d1d5db;
+    --color-gray-400: #9ca3af;
+    --color-gray-500: #6b7280;
+    --color-gray-600: #4b5563;
+    --color-gray-700: #374151;
+    --color-gray-800: #1f2937;
+    --color-gray-900: #111827;
+    --color-gray-950: #030712;
+
+    /* Status Colors */
+    --color-green-500: #10b981;
+    --color-green-600: #059669;
+    --color-amber-500: #f59e0b;
+    --color-amber-600: #d97706;
+    --color-red-500: #ef4444;
+    --color-red-600: #dc2626;
+    --color-blue-500: #3b82f6;
+    --color-blue-600: #2563eb;
+
+    /* ========================================
+       Semantic Color Tokens (Light Theme)
+       ======================================== */
+
+    /* Background */
+    --bg: #ffffff;
+    --bg-subtle: var(--color-gray-50);
+    --bg-muted: var(--color-gray-100);
+    --bg-emphasized: var(--color-gray-200);
+    --bg-inverted: var(--color-gray-900);
+
+    /* Foreground (Text) */
+    --fg: var(--color-gray-900);
+    --fg-muted: var(--color-gray-600);
+    --fg-subtle: var(--color-gray-500);
+    --fg-inverted: #ffffff;
+
+    /* Border */
+    --border: var(--color-gray-200);
+    --border-muted: var(--color-gray-100);
+    --border-emphasized: var(--color-gray-300);
+
+    /* Legacy aliases (for backward compatibility) */
+    --color-bg-primary: var(--bg);
+    --color-bg-secondary: var(--bg-subtle);
+    --color-bg-tertiary: var(--bg-muted);
+    --color-bg-hover: var(--bg-emphasized);
+    --color-bg-active: var(--color-labs-purple-50);
+    --color-border-default: var(--border);
+    --color-border-muted: var(--border-muted);
+    --color-text-primary: var(--fg);
+    --color-text-secondary: var(--fg-muted);
+    --color-text-muted: var(--fg-subtle);
+    --color-text-link: var(--color-teal-500);
+    --color-text-link-hover: var(--color-teal-700);
 
     /* Accent colors */
-    --color-accent-primary: #1a7f37;
-    --color-accent-blue: #0969da;
-    --color-accent-purple: #8250df;
-    --color-accent-orange: #9a6700;
-    --color-accent-red: #cf222e;
-    --color-accent-cyan: #0e7c86;
+    --color-accent-primary: var(--color-green-500);
+    --color-accent-blue: var(--color-blue-500);
+    --color-accent-purple: var(--color-labs-purple-500);
+    --color-accent-orange: var(--color-amber-500);
+    --color-accent-red: var(--color-red-500);
+    --color-accent-cyan: var(--color-teal-500);
 
     /* Neo4j brand colors */
     --color-neo4j-blue: #018bff;
     --color-neo4j-green: #00a86b;
+    --color-neo4j-teal: var(--color-teal-500);
 
-    /* Typography */
-    --font-family-sans:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica,
-        Arial, sans-serif;
-    --font-family-mono:
-        ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono,
-        monospace;
+    /* Legacy Labs colors (aliases) */
+    --color-labs-purple: var(--color-labs-purple-500);
+    --color-labs-purple-dark: var(--color-labs-purple-600);
+    --color-labs-purple-light: var(--color-labs-purple-300);
 
-    --font-size-xs: 0.75rem;
-    --font-size-sm: 0.875rem;
-    --font-size-base: 1rem;
-    --font-size-lg: 1.125rem;
-    --font-size-xl: 1.25rem;
-    --font-size-2xl: 1.5rem;
-    --font-size-3xl: 1.875rem;
+    /* Status colors */
+    --color-status-experimental: var(--color-amber-500);
+    --color-status-beta: var(--color-labs-purple-500);
+    --color-status-stable: var(--color-green-500);
+    --color-status-deprecated: var(--color-red-500);
 
+    /* ========================================
+       Typography (Neo4j Brand + Chakra Scale)
+       ======================================== */
+
+    /* Font Families */
+    --font-heading: "Syne", system-ui, -apple-system, sans-serif;
+    --font-body: "Public Sans", system-ui, -apple-system, sans-serif;
+    --font-mono:
+        "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, monospace;
+
+    /* Legacy aliases */
+    --font-family-sans: var(--font-body);
+    --font-family-mono: var(--font-mono);
+
+    /* Font Sizes (Chakra scale) */
+    --font-size-2xs: 0.625rem; /* 10px */
+    --font-size-xs: 0.75rem; /* 12px */
+    --font-size-sm: 0.875rem; /* 14px */
+    --font-size-md: 1rem; /* 16px */
+    --font-size-lg: 1.125rem; /* 18px */
+    --font-size-xl: 1.25rem; /* 20px */
+    --font-size-2xl: 1.5rem; /* 24px */
+    --font-size-3xl: 1.875rem; /* 30px */
+    --font-size-4xl: 2.25rem; /* 36px */
+    --font-size-5xl: 3rem; /* 48px */
+    --font-size-6xl: 3.75rem; /* 60px */
+    --font-size-7xl: 4.5rem; /* 72px */
+
+    /* Legacy alias */
+    --font-size-base: var(--font-size-md);
+
+    /* Font Weights */
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+
+    /* Line Heights (Chakra) */
+    --line-height-none: 1;
     --line-height-tight: 1.25;
+    --line-height-snug: 1.375;
     --line-height-normal: 1.5;
-    --line-height-relaxed: 1.75;
+    --line-height-relaxed: 1.625;
+    --line-height-loose: 2;
 
-    /* Spacing */
-    --spacing-1: 0.25rem;
-    --spacing-2: 0.5rem;
-    --spacing-3: 0.75rem;
-    --spacing-4: 1rem;
-    --spacing-5: 1.25rem;
-    --spacing-6: 1.5rem;
-    --spacing-8: 2rem;
-    --spacing-10: 2.5rem;
-    --spacing-12: 3rem;
+    /* Letter Spacing */
+    --letter-spacing-tighter: -0.05em;
+    --letter-spacing-tight: -0.025em;
+    --letter-spacing-normal: 0;
+    --letter-spacing-wide: 0.025em;
+    --letter-spacing-wider: 0.05em;
+    --letter-spacing-widest: 0.1em;
 
-    /* Layout */
+    /* ========================================
+       Spacing Scale (Chakra UI)
+       ======================================== */
+
+    --spacing-0: 0;
+    --spacing-px: 1px;
+    --spacing-0-5: 0.125rem; /* 2px */
+    --spacing-1: 0.25rem; /* 4px */
+    --spacing-1-5: 0.375rem; /* 6px */
+    --spacing-2: 0.5rem; /* 8px */
+    --spacing-2-5: 0.625rem; /* 10px */
+    --spacing-3: 0.75rem; /* 12px */
+    --spacing-3-5: 0.875rem; /* 14px */
+    --spacing-4: 1rem; /* 16px */
+    --spacing-5: 1.25rem; /* 20px */
+    --spacing-6: 1.5rem; /* 24px */
+    --spacing-7: 1.75rem; /* 28px */
+    --spacing-8: 2rem; /* 32px */
+    --spacing-9: 2.25rem; /* 36px */
+    --spacing-10: 2.5rem; /* 40px */
+    --spacing-12: 3rem; /* 48px */
+    --spacing-14: 3.5rem; /* 56px */
+    --spacing-16: 4rem; /* 64px */
+    --spacing-20: 5rem; /* 80px */
+    --spacing-24: 6rem; /* 96px */
+    --spacing-28: 7rem; /* 112px */
+    --spacing-32: 8rem; /* 128px */
+
+    /* ========================================
+       Border Radius (Chakra UI)
+       ======================================== */
+
+    --radius-none: 0;
+    --radius-sm: 0.125rem; /* 2px */
+    --radius-base: 0.25rem; /* 4px */
+    --radius-md: 0.375rem; /* 6px */
+    --radius-lg: 0.5rem; /* 8px */
+    --radius-xl: 0.75rem; /* 12px */
+    --radius-2xl: 1rem; /* 16px */
+    --radius-3xl: 1.5rem; /* 24px */
+    --radius-full: 9999px;
+
+    /* ========================================
+       Shadows (Chakra UI layered)
+       ======================================== */
+
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md:
+        0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg:
+        0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl:
+        0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+    --shadow-none: 0 0 #0000;
+
+    /* ========================================
+       Transitions (Chakra UI)
+       ======================================== */
+
+    /* Durations */
+    --duration-fastest: 50ms;
+    --duration-faster: 100ms;
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --duration-slower: 400ms;
+    --duration-slowest: 500ms;
+
+    /* Easings */
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Legacy aliases */
+    --transition-fast: var(--duration-fast) var(--ease-in-out);
+    --transition-normal: var(--duration-normal) var(--ease-in-out);
+
+    /* ========================================
+       Layout
+       ======================================== */
+
     --nav-width: 280px;
     --content-max-width: 900px;
     --toc-width: 240px;
-
-    /* Shadows */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.12);
-
-    /* Transitions */
-    --transition-fast: 150ms ease;
-    --transition-normal: 250ms ease;
-
-    /* Border radius */
-    --radius-sm: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
+    --labs-banner-height: 40px;
 }
 
-/* Dark Theme */
+/* ============================================
+   Dark Theme
+   ============================================ */
+
 [data-theme="dark"] {
-    --color-bg-primary: #0d1117;
-    --color-bg-secondary: #161b22;
-    --color-bg-tertiary: #21262d;
-    --color-bg-hover: #30363d;
-    --color-bg-active: #388bfd1a;
+    /* Semantic Background */
+    --bg: #0d1117;
+    --bg-subtle: #161b22;
+    --bg-muted: #21262d;
+    --bg-emphasized: #30363d;
+    --bg-inverted: #e6edf3;
 
-    --color-border-default: #30363d;
-    --color-border-muted: #21262d;
+    /* Semantic Foreground */
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --fg-subtle: #6e7681;
+    --fg-inverted: #0d1117;
 
-    --color-text-primary: #e6edf3;
-    --color-text-secondary: #8b949e;
-    --color-text-muted: #6e7681;
-    --color-text-link: #58a6ff;
-    --color-text-link-hover: #79c0ff;
+    /* Semantic Border */
+    --border: #30363d;
+    --border-muted: #21262d;
+    --border-emphasized: #484f58;
 
-    --color-accent-primary: #238636;
-    --color-accent-blue: #1f6feb;
-    --color-accent-purple: #8957e5;
-    --color-accent-orange: #d29922;
-    --color-accent-red: #f85149;
-    --color-accent-cyan: #39c5cf;
+    /* Legacy aliases */
+    --color-bg-primary: var(--bg);
+    --color-bg-secondary: var(--bg-subtle);
+    --color-bg-tertiary: var(--bg-muted);
+    --color-bg-hover: var(--bg-emphasized);
+    --color-bg-active: rgba(99, 102, 241, 0.15);
+    --color-border-default: var(--border);
+    --color-border-muted: var(--border-muted);
+    --color-text-primary: var(--fg);
+    --color-text-secondary: var(--fg-muted);
+    --color-text-muted: var(--fg-subtle);
+    --color-text-link: var(--color-teal-400);
+    --color-text-link-hover: var(--color-teal-300);
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+    /* Accent colors (brighter for dark mode) */
+    --color-accent-primary: #34d399;
+    --color-accent-blue: #60a5fa;
+    --color-accent-purple: var(--color-labs-purple-400);
+    --color-accent-orange: #fbbf24;
+    --color-accent-red: #f87171;
+    --color-accent-cyan: var(--color-teal-400);
+
+    /* Shadows (darker for dark mode) */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+    --shadow-md:
+        0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --shadow-lg:
+        0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    --shadow-xl:
+        0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.5);
 }
 
 /* ============================================
@@ -134,11 +341,12 @@ html {
 body {
     margin: 0;
     padding: 0;
-    font-family: var(--font-family-sans);
-    font-size: var(--font-size-base);
+    font-family: var(--font-body);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-normal);
     line-height: var(--line-height-normal);
-    color: var(--color-text-primary);
-    background-color: var(--color-bg-primary);
+    color: var(--fg);
+    background-color: var(--bg);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -158,10 +366,10 @@ body {
 
 .docs-nav {
     position: fixed;
-    top: 0;
+    top: var(--labs-banner-height);
     left: 0;
     width: var(--nav-width);
-    height: 100vh;
+    height: calc(100vh - var(--labs-banner-height));
     background-color: var(--color-bg-secondary);
     border-right: 1px solid var(--color-border-default);
     overflow-y: auto;
@@ -191,7 +399,9 @@ body {
 }
 
 .logo-icon {
-    font-size: 1.5rem;
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
 }
 
 .version-badge {
@@ -228,16 +438,16 @@ body {
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     margin: var(--spacing-1) 0;
-    border-radius: var(--radius-md);
-    color: var(--color-text-secondary);
+    border-radius: var(--radius-lg);
+    color: var(--fg-muted);
     text-decoration: none;
     font-size: var(--font-size-sm);
-    transition: all var(--transition-fast);
+    transition: all var(--duration-fast) var(--ease-in-out);
 }
 
 .nav-links a:hover {
-    color: var(--color-text-primary);
-    background-color: var(--color-bg-hover);
+    color: var(--fg);
+    background-color: var(--bg-emphasized);
 }
 
 .nav-links a.active {
@@ -263,6 +473,7 @@ body {
 .docs-content {
     flex: 1;
     margin-left: var(--nav-width);
+    margin-top: var(--labs-banner-height);
     padding: var(--spacing-8) var(--spacing-10);
     max-width: calc(
         var(--nav-width) + var(--content-max-width) + var(--spacing-10) * 2
@@ -281,23 +492,26 @@ h5,
 h6 {
     margin-top: var(--spacing-8);
     margin-bottom: var(--spacing-4);
-    font-weight: 600;
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-bold);
     line-height: var(--line-height-tight);
-    color: var(--color-text-primary);
+    letter-spacing: var(--letter-spacing-tight);
+    color: var(--fg);
 }
 
 h1 {
-    font-size: var(--font-size-3xl);
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-extrabold);
     margin-top: 0;
     padding-bottom: var(--spacing-4);
-    border-bottom: 1px solid var(--color-border-default);
+    border-bottom: 1px solid var(--border);
 }
 
 h2 {
     font-size: var(--font-size-2xl);
     margin-top: var(--spacing-12);
     padding-bottom: var(--spacing-2);
-    border-bottom: 1px solid var(--color-border-muted);
+    border-bottom: 1px solid var(--border-muted);
 }
 
 h3 {
@@ -310,7 +524,7 @@ h4 {
 
 h5,
 h6 {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-md);
 }
 
 p {
@@ -333,7 +547,7 @@ a:hover {
     margin-right: var(--spacing-2);
     color: var(--color-text-muted);
     opacity: 0;
-    transition: opacity var(--transition-fast);
+    transition: opacity var(--duration-fast) var(--ease-in-out);
 }
 
 h2:hover .sectanchors a::before,
@@ -487,9 +701,10 @@ dd {
 
 .admonitionblock {
     margin: var(--spacing-6) 0;
-    padding: var(--spacing-4);
-    border-radius: var(--radius-lg);
+    padding: var(--spacing-4) var(--spacing-5);
+    border-radius: var(--radius-xl);
     border-left: 4px solid;
+    box-shadow: var(--shadow-sm);
 }
 
 .admonitionblock table {
@@ -745,7 +960,7 @@ details .content {
         align-items: center;
         gap: var(--spacing-3);
         position: sticky;
-        top: 0;
+        top: var(--labs-banner-height);
         z-index: 50;
         background-color: var(--color-bg-secondary);
         border-bottom: 1px solid var(--color-border-default);
@@ -773,7 +988,7 @@ details .content {
         color: var(--color-text-secondary);
         cursor: pointer;
         font-size: var(--font-size-lg);
-        transition: all var(--transition-fast);
+        transition: all var(--duration-fast) var(--ease-in-out);
         order: -1;
     }
 
@@ -784,7 +999,7 @@ details .content {
 
     .docs-nav {
         transform: translateX(-100%);
-        transition: transform var(--transition-normal);
+        transition: transform var(--duration-normal) var(--ease-in-out);
     }
 
     .docs-nav.open {
@@ -942,7 +1157,7 @@ details .content {
     background-color: var(--color-bg-tertiary);
     color: var(--color-text-secondary);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--duration-fast) var(--ease-in-out);
     font-size: var(--font-size-base);
     line-height: 1;
     flex-shrink: 0;
@@ -1025,9 +1240,10 @@ details .content {
 
 .hero-actions {
     display: flex;
-    gap: var(--spacing-3);
+    gap: var(--spacing-4);
     justify-content: center;
     flex-wrap: wrap;
+    margin-top: var(--spacing-6);
     margin-bottom: var(--spacing-6);
 }
 
@@ -1075,46 +1291,166 @@ details .content {
 }
 
 /* ============================================
-   Landing Page: Buttons
+   Buttons (Chakra-inspired variants)
    ============================================ */
 
 .btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: var(--spacing-2);
-    padding: var(--spacing-2) var(--spacing-5);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-semibold);
     text-decoration: none;
-    transition: all var(--transition-fast);
+    border-radius: var(--radius-lg);
+    transition: all var(--duration-fast) var(--ease-in-out);
     cursor: pointer;
     border: 1px solid transparent;
+    outline: none;
 }
 
 .btn:hover {
     text-decoration: none;
+    transform: translateY(-1px);
 }
 
-.btn-primary {
-    background-color: var(--color-neo4j-blue);
+.btn:focus-visible {
+    box-shadow: 0 0 0 3px var(--color-labs-purple-200);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+/* Button Sizes */
+.btn-xs {
+    height: 1.5rem;
+    padding: 0 var(--spacing-2);
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius-md);
+}
+
+.btn-sm {
+    height: 2rem;
+    padding: 0 var(--spacing-3);
+    font-size: var(--font-size-sm);
+}
+
+.btn,
+.btn-md {
+    height: 2.5rem;
+    padding: 0 var(--spacing-5);
+    font-size: var(--font-size-sm);
+}
+
+.btn-lg {
+    height: 3rem;
+    padding: 0 var(--spacing-6);
+    font-size: var(--font-size-md);
+}
+
+.btn-xl {
+    height: 3.5rem;
+    padding: 0 var(--spacing-8);
+    font-size: var(--font-size-lg);
+}
+
+/* Solid Variant (Primary) */
+.btn-primary,
+.btn-solid {
+    background-color: var(--color-labs-purple-500);
+    color: #ffffff;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover,
+.btn-solid:hover {
+    background-color: var(--color-labs-purple-600);
+    color: #ffffff;
+    box-shadow: var(--shadow-md);
+}
+
+/* Outline Variant */
+.btn-outline {
+    background-color: transparent;
+    border-color: var(--color-labs-purple-500);
+    color: var(--color-labs-purple-600);
+}
+
+.btn-outline:hover {
+    background-color: var(--color-labs-purple-50);
+    color: var(--color-labs-purple-700);
+}
+
+[data-theme="dark"] .btn-outline:hover {
+    background-color: rgba(99, 102, 241, 0.15);
+    color: var(--color-labs-purple-300);
+}
+
+/* Subtle Variant */
+.btn-subtle {
+    background-color: var(--color-labs-purple-50);
+    color: var(--color-labs-purple-700);
+}
+
+.btn-subtle:hover {
+    background-color: var(--color-labs-purple-100);
+    color: var(--color-labs-purple-800);
+}
+
+[data-theme="dark"] .btn-subtle {
+    background-color: rgba(99, 102, 241, 0.15);
+    color: var(--color-labs-purple-300);
+}
+
+[data-theme="dark"] .btn-subtle:hover {
+    background-color: rgba(99, 102, 241, 0.25);
+    color: var(--color-labs-purple-200);
+}
+
+/* Ghost Variant */
+.btn-ghost {
+    background-color: transparent;
+    color: var(--color-labs-purple-600);
+}
+
+.btn-ghost:hover {
+    background-color: var(--color-labs-purple-50);
+    color: var(--color-labs-purple-700);
+}
+
+[data-theme="dark"] .btn-ghost {
+    color: var(--color-labs-purple-400);
+}
+
+[data-theme="dark"] .btn-ghost:hover {
+    background-color: rgba(99, 102, 241, 0.15);
+    color: var(--color-labs-purple-300);
+}
+
+/* Surface Variant (Secondary) */
+.btn-secondary,
+.btn-surface {
+    background-color: var(--bg-muted);
+    color: var(--fg);
+    border-color: var(--border);
+}
+
+.btn-secondary:hover,
+.btn-surface:hover {
+    background-color: var(--bg-emphasized);
+    color: var(--fg);
+}
+
+/* Teal/Link colored button */
+.btn-teal {
+    background-color: var(--color-teal-500);
     color: #ffffff;
 }
 
-.btn-primary:hover {
-    background-color: #0077e0;
+.btn-teal:hover {
+    background-color: var(--color-teal-600);
     color: #ffffff;
-}
-
-.btn-secondary {
-    background-color: var(--color-bg-tertiary);
-    color: var(--color-text-primary);
-    border-color: var(--color-border-default);
-}
-
-.btn-secondary:hover {
-    background-color: var(--color-bg-hover);
-    color: var(--color-text-primary);
 }
 
 /* ============================================
@@ -1129,18 +1465,18 @@ details .content {
 }
 
 .memory-card {
-    background-color: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-default);
-    border-radius: var(--radius-lg);
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
     padding: var(--spacing-6);
-    transition:
-        border-color var(--transition-fast),
-        box-shadow var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--duration-fast) var(--ease-in-out);
 }
 
 .memory-card:hover {
-    border-color: var(--color-neo4j-blue);
-    box-shadow: var(--shadow-md);
+    border-color: var(--color-labs-purple-400);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
 }
 
 .memory-card h3 {
@@ -1219,13 +1555,15 @@ details .content {
 
 .diff-card {
     padding: var(--spacing-5);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--color-border-muted);
-    transition: border-color var(--transition-fast);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-muted);
+    background-color: var(--bg);
+    transition: all var(--duration-fast) var(--ease-in-out);
 }
 
 .diff-card:hover {
-    border-color: var(--color-border-default);
+    border-color: var(--border-emphasized);
+    box-shadow: var(--shadow-sm);
 }
 
 .diff-card h4 {
@@ -1276,16 +1614,17 @@ details .content {
 }
 
 .demo-card {
-    border: 1px solid var(--color-border-default);
-    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
     overflow: hidden;
-    transition:
-        border-color var(--transition-fast),
-        box-shadow var(--transition-fast);
+    background-color: var(--bg);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--duration-fast) var(--ease-in-out);
 }
 
 .demo-card:hover {
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
 }
 
 .demo-card-featured {
@@ -1516,18 +1855,19 @@ details .content {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-1);
+    gap: var(--spacing-2);
     padding: var(--spacing-5) var(--spacing-4);
-    background-color: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-default);
-    border-radius: var(--radius-lg);
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
     text-decoration: none;
     text-align: center;
-    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-xs);
+    transition: all var(--duration-fast) var(--ease-in-out);
 }
 
 .integration-card:hover {
-    border-color: var(--color-neo4j-blue);
+    border-color: var(--color-labs-purple-400);
     box-shadow: var(--shadow-sm);
     text-decoration: none;
 }
@@ -1650,18 +1990,19 @@ details .content {
 
 .diataxis-card {
     display: block;
-    padding: var(--spacing-5);
-    border-radius: var(--radius-lg);
-    border: 2px solid var(--color-border-default);
-    background-color: var(--color-bg-secondary);
+    padding: var(--spacing-6);
+    border-radius: var(--radius-xl);
+    border: 2px solid var(--border);
+    background-color: var(--bg);
     text-decoration: none;
-    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--duration-fast) var(--ease-in-out);
 }
 
 .diataxis-card:hover {
     text-decoration: none;
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-3px);
 }
 
 .diataxis-card h4 {
@@ -1824,7 +2165,7 @@ details .content {
     color: var(--color-text-muted);
     cursor: pointer;
     opacity: 0;
-    transition: all var(--transition-fast);
+    transition: all var(--duration-fast) var(--ease-in-out);
     font-size: var(--font-size-sm);
 }
 
@@ -2012,7 +2353,7 @@ body[data-quadrant="explanation"] .docs-content h1 {
     background-color: transparent;
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--duration-fast) var(--ease-in-out);
 }
 
 .search-modal-close:hover {
@@ -2061,7 +2402,7 @@ body[data-quadrant="explanation"] .docs-content h1 {
     background-color: var(--color-bg-tertiary);
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--duration-fast) var(--ease-in-out);
     font-size: var(--font-size-sm);
 }
 
@@ -2138,4 +2479,129 @@ body.search-open {
 
 .pagefind-ui .pagefind-ui__result-excerpt {
     color: var(--color-text-secondary);
+}
+
+/* ============================================
+   Neo4j Labs Status Banner
+   ============================================ */
+
+.labs-banner {
+    background: linear-gradient(
+        135deg,
+        var(--color-labs-purple) 0%,
+        var(--color-labs-purple-dark) 100%
+    );
+    color: #ffffff;
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: var(--font-size-sm);
+    text-align: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    height: var(--labs-banner-height, 40px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2);
+}
+
+.labs-banner a {
+    color: #ffffff;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.labs-banner a:hover {
+    color: #ffffff;
+    opacity: 0.9;
+}
+
+.labs-banner .labs-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    margin-right: var(--spacing-2);
+    font-weight: 600;
+}
+
+/* Labs badge in nav header */
+.labs-badge-small {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    background-color: var(--color-labs-purple);
+    color: #ffffff;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    margin-left: var(--spacing-2);
+}
+
+/* Status badges for hero section */
+.status-badges {
+    display: flex;
+    gap: var(--spacing-2);
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: var(--spacing-4);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-1) var(--spacing-3);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.status-badge.experimental {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: var(--color-status-experimental);
+    border: 1px solid var(--color-status-experimental);
+}
+
+.status-badge.community {
+    background-color: rgba(107, 114, 128, 0.15);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-default);
+}
+
+/* Dark mode adjustments for Labs branding */
+[data-theme="dark"] .labs-banner {
+    background: linear-gradient(
+        135deg,
+        var(--color-labs-purple-dark) 0%,
+        #3730a3 100%
+    );
+}
+
+[data-theme="dark"] .status-badge.experimental {
+    background-color: rgba(245, 158, 11, 0.2);
+}
+
+[data-theme="dark"] .status-badge.community {
+    background-color: rgba(107, 114, 128, 0.2);
+}
+
+/* Mobile adjustments for Labs banner */
+@media (max-width: 640px) {
+    .labs-banner {
+        padding: var(--spacing-2) var(--spacing-3);
+        font-size: var(--font-size-xs);
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-1);
+        --labs-banner-height: auto;
+    }
+
+    .labs-banner .labs-badge {
+        display: block;
+        margin-bottom: 0;
+        margin-right: 0;
+    }
 }

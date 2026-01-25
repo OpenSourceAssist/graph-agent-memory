@@ -102,7 +102,7 @@ vercel --prod
 
 === Option 3: One-Click Deploy
 
-image:https://vercel.com/button[Deploy with Vercel,link=https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fneo4j-labs%2Fneo4j-agent-memory&root-directory=neo4j-agent-memory/docs]
+image:https://vercel.com/button[Deploy with Vercel,link=https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fneo4j-labs%2Fagent-memory&root-directory=docs]
 
 == Vercel Configuration
 

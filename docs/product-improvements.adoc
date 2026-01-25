@@ -703,7 +703,7 @@ docs/
 
 If you have additional improvement suggestions, please:
 
-. Open an issue on https://github.com/neo4j-labs/neo4j-agent-memory/issues[GitHub]
+. Open an issue on https://github.com/neo4j-labs/agent-memory/issues[GitHub]
 . Add to this document via PR
 . Include priority assessment and implementation ideas
 
@@ -712,4 +712,4 @@ If you have additional improvement suggestions, please:
 
 * xref:how-to/entity-extraction.adoc[Entity Extraction Guide]
 * xref:faq.adoc[FAQ]
-* https://github.com/neo4j-labs/neo4j-agent-memory[GitHub Repository]
+* https://github.com/neo4j-labs/agent-memory[GitHub Repository]

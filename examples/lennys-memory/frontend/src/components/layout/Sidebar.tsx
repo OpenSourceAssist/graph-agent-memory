@@ -173,7 +173,7 @@ export function Sidebar({
           </Text>
 
           <Link
-            href="https://github.com/neo4j-labs/neo4j-agent-memory"
+            href="https://github.com/neo4j-labs/agent-memory"
             target="_blank"
             rel="noopener noreferrer"
             _hover={{ textDecoration: "none" }}
@@ -192,7 +192,7 @@ export function Sidebar({
             >
               <LuDatabase size={16} color="var(--chakra-colors-blue-600)" />
               <Text fontSize="sm" fontWeight="medium" color="blue.700" flex="1">
-                neo4j-agent-memory
+                @neo4j-labs/agent-memory
               </Text>
               <LuExternalLink size={12} color="var(--chakra-colors-blue-500)" />
             </Flex>
@@ -255,7 +255,7 @@ export function Sidebar({
 
         {/* GitHub link */}
         <Link
-          href="https://github.com/neo4j-labs/neo4j-agent-memory/tree/main/examples/lennys-memory"
+          href="https://github.com/neo4j-labs/agent-memory/tree/main/examples/lennys-memory"
           target="_blank"
           rel="noopener noreferrer"
           _hover={{ textDecoration: "none" }}

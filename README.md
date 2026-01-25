@@ -2,10 +2,15 @@
 
 A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and let your agents learn from their own reasoning -- all backed by Neo4j.
 
-[![CI](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml)
+[![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)](https://neo4j.com/labs/)
+[![Status: Experimental](https://img.shields.io/badge/Status-Experimental-F59E0B)](https://neo4j.com/labs/)
+[![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)](https://community.neo4j.com)
+[![CI](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/neo4j-agent-memory.svg)](https://badge.fury.io/py/neo4j-agent-memory)
 [![Python versions](https://img.shields.io/pypi/pyversions/neo4j-agent-memory.svg)](https://pypi.org/project/neo4j-agent-memory/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+> ⚠️ **This is a Neo4j Labs project.** It is actively maintained but not officially supported. There are no SLAs or guarantees around backwards compatibility and deprecation. For questions and support, please use the [Neo4j Community Forum](https://community.neo4j.com).
 
 > **See it in action**: The [Lenny's Podcast Memory Explorer](examples/lennys-memory/) demo loads 299 podcast episodes into a searchable knowledge graph with an AI chat agent, interactive graph visualization, geospatial map view, and Wikipedia-enriched entity cards.
 
@@ -1067,6 +1072,8 @@ The package automatically creates the following schema:
 
 The flagship demo in [`examples/lennys-memory/`](examples/lennys-memory/) showcases every major feature of neo4j-agent-memory by loading 299 episodes of Lenny's Podcast into a knowledge graph with a full-stack AI chat agent.
 
+**[Try the live demo →](https://lennys-memory.vercel.app)**
+
 **What it demonstrates:**
 
 - **19 specialized agent tools** for semantic search, entity queries, geospatial analysis, and personalization
@@ -1098,8 +1105,8 @@ See the [Lenny's Memory README](examples/lennys-memory/README.md) for a full arc
 
 ```bash
 # Clone the repository
-git clone https://github.com/neo4j-labs/neo4j-agent-memory.git
-cd neo4j-agent-memory
+git clone https://github.com/neo4j-labs/agent-memory.git
+cd agent-memory
 
 # Install with uv
 uv sync --group dev
@@ -1217,6 +1224,12 @@ The integration test script supports several options:
    git push origin v0.1.0
    ```
 3. GitHub Actions will automatically build and publish to PyPI
+
+## Support
+
+- 💬 [Neo4j Community Forum](https://community.neo4j.com) - Ask questions and get help
+- 🐛 [GitHub Issues](https://github.com/neo4j-labs/agent-memory/issues) - Report bugs or request features
+- 📖 [Documentation](https://neo4j-agent-memory.vercel.app/) - Full documentation site
 
 ## License
 

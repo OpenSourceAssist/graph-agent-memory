@@ -44,7 +44,7 @@ const CONFIG = {
       // Custom attributes
       "project-name": "Neo4j Agent Memory",
       "project-version": "0.1.0",
-      "project-repo": "https://github.com/neo4j-labs/neo4j-agent-memory",
+      "project-repo": "https://github.com/neo4j-labs/agent-memory",
     },
   },
 };
@@ -423,6 +423,10 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} | Neo4j Agent Memory</title>
   <link rel="icon" type="image/svg+xml" href="${rootPath}favicon.svg">
+  <!-- Google Fonts: Neo4j Brand Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="${rootPath}style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
@@ -450,6 +454,13 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
   <script>hljs.highlightAll();</script>
 </head>
 <body${quadrant ? ` data-quadrant="${quadrant}"` : ""}>
+  <!-- Neo4j Labs Status Banner -->
+  <div class="labs-banner">
+    <span class="labs-badge">🧪 Neo4j Labs</span>
+    Experimental project — Community supported.
+    <a href="https://community.neo4j.com" target="_blank" rel="noopener noreferrer">Get help →</a>
+  </div>
+
   <!-- Search modal -->
   <div id="search-modal" class="search-modal" role="dialog" aria-modal="true" aria-labelledby="search-title">
     <div class="search-modal-backdrop"></div>
@@ -473,7 +484,7 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
       <i class="fa-solid fa-bars"></i>
     </button>
     <a href="${rootPath}index.html" class="nav-logo">
-      <span class="logo-icon">🧠</span>
+      <img src="${rootPath}favicon.svg" alt="Neo4j Agent Memory" class="logo-icon" width="24" height="24">
       <span class="logo-text">Agent Memory</span>
     </a>
     <button class="search-trigger" aria-label="Search documentation" title="Search (Ctrl+K)">
@@ -492,10 +503,11 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
     <nav class="docs-nav" aria-label="Main navigation">
       <div class="nav-header">
         <a href="${rootPath}index.html" class="nav-logo">
-          <span class="logo-icon">🧠</span>
+          <img src="${rootPath}favicon.svg" alt="Neo4j Agent Memory" class="logo-icon" width="24" height="24">
           <span class="logo-text">Agent Memory</span>
         </a>
         <span class="version-badge">v0.1.0</span>
+        <span class="labs-badge-small">Labs</span>
         <button class="search-trigger" aria-label="Search documentation" title="Search (Ctrl+K)">
           <i class="fa-solid fa-magnifying-glass"></i>
           <span class="search-shortcut"><kbd>⌘</kbd><kbd>K</kbd></span>
@@ -517,7 +529,7 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
         ${quadrantNavHtml}
         <div class="nav-section">
           <span class="nav-section-title">Resources</span>
-          <a href="https://github.com/neo4j-labs/neo4j-agent-memory" target="_blank">
+          <a href="https://github.com/neo4j-labs/agent-memory" target="_blank">
             <i class="fab fa-github"></i> GitHub
           </a>
           <a href="https://pypi.org/project/neo4j-agent-memory/" target="_blank">
