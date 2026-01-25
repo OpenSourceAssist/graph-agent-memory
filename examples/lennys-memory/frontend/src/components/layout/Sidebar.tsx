@@ -255,7 +255,7 @@ export function Sidebar({
 
         {/* GitHub link */}
         <Link
-          href="https://github.com/neo4j-labs/agent-memory/tree/main/neo4j-agent-memory/examples/lennys-memory"
+          href="https://github.com/neo4j-labs/agent-memory/tree/main/examples/lennys-memory"
           target="_blank"
           rel="noopener noreferrer"
           _hover={{ textDecoration: "none" }}
