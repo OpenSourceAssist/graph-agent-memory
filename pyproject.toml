@@ -96,7 +96,7 @@ Homepage = "https://github.com/neo4j-labs/agent-memory"
 Documentation = "https://neo4j-agent-memory.vercel.app/"
 Repository = "https://github.com/neo4j-labs/agent-memory"
 Issues = "https://github.com/neo4j-labs/agent-memory/issues"
-Changelog = "https://github.com/neo4j-labs/agent-memory/blob/main/neo4j-agent-memory/CHANGELOG.md"
+Changelog = "https://github.com/neo4j-labs/agent-memory/releases"
 
 [dependency-groups]
 dev = [
