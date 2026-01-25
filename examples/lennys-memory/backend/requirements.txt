@@ -13,4 +13,4 @@ gliner>=0.2.0
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 
 # neo4j-agent-memory from GitHub (with extraction and openai extras)
-neo4j-agent-memory[extraction,openai] @ git+https://github.com/neo4j-labs/agent-memory@main#subdirectory=neo4j-agent-memory
+neo4j-agent-memory[extraction,openai] @ git+https://github.com/neo4j-labs/agent-memory@main
