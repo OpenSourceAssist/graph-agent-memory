@@ -11,18 +11,16 @@ Provides factory functions and wrapper classes for enrichment providers:
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 from neo4j_agent_memory.enrichment.base import (
     EnrichmentProvider,
     EnrichmentResult,
     EnrichmentStatus,
-    NoOpEnrichmentProvider,
 )
 
 if TYPE_CHECKING:
     from neo4j_agent_memory.config.settings import EnrichmentConfig
-    from neo4j_agent_memory.config.settings import EnrichmentProvider as EnrichmentProviderEnum
 
 logger = logging.getLogger(__name__)
 
