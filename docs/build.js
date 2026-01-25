@@ -744,6 +744,12 @@ function validateLinks() {
       // Skip external links
       if (href.startsWith("http") || href.startsWith("//")) continue;
 
+      // Skip pagefind assets (generated separately by pagefind)
+      if (href.includes("pagefind/")) continue;
+
+      // Skip links to examples directory (outside docs)
+      if (href.includes("/examples/")) continue;
+
       // Resolve relative path
       const linkTarget = path.resolve(path.dirname(htmlFile), href);
 
