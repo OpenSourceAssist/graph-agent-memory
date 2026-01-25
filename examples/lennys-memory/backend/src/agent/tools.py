@@ -62,6 +62,7 @@ async def search_podcast_content(
             query=query,
             limit=limit,
             threshold=0.5,
+            metadata_filters={"source": "lenny_podcast"},
         )
 
         return [
@@ -374,9 +375,10 @@ async def get_entity_context(
         if not entity:
             return {"error": f"Entity '{entity_name}' not found"}
 
-        # Get mentions from the graph
+        # Get mentions from the graph (filter to podcast sessions only)
         query = """
         MATCH (e:Entity {name: $name})<-[:MENTIONS]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+        WHERE c.session_id STARTS WITH 'lenny-podcast-'
         RETURN m.content AS content,
                m.metadata AS metadata,
                c.session_id AS session_id
@@ -437,9 +439,11 @@ async def find_related_entities(
         return [{"error": "Memory client not available"}]
 
     try:
-        # Find entities that co-occur in the same messages
+        # Find entities that co-occur in the same messages (podcast sessions only)
         query = """
-        MATCH (e1:Entity {name: $name})<-[:MENTIONS]-(m:Message)-[:MENTIONS]->(e2:Entity)
+        MATCH (e1:Entity {name: $name})<-[:MENTIONS]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+        WHERE c.session_id STARTS WITH 'lenny-podcast-'
+        MATCH (m)-[:MENTIONS]->(e2:Entity)
         WHERE e1 <> e2
         WITH e2, count(m) AS co_occurrences
         ORDER BY co_occurrences DESC
@@ -484,9 +488,11 @@ async def get_most_mentioned_entities(
         return [{"error": "Memory client not available"}]
 
     try:
+        # Count mentions from podcast sessions only
         query = """
-        MATCH (e:Entity)<-[r:MENTIONS]-()
-        WHERE $type IS NULL OR e.type = $type
+        MATCH (e:Entity)<-[r:MENTIONS]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+        WHERE c.session_id STARTS WITH 'lenny-podcast-'
+        AND ($type IS NULL OR e.type = $type)
         WITH e, count(r) AS mentions
         ORDER BY mentions DESC
         LIMIT $limit
