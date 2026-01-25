@@ -96,6 +96,13 @@ src/neo4j_agent_memory/
 ├── services/
 │   ├── __init__.py          # Service exports
 │   └── geocoder.py          # Geocoding services (Nominatim, Google, cached)
+├── enrichment/
+│   ├── __init__.py          # Enrichment exports
+│   ├── base.py              # EnrichmentProvider protocol, EnrichmentResult
+│   ├── wikimedia.py         # Wikipedia/Wikimedia enrichment provider
+│   ├── diffbot.py           # Diffbot Knowledge Graph provider
+│   ├── factory.py           # Provider factory, caching, composite providers
+│   └── background.py        # BackgroundEnrichmentService for async processing
 ├── graph/
 │   ├── client.py            # Async Neo4j client wrapper
 │   ├── schema.py            # Index/constraint management
@@ -712,6 +719,86 @@ coords = await client.long_term.get_location_coordinates(entity_id)
 # Returns: (40.748817, -73.985428) or None
 ```
 
+### Background Entity Enrichment
+
+Entities can be automatically enriched with additional data from external services like Wikipedia and Diffbot. Enrichment is non-blocking - entities are stored immediately, and enrichment data is fetched asynchronously in the background.
+
+```python
+from neo4j_agent_memory import MemorySettings, MemoryClient
+from neo4j_agent_memory.config.settings import EnrichmentConfig, EnrichmentProvider
+
+# Configure enrichment in settings
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "password"},
+    enrichment=EnrichmentConfig(
+        enabled=True,
+        providers=[EnrichmentProvider.WIKIMEDIA],  # Free, no API key required
+        background_enabled=True,  # Async processing
+        cache_results=True,  # Cache to avoid repeated API calls
+        entity_types=["PERSON", "ORGANIZATION", "LOCATION"],  # Types to enrich
+        min_confidence=0.7,  # Minimum confidence to trigger enrichment
+    ),
+)
+
+async with MemoryClient(settings) as client:
+    # Add entity - enrichment happens automatically in background
+    entity, dedup_result = await client.long_term.add_entity(
+        "Albert Einstein",
+        "PERSON",
+        confidence=0.95,
+    )
+    
+    # Entity is stored immediately with basic data
+    # Background service fetches Wikipedia data and updates entity
+
+    # After enrichment completes, entity will have additional fields:
+    # - enriched_description: Wikipedia summary
+    # - wikipedia_url: Link to Wikipedia page
+    # - wikidata_id: Wikidata Q identifier
+    # - enriched_at: Timestamp of enrichment
+
+# Using Diffbot for richer data (requires API key)
+settings = MemorySettings(
+    enrichment=EnrichmentConfig(
+        enabled=True,
+        providers=[EnrichmentProvider.DIFFBOT, EnrichmentProvider.WIKIMEDIA],
+        diffbot_api_key="your-diffbot-api-key",  # Or set DIFFBOT_API_KEY env var
+    ),
+)
+```
+
+**Direct Provider Usage (without background service):**
+
+```python
+from neo4j_agent_memory.enrichment import WikimediaProvider, DiffbotProvider
+
+# Wikimedia (free, rate-limited to 2 requests/second)
+provider = WikimediaProvider(rate_limit=0.5)  # 0.5s between requests
+result = await provider.enrich("Albert Einstein", "PERSON")
+
+if result.status == EnrichmentStatus.SUCCESS:
+    print(f"Description: {result.description}")
+    print(f"Wikipedia: {result.wikipedia_url}")
+    print(f"Wikidata ID: {result.wikidata_id}")
+    print(f"Image: {result.image_url}")
+
+# Diffbot (requires API key, richer data)
+provider = DiffbotProvider(api_key="your-key")
+result = await provider.enrich("Apple Inc", "ORGANIZATION")
+print(f"Related entities: {result.related_entities}")
+```
+
+**Environment Variables:**
+
+```bash
+NAM_ENRICHMENT__ENABLED=true
+NAM_ENRICHMENT__PROVIDERS=["wikimedia", "diffbot"]
+NAM_ENRICHMENT__DIFFBOT_API_KEY=your-api-key
+NAM_ENRICHMENT__CACHE_RESULTS=true
+NAM_ENRICHMENT__BACKGROUND_ENABLED=true
+NAM_ENRICHMENT__ENTITY_TYPES=["PERSON", "ORGANIZATION", "LOCATION", "EVENT"]
+```
+
 ### Extraction Pipeline
 
 ```python
@@ -1146,6 +1233,8 @@ deps = MemoryDependency(client=client, session_id="user-123")
 
 16. **Provenance Tracking**: Entities can be linked to their source messages via `EXTRACTED_FROM` relationships and to extractors via `EXTRACTED_BY` relationships. Use `link_entity_to_message()` and `link_entity_to_extractor()` to create provenance links. Query with `get_entity_provenance()`, `get_entities_from_message()`, or `get_entities_by_extractor()`. Extractor nodes (`(:Extractor)`) are auto-created when linking.
 
+17. **Background Enrichment**: Entities can be enriched with additional data from external services (Wikipedia, Diffbot) in a non-blocking background process. Use `EnrichmentConfig` to configure providers. The `enrichment/` module provides `WikimediaProvider`, `DiffbotProvider`, `CachedEnrichmentProvider`, `CompositeEnrichmentProvider`, and `BackgroundEnrichmentService`. Enrichment happens asynchronously after entity creation - the entity is stored immediately, then enriched data is fetched and merged in the background. Enrichment is disabled by default; enable with `enrichment.enabled=True` in settings.
+
 ## Environment Variables
 
 - `NEO4J_URI` - Neo4j connection URI (default: `bolt://localhost:7687`)
@@ -1153,6 +1242,9 @@ deps = MemoryDependency(client=client, session_id="user-123")
 - `NEO4J_PASSWORD` - Neo4j password (default for tests: `test-password`)
 - `OPENAI_API_KEY` - Required for OpenAI embeddings and LLM extraction
 - `GOOGLE_GEOCODING_API_KEY` - API key for Google Geocoding (optional, for geocoding Location entities)
+- `DIFFBOT_API_KEY` - API key for Diffbot Knowledge Graph enrichment (optional)
+- `NAM_ENRICHMENT__ENABLED` - Enable background entity enrichment (default: `false`)
+- `NAM_ENRICHMENT__PROVIDERS` - JSON array of enrichment providers (default: `["wikimedia"]`)
 - `RUN_INTEGRATION_TESTS` - Set to `1` to enable integration tests
 - `AUTO_START_DOCKER` - Set to `true` to auto-start Neo4j Docker (default)
 
@@ -1222,6 +1314,10 @@ Located in `examples/full-stack-chat-agent/`, this is a complete demonstration o
 - **Frontend**: Next.js 14 + Chakra UI with SSE streaming
 - **News Graph Tools**: Search, filter, and analyze news articles
 - **Memory Graph Visualization**: Interactive graph view using Neo4j Visualization Library (NVL)
+  - Conversation-scoped filtering: Shows only nodes relevant to the current thread
+  - Double-click to expand: Click a node twice to fetch and display its neighbors
+  - "Expand Neighbors" button in the property panel for alternative expansion
+  - Memory type filtering (short-term, user-profile, procedural)
 - **Automatic Preference Extraction**: Detects and stores user preferences from conversation
 - **Memory Context Panel**: Real-time display of short-term, long-term, and procedural memory
 
@@ -1259,3 +1355,84 @@ make chat-agent-frontend
 - `frontend/src/components/chat/` - Chat UI components (MessageList, PromptInput, ToolCallDisplay)
 - `frontend/src/components/memory/MemoryContext.tsx` - Memory context panel showing preferences, entities, recent messages
 - `frontend/src/components/memory/MemoryGraphView.tsx` - Interactive NVL graph visualization of memory nodes
+
+## Lenny's Memory Example (Flagship Demo)
+
+Located in `examples/lennys-memory/`, this is the flagship demo for the library launch. It loads 299 Lenny's Podcast episodes into a knowledge graph with a full-stack AI chat agent.
+
+### Tech Stack
+- **Backend**: FastAPI + PydanticAI + neo4j-agent-memory
+- **Frontend**: Next.js 14 + Chakra UI v3 + TypeScript
+- **Graph Viz**: Neo4j Visualization Library (NVL)
+- **Map Viz**: Leaflet + react-leaflet + Turf.js
+- **Database**: Neo4j 5.x with APOC
+- **LLM**: OpenAI GPT-4o
+
+### Key Features
+
+- **19 agent tools**: Podcast search, entity queries, geospatial analysis, preferences, procedural memory
+- **Three memory types**: Short-term (conversations), long-term (entities, preferences), procedural (reasoning traces)
+- **Wikipedia enrichment**: Entities auto-enriched with descriptions, images, Wikipedia URLs
+- **SSE streaming**: Real-time token delivery with tool call visualization
+- **Automatic preference learning**: Detects user preferences from natural conversation
+
+### Agent Tools (19 total)
+
+**Podcast Content Search (6):** `search_podcast_content`, `search_by_speaker`, `search_by_episode`, `get_episode_list`, `get_speaker_list`, `get_memory_stats`
+
+**Entity Knowledge Graph (4):** `search_entities`, `get_entity_context`, `find_related_entities`, `get_most_mentioned_entities`
+
+**Geospatial Analysis (6):** `search_locations`, `find_locations_near`, `get_episode_locations`, `find_location_path`, `get_location_clusters`, `calculate_location_distances`
+
+**Personalization (2):** `get_user_preferences`, `find_similar_past_queries`
+
+### Graph Visualization Features
+
+- Conversation-scoped filtering via `threadId` prop
+- Double-click to expand node neighbors
+- Memory type filtering (short-term, long-term, procedural)
+- Wikipedia enrichment section in node property panel with images
+
+### Map Visualization Features
+
+The map view (`MemoryMapView.tsx`) supports:
+- **Conversation-scoped filtering**: Pass `threadId` to show only locations mentioned in the current conversation
+- **Multiple view modes**: Markers, Clusters, and Heatmap visualizations
+- **Multiple basemaps**: OpenStreetMap, Satellite (ESRI), and Terrain views
+- **Distance measurement**: Click locations to measure distances using Turf.js great-circle calculations
+- **Shortest path visualization**: Select two locations to find and display the graph path between them
+- **Color-coded markers**: Locations colored by subtype (city, country, landmark, etc.)
+
+### Memory Context Panel
+
+- Entity cards with images, descriptions, Wikipedia links
+- User preferences displayed by category
+- Agent tools accordion
+- Responsive: side panel on desktop, bottom sheet on mobile
+
+### API Endpoints
+
+**Chat:** `POST /api/chat` (SSE streaming)
+
+**Threads:** `GET/POST /api/threads`, `GET/PATCH/DELETE /api/threads/{id}`
+
+**Memory:** `GET /api/memory/context`, `GET /api/memory/graph`, `GET /api/memory/graph/neighbors/{node_id}`, `GET /api/memory/traces`, `GET /api/memory/traces/{id}`, `GET /api/memory/similar-traces`, `GET /api/memory/tool-stats`
+
+**Entities:** `GET /api/entities`, `GET /api/entities/top`, `GET /api/entities/{name}/context`, `GET /api/entities/related/{name}`
+
+**Preferences:** `GET/POST /api/preferences`, `DELETE /api/preferences/{id}`
+
+**Locations:** `GET /api/locations`, `GET /api/locations/nearby`, `GET /api/locations/bounds`, `GET /api/locations/clusters`, `GET /api/locations/path`
+
+### Running
+
+```bash
+cd examples/lennys-memory
+make neo4j          # Start Neo4j
+make install        # Install dependencies
+make load-sample    # Load 5 episodes (quick test)
+make run-backend    # FastAPI on :8000
+make run-frontend   # Next.js on :3000
+```
+
+See `examples/lennys-memory/README.md` for a full deep dive.

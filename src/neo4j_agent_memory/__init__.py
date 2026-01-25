@@ -45,6 +45,8 @@ from pydantic import BaseModel, Field
 from neo4j_agent_memory.config.settings import (
     EmbeddingConfig,
     EmbeddingProvider,
+    EnrichmentConfig,
+    EnrichmentProvider,
     ExtractionConfig,
     ExtractorType,
     GeocodingConfig,
@@ -146,12 +148,14 @@ __all__ = [
     "MemoryConfig",
     "SearchConfig",
     "GeocodingConfig",
+    "EnrichmentConfig",
     # Enums
     "EmbeddingProvider",
     "LLMProvider",
     "ExtractorType",
     "ResolverStrategy",
     "GeocodingProvider",
+    "EnrichmentProvider",
     "MessageRole",
     "EntityType",
     "ToolCallStatus",
@@ -222,6 +226,7 @@ class MemoryClient:
         extractor=None,
         resolver=None,
         geocoder=None,
+        enrichment_provider=None,
     ):
         """
         Initialize the memory client.
@@ -232,6 +237,7 @@ class MemoryClient:
             extractor: Optional extractor override (for testing)
             resolver: Optional resolver override (for testing)
             geocoder: Optional geocoder override (for testing)
+            enrichment_provider: Optional enrichment provider override (for testing)
         """
         self._settings = settings or MemorySettings()
         self._client: Neo4jClient | None = None
@@ -240,10 +246,13 @@ class MemoryClient:
         self._extractor_override = extractor
         self._resolver_override = resolver
         self._geocoder_override = geocoder
+        self._enrichment_provider_override = enrichment_provider
         self._embedder = None
         self._extractor = None
         self._resolver = None
         self._geocoder = None
+        self._enrichment_provider = None
+        self._enrichment_service = None
 
         # Memory instances (initialized on connect)
         self._short_term: ShortTermMemory | None = None
@@ -289,6 +298,12 @@ class MemoryClient:
         # Initialize geocoder (use override if provided)
         self._geocoder = self._geocoder_override or self._create_geocoder()
 
+        # Initialize enrichment (use override if provided)
+        self._enrichment_provider = (
+            self._enrichment_provider_override or self._create_enrichment_provider()
+        )
+        self._enrichment_service = await self._create_enrichment_service()
+
         # Create memory instances
         self._short_term = ShortTermMemory(
             self._client,
@@ -301,6 +316,7 @@ class MemoryClient:
             self._extractor,
             self._resolver,
             self._geocoder,
+            self._enrichment_service,
         )
         self._procedural = ProceduralMemory(
             self._client,
@@ -308,7 +324,12 @@ class MemoryClient:
         )
 
     async def close(self) -> None:
-        """Close the Neo4j connection."""
+        """Close the Neo4j connection and stop background services."""
+        # Stop enrichment service gracefully
+        if self._enrichment_service is not None:
+            await self._enrichment_service.stop()
+            self._enrichment_service = None
+
         if self._client is not None:
             await self._client.close()
             self._client = None
@@ -717,6 +738,112 @@ class MemoryClient:
             },
         )
 
+    async def get_locations(
+        self,
+        *,
+        session_id: str | None = None,
+        has_coordinates: bool = True,
+        limit: int = 500,
+    ) -> list[dict]:
+        """
+        Get location entities, optionally filtered by conversation session.
+
+        This method retrieves Location entities from the knowledge graph,
+        with optional filtering to only include locations mentioned in a
+        specific conversation (identified by session_id).
+
+        Args:
+            session_id: Filter to locations mentioned in this conversation.
+                       When provided, only returns locations that have an
+                       EXTRACTED_FROM relationship to messages in this session.
+            has_coordinates: Only return locations with lat/lon coordinates.
+                           Defaults to True for map visualization use cases.
+            limit: Maximum number of locations to return. Defaults to 500.
+
+        Returns:
+            List of location dictionaries with:
+                - id: Entity UUID
+                - name: Location name
+                - subtype: Location subtype (city, country, landmark, etc.)
+                - description: Entity description
+                - enriched_description: Enhanced description from enrichment
+                - wikipedia_url: Wikipedia link if available
+                - latitude: Latitude coordinate
+                - longitude: Longitude coordinate
+                - conversations: List of conversations mentioning this location
+        """
+        if self._client is None:
+            raise NotConnectedError("Client not connected.")
+
+        # Build the query based on whether session_id filtering is needed
+        if session_id:
+            # Filter to locations mentioned in the specific conversation
+            # EXTRACTED_FROM direction: (Entity)-[:EXTRACTED_FROM]->(Message)
+            query = """
+                MATCH (e:Entity {type: 'LOCATION'})-[:EXTRACTED_FROM]->(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
+                WITH DISTINCT e
+                WHERE $has_coordinates = false OR (e.location.latitude IS NOT NULL AND e.location.longitude IS NOT NULL)
+                WITH e LIMIT $limit
+                OPTIONAL MATCH (e)-[:EXTRACTED_FROM]->(m2:Message)<-[:HAS_MESSAGE]-(c2:Conversation)
+                WITH e, collect(DISTINCT {id: c2.id, title: c2.title, session_id: c2.session_id}) as conversations
+                RETURN e.id as id,
+                       e.name as name,
+                       e.subtype as subtype,
+                       e.description as description,
+                       e.enriched_description as enriched_description,
+                       e.wikipedia_url as wikipedia_url,
+                       e.location.latitude as latitude,
+                       e.location.longitude as longitude,
+                       conversations
+            """
+        else:
+            # Return all locations (no session filtering)
+            query = """
+                MATCH (e:Entity {type: 'LOCATION'})
+                WHERE $has_coordinates = false OR (e.location.latitude IS NOT NULL AND e.location.longitude IS NOT NULL)
+                WITH e LIMIT $limit
+                OPTIONAL MATCH (e)-[:EXTRACTED_FROM]->(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
+                WITH e, collect(DISTINCT {id: c.id, title: c.title, session_id: c.session_id}) as conversations
+                RETURN e.id as id,
+                       e.name as name,
+                       e.subtype as subtype,
+                       e.description as description,
+                       e.enriched_description as enriched_description,
+                       e.wikipedia_url as wikipedia_url,
+                       e.location.latitude as latitude,
+                       e.location.longitude as longitude,
+                       conversations
+            """
+
+        params = {
+            "session_id": session_id,
+            "has_coordinates": has_coordinates,
+            "limit": limit,
+        }
+
+        try:
+            results = await self._client.execute_read(query, params)
+            locations = []
+            for row in results:
+                # Filter out null conversation entries
+                convs = [c for c in (row.get("conversations") or []) if c.get("id")]
+                locations.append(
+                    {
+                        "id": row["id"],
+                        "name": row["name"],
+                        "subtype": row.get("subtype"),
+                        "description": row.get("description"),
+                        "enriched_description": row.get("enriched_description"),
+                        "wikipedia_url": row.get("wikipedia_url"),
+                        "latitude": row.get("latitude"),
+                        "longitude": row.get("longitude"),
+                        "conversations": convs,
+                    }
+                )
+            return locations
+        except Exception:
+            return []
+
     def _create_embedder(self):
         """Create embedder based on settings."""
         config = self._settings.embedding
@@ -826,3 +953,42 @@ class MemoryClient:
             rate_limit=config.rate_limit_per_second,
             user_agent=config.user_agent,
         )
+
+    def _create_enrichment_provider(self):
+        """Create enrichment provider based on settings.
+
+        Returns a configured enrichment provider, or None if enrichment
+        is disabled. Supports Wikimedia (free) and Diffbot (requires API key).
+        """
+        from neo4j_agent_memory.enrichment.factory import create_enrichment_service
+
+        return create_enrichment_service(self._settings.enrichment)
+
+    async def _create_enrichment_service(self):
+        """Create and start the background enrichment service.
+
+        Returns a BackgroundEnrichmentService if enrichment is enabled and
+        background processing is enabled, otherwise None.
+        """
+        if self._enrichment_provider is None:
+            return None
+
+        if not self._settings.enrichment.background_enabled:
+            return None
+
+        if self._client is None:
+            return None
+
+        from neo4j_agent_memory.enrichment.background import BackgroundEnrichmentService
+
+        service = BackgroundEnrichmentService(
+            client=self._client,
+            provider=self._enrichment_provider,
+            max_queue_size=self._settings.enrichment.queue_max_size,
+            max_retries=self._settings.enrichment.max_retries,
+            retry_delay=self._settings.enrichment.retry_delay_seconds,
+            min_confidence=self._settings.enrichment.min_confidence,
+            entity_types=self._settings.enrichment.entity_types or None,
+        )
+        await service.start()
+        return service

@@ -1,62 +1,126 @@
+/* Leaflet CSS */
+@import "leaflet/dist/leaflet.css";
+
 @layer base {
-  :root {
-    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-      Roboto, "Helvetica Neue", Arial, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-      "Liberation Mono", monospace;
-  }
+    :root {
+        --font-sans:
+            system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+            "Helvetica Neue", Arial, sans-serif;
+        --font-mono:
+            ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+            "Liberation Mono", monospace;
+    }
 
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
 
-  html,
-  body {
-    height: 100%;
-    overflow: hidden;
-  }
+    html,
+    body {
+        height: 100%;
+        overflow: hidden;
+    }
 }
 
 /* Animations */
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .animate-spin {
-  animation: spin 1s linear infinite;
+    animation: spin 1s linear infinite;
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+    width: 8px;
+    height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--chakra-colors-gray-300);
-  border-radius: 4px;
+    background: var(--chakra-colors-gray-300);
+    border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--chakra-colors-gray-400);
+    background: var(--chakra-colors-gray-400);
 }
 
 /* Dark mode scrollbar */
 [data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: var(--chakra-colors-gray-600);
+    background: var(--chakra-colors-gray-600);
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
-  background: var(--chakra-colors-gray-500);
+    background: var(--chakra-colors-gray-500);
+}
+
+/* Leaflet popup styling */
+.leaflet-popup-content-wrapper {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-popup-content {
+    margin: 12px;
+}
+
+.leaflet-popup-close-button {
+    color: #666 !important;
+}
+
+/* Marker cluster styling (if using clustering) */
+.marker-cluster-small {
+    background-color: rgba(76, 142, 218, 0.6);
+}
+
+.marker-cluster-small div {
+    background-color: rgba(76, 142, 218, 0.9);
+}
+
+.marker-cluster-medium {
+    background-color: rgba(255, 196, 84, 0.6);
+}
+
+.marker-cluster-medium div {
+    background-color: rgba(255, 196, 84, 0.9);
+}
+
+.marker-cluster-large {
+    background-color: rgba(247, 151, 103, 0.6);
+}
+
+.marker-cluster-large div {
+    background-color: rgba(247, 151, 103, 0.9);
+}
+
+.marker-cluster {
+    background-clip: padding-box;
+    border-radius: 20px;
+}
+
+.marker-cluster div {
+    width: 30px;
+    height: 30px;
+    margin-left: 5px;
+    margin-top: 5px;
+    text-align: center;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }

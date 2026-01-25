@@ -92,6 +92,9 @@ class Entity(BaseModel):
     type: str
     subtype: str | None = None
     description: str | None = None
+    enriched_description: str | None = None
+    wikipedia_url: str | None = None
+    image_url: str | None = None
 
 
 # Memory context schemas
@@ -189,3 +192,28 @@ class ToolStatsResponse(BaseModel):
     success_rate: float = 0.0
     avg_duration_ms: float = 0.0
     total_calls: int = 0
+
+
+# Location schemas for map view
+class ConversationRef(BaseModel):
+    """Reference to a conversation/episode."""
+
+    id: str
+    title: str | None = None
+
+
+class LocationEntity(BaseModel):
+    """A location entity with coordinates for map display."""
+
+    id: str
+    name: str
+    subtype: str | None = None
+    description: str | None = None
+    enriched_description: str | None = None
+    wikipedia_url: str | None = None
+    latitude: float
+    longitude: float
+    conversations: list[ConversationRef] = Field(default_factory=list)
+    distance_km: float | None = Field(
+        default=None, description="Distance from search point (for nearby queries)"
+    )

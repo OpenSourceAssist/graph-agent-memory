@@ -46,6 +46,9 @@ export interface Entity {
   type: string;
   subtype?: string;
   description?: string;
+  enriched_description?: string | null;
+  wikipedia_url?: string | null;
+  image_url?: string | null;
 }
 
 export interface RecentMessage {
@@ -119,4 +122,23 @@ export interface GraphRelationship {
 export interface MemoryGraph {
   nodes: GraphNode[];
   relationships: GraphRelationship[];
+}
+
+// Location Types for Map View
+export interface ConversationRef {
+  id: string;
+  title: string | null;
+}
+
+export interface LocationEntity {
+  id: string;
+  name: string;
+  subtype: string | null;
+  description: string | null;
+  enriched_description: string | null;
+  wikipedia_url: string | null;
+  latitude: number;
+  longitude: number;
+  conversations: ConversationRef[];
+  distance_km?: number | null; // Distance from search point (for nearby queries)
 }

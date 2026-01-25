@@ -252,6 +252,22 @@ async def main():
         else:
             print("   (Geocoding may be rate-limited or location not found)")
 
+        # Get all locations with coordinates
+        all_locations = await memory.get_locations(
+            has_coordinates=True,
+            limit=100,
+        )
+        print(f"   Total locations with coordinates: {len(all_locations)}")
+
+        # Get locations filtered by session (conversation-scoped)
+        # This is useful for map views that show only locations mentioned in a conversation
+        session_locations = await memory.get_locations(
+            session_id=session_id,  # Only locations mentioned in this conversation
+            has_coordinates=True,
+            limit=100,
+        )
+        print(f"   Locations in session '{session_id}': {len(session_locations)}")
+
         # Search preferences
         print("\n🔍 Searching for food-related preferences...")
         food_prefs = await memory.long_term.search_preferences("food", limit=5)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Box,
   VStack,
@@ -10,8 +10,11 @@ import {
   Spinner,
   Badge,
   IconButton,
+  Image,
+  Link,
 } from "@chakra-ui/react";
 import { HiX, HiRefresh } from "react-icons/hi";
+import { LuExpand, LuExternalLink, LuSparkles } from "react-icons/lu";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
 import type { MemoryGraph, GraphNode, GraphRelationship } from "@/lib/types";
@@ -59,6 +62,7 @@ const InteractiveNvlWrapper = dynamic(
 interface MemoryGraphViewProps {
   isOpen: boolean;
   onClose: () => void;
+  threadId?: string;
 }
 
 // Memory type classification
@@ -119,6 +123,7 @@ const MEMORY_TYPE_COLORS = {
 export default function MemoryGraphView({
   isOpen,
   onClose,
+  threadId,
 }: MemoryGraphViewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [graphData, setGraphData] = useState<MemoryGraph | null>(null);
@@ -133,13 +138,26 @@ export default function MemoryGraphView({
     procedural: true,
   });
 
+  // Double-click detection state
+  const [lastClickedNodeId, setLastClickedNodeId] = useState<string | null>(
+    null,
+  );
+  const [lastClickTime, setLastClickTime] = useState<number>(0);
+  const DOUBLE_CLICK_DELAY = 300; // ms
+
+  // Node expansion state
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [expandingNode, setExpandingNode] = useState<string | null>(null);
+
   const loadGraphData = async () => {
     setIsLoading(true);
     setError(null);
     setSelectedNode(null);
     setSelectedRelationship(null);
+    setExpandedNodes(new Set());
+    setExpandingNode(null);
     try {
-      const data = await api.memory.getGraph();
+      const data = await api.memory.getGraph(threadId);
       setGraphData(data);
 
       if (data.nodes.length === 0) {
@@ -155,6 +173,56 @@ export default function MemoryGraphView({
       setIsLoading(false);
     }
   };
+
+  // Handle node expansion (fetch neighbors)
+  const handleNodeExpand = useCallback(
+    async (nodeId: string) => {
+      // Skip if already expanded or currently expanding
+      if (expandedNodes.has(nodeId) || expandingNode) return;
+
+      setExpandingNode(nodeId);
+
+      try {
+        const neighbors = await api.memory.getNodeNeighbors(nodeId, 1, 50);
+
+        // Merge new nodes and relationships into existing graph
+        setGraphData((prev) => {
+          if (!prev) return prev;
+
+          const existingNodeIds = new Set(prev.nodes.map((n) => n.id));
+          const existingRelIds = new Set(prev.relationships.map((r) => r.id));
+
+          const newNodes = neighbors.nodes.filter(
+            (n) => !existingNodeIds.has(n.id),
+          );
+          const newRels = neighbors.relationships.filter(
+            (r) => !existingRelIds.has(r.id),
+          );
+
+          if (newNodes.length === 0 && newRels.length === 0) {
+            // No new data to add
+            return prev;
+          }
+
+          return {
+            nodes: [...prev.nodes, ...newNodes],
+            relationships: [...prev.relationships, ...newRels],
+          };
+        });
+
+        setExpandedNodes((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(nodeId);
+          return newSet;
+        });
+      } catch (err) {
+        console.error("Failed to expand node:", err);
+      } finally {
+        setExpandingNode(null);
+      }
+    },
+    [expandedNodes, expandingNode],
+  );
 
   const getNodeLabel = (node: GraphNode): string => {
     if (node.labels.includes("Thread")) return "Thread";
@@ -293,7 +361,9 @@ export default function MemoryGraphView({
           const formatted = sessionId
             .replace("lenny-podcast-", "")
             .replace(/-/g, " ");
-          return formatted.substring(0, 25) + (formatted.length > 25 ? "..." : "");
+          return (
+            formatted.substring(0, 25) + (formatted.length > 25 ? "..." : "")
+          );
         }
         return "Conversation";
       }
@@ -389,6 +459,8 @@ export default function MemoryGraphView({
     return filteredNodes.map((node) => {
       const nodeType = getNodeLabel(node);
       const isSelected = selectedNode?.id === node.id;
+      const isExpanded = expandedNodes.has(node.id);
+      const isExpanding = expandingNode === node.id;
       const caption = getNodeCaption(node);
 
       let baseSize = 15;
@@ -411,16 +483,21 @@ export default function MemoryGraphView({
       )
         baseSize = 18;
 
+      // Visual feedback for expanded/expanding nodes
+      let size = baseSize;
+      if (isSelected) size += 5;
+      if (isExpanded) size += 3;
+
       return {
         id: node.id,
-        caption,
-        size: isSelected ? baseSize + 5 : baseSize,
+        caption: isExpanding ? `${caption} ...` : caption,
+        size,
         color: NODE_COLORS[nodeType] || "#CCCCCC",
-        selected: isSelected,
+        selected: isSelected || isExpanded,
         data: node,
       };
     });
-  }, [filteredNodes, selectedNode]);
+  }, [filteredNodes, selectedNode, expandedNodes, expandingNode]);
 
   const nvlRelationships = useMemo<NvlRelationship[]>(() => {
     if (!filteredRelationships) return [];
@@ -440,10 +517,27 @@ export default function MemoryGraphView({
   const mouseEventCallbacks: MouseEventCallbacks = useMemo(
     () => ({
       onNodeClick: (node: NvlNode) => {
+        const now = Date.now();
+        const nodeId = node.id;
         const originalData = node.data;
-        if (originalData) {
-          setSelectedNode(originalData);
-          setSelectedRelationship(null);
+
+        // Check for double-click
+        if (
+          nodeId === lastClickedNodeId &&
+          now - lastClickTime < DOUBLE_CLICK_DELAY
+        ) {
+          // Double-click detected - expand node
+          handleNodeExpand(nodeId);
+          setLastClickedNodeId(null);
+          setLastClickTime(0);
+        } else {
+          // Single click - select node
+          if (originalData) {
+            setSelectedNode(originalData);
+            setSelectedRelationship(null);
+          }
+          setLastClickedNodeId(nodeId);
+          setLastClickTime(now);
         }
       },
       onRelationshipClick: (rel: NvlRelationship) => {
@@ -459,7 +553,7 @@ export default function MemoryGraphView({
       onZoom: true,
       onDrag: true,
     }),
-    [graphData],
+    [graphData, lastClickedNodeId, lastClickTime, handleNodeExpand],
   );
 
   useEffect(() => {
@@ -487,14 +581,14 @@ export default function MemoryGraphView({
       {/* Graph View Modal */}
       <Box
         position="fixed"
-        top="50%"
-        left="50%"
-        transform="translate(-50%, -50%)"
-        width={{ base: "95%", md: "90%", lg: "85%" }}
-        height={{ base: "90%", md: "85%" }}
+        top={{ base: 0, md: "50%" }}
+        left={{ base: 0, md: "50%" }}
+        transform={{ base: "none", md: "translate(-50%, -50%)" }}
+        width={{ base: "100%", md: "90%", lg: "85%" }}
+        height={{ base: "100%", md: "85%" }}
         bg="white"
-        borderRadius="xl"
-        boxShadow="2xl"
+        borderRadius={{ base: 0, md: "xl" }}
+        boxShadow={{ base: "none", md: "2xl" }}
         zIndex={1001}
         display="flex"
         flexDirection="column"
@@ -909,6 +1003,88 @@ export default function MemoryGraphView({
                             </HStack>
                           </Box>
 
+                          {/* Wikipedia Enrichment Section */}
+                          {(typeof selectedNode.properties
+                            .enriched_description === "string" ||
+                            typeof selectedNode.properties.wikipedia_url ===
+                              "string" ||
+                            typeof selectedNode.properties.image_url ===
+                              "string") && (
+                            <Box
+                              p={2.5}
+                              bg="purple.50"
+                              borderRadius="md"
+                              border="1px solid"
+                              borderColor="purple.100"
+                            >
+                              <HStack gap={1} mb={2}>
+                                <LuSparkles
+                                  size={12}
+                                  color="var(--chakra-colors-purple-500)"
+                                />
+                                <Text
+                                  fontSize="xs"
+                                  fontWeight="semibold"
+                                  color="purple.700"
+                                >
+                                  Wikipedia Enrichment
+                                </Text>
+                              </HStack>
+
+                              {typeof selectedNode.properties.image_url ===
+                                "string" && (
+                                <Image
+                                  src={selectedNode.properties.image_url}
+                                  alt={String(
+                                    selectedNode.properties.name || "Entity",
+                                  )}
+                                  w="100%"
+                                  maxH="120px"
+                                  objectFit="cover"
+                                  borderRadius="md"
+                                  mb={2}
+                                />
+                              )}
+
+                              {typeof selectedNode.properties
+                                .enriched_description === "string" && (
+                                <Text
+                                  fontSize="xs"
+                                  color="gray.700"
+                                  mb={2}
+                                  lineHeight="tall"
+                                >
+                                  {selectedNode.properties.enriched_description.slice(
+                                    0,
+                                    300,
+                                  )}
+                                  {selectedNode.properties.enriched_description
+                                    .length > 300 && "..."}
+                                </Text>
+                              )}
+
+                              {typeof selectedNode.properties.wikipedia_url ===
+                                "string" && (
+                                <Link
+                                  href={selectedNode.properties.wikipedia_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  fontSize="xs"
+                                  color="blue.600"
+                                  fontWeight="medium"
+                                  display="inline-flex"
+                                  alignItems="center"
+                                  gap={1}
+                                  _hover={{
+                                    textDecoration: "underline",
+                                  }}
+                                >
+                                  View on Wikipedia <LuExternalLink size={10} />
+                                </Link>
+                              )}
+                            </Box>
+                          )}
+
                           <Box>
                             <Text
                               fontSize="xs"
@@ -941,8 +1117,20 @@ export default function MemoryGraphView({
                               Properties
                             </Text>
                             <VStack align="stretch" gap={2}>
-                              {Object.entries(selectedNode.properties).map(
-                                ([key, value]) => (
+                              {Object.entries(selectedNode.properties)
+                                .filter(
+                                  ([key]) =>
+                                    ![
+                                      "enriched_description",
+                                      "wikipedia_url",
+                                      "image_url",
+                                      "enrichment_provider",
+                                      "enriched_at",
+                                      "enrichment_metadata",
+                                      "wikidata_id",
+                                    ].includes(key),
+                                )
+                                .map(([key, value]) => (
                                   <Box key={key}>
                                     <Text
                                       fontSize="xs"
@@ -961,9 +1149,60 @@ export default function MemoryGraphView({
                                       {formatPropertyValue(value)}
                                     </Text>
                                   </Box>
-                                ),
-                              )}
+                                ))}
                             </VStack>
+                          </Box>
+
+                          {/* Expand Node Button */}
+                          <Box
+                            pt={2}
+                            borderTop="1px solid"
+                            borderColor="gray.200"
+                          >
+                            <Button
+                              size="sm"
+                              width="100%"
+                              colorPalette={
+                                expandedNodes.has(selectedNode.id)
+                                  ? "green"
+                                  : "blue"
+                              }
+                              variant={
+                                expandedNodes.has(selectedNode.id)
+                                  ? "outline"
+                                  : "solid"
+                              }
+                              onClick={() => handleNodeExpand(selectedNode.id)}
+                              disabled={
+                                expandedNodes.has(selectedNode.id) ||
+                                expandingNode !== null
+                              }
+                            >
+                              {expandingNode === selectedNode.id ? (
+                                <>
+                                  <Spinner size="sm" mr={2} />
+                                  Expanding...
+                                </>
+                              ) : expandedNodes.has(selectedNode.id) ? (
+                                <>
+                                  <LuExpand />
+                                  <Text ml={2}>Already Expanded</Text>
+                                </>
+                              ) : (
+                                <>
+                                  <LuExpand />
+                                  <Text ml={2}>Expand Neighbors</Text>
+                                </>
+                              )}
+                            </Button>
+                            <Text
+                              fontSize="xs"
+                              color="gray.500"
+                              mt={1}
+                              textAlign="center"
+                            >
+                              Double-click nodes to expand
+                            </Text>
                           </Box>
                         </>
                       ) : selectedRelationship && graphData ? (
@@ -1220,7 +1459,8 @@ export default function MemoryGraphView({
             bg="gray.50"
           >
             <Text fontSize="xs" color="gray.600">
-              Click nodes or relationships to view details | Drag to pan |
+              Click to select |{" "}
+              <strong>Double-click to expand neighbors</strong> | Drag to pan |
               Scroll to zoom
             </Text>
           </HStack>

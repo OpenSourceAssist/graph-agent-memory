@@ -3,9 +3,10 @@
 Uses neo4j-agent-memory's new features for improved memory operations.
 """
 
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from neo4j_agent_memory.memory.long_term import Preference as LongTermPreference
 from src.api.schemas import (
@@ -423,3 +424,163 @@ async def delete_message(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def serialize_neo4j_value(value: Any) -> Any:
+    """Serialize Neo4j values to JSON-compatible format."""
+    if value is None:
+        return None
+
+    # Handle Neo4j Integer
+    if hasattr(value, "__class__") and value.__class__.__name__ == "Integer":
+        return int(value)
+
+    # Handle Neo4j DateTime
+    if hasattr(value, "iso_format"):
+        return value.iso_format()
+
+    # Handle datetime objects
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+
+    # Handle lists
+    if isinstance(value, list):
+        return [serialize_neo4j_value(v) for v in value]
+
+    # Handle dicts
+    if isinstance(value, dict):
+        return {k: serialize_neo4j_value(v) for k, v in value.items()}
+
+    return value
+
+
+@router.get("/memory/graph/neighbors/{node_id}", response_model=MemoryGraph)
+async def get_node_neighbors(
+    node_id: str,
+    depth: int = Query(default=1, ge=1, le=2),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> MemoryGraph:
+    """Get neighbors of a specific node for graph expansion.
+
+    This endpoint allows incremental graph exploration by fetching
+    the neighbors of a specific node.
+
+    Args:
+        node_id: The ID of the node to expand.
+        depth: How many hops away to retrieve (1 or 2). Default is 1.
+        limit: Maximum number of neighbors to return. Default is 50.
+
+    Returns:
+        MemoryGraph containing the source node, its neighbors, and
+        the relationships connecting them.
+    """
+    memory = get_memory_client()
+    if memory is None:
+        return MemoryGraph(nodes=[], relationships=[])
+
+    try:
+        # First get the source node with explicit scalar values
+        source_query = """
+        MATCH (n) WHERE n.id = $node_id
+        RETURN n.id AS id, labels(n) AS labels, properties(n) AS props
+        LIMIT 1
+        """
+        source_results = await memory._client.execute_read(source_query, {"node_id": node_id})
+
+        nodes = []
+        relationships = []
+        seen_node_ids = set()
+        seen_rel_ids = set()
+
+        # Add the source node
+        for row in source_results:
+            if row["id"] and row["id"] not in seen_node_ids:
+                seen_node_ids.add(row["id"])
+                props = row["props"] or {}
+                nodes.append(
+                    GraphNode(
+                        id=row["id"],
+                        labels=row["labels"] or [],
+                        properties={
+                            k: serialize_neo4j_value(v)
+                            for k, v in props.items()
+                            if k != "embedding"
+                        },
+                    )
+                )
+
+        # Now get neighbors and relationships with explicit scalar values
+        if depth == 1:
+            neighbor_query = """
+            MATCH (n)-[r]-(neighbor) WHERE n.id = $node_id
+            RETURN neighbor.id AS neighbor_id,
+                   labels(neighbor) AS neighbor_labels,
+                   properties(neighbor) AS neighbor_props,
+                   type(r) AS rel_type,
+                   elementId(r) AS rel_id,
+                   properties(r) AS rel_props,
+                   startNode(r).id AS start_id,
+                   endNode(r).id AS end_id
+            LIMIT $limit
+            """
+        else:
+            # depth == 2: get 2-hop neighbors
+            neighbor_query = """
+            MATCH path = (n)-[*1..2]-(neighbor) WHERE n.id = $node_id AND neighbor <> n
+            WITH neighbor, relationships(path) AS rels
+            UNWIND rels AS r
+            RETURN DISTINCT neighbor.id AS neighbor_id,
+                   labels(neighbor) AS neighbor_labels,
+                   properties(neighbor) AS neighbor_props,
+                   type(r) AS rel_type,
+                   elementId(r) AS rel_id,
+                   properties(r) AS rel_props,
+                   startNode(r).id AS start_id,
+                   endNode(r).id AS end_id
+            LIMIT $limit
+            """
+
+        neighbor_results = await memory._client.execute_read(
+            neighbor_query, {"node_id": node_id, "limit": limit}
+        )
+
+        for row in neighbor_results:
+            # Add neighbor node
+            neighbor_id = row["neighbor_id"]
+            if neighbor_id and neighbor_id not in seen_node_ids:
+                seen_node_ids.add(neighbor_id)
+                props = row["neighbor_props"] or {}
+                nodes.append(
+                    GraphNode(
+                        id=neighbor_id,
+                        labels=row["neighbor_labels"] or [],
+                        properties={
+                            k: serialize_neo4j_value(v)
+                            for k, v in props.items()
+                            if k != "embedding"
+                        },
+                    )
+                )
+
+            # Add relationship
+            rel_id = row["rel_id"]
+            if rel_id and rel_id not in seen_rel_ids:
+                seen_rel_ids.add(rel_id)
+                rel_props = row["rel_props"] or {}
+                relationships.append(
+                    GraphRelationship(
+                        id=rel_id,
+                        from_node=row["start_id"],
+                        to_node=row["end_id"],
+                        type=row["rel_type"],
+                        properties={k: serialize_neo4j_value(v) for k, v in rel_props.items()},
+                    )
+                )
+
+        return MemoryGraph(nodes=nodes, relationships=relationships)
+
+    except Exception as e:
+        import logging
+
+        logging.getLogger(__name__).warning(f"Error fetching node neighbors: {e}")
+        return MemoryGraph(nodes=[], relationships=[])

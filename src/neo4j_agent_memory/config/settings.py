@@ -248,6 +248,14 @@ class GeocodingProvider(str, Enum):
     GOOGLE = "google"
 
 
+class EnrichmentProvider(str, Enum):
+    """Supported enrichment providers."""
+
+    WIKIMEDIA = "wikimedia"
+    DIFFBOT = "diffbot"
+    NONE = "none"
+
+
 class GeocodingConfig(BaseModel):
     """Geocoding configuration for Location entities.
 
@@ -279,6 +287,81 @@ class GeocodingConfig(BaseModel):
     user_agent: str = Field(
         default="neo4j-agent-memory",
         description="User agent string for Nominatim requests (required by their ToS)",
+    )
+
+
+class EnrichmentConfig(BaseModel):
+    """Entity enrichment configuration.
+
+    Configures background enrichment of entities with external data
+    from Wikipedia, Diffbot, and other knowledge sources.
+
+    Enrichment runs asynchronously and does not block entity extraction/storage.
+
+    Providers:
+    - WIKIMEDIA: Free Wikipedia/Wikidata enrichment (rate limited to ~2 req/sec)
+    - DIFFBOT: Diffbot Knowledge Graph (requires API key, structured data)
+    """
+
+    enabled: bool = Field(default=False, description="Enable automatic entity enrichment")
+
+    # Provider selection
+    providers: list[EnrichmentProvider] = Field(
+        default=[EnrichmentProvider.WIKIMEDIA],
+        description="Enrichment providers to use (in priority order)",
+    )
+
+    # API keys
+    diffbot_api_key: SecretStr | None = Field(
+        default=None, description="API key for Diffbot Knowledge Graph"
+    )
+
+    # Rate limiting
+    wikimedia_rate_limit: float = Field(
+        default=0.5, gt=0, description="Seconds between Wikimedia API requests"
+    )
+    diffbot_rate_limit: float = Field(
+        default=0.2, gt=0, description="Seconds between Diffbot API requests"
+    )
+
+    # Caching
+    cache_results: bool = Field(
+        default=True, description="Cache enrichment results to avoid repeated API calls"
+    )
+    cache_ttl_hours: int = Field(
+        default=24 * 7,  # 1 week
+        ge=1,
+        description="Hours to cache enrichment results",
+    )
+
+    # Background processing
+    background_enabled: bool = Field(
+        default=True, description="Run enrichment in background (non-blocking)"
+    )
+    queue_max_size: int = Field(default=1000, ge=1, description="Maximum enrichment queue size")
+    max_retries: int = Field(
+        default=3, ge=0, description="Maximum retry attempts for failed enrichments"
+    )
+    retry_delay_seconds: float = Field(
+        default=60.0, ge=1, description="Delay between retry attempts"
+    )
+
+    # Entity type filtering
+    entity_types: list[str] = Field(
+        default=["PERSON", "ORGANIZATION", "LOCATION", "EVENT"],
+        description="Entity types to enrich (empty = all types)",
+    )
+    min_confidence: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Minimum entity confidence to trigger enrichment",
+    )
+
+    # Content options
+    language: str = Field(default="en", description="Preferred language for enrichment data")
+    user_agent: str = Field(
+        default="neo4j-agent-memory/1.0", description="User-Agent for API requests"
     )
 
 
@@ -314,6 +397,7 @@ class MemorySettings(BaseSettings):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
     geocoding: GeocodingConfig = Field(default_factory=GeocodingConfig)
+    enrichment: EnrichmentConfig = Field(default_factory=EnrichmentConfig)
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]) -> "MemorySettings":

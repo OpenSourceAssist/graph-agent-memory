@@ -154,6 +154,7 @@ def _to_python_datetime(neo4j_datetime) -> datetime:
 
 if TYPE_CHECKING:
     from neo4j_agent_memory.embeddings.base import Embedder
+    from neo4j_agent_memory.enrichment.background import BackgroundEnrichmentService
     from neo4j_agent_memory.extraction.base import EntityExtractor
     from neo4j_agent_memory.graph.client import Neo4jClient
     from neo4j_agent_memory.resolution.base import EntityResolver
@@ -328,6 +329,7 @@ class LongTermMemory(BaseMemory[Entity]):
         extractor: "EntityExtractor | None" = None,
         resolver: "EntityResolver | None" = None,
         geocoder: "Geocoder | None" = None,
+        enrichment_service: "BackgroundEnrichmentService | None" = None,
         entity_types: list[str] | None = None,
         strict_types: bool = False,
         deduplication: DeduplicationConfig | None = None,
@@ -340,6 +342,7 @@ class LongTermMemory(BaseMemory[Entity]):
             extractor: Optional entity extractor
             resolver: Optional entity resolver for deduplication
             geocoder: Optional geocoder for Location entities
+            enrichment_service: Optional background enrichment service
             entity_types: Allowed entity types (defaults to POLE+O)
             strict_types: If True, reject entities with unknown types
             deduplication: Optional deduplication configuration (defaults to enabled)
@@ -347,6 +350,7 @@ class LongTermMemory(BaseMemory[Entity]):
         super().__init__(client, embedder, extractor)
         self._resolver = resolver
         self._geocoder = geocoder
+        self._enrichment_service = enrichment_service
         self._entity_types = entity_types or POLEO_TYPES
         self._strict_types = strict_types
         self._deduplication = deduplication or DeduplicationConfig()
@@ -382,6 +386,7 @@ class LongTermMemory(BaseMemory[Entity]):
         generate_embedding: bool = True,
         deduplicate: bool = True,
         geocode: bool = True,
+        enrich: bool = True,
         coordinates: tuple[float, float] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> tuple[Entity, DeduplicationResult]:
@@ -399,6 +404,7 @@ class LongTermMemory(BaseMemory[Entity]):
             generate_embedding: Whether to generate embedding
             deduplicate: Whether to check for duplicate entities
             geocode: Whether to geocode LOCATION entities (requires geocoder)
+            enrich: Whether to queue for background enrichment
             coordinates: Optional (latitude, longitude) tuple to set directly
             metadata: Optional metadata
 
@@ -517,6 +523,16 @@ class LongTermMemory(BaseMemory[Entity]):
                     "match_type": dedup_result.match_type or "embedding",
                     "status": "pending",
                 },
+            )
+
+        # Queue for background enrichment (non-blocking)
+        if enrich and self._enrichment_service is not None and self._enrichment_service.is_running:
+            await self._enrichment_service.enqueue(
+                entity_id=entity.id,
+                entity_name=entity.name,
+                entity_type=entity.type,
+                context=entity.description,
+                confidence=entity.confidence,
             )
 
         return entity, dedup_result
@@ -1892,6 +1908,7 @@ class LongTermMemory(BaseMemory[Entity]):
         longitude: float,
         *,
         radius_km: float = 10.0,
+        session_id: str | None = None,
         limit: int = 10,
     ) -> list[Entity]:
         """
@@ -1901,6 +1918,7 @@ class LongTermMemory(BaseMemory[Entity]):
             latitude: Latitude of the center point
             longitude: Longitude of the center point
             radius_km: Search radius in kilometers (default 10km)
+            session_id: Optional session ID to filter locations by conversation
             limit: Maximum number of results
 
         Returns:
@@ -1909,12 +1927,31 @@ class LongTermMemory(BaseMemory[Entity]):
         # Convert km to meters for Neo4j query
         radius_meters = radius_km * 1000
 
+        if session_id:
+            # Filter to locations mentioned in the specific conversation
+            query = """
+                MATCH (e:Entity {type: 'LOCATION'})-[:EXTRACTED_FROM]->(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
+                WITH DISTINCT e
+                WHERE e.location IS NOT NULL
+                WITH e, point.distance(
+                    point({latitude: $latitude, longitude: $longitude}),
+                    point({latitude: e.location.latitude, longitude: e.location.longitude})
+                ) AS distance_meters
+                WHERE distance_meters <= $radius_meters
+                RETURN e, distance_meters
+                ORDER BY distance_meters ASC
+                LIMIT $limit
+            """
+        else:
+            query = queries.SEARCH_LOCATIONS_NEAR
+
         results = await self._client.execute_read(
-            queries.SEARCH_LOCATIONS_NEAR,
+            query,
             {
                 "latitude": latitude,
                 "longitude": longitude,
                 "radius_meters": radius_meters,
+                "session_id": session_id,
                 "limit": limit,
             },
         )
@@ -1935,6 +1972,7 @@ class LongTermMemory(BaseMemory[Entity]):
         max_lat: float,
         max_lon: float,
         *,
+        session_id: str | None = None,
         limit: int = 100,
     ) -> list[Entity]:
         """
@@ -1945,18 +1983,36 @@ class LongTermMemory(BaseMemory[Entity]):
             min_lon: Minimum longitude (west)
             max_lat: Maximum latitude (north)
             max_lon: Maximum longitude (east)
+            session_id: Optional session ID to filter locations by conversation
             limit: Maximum number of results
 
         Returns:
             List of Location entities within the bounding box
         """
+        if session_id:
+            # Filter to locations mentioned in the specific conversation
+            query = """
+                MATCH (e:Entity {type: 'LOCATION'})-[:EXTRACTED_FROM]->(m:Message)<-[:HAS_MESSAGE]-(c:Conversation {session_id: $session_id})
+                WITH DISTINCT e
+                WHERE e.location IS NOT NULL
+                  AND e.location.latitude >= $min_lat
+                  AND e.location.latitude <= $max_lat
+                  AND e.location.longitude >= $min_lon
+                  AND e.location.longitude <= $max_lon
+                RETURN e
+                LIMIT $limit
+            """
+        else:
+            query = queries.SEARCH_LOCATIONS_IN_BOUNDING_BOX
+
         results = await self._client.execute_read(
-            queries.SEARCH_LOCATIONS_IN_BOUNDING_BOX,
+            query,
             {
                 "min_lat": min_lat,
                 "min_lon": min_lon,
                 "max_lat": max_lat,
                 "max_lon": max_lon,
+                "session_id": session_id,
                 "limit": limit,
             },
         )

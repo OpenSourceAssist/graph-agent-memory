@@ -1,11 +1,13 @@
 # Neo4j Agent Memory
 
-A comprehensive memory system for AI agents using Neo4j as the persistence layer.
+A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and let your agents learn from their own reasoning -- all backed by Neo4j.
 
 [![CI](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/neo4j-agent-memory.svg)](https://badge.fury.io/py/neo4j-agent-memory)
 [![Python versions](https://img.shields.io/pypi/pyversions/neo4j-agent-memory.svg)](https://pypi.org/project/neo4j-agent-memory/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+> **See it in action**: The [Lenny's Podcast Memory Explorer](examples/lennys-memory/) demo loads 299 podcast episodes into a searchable knowledge graph with an AI chat agent, interactive graph visualization, geospatial map view, and Wikipedia-enriched entity cards.
 
 ## Features
 
@@ -16,8 +18,10 @@ A comprehensive memory system for AI agents using Neo4j as the persistence layer
 - **Entity Resolution**: Multi-strategy deduplication (exact, fuzzy, semantic matching) with type-aware resolution
 - **Entity Deduplication on Ingest**: Automatic duplicate detection with configurable auto-merge and flagging
 - **Provenance Tracking**: Track where entities were extracted from and which extractor produced them
+- **Background Entity Enrichment**: Automatically enrich entities with Wikipedia and Diffbot data
 - **GLiREL Relation Extraction**: Extract relationships without LLM calls using GLiREL
-- **Vector Search**: Semantic similarity search across all memory types
+- **Vector + Graph Search**: Semantic similarity search and graph traversal in a single database
+- **Geospatial Queries**: Spatial indexes on Location entities for radius and bounding box search
 - **Temporal Relationships**: Track when facts become valid or invalid
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Observability**: OpenTelemetry and Opik tracing for monitoring extraction pipelines
@@ -352,13 +356,13 @@ print(f"Migrated stats for {len(migrated)} tools")
 
 ### Graph Export for Visualization
 
-Export memory graph data for visualization:
+Export memory graph data for visualization with flexible filtering:
 
 ```python
 # Export the full memory graph
 graph = await memory.get_graph(
     memory_types=["short_term", "long_term", "procedural"],  # Optional filter
-    session_id="user-123",  # Optional session filter
+    session_id="user-123",  # Optional: scope to a specific conversation
     include_embeddings=False,  # Don't include large embedding vectors
     limit=1000,
 )
@@ -372,6 +376,66 @@ for node in graph.nodes:
 
 for rel in graph.relationships:
     print(f"{rel.from_node} -[{rel.type}]-> {rel.to_node}")
+```
+
+**Conversation-Scoped Graphs**: Use `session_id` to export only the memory associated with a specific conversation:
+
+```python
+# Get graph for a specific conversation (thread)
+conversation_graph = await memory.get_graph(
+    session_id="thread-abc123",  # Only nodes related to this session
+    include_embeddings=False,
+)
+
+# This returns:
+# - Messages in that conversation
+# - Entities mentioned in those messages
+# - Procedural traces from that session
+# - Relationships connecting them
+```
+
+This is particularly useful for visualization UIs that want to show contextually relevant data rather than the entire knowledge graph.
+
+### Location Queries
+
+Query location entities with optional conversation filtering:
+
+```python
+# Get all locations with coordinates
+locations = await memory.get_locations(has_coordinates=True)
+
+# Get locations mentioned in a specific conversation
+locations = await memory.get_locations(
+    session_id="thread-abc123",  # Only locations from this conversation
+    has_coordinates=True,
+    limit=100,
+)
+
+# Each location includes:
+# - id, name, subtype (city, country, landmark, etc.)
+# - latitude, longitude coordinates
+# - conversations referencing this location
+```
+
+**Geospatial Queries**: Search for locations by proximity or bounding box:
+
+```python
+# Find locations within 50km of a point
+nearby = await memory.long_term.search_locations_near(
+    latitude=40.7128,
+    longitude=-74.0060,
+    radius_km=50,
+    session_id="thread-123",  # Optional: filter by conversation
+)
+
+# Find locations in a bounding box (useful for map viewports)
+in_view = await memory.long_term.search_locations_in_bounding_box(
+    min_lat=40.0,
+    max_lat=42.0,
+    min_lon=-75.0,
+    max_lon=-73.0,
+    session_id="thread-123",  # Optional: filter by conversation
+)
 ```
 
 ### PydanticAI Trace Recording
@@ -716,6 +780,46 @@ await memory.long_term.link_entity_to_extractor(
 provenance = await memory.long_term.get_entity_provenance(entity)
 ```
 
+## Background Entity Enrichment
+
+Automatically enrich entities with additional data from Wikipedia and Diffbot:
+
+```python
+from neo4j_agent_memory import MemorySettings, MemoryClient
+from neo4j_agent_memory.config.settings import EnrichmentConfig, EnrichmentProvider
+
+settings = MemorySettings(
+    enrichment=EnrichmentConfig(
+        enabled=True,
+        providers=[EnrichmentProvider.WIKIMEDIA],  # Free, no API key needed
+        background_enabled=True,  # Async processing
+        entity_types=["PERSON", "ORGANIZATION", "LOCATION"],
+    ),
+)
+
+async with MemoryClient(settings) as client:
+    # Entities are automatically enriched in the background
+    entity, _ = await client.long_term.add_entity(
+        "Albert Einstein", "PERSON", confidence=0.9,
+    )
+    # After enrichment: entity gains enriched_description, wikipedia_url, wikidata_id
+
+# Direct provider usage
+from neo4j_agent_memory.enrichment import WikimediaProvider
+
+provider = WikimediaProvider()
+result = await provider.enrich("Albert Einstein", "PERSON")
+print(result.description)  # "German-born theoretical physicist..."
+print(result.wikipedia_url)  # "https://en.wikipedia.org/wiki/Albert_Einstein"
+```
+
+Environment variables:
+```bash
+NAM_ENRICHMENT__ENABLED=true
+NAM_ENRICHMENT__PROVIDERS=["wikimedia", "diffbot"]
+NAM_ENRICHMENT__DIFFBOT_API_KEY=your-api-key  # For Diffbot
+```
+
 ## CLI Tool
 
 Command-line interface for entity extraction and schema management:
@@ -959,6 +1063,32 @@ The package automatically creates the following schema:
 - Vector indexes for semantic search (requires Neo4j 5.11+)
 - Regular indexes on frequently queried properties
 
+## Demo: Lenny's Podcast Memory Explorer
+
+The flagship demo in [`examples/lennys-memory/`](examples/lennys-memory/) showcases every major feature of neo4j-agent-memory by loading 299 episodes of Lenny's Podcast into a knowledge graph with a full-stack AI chat agent.
+
+**What it demonstrates:**
+
+- **19 specialized agent tools** for semantic search, entity queries, geospatial analysis, and personalization
+- **Three memory types working together**: conversations inform entity extraction, entities build a knowledge graph, reasoning traces help the agent improve
+- **Wikipedia enrichment**: Entities are automatically enriched with descriptions, images, and external links
+- **Interactive graph visualization** using Neo4j Visualization Library (NVL) with double-click-to-expand exploration
+- **Geospatial map view** with Leaflet -- marker clusters, heatmaps, distance measurement, and shortest-path visualization
+- **SSE streaming** for real-time token delivery with tool call visualization
+- **Automatic preference learning** from natural conversation
+- **Responsive design** -- fully usable on mobile and desktop
+
+```bash
+cd examples/lennys-memory
+make neo4j          # Start Neo4j
+make install        # Install dependencies
+make load-sample    # Load 5 episodes for testing
+make run-backend    # Start FastAPI (port 8000)
+make run-frontend   # Start Next.js (port 3000)
+```
+
+See the [Lenny's Memory README](examples/lennys-memory/README.md) for a full architecture deep dive, API reference, and example Cypher queries.
+
 ## Requirements
 
 - Python 3.10+
@@ -1024,12 +1154,13 @@ Examples are located in `examples/` and demonstrate various features:
 
 | Example | Description | Requirements |
 |---------|-------------|--------------|
+| [`lennys-memory/`](examples/lennys-memory/) | **Flagship demo**: Podcast knowledge graph with AI chat, graph visualization, map view, entity enrichment | Neo4j, OpenAI, Node.js |
+| `full-stack-chat-agent/` | Full-stack web app with FastAPI backend and Next.js frontend | Neo4j, OpenAI, Node.js |
 | `basic_usage.py` | Core memory operations (short-term, long-term, procedural) | Neo4j, OpenAI API key |
 | `entity_resolution.py` | Entity matching strategies | None |
 | `langchain_agent.py` | LangChain integration | Neo4j, OpenAI, langchain extra |
 | `pydantic_ai_agent.py` | Pydantic AI integration | Neo4j, OpenAI, pydantic-ai extra |
 | `domain-schemas/` | GLiNER2 domain schema examples (8 domains) | GLiNER extra, optional Neo4j |
-| `full-stack-chat-agent/` | Complete web app with FastAPI backend and Next.js frontend | Neo4j, OpenAI, Node.js |
 
 #### Environment Setup
 

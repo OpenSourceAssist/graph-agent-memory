@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     # OpenAI Configuration
     openai_api_key: SecretStr = Field(default=SecretStr(""))
 
+    # Enrichment Configuration
+    enrichment_enabled: bool = Field(default=True)  # Enable Wikipedia enrichment
+    diffbot_api_key: SecretStr | None = Field(default=None)  # Optional Diffbot API key
+
     # Server Configuration
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)
