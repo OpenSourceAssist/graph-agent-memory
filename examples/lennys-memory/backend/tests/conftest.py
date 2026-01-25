@@ -108,9 +108,9 @@ async def memory_client():
     from neo4j_agent_memory import MemoryClient
 
     client = MemoryClient(
-        uri=os.environ["NEO4J_URI"],
-        username=os.environ["NEO4J_USERNAME"],
-        password=os.environ["NEO4J_PASSWORD"],
+        os.environ["NEO4J_URI"],
+        os.environ["NEO4J_USERNAME"],
+        os.environ["NEO4J_PASSWORD"],
         embedder=MockEmbedder(),
     )
     await client.initialize()
