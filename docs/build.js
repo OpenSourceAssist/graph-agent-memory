@@ -161,11 +161,23 @@ function getQuadrant(filePath) {
 function generateNavigation(adocFiles) {
   const nav = {
     root: [],
+    quickstart: [],
     tutorials: [],
     "how-to": [],
     reference: [],
     explanation: [],
   };
+
+  // Files that belong in the Quickstart section
+  const quickstartFiles = [
+    "configuration.html",
+    "enrichment.html",
+    "entity-extraction.html",
+    "getting-started.html",
+    "integrations.html",
+    "memory-types.html",
+    "poleo-model.html",
+  ];
 
   // Labels for quadrant sections
   const quadrantLabels = {
@@ -183,6 +195,8 @@ function generateNavigation(adocFiles) {
 
     if (quadrant) {
       nav[quadrant].push({ file: htmlFile, label });
+    } else if (quickstartFiles.includes(htmlFile)) {
+      nav.quickstart.push({ file: htmlFile, label });
     } else {
       nav.root.push({ file: htmlFile, label });
     }
@@ -364,7 +378,7 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
   // Build navigation HTML
   const { nav, quadrantLabels } = navigation;
 
-  // Root navigation items
+  // Root navigation items (just Overview)
   const rootNavHtml = nav.root
     .filter(
       (item) => !["product-improvements.html", "faq.html"].includes(item.file),
@@ -374,6 +388,14 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
       return `<a href="${rootPath}${item.file}"${isActive}>${item.label}</a>`;
     })
     .join("\n          ");
+
+  // Quickstart navigation items
+  const quickstartNavHtml = nav.quickstart
+    .map((item) => {
+      const isActive = item.file === currentFile ? ' class="active"' : "";
+      return `<a href="${rootPath}${item.file}"${isActive}>${item.label}</a>`;
+    })
+    .join("\n            ");
 
   // Quadrant navigation sections
   const quadrantNavHtml = CONFIG.quadrants
@@ -487,6 +509,10 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
         <div class="nav-section">
           <span class="nav-section-title">Documentation</span>
           ${rootNavHtml}
+        </div>
+        <div class="nav-section">
+          <span class="nav-section-title">Quickstart</span>
+          ${quickstartNavHtml}
         </div>
         ${quadrantNavHtml}
         <div class="nav-section">
