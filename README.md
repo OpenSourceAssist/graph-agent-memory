@@ -1334,3 +1334,87 @@ pytest --cov=neo4j_agent_memory --cov-report=html
 4. Run `make ci` to validate
 5. Commit with descriptive messages
 6. Push and open a PR against `main`
+
+### Documentation Guidelines (Diataxis Framework)
+
+The documentation follows the [Diataxis framework](https://diataxis.fr/), which organizes content into four distinct types based on user needs. When contributing, place your documentation in the appropriate category:
+
+#### Documentation Types
+
+| Type | Purpose | User Need | Location |
+|------|---------|-----------|----------|
+| **Tutorials** | Learning-oriented | "I want to learn" | `docs/tutorials/` |
+| **How-To Guides** | Task-oriented | "I want to accomplish X" | `docs/how-to/` |
+| **Reference** | Information-oriented | "I need to look up Y" | `docs/reference/` |
+| **Explanation** | Understanding-oriented | "I want to understand why" | `docs/explanation/` |
+
+#### When to Include Each Documentation Type in a PR
+
+**Tutorials** (`docs/tutorials/`)
+- Include when: Adding a major new feature that requires guided learning
+- Example: A new memory type, a new integration, or a complex workflow
+- Characteristics: Step-by-step, learning-focused, complete working examples
+- Not needed for: Bug fixes, minor enhancements, internal refactors
+
+**How-To Guides** (`docs/how-to/`)
+- Include when: Adding functionality users will want to accomplish as a task
+- Example: "How to configure custom entity types", "How to use batch extraction"
+- Characteristics: Goal-oriented, assumes basic knowledge, focused on one task
+- Required for: Any new public API method or configuration option
+
+**Reference** (`docs/reference/`)
+- Include when: Adding or changing public API (classes, methods, parameters)
+- Example: New method signatures, configuration options, CLI commands
+- Characteristics: Complete, accurate, structured, no explanation of concepts
+- Required for: All public API changes
+
+**Explanation** (`docs/explanation/`)
+- Include when: Adding features that involve architectural decisions or trade-offs
+- Example: "Why we use POLE+O model", "How entity resolution works"
+- Characteristics: Conceptual, discusses alternatives, provides background
+- Not needed for: Implementation details users don't need to understand
+
+#### Documentation PR Checklist
+
+For feature PRs, ensure you've updated the appropriate documentation:
+
+- [ ] **New public API?** → Update `docs/reference/` with method signatures
+- [ ] **New user-facing feature?** → Add how-to guide in `docs/how-to/`
+- [ ] **Major new capability?** → Consider adding a tutorial in `docs/tutorials/`
+- [ ] **Architectural change?** → Add explanation in `docs/explanation/`
+- [ ] **Code examples compile?** → Run `make test-docs-syntax`
+
+#### Building and Testing Documentation
+
+```bash
+# Build documentation locally
+cd docs && npm install && npm run build
+
+# Preview documentation
+cd docs && npm run serve
+
+# Run documentation tests
+make test-docs           # All doc tests
+make test-docs-syntax    # Validate Python code snippets compile
+make test-docs-build     # Test build pipeline
+make test-docs-links     # Validate internal links
+```
+
+#### Quick Reference: Diataxis Decision Tree
+
+```
+Is this about learning a concept from scratch?
+  → Yes: Tutorial (docs/tutorials/)
+  → No: ↓
+
+Is this about accomplishing a specific task?
+  → Yes: How-To Guide (docs/how-to/)
+  → No: ↓
+
+Is this describing what something is or how to use it?
+  → Yes: Reference (docs/reference/)
+  → No: ↓
+
+Is this explaining why something works the way it does?
+  → Yes: Explanation (docs/explanation/)
+```

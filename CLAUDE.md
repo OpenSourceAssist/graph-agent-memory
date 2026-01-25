@@ -174,6 +174,7 @@ Vector indexes are created for embedding-based search on Message, Entity, Prefer
 - `tests/unit/` - Unit tests with mocked dependencies
 - `tests/integration/` - Integration tests requiring Neo4j
 - `tests/benchmark/` - Performance benchmarks
+- `tests/docs/` - Documentation tests (code snippets, build pipeline, links)
 
 ### Running Tests
 
@@ -191,6 +192,13 @@ make test-integration
 
 # Run tests with coverage
 make coverage-all
+
+# Run documentation tests
+make test-docs              # All doc tests
+make test-docs-syntax       # Syntax validation only (fast)
+make test-docs-build        # Build pipeline tests
+make test-docs-links        # Link validation
+make test-docs-integration  # Doc examples against Neo4j
 ```
 
 ### Environment Variables for Tests
@@ -207,6 +215,74 @@ Key fixtures in `tests/conftest.py`:
 - `memory_client` - Connected MemoryClient with mock embedder/extractor/resolver
 - `clean_memory_client` - Same as above but cleans database before/after each test
 - `mock_embedder`, `mock_extractor`, `mock_resolver` - Mock implementations for testing
+
+## Documentation
+
+### Structure (Diataxis Framework)
+
+The documentation follows the [Diataxis framework](https://diataxis.fr/) with four content types:
+
+```
+docs/
+├── tutorials/           # Learning-oriented: guided walkthroughs
+├── how-to/              # Task-oriented: solving specific problems
+├── reference/           # Information-oriented: API descriptions
+├── explanation/         # Understanding-oriented: conceptual discussions
+└── build.js             # Node.js build script (Asciidoctor)
+```
+
+### Building Documentation
+
+```bash
+cd docs
+npm install
+npm run build           # Build to _site/
+npm run serve           # Local preview server
+npm run lint            # Validate links
+```
+
+### Documentation Testing
+
+The `tests/docs/` directory validates documentation quality:
+
+- **Syntax validation**: All 500+ Python code snippets compile without syntax errors
+- **Build pipeline**: Tests that `npm run build` produces expected HTML output
+- **Link validation**: Internal xref links point to existing files
+- **Code extraction**: Utility to extract code blocks from AsciiDoc for testing
+
+```bash
+# Run all documentation tests
+make test-docs
+
+# Run only syntax validation (fast, no Neo4j required)
+make test-docs-syntax
+
+# Run build pipeline tests
+make test-docs-build
+```
+
+### Diagram Management
+
+Documentation diagrams use Excalidraw JSON format stored in `docs/assets/images/diagrams/excalidraw/`.
+
+```bash
+# List all diagram placeholders in documentation
+make docs-diagrams-list
+
+# Check status of diagrams (which are implemented, missing, etc.)
+make docs-diagrams-status
+
+# Show only missing diagrams that need to be created
+make docs-diagrams-missing
+
+# Generate manifest.json for diagram tracking
+make docs-diagrams-manifest
+
+# Add image references to .adoc files for existing diagrams
+make docs-diagrams-add-refs
+```
+
+The diagram management script is at `scripts/manage_diagrams.py`. Excalidraw files can be created using the Claude Code Excalidraw skill at `.claude/skills/docs-excalidraw/`.
 
 ## CLI (Command Line Interface)
 
