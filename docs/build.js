@@ -20,7 +20,7 @@ const CONFIG = {
   assetsDir: path.join(__dirname, "assets"),
 
   // Diataxis documentation quadrants
-  quadrants: ["tutorials", "how-to", "reference", "explanation"],
+  quadrants: ["explanation", "tutorials", "how-to", "reference"],
 
   // Asciidoctor options
   asciidoctorOptions: {
@@ -172,7 +172,7 @@ function generateNavigation(adocFiles) {
     tutorials: "Tutorials",
     "how-to": "How-To Guides",
     reference: "Reference",
-    explanation: "Explanation",
+    explanation: "Concepts",
   };
 
   // Process all files
@@ -323,7 +323,7 @@ function generateBreadcrumb(filePath, rootPath) {
       tutorials: "Tutorials",
       "how-to": "How-To Guides",
       reference: "Reference",
-      explanation: "Explanation",
+      explanation: "Concepts",
     };
     if (quadrantLabels[quadrant]) {
       crumbs.push({
