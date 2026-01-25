@@ -14,7 +14,7 @@
     <h2 class="hero-title">Your agents forget everything.<br>Fix that.</h2>
     <p class="hero-subtitle">Store conversations, build knowledge graphs, and let your agents learn from their own reasoning &mdash; all backed by Neo4j.</p>
     <div class="hero-actions">
-      <a href="getting-started.html" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Get Started</a>
+      <a href="tutorials/first-agent-memory.html" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Get Started</a>
       <a href="https://github.com/neo4j-labs/neo4j-agent-memory" class="btn btn-secondary" target="_blank"><i class="fab fa-github"></i> GitHub</a>
       <a href="https://pypi.org/project/neo4j-agent-memory/" class="btn btn-secondary" target="_blank"><i class="fab fa-python"></i> PyPI</a>
     </div>
@@ -314,36 +314,71 @@ asyncio.run(main())
 
 == Documentation
 
+++++
+<div class="diataxis-grid">
+  <a href="tutorials/index.html" class="diataxis-card diataxis-tutorials">
+    <div class="diataxis-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+    <h4>Tutorials</h4>
+    <p>Learn by building complete examples. Step-by-step guides that teach the basics.</p>
+    <ul>
+      <li>Build your first memory-enabled agent</li>
+      <li>Add conversation memory to a chatbot</li>
+      <li>Create a knowledge graph from documents</li>
+    </ul>
+  </a>
+  <a href="how-to/index.html" class="diataxis-card diataxis-howto">
+    <div class="diataxis-icon"><i class="fa-solid fa-wrench"></i></div>
+    <h4>How-To Guides</h4>
+    <p>Practical recipes for common tasks. Goal-oriented and problem-focused.</p>
+    <ul>
+      <li>Store and search messages</li>
+      <li>Configure entity extraction</li>
+      <li>Integrate with PydanticAI, LangChain</li>
+    </ul>
+  </a>
+  <a href="reference/index.html" class="diataxis-card diataxis-reference">
+    <div class="diataxis-icon"><i class="fa-solid fa-book"></i></div>
+    <h4>Reference</h4>
+    <p>Technical specifications. Complete API docs and configuration options.</p>
+    <ul>
+      <li>Configuration reference</li>
+      <li>API documentation</li>
+      <li>CLI command reference</li>
+    </ul>
+  </a>
+  <a href="explanation/index.html" class="diataxis-card diataxis-explanation">
+    <div class="diataxis-icon"><i class="fa-solid fa-lightbulb"></i></div>
+    <h4>Explanation</h4>
+    <p>Concepts and architecture. Understand why things work the way they do.</p>
+    <ul>
+      <li>The three memory types explained</li>
+      <li>POLE+O data model concepts</li>
+      <li>Why Neo4j for agent memory?</li>
+    </ul>
+  </a>
+</div>
+++++
+
+=== Quick Links
+
 [cols="1,2"]
 |===
 |Guide |Description
 
-|xref:getting-started.adoc[Getting Started]
-|Installation, setup, and your first memory operations
+|xref:tutorials/first-agent-memory.adoc[Build Your First Agent]
+|Installation, setup, and your first memory-enabled agent
 
-|xref:memory-types.adoc[Memory Types]
+|xref:explanation/memory-types.adoc[Understanding Memory Types]
 |Deep dive into short-term, long-term, and reasoning memory
 
-|xref:entity-extraction.adoc[Entity Extraction]
-|Configuring the extraction pipeline and domain schemas
+|xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
+|Domain schemas, multi-stage pipelines, and custom extractors
 
-|xref:poleo-model.adoc[POLE+O Data Model]
-|Understanding and customizing entity classification
-
-|xref:enrichment.adoc[Background Enrichment]
-|Enrich entities with Wikipedia and Diffbot data
-
-|xref:configuration.adoc[Configuration Reference]
+|xref:reference/configuration.adoc[Configuration Reference]
 |Complete configuration options and environment variables
 
-|xref:integrations.adoc[Framework Integrations]
-|Using with LangChain, LlamaIndex, PydanticAI, and CrewAI
-
-|xref:faq.adoc[FAQ]
-|Frequently asked questions
-
-|xref:product-improvements.adoc[Roadmap]
-|Roadmap and improvement suggestions
+|xref:how-to/integrations/pydantic-ai.adoc[Framework Integrations]
+|Using with PydanticAI, LangChain, LlamaIndex, and CrewAI
 |===
 
 == Requirements
@@ -356,7 +391,7 @@ asyncio.run(main())
 <div class="footer-cta">
   <h3>Ready to give your agents memory?</h3>
   <div class="hero-actions">
-    <a href="getting-started.html" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Get Started</a>
+    <a href="tutorials/first-agent-memory.html" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Get Started</a>
     <a href="https://github.com/neo4j-labs/neo4j-agent-memory" class="btn btn-secondary" target="_blank"><i class="fab fa-github"></i> Star on GitHub</a>
   </div>
 </div>

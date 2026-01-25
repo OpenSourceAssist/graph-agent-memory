@@ -1,0 +1,299 @@
+= CLI Reference
+:toc: left
+:toclevels: 2
+
+Command-line interface for neo4j-agent-memory extraction and schema management.
+
+== Installation
+
+Install with CLI extras:
+
+[source,bash]
+----
+pip install neo4j-agent-memory[cli]
+----
+
+== Commands
+
+=== extract
+
+Extract entities from text or files.
+
+[source,bash]
+----
+neo4j-memory extract [OPTIONS] TEXT
+----
+
+==== Arguments
+
+[cols="1,3", options="header"]
+|===
+| Argument | Description
+
+| `TEXT`
+| Text to extract entities from. Use `-` for stdin.
+|===
+
+==== Options
+
+[cols="2,1,3", options="header"]
+|===
+| Option | Default | Description
+
+| `--file`, `-f`
+| _none_
+| Read text from file instead
+
+| `--extractor`, `-e`
+| `gliner`
+| Extractor to use: `gliner`, `spacy`, `llm`, `hybrid`
+
+| `--entity-types`, `-t`
+| _all_
+| Entity types to extract (can repeat)
+
+| `--format`
+| `table`
+| Output format: `table`, `json`, `jsonl`
+
+| `--threshold`
+| `0.5`
+| Confidence threshold (0.0-1.0)
+
+| `--schema`
+| `poleo`
+| Domain schema: `poleo`, `podcast`, `news`, etc.
+
+| `--verbose`, `-v`
+| `false`
+| Show extraction details
+|===
+
+==== Examples
+
+[source,bash]
+----
+# Extract from text
+neo4j-memory extract "John Smith works at Acme Corp in New York"
+
+# Extract from file
+neo4j-memory extract --file document.txt
+
+# Pipe from stdin
+echo "Sarah lives in London" | neo4j-memory extract -
+
+# Use specific extractor
+neo4j-memory extract --extractor llm "..."
+
+# Filter entity types
+neo4j-memory extract -t Person -t Organization "..."
+
+# JSON output
+neo4j-memory extract --format json "..."
+
+# Use domain schema
+neo4j-memory extract --schema podcast "..."
+----
+
+==== Output Formats
+
+*Table (default):*
+
+[source]
+----
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+┃ Entity         ┃ Type         ┃ Subtype     ┃ Confidence  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+│ John Smith     │ PERSON       │ INDIVIDUAL  │ 0.95        │
+│ Acme Corp      │ ORGANIZATION │ COMPANY     │ 0.92        │
+│ New York       │ LOCATION     │ CITY        │ 0.88        │
+└────────────────┴──────────────┴─────────────┴─────────────┘
+----
+
+*JSON:*
+
+[source,json]
+----
+{
+  "entities": [
+    {"name": "John Smith", "type": "PERSON", "subtype": "INDIVIDUAL", "confidence": 0.95},
+    {"name": "Acme Corp", "type": "ORGANIZATION", "subtype": "COMPANY", "confidence": 0.92}
+  ],
+  "metadata": {
+    "extractor": "gliner",
+    "schema": "poleo",
+    "duration_ms": 234
+  }
+}
+----
+
+*JSON Lines:*
+
+[source]
+----
+{"name": "John Smith", "type": "PERSON", "subtype": "INDIVIDUAL", "confidence": 0.95}
+{"name": "Acme Corp", "type": "ORGANIZATION", "subtype": "COMPANY", "confidence": 0.92}
+----
+
+=== schemas
+
+Manage entity extraction schemas stored in Neo4j.
+
+==== schemas list
+
+List all schemas in the database.
+
+[source,bash]
+----
+neo4j-memory schemas list [OPTIONS]
+----
+
+[cols="2,1,3", options="header"]
+|===
+| Option | Default | Description
+
+| `--uri`
+| `bolt://localhost:7687`
+| Neo4j connection URI
+
+| `--username`
+| `neo4j`
+| Neo4j username
+
+| `--password`
+| _required_
+| Neo4j password
+
+| `--format`
+| `table`
+| Output format: `table`, `json`
+|===
+
+==== schemas show
+
+Show details of a specific schema.
+
+[source,bash]
+----
+neo4j-memory schemas show SCHEMA_NAME [OPTIONS]
+----
+
+[cols="2,1,3", options="header"]
+|===
+| Option | Default | Description
+
+| `--version`
+| _latest_
+| Specific version to show
+
+| `--format`
+| `yaml`
+| Output format: `yaml`, `json`
+|===
+
+==== schemas validate
+
+Validate a schema file.
+
+[source,bash]
+----
+neo4j-memory schemas validate SCHEMA_FILE
+----
+
+==== Examples
+
+[source,bash]
+----
+# List schemas
+neo4j-memory schemas list --password $NEO4J_PASSWORD
+
+# Show schema details
+neo4j-memory schemas show medical --format yaml
+
+# Validate schema file
+neo4j-memory schemas validate custom_schema.yaml
+----
+
+=== stats
+
+Show memory statistics from Neo4j.
+
+[source,bash]
+----
+neo4j-memory stats [OPTIONS]
+----
+
+[cols="2,1,3", options="header"]
+|===
+| Option | Default | Description
+
+| `--uri`
+| `bolt://localhost:7687`
+| Neo4j connection URI
+
+| `--username`
+| `neo4j`
+| Neo4j username
+
+| `--password`
+| _required_
+| Neo4j password
+
+| `--format`
+| `table`
+| Output format: `table`, `json`
+|===
+
+==== Example
+
+[source,bash]
+----
+neo4j-memory stats --password $NEO4J_PASSWORD
+----
+
+Output:
+
+[source]
+----
+Memory Statistics
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Short-Term Memory
+  Conversations: 42
+  Messages: 1,234
+
+Long-Term Memory
+  Entities: 567
+    PERSON: 234
+    ORGANIZATION: 123
+    LOCATION: 89
+    OBJECT: 45
+    EVENT: 76
+  Preferences: 23
+  Facts: 156
+
+Reasoning Memory
+  Traces: 89
+  Steps: 445
+  Tool Calls: 312
+----
+
+== Environment Variables
+
+The CLI respects these environment variables:
+
+[source,bash]
+----
+# Neo4j connection (avoids passing --password)
+export NEO4J_URI=bolt://localhost:7687
+export NEO4J_USER=neo4j
+export NEO4J_PASSWORD=password
+
+# OpenAI (for LLM extractor)
+export OPENAI_API_KEY=sk-...
+----
+
+== See Also
+
+* xref:../how-to/entity-extraction.adoc[Configure Entity Extraction] - Pipeline configuration
+* xref:schemas.adoc[Domain Schemas Reference] - Available schemas
+* xref:extractors.adoc[Extractor Classes Reference] - Python API

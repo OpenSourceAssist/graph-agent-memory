@@ -8,170 +8,66 @@
 
 This document tracks product improvement suggestions identified during the development and testing of neo4j-agent-memory features.
 
-== Summary by Priority
+== Summary
 
-=== High Priority
+=== Not Yet Implemented
 
-* <<batch-extraction,Batch Extraction API>>
-* <<entity-deduplication,Entity Deduplication on Ingest>>
-* <<agent-tool-templates,Agent Tool Templates>> ✅
-* <<preference-aware-prompts,Preference-Aware Agent Prompts>> ✅
-* <<chat-to-map-integration,Chat-to-Map Integration>> ✅
-
-=== Medium Priority
-
-* <<gliner-relations,Relationship Extraction from GLiNER2>>
-* <<custom-schema-persistence,Custom Schema Persistence>>
-* <<streaming-extraction,Streaming Extraction for Long Documents>>
-* <<provenance-tracking,Provenance Tracking>>
-* <<cli-extraction,CLI for Entity Extraction>>
-* <<opentelemetry,OpenTelemetry Tracing>>
-* <<benchmarks,Extraction Quality Benchmarks>>
-* <<similar-trace-consultation,Similar Trace Consultation>>
+.Demo Application Improvements
 * <<entity-explorer-ui,Entity Explorer UI>>
 * <<reasoning-trace-viewer,Reasoning Trace Viewer>>
+* <<preference-dashboard,Preference Dashboard>>
 * <<cross-memory-query-builder,Cross-Memory Query Builder>>
 
-=== Low Priority
-
+.Extraction Improvements
 * <<schema-auto-detection,Schema Auto-Detection>>
 * <<confidence-calibration,Entity Confidence Calibration>>
 * <<result-caching,Extraction Result Caching>>
-* <<temporal-versioning,Temporal Entity Versioning>>
+
+.API & Developer Experience
 * <<pipeline-dsl,Extraction Pipeline Builder DSL>>
 * <<schema-validation,Schema Validation and Testing>>
+* <<temporal-versioning,Temporal Entity Versioning>>
 * <<websocket-streaming,WebSocket Streaming>>
 * <<interactive-explorer,Interactive Schema Explorer>>
-* <<preference-dashboard,Preference Dashboard>>
 
-== Agent Integration Improvements
+.Future Product Ideas
+* <<multi-agent-coordination,Multi-Agent Memory Coordination>>
+* <<memory-compression,Memory Compression and Summarization>>
+* <<memory-export,Memory Export/Import>>
+* <<vector-index-management,Vector Index Management>>
 
-[[agent-tool-templates]]
-=== Agent Tool Templates ✅ IMPLEMENTED
+.Documentation Quality
+* <<doctest-integration,Doctest-Style Assertions>>
+* <<api-docs-generation,Automated API Reference Generation>>
+* <<version-matrix-testing,Documentation Version Matrix Testing>>
 
-[horizontal]
-Priority:: High
-Status:: **DONE** (v0.1.0)
-Implementation:: Lennys-Memory demo agent tools
+=== Implemented (v0.0.2)
 
-**Features Implemented**:
+All items below have been implemented AND documented:
 
-The Lennys-Memory demo now includes comprehensive agent tools demonstrating how to leverage all memory features:
+* <<batch-extraction,Batch Extraction API>> ✅
+* <<entity-deduplication,Entity Deduplication on Ingest>> ✅
+* <<gliner-relations,GLiREL Relation Extraction>> ✅
+* <<custom-schema-persistence,Custom Schema Persistence>> ✅
+* <<streaming-extraction,Streaming Extraction for Long Documents>> ✅
+* <<provenance-tracking,Provenance Tracking>> ✅
+* <<cli-extraction,CLI for Entity Extraction>> ✅
+* <<opentelemetry,OpenTelemetry and Opik Tracing>> ✅
+* <<benchmarks,Extraction Quality Benchmarks>> ✅
+* <<agent-tool-templates,Agent Tool Templates>> ✅
+* <<preference-aware-prompts,Preference-Aware Agent Prompts>> ✅
+* <<chat-to-map-integration,Chat-to-Map Integration>> ✅
+* <<docs-testing,Documentation Testing Framework>> ✅
+* <<diataxis-restructuring,Documentation Restructuring (Diataxis)>> ✅
+* <<agent-framework-adapters,Agent Framework Adapters>> ✅
 
-.Entity Query Tools
-* `search_entities` - Semantic search for entities by name, type, or description
-* `get_entity_context` - Full entity details with Wikipedia enrichment and podcast mentions
-* `find_related_entities` - Find co-occurring entities via graph relationships
-* `get_most_mentioned_entities` - Top entities by mention frequency
 
-.Location Query Tools (Map View Integration)
-* `search_locations` - Search locations with optional episode filtering
-* `find_locations_near` - Geospatial radius search using Haversine distance
-* `get_episode_locations` - Geographic profile of a specific episode
-* `find_location_path` - Shortest path between locations in the knowledge graph
-* `get_location_clusters` - Location density analysis by country for heatmap
-* `calculate_location_distances` - Great-circle distance calculation between locations
+== Not Yet Implemented
 
-.Preference and Reasoning Memory Tools
-* `get_user_preferences` - Retrieve stored user preferences for personalization
-* `find_similar_past_queries` - Find similar past traces for learning from history
-
-.Benefits Achieved
-* Agent now uses 80%+ of available memory features (vs ~20% before)
-* Entity-based queries work ("Who founded Stripe?")
-* Location-based analysis is possible ("What markets does Lenny discuss?")
-* Agent learns from past successful reasoning
-
-.Example Tool Implementation
-[source,python]
-----
-@agent.tool
-async def tool_search_entities(
-    ctx: RunContext[AgentDeps],
-    query: str,
-    entity_type: str | None = None,
-    limit: int = 10,
-) -> str:
-    """Search for entities mentioned in podcasts."""
-    entities = await ctx.deps.client.long_term.search_entities(
-        query=query,
-        entity_type=entity_type,
-        limit=limit,
-    )
-    return json.dumps([{
-        "name": e.name,
-        "type": e.type,
-        "description": e.description,
-        "wikipedia_url": e.wikipedia_url,
-    } for e in entities])
-----
-
-'''
-
-[[preference-aware-prompts]]
-=== Preference-Aware Agent Prompts ✅ IMPLEMENTED
-
-[horizontal]
-Priority:: High
-Status:: **DONE** (v0.1.0)
-Implementation:: Dynamic system prompt injection in Lennys-Memory agent
-
-**Features Implemented**:
-
-* Dynamic system prompt that injects user preferences
-* Similar trace consultation for improved reasoning
-* Memory context injection for personalized responses
-
-.Example Implementation
-[source,python]
-----
-@agent.system_prompt
-async def add_memory_context(ctx: RunContext[AgentDeps]) -> str:
-    """Add preferences and traces to system prompt."""
-    parts = []
-
-    # Get user preferences
-    preferences = await ctx.deps.client.long_term.search_preferences("", limit=10)
-    if preferences:
-        pref_list = [f"- {p.category}: {p.preference}" for p in preferences]
-        parts.append(f"## User Preferences\n{chr(10).join(pref_list)}")
-
-    # Get similar past traces
-    if ctx.deps.current_query:
-        traces = await ctx.deps.client.reasoning.get_similar_traces(
-            task=ctx.deps.current_query,
-            limit=2,
-            success_only=True,
-        )
-        if traces:
-            trace_items = [f"- Query: {t.task}, Outcome: {t.outcome}" for t in traces]
-            parts.append(f"## Past Interactions\n{chr(10).join(trace_items)}")
-
-    return "\n\n".join(parts)
-----
-
-'''
-
-[[similar-trace-consultation]]
-=== Similar Trace Consultation
-
-[horizontal]
-Priority:: Medium
-Current State:: Implemented in Lennys-Memory demo.
-
-**Suggestion**: Provide a higher-level API that automatically consults similar traces and incorporates learnings.
-
-.Implementation Ideas
-* Automatic trace lookup before agent reasoning
-* Inject relevant trace outcomes into context
-* Track which traces improved responses
-
-'''
-
-== Demo Application Improvements
+=== Demo Application Improvements
 
 [[entity-explorer-ui]]
-=== Entity Explorer UI
+==== Entity Explorer UI
 
 [horizontal]
 Priority:: Medium
@@ -189,7 +85,7 @@ Current State:: Entities displayed in a simple list.
 '''
 
 [[reasoning-trace-viewer]]
-=== Reasoning Trace Viewer
+==== Reasoning Trace Viewer
 
 [horizontal]
 Priority:: Medium
@@ -206,7 +102,7 @@ Current State:: Traces visible in reasoning memory view.
 '''
 
 [[preference-dashboard]]
-=== Preference Dashboard
+==== Preference Dashboard
 
 [horizontal]
 Priority:: Low
@@ -222,41 +118,8 @@ Current State:: Preferences shown in memory panel.
 
 '''
 
-[[chat-to-map-integration]]
-=== Chat-to-Map Integration ✅ IMPLEMENTED
-
-[horizontal]
-Priority:: High
-Status:: **DONE** (v0.1.0)
-Implementation:: Agent location tools with map view support
-
-**Features Implemented**:
-
-* Agent tools return location data with coordinates
-* Map view displays locations mentioned in conversations
-* Session-scoped location filtering (by conversation/episode)
-* Backend APIs for clusters, nearby search, and path finding
-
-.Frontend Enhancement Ideas
-* Parse agent responses for location references
-* Add "View on map" button after location queries
-* Highlight agent-referenced locations on map
-* Draw path overlay when `find_location_path` returns results
-
-.Example Flow
-----
-User: "What locations does Brian Chesky discuss?"
-Agent: Uses get_episode_locations tool
-Agent: "Brian Chesky discusses San Francisco, New York, and Paris..."
-Frontend: Shows "📍 View on map" link
-User: Clicks link
-Map: Opens centered on episode locations with markers
-----
-
-'''
-
 [[cross-memory-query-builder]]
-=== Cross-Memory Query Builder
+==== Cross-Memory Query Builder
 
 [horizontal]
 Priority:: Medium
@@ -270,68 +133,12 @@ Current State:: Different memory types queried separately.
 * Query expansion using entities and preferences
 * Timeline view combining all memory sources
 
-
-== Entity Extraction Improvements
-
-[[gliner-relations]]
-=== Relationship Extraction from GLiNER2 (GLiREL) ✅ IMPLEMENTED
-
-[horizontal]
-Priority:: Medium
-Status:: **DONE** (v0.1.0)
-Implementation:: `GLiRELExtractor` and `GLiNERWithRelationsExtractor`
-
-**Features Implemented**:
-
-* `GLiRELExtractor` class for standalone relation extraction
-* `GLiNERWithRelationsExtractor` combining GLiNER + GLiREL in one extractor
-* `is_glirel_available()` function to check if GLiREL is installed
-* `DEFAULT_RELATION_TYPES` with 20+ POLE+O-optimized relation types
-* Support for custom relation types with descriptions
-* Factory methods: `for_poleo()` and `for_schema()`
-* Full async support with thread pool execution
-
-.Benefits Achieved
-* Zero API costs (no LLM calls)
-* Fast extraction (model-based, not LLM)
-* Full offline support
-* Customizable relation types
-
-.Example Usage
-[source,python]
-----
-from neo4j_agent_memory.extraction import (
-    GLiNERWithRelationsExtractor,
-    is_glirel_available,
-)
-
-if is_glirel_available():
-    extractor = GLiNERWithRelationsExtractor.for_poleo()
-    result = await extractor.extract("John works at Acme Corp in NYC.")
-    print(result.entities)   # John, Acme Corp, NYC
-    print(result.relations)  # John -[WORKS_AT]-> Acme Corp
-----
-
-.Default Relation Types
-[source,python]
-----
-# Person relations
-works_at, lives_in, born_in, member_of, knows, related_to, spouse_of, parent_of, child_of
-
-# Organization relations
-located_in, subsidiary_of, partner_of, founded_by, ceo_of, owns
-
-# Event relations
-occurred_at, participated_in, organized_by
-
-# Object relations
-manufactured_by, used_by, part_of
-----
-
 '''
 
+=== Extraction Improvements
+
 [[schema-auto-detection]]
-=== Schema Auto-Detection
+==== Schema Auto-Detection
 
 [horizontal]
 Priority:: Low
@@ -346,81 +153,8 @@ Current State:: Users must manually select a domain schema for entity extraction
 
 '''
 
-[[custom-schema-persistence]]
-=== Custom Schema Persistence ✅ IMPLEMENTED
-
-[horizontal]
-Priority:: Medium
-Status:: **DONE** (v0.1.0)
-Implementation:: `SchemaManager` class in `neo4j_agent_memory.schema.persistence`
-
-**Features Implemented**:
-
-* `SchemaManager` class for storing and loading schemas from Neo4j
-* `StoredSchema` dataclass with full metadata (id, name, version, description, config, is_active, created_at, created_by)
-* `SchemaListItem` dataclass for listing schemas with summary info
-* Schema versioning support: multiple versions of the same schema can coexist
-* Active version tracking: one version per schema name is marked as active
-* Methods:
-  - `save_schema()` - Save schema to Neo4j with optional `created_by` and `set_active` parameters
-  - `load_schema()` - Load active schema by name
-  - `load_schema_version()` - Load specific version
-  - `list_schemas()` - List all schemas with version counts
-  - `list_schema_versions()` - List all versions of a schema
-  - `set_active_version()` - Set specific version as active
-  - `delete_schema()` - Delete schema by ID
-  - `delete_all_versions()` - Delete all versions of a schema
-  - `schema_exists()` - Check if schema exists
-  - `ensure_schema_index()` - Create indexes for efficient lookups
-* Schemas stored as `(:Schema)` nodes with JSON-serialized `EntitySchemaConfig`
-
-.Benefits Achieved
-* No code changes required for new domains
-* Schema versioning and audit trails
-* Multi-tenant schema management
-
-.Example Usage
-[source,python]
-----
-from neo4j_agent_memory.schema import SchemaManager, EntitySchemaConfig
-
-manager = SchemaManager(client)
-
-# Save schema
-schema = EntitySchemaConfig(name="medical", version="1.0", ...)
-stored = await manager.save_schema(schema, created_by="admin")
-
-# Load schema
-loaded = await manager.load_schema("medical")
-
-# List all schemas
-schemas = await manager.list_schemas()
-for s in schemas:
-    print(f"{s.name}: v{s.latest_version} ({s.version_count} versions)")
-
-# Version management
-await manager.set_active_version("medical", "2.0")
-----
-
-.Neo4j Schema Node
-[source,cypher]
-----
-(:Schema {
-    id: "uuid",
-    name: "medical",
-    version: "1.0",
-    description: "Medical records schema",
-    config: "{...}",  // JSON-serialized EntitySchemaConfig
-    is_active: true,
-    created_at: datetime(),
-    created_by: "admin"
-})
-----
-
-'''
-
 [[confidence-calibration]]
-=== Entity Confidence Calibration
+==== Entity Confidence Calibration
 
 [horizontal]
 Priority:: Low
@@ -433,78 +167,10 @@ Current State:: Confidence scores from different extractors are not calibrated a
 * Apply Platt scaling or isotonic regression
 * Normalize scores to a common scale
 
-
-== Pipeline and Performance Improvements
-
-[[streaming-extraction]]
-=== Streaming Extraction for Long Documents ✅ IMPLEMENTED
-
-[horizontal]
-Priority:: Medium
-Status:: **DONE** (v0.1.0)
-Implementation:: `StreamingExtractor` class in `neo4j_agent_memory.extraction.streaming`
-
-**Features Implemented**:
-
-* `StreamingExtractor` class wrapping any `EntityExtractor` for chunked processing
-* `extract_streaming()` async generator that yields `StreamingChunkResult` for each chunk
-* `extract()` method for complete extraction with automatic deduplication
-* `extract_to_result()` convenience method returning standard `ExtractionResult`
-* Chunking strategies:
-  - `chunk_text_by_chars()` - Character-based chunking with sentence boundary detection
-  - `chunk_text_by_tokens()` - Token-based chunking (approximate word count)
-* Configurable overlap between chunks to prevent entity splitting
-* Automatic entity position adjustment to document-level coordinates
-* Entity and relation deduplication across chunks (by name+type, keeping highest confidence)
-* Progress callback support for UI integration
-* `StreamingExtractionStats` with detailed metrics (total/successful/failed chunks, raw/deduplicated entity counts)
-* `ChunkInfo` dataclass with chunk metadata (index, start/end positions, first/last flags)
-* `create_streaming_extractor()` factory function with sensible defaults
-
-.Benefits Achieved
-* Handle arbitrarily long documents (>100K tokens)
-* Lower memory footprint (process one chunk at a time)
-* Real-time progress updates via async generator
-* Automatic deduplication across chunk boundaries
-
-.Example Usage
-[source,python]
-----
-from neo4j_agent_memory.extraction import (
-    StreamingExtractor,
-    create_streaming_extractor,
-    GLiNEREntityExtractor,
-)
-
-extractor = GLiNEREntityExtractor.for_schema("podcast")
-streamer = StreamingExtractor(extractor, chunk_size=4000, overlap=200)
-
-# Stream results chunk by chunk
-async for chunk_result in streamer.extract_streaming(long_document):
-    print(f"Chunk {chunk_result.chunk.index}: {chunk_result.entity_count} entities")
-
-# Or get complete result with deduplication
-result = await streamer.extract(long_document, deduplicate=True)
-print(f"{result.stats.deduplicated_entities} unique entities from {result.stats.total_chunks} chunks")
-----
-
-.Chunking Options
-[source,python]
-----
-# Character-based (default)
-streamer = StreamingExtractor(extractor, chunk_size=4000, overlap=200)
-
-# Token-based (approximate)
-streamer = StreamingExtractor(extractor, chunk_size=1000, overlap=50, chunk_by_tokens=True)
-
-# Factory with defaults
-streamer = create_streaming_extractor(extractor)
-----
-
 '''
 
 [[result-caching]]
-=== Extraction Result Caching
+==== Extraction Result Caching
 
 [horizontal]
 Priority:: Low
@@ -519,186 +185,10 @@ Current State:: No caching of extraction results.
 
 '''
 
-[[batch-extraction]]
-=== Batch Extraction API ✅ IMPLEMENTED
-
-[horizontal]
-Priority:: High
-Status:: **DONE** (v0.1.0)
-Implementation:: `ExtractionPipeline.extract_batch()` and `GLiNEREntityExtractor.extract_batch()`
-
-**Features Implemented**:
-
-* `extract_batch()` method on `ExtractionPipeline` for parallel processing of multiple texts
-* `extract_batch()` method on `GLiNEREntityExtractor` using native batch inference for GPU efficiency
-* `BatchExtractionResult` dataclass with aggregate statistics (total_items, successful_items, failed_items, success_rate, total_entities, total_relations)
-* `BatchItemResult` dataclass for per-item results with timing and error information
-* Progress callback support via `on_progress: Callable[[int, int], None]`
-* Configurable concurrency via `max_concurrency` parameter
-* Configurable batch size via `batch_size` parameter for memory management
-* Error handling options: `fail_fast=True` to stop on first error, or `fail_fast=False` (default) to continue and collect errors
-* Results maintain input order regardless of processing order
-
-.Example Usage
-[source,python]
-----
-result = await pipeline.extract_batch(
-    texts,
-    batch_size=10,
-    max_concurrency=5,
-    on_progress=lambda done, total: print(f"{done}/{total}"),
-)
-print(f"Extracted {result.total_entities} entities from {result.successful_items} texts")
-----
-
-
-== Neo4j Storage Improvements
-
-[[entity-deduplication]]
-=== Entity Deduplication on Ingest ✅ IMPLEMENTED
-
-[horizontal]
-Priority:: High
-Status:: **DONE** (v0.1.0)
-Implementation:: `LongTermMemory.add_entity()` with `DeduplicationConfig`
-
-**Features Implemented**:
-
-* `DeduplicationConfig` dataclass for configuring deduplication thresholds and behavior
-* `DeduplicationResult` dataclass returned with every `add_entity()` call indicating action taken
-* Embedding-based similarity search to find potential duplicates
-* Optional fuzzy string matching (via rapidfuzz) to boost confidence scores
-* Configurable thresholds:
-  - `auto_merge_threshold` (default 0.95): Automatically merge entities above this similarity
-  - `flag_threshold` (default 0.85): Flag entities between this and auto_merge for human review
-* `SAME_AS` relationship creation for flagged duplicates with status tracking (`pending`, `confirmed`, `rejected`)
-* `match_same_type_only` option to only match entities of the same type
-* `find_potential_duplicates()` method to retrieve pending duplicate reviews
-* `review_duplicate()` method to confirm or reject duplicate pairs
-* `merge_duplicate_entities()` method to manually merge entities
-* `get_same_as_cluster()` method to get all entities linked via SAME_AS
-* `get_deduplication_stats()` method for statistics
-* `deduplicate=False` parameter on `add_entity()` to skip deduplication for specific entities
-
-.Example Usage
-[source,python]
-----
-from neo4j_agent_memory.memory import LongTermMemory, DeduplicationConfig
-
-config = DeduplicationConfig(
-    auto_merge_threshold=0.95,
-    flag_threshold=0.85,
-    use_fuzzy_matching=True,
-)
-
-memory = LongTermMemory(client, embedder, deduplication=config)
-
-# add_entity returns (entity, dedup_result) tuple
-entity, result = await memory.add_entity("Jon Smith", "PERSON")
-if result.action == "merged":
-    print(f"Auto-merged with {result.matched_entity_name}")
-elif result.action == "flagged":
-    print(f"Flagged for review against {result.matched_entity_name}")
-
-# Review pending duplicates
-duplicates = await memory.find_potential_duplicates()
-for e1, e2, confidence in duplicates:
-    await memory.review_duplicate(e1.id, e2.id, confirm=True)
-----
-
-'''
-
-[[provenance-tracking]]
-=== Provenance Tracking ✅ IMPLEMENTED
-
-[horizontal]
-Priority:: Medium
-Status:: **DONE** (v0.1.0)
-Implementation:: `LongTermMemory` provenance methods
-
-**Features Implemented**:
-
-* `register_extractor()` - Create/update Extractor nodes with name, version, config
-* `link_entity_to_message()` - Create EXTRACTED_FROM relationship with confidence, position, context
-* `link_entity_to_extractor()` - Create EXTRACTED_BY relationship with confidence, extraction time
-* `get_entity_provenance()` - Get all provenance info for an entity (sources + extractors)
-* `get_entities_from_message()` - Get all entities extracted from a specific message
-* `get_entities_by_extractor()` - Get all entities from a specific extractor
-* `list_extractors()` - List all registered extractors with entity counts
-* `get_extraction_stats()` - Get overall extraction statistics
-* `get_extractor_stats()` - Get per-extractor statistics
-* `delete_entity_provenance()` - Remove all provenance links for an entity
-* Extractor nodes auto-created when linking entities
-
-.Schema Design
-[source,cypher]
-----
-(:Extractor {id, name, version, config, created_at})
-
-(Entity)-[:EXTRACTED_FROM {
-    confidence, start_pos, end_pos, context, created_at
-}]->(Message)
-
-(Entity)-[:EXTRACTED_BY {
-    confidence, extraction_time_ms, created_at
-}]->(Extractor)
-----
-
-.Benefits Achieved
-* Audit trail for extracted entities
-* Confidence tracking per source and extractor
-* Easy cleanup if extraction improves
-* Statistics for monitoring extraction quality
-
-.Example Usage
-[source,python]
-----
-# Link entity to source message
-await client.long_term.link_entity_to_message(
-    entity,
-    message_id,
-    confidence=0.95,
-    start_pos=10,
-    end_pos=20,
-)
-
-# Link to extractor
-await client.long_term.link_entity_to_extractor(
-    entity,
-    "GLiNEREntityExtractor",
-    confidence=0.95,
-)
-
-# Get provenance
-provenance = await client.long_term.get_entity_provenance(entity)
-print(f"Sources: {len(provenance['sources'])}")
-print(f"Extractors: {len(provenance['extractors'])}")
-
-# Get entities from a message
-entities = await client.long_term.get_entities_from_message(message_id)
-----
-
-'''
-
-[[temporal-versioning]]
-=== Temporal Entity Versioning
-
-[horizontal]
-Priority:: Low
-Current State:: Entities are updated in place; no history is maintained.
-
-**Suggestion**: Add temporal versioning for entities to track changes over time.
-
-.Implementation Ideas
-* Add `valid_from` and `valid_to` timestamps
-* Create new entity versions on update
-* Support point-in-time queries
-
-
-== API and Developer Experience Improvements
+=== API & Developer Experience
 
 [[pipeline-dsl]]
-=== Extraction Pipeline Builder DSL
+==== Extraction Pipeline Builder DSL
 
 [horizontal]
 Priority:: Low
@@ -725,75 +215,8 @@ merge: confidence
 
 '''
 
-[[cli-extraction]]
-=== CLI for Entity Extraction ✅ IMPLEMENTED
-
-[horizontal]
-Priority:: Medium
-Status:: **DONE** (v0.1.0)
-Implementation:: `neo4j_agent_memory.cli` module with Click and Rich
-
-**Features Implemented**:
-
-* `neo4j-memory` CLI entry point
-* `extract` command for entity extraction from text, files, or stdin
-* `schemas` command group for schema management:
-  - `schemas list` - List saved schemas from Neo4j
-  - `schemas show` - Display schema details (YAML or JSON)
-  - `schemas validate` - Validate schema YAML files
-* `stats` command for extraction statistics
-* Multiple output formats: table (default), json, jsonl
-* Extractor selection: gliner (default), llm, hybrid
-* Custom entity types via `-e`/`--entity-types` flag
-* Schema file support via `--schema` flag
-* Stdin pipe support (`neo4j-memory extract -`)
-* Rich table formatting for terminal output
-* Environment variable support: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
-
-.Installation
-[source,bash]
-----
-# Install with CLI extras
-uv pip install neo4j-agent-memory[cli]
-----
-
-.Example Usage
-[source,bash]
-----
-# Extract entities from text
-neo4j-memory extract "John Smith works at Acme Corp in New York"
-
-# Extract from a file
-neo4j-memory extract --file document.txt
-
-# Extract with specific entity types
-neo4j-memory extract "..." -e Person -e Organization
-
-# Different output formats
-neo4j-memory extract "..." --format json
-neo4j-memory extract "..." --format jsonl
-
-# Use different extractors
-neo4j-memory extract "..." --extractor gliner
-neo4j-memory extract "..." --extractor llm
-neo4j-memory extract "..." --extractor hybrid
-
-# Pipe from stdin
-echo "John works at Acme" | neo4j-memory extract -
-
-# Schema management
-neo4j-memory schemas list --password $NEO4J_PASSWORD
-neo4j-memory schemas show my_schema --format yaml
-neo4j-memory schemas validate schema.yaml
-
-# Statistics
-neo4j-memory stats --password $NEO4J_PASSWORD --format json
-----
-
-'''
-
 [[schema-validation]]
-=== Schema Validation and Testing
+==== Schema Validation and Testing
 
 [horizontal]
 Priority:: Low
@@ -806,75 +229,26 @@ Current State:: No tooling for validating custom schemas.
 * Calculate precision/recall
 * Suggest threshold adjustments
 
+'''
 
-== Integration Improvements
-
-[[opentelemetry]]
-=== OpenTelemetry and Opik Tracing ✅ IMPLEMENTED
+[[temporal-versioning]]
+==== Temporal Entity Versioning
 
 [horizontal]
-Priority:: Medium
-Status:: **DONE** (v0.1.0)
-Implementation:: `neo4j_agent_memory.observability` module
+Priority:: Low
+Current State:: Entities are updated in place; no history is maintained.
 
-**Features Implemented**:
+**Suggestion**: Add temporal versioning for entities to track changes over time.
 
-* Abstract `Tracer` and `Span` interfaces for provider-agnostic tracing
-* `OpenTelemetryTracer` with OTLP export support
-* `OpikTracer` for LLM-focused observability (Comet's Opik platform)
-* `NoOpTracer` for zero-overhead disabled tracing
-* `get_tracer()` function with auto-detection (Opik > OpenTelemetry > NoOp)
-* Decorator-based tracing: `@tracer.trace("function_name")`
-* Context manager support: `with tracer.span("name") as span:`
-* Async support: `async with tracer.async_span("name") as span:`
-* Span attributes, status, and exception recording
-* Duration tracking for performance monitoring
-
-.Installation
-[source,bash]
-----
-# OpenTelemetry support
-uv pip install neo4j-agent-memory[opentelemetry]
-
-# Opik support
-uv pip install neo4j-agent-memory[opik]
-----
-
-.Example Usage
-[source,python]
-----
-from neo4j_agent_memory.observability import get_tracer
-
-# Auto-detect available provider
-tracer = get_tracer()
-
-# Or specify explicitly
-tracer = get_tracer(provider="opentelemetry", service_name="my-service")
-tracer = get_tracer(provider="opik", project_name="my-project")
-
-# Decorator-based tracing
-@tracer.trace("extract_entities")
-async def extract(text: str):
-    result = await extractor.extract(text)
-    return result
-
-# Context manager for manual spans
-async with tracer.async_span("extraction") as span:
-    span.set_attribute("text_length", len(text))
-    result = await extract(text)
-    span.set_attribute("entity_count", len(result.entities))
-----
-
-.Benefits Achieved
-* Performance monitoring with spans and timing
-* Provider flexibility (OpenTelemetry, Opik, or disabled)
-* Zero overhead when tracing disabled
-* LLM-specific observability via Opik
+.Implementation Ideas
+* Add `valid_from` and `valid_to` timestamps
+* Create new entity versions on update
+* Support point-in-time queries
 
 '''
 
 [[websocket-streaming]]
-=== WebSocket Streaming for Real-Time Extraction
+==== WebSocket Streaming for Real-Time Extraction
 
 [horizontal]
 Priority:: Low
@@ -882,11 +256,10 @@ Current State:: Extraction is request/response only.
 
 **Suggestion**: Add WebSocket support for streaming extraction results in real-time, useful for interactive applications.
 
-
-== Documentation Improvements
+'''
 
 [[interactive-explorer]]
-=== Interactive Schema Explorer
+==== Interactive Schema Explorer
 
 [horizontal]
 Priority:: Low
@@ -896,99 +269,434 @@ Current State:: Schema documentation is static text.
 
 '''
 
-[[benchmarks]]
-=== Extraction Quality Benchmarks ✅ IMPLEMENTED
+=== Future Product Ideas
+
+[[multi-agent-coordination]]
+==== Multi-Agent Memory Coordination
 
 [horizontal]
 Priority:: Medium
-Status:: **DONE** (v0.1.0)
-Implementation:: `benchmarks/` module with metrics and runner
+Status:: Concept
+
+Enable multiple agents to share and coordinate memory access with conflict resolution.
+
+.Implementation Ideas
+* Agent-scoped memory namespaces
+* Memory locking for concurrent writes
+* Cross-agent memory subscriptions
+* Shared vs private memory partitioning
+
+'''
+
+[[memory-compression]]
+==== Memory Compression and Summarization
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Automatically compress old messages and entities to reduce storage while preserving key information.
+
+.Implementation Ideas
+* LLM-based conversation summarization
+* Entity importance scoring
+* Tiered storage (hot/warm/cold)
+* Time-based summarization triggers
+
+'''
+
+[[memory-export]]
+==== Memory Export/Import
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Export memory state for backup, migration, or sharing between environments.
+
+.Implementation Ideas
+* JSON/YAML export format
+* Selective export (by session, entity type, date range)
+* Import with conflict resolution
+* Memory snapshots for testing
+
+'''
+
+[[vector-index-management]]
+==== Vector Index Management
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Utilities for managing and optimizing Neo4j vector indexes.
+
+.Implementation Ideas
+* Index health monitoring
+* Automatic re-indexing on embedding model changes
+* Index statistics and performance metrics
+* Migration utilities between embedding models
+
+'''
+
+=== Documentation Quality Improvements
+
+[[doctest-integration]]
+==== Doctest-Style Assertions
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add doctest-style output validation to documentation examples.
+
+.Implementation Ideas
+* Add `# doctest: +ELLIPSIS` markers to AsciiDoc
+* Compare actual output to documented expected output
+* Support for async doctests
+* Integration with pytest doctest plugin
+
+'''
+
+[[api-docs-generation]]
+==== Automated API Reference Generation
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Auto-generate API reference documentation from code docstrings.
+
+.Implementation Ideas
+* Sphinx-style docstring parsing
+* Generate AsciiDoc from Python docstrings
+* Include type hints in documentation
+* Cross-reference between docs and source
+
+'''
+
+[[version-matrix-testing]]
+==== Documentation Version Matrix Testing
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Test documentation examples against multiple Python/Neo4j version combinations.
+
+.Implementation Ideas
+* CI matrix for Python 3.10-3.13
+* Neo4j 5.x version compatibility testing
+* Dependency version matrix
+* Automated compatibility notes in docs
+
+
+== v0.0.2 Roadmap (Implemented & Documented)
+
+The following features were implemented and documented as part of the v0.0.2 release cycle.
+
+=== Entity Extraction
+
+[[batch-extraction]]
+==== Batch Extraction API ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `ExtractionPipeline.extract_batch()` and `GLiNEREntityExtractor.extract_batch()`
+Documentation:: xref:how-to/batch-processing.adoc[Batch Processing Guide]
 
 **Features Implemented**:
 
-* `benchmarks/metrics.py` - Precision, recall, F1 calculation utilities:
-  - `EntityMetrics` - Per-entity-type metrics (TP, FP, FN, precision, recall, F1)
-  - `ExtractionMetrics` - Aggregate metrics with micro/macro averages
-  - `ExpectedEntity` - Test case entity with alias matching support
-  - `BenchmarkResult` - Complete benchmark run results
-  - `calculate_entity_metrics()` and `calculate_extraction_metrics()` functions
-* `benchmarks/runner.py` - Benchmark execution framework:
-  - `BenchmarkTestCase` - Single test case with text and expected entities
-  - `BenchmarkConfig` - Configuration (warmup_runs, num_runs, timeout)
-  - `BenchmarkSuite` - Collection of test cases with JSON serialization
-  - `BenchmarkRunner` - Async runner for executing benchmarks
-  - `compare_extractors()` - Run same suite across multiple extractors
-  - `create_sample_benchmark_suite()` - Sample test suite for getting started
-* JSON file support for loading/saving benchmark suites
+* `extract_batch()` method on `ExtractionPipeline` for parallel processing of multiple texts
+* `extract_batch()` method on `GLiNEREntityExtractor` using native batch inference for GPU efficiency
+* `BatchExtractionResult` dataclass with aggregate statistics
+* Progress callback support via `on_progress: Callable[[int, int], None]`
+* Configurable concurrency and batch size
+* Error handling options: `fail_fast=True` to stop on first error
+
+'''
+
+[[streaming-extraction]]
+==== Streaming Extraction for Long Documents ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `StreamingExtractor` class in `neo4j_agent_memory.extraction.streaming`
+Documentation:: xref:how-to/batch-processing.adoc#streaming[Streaming Extraction Guide]
+
+**Features Implemented**:
+
+* `StreamingExtractor` class wrapping any `EntityExtractor` for chunked processing
+* `extract_streaming()` async generator that yields `StreamingChunkResult` for each chunk
+* Chunking strategies: character-based and token-based
+* Automatic entity deduplication across chunks
+* Progress callback support for UI integration
+
+'''
+
+[[gliner-relations]]
+==== GLiREL Relation Extraction ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `GLiRELExtractor` and `GLiNERWithRelationsExtractor`
+Documentation:: xref:reference/extractors.adoc[Extractors Reference]
+
+**Features Implemented**:
+
+* `GLiRELExtractor` class for standalone relation extraction
+* `GLiNERWithRelationsExtractor` combining GLiNER + GLiREL
+* `DEFAULT_RELATION_TYPES` with 20+ POLE+O-optimized relation types
+* Zero API costs (no LLM calls), full offline support
+
+'''
+
+=== Storage & Data Management
+
+[[entity-deduplication]]
+==== Entity Deduplication on Ingest ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `LongTermMemory.add_entity()` with `DeduplicationConfig`
+Documentation:: xref:how-to/deduplication.adoc[Deduplication Guide]
+
+**Features Implemented**:
+
+* `DeduplicationConfig` dataclass for configuring thresholds and behavior
+* Embedding-based similarity search and optional fuzzy string matching
+* Configurable auto_merge_threshold and flag_threshold
+* `SAME_AS` relationship creation for flagged duplicates
+* Methods for reviewing and managing duplicates
+
+'''
+
+[[custom-schema-persistence]]
+==== Custom Schema Persistence ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `SchemaManager` class in `neo4j_agent_memory.schema.persistence`
+Documentation:: xref:reference/schemas.adoc[Schemas Reference]
+
+**Features Implemented**:
+
+* `SchemaManager` class for storing and loading schemas from Neo4j
+* Schema versioning with active version tracking
+* Full CRUD operations for schema management
+
+'''
+
+[[provenance-tracking]]
+==== Provenance Tracking ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `LongTermMemory` provenance methods
+Documentation:: xref:how-to/batch-processing.adoc#provenance[Provenance Tracking Guide]
+
+**Features Implemented**:
+
+* `register_extractor()` - Create/update Extractor nodes
+* `link_entity_to_message()` - EXTRACTED_FROM relationships
+* `link_entity_to_extractor()` - EXTRACTED_BY relationships
+* `get_entity_provenance()` - Full provenance retrieval
+
+'''
+
+=== CLI & Observability
+
+[[cli-extraction]]
+==== CLI for Entity Extraction ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `neo4j_agent_memory.cli` module with Click and Rich
+Documentation:: xref:reference/cli.adoc[CLI Reference]
+
+**Features Implemented**:
+
+* `neo4j-memory` CLI entry point with `extract`, `schemas`, and `stats` commands
+* Multiple output formats: table, json, jsonl
+* Extractor selection and custom entity types
+* Rich table formatting for terminal output
+
+'''
+
+[[opentelemetry]]
+==== OpenTelemetry and Opik Tracing ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `neo4j_agent_memory.observability` module
+Documentation:: xref:faq.adoc#observability-setup[Observability FAQ]
+
+**Features Implemented**:
+
+* Abstract `Tracer` and `Span` interfaces
+* `OpenTelemetryTracer` with OTLP export support
+* `OpikTracer` for LLM-focused observability
+* `NoOpTracer` for zero-overhead disabled tracing
+* Auto-detection via `get_tracer()` function
+
+'''
+
+[[benchmarks]]
+==== Extraction Quality Benchmarks ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `benchmarks/` module with metrics and runner
+Documentation:: CLAUDE.md (Extraction Quality Benchmarks section)
+
+**Features Implemented**:
+
+* `BenchmarkTestCase`, `BenchmarkConfig`, `BenchmarkSuite` classes
+* Precision, recall, F1 calculation with micro/macro averaging
 * Latency and throughput measurements
-* Error handling with detailed error collection
+* JSON file support for benchmark suite persistence
 
-.Metrics Tracked
-* Precision/Recall/F1 by entity type
-* Micro-averaged metrics (aggregate TP/FP/FN)
-* Macro-averaged metrics (average of per-type scores)
-* Latency (total, average per document)
-* Throughput (documents per second)
+'''
 
-.Example Usage
-[source,python]
+=== Agent Integration
+
+[[agent-tool-templates]]
+==== Agent Tool Templates ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: Lennys-Memory demo agent tools
+Documentation:: xref:tutorials/first-agent-memory.adoc[First Agent Memory Tutorial]
+
+**Features Implemented**:
+
+* 19 specialized agent tools for semantic search, entity queries, geospatial analysis
+* Entity Query Tools: `search_entities`, `get_entity_context`, `find_related_entities`
+* Location Query Tools: `search_locations`, `find_locations_near`, `get_location_clusters`
+* Preference and Reasoning Tools: `get_user_preferences`, `find_similar_past_queries`
+
+'''
+
+[[preference-aware-prompts]]
+==== Preference-Aware Agent Prompts ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: Dynamic system prompt injection in Lennys-Memory agent
+Documentation:: xref:tutorials/first-agent-memory.adoc[First Agent Memory Tutorial]
+
+**Features Implemented**:
+
+* Dynamic system prompt that injects user preferences
+* Similar trace consultation for improved reasoning
+* Memory context injection for personalized responses
+
+'''
+
+[[chat-to-map-integration]]
+==== Chat-to-Map Integration ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: Agent location tools with map view support
+Documentation:: xref:how-to/entities.adoc#geocoding[Geocoding Guide]
+
+**Features Implemented**:
+
+* Agent tools return location data with coordinates
+* Map view displays locations mentioned in conversations
+* Session-scoped location filtering
+* Backend APIs for clusters, nearby search, and path finding
+
+'''
+
+[[agent-framework-adapters]]
+==== Agent Framework Adapters ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `neo4j_agent_memory.integrations` module
+Documentation:: xref:how-to/integrations/pydantic-ai.adoc[PydanticAI], xref:how-to/integrations/langchain.adoc[LangChain], xref:how-to/integrations/llamaindex.adoc[LlamaIndex], xref:how-to/integrations/crewai.adoc[CrewAI]
+
+**Features Implemented**:
+
+* **PydanticAI**: `MemoryDependency`, `create_memory_tools()`, `record_agent_trace()`
+* **LangChain**: `Neo4jAgentMemory`, `Neo4jMemoryRetriever`
+* **LlamaIndex**: `Neo4jLlamaIndexMemory`
+* **CrewAI**: `Neo4jCrewMemory`
+
+'''
+
+=== Documentation
+
+[[docs-testing]]
+==== Documentation Testing Framework ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `tests/docs/` test suite
+Documentation:: CLAUDE.md (Documentation Testing section)
+
+**Features Implemented**:
+
+* Syntax validation for 500+ Python code snippets
+* Async wrapping for syntax checking
+* Build pipeline tests for npm/AsciiDoctor
+* Link validation for internal xref links
+* Makefile targets: `test-docs`, `test-docs-syntax`, `test-docs-build`, `test-docs-links`
+
+'''
+
+[[diataxis-restructuring]]
+==== Documentation Restructuring (Diataxis Framework) ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Started:: January 2026
+Completed:: January 2026
+
+**Features Implemented**:
+
+* Complete restructuring following https://diataxis.fr/[Diataxis framework]
+* Four quadrants: Tutorials, How-To Guides, Reference, Explanation
+* Visual differentiation with quadrant-specific colors
+* Pagefind search integration with Cmd+K shortcut
+
+.New Directory Structure
+[source]
 ----
-from benchmarks import (
-    BenchmarkRunner,
-    BenchmarkSuite,
-    BenchmarkTestCase,
-    ExpectedEntity,
-    create_sample_benchmark_suite,
-)
-from neo4j_agent_memory.extraction import GLiNEREntityExtractor
-
-# Create extractor and runner
-extractor = GLiNEREntityExtractor.for_schema("poleo")
-runner = BenchmarkRunner(extractor)
-
-# Run sample suite
-suite = create_sample_benchmark_suite()
-result = await runner.run_suite(suite)
-
-# Access metrics
-print(f"Micro F1: {result.metrics.micro_f1:.3f}")
-print(f"Macro F1: {result.metrics.macro_f1:.3f}")
-print(f"Avg latency: {result.avg_latency_ms:.1f}ms")
-
-# Per-entity-type metrics
-for entity_type, metrics in result.metrics.entity_metrics.items():
-    print(f"{entity_type}: P={metrics.precision:.2f}, R={metrics.recall:.2f}")
-
-# Compare extractors
-results = await runner.compare_extractors([extractor1, extractor2], suite)
+docs/
+├── tutorials/           # Learning-oriented (Purple)
+├── how-to/              # Task-oriented (Green)
+│   └── integrations/    # Framework-specific guides
+├── reference/           # Information-oriented (Blue)
+│   └── api/             # API documentation
+├── explanation/         # Understanding-oriented (Orange)
+└── assets/
+    ├── css/
+    └── images/
 ----
 
-.Creating Custom Benchmark Suites
-[source,python]
-----
-suite = BenchmarkSuite(
-    name="custom_benchmark",
-    description="Domain-specific benchmark",
-    test_cases=[
-        BenchmarkTestCase(
-            id="tc-001",
-            text="John Smith works at Acme Corp.",
-            expected_entities=[
-                ExpectedEntity(name="John Smith", entity_type="PERSON"),
-                ExpectedEntity(
-                    name="Acme Corp",
-                    entity_type="ORGANIZATION",
-                    aliases=["Acme Corporation", "Acme"],
-                ),
-            ],
-        ),
-    ],
-)
-
-# Save/load from JSON
-suite.to_json_file("my_benchmark.json")
-loaded = BenchmarkSuite.from_json_file("my_benchmark.json")
-----
+.Content Created
+* 3 comprehensive tutorials
+* 14 how-to guides including 4 framework integrations
+* 10 reference pages including 4 API references
+* 5 explanation pages covering architecture and concepts
 
 
 == Contributing
@@ -1002,6 +710,6 @@ If you have additional improvement suggestions, please:
 
 == See Also
 
-* xref:entity-extraction.adoc[Entity Extraction Guide]
+* xref:how-to/entity-extraction.adoc[Entity Extraction Guide]
 * xref:faq.adoc[FAQ]
 * https://github.com/neo4j-labs/neo4j-agent-memory[GitHub Repository]

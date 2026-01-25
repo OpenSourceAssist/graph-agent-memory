@@ -8,10 +8,12 @@
   },
   "scripts": {
     "build": "node build.js",
+    "build:search": "node build.js && npx pagefind --site _site",
     "watch": "node build.js --watch",
     "serve": "node build.js --serve",
     "clean": "rm -rf _site",
-    "vercel-build": "npm run build"
+    "lint": "node build.js --validate",
+    "vercel-build": "npm run build && npx pagefind --site _site"
   },
   "dependencies": {
     "@asciidoctor/core": "^3.0.4",
@@ -20,6 +22,7 @@
   "devDependencies": {
     "asciidoctor-kroki": "^0.18.1",
     "chokidar": "^3.6.0",
-    "live-server": "^1.2.2"
+    "live-server": "^1.2.2",
+    "pagefind": "^1.3.0"
   }
 }

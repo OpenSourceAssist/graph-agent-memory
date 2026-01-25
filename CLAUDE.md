@@ -174,6 +174,7 @@ Vector indexes are created for embedding-based search on Message, Entity, Prefer
 - `tests/unit/` - Unit tests with mocked dependencies
 - `tests/integration/` - Integration tests requiring Neo4j
 - `tests/benchmark/` - Performance benchmarks
+- `tests/docs/` - Documentation tests (code snippets, build pipeline, links)
 
 ### Running Tests
 
@@ -191,6 +192,13 @@ make test-integration
 
 # Run tests with coverage
 make coverage-all
+
+# Run documentation tests
+make test-docs              # All doc tests
+make test-docs-syntax       # Syntax validation only (fast)
+make test-docs-build        # Build pipeline tests
+make test-docs-links        # Link validation
+make test-docs-integration  # Doc examples against Neo4j
 ```
 
 ### Environment Variables for Tests
@@ -207,6 +215,74 @@ Key fixtures in `tests/conftest.py`:
 - `memory_client` - Connected MemoryClient with mock embedder/extractor/resolver
 - `clean_memory_client` - Same as above but cleans database before/after each test
 - `mock_embedder`, `mock_extractor`, `mock_resolver` - Mock implementations for testing
+
+## Documentation
+
+### Structure (Diataxis Framework)
+
+The documentation follows the [Diataxis framework](https://diataxis.fr/) with four content types:
+
+```
+docs/
+├── tutorials/           # Learning-oriented: guided walkthroughs
+├── how-to/              # Task-oriented: solving specific problems
+├── reference/           # Information-oriented: API descriptions
+├── explanation/         # Understanding-oriented: conceptual discussions
+└── build.js             # Node.js build script (Asciidoctor)
+```
+
+### Building Documentation
+
+```bash
+cd docs
+npm install
+npm run build           # Build to _site/
+npm run serve           # Local preview server
+npm run lint            # Validate links
+```
+
+### Documentation Testing
+
+The `tests/docs/` directory validates documentation quality:
+
+- **Syntax validation**: All 500+ Python code snippets compile without syntax errors
+- **Build pipeline**: Tests that `npm run build` produces expected HTML output
+- **Link validation**: Internal xref links point to existing files
+- **Code extraction**: Utility to extract code blocks from AsciiDoc for testing
+
+```bash
+# Run all documentation tests
+make test-docs
+
+# Run only syntax validation (fast, no Neo4j required)
+make test-docs-syntax
+
+# Run build pipeline tests
+make test-docs-build
+```
+
+### Diagram Management
+
+Documentation diagrams use Excalidraw JSON format stored in `docs/assets/images/diagrams/excalidraw/`.
+
+```bash
+# List all diagram placeholders in documentation
+make docs-diagrams-list
+
+# Check status of diagrams (which are implemented, missing, etc.)
+make docs-diagrams-status
+
+# Show only missing diagrams that need to be created
+make docs-diagrams-missing
+
+# Generate manifest.json for diagram tracking
+make docs-diagrams-manifest
+
+# Add image references to .adoc files for existing diagrams
+make docs-diagrams-add-refs
+```
+
+The diagram management script is at `scripts/manage_diagrams.py`. Excalidraw files can be created using the Claude Code Excalidraw skill at `.claude/skills/docs-excalidraw/`.
 
 ## CLI (Command Line Interface)
 
@@ -1436,3 +1512,88 @@ make run-frontend   # Next.js on :3000
 ```
 
 See `examples/lennys-memory/README.md` for a full deep dive.
+
+## Documentation
+
+The documentation is located in `docs/` and follows the [Diataxis framework](https://diataxis.fr/) for organizing technical documentation into four distinct types.
+
+### Documentation Structure
+
+```
+docs/
+├── index.adoc                    # Landing page
+├── tutorials/                    # Learning-oriented guides
+│   ├── first-agent-memory.adoc   # Build your first memory-enabled agent
+│   ├── conversation-memory.adoc  # Add memory to a chatbot
+│   └── knowledge-graph.adoc      # Build a knowledge graph from documents
+├── how-to/                       # Task-oriented guides
+│   ├── messages.adoc             # Store and search messages
+│   ├── entities.adoc             # Work with entities
+│   ├── entity-extraction.adoc    # Configure extraction pipeline
+│   └── integrations/             # Framework-specific guides
+├── reference/                    # Information-oriented content
+│   ├── configuration.adoc        # All configuration options
+│   ├── cli.adoc                  # CLI command reference
+│   └── api/                      # API documentation
+└── explanation/                  # Understanding-oriented content
+    ├── memory-types.adoc         # The three memory types explained
+    ├── poleo-model.adoc          # POLE+O data model concepts
+    └── extraction-pipeline.adoc  # How entity extraction works
+```
+
+### Diataxis Quadrants
+
+| Quadrant | Purpose | Style | Example |
+|----------|---------|-------|---------|
+| **Tutorials** | Teach through doing | Step-by-step, beginner-friendly | "Build your first agent with memory" |
+| **How-To Guides** | Solve specific problems | Concise, goal-focused | "How to configure entity extraction" |
+| **Reference** | Provide facts | Comprehensive, scannable | "Configuration options reference" |
+| **Explanation** | Build understanding | Conceptual, discursive | "Why we use the POLE+O model" |
+
+### Building Documentation
+
+```bash
+# Install dependencies
+cd docs && npm install
+
+# Build documentation
+npm run build
+
+# Serve with live reload
+npm run serve
+
+# Validate links
+npm run lint
+```
+
+### Writing Documentation
+
+When adding or modifying documentation:
+
+1. **Identify the quadrant**: Is this teaching (tutorial), helping accomplish a task (how-to), providing facts (reference), or explaining concepts (explanation)?
+
+2. **Use the right tone**:
+   - Tutorials: "We will..." (inclusive, guiding)
+   - How-To: "Do X to achieve Y" (direct, practical)
+   - Reference: Neutral, factual descriptions
+   - Explanation: "This works because..." (conceptual)
+
+3. **Cross-reference appropriately**: Use `xref:` links to connect related content across quadrants
+
+4. **Add diagram/screenshot placeholders**: Use NOTE blocks for images to be added later:
+   ```asciidoc
+   [NOTE]
+   ====
+   **[SCREENSHOT PLACEHOLDER]**
+   _Description: What the screenshot should show_
+   Image path: `images/screenshots/filename.png`
+   ====
+   ```
+
+### Documentation Build System
+
+- **Format**: AsciiDoc (`.adoc` files)
+- **Builder**: Custom Node.js script using `@asciidoctor/core`
+- **Features**: Auto-navigation generation, search (Pagefind), dark/light theme
+- **Output**: Static HTML in `docs/_site/`
+- **Deployment**: Vercel (auto-deploys on push to main)

@@ -1,0 +1,577 @@
+= Build Your First Memory-Enabled Agent
+:toc: right
+:toclevels: 3
+:sectanchors:
+:sectlinks:
+:icons: font
+:source-highlighter: highlight.js
+
+A step-by-step tutorial to build your first AI agent with persistent memory and a context graph.
+
+[.lead]
+In this tutorial, we'll build a simple agent that remembers conversations, learns user preferences, and uses a context graph to provide personalized responses. By the end, you'll have a working memory system that persists across sessions.
+
+== What You'll Learn
+
+* How to install and configure neo4j-agent-memory
+* How to store and retrieve conversation messages
+* How to extract entities from conversations automatically
+* How to use stored preferences to personalize responses
+* How to visualize your context graph in Neo4j Browser
+
+== Prerequisites
+
+* Python 3.10 or higher
+* Basic familiarity with Python and async/await
+* OpenAI API key (for embeddings)
+
+No prior Neo4j experience is required—we'll set everything up together.
+
+== Time Required
+
+Approximately 30 minutes.
+
+== Step 1: Install Dependencies
+
+First, let's install neo4j-agent-memory and its dependencies:
+
+[source,bash]
+----
+# Create a new project directory
+mkdir my-first-memory-agent
+cd my-first-memory-agent
+
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install neo4j-agent-memory with all extras
+pip install neo4j-agent-memory[all]
+----
+
+This installs:
+- The core memory library
+- GLiNER for entity extraction
+- OpenAI client for embeddings
+- Neo4j driver for database connection
+
+== Step 2: Set Up Neo4j
+
+We'll use Docker to run Neo4j locally. If you don't have Docker, you can use https://neo4j.com/cloud/aura-free/[Neo4j Aura Free] instead.
+
+=== Option A: Docker (Recommended for Learning)
+
+[source,bash]
+----
+# Run Neo4j with vector search support
+docker run \
+    --name neo4j-memory \
+    -p 7474:7474 -p 7687:7687 \
+    -e NEO4J_AUTH=neo4j/password123 \
+    -e NEO4J_PLUGINS='["apoc"]' \
+    -d \
+    neo4j:5.15.0
+
+# Wait for Neo4j to start (about 30 seconds)
+sleep 30
+
+# Verify it's running
+docker logs neo4j-memory | tail -5
+----
+
+You should see "Started" in the logs.
+
+=== Option B: Neo4j Aura Free
+
+1. Go to https://neo4j.com/cloud/aura-free/
+2. Create a free account and new database
+3. Copy your connection URI and password
+4. Use the Aura URI instead of `bolt://localhost:7687` in the examples below
+
+== Step 3: Configure Environment
+
+Create a `.env` file with your credentials:
+
+[source,bash]
+----
+# Create .env file
+cat > .env << 'EOF'
+# Neo4j connection
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password123
+
+# OpenAI for embeddings
+OPENAI_API_KEY=your-openai-api-key-here
+EOF
+----
+
+Replace `your-openai-api-key-here` with your actual OpenAI API key.
+
+== Step 4: Create Your First Memory Client
+
+Create a file called `agent.py`:
+
+[source,python]
+----
+# agent.py
+import asyncio
+import os
+from dotenv import load_dotenv
+from neo4j_agent_memory import MemoryClient
+
+# Load environment variables
+load_dotenv()
+
+async def main():
+    # Create memory client
+    client = MemoryClient(
+        neo4j_uri=os.getenv("NEO4J_URI"),
+        neo4j_user=os.getenv("NEO4J_USER"),
+        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    )
+
+    print("✓ Connected to Neo4j!")
+
+    # Initialize the database schema
+    await client.initialize()
+    print("✓ Database schema initialized!")
+
+    # Store a test message
+    message = await client.short_term.add_message(
+        role="user",
+        content="Hello! I'm looking for running shoes. I really like Nike products.",
+        session_id="test-session-001",
+    )
+    print(f"✓ Stored message: {message.id}")
+
+    # Retrieve the message
+    messages = await client.short_term.get_session_messages(
+        session_id="test-session-001"
+    )
+    print(f"✓ Retrieved {len(messages)} message(s)")
+
+    for msg in messages:
+        print(f"  [{msg.role}]: {msg.content}")
+
+    # Close the connection
+    await client.close()
+    print("✓ Connection closed!")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+----
+
+Run it:
+
+[source,bash]
+----
+python agent.py
+----
+
+You should see:
+
+[source]
+----
+✓ Connected to Neo4j!
+✓ Database schema initialized!
+✓ Stored message: msg_...
+✓ Retrieved 1 message(s)
+  [user]: Hello! I'm looking for running shoes. I really like Nike products.
+✓ Connection closed!
+----
+
+Congratulations! You've stored your first message in the context graph.
+
+== Step 5: Add Entity Extraction
+
+Now let's automatically extract entities from messages. Update `agent.py`:
+
+[source,python]
+----
+# agent.py
+import asyncio
+import os
+from dotenv import load_dotenv
+from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory.extraction import GLiNEREntityExtractor
+
+load_dotenv()
+
+async def main():
+    client = MemoryClient(
+        neo4j_uri=os.getenv("NEO4J_URI"),
+        neo4j_user=os.getenv("NEO4J_USER"),
+        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    )
+
+    await client.initialize()
+
+    # Create an entity extractor
+    extractor = GLiNEREntityExtractor.for_poleo()
+    print("✓ Entity extractor ready!")
+
+    # Sample conversation
+    messages = [
+        "Hi, I'm John and I'm looking for running shoes for my marathon training.",
+        "I've been using Nike Air Max shoes and really liked them.",
+        "My budget is around $150. I prefer lightweight shoes.",
+        "I live in San Francisco and train at Golden Gate Park.",
+    ]
+
+    # Process each message
+    for msg_content in messages:
+        # Store the message
+        message = await client.short_term.add_message(
+            role="user",
+            content=msg_content,
+            session_id="shopping-session-001",
+        )
+        print(f"\n[User]: {msg_content}")
+
+        # Extract entities
+        result = await extractor.extract(msg_content)
+
+        if result.entities:
+            print("  Extracted entities:")
+            for entity in result.entities:
+                print(f"    - {entity.name} ({entity.type})")
+
+                # Store entity in context graph
+                await client.long_term.add_entity(
+                    name=entity.name,
+                    entity_type=entity.type,
+                    properties={"confidence": entity.confidence},
+                )
+
+    # Show what's in the context graph
+    print("\n" + "="*50)
+    print("Context Graph Summary:")
+    print("="*50)
+
+    # Get all entities
+    entities = await client.long_term.search_entities(query="", limit=20)
+    print(f"\nEntities in graph: {len(entities)}")
+    for entity in entities:
+        print(f"  - {entity.name} ({entity.type})")
+
+    await client.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+----
+
+Run it:
+
+[source,bash]
+----
+python agent.py
+----
+
+You should see entities being extracted:
+
+[source]
+----
+✓ Entity extractor ready!
+
+[User]: Hi, I'm John and I'm looking for running shoes for my marathon training.
+  Extracted entities:
+    - John (PERSON)
+    - marathon (EVENT)
+
+[User]: I've been using Nike Air Max shoes and really liked them.
+  Extracted entities:
+    - Nike Air Max (OBJECT)
+    - Nike (ORGANIZATION)
+
+[User]: My budget is around $150. I prefer lightweight shoes.
+  Extracted entities:
+    - $150 (OBJECT)
+
+[User]: I live in San Francisco and train at Golden Gate Park.
+  Extracted entities:
+    - San Francisco (LOCATION)
+    - Golden Gate Park (LOCATION)
+
+==================================================
+Context Graph Summary:
+==================================================
+
+Entities in graph: 7
+  - John (PERSON)
+  - marathon (EVENT)
+  - Nike Air Max (OBJECT)
+  - Nike (ORGANIZATION)
+  - San Francisco (LOCATION)
+  - Golden Gate Park (LOCATION)
+----
+
+== Step 6: Add User Preferences
+
+Now let's learn and store user preferences:
+
+[source,python]
+----
+# agent.py
+import asyncio
+import os
+from dotenv import load_dotenv
+from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory.extraction import GLiNEREntityExtractor
+
+load_dotenv()
+
+async def main():
+    client = MemoryClient(
+        neo4j_uri=os.getenv("NEO4J_URI"),
+        neo4j_user=os.getenv("NEO4J_USER"),
+        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    )
+
+    await client.initialize()
+    extractor = GLiNEREntityExtractor.for_poleo()
+
+    user_id = "customer-john-001"
+    session_id = "shopping-session-002"
+
+    # Store some preferences based on conversation
+    preferences = [
+        ("brand", "Prefers Nike products"),
+        ("budget", "Budget around $150"),
+        ("style", "Prefers lightweight shoes"),
+        ("activity", "Trains for marathons"),
+        ("location", "Lives in San Francisco"),
+    ]
+
+    print("Storing user preferences...")
+    for category, preference in preferences:
+        await client.long_term.add_preference(
+            user_id=user_id,
+            preference=preference,
+            category=category,
+        )
+        print(f"  ✓ {category}: {preference}")
+
+    # Later: Retrieve preferences for personalization
+    print("\n" + "="*50)
+    print("Retrieved preferences for personalization:")
+    print("="*50)
+
+    stored_prefs = await client.long_term.get_preferences(user_id=user_id)
+    for pref in stored_prefs:
+        print(f"  [{pref.category}]: {pref.preference}")
+
+    # Use preferences in a recommendation context
+    print("\n" + "="*50)
+    print("Building personalized context for agent...")
+    print("="*50)
+
+    context = await client.get_context(
+        query="recommend running shoes",
+        user_id=user_id,
+        session_id=session_id,
+        include_short_term=True,
+        include_long_term=True,
+    )
+
+    print(f"\nMessages in context: {len(context.messages)}")
+    print(f"Preferences in context: {len(context.preferences)}")
+    print(f"Entities in context: {len(context.entities)}")
+
+    # Format for an LLM prompt
+    prompt_context = """
+## User Preferences
+"""
+    for pref in context.preferences:
+        prompt_context += f"- {pref.category}: {pref.preference}\n"
+
+    prompt_context += """
+## Known Information
+"""
+    for entity in context.entities[:5]:
+        prompt_context += f"- {entity.name} ({entity.type})\n"
+
+    print("\nContext ready for LLM:")
+    print(prompt_context)
+
+    await client.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+----
+
+Run it:
+
+[source,bash]
+----
+python agent.py
+----
+
+== Step 7: View Your Context Graph in Neo4j Browser
+
+Open Neo4j Browser at http://localhost:7474 (or your Aura URL).
+
+Login with:
+- Username: `neo4j`
+- Password: `password123`
+
+Run these Cypher queries to explore your context graph:
+
+=== View All Nodes
+
+[source,cypher]
+----
+MATCH (n) RETURN n LIMIT 50
+----
+
+=== View Messages and Their Entities
+
+[source,cypher]
+----
+MATCH (m:Message)-[:MENTIONS]->(e:Entity)
+RETURN m, e
+----
+
+=== View User Preferences
+
+[source,cypher]
+----
+MATCH (p:Preference)
+RETURN p.category, p.preference
+----
+
+=== View the Full Context Graph
+
+[source,cypher]
+----
+MATCH (n)
+OPTIONAL MATCH (n)-[r]->(m)
+RETURN n, r, m
+LIMIT 100
+----
+
+[NOTE]
+====
+**[SCREENSHOT PLACEHOLDER]**
+
+_Description: Neo4j Browser showing the context graph with Message nodes connected to Entity nodes (Person, Organization, Location) via MENTIONS relationships._
+
+Image path: `images/screenshots/neo4j-context-graph.png`
+====
+
+== Step 8: Search Your Context Graph
+
+Add semantic search capabilities:
+
+[source,python]
+----
+# search_demo.py
+import asyncio
+import os
+from dotenv import load_dotenv
+from neo4j_agent_memory import MemoryClient
+
+load_dotenv()
+
+async def main():
+    client = MemoryClient(
+        neo4j_uri=os.getenv("NEO4J_URI"),
+        neo4j_user=os.getenv("NEO4J_USER"),
+        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    )
+
+    await client.initialize()
+
+    # Semantic search for messages
+    print("Searching messages for 'athletic footwear'...")
+    messages = await client.short_term.search_messages(
+        query="athletic footwear",  # Semantic search!
+        limit=5,
+    )
+
+    for msg in messages:
+        print(f"  [{msg.score:.2f}] {msg.content[:60]}...")
+
+    # Semantic search for entities
+    print("\nSearching entities for 'sports brand'...")
+    entities = await client.long_term.search_entities(
+        query="sports brand",  # Semantic search!
+        limit=5,
+    )
+
+    for entity in entities:
+        print(f"  [{entity.score:.2f}] {entity.name} ({entity.type})")
+
+    await client.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+----
+
+Notice how semantic search finds "Nike" when you search for "sports brand" even though those exact words weren't in the original text!
+
+== What You've Built
+
+Congratulations! You've built a working memory system that:
+
+1. **Stores conversations** in a persistent database
+2. **Extracts entities** automatically (people, places, organizations)
+3. **Learns preferences** from user interactions
+4. **Enables semantic search** across all stored knowledge
+5. **Provides context** for personalized agent responses
+
+This context graph forms the foundation for intelligent, personalized AI agents.
+
+== Next Steps
+
+Now that you have the basics working, explore these tutorials:
+
+* xref:conversation-memory.adoc[Add Conversation Memory to a Chatbot] - Build a chatbot that remembers across sessions
+* xref:knowledge-graph.adoc[Build a Knowledge Graph from Documents] - Extract and connect knowledge from documents
+
+Or dive into the how-to guides:
+
+* xref:../how-to/entity-extraction.adoc[Configure Entity Extraction] - Customize extraction for your domain
+* xref:../how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Build production agents
+
+== Troubleshooting
+
+=== Connection Refused
+
+If you see "Connection refused", ensure Neo4j is running:
+
+[source,bash]
+----
+docker ps | grep neo4j
+----
+
+If not running:
+
+[source,bash]
+----
+docker start neo4j-memory
+----
+
+=== Authentication Failed
+
+Double-check your password in `.env` matches what you set in Docker.
+
+=== GLiNER Download Slow
+
+The first run downloads the GLiNER model (~500MB). This is normal and only happens once.
+
+== Clean Up
+
+To stop and remove the Docker container:
+
+[source,bash]
+----
+docker stop neo4j-memory
+docker rm neo4j-memory
+----
+
+== See Also
+
+* xref:../explanation/memory-types.adoc[Understanding Memory Types]
+* xref:../explanation/graph-architecture.adoc[Why Neo4j?]
+* xref:../reference/configuration.adoc[Configuration Reference]
