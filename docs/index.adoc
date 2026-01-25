@@ -10,9 +10,13 @@
 ++++
 <div class="hero">
   <div class="hero-content">
-    <p class="hero-eyebrow"><i class="fa-solid fa-database"></i> Graph-native memory for AI agents</p>
+    <p class="hero-eyebrow"><i class="fa-solid fa-flask"></i> Neo4j Labs &nbsp;·&nbsp; <i class="fa-solid fa-database"></i> Graph-native memory for AI agents</p>
     <h2 class="hero-title">Your agents forget everything.<br>Fix that.</h2>
     <p class="hero-subtitle">Store conversations, build knowledge graphs, and let your agents learn from their own reasoning &mdash; all backed by Neo4j.</p>
+    <div class="status-badges">
+      <span class="status-badge experimental">Experimental</span>
+      <span class="status-badge community">Community Supported</span>
+    </div>
     <div class="hero-actions">
       <a href="tutorials/first-agent-memory.html" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Get Started</a>
       <a href="https://github.com/neo4j-labs/neo4j-agent-memory" class="btn btn-secondary" target="_blank"><i class="fab fa-github"></i> GitHub</a>

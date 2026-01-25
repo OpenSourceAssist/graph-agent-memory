@@ -2,6 +2,8 @@
 
 A complete example demonstrating **neo4j-agent-memory** integration with a PydanticAI chat agent and Next.js frontend. This example implements a news research assistant that uses all three memory types (short-term, long-term, reasoning).
 
+> ⚠️ This example is part of [neo4j-agent-memory](https://github.com/neo4j-labs/neo4j-agent-memory), a **Neo4j Labs project**. It is actively maintained but not officially supported. For questions, use the [Neo4j Community Forum](https://community.neo4j.com).
+
 ## Features
 
 - **PydanticAI Agent**: News research assistant with memory-enhanced system prompts

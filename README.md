@@ -2,10 +2,15 @@
 
 A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and let your agents learn from their own reasoning -- all backed by Neo4j.
 
+[![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)](https://neo4j.com/labs/)
+[![Status: Experimental](https://img.shields.io/badge/Status-Experimental-F59E0B)](https://neo4j.com/labs/)
+[![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)](https://community.neo4j.com)
 [![CI](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/neo4j-labs/neo4j-agent-memory/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/neo4j-agent-memory.svg)](https://badge.fury.io/py/neo4j-agent-memory)
 [![Python versions](https://img.shields.io/pypi/pyversions/neo4j-agent-memory.svg)](https://pypi.org/project/neo4j-agent-memory/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+> ⚠️ **This is a Neo4j Labs project.** It is actively maintained but not officially supported. There are no SLAs or guarantees around backwards compatibility and deprecation. For questions and support, please use the [Neo4j Community Forum](https://community.neo4j.com).
 
 > **See it in action**: The [Lenny's Podcast Memory Explorer](examples/lennys-memory/) demo loads 299 podcast episodes into a searchable knowledge graph with an AI chat agent, interactive graph visualization, geospatial map view, and Wikipedia-enriched entity cards.
 
@@ -1217,6 +1222,12 @@ The integration test script supports several options:
    git push origin v0.1.0
    ```
 3. GitHub Actions will automatically build and publish to PyPI
+
+## Support
+
+- 💬 [Neo4j Community Forum](https://community.neo4j.com) - Ask questions and get help
+- 🐛 [GitHub Issues](https://github.com/neo4j-labs/neo4j-agent-memory/issues) - Report bugs or request features
+- 📖 [Documentation](https://neo4j-agent-memory.vercel.app/) - Full documentation site
 
 ## License
 

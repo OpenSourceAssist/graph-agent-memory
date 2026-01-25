@@ -2,6 +2,8 @@
 
 A full-stack AI agent application that transforms 299 episodes of Lenny's Podcast into a searchable knowledge graph with conversational AI, interactive graph visualization, geospatial analysis, and Wikipedia-enriched entity cards -- all powered by [neo4j-agent-memory](https://github.com/neo4j-labs/neo4j-agent-memory).
 
+> ⚠️ This example is part of [neo4j-agent-memory](https://github.com/neo4j-labs/neo4j-agent-memory), a **Neo4j Labs project**. It is actively maintained but not officially supported. For questions, use the [Neo4j Community Forum](https://community.neo4j.com).
+
 ---
 
 ## What This Demo Shows

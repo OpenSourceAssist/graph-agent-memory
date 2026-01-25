@@ -2,6 +2,8 @@
 
 This directory contains example applications demonstrating GLiNER2 domain schemas for entity extraction in different domains.
 
+> ⚠️ This example is part of [neo4j-agent-memory](https://github.com/neo4j-labs/neo4j-agent-memory), a **Neo4j Labs project**. It is actively maintained but not officially supported. For questions, use the [Neo4j Community Forum](https://community.neo4j.com).
+
 ## Overview
 
 GLiNER2 supports **domain schemas** - predefined sets of entity types with natural language descriptions that help the model understand what to extract. Using domain-specific schemas significantly improves extraction accuracy compared to generic entity types.

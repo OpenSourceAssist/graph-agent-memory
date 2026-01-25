@@ -450,6 +450,13 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
   <script>hljs.highlightAll();</script>
 </head>
 <body${quadrant ? ` data-quadrant="${quadrant}"` : ""}>
+  <!-- Neo4j Labs Status Banner -->
+  <div class="labs-banner">
+    <span class="labs-badge">🧪 Neo4j Labs</span>
+    Experimental project — Community supported.
+    <a href="https://community.neo4j.com" target="_blank">Get help →</a>
+  </div>
+
   <!-- Search modal -->
   <div id="search-modal" class="search-modal" role="dialog" aria-modal="true" aria-labelledby="search-title">
     <div class="search-modal-backdrop"></div>
@@ -496,6 +503,7 @@ function wrapInTemplate(content, sourceFile, docTitle, navigation, rootPath) {
           <span class="logo-text">Agent Memory</span>
         </a>
         <span class="version-badge">v0.1.0</span>
+        <span class="labs-badge-small">Labs</span>
         <button class="search-trigger" aria-label="Search documentation" title="Search (Ctrl+K)">
           <i class="fa-solid fa-magnifying-glass"></i>
           <span class="search-shortcut"><kbd>⌘</kbd><kbd>K</kbd></span>

@@ -35,6 +35,18 @@
     /* Neo4j brand colors */
     --color-neo4j-blue: #018bff;
     --color-neo4j-green: #00a86b;
+    --color-neo4j-teal: #009999;
+
+    /* Neo4j Labs brand colors */
+    --color-labs-purple: #6366f1;
+    --color-labs-purple-dark: #4f46e5;
+    --color-labs-purple-light: #a5b4fc;
+
+    /* Status colors */
+    --color-status-experimental: #f59e0b;
+    --color-status-beta: #6366f1;
+    --color-status-stable: #10b981;
+    --color-status-deprecated: #ef4444;
 
     /* Typography */
     --font-family-sans:
@@ -1097,12 +1109,12 @@ details .content {
 }
 
 .btn-primary {
-    background-color: var(--color-neo4j-blue);
+    background-color: var(--color-labs-purple);
     color: #ffffff;
 }
 
 .btn-primary:hover {
-    background-color: #0077e0;
+    background-color: var(--color-labs-purple-dark);
     color: #ffffff;
 }
 
@@ -2138,4 +2150,117 @@ body.search-open {
 
 .pagefind-ui .pagefind-ui__result-excerpt {
     color: var(--color-text-secondary);
+}
+
+/* ============================================
+   Neo4j Labs Status Banner
+   ============================================ */
+
+.labs-banner {
+    background: linear-gradient(
+        135deg,
+        var(--color-labs-purple) 0%,
+        var(--color-labs-purple-dark) 100%
+    );
+    color: #ffffff;
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: var(--font-size-sm);
+    text-align: center;
+    position: relative;
+    z-index: 200;
+}
+
+.labs-banner a {
+    color: #ffffff;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.labs-banner a:hover {
+    color: #ffffff;
+    opacity: 0.9;
+}
+
+.labs-banner .labs-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    margin-right: var(--spacing-2);
+    font-weight: 600;
+}
+
+/* Labs badge in nav header */
+.labs-badge-small {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    background-color: var(--color-labs-purple);
+    color: #ffffff;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    margin-left: var(--spacing-2);
+}
+
+/* Status badges for hero section */
+.status-badges {
+    display: flex;
+    gap: var(--spacing-2);
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: var(--spacing-4);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-1) var(--spacing-3);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.status-badge.experimental {
+    background-color: rgba(245, 158, 11, 0.15);
+    color: var(--color-status-experimental);
+    border: 1px solid var(--color-status-experimental);
+}
+
+.status-badge.community {
+    background-color: rgba(107, 114, 128, 0.15);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-default);
+}
+
+/* Dark mode adjustments for Labs branding */
+[data-theme="dark"] .labs-banner {
+    background: linear-gradient(
+        135deg,
+        var(--color-labs-purple-dark) 0%,
+        #3730a3 100%
+    );
+}
+
+[data-theme="dark"] .status-badge.experimental {
+    background-color: rgba(245, 158, 11, 0.2);
+}
+
+[data-theme="dark"] .status-badge.community {
+    background-color: rgba(107, 114, 128, 0.2);
+}
+
+/* Mobile adjustments for Labs banner */
+@media (max-width: 640px) {
+    .labs-banner {
+        padding: var(--spacing-2) var(--spacing-3);
+        font-size: var(--font-size-xs);
+    }
+
+    .labs-banner .labs-badge {
+        display: block;
+        margin-bottom: var(--spacing-1);
+        margin-right: 0;
+    }
 }
