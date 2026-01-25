@@ -806,6 +806,136 @@ These frameworks focus on agent orchestration. neo4j-agent-memory is **specifica
 
 ---
 
+## Cloud Deployment
+
+This application can be deployed to Railway (backend) and Vercel (frontend).
+
+### Prerequisites
+
+- [Neo4j Aura](https://neo4j.com/cloud/aura/) account (free tier available)
+- [Railway](https://railway.app/) account
+- [Vercel](https://vercel.com/) account
+- OpenAI API key
+
+### Backend Deployment (Railway)
+
+#### 1. Create a Neo4j Aura Instance
+
+1. Go to [Neo4j Aura](https://console.neo4j.io/)
+2. Create a new database (free tier works)
+3. Save the connection URI and password
+
+#### 2. Deploy Backend to Railway
+
+1. Fork/clone this repository to your GitHub account
+2. Go to [Railway](https://railway.app/) and create a new project
+3. Select "Deploy from GitHub repo"
+4. Select your forked repository
+5. **Important**: Set the **Root Directory** to:
+   ```
+   neo4j-agent-memory/examples/lennys-memory/backend
+   ```
+
+#### 3. Configure Environment Variables in Railway
+
+Add these environment variables in Railway's project settings:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NEO4J_URI` | Neo4j Aura connection URI | `neo4j+s://xxxxxxxx.databases.neo4j.io` |
+| `NEO4J_USERNAME` | Neo4j username | `neo4j` |
+| `NEO4J_PASSWORD` | Neo4j password | `your-password` |
+| `OPENAI_API_KEY` | OpenAI API key | `sk-...` |
+| `CORS_ORIGINS` | Frontend URL(s), comma-separated | `https://your-app.vercel.app` |
+| `CORS_ORIGIN_REGEX` | Regex for preview deployments | `https://.*\.vercel\.app` |
+| `DEBUG` | Disable debug mode in production | `false` |
+
+#### 4. Verify Deployment
+
+After deployment, test the health endpoint:
+```bash
+curl https://your-app.up.railway.app/health
+```
+
+Expected response:
+```json
+{"status": "healthy", "memory_connected": true}
+```
+
+### Frontend Deployment (Vercel)
+
+#### 1. Deploy to Vercel
+
+1. Go to [Vercel](https://vercel.com/) and create a new project
+2. Import your GitHub repository
+3. Set the **Root Directory** to:
+   ```
+   neo4j-agent-memory/examples/lennys-memory/frontend
+   ```
+4. Framework preset should auto-detect as "Next.js"
+
+#### 2. Configure Environment Variables in Vercel
+
+Add this environment variable in Vercel's project settings:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_API_URL` | Railway backend URL **with /api suffix** | `https://your-app.up.railway.app/api` |
+
+**Important**: The URL must include `/api` at the end.
+
+#### 3. Redeploy
+
+After adding environment variables, trigger a new deployment in Vercel.
+
+### Troubleshooting
+
+#### CORS Errors in Browser Console
+
+If you see `Access-Control-Allow-Origin` errors:
+
+1. **Backend not running**: Check Railway deploy logs for startup errors
+2. **Missing CORS config**: Ensure `CORS_ORIGINS` or `CORS_ORIGIN_REGEX` is set in Railway
+3. **Wrong URL**: Verify `NEXT_PUBLIC_API_URL` includes the `/api` suffix
+
+#### 502 Bad Gateway from Railway
+
+This means the FastAPI app is not starting. Check Railway deploy logs for:
+
+1. **Missing environment variables**: `NEO4J_URI`, `NEO4J_PASSWORD`, `OPENAI_API_KEY`
+2. **Neo4j connection failure**: Verify URI format (`neo4j+s://` for Aura)
+3. **Package installation errors**: Check build logs
+
+#### Health Check Returns `memory_connected: false`
+
+The backend started but cannot connect to Neo4j:
+
+1. Verify `NEO4J_URI` format (should be `neo4j+s://...` for Aura)
+2. Check `NEO4J_PASSWORD` is correct
+3. Ensure the Neo4j Aura instance is running
+
+### Loading Data to Cloud Neo4j
+
+To load podcast data into your Aura instance:
+
+```bash
+cd backend
+
+# Set environment variables for your Aura instance
+export NEO4J_URI="neo4j+s://xxxxxxxx.databases.neo4j.io"
+export NEO4J_USERNAME="neo4j"
+export NEO4J_PASSWORD="your-password"
+export OPENAI_API_KEY="sk-..."
+
+# Load sample data (5 transcripts)
+python ../scripts/load_transcripts.py --data-dir ../data --sample 5
+
+# Or load full dataset
+python ../scripts/load_transcripts.py --data-dir ../data
+```
+
+---
+
 ## License
 
 This example is part of the [neo4j-agent-memory](https://github.com/neo4j-labs/neo4j-agent-memory) project, licensed under Apache 2.0.
