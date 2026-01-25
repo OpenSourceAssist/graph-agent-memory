@@ -1106,7 +1106,7 @@ See the [Lenny's Memory README](examples/lennys-memory/README.md) for a full arc
 ```bash
 # Clone the repository
 git clone https://github.com/neo4j-labs/agent-memory.git
-cd neo4j-agent-memory
+cd agent-memory
 
 # Install with uv
 uv sync --group dev
