@@ -1,18 +1,18 @@
-"""Comprehensive integration tests for procedural memory."""
+"""Comprehensive integration tests for reasoning memory."""
 
 import pytest
 
-from neo4j_agent_memory.memory.procedural import ToolCallStatus
+from neo4j_agent_memory.memory.reasoning import ToolCallStatus
 
 
 @pytest.mark.integration
-class TestProceduralMemoryTraces:
+class TestReasoningMemoryTraces:
     """Test reasoning trace operations."""
 
     @pytest.mark.asyncio
     async def test_start_trace_basic(self, memory_client, session_id):
         """Test starting a basic reasoning trace."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Find the best restaurant",
             generate_embedding=False,
@@ -29,7 +29,7 @@ class TestProceduralMemoryTraces:
     @pytest.mark.asyncio
     async def test_start_trace_with_embedding(self, memory_client, session_id):
         """Test starting a trace with task embedding."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Search for Italian restaurants nearby",
             generate_embedding=True,
@@ -42,14 +42,14 @@ class TestProceduralMemoryTraces:
     async def test_complete_trace_success(self, memory_client, session_id):
         """Test completing a trace successfully."""
         # Start trace
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
         )
 
         # Complete with success
-        completed = await memory_client.procedural.complete_trace(
+        completed = await memory_client.reasoning.complete_trace(
             trace.id,
             outcome="Successfully found 3 restaurants",
             success=True,
@@ -63,14 +63,14 @@ class TestProceduralMemoryTraces:
     async def test_complete_trace_failure(self, memory_client, session_id):
         """Test completing a trace with failure."""
         # Start trace
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test failing task",
             generate_embedding=False,
         )
 
         # Complete with failure
-        completed = await memory_client.procedural.complete_trace(
+        completed = await memory_client.reasoning.complete_trace(
             trace.id,
             outcome="No results found due to API error",
             success=False,
@@ -83,14 +83,14 @@ class TestProceduralMemoryTraces:
     async def test_get_trace_by_id(self, memory_client, session_id):
         """Test retrieving a trace by ID."""
         # Create trace
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Retrievable task",
             generate_embedding=False,
         )
 
         # Retrieve by ID
-        retrieved = await memory_client.procedural.get_trace(trace.id)
+        retrieved = await memory_client.reasoning.get_trace(trace.id)
 
         assert retrieved is not None
         assert retrieved.id == trace.id
@@ -101,32 +101,32 @@ class TestProceduralMemoryTraces:
         """Test getting all traces for a session."""
         # Create multiple traces
         for i in range(3):
-            await memory_client.procedural.start_trace(
+            await memory_client.reasoning.start_trace(
                 session_id,
                 task=f"Task {i}",
                 generate_embedding=False,
             )
 
         # Get traces for session
-        traces = await memory_client.procedural.get_session_traces(session_id)
+        traces = await memory_client.reasoning.get_session_traces(session_id)
 
         assert len(traces) >= 3
 
 
 @pytest.mark.integration
-class TestProceduralMemorySteps:
+class TestReasoningMemorySteps:
     """Test reasoning step operations."""
 
     @pytest.mark.asyncio
     async def test_add_step_basic(self, memory_client, session_id):
         """Test adding a basic reasoning step."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
         )
 
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="I should search for restaurants",
             action="search",
@@ -142,13 +142,13 @@ class TestProceduralMemorySteps:
     @pytest.mark.asyncio
     async def test_add_step_with_observation(self, memory_client, session_id):
         """Test adding a step with observation."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
         )
 
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Searching for data",
             action="query_database",
@@ -161,7 +161,7 @@ class TestProceduralMemorySteps:
     @pytest.mark.asyncio
     async def test_multiple_steps_numbering(self, memory_client, session_id):
         """Test that step numbers increment correctly."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Multi-step task",
             generate_embedding=False,
@@ -169,7 +169,7 @@ class TestProceduralMemorySteps:
 
         steps = []
         for i in range(5):
-            step = await memory_client.procedural.add_step(
+            step = await memory_client.reasoning.add_step(
                 trace.id,
                 thought=f"Step {i} thought",
                 action=f"action_{i}",
@@ -184,7 +184,7 @@ class TestProceduralMemorySteps:
     @pytest.mark.asyncio
     async def test_get_trace_steps(self, memory_client, session_id):
         """Test getting all steps for a trace."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
@@ -192,7 +192,7 @@ class TestProceduralMemorySteps:
 
         # Add multiple steps
         for i in range(3):
-            await memory_client.procedural.add_step(
+            await memory_client.reasoning.add_step(
                 trace.id,
                 thought=f"Thought {i}",
                 action=f"action_{i}",
@@ -200,32 +200,32 @@ class TestProceduralMemorySteps:
             )
 
         # Get trace with steps
-        full_trace = await memory_client.procedural.get_trace(trace.id)
+        full_trace = await memory_client.reasoning.get_trace(trace.id)
 
         assert full_trace is not None
         assert len(full_trace.steps) >= 3
 
 
 @pytest.mark.integration
-class TestProceduralMemoryToolCalls:
+class TestReasoningMemoryToolCalls:
     """Test tool call operations."""
 
     @pytest.mark.asyncio
     async def test_record_tool_call_success(self, memory_client, session_id):
         """Test recording a successful tool call."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
         )
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Need to call API",
             action="call_api",
             generate_embedding=False,
         )
 
-        tool_call = await memory_client.procedural.record_tool_call(
+        tool_call = await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="weather_api",
             arguments={"city": "New York", "units": "celsius"},
@@ -244,19 +244,19 @@ class TestProceduralMemoryToolCalls:
     @pytest.mark.asyncio
     async def test_record_tool_call_failure(self, memory_client, session_id):
         """Test recording a failed tool call."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
         )
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Attempting API call",
             action="call_api",
             generate_embedding=False,
         )
 
-        tool_call = await memory_client.procedural.record_tool_call(
+        tool_call = await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="external_api",
             arguments={"query": "test"},
@@ -271,12 +271,12 @@ class TestProceduralMemoryToolCalls:
     @pytest.mark.asyncio
     async def test_multiple_tool_calls_per_step(self, memory_client, session_id):
         """Test recording multiple tool calls for one step."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Complex task",
             generate_embedding=False,
         )
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Need multiple APIs",
             action="multi_api_call",
@@ -286,7 +286,7 @@ class TestProceduralMemoryToolCalls:
         # Record multiple tool calls
         calls = []
         for i in range(3):
-            call = await memory_client.procedural.record_tool_call(
+            call = await memory_client.reasoning.record_tool_call(
                 step.id,
                 tool_name=f"api_{i}",
                 arguments={"index": i},
@@ -302,12 +302,12 @@ class TestProceduralMemoryToolCalls:
     @pytest.mark.asyncio
     async def test_tool_call_with_complex_arguments(self, memory_client, session_id):
         """Test tool call with complex nested arguments."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
         )
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Complex query",
             action="complex_api",
@@ -324,7 +324,7 @@ class TestProceduralMemoryToolCalls:
             "metadata": None,
         }
 
-        tool_call = await memory_client.procedural.record_tool_call(
+        tool_call = await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="complex_api",
             arguments=complex_args,
@@ -336,8 +336,8 @@ class TestProceduralMemoryToolCalls:
 
 
 @pytest.mark.integration
-class TestProceduralMemorySearch:
-    """Test procedural memory search functionality."""
+class TestReasoningMemorySearch:
+    """Test reasoning memory search functionality."""
 
     @pytest.mark.asyncio
     async def test_search_similar_traces(self, memory_client, session_id):
@@ -352,19 +352,19 @@ class TestProceduralMemorySearch:
         ]
 
         for task in tasks:
-            trace = await memory_client.procedural.start_trace(
+            trace = await memory_client.reasoning.start_trace(
                 session_id,
                 task=task,
                 generate_embedding=True,
             )
-            await memory_client.procedural.complete_trace(
+            await memory_client.reasoning.complete_trace(
                 trace.id,
                 outcome=f"Completed: {task}",
                 success=True,
             )
 
         # Search for restaurant-related traces
-        similar = await memory_client.procedural.get_similar_traces(
+        similar = await memory_client.reasoning.get_similar_traces(
             "restaurant recommendations",
             limit=5,
         )
@@ -375,12 +375,12 @@ class TestProceduralMemorySearch:
     async def test_get_tool_statistics(self, memory_client, session_id):
         """Test getting tool usage statistics."""
         # Create trace with tool calls
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
         )
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Testing tools",
             action="tool_test",
@@ -389,7 +389,7 @@ class TestProceduralMemorySearch:
 
         # Record various tool calls
         for i in range(5):
-            await memory_client.procedural.record_tool_call(
+            await memory_client.reasoning.record_tool_call(
                 step.id,
                 tool_name="test_tool",
                 arguments={"call": i},
@@ -398,19 +398,19 @@ class TestProceduralMemorySearch:
             )
 
         # Get statistics (if implemented)
-        # stats = await memory_client.procedural.get_tool_statistics("test_tool")
+        # stats = await memory_client.reasoning.get_tool_statistics("test_tool")
         # This depends on implementation
 
 
 @pytest.mark.integration
-class TestProceduralMemoryLifecycle:
+class TestReasoningMemoryLifecycle:
     """Test complete reasoning trace lifecycle."""
 
     @pytest.mark.asyncio
     async def test_complete_trace_lifecycle(self, memory_client, session_id):
         """Test a complete reasoning trace from start to finish."""
         # Start trace
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Find and book a restaurant reservation",
             generate_embedding=True,
@@ -418,14 +418,14 @@ class TestProceduralMemoryLifecycle:
         assert trace.success is None
 
         # Step 1: Search for restaurants
-        step1 = await memory_client.procedural.add_step(
+        step1 = await memory_client.reasoning.add_step(
             trace.id,
             thought="First, I need to search for available restaurants",
             action="search_restaurants",
             generate_embedding=True,
         )
 
-        await memory_client.procedural.record_tool_call(
+        await memory_client.reasoning.record_tool_call(
             step1.id,
             tool_name="restaurant_search_api",
             arguments={"cuisine": "Italian", "location": "downtown"},
@@ -438,7 +438,7 @@ class TestProceduralMemoryLifecycle:
         )
 
         # Update step with observation
-        step1_updated = await memory_client.procedural.add_step(
+        step1_updated = await memory_client.reasoning.add_step(
             trace.id,
             thought="Found 2 restaurants, La Trattoria looks good",
             action="evaluate_options",
@@ -447,14 +447,14 @@ class TestProceduralMemoryLifecycle:
         )
 
         # Step 2: Make reservation
-        step2 = await memory_client.procedural.add_step(
+        step2 = await memory_client.reasoning.add_step(
             trace.id,
             thought="Now I'll make a reservation at La Trattoria",
             action="book_reservation",
             generate_embedding=False,
         )
 
-        await memory_client.procedural.record_tool_call(
+        await memory_client.reasoning.record_tool_call(
             step2.id,
             tool_name="reservation_api",
             arguments={
@@ -469,7 +469,7 @@ class TestProceduralMemoryLifecycle:
         )
 
         # Complete trace
-        completed = await memory_client.procedural.complete_trace(
+        completed = await memory_client.reasoning.complete_trace(
             trace.id,
             outcome="Successfully booked reservation at La Trattoria for 7pm",
             success=True,
@@ -481,19 +481,19 @@ class TestProceduralMemoryLifecycle:
         assert completed.completed_at is not None
 
         # Retrieve full trace and verify structure
-        full_trace = await memory_client.procedural.get_trace(trace.id)
+        full_trace = await memory_client.reasoning.get_trace(trace.id)
         assert full_trace is not None
         assert len(full_trace.steps) >= 3
 
 
 @pytest.mark.integration
-class TestProceduralMemoryEdgeCases:
+class TestReasoningMemoryEdgeCases:
     """Test edge cases and error handling."""
 
     @pytest.mark.asyncio
     async def test_trace_with_empty_task(self, memory_client, session_id):
         """Test creating trace with empty task."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="",
             generate_embedding=False,
@@ -505,7 +505,7 @@ class TestProceduralMemoryEdgeCases:
     @pytest.mark.asyncio
     async def test_step_with_long_thought(self, memory_client, session_id):
         """Test step with very long thought."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
@@ -513,7 +513,7 @@ class TestProceduralMemoryEdgeCases:
 
         long_thought = "I am thinking... " * 500  # ~8KB
 
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought=long_thought,
             action="think",
@@ -525,12 +525,12 @@ class TestProceduralMemoryEdgeCases:
     @pytest.mark.asyncio
     async def test_tool_call_with_large_result(self, memory_client, session_id):
         """Test tool call with large result data."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Test task",
             generate_embedding=False,
         )
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Large result test",
             action="big_query",
@@ -539,7 +539,7 @@ class TestProceduralMemoryEdgeCases:
 
         large_result = {"items": [{"id": i, "data": "x" * 100} for i in range(100)]}
 
-        tool_call = await memory_client.procedural.record_tool_call(
+        tool_call = await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="big_query_api",
             arguments={},
@@ -556,18 +556,18 @@ class TestProceduralMemoryEdgeCases:
 
         # Create multiple traces concurrently
         async def create_trace(index):
-            trace = await memory_client.procedural.start_trace(
+            trace = await memory_client.reasoning.start_trace(
                 session_id,
                 task=f"Concurrent task {index}",
                 generate_embedding=False,
             )
-            step = await memory_client.procedural.add_step(
+            step = await memory_client.reasoning.add_step(
                 trace.id,
                 thought=f"Step for task {index}",
                 action=f"action_{index}",
                 generate_embedding=False,
             )
-            await memory_client.procedural.complete_trace(
+            await memory_client.reasoning.complete_trace(
                 trace.id,
                 outcome=f"Completed task {index}",
                 success=True,
@@ -583,19 +583,19 @@ class TestProceduralMemoryEdgeCases:
     @pytest.mark.asyncio
     async def test_get_nonexistent_trace(self, memory_client):
         """Test retrieving a non-existent trace."""
-        trace = await memory_client.procedural.get_trace("nonexistent-trace-id-12345")
+        trace = await memory_client.reasoning.get_trace("nonexistent-trace-id-12345")
 
         assert trace is None
 
     @pytest.mark.asyncio
     async def test_tool_call_statuses(self, memory_client, session_id):
         """Test all tool call status values."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             task="Status test",
             generate_embedding=False,
         )
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Testing statuses",
             action="status_test",
@@ -605,7 +605,7 @@ class TestProceduralMemoryEdgeCases:
         statuses = [ToolCallStatus.SUCCESS, ToolCallStatus.ERROR, ToolCallStatus.TIMEOUT]
 
         for status in statuses:
-            call = await memory_client.procedural.record_tool_call(
+            call = await memory_client.reasoning.record_tool_call(
                 step.id,
                 tool_name=f"tool_{status.value}",
                 arguments={},
@@ -615,8 +615,8 @@ class TestProceduralMemoryEdgeCases:
 
 
 @pytest.mark.integration
-class TestProceduralMemoryMessageLinking:
-    """Test linking procedural memory to short-term memory messages."""
+class TestReasoningMemoryMessageLinking:
+    """Test linking reasoning memory to short-term memory messages."""
 
     @pytest.mark.asyncio
     async def test_tool_call_with_message_link(self, memory_client, session_id):
@@ -633,12 +633,12 @@ class TestProceduralMemoryMessageLinking:
         )
 
         # Create trace and step
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Find restaurants",
             generate_embedding=False,
         )
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Searching",
             action="search",
@@ -646,7 +646,7 @@ class TestProceduralMemoryMessageLinking:
         )
 
         # Record tool call with message link
-        tool_call = await memory_client.procedural.record_tool_call(
+        tool_call = await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="restaurant_search",
             arguments={"query": "Italian"},
@@ -669,12 +669,12 @@ class TestProceduralMemoryMessageLinking:
     async def test_tool_call_without_message_link(self, memory_client, session_id):
         """Tool call without message link should not create relationship."""
         # Create trace and step
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Background task",
             generate_embedding=False,
         )
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Processing",
             action="process",
@@ -682,7 +682,7 @@ class TestProceduralMemoryMessageLinking:
         )
 
         # Record tool call without message link
-        tool_call = await memory_client.procedural.record_tool_call(
+        tool_call = await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="background_tool",
             arguments={},
@@ -712,7 +712,7 @@ class TestProceduralMemoryMessageLinking:
             generate_embedding=False,
         )
 
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Plan trip to Paris",
             generate_embedding=False,
@@ -732,7 +732,7 @@ class TestProceduralMemoryMessageLinking:
     @pytest.mark.asyncio
     async def test_trace_without_message_link(self, memory_client, session_id):
         """Trace without message link should not create relationship."""
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Standalone task",
             generate_embedding=False,
@@ -763,7 +763,7 @@ class TestProceduralMemoryMessageLinking:
         )
 
         # Create trace without initial link
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Process request",
             generate_embedding=False,
@@ -780,7 +780,7 @@ class TestProceduralMemoryMessageLinking:
         assert result[0]["count"] == 0
 
         # Link after the fact
-        await memory_client.procedural.link_trace_to_message(trace.id, msg.id)
+        await memory_client.reasoning.link_trace_to_message(trace.id, msg.id)
 
         # Verify relationship now exists
         result = await memory_client._client.execute_read(
@@ -807,7 +807,7 @@ class TestProceduralMemoryMessageLinking:
         )
 
         # Create trace linked to user message
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Get weather information",
             generate_embedding=False,
@@ -815,14 +815,14 @@ class TestProceduralMemoryMessageLinking:
         )
 
         # Add step and tool call
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="Need to call weather API",
             action="get_weather",
             generate_embedding=False,
         )
 
-        tool_call = await memory_client.procedural.record_tool_call(
+        tool_call = await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="weather_api",
             arguments={"city": "New York"},
@@ -832,7 +832,7 @@ class TestProceduralMemoryMessageLinking:
         )
 
         # Complete trace
-        await memory_client.procedural.complete_trace(
+        await memory_client.reasoning.complete_trace(
             trace.id,
             outcome="Weather retrieved successfully",
             success=True,

@@ -223,7 +223,7 @@ class MemoryConfig(BaseModel):
         default=0.7, ge=0.0, le=1.0, description="Preference confidence threshold"
     )
     fact_deduplication_enabled: bool = Field(default=True, description="Enable fact deduplication")
-    # Procedural memory
+    # Reasoning memory
     trace_embedding_enabled: bool = Field(
         default=True, description="Enable reasoning trace embeddings"
     )

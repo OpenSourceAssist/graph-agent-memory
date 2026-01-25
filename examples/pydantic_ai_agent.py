@@ -172,7 +172,7 @@ async def main():
         print("   ")
         print("   result = await agent.run('Find me a restaurant', deps=deps)")
         print("   trace = await record_agent_trace(")
-        print("       client.procedural,")
+        print("       client.reasoning,")
         print("       session_id='user-123',")
         print("       result=result,")
         print("       task='Find restaurant recommendation',")

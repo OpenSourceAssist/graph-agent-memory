@@ -106,31 +106,31 @@ class TestGraphExportSessionFiltering:
                 assert node.properties.get("session_id") == session1
 
     @pytest.mark.asyncio
-    async def test_get_graph_session_filter_includes_procedural(self, clean_memory_client):
-        """Test that session_id filter also applies to procedural memory."""
+    async def test_get_graph_session_filter_includes_reasoning(self, clean_memory_client):
+        """Test that session_id filter also applies to reasoning memory."""
         client = clean_memory_client
         session1 = "test-session-proc-1"
         session2 = "test-session-proc-2"
 
         # Add reasoning traces to different sessions
-        trace1 = await client.procedural.start_trace(
+        trace1 = await client.reasoning.start_trace(
             session1,
             "Task for session 1",
             generate_embedding=False,
         )
-        await client.procedural.complete_trace(trace1.id, outcome="Done", success=True)
+        await client.reasoning.complete_trace(trace1.id, outcome="Done", success=True)
 
-        trace2 = await client.procedural.start_trace(
+        trace2 = await client.reasoning.start_trace(
             session2,
             "Task for session 2",
             generate_embedding=False,
         )
-        await client.procedural.complete_trace(trace2.id, outcome="Done", success=True)
+        await client.reasoning.complete_trace(trace2.id, outcome="Done", success=True)
 
         # Get graph filtered by session1
         graph = await client.get_graph(
             session_id=session1,
-            memory_types=["procedural"],
+            memory_types=["reasoning"],
         )
 
         # Should only contain traces from session1
@@ -162,12 +162,12 @@ class TestGraphExportMemoryTypeFiltering:
             resolve=False,
             generate_embedding=False,
         )
-        trace = await client.procedural.start_trace(
+        trace = await client.reasoning.start_trace(
             session_id,
             "Test task",
             generate_embedding=False,
         )
-        await client.procedural.complete_trace(trace.id, outcome="Done", success=True)
+        await client.reasoning.complete_trace(trace.id, outcome="Done", success=True)
 
         # Get only short-term memory
         graph = await client.get_graph(memory_types=["short_term"])
@@ -214,8 +214,8 @@ class TestGraphExportMemoryTypeFiltering:
         assert "Conversation" not in labels
 
     @pytest.mark.asyncio
-    async def test_get_graph_filters_by_procedural_only(self, clean_memory_client, session_id):
-        """Test filtering to only procedural memory."""
+    async def test_get_graph_filters_by_reasoning_only(self, clean_memory_client, session_id):
+        """Test filtering to only reasoning memory."""
         client = clean_memory_client
 
         # Add data to all memory types
@@ -226,33 +226,33 @@ class TestGraphExportMemoryTypeFiltering:
             extract_entities=False,
             generate_embedding=False,
         )
-        trace = await client.procedural.start_trace(
+        trace = await client.reasoning.start_trace(
             session_id,
-            "Test procedural task",
+            "Test reasoning task",
             generate_embedding=False,
         )
-        step = await client.procedural.add_step(
+        step = await client.reasoning.add_step(
             trace.id,
             thought="Processing",
             action="test_action",
             generate_embedding=False,
         )
-        await client.procedural.record_tool_call(
+        await client.reasoning.record_tool_call(
             step.id,
             tool_name="test_tool",
             arguments={"arg": "value"},
             result={"status": "ok"},
         )
-        await client.procedural.complete_trace(trace.id, outcome="Done", success=True)
+        await client.reasoning.complete_trace(trace.id, outcome="Done", success=True)
 
-        # Get only procedural memory
-        graph = await client.get_graph(memory_types=["procedural"])
+        # Get only reasoning memory
+        graph = await client.get_graph(memory_types=["reasoning"])
 
         labels = set()
         for node in graph.nodes:
             labels.update(node.labels)
 
-        # Should have procedural labels but not others
+        # Should have reasoning labels but not others
         assert "ReasoningTrace" in labels
         assert "Message" not in labels
         assert "Conversation" not in labels
@@ -277,12 +277,12 @@ class TestGraphExportMemoryTypeFiltering:
             resolve=False,
             generate_embedding=False,
         )
-        trace = await client.procedural.start_trace(
+        trace = await client.reasoning.start_trace(
             session_id,
             "Test task",
             generate_embedding=False,
         )
-        await client.procedural.complete_trace(trace.id, outcome="Done", success=True)
+        await client.reasoning.complete_trace(trace.id, outcome="Done", success=True)
 
         # Get short-term and long-term only
         graph = await client.get_graph(memory_types=["short_term", "long_term"])
@@ -294,7 +294,7 @@ class TestGraphExportMemoryTypeFiltering:
         # Should have short-term and long-term labels
         assert "Message" in labels or "Conversation" in labels
         assert "Entity" in labels
-        # Should not have procedural labels
+        # Should not have reasoning labels
         assert "ReasoningTrace" not in labels
 
 
@@ -457,12 +457,12 @@ class TestGraphExportCombinedFilters:
             resolve=False,
             generate_embedding=False,
         )
-        trace = await client.procedural.start_trace(
+        trace = await client.reasoning.start_trace(
             session1,
             "Task in session",
             generate_embedding=False,
         )
-        await client.procedural.complete_trace(trace.id, outcome="Done", success=True)
+        await client.reasoning.complete_trace(trace.id, outcome="Done", success=True)
 
         # Get only short-term for specific session
         graph = await client.get_graph(
@@ -582,42 +582,42 @@ class TestGraphExportNodeStructure:
 
 
 @pytest.mark.integration
-class TestGraphExportProceduralMemory:
-    """Tests specifically for procedural memory graph export."""
+class TestGraphExportReasoningMemory:
+    """Tests specifically for reasoning memory graph export."""
 
     @pytest.mark.asyncio
-    async def test_procedural_memory_includes_all_components(self, clean_memory_client, session_id):
-        """Test that procedural memory export includes traces, steps, and tool calls."""
+    async def test_reasoning_memory_includes_all_components(self, clean_memory_client, session_id):
+        """Test that reasoning memory export includes traces, steps, and tool calls."""
         client = clean_memory_client
 
         # Create a complete reasoning trace
-        trace = await client.procedural.start_trace(
+        trace = await client.reasoning.start_trace(
             session_id,
             "Complex task",
             generate_embedding=False,
         )
-        step = await client.procedural.add_step(
+        step = await client.reasoning.add_step(
             trace.id,
             thought="I should use a tool",
             action="tool_action",
             generate_embedding=False,
         )
-        await client.procedural.record_tool_call(
+        await client.reasoning.record_tool_call(
             step.id,
             tool_name="my_tool",
             arguments={"param": "value"},
             result={"output": "result"},
         )
-        await client.procedural.complete_trace(trace.id, outcome="Success", success=True)
+        await client.reasoning.complete_trace(trace.id, outcome="Success", success=True)
 
-        # Get procedural memory graph
-        graph = await client.get_graph(memory_types=["procedural"])
+        # Get reasoning memory graph
+        graph = await client.get_graph(memory_types=["reasoning"])
 
         labels = set()
         for node in graph.nodes:
             labels.update(node.labels)
 
-        # Should have all procedural components
+        # Should have all reasoning components
         assert "ReasoningTrace" in labels
         assert "ReasoningStep" in labels
         assert "ToolCall" in labels

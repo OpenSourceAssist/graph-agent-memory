@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from pydantic_ai.result import RunResult
 
     from neo4j_agent_memory import MemoryClient
-    from neo4j_agent_memory.memory.procedural import ProceduralMemory, ReasoningTrace
+    from neo4j_agent_memory.memory.reasoning import ReasoningMemory, ReasoningTrace
 
 T = TypeVar("T")
 
@@ -155,13 +155,13 @@ def create_memory_tools(memory: "MemoryClient") -> list[Callable]:
 
         Args:
             query: Search query
-            memory_types: Types to search (episodic, semantic, procedural)
+            memory_types: Types to search (episodic, semantic, reasoning)
 
         Returns:
             Relevant memories as formatted text
         """
         results = []
-        types = memory_types or ["short_term", "long_term", "procedural"]
+        types = memory_types or ["short_term", "long_term", "reasoning"]
 
         if "short_term" in types:
             messages = await memory.short_term.search_messages(query, limit=5)
@@ -178,8 +178,8 @@ def create_memory_tools(memory: "MemoryClient") -> list[Callable]:
             for pref in prefs:
                 results.append(f"[PREFERENCE:{pref.category}] {pref.preference}")
 
-        if "procedural" in types:
-            traces = await memory.procedural.get_similar_traces(query, limit=3)
+        if "reasoning" in types:
+            traces = await memory.reasoning.get_similar_traces(query, limit=3)
             for trace in traces:
                 status = "succeeded" if trace.success else "failed"
                 results.append(f"[TASK] {trace.task} - {status}")
@@ -224,7 +224,7 @@ def create_memory_tools(memory: "MemoryClient") -> list[Callable]:
 
 
 async def record_agent_trace(
-    procedural_memory: "ProceduralMemory",
+    reasoning_memory: "ReasoningMemory",
     session_id: str,
     result: "RunResult[T]",
     *,
@@ -236,11 +236,11 @@ async def record_agent_trace(
     Record a reasoning trace from a PydanticAI RunResult.
 
     This function extracts tool calls and their results from a completed
-    PydanticAI agent run and records them as a reasoning trace in procedural
+    PydanticAI agent run and records them as a reasoning trace in reasoning
     memory.
 
     Args:
-        procedural_memory: The procedural memory instance to record to
+        reasoning_memory: The reasoning memory instance to record to
         session_id: Session ID for the trace
         result: The RunResult from a PydanticAI agent run
         task: Optional task description (defaults to extracting from messages)
@@ -259,7 +259,7 @@ async def record_agent_trace(
 
         # Record the trace
         trace = await record_agent_trace(
-            client.procedural,
+            client.reasoning,
             session_id="user-123",
             result=result,
             task="Find restaurants",
@@ -279,7 +279,7 @@ async def record_agent_trace(
             "pydantic-ai is required for record_agent_trace. Install with: pip install pydantic-ai"
         ) from e
 
-    from neo4j_agent_memory.memory.procedural import ToolCallStatus
+    from neo4j_agent_memory.memory.reasoning import ToolCallStatus
 
     # Extract task from first user message if not provided
     if task is None:
@@ -295,7 +295,7 @@ async def record_agent_trace(
             task = "PydanticAI agent run"
 
     # Start the trace
-    trace = await procedural_memory.start_trace(
+    trace = await reasoning_memory.start_trace(
         session_id=session_id,
         task=task,
         metadata={
@@ -344,7 +344,7 @@ async def record_agent_trace(
             tool_result = tool_results.get(tool_call_id)
 
             # Create a reasoning step
-            step = await procedural_memory.add_step(
+            step = await reasoning_memory.add_step(
                 trace.id,
                 thought=f"Using {tool_name} tool",
                 action=f"Call {tool_name}",
@@ -358,7 +358,7 @@ async def record_agent_trace(
 
             # Record the tool call
             is_error = _is_error_result(tool_result)
-            await procedural_memory.record_tool_call(
+            await reasoning_memory.record_tool_call(
                 step_id=step.id,
                 tool_name=tool_name,
                 arguments=tool_args,
@@ -369,7 +369,7 @@ async def record_agent_trace(
 
     # Complete the trace with the final output
     final_output = str(result.data) if hasattr(result, "data") else None
-    completed_trace = await procedural_memory.complete_trace(
+    completed_trace = await reasoning_memory.complete_trace(
         trace.id,
         outcome=final_output[:1000] if final_output else "Completed",
         success=True,

@@ -5,7 +5,7 @@ Basic usage example for neo4j-agent-memory.
 This example demonstrates the core functionality of the memory system:
 - Adding messages to short-term memory
 - Storing preferences in long-term memory
-- Recording reasoning traces in procedural memory
+- Recording reasoning traces in reasoning memory
 - Getting combined context for LLM prompts
 
 Requirements:
@@ -275,7 +275,7 @@ async def main():
             print(f"   [{pref.category}] {pref.preference}")
 
         # =================================================================
-        # PROCEDURAL MEMORY: Reasoning Traces
+        # REASONING MEMORY: Reasoning Traces
         # =================================================================
         print("\n⚙️  Recording reasoning trace...")
 
@@ -283,21 +283,21 @@ async def main():
         last_message = conversation.messages[-1] if conversation.messages else None
 
         # Start a trace linked to the triggering message
-        trace = await memory.procedural.start_trace(
+        trace = await memory.reasoning.start_trace(
             session_id,
             task="Find vegetarian Italian restaurant in downtown",
             triggered_by_message_id=last_message.id if last_message else None,
         )
 
         # Add reasoning steps
-        step1 = await memory.procedural.add_step(
+        step1 = await memory.reasoning.add_step(
             trace.id,
             thought="I need to search for Italian restaurants in downtown that offer vegetarian options",
             action="search_restaurants",
         )
 
         # Record tool call linked to the message that triggered it
-        await memory.procedural.record_tool_call(
+        await memory.reasoning.record_tool_call(
             step1.id,
             tool_name="restaurant_search_api",
             arguments={
@@ -314,7 +314,7 @@ async def main():
             message_id=last_message.id if last_message else None,  # Link tool call to message
         )
 
-        step2 = await memory.procedural.add_step(
+        step2 = await memory.reasoning.add_step(
             trace.id,
             thought="Found two good options. La Trattoria Verde has better ratings.",
             action="recommend",
@@ -322,7 +322,7 @@ async def main():
         )
 
         # Complete the trace
-        await memory.procedural.complete_trace(
+        await memory.reasoning.complete_trace(
             trace.id,
             outcome="Recommended La Trattoria Verde",
             success=True,
@@ -417,7 +417,7 @@ async def main():
         from neo4j_agent_memory import StreamingTraceRecorder
 
         async with StreamingTraceRecorder(
-            memory.procedural, session_id, "Process customer inquiry"
+            memory.reasoning, session_id, "Process customer inquiry"
         ) as recorder:
             # Record steps during streaming
             step = await recorder.start_step(
@@ -438,7 +438,7 @@ async def main():
         # =================================================================
         print("\n📊 Listing reasoning traces...")
 
-        traces = await memory.procedural.list_traces(
+        traces = await memory.reasoning.list_traces(
             session_id=session_id,
             success_only=True,
             limit=5,
@@ -450,7 +450,7 @@ async def main():
         # =================================================================
         print("\n🔧 Getting optimized tool statistics...")
 
-        tool_stats = await memory.procedural.get_tool_stats()
+        tool_stats = await memory.reasoning.get_tool_stats()
         print(f"Found stats for {len(tool_stats)} tools:")
         for stat in tool_stats[:3]:
             print(f"   - {stat.name}: {stat.total_calls} calls, {stat.success_rate:.0%} success")

@@ -4,7 +4,7 @@ This module provides tools for:
 - Podcast content search (transcripts, speakers, episodes)
 - Entity queries (people, organizations, topics)
 - Location queries with geospatial features
-- User preferences and procedural memory
+- User preferences and reasoning memory
 """
 
 import json
@@ -887,7 +887,7 @@ async def calculate_location_distances(
 
 
 # =============================================================================
-# User Preferences and Procedural Memory Tools
+# User Preferences and Reasoning Memory Tools
 # =============================================================================
 
 
@@ -945,7 +945,7 @@ async def find_similar_past_queries(
         return [{"error": "Memory client not available"}]
 
     try:
-        traces = await ctx.deps.client.procedural.get_similar_traces(
+        traces = await ctx.deps.client.reasoning.get_similar_traces(
             task=current_query,
             limit=limit,
             success_only=True,

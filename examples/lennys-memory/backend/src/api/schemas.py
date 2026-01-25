@@ -145,9 +145,9 @@ class MemoryGraph(BaseModel):
     relationships: list[GraphRelationship] = Field(default_factory=list)
 
 
-# Procedural memory schemas
+# Reasoning memory schemas
 class ToolCallResponse(BaseModel):
-    """A tool call recorded in procedural memory."""
+    """A tool call recorded in reasoning memory."""
 
     id: str
     tool_name: str

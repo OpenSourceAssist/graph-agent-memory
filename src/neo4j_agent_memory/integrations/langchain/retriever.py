@@ -26,7 +26,7 @@ try:
         memory_client: Any  # MemoryClient
         search_short_term: bool = True
         search_long_term: bool = True
-        search_procedural: bool = True
+        search_reasoning: bool = True
         k: int = 10
         threshold: float = 0.7
 
@@ -122,8 +122,8 @@ try:
                         )
                     )
 
-            if self.search_procedural:
-                traces = await self.memory_client.procedural.get_similar_traces(
+            if self.search_reasoning:
+                traces = await self.memory_client.reasoning.get_similar_traces(
                     query, limit=self.k // 2, threshold=self.threshold
                 )
                 for trace in traces:

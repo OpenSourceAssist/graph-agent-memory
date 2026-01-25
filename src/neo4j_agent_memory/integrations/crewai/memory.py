@@ -167,7 +167,7 @@ try:
         async def _get_agent_context_async(self, agent_role: str, task: str) -> str:
             """Async implementation of get_agent_context."""
             # Get similar past traces
-            traces = await self._client.procedural.get_similar_traces(task, limit=3)
+            traces = await self._client.reasoning.get_similar_traces(task, limit=3)
 
             context_parts = ["## Past experience with similar tasks:"]
             for trace in traces:

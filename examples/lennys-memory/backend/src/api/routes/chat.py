@@ -20,7 +20,7 @@ from pydantic_ai.messages import (
 from sse_starlette.sse import EventSourceResponse
 
 from neo4j_agent_memory import MemoryClient
-from neo4j_agent_memory.memory.procedural import ToolCallStatus
+from neo4j_agent_memory.memory.reasoning import ToolCallStatus
 from neo4j_agent_memory.memory.short_term import MessageRole
 from src.agent.agent import get_podcast_agent
 from src.agent.dependencies import AgentDeps
@@ -177,7 +177,7 @@ async def stream_chat_response(
     request: ChatRequest,
     memory: MemoryClient | None,
 ) -> AsyncGenerator[dict, None]:
-    """Stream chat response as SSE events with full procedural memory tracking."""
+    """Stream chat response as SSE events with full reasoning memory tracking."""
     message_id = str(uuid.uuid4())
     trace_id: UUID | None = None
     current_step_id: UUID | None = None
@@ -222,15 +222,15 @@ async def stream_chat_response(
                 session_id=request.thread_id,
             )
 
-        # Start procedural trace if memory enabled
+        # Start reasoning trace if memory enabled
         if memory_enabled and memory:
-            trace = await memory.procedural.start_trace(
+            trace = await memory.reasoning.start_trace(
                 session_id=request.thread_id,
                 task=request.message,
                 metadata={"message_id": message_id},
             )
             trace_id = trace.id
-            logger.info(f"Started procedural trace: {trace_id}")
+            logger.info(f"Started reasoning trace: {trace_id}")
 
         # Run agent with streaming and conversation history
         full_response = ""
@@ -246,7 +246,7 @@ async def stream_chat_response(
                 full_response += text
                 yield {"data": json.dumps({"type": "token", "content": text})}
 
-            # Process messages for tool calls and record to procedural memory
+            # Process messages for tool calls and record to reasoning memory
             step_number = 0
             for msg in result.all_messages():
                 if isinstance(msg, ModelResponse):
@@ -274,7 +274,7 @@ async def stream_chat_response(
                             # Create a reasoning step for this tool call if memory enabled
                             if trace_id and memory:
                                 step_number += 1
-                                step = await memory.procedural.add_step(
+                                step = await memory.reasoning.add_step(
                                     trace_id,
                                     thought=f"Need to use {part.tool_name} tool",
                                     action=f"Calling {part.tool_name} with args: {json.dumps(args)[:200]}",
@@ -322,10 +322,10 @@ async def stream_chat_response(
                                 ):
                                     is_error = True
 
-                            # Record tool call to procedural memory
+                            # Record tool call to reasoning memory
                             if current_step_id and memory:
                                 try:
-                                    await memory.procedural.record_tool_call(
+                                    await memory.reasoning.record_tool_call(
                                         step_id=current_step_id,
                                         tool_name=part.tool_name,
                                         arguments=args if "args" in dir() else {},
@@ -371,17 +371,17 @@ async def stream_chat_response(
         yield {"data": json.dumps(event)}
 
     finally:
-        # Complete procedural trace with outcome
+        # Complete reasoning trace with outcome
         if trace_id and memory:
             try:
-                await memory.procedural.complete_trace(
+                await memory.reasoning.complete_trace(
                     trace_id,
                     outcome=full_response[:500] if task_success else f"Error: {error_message}",
                     success=task_success,
                 )
-                logger.info(f"Completed procedural trace: {trace_id} (success: {task_success})")
+                logger.info(f"Completed reasoning trace: {trace_id} (success: {task_success})")
             except Exception as e:
-                logger.warning(f"Failed to complete procedural trace: {e}")
+                logger.warning(f"Failed to complete reasoning trace: {e}")
 
         # Send done event (only if not already sent error)
         if task_success:

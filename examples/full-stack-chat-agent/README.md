@@ -1,6 +1,6 @@
 # Full-Stack Chat Agent Example
 
-A complete example demonstrating **neo4j-agent-memory** integration with a PydanticAI chat agent and Next.js frontend. This example implements a news research assistant that uses all three memory types (short-term, long-term, procedural).
+A complete example demonstrating **neo4j-agent-memory** integration with a PydanticAI chat agent and Next.js frontend. This example implements a news research assistant that uses all three memory types (short-term, long-term, reasoning).
 
 ## Features
 
@@ -8,7 +8,7 @@ A complete example demonstrating **neo4j-agent-memory** integration with a Pydan
 - **Three Memory Types**: 
   - Short-term: Conversation history stored in Neo4j
   - Long-term: User preferences and extracted entities
-  - Procedural: Reasoning traces for learning from past interactions
+  - Reasoning: Reasoning traces for learning from past interactions
 - **News Graph Tools**: Search, filter, and analyze news articles
 - **SSE Streaming**: Real-time response streaming with tool call visibility
 - **Next.js Frontend**: Modern React UI with Chakra UI v3 components
@@ -16,7 +16,7 @@ A complete example demonstrating **neo4j-agent-memory** integration with a Pydan
   - Conversation-scoped filtering: Shows only nodes relevant to the current thread
   - Double-click to expand: Click a node twice to fetch and display its neighbors
   - "Expand Neighbors" button in the property panel for alternative expansion
-  - Memory type filtering (short-term, user-profile, procedural)
+  - Memory type filtering (short-term, user-profile, reasoning)
 - **Memory Context Panel**: Visual display of stored preferences and entities
 
 ## Architecture
@@ -196,17 +196,17 @@ await memory.long_term.add_preference(
 entities = await memory.long_term.search_entities("companies")
 ```
 
-### Procedural Memory
+### Reasoning Memory
 
 Reasoning traces are recorded after each interaction:
 
 ```python
-trace = await memory.procedural.start_trace(
+trace = await memory.reasoning.start_trace(
     session_id=thread_id,
     task=user_message,
 )
 # ... agent runs ...
-await memory.procedural.complete_trace(
+await memory.reasoning.complete_trace(
     trace_id,
     outcome=response,
     success=True,

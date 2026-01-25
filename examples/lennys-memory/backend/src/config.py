@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     port: int = Field(default=8000)
     debug: bool = Field(default=True)
     cors_origins_str: str = Field(default="http://localhost:3000", alias="cors_origins")
+    cors_origin_regex: str | None = Field(default=None)
 
     @computed_field
     @property

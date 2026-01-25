@@ -6,7 +6,7 @@ persistence layer. It includes three types of memory:
 
 - **Short-Term Memory**: Conversation history and experiences
 - **Long-Term Memory**: Facts, preferences, and entities
-- **Procedural Memory**: Reasoning traces and tool usage patterns
+- **Reasoning Memory**: Reasoning traces and tool usage patterns
 
 Example usage:
     from neo4j_agent_memory import MemoryClient, MemorySettings
@@ -114,8 +114,9 @@ from neo4j_agent_memory.memory.long_term import (
     Preference,
     Relationship,
 )
-from neo4j_agent_memory.memory.procedural import (
-    ProceduralMemory,
+from neo4j_agent_memory.memory.reasoning import (
+    ProceduralMemory,  # backward compatibility alias
+    ReasoningMemory,
     ReasoningStep,
     ReasoningTrace,
     StreamingTraceRecorder,
@@ -162,7 +163,8 @@ __all__ = [
     # Memory types
     "ShortTermMemory",
     "LongTermMemory",
-    "ProceduralMemory",
+    "ReasoningMemory",
+    "ProceduralMemory",  # backward compatibility alias
     # Models - Short-term
     "Message",
     "Conversation",
@@ -173,7 +175,7 @@ __all__ = [
     "Preference",
     "Fact",
     "Relationship",
-    # Models - Procedural
+    # Models - Reasoning
     "ReasoningTrace",
     "ReasoningStep",
     "ToolCall",
@@ -209,7 +211,7 @@ class MemoryClient:
     Provides unified access to all three memory types:
     - short_term: Conversation history and experiences
     - long_term: Facts, preferences, and entities
-    - procedural: Reasoning traces and tool usage
+    - reasoning: Reasoning traces and tool usage
 
     Example:
         async with MemoryClient(settings) as client:
@@ -257,7 +259,7 @@ class MemoryClient:
         # Memory instances (initialized on connect)
         self._short_term: ShortTermMemory | None = None
         self._long_term: LongTermMemory | None = None
-        self._procedural: ProceduralMemory | None = None
+        self._reasoning: ReasoningMemory | None = None
 
     async def __aenter__(self) -> "MemoryClient":
         """Async context manager entry."""
@@ -318,7 +320,7 @@ class MemoryClient:
             self._geocoder,
             self._enrichment_service,
         )
-        self._procedural = ProceduralMemory(
+        self._reasoning = ReasoningMemory(
             self._client,
             self._embedder,
         )
@@ -370,19 +372,19 @@ class MemoryClient:
         return self._long_term
 
     @property
-    def procedural(self) -> ProceduralMemory:
+    def reasoning(self) -> ReasoningMemory:
         """
-        Access procedural memory (reasoning traces, tool usage).
+        Access reasoning memory (reasoning traces, tool usage).
 
         Returns:
-            ProceduralMemory instance
+            ReasoningMemory instance
 
         Raises:
             NotConnectedError: If client is not connected
         """
-        if self._procedural is None:
+        if self._reasoning is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        return self._procedural
+        return self._reasoning
 
     @property
     def schema(self) -> SchemaManager:
@@ -406,7 +408,7 @@ class MemoryClient:
         session_id: str | None = None,
         include_short_term: bool = True,
         include_long_term: bool = True,
-        include_procedural: bool = True,
+        include_reasoning: bool = True,
         max_items: int = 10,
     ) -> str:
         """
@@ -420,7 +422,7 @@ class MemoryClient:
             session_id: Optional session ID for short-term filtering
             include_short_term: Whether to include conversation history
             include_long_term: Whether to include facts and preferences
-            include_procedural: Whether to include similar task traces
+            include_reasoning: Whether to include similar task traces
             max_items: Maximum items per memory type
 
         Returns:
@@ -445,13 +447,13 @@ class MemoryClient:
             if long_term_context:
                 parts.append(f"## Relevant Knowledge\n{long_term_context}")
 
-        if include_procedural:
-            procedural_context = await self.procedural.get_context(
+        if include_reasoning:
+            reasoning_context = await self.reasoning.get_context(
                 query,
                 max_traces=max_items // 2,
             )
-            if procedural_context:
-                parts.append(f"## Similar Past Tasks\n{procedural_context}")
+            if reasoning_context:
+                parts.append(f"## Similar Past Tasks\n{reasoning_context}")
 
         return "\n\n".join(parts)
 
@@ -482,7 +484,7 @@ class MemoryClient:
     async def get_graph(
         self,
         *,
-        memory_types: list[Literal["short_term", "long_term", "procedural"]] | None = None,
+        memory_types: list[Literal["short_term", "long_term", "reasoning"]] | None = None,
         session_id: str | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
@@ -497,8 +499,8 @@ class MemoryClient:
 
         Args:
             memory_types: Which memory types to include. Defaults to all.
-                         Options: 'short_term', 'long_term', 'procedural'
-            session_id: Filter by session ID (for short_term and procedural)
+                         Options: 'short_term', 'long_term', 'reasoning'
+            session_id: Filter by session ID (for short_term and reasoning)
             since: Only include data created/updated after this time
             until: Only include data created/updated before this time
             include_embeddings: Whether to include embedding vectors in properties.
@@ -512,7 +514,7 @@ class MemoryClient:
             raise NotConnectedError("Client not connected.")
 
         if memory_types is None:
-            memory_types = ["short_term", "long_term", "procedural"]
+            memory_types = ["short_term", "long_term", "reasoning"]
 
         all_nodes: list[GraphNode] = []
         all_relationships: list[GraphRelationship] = []
@@ -641,8 +643,8 @@ class MemoryClient:
             except Exception:
                 pass
 
-        # Fetch procedural memory graph
-        if "procedural" in memory_types:
+        # Fetch reasoning memory graph
+        if "reasoning" in memory_types:
             try:
                 results = await self._client.execute_read(
                     """

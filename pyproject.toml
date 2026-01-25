@@ -19,7 +19,7 @@ keywords = [
     "pydantic-ai",
     "knowledge-graph",
     "context-graph",
-    "procedural-memory"
+    "reasoning-memory"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

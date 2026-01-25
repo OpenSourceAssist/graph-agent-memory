@@ -110,11 +110,11 @@ class TestMemoryClientMemoryAccess:
         assert entity is not None
 
     @pytest.mark.asyncio
-    async def test_procedural_memory_access(self, memory_client, session_id):
-        """Test accessing procedural memory through client."""
-        assert memory_client.procedural is not None
+    async def test_reasoning_memory_access(self, memory_client, session_id):
+        """Test accessing reasoning memory through client."""
+        assert memory_client.reasoning is not None
 
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Test task",
             generate_embedding=False,
@@ -210,13 +210,13 @@ class TestMemoryClientGetContext:
             generate_embedding=True,
         )
 
-        # Add procedural data
-        trace = await memory_client.procedural.start_trace(
+        # Add reasoning data
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Find restaurant",
             generate_embedding=True,
         )
-        await memory_client.procedural.complete_trace(
+        await memory_client.reasoning.complete_trace(
             trace.id,
             outcome="Found 3 restaurants",
             success=True,
@@ -348,7 +348,7 @@ class TestMemoryClientCrossMemoryOperations:
         )
 
         # Create trace for same session
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Plan trip based on user request",
             generate_embedding=False,
@@ -357,7 +357,7 @@ class TestMemoryClientCrossMemoryOperations:
         assert trace.session_id == session_id
 
         # Complete trace
-        await memory_client.procedural.complete_trace(
+        await memory_client.reasoning.complete_trace(
             trace.id,
             outcome="Created trip plan",
             success=True,
@@ -384,14 +384,14 @@ class TestMemoryClientCrossMemoryOperations:
         )
 
         # Start reasoning trace
-        trace = await memory_client.procedural.start_trace(
+        trace = await memory_client.reasoning.start_trace(
             session_id,
             "Find Italian restaurant recommendations",
             generate_embedding=True,
         )
 
         # Add reasoning step
-        step = await memory_client.procedural.add_step(
+        step = await memory_client.reasoning.add_step(
             trace.id,
             thought="User wants Italian restaurants. Should search nearby options.",
             action="search_restaurants",
@@ -399,7 +399,7 @@ class TestMemoryClientCrossMemoryOperations:
         )
 
         # Record tool call
-        await memory_client.procedural.record_tool_call(
+        await memory_client.reasoning.record_tool_call(
             step.id,
             tool_name="restaurant_api",
             arguments={"cuisine": "Italian", "limit": 5},
@@ -407,7 +407,7 @@ class TestMemoryClientCrossMemoryOperations:
         )
 
         # Complete trace
-        await memory_client.procedural.complete_trace(
+        await memory_client.reasoning.complete_trace(
             trace.id,
             outcome="Recommended La Bella Italian restaurant",
             success=True,

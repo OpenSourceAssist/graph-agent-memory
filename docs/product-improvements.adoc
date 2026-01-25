@@ -72,7 +72,7 @@ The Lennys-Memory demo now includes comprehensive agent tools demonstrating how 
 * `get_location_clusters` - Location density analysis by country for heatmap
 * `calculate_location_distances` - Great-circle distance calculation between locations
 
-.Preference and Procedural Memory Tools
+.Preference and Reasoning Memory Tools
 * `get_user_preferences` - Retrieve stored user preferences for personalization
 * `find_similar_past_queries` - Find similar past traces for learning from history
 
@@ -138,7 +138,7 @@ async def add_memory_context(ctx: RunContext[AgentDeps]) -> str:
 
     # Get similar past traces
     if ctx.deps.current_query:
-        traces = await ctx.deps.client.procedural.get_similar_traces(
+        traces = await ctx.deps.client.reasoning.get_similar_traces(
             task=ctx.deps.current_query,
             limit=2,
             success_only=True,
@@ -193,7 +193,7 @@ Current State:: Entities displayed in a simple list.
 
 [horizontal]
 Priority:: Medium
-Current State:: Traces visible in procedural memory view.
+Current State:: Traces visible in reasoning memory view.
 
 **Suggestion**: Enhance trace viewer with interactive debugging capabilities.
 
@@ -262,7 +262,7 @@ Map: Opens centered on episode locations with markers
 Priority:: Medium
 Current State:: Different memory types queried separately.
 
-**Suggestion**: Create a unified query interface that searches across short-term, long-term, and procedural memory.
+**Suggestion**: Create a unified query interface that searches across short-term, long-term, and reasoning memory.
 
 .Implementation Ideas
 * Single API endpoint for cross-memory search

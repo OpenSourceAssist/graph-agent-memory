@@ -64,12 +64,12 @@ interface MemoryGraphViewProps {
 }
 
 // Memory type classification
-type MemoryType = "short-term" | "user-profile" | "procedural";
+type MemoryType = "short-term" | "user-profile" | "reasoning";
 
 interface MemoryTypeFilters {
   "short-term": boolean;
   "user-profile": boolean;
-  procedural: boolean;
+  reasoning: boolean;
 }
 
 // Node type colors - using Neo4j Bloom/NVL default color palette
@@ -106,10 +106,10 @@ const MEMORY_TYPE_COLORS = {
     label: "User Profile Memory",
     description: "Preferences, Categories & Entities",
   },
-  procedural: {
+  reasoning: {
     bg: "rgba(141, 204, 147, 0.08)",
     border: "#8DCC93",
-    label: "Procedural Memory",
+    label: "Reasoning Memory",
     description: "Reasoning, Tools & Actions",
   },
 };
@@ -130,7 +130,7 @@ export default function MemoryGraphView({
   const [memoryFilters, setMemoryFilters] = useState<MemoryTypeFilters>({
     "short-term": true,
     "user-profile": true,
-    procedural: true,
+    reasoning: true,
   });
 
   // Double-click detection state
@@ -268,14 +268,14 @@ export default function MemoryGraphView({
       return "user-profile";
     }
 
-    // Procedural memory: reasoning, tool calls, and tools
+    // Reasoning memory: reasoning, tool calls, and tools
     if (
       nodeType === "ReasoningStep" ||
       nodeType === "ReasoningTrace" ||
       nodeType === "ToolCall" ||
       nodeType === "Tool"
     ) {
-      return "procedural";
+      return "reasoning";
     }
 
     return "short-term"; // Default fallback
@@ -612,7 +612,7 @@ export default function MemoryGraphView({
                 Memory Graph
               </Text>
               <Text fontSize="xs" color="gray.600">
-                Short-term, procedural, and user profile memory visualization
+                Short-term, reasoning, and user profile memory visualization
               </Text>
               {graphData && (
                 <HStack gap={2} mt={1}>
@@ -706,15 +706,15 @@ export default function MemoryGraphView({
               User Profile
             </Button>
 
-            {/* Procedural Memory Toggle */}
+            {/* Reasoning Memory Toggle */}
             <Button
               size="sm"
-              variant={memoryFilters["procedural"] ? "solid" : "outline"}
-              colorPalette={memoryFilters["procedural"] ? "green" : "gray"}
+              variant={memoryFilters["reasoning"] ? "solid" : "outline"}
+              colorPalette={memoryFilters["reasoning"] ? "green" : "gray"}
               onClick={() =>
                 setMemoryFilters((prev) => ({
                   ...prev,
-                  procedural: !prev["procedural"],
+                  reasoning: !prev["reasoning"],
                 }))
               }
             >
@@ -722,10 +722,10 @@ export default function MemoryGraphView({
                 w={3}
                 h={3}
                 borderRadius="full"
-                bg={MEMORY_TYPE_COLORS["procedural"].border}
+                bg={MEMORY_TYPE_COLORS["reasoning"].border}
                 mr={2}
               />
-              Procedural
+              Reasoning
             </Button>
 
             {/* Select All / Deselect All */}
@@ -737,7 +737,7 @@ export default function MemoryGraphView({
                 setMemoryFilters({
                   "short-term": !allEnabled,
                   "user-profile": !allEnabled,
-                  procedural: !allEnabled,
+                  reasoning: !allEnabled,
                 });
               }}
             >
@@ -886,14 +886,14 @@ export default function MemoryGraphView({
                       </Box>
                     )}
 
-                    {/* Procedural Memory Group */}
-                    {memoryFilters["procedural"] && (
+                    {/* Reasoning Memory Group */}
+                    {memoryFilters["reasoning"] && (
                       <Box
                         p={2}
                         borderRadius="md"
-                        bg={MEMORY_TYPE_COLORS["procedural"].bg}
+                        bg={MEMORY_TYPE_COLORS["reasoning"].bg}
                         border="1px solid"
-                        borderColor={MEMORY_TYPE_COLORS["procedural"].border}
+                        borderColor={MEMORY_TYPE_COLORS["reasoning"].border}
                       >
                         <Text
                           fontSize="xs"
@@ -901,7 +901,7 @@ export default function MemoryGraphView({
                           color="gray.800"
                           mb={1}
                         >
-                          {MEMORY_TYPE_COLORS["procedural"].label}
+                          {MEMORY_TYPE_COLORS["reasoning"].label}
                         </Text>
                         <VStack align="stretch" gap={1}>
                           <HStack gap={2}>

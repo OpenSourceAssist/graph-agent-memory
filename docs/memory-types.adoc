@@ -21,7 +21,7 @@ Neo4j Agent Memory provides three complementary memory types that work together 
 |What the agent knows
 |Entities, facts, preferences
 
-|**Procedural**
+|**Reasoning**
 |How to solve problems
 |Reasoning traces, tool usage patterns
 |===
@@ -32,7 +32,7 @@ Neo4j Agent Memory provides three complementary memory types that work together 
 │                      MemoryClient                           │
 ├───────────────────┬───────────────────┬─────────────────────┤
 │                   │                   │                     │
-│   SHORT-TERM      │    LONG-TERM      │    PROCEDURAL       │
+│   SHORT-TERM      │    LONG-TERM      │    REASONING       │
 │                   │                   │                     │
 │  ┌─────────────┐  │  ┌─────────────┐  │  ┌───────────────┐  │
 │  │Conversation │  │  │   Entity    │  │  │ReasoningTrace │  │
@@ -665,9 +665,9 @@ print(f"Total entities: {stats['total_entities']}")
 print(f"From {stats['source_messages']} messages")
 ----
 
-== Procedural Memory
+== Reasoning Memory
 
-Procedural memory stores reasoning traces and tool usage patterns - the "how to solve problems" knowledge.
+Reasoning memory stores reasoning traces and tool usage patterns - the "how to solve problems" knowledge.
 
 === Core Concepts
 
@@ -680,21 +680,21 @@ Procedural memory stores reasoning traces and tool usage patterns - the "how to 
 [source,python]
 ----
 # Start a reasoning trace (optionally linked to a triggering message)
-trace = await memory.procedural.start_trace(
+trace = await memory.reasoning.start_trace(
     task="Find restaurants in San Francisco",
     session_id="session-1",
     triggered_by_message_id=user_message.id,  # Optional: link to message
 )
 
 # Add reasoning steps
-await memory.procedural.add_step(
+await memory.reasoning.add_step(
     trace_id=trace.id,
     thought="I need to search for restaurants in the specified location",
     action="search_restaurants",
     observation="Found 10 restaurants"
 )
 
-await memory.procedural.add_step(
+await memory.reasoning.add_step(
     trace_id=trace.id,
     thought="I should filter by the user's dietary preferences",
     action="filter_by_preference",
@@ -702,7 +702,7 @@ await memory.procedural.add_step(
 )
 
 # Complete the trace
-await memory.procedural.complete_trace(
+await memory.reasoning.complete_trace(
     trace_id=trace.id,
     result="Recommended: Green Garden Cafe",
     success=True
@@ -714,7 +714,7 @@ await memory.procedural.complete_trace(
 [source,python]
 ----
 # Record a tool call (optionally linked to a message)
-tool_call = await memory.procedural.record_tool_call(
+tool_call = await memory.reasoning.record_tool_call(
     step_id=step.id,
     tool_name="search_api",
     arguments={"query": "restaurants", "location": "San Francisco"},
@@ -725,7 +725,7 @@ tool_call = await memory.procedural.record_tool_call(
 )
 ----
 
-=== Linking Procedural Memory to Messages
+=== Linking Reasoning Memory to Messages
 
 Reasoning traces and tool calls can be linked to the messages that triggered them:
 
@@ -740,7 +740,7 @@ This linking can be done at creation time (shown above) or post-hoc:
 [source,python]
 ----
 # Link an existing trace to a message
-await memory.procedural.link_trace_to_message(
+await memory.reasoning.link_trace_to_message(
     trace_id=trace.id,
     message_id=user_message.id
 )
@@ -751,7 +751,7 @@ await memory.procedural.link_trace_to_message(
 [source,python]
 ----
 # Find similar past reasoning
-similar_traces = await memory.procedural.get_similar_traces(
+similar_traces = await memory.reasoning.get_similar_traces(
     task="restaurant recommendations",
     limit=5,
     success_only=True,
@@ -773,7 +773,7 @@ Query traces with filtering and pagination:
 from datetime import datetime
 
 # List traces with filters
-traces = await memory.procedural.list_traces(
+traces = await memory.reasoning.list_traces(
     session_id="user-123",           # Optional session filter
     success_only=True,               # Only successful traces
     since=datetime(2024, 1, 1),      # After this date
@@ -797,7 +797,7 @@ Use `StreamingTraceRecorder` for recording traces during streaming responses:
 from neo4j_agent_memory import StreamingTraceRecorder
 
 async with StreamingTraceRecorder(
-    memory.procedural,
+    memory.reasoning,
     session_id="user-123",
     task="Process customer inquiry"
 ) as recorder:
@@ -830,7 +830,7 @@ Get pre-aggregated tool usage statistics (optimized for performance):
 [source,python]
 ----
 # Get stats for all tools
-stats = await memory.procedural.get_tool_stats()
+stats = await memory.reasoning.get_tool_stats()
 
 for tool in stats:
     print(f"{tool.name}:")
@@ -841,7 +841,7 @@ for tool in stats:
     print(f"  Avg duration: {tool.avg_duration_ms}ms")
 
 # Get stats for a specific tool
-stats = await memory.procedural.get_tool_stats(tool_name="search_api")
+stats = await memory.reasoning.get_tool_stats(tool_name="search_api")
 ----
 
 ==== Migrating Tool Stats
@@ -851,7 +851,7 @@ For existing data, migrate to pre-aggregated stats:
 [source,python]
 ----
 # One-time migration for existing data
-migrated = await memory.procedural.migrate_tool_stats()
+migrated = await memory.reasoning.migrate_tool_stats()
 print(f"Migrated stats for {len(migrated)} tools")
 for tool, count in migrated.items():
     print(f"  {tool}: {count} calls")
@@ -864,7 +864,7 @@ Automatically set step observations from tool results:
 [source,python]
 ----
 # auto_observation=True sets the step's observation from the tool result
-await memory.procedural.record_tool_call(
+await memory.reasoning.record_tool_call(
     step.id,
     tool_name="search_api",
     arguments={"query": "restaurants"},
@@ -881,7 +881,7 @@ Batch generate embeddings for steps when completing a trace:
 [source,python]
 ----
 # Generate embeddings for all steps that don't have them
-await memory.procedural.complete_trace(
+await memory.reasoning.complete_trace(
     trace.id,
     outcome="Successfully found restaurants",
     success=True,
@@ -889,12 +889,12 @@ await memory.procedural.complete_trace(
 )
 ----
 
-=== Getting Procedural Context
+=== Getting Reasoning Context
 
 [source,python]
 ----
-# Get procedural context for similar tasks
-context = await memory.procedural.get_context(
+# Get reasoning context for similar tasks
+context = await memory.reasoning.get_context(
     query="find restaurants",
     max_traces=3
 )
@@ -923,7 +923,7 @@ async with MemoryClient(settings) as memory:
         # Control which memory types to include
         include_short_term=True,    # Recent conversation
         include_long_term=True,     # Facts and preferences
-        include_procedural=True,   # Past reasoning patterns
+        include_reasoning=True,   # Past reasoning patterns
 
         max_items=10
     )
@@ -970,7 +970,7 @@ Export memory graph data for visualization or external processing:
 ----
 # Export the full memory graph
 graph = await memory.get_graph(
-    memory_types=["short_term", "long_term", "procedural"],  # Optional filter
+    memory_types=["short_term", "long_term", "reasoning"],  # Optional filter
     session_id="user-123",  # Optional session filter
     include_embeddings=False,  # Don't include large embedding vectors
     limit=1000,
@@ -1028,7 +1028,7 @@ print(f"Traces: {stats['traces']}")
 * Set appropriate importance scores (0.0-1.0)
 * Update preferences when user behavior changes
 
-=== Procedural Memory
+=== Reasoning Memory
 
 * Record both successful and failed reasoning traces
 * Include detailed observations for learning

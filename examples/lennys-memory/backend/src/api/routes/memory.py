@@ -28,7 +28,7 @@ router = APIRouter()
 
 
 # ============================================================================
-# Procedural Memory Endpoints
+# Reasoning Memory Endpoints
 # ============================================================================
 
 
@@ -56,7 +56,7 @@ async def list_traces(
 
     try:
         # Use the new list_traces() API for efficient listing
-        traces = await memory.procedural.list_traces(
+        traces = await memory.reasoning.list_traces(
             session_id=thread_id,
             success_only=success_only,
             limit=limit,
@@ -97,7 +97,7 @@ async def get_trace(trace_id: str) -> ReasoningTraceResponse:
         raise HTTPException(status_code=503, detail="Memory service unavailable")
 
     try:
-        trace = await memory.procedural.get_trace(trace_id)
+        trace = await memory.reasoning.get_trace(trace_id)
         if trace is None:
             raise HTTPException(status_code=404, detail="Trace not found")
 
@@ -160,7 +160,7 @@ async def get_tool_stats() -> list[ToolStatsResponse]:
 
     try:
         # Use the new optimized get_tool_stats() API
-        stats = await memory.procedural.get_tool_stats()
+        stats = await memory.reasoning.get_tool_stats()
         return [
             ToolStatsResponse(
                 name=tool.name,
@@ -193,7 +193,7 @@ async def get_similar_traces(
         return []
 
     try:
-        traces = await memory.procedural.get_similar_traces(
+        traces = await memory.reasoning.get_similar_traces(
             task=task,
             limit=limit,
             success_only=success_only,
@@ -662,7 +662,7 @@ async def get_memory_graph(
 
     Args:
         memory_types: Comma-separated list of memory types to include
-                     (short_term, long_term, procedural). Defaults to all.
+                     (short_term, long_term, reasoning). Defaults to all.
         session_id: Optional session ID to filter by.
         limit: Maximum number of nodes to return.
 

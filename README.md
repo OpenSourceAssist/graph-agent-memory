@@ -11,7 +11,7 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 
 ## Features
 
-- **Three Memory Types**: Short-Term (conversations), Long-Term (facts/preferences), and Procedural (reasoning traces)
+- **Three Memory Types**: Short-Term (conversations), Long-Term (facts/preferences), and Reasoning (reasoning traces)
 - **POLE+O Data Model**: Configurable entity schema based on Person, Object, Location, Event, Organization types with subtypes
 - **Multi-Stage Entity Extraction**: Pipeline combining spaCy, GLiNER2, and LLM extractors with configurable merge strategies
 - **Batch & Streaming Extraction**: Process multiple texts in parallel or stream results for long documents
@@ -165,27 +165,27 @@ fact = await memory.long_term.add_fact(
 entities = await memory.long_term.search_entities("Italian restaurants")
 ```
 
-### Procedural Memory
+### Reasoning Memory
 
 Stores reasoning traces and tool usage patterns:
 
 ```python
 # Start a reasoning trace (optionally linked to a triggering message)
-trace = await memory.procedural.start_trace(
+trace = await memory.reasoning.start_trace(
     session_id="user-123",
     task="Find a restaurant recommendation",
     triggered_by_message_id=user_message.id,  # Optional: link to message
 )
 
 # Add reasoning steps
-step = await memory.procedural.add_step(
+step = await memory.reasoning.add_step(
     trace.id,
     thought="I should search for nearby restaurants",
     action="search_restaurants"
 )
 
 # Record tool calls (optionally linked to a message)
-await memory.procedural.record_tool_call(
+await memory.reasoning.record_tool_call(
     step.id,
     tool_name="search_api",
     arguments={"query": "Italian restaurants"},
@@ -196,17 +196,17 @@ await memory.procedural.record_tool_call(
 )
 
 # Complete the trace
-await memory.procedural.complete_trace(
+await memory.reasoning.complete_trace(
     trace.id,
     outcome="Recommended La Trattoria",
     success=True
 )
 
 # Find similar past tasks
-similar = await memory.procedural.get_similar_traces("restaurant recommendation")
+similar = await memory.reasoning.get_similar_traces("restaurant recommendation")
 
 # Link an existing trace to a message (post-hoc)
-await memory.procedural.link_trace_to_message(trace.id, message.id)
+await memory.reasoning.link_trace_to_message(trace.id, message.id)
 ```
 
 ## Advanced Features
@@ -288,7 +288,7 @@ Record reasoning traces during streaming responses:
 from neo4j_agent_memory import StreamingTraceRecorder
 
 async with StreamingTraceRecorder(
-    memory.procedural,
+    memory.reasoning,
     session_id="user-123",
     task="Process customer inquiry"
 ) as recorder:
@@ -320,7 +320,7 @@ Query reasoning traces with filtering and pagination:
 
 ```python
 # List traces with filters
-traces = await memory.procedural.list_traces(
+traces = await memory.reasoning.list_traces(
     session_id="user-123",           # Optional session filter
     success_only=True,               # Only successful traces
     since=datetime(2024, 1, 1),      # After this date
@@ -341,7 +341,7 @@ Get pre-aggregated tool usage statistics:
 
 ```python
 # Get stats for all tools (uses pre-aggregated data for speed)
-stats = await memory.procedural.get_tool_stats()
+stats = await memory.reasoning.get_tool_stats()
 
 for tool in stats:
     print(f"{tool.name}:")
@@ -350,7 +350,7 @@ for tool in stats:
     print(f"  Avg duration: {tool.avg_duration_ms}ms")
 
 # Migrate existing data to use pre-aggregation
-migrated = await memory.procedural.migrate_tool_stats()
+migrated = await memory.reasoning.migrate_tool_stats()
 print(f"Migrated stats for {len(migrated)} tools")
 ```
 
@@ -361,7 +361,7 @@ Export memory graph data for visualization with flexible filtering:
 ```python
 # Export the full memory graph
 graph = await memory.get_graph(
-    memory_types=["short_term", "long_term", "procedural"],  # Optional filter
+    memory_types=["short_term", "long_term", "reasoning"],  # Optional filter
     session_id="user-123",  # Optional: scope to a specific conversation
     include_embeddings=False,  # Don't include large embedding vectors
     limit=1000,
@@ -390,7 +390,7 @@ conversation_graph = await memory.get_graph(
 # This returns:
 # - Messages in that conversation
 # - Entities mentioned in those messages
-# - Procedural traces from that session
+# - Reasoning traces from that session
 # - Relationships connecting them
 ```
 
@@ -453,7 +453,7 @@ result = await agent.run("Find me a good restaurant")
 
 # Record the trace automatically
 trace = await record_agent_trace(
-    memory.procedural,
+    memory.reasoning,
     session_id="user-123",
     result=result,
     task="Restaurant recommendation",
@@ -1045,7 +1045,7 @@ The package automatically creates the following schema:
 - `Conversation`, `Message` - Short-term memory
 - `Entity`, `Preference`, `Fact` - Long-term memory
   - Entity nodes also have type/subtype labels (e.g., `:Entity:Person:Individual`, `:Entity:Object:Vehicle`)
-- `ReasoningTrace`, `ReasoningStep`, `Tool`, `ToolCall` - Procedural memory
+- `ReasoningTrace`, `ReasoningStep`, `Tool`, `ToolCall` - Reasoning memory
 
 ### Relationships
 
@@ -1156,7 +1156,7 @@ Examples are located in `examples/` and demonstrate various features:
 |---------|-------------|--------------|
 | [`lennys-memory/`](examples/lennys-memory/) | **Flagship demo**: Podcast knowledge graph with AI chat, graph visualization, map view, entity enrichment | Neo4j, OpenAI, Node.js |
 | `full-stack-chat-agent/` | Full-stack web app with FastAPI backend and Next.js frontend | Neo4j, OpenAI, Node.js |
-| `basic_usage.py` | Core memory operations (short-term, long-term, procedural) | Neo4j, OpenAI API key |
+| `basic_usage.py` | Core memory operations (short-term, long-term, reasoning) | Neo4j, OpenAI API key |
 | `entity_resolution.py` | Entity matching strategies | None |
 | `langchain_agent.py` | LangChain integration | Neo4j, OpenAI, langchain extra |
 | `pydantic_ai_agent.py` | Pydantic AI integration | Neo4j, OpenAI, pydantic-ai extra |
