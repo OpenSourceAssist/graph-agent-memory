@@ -3526,6 +3526,9 @@ observability = [
 openai = [
     { name = "openai" },
 ]
+openai-agents = [
+    { name = "openai" },
+]
 opentelemetry = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp" },
@@ -3573,8 +3576,9 @@ requires-dist = [
     { name = "llama-index-core", marker = "extra == 'llamaindex'", specifier = ">=0.10.0" },
     { name = "neo4j", specifier = ">=5.20.0" },
     { name = "neo4j-agent-memory", extras = ["all", "sentence-transformers", "spacy", "gliner"], marker = "extra == 'full'" },
-    { name = "neo4j-agent-memory", extras = ["openai", "anthropic", "fuzzy", "langchain", "llamaindex", "pydantic-ai", "crewai"], marker = "extra == 'all'" },
+    { name = "neo4j-agent-memory", extras = ["openai", "anthropic", "fuzzy", "langchain", "llamaindex", "pydantic-ai", "crewai", "openai-agents"], marker = "extra == 'all'" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.0.0" },
+    { name = "openai", marker = "extra == 'openai-agents'", specifier = ">=1.0.0" },
     { name = "opentelemetry-api", marker = "extra == 'observability'", specifier = ">=1.20.0" },
     { name = "opentelemetry-api", marker = "extra == 'opentelemetry'", specifier = ">=1.20.0" },
     { name = "opentelemetry-exporter-otlp", marker = "extra == 'opentelemetry'", specifier = ">=1.20.0" },
@@ -3590,7 +3594,7 @@ requires-dist = [
     { name = "spacy", marker = "extra == 'extraction'", specifier = ">=3.7.0" },
     { name = "spacy", marker = "extra == 'spacy'", specifier = ">=3.7.0" },
 ]
-provides-extras = ["openai", "anthropic", "sentence-transformers", "spacy", "gliner", "extraction", "fuzzy", "cli", "opentelemetry", "opik", "observability", "langchain", "llamaindex", "pydantic-ai", "crewai", "all", "full"]
+provides-extras = ["openai", "anthropic", "sentence-transformers", "spacy", "gliner", "extraction", "fuzzy", "cli", "opentelemetry", "opik", "observability", "langchain", "llamaindex", "pydantic-ai", "crewai", "openai-agents", "all", "full"]
 
 [package.metadata.requires-dev]
 dev = [
