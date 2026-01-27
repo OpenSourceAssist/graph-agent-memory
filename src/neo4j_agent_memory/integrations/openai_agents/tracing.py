@@ -189,7 +189,6 @@ try:
         """
         return await memory.memory_client.reasoning.get_similar_traces(
             task=task,
-            user_id=memory.user_id,
             limit=limit,
         )
 
