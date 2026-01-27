@@ -542,7 +542,7 @@ class ReasoningMemory(BaseMemory[ReasoningStep]):
                 "tool_name": tool_name,
                 "arguments": _serialize_json(arguments),
                 "result": _serialize_json(result) if result is not None else None,
-                "status": status.value,
+                "status": status.value if hasattr(status, "value") else str(status),
                 "duration_ms": duration_ms,
                 "error": error,
             },
