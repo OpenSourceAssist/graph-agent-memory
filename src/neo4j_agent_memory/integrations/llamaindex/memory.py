@@ -113,12 +113,16 @@ try:
                     text = f"{entity.display_name}"
                     if entity.description:
                         text += f": {entity.description}"
+                    # entity.type may be a string or enum
+                    entity_type = (
+                        entity.type.value if hasattr(entity.type, "value") else str(entity.type)
+                    )
                     nodes.append(
                         TextNode(
                             text=text,
                             metadata={
                                 "source": "long_term",
-                                "entity_type": entity.type.value,
+                                "entity_type": entity_type,
                                 "id": str(entity.id),
                             },
                         )
