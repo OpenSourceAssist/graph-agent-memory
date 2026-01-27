@@ -41,6 +41,15 @@ pip install neo4j-agent-memory
 # With OpenAI embeddings
 pip install neo4j-agent-memory[openai]
 
+# With Google Cloud (Vertex AI embeddings)
+pip install neo4j-agent-memory[vertex-ai]
+
+# With Google ADK integration
+pip install neo4j-agent-memory[google-adk]
+
+# With MCP server
+pip install neo4j-agent-memory[mcp]
+
 # With spaCy for fast entity extraction
 pip install neo4j-agent-memory[spacy]
 python -m spacy download en_core_web_sm
@@ -938,6 +947,49 @@ memory = Neo4jCrewMemory(
 memories = memory.recall("restaurant recommendation")
 ```
 
+### Google ADK
+
+```python
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+# Create memory service for Google ADK
+memory_service = Neo4jMemoryService(
+    memory_client=client,
+    user_id="user-123",
+)
+
+# Store a session
+session = {"id": "session-1", "messages": [...]}
+await memory_service.add_session_to_memory(session)
+
+# Search memories
+results = await memory_service.search_memories("project deadline")
+```
+
+### MCP Server
+
+Expose memory capabilities via Model Context Protocol for AI platforms:
+
+```bash
+# Run the MCP server
+python -m neo4j_agent_memory.mcp.server \
+    --neo4j-uri bolt://localhost:7687 \
+    --neo4j-user neo4j \
+    --neo4j-password password
+
+# Or with SSE transport for Cloud Run
+python -m neo4j_agent_memory.mcp.server --transport sse --port 8080
+```
+
+Available MCP tools:
+- `memory_search` - Hybrid vector + graph search
+- `memory_store` - Store messages, facts, preferences
+- `entity_lookup` - Get entity with relationships
+- `conversation_history` - Get session history
+- `graph_query` - Execute read-only Cypher queries
+
+See `deploy/cloudrun/` for Cloud Run deployment templates.
+
 ## Configuration
 
 ### Environment Variables
@@ -949,11 +1001,15 @@ NAM_NEO4J__USERNAME=neo4j
 NAM_NEO4J__PASSWORD=your-password
 
 # Embedding provider
-NAM_EMBEDDING__PROVIDER=openai
+NAM_EMBEDDING__PROVIDER=openai  # or vertex_ai
 NAM_EMBEDDING__MODEL=text-embedding-3-small
 
 # OpenAI API key (if using OpenAI embeddings/extraction)
 OPENAI_API_KEY=your-api-key
+
+# Google Cloud (for Vertex AI embeddings)
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+VERTEX_AI_LOCATION=us-central1
 ```
 
 ### Programmatic Configuration
@@ -976,9 +1032,14 @@ settings = MemorySettings(
         password=SecretStr("password"),
     ),
     embedding=EmbeddingConfig(
-        provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
+        provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,  # or OPENAI, VERTEX_AI
         model="all-MiniLM-L6-v2",
         dimensions=384,
+        # For Vertex AI:
+        # provider=EmbeddingProvider.VERTEX_AI,
+        # model="text-embedding-004",
+        # project_id="your-gcp-project",
+        # location="us-central1",
     ),
     extraction=ExtractionConfig(
         # Use the multi-stage pipeline (default)

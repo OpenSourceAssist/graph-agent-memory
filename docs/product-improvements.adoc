@@ -36,10 +36,37 @@ This document tracks product improvement suggestions identified during the devel
 * <<memory-export,Memory Export/Import>>
 * <<vector-index-management,Vector Index Management>>
 
+.Google Cloud Enhancements
+* <<mcp-resources,MCP Resources and Prompts>>
+* <<adk-session-service,ADK SessionService Implementation>>
+* <<vertex-ai-reranking,Vertex AI Reranking>>
+* <<cloud-functions-trigger,Cloud Functions Memory Triggers>>
+* <<bigquery-analytics,BigQuery Memory Analytics Export>>
+
+.Additional Embedding Providers
+* <<bedrock-embeddings,AWS Bedrock Embeddings>>
+* <<azure-openai-embeddings,Azure OpenAI Embeddings>>
+* <<cohere-embeddings,Cohere Embeddings>>
+* <<ollama-embeddings,Ollama Local Embeddings>>
+
+.MCP Ecosystem
+* <<mcp-resource-templates,MCP Resource Templates>>
+* <<mcp-prompt-library,MCP Prompt Library>>
+* <<mcp-sampling,MCP Sampling Integration>>
+* <<mcp-auth,MCP Authentication Middleware>>
+
 .Documentation Quality
 * <<doctest-integration,Doctest-Style Assertions>>
 * <<api-docs-generation,Automated API Reference Generation>>
 * <<version-matrix-testing,Documentation Version Matrix Testing>>
+
+=== Implemented (v0.3.0)
+
+.Google Cloud Integration
+* <<vertex-ai-embeddings,Vertex AI Embeddings>> ✅
+* <<google-adk-integration,Google ADK MemoryService>> ✅
+* <<mcp-server,MCP Server for Cloud API Registry>> ✅
+* <<cloudrun-template,Cloud Run Deployment Template>> ✅
 
 === Implemented (v0.0.2)
 
@@ -336,6 +363,235 @@ Utilities for managing and optimizing Neo4j vector indexes.
 * Automatic re-indexing on embedding model changes
 * Index statistics and performance metrics
 * Migration utilities between embedding models
+
+'''
+
+=== Google Cloud Enhancements
+
+[[mcp-resources]]
+==== MCP Resources and Prompts
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Extend the MCP server beyond tools to include Resources and Prompts capabilities.
+
+.Implementation Ideas
+* Resources: Expose memory entities, sessions, and graph schemas as browsable resources
+* Resource templates: `memory://entities/{type}`, `memory://sessions/{id}`
+* Prompts: Pre-built prompt templates for common memory operations
+* Dynamic resource discovery for entity types and relationship patterns
+
+'''
+
+[[adk-session-service]]
+==== ADK SessionService Implementation
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Implement the ADK `SessionService` interface for full session management.
+
+.Implementation Ideas
+* `create_session()`, `get_session()`, `update_session()`, `delete_session()`
+* Session state persistence in Neo4j
+* Session expiration and cleanup
+* Multi-turn conversation state management
+
+'''
+
+[[vertex-ai-reranking]]
+==== Vertex AI Reranking
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Add support for Vertex AI's semantic reranking models to improve search quality.
+
+.Implementation Ideas
+* `VertexAIReranker` class implementing reranking interface
+* Integration with memory search results
+* Configurable reranking for different memory types
+* Batch reranking for efficiency
+
+'''
+
+[[cloud-functions-trigger]]
+==== Cloud Functions Memory Triggers
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Create Cloud Functions templates that trigger on memory events.
+
+.Implementation Ideas
+* Pub/Sub integration for memory change notifications
+* Trigger on entity creation, preference updates, session completion
+* Example functions: entity enrichment, notification dispatch, analytics
+* Eventarc integration for Cloud Run
+
+'''
+
+[[bigquery-analytics]]
+==== BigQuery Memory Analytics Export
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Export memory data to BigQuery for analytics and reporting.
+
+.Implementation Ideas
+* Scheduled export of entities, sessions, and usage metrics
+* BigQuery ML integration for memory pattern analysis
+* Looker Studio dashboard templates
+* Data retention and archival policies
+
+'''
+
+=== Additional Embedding Providers
+
+[[bedrock-embeddings]]
+==== AWS Bedrock Embeddings
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add support for AWS Bedrock embedding models (Titan, Cohere via Bedrock).
+
+.Implementation Ideas
+* `BedrockEmbedder` class following existing embedder pattern
+* Support for Titan Embeddings G1 and Cohere Embed via Bedrock
+* AWS credential management (IAM roles, profiles)
+* Region configuration and fallback
+
+'''
+
+[[azure-openai-embeddings]]
+==== Azure OpenAI Embeddings
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add support for Azure OpenAI Service embeddings.
+
+.Implementation Ideas
+* `AzureOpenAIEmbedder` class with Azure-specific configuration
+* Deployment name and endpoint configuration
+* Azure AD authentication support
+* Managed identity integration
+
+'''
+
+[[cohere-embeddings]]
+==== Cohere Embeddings
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Add support for Cohere's embedding models.
+
+.Implementation Ideas
+* `CohereEmbedder` class supporting embed-english-v3.0 and multilingual models
+* Input type configuration (search_document, search_query)
+* Compression options for reduced dimensionality
+* Batch processing with Cohere's native batching
+
+'''
+
+[[ollama-embeddings]]
+==== Ollama Local Embeddings
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add support for Ollama-hosted local embedding models.
+
+.Implementation Ideas
+* `OllamaEmbedder` class for local model inference
+* Support for nomic-embed-text, mxbai-embed-large, all-minilm
+* No API costs, full offline support
+* GPU acceleration when available
+
+'''
+
+=== MCP Ecosystem
+
+[[mcp-resource-templates]]
+==== MCP Resource Templates
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Implement MCP resource templates for dynamic memory access.
+
+.Resource Templates
+* `memory://sessions/{session_id}` - Session details and messages
+* `memory://entities/{type}/{name}` - Entity with relationships
+* `memory://graphs/{query}` - Cypher query results
+* `memory://preferences/{user_id}` - User preferences
+
+'''
+
+[[mcp-prompt-library]]
+==== MCP Prompt Library
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Pre-built MCP prompts for common memory operations.
+
+.Prompt Templates
+* `summarize_session` - Summarize a conversation session
+* `extract_entities` - Extract entities from text
+* `find_related` - Find related entities and context
+* `preference_analysis` - Analyze user preferences
+* `memory_qa` - Question answering over memory
+
+'''
+
+[[mcp-sampling]]
+==== MCP Sampling Integration
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Implement MCP sampling for server-initiated LLM calls.
+
+.Implementation Ideas
+* Entity extraction via sampling
+* Memory summarization requests
+* Preference inference from conversations
+* Automatic memory consolidation
+
+'''
+
+[[mcp-auth]]
+==== MCP Authentication Middleware
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add authentication and authorization to the MCP server.
+
+.Implementation Ideas
+* API key authentication
+* OAuth2/OIDC integration
+* Per-tool authorization
+* Rate limiting and quotas
+* Audit logging
 
 '''
 
@@ -697,6 +953,166 @@ docs/
 * 14 how-to guides including 4 framework integrations
 * 10 reference pages including 4 API references
 * 5 explanation pages covering architecture and concepts
+
+
+== v0.3.0 Roadmap (Implemented)
+
+The following features were implemented as part of the v0.3.0 Google Cloud Integration release.
+
+=== Google Cloud Integration
+
+[[vertex-ai-embeddings]]
+==== Vertex AI Embeddings ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `neo4j_agent_memory.embeddings.vertex_ai.VertexAIEmbedder`
+
+**Features Implemented**:
+
+* `VertexAIEmbedder` class following existing embedder pattern
+* Support for text-embedding-004, textembedding-gecko@003, gecko-multilingual@001
+* 768-dimensional embeddings for all supported models
+* Batch processing up to 250 texts per request
+* Task type configuration (RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY, etc.)
+* GCP project and location configuration
+* Application Default Credentials (ADC) support
+
+.Supported Models
+[source,python]
+----
+VERTEX_MODEL_DIMENSIONS = {
+    "text-embedding-004": 768,
+    "textembedding-gecko@003": 768,
+    "textembedding-gecko-multilingual@001": 768,
+    "text-embedding-005": 768,
+}
+----
+
+'''
+
+[[google-adk-integration]]
+==== Google ADK MemoryService ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `neo4j_agent_memory.integrations.google_adk.Neo4jMemoryService`
+
+**Features Implemented**:
+
+* `Neo4jMemoryService` implementing ADK MemoryService interface
+* `add_session_to_memory()` - Store session messages and extract entities
+* `search_memories()` - Semantic search across all memory types
+* `get_memories_for_session()` - Retrieve session-specific memories
+* `add_memory()` - Store individual memory entries
+* `clear_session()` - Clear session data
+* Type conversions between ADK and agent-memory types
+* Configurable entity and preference extraction
+
+.Usage Example
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+async with MemoryClient(settings) as client:
+    memory_service = Neo4jMemoryService(client, user_id="user-123")
+
+    # Search memories
+    results = await memory_service.search_memories(
+        query="What are the project deadlines?",
+        limit=10
+    )
+----
+
+'''
+
+[[mcp-server]]
+==== MCP Server for Cloud API Registry ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `neo4j_agent_memory.mcp` module
+
+**Features Implemented**:
+
+* `Neo4jMemoryMCPServer` class with full MCP protocol support
+* 5 MCP tools for memory operations
+* stdio transport for local usage
+* SSE transport for Cloud Run deployment
+* Read-only Cypher query validation for security
+
+.MCP Tools
+[cols="2,3"]
+|===
+| Tool | Description
+
+| `memory_search`
+| Hybrid vector + graph search across all memory types
+
+| `memory_store`
+| Store messages, facts, and preferences
+
+| `entity_lookup`
+| Get entity with relationships and context
+
+| `conversation_history`
+| Retrieve session conversation history
+
+| `graph_query`
+| Execute read-only Cypher queries
+|===
+
+.CLI Usage
+[source,bash]
+----
+# Start MCP server with stdio transport
+neo4j-memory mcp serve
+
+# Start MCP server with SSE transport for Cloud Run
+neo4j-memory mcp serve --transport sse --port 8080
+----
+
+'''
+
+[[cloudrun-template]]
+==== Cloud Run Deployment Template ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED**
+Implementation:: `deploy/cloudrun/` directory
+
+**Features Implemented**:
+
+* Production-ready Dockerfile with multi-stage build
+* Cloud Build configuration (`cloudbuild.yaml`)
+* Cloud Run service definition (`service.yaml`)
+* Secret Manager integration for credentials
+* Comprehensive deployment documentation
+
+.Deployment Files
+[source]
+----
+deploy/cloudrun/
+├── Dockerfile          # Container image definition
+├── cloudbuild.yaml     # CI/CD pipeline
+├── service.yaml        # Cloud Run service config
+└── README.md           # Deployment guide
+----
+
+.Quick Deploy
+[source,bash]
+----
+# Build and deploy to Cloud Run
+gcloud run deploy neo4j-memory-mcp \
+  --source deploy/cloudrun \
+  --region us-central1 \
+  --set-secrets NEO4J_URI=neo4j-uri:latest,NEO4J_PASSWORD=neo4j-password:latest
+----
 
 
 == Contributing

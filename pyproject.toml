@@ -48,6 +48,8 @@ dependencies = [
 openai = ["openai>=1.0.0"]
 anthropic = ["anthropic>=0.20.0"]
 sentence-transformers = ["sentence-transformers>=2.2.0"]
+vertex-ai = ["google-cloud-aiplatform>=1.38.0"]
+google = ["google-cloud-aiplatform>=1.38.0"]  # Alias for vertex-ai
 
 # Entity extraction
 spacy = ["spacy>=3.7.0"]
@@ -80,6 +82,12 @@ llamaindex = ["llama-index-core>=0.10.0"]
 pydantic-ai = ["pydantic-ai>=0.1.0"]
 crewai = ["crewai>=0.50.0"]
 openai-agents = ["openai>=1.0.0"]
+
+# MCP server
+mcp = ["mcp>=1.0.0"]
+
+# Google ADK
+google-adk = ["google-adk>=0.1.0"]
 
 # All optional dependencies (excluding heavy ML models by default)
 all = [

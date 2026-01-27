@@ -92,7 +92,13 @@ src/neo4j_agent_memory/
 │   └── composite.py         # Chained strategy resolver (type-aware)
 ├── embeddings/
 │   ├── base.py              # Embedder protocol
-│   └── openai.py            # OpenAI embeddings
+│   ├── openai.py            # OpenAI embeddings
+│   └── vertex_ai.py         # Vertex AI embeddings (Google Cloud)
+├── mcp/
+│   ├── __init__.py          # MCP package exports
+│   ├── server.py            # MCP server (stdio/SSE transports)
+│   ├── tools.py             # 5 MCP tool definitions
+│   └── handlers.py          # Tool execution handlers
 ├── services/
 │   ├── __init__.py          # Service exports
 │   └── geocoder.py          # Geocoding services (Nominatim, Google, cached)
@@ -120,7 +126,8 @@ src/neo4j_agent_memory/
     ├── langchain/           # LangChain memory + retriever
     ├── pydantic_ai/         # Pydantic AI dependency + tools
     ├── llamaindex/          # LlamaIndex memory
-    └── crewai/              # CrewAI memory
+    ├── crewai/              # CrewAI memory
+    └── google_adk/          # Google ADK MemoryService
 
 benchmarks/                   # Extraction quality benchmarks (separate module)
 ├── __init__.py              # Benchmark exports
@@ -1273,7 +1280,164 @@ memory = Neo4jAgentMemory(memory_client=client, session_id="user-123")
 # Pydantic AI
 from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency
 deps = MemoryDependency(client=client, session_id="user-123")
+
+# Google ADK
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+memory_service = Neo4jMemoryService(client, user_id="user-123")
 ```
+
+### Google Cloud Integration (v0.3.0)
+
+The library provides comprehensive Google Cloud support including Vertex AI embeddings, Google ADK integration, and an MCP server for Cloud API Registry.
+
+#### Vertex AI Embeddings
+
+```python
+from neo4j_agent_memory.embeddings.vertex_ai import VertexAIEmbedder
+
+# Create embedder with Vertex AI
+embedder = VertexAIEmbedder(
+    model="text-embedding-004",     # or gecko@003, gecko-multilingual
+    project_id="your-gcp-project",  # or from GOOGLE_CLOUD_PROJECT env
+    location="us-central1",
+    task_type="RETRIEVAL_DOCUMENT", # or RETRIEVAL_QUERY, SEMANTIC_SIMILARITY
+)
+
+# Single embedding
+embedding = await embedder.embed("Hello world")
+
+# Batch embedding (up to 250 texts per batch)
+embeddings = await embedder.embed_batch(["Text 1", "Text 2", "Text 3"])
+
+# Use with MemoryClient via config
+from neo4j_agent_memory import MemorySettings
+from neo4j_agent_memory.config.settings import EmbeddingConfig, EmbeddingProvider
+
+settings = MemorySettings(
+    embedding=EmbeddingConfig(
+        provider=EmbeddingProvider.VERTEX_AI,
+        model="text-embedding-004",
+        project_id="your-project",
+        location="us-central1",
+    ),
+)
+```
+
+**Supported Models:**
+- `text-embedding-004` - Recommended, 768 dimensions
+- `textembedding-gecko@003` - Legacy, 768 dimensions
+- `textembedding-gecko-multilingual@001` - Multilingual, 768 dimensions
+
+#### Google ADK MemoryService
+
+```python
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+async with MemoryClient(settings) as client:
+    # Create memory service for ADK agents
+    memory_service = Neo4jMemoryService(
+        memory_client=client,
+        user_id="user-123",
+        include_entities=True,      # Extract entities from sessions
+        include_preferences=True,   # Learn preferences from conversations
+    )
+    
+    # Store a conversation session
+    session = {
+        "id": "session-1",
+        "messages": [
+            {"role": "user", "content": "I prefer dark mode"},
+            {"role": "assistant", "content": "Noted!"},
+        ]
+    }
+    await memory_service.add_session_to_memory(session)
+    
+    # Search across all memory types
+    results = await memory_service.search_memories("user preferences", limit=10)
+    
+    # Get session history
+    history = await memory_service.get_memories_for_session("session-1")
+    
+    # Add individual memory
+    await memory_service.add_memory(
+        content="Prefers Python over JavaScript",
+        memory_type="preference",
+        category="programming",
+    )
+```
+
+#### MCP Server
+
+The MCP server exposes 5 tools for memory operations:
+
+| Tool | Description |
+|------|-------------|
+| `memory_search` | Hybrid vector + graph search across all memory types |
+| `memory_store` | Store messages, facts, and preferences |
+| `entity_lookup` | Get entity with relationships and context |
+| `conversation_history` | Retrieve session conversation history |
+| `graph_query` | Execute read-only Cypher queries |
+
+**Starting the Server:**
+
+```bash
+# stdio transport (for local MCP clients like Claude Desktop)
+neo4j-memory mcp serve
+
+# SSE transport (for Cloud Run/HTTP deployment)
+neo4j-memory mcp serve --transport sse --port 8080
+
+# With custom Neo4j connection
+neo4j-memory mcp serve --neo4j-uri bolt://localhost:7687 --neo4j-password secret
+```
+
+**Claude Desktop Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "neo4j-memory": {
+      "command": "neo4j-memory",
+      "args": ["mcp", "serve"],
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+**Programmatic Usage:**
+
+```python
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.mcp.server import Neo4jMemoryMCPServer
+
+async with MemoryClient(settings) as client:
+    server = Neo4jMemoryMCPServer(client)
+    
+    # stdio transport
+    await server.run()
+    
+    # Or SSE for HTTP
+    await server.run_sse(host="0.0.0.0", port=8080)
+```
+
+#### Cloud Run Deployment
+
+Production deployment templates are in `deploy/cloudrun/`:
+
+```bash
+# Build and deploy
+gcloud run deploy neo4j-memory-mcp \
+  --source deploy/cloudrun \
+  --region us-central1 \
+  --set-secrets NEO4J_URI=neo4j-uri:latest,NEO4J_PASSWORD=neo4j-password:latest
+```
+
+See `deploy/cloudrun/README.md` for full deployment instructions.
 
 ## Important Implementation Details
 
@@ -1317,6 +1481,8 @@ deps = MemoryDependency(client=client, session_id="user-123")
 - `NEO4J_USERNAME` - Neo4j username (default: `neo4j`)
 - `NEO4J_PASSWORD` - Neo4j password (default for tests: `test-password`)
 - `OPENAI_API_KEY` - Required for OpenAI embeddings and LLM extraction
+- `GOOGLE_CLOUD_PROJECT` - GCP project ID for Vertex AI embeddings
+- `VERTEX_AI_LOCATION` - GCP region for Vertex AI (default: `us-central1`)
 - `GOOGLE_GEOCODING_API_KEY` - API key for Google Geocoding (optional, for geocoding Location entities)
 - `DIFFBOT_API_KEY` - API key for Diffbot Knowledge Graph enrichment (optional)
 - `NAM_ENRICHMENT__ENABLED` - Enable background entity enrichment (default: `false`)
