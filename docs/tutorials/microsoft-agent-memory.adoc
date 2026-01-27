@@ -248,7 +248,8 @@ import json
 from agent_framework import UserMessage
 
 from memory_config import create_memory
-from agent import create_agent, handle_tool_calls, record_agent_trace
+from agent import create_agent, handle_tool_calls
+from neo4j_agent_memory.integrations.microsoft_agent import record_agent_trace
 
 async def main():
     # Create session
