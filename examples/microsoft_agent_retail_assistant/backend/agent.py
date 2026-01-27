@@ -505,13 +505,19 @@ async def run_agent_stream(
             await memory.save_message("assistant", full_response)
 
             # Record trace for learning
+            messages_for_trace = [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": full_response[:500]},  # Truncate long responses
+            ]
+
             await record_agent_trace(
-                memory_client=memory.memory_client,
-                session_id=memory.session_id,
+                memory=memory,
+                messages=messages_for_trace,
                 task=message,
-                steps=tool_calls_for_trace,
+                tool_calls=tool_calls_for_trace,
                 outcome="success",
-                result=full_response[:500],  # Truncate long responses
+                success=True,
+                generate_embedding=True,
             )
 
     except Exception as e:
