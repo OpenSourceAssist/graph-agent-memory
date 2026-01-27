@@ -490,17 +490,24 @@ try:
             return json.dumps({"preferences": prefs})
 
         elif tool_name == "search_entities":
+            # Convert singular entity_type to entity_types list if provided
+            entity_types = None
+            if arguments.get("entity_type"):
+                entity_types = [arguments["entity_type"]]
+
             entities = await memory._client.long_term.search_entities(
                 query=arguments["query"],
-                entity_type=arguments.get("entity_type"),
+                entity_types=entity_types,
                 limit=arguments.get("limit", 5),
             )
             results = []
             for e in entities:
+                # e.type may be a string or enum
+                entity_type_value = e.type.value if hasattr(e.type, "value") else str(e.type)
                 results.append(
                     {
                         "name": e.display_name,
-                        "type": e.type.value,
+                        "type": entity_type_value,
                         "description": e.description,
                     }
                 )

@@ -364,16 +364,26 @@ class MockLongTermMemory:
         self,
         query: str,
         *,
+        entity_types: list[EntityType | str] | None = None,
         limit: int = 10,
-        entity_type: EntityType | None = None,
+        threshold: float = 0.7,
     ) -> list[Entity]:
         """Search entities (simple string matching)."""
         results = []
         query_lower = query.lower()
 
         for entity in self._entities.values():
-            if entity_type and entity.type != entity_type:
-                continue
+            if entity_types:
+                # Check if entity type matches any in the list
+                entity_type_str = (
+                    entity.type.value if hasattr(entity.type, "value") else str(entity.type)
+                )
+                type_matches = any(
+                    (t.value if hasattr(t, "value") else str(t)) == entity_type_str
+                    for t in entity_types
+                )
+                if not type_matches:
+                    continue
             if query_lower in entity.name.lower():
                 results.append(entity)
                 if len(results) >= limit:
