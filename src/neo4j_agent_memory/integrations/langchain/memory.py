@@ -40,6 +40,28 @@ class Neo4jAgentMemory(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    def _run_async(self, coro: Any) -> Any:
+        """
+        Run an async coroutine from sync context.
+
+        Handles the case where we're already in an async context by
+        scheduling the coroutine on the existing event loop.
+        """
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None and loop.is_running():
+            # We're in an async context - schedule on the existing loop
+            future = asyncio.run_coroutine_threadsafe(coro, loop)
+            return future.result(timeout=30)
+        else:
+            # Not in async context - create a new loop
+            return asyncio.run(coro)
+
     @property
     def memory_variables(self) -> list[str]:
         """Return memory variables."""
@@ -56,24 +78,9 @@ class Neo4jAgentMemory(BaseModel):
         """
         Load memory context for the current input.
 
-        This is a sync wrapper that creates an event loop if needed.
+        This is a sync wrapper that handles async execution properly.
         """
-        import asyncio
-
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop is not None:
-            # We're in an async context, need to handle differently
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, self._load_memory_variables_async(inputs))
-                return future.result()
-        else:
-            return asyncio.run(self._load_memory_variables_async(inputs))
+        return self._run_async(self._load_memory_variables_async(inputs))
 
     async def _load_memory_variables_async(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Async implementation of load_memory_variables."""
@@ -111,23 +118,9 @@ class Neo4jAgentMemory(BaseModel):
         """
         Save the current interaction to memory.
 
-        This is a sync wrapper that creates an event loop if needed.
+        This is a sync wrapper that handles async execution properly.
         """
-        import asyncio
-
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop is not None:
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, self._save_context_async(inputs, outputs))
-                future.result()
-        else:
-            asyncio.run(self._save_context_async(inputs, outputs))
+        self._run_async(self._save_context_async(inputs, outputs))
 
     async def _save_context_async(self, inputs: dict[str, Any], outputs: dict[str, str]) -> None:
         """Async implementation of save_context."""
@@ -144,24 +137,7 @@ class Neo4jAgentMemory(BaseModel):
 
     def clear(self) -> None:
         """Clear conversation history for this session."""
-        import asyncio
-
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop is not None:
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    self.memory_client.short_term.clear_session(self.session_id),
-                )
-                future.result()
-        else:
-            asyncio.run(self.memory_client.short_term.clear_session(self.session_id))
+        self._run_async(self.memory_client.short_term.clear_session(self.session_id))
 
     def _format_messages(self, messages: list) -> str:
         """Format messages for context."""

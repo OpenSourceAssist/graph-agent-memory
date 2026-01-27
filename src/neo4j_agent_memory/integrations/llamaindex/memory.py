@@ -40,6 +40,28 @@ try:
             self._client = memory_client
             self._session_id = session_id
 
+        def _run_async(self, coro: Any) -> Any:
+            """
+            Run an async coroutine from sync context.
+
+            Handles the case where we're already in an async context by
+            scheduling the coroutine on the existing event loop.
+            """
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+
+            if loop is not None and loop.is_running():
+                # We're in an async context - schedule on the existing loop
+                future = asyncio.run_coroutine_threadsafe(coro, loop)
+                return future.result(timeout=30)
+            else:
+                # Not in async context - create a new loop
+                return asyncio.run(coro)
+
         def get(self, input: str | None = None, **kwargs: Any) -> list[TextNode]:
             """
             Get memory nodes relevant to the input.
@@ -51,21 +73,7 @@ try:
             Returns:
                 List of TextNode objects
             """
-            import asyncio
-
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
-            if loop is not None:
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, self._get_async(input, **kwargs))
-                    return future.result()
-            else:
-                return asyncio.run(self._get_async(input, **kwargs))
+            return self._run_async(self._get_async(input, **kwargs))
 
         async def _get_async(self, input: str | None = None, **kwargs: Any) -> list[TextNode]:
             """Async implementation of get."""
@@ -125,47 +133,12 @@ try:
             Args:
                 node: TextNode to store
             """
-            import asyncio
-
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
             role = node.metadata.get("role", "user")
-
-            if loop is not None:
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run,
-                        self._client.short_term.add_message(self._session_id, role, node.text),
-                    )
-                    future.result()
-            else:
-                asyncio.run(self._client.short_term.add_message(self._session_id, role, node.text))
+            self._run_async(self._client.short_term.add_message(self._session_id, role, node.text))
 
         def reset(self) -> None:
             """Reset memory for this session."""
-            import asyncio
-
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
-            if loop is not None:
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run,
-                        self._client.short_term.clear_session(self._session_id),
-                    )
-                    future.result()
-            else:
-                asyncio.run(self._client.short_term.clear_session(self._session_id))
+            self._run_async(self._client.short_term.clear_session(self._session_id))
 
         def set(self, nodes: list[TextNode]) -> None:
             """
