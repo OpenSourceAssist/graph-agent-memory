@@ -238,10 +238,14 @@ try:
                     content = entity.display_name
                     if entity.description:
                         content += f": {entity.description}"
+                    # entity.type may be a string or enum
+                    entity_type = (
+                        entity.type.value if hasattr(entity.type, "value") else str(entity.type)
+                    )
                     results.append(
                         {
                             "type": "entity",
-                            "entity_type": entity.type.value,
+                            "entity_type": entity_type,
                             "name": entity.display_name,
                             "content": content,
                             "id": str(entity.id),
