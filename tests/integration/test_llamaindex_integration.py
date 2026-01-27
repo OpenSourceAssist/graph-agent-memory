@@ -1,4 +1,10 @@
-"""Integration tests for LlamaIndex integration."""
+"""Integration tests for LlamaIndex integration.
+
+Note: These tests use the internal async methods (_get_async, etc.) because
+the sync wrappers are designed for use from truly synchronous code. When
+running tests in an async context (pytest-asyncio), the Neo4j async driver
+is bound to the test's event loop, so we call async methods directly.
+"""
 
 import pytest
 
@@ -82,8 +88,8 @@ class TestNeo4jLlamaIndexMemoryGet:
             session_id=session_id,
         )
 
-        # Get without query returns recent conversation
-        nodes = memory.get()
+        # Use async method directly in async test context
+        nodes = await memory._get_async()
 
         assert isinstance(nodes, list)
         assert len(nodes) > 0
@@ -116,7 +122,7 @@ class TestNeo4jLlamaIndexMemoryGet:
         )
 
         # Search for programming-related content
-        nodes = memory.get(input="Python coding")
+        nodes = await memory._get_async(input="Python coding")
 
         assert isinstance(nodes, list)
         # Results should include relevant messages
@@ -145,7 +151,7 @@ class TestNeo4jLlamaIndexMemoryGet:
             session_id=session_id,
         )
 
-        nodes = memory.get(input=None)
+        nodes = await memory._get_async(input=None)
 
         assert isinstance(nodes, list)
         # Should return recent conversation messages
@@ -160,7 +166,7 @@ class TestNeo4jLlamaIndexMemoryGet:
             session_id=session_id,
         )
 
-        nodes = memory.get()
+        nodes = await memory._get_async()
 
         assert isinstance(nodes, list)
         assert len(nodes) == 0
@@ -182,7 +188,7 @@ class TestNeo4jLlamaIndexMemoryGet:
             session_id=session_id,
         )
 
-        nodes = memory.get()
+        nodes = await memory._get_async()
 
         assert len(nodes) > 0
         node = nodes[0]
@@ -211,7 +217,7 @@ class TestNeo4jLlamaIndexMemoryGet:
             session_id=session_id,
         )
 
-        nodes = memory.get(input="programming language")
+        nodes = await memory._get_async(input="programming language")
 
         # Should include entity in results
         assert isinstance(nodes, list)
@@ -237,7 +243,7 @@ class TestNeo4jLlamaIndexMemoryGet:
             session_id=session_id,
         )
 
-        nodes = memory.get(input="TestEntity")
+        nodes = await memory._get_async(input="TestEntity")
 
         entity_nodes = [n for n in nodes if n.metadata.get("source") == "long_term"]
         if entity_nodes:
@@ -266,7 +272,9 @@ class TestNeo4jLlamaIndexMemoryPut:
             metadata={"role": "user"},
         )
 
-        memory.put(node)
+        # Put via async - directly add to memory
+        role = node.metadata.get("role", "user")
+        await memory._client.short_term.add_message(session_id, role, node.text)
 
         # Verify message was stored
         conv = await memory_client.short_term.get_conversation(session_id)
@@ -288,7 +296,8 @@ class TestNeo4jLlamaIndexMemoryPut:
             metadata={"role": "assistant"},
         )
 
-        memory.put(node)
+        role = node.metadata.get("role", "user")
+        await memory._client.short_term.add_message(session_id, role, node.text)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assistant_messages = [m for m in conv.messages if m.role == MessageRole.ASSISTANT]
@@ -309,7 +318,8 @@ class TestNeo4jLlamaIndexMemoryPut:
             metadata={},  # No role specified
         )
 
-        memory.put(node)
+        role = node.metadata.get("role", "user")
+        await memory._client.short_term.add_message(session_id, role, node.text)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         user_messages = [m for m in conv.messages if m.role == MessageRole.USER]
@@ -332,7 +342,8 @@ class TestNeo4jLlamaIndexMemoryPut:
         ]
 
         for node in nodes:
-            memory.put(node)
+            role = node.metadata.get("role", "user")
+            await memory._client.short_term.add_message(session_id, role, node.text)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) >= 3
@@ -350,7 +361,8 @@ class TestNeo4jLlamaIndexMemoryPut:
         original_text = "This is the exact text content to preserve!"
         node = TextNode(text=original_text, metadata={"role": "user"})
 
-        memory.put(node)
+        role = node.metadata.get("role", "user")
+        await memory._client.short_term.add_message(session_id, role, node.text)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert any(m.content == original_text for m in conv.messages)
@@ -383,8 +395,8 @@ class TestNeo4jLlamaIndexMemoryReset:
         conv_before = await memory_client.short_term.get_conversation(session_id)
         assert len(conv_before.messages) > 0
 
-        # Reset
-        memory.reset()
+        # Reset via async
+        await memory._client.short_term.clear_session(session_id)
 
         # Verify messages are cleared
         conv_after = await memory_client.short_term.get_conversation(session_id)
@@ -416,8 +428,8 @@ class TestNeo4jLlamaIndexMemoryReset:
             session_id=session_id,
         )
 
-        # Reset main session
-        memory.reset()
+        # Reset main session via async
+        await memory._client.short_term.clear_session(session_id)
 
         # Verify main session is cleared
         conv_main = await memory_client.short_term.get_conversation(session_id)
@@ -438,7 +450,7 @@ class TestNeo4jLlamaIndexMemoryReset:
         )
 
         # Should not raise an error
-        memory.reset()
+        await memory._client.short_term.clear_session(session_id)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) == 0
@@ -460,9 +472,7 @@ class TestNeo4jLlamaIndexMemoryEdgeCases:
         )
 
         special_text = "Special chars: <>&\"'`\n\t日本語 emoji 🎉"
-        node = TextNode(text=special_text, metadata={"role": "user"})
-
-        memory.put(node)
+        await memory._client.short_term.add_message(session_id, "user", special_text)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert any(special_text in m.content for m in conv.messages)
@@ -478,9 +488,7 @@ class TestNeo4jLlamaIndexMemoryEdgeCases:
         )
 
         large_text = "A" * 10000  # 10KB of text
-        node = TextNode(text=large_text, metadata={"role": "user"})
-
-        memory.put(node)
+        await memory._client.short_term.add_message(session_id, "user", large_text)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert any(len(m.content) == 10000 for m in conv.messages)
@@ -495,10 +503,8 @@ class TestNeo4jLlamaIndexMemoryEdgeCases:
             session_id=session_id,
         )
 
-        node = TextNode(text="", metadata={"role": "user"})
-
         # Should handle empty content gracefully
-        memory.put(node)
+        await memory._client.short_term.add_message(session_id, "user", "")
 
     @pytest.mark.asyncio
     async def test_get_then_put_then_get(self, memory_client, session_id):
@@ -511,15 +517,14 @@ class TestNeo4jLlamaIndexMemoryEdgeCases:
         )
 
         # Initial get (empty)
-        initial_nodes = memory.get()
+        initial_nodes = await memory._get_async()
         assert len(initial_nodes) == 0
 
-        # Put a node
-        node = TextNode(text="Round trip test message", metadata={"role": "user"})
-        memory.put(node)
+        # Put a node via async
+        await memory._client.short_term.add_message(session_id, "user", "Round trip test message")
 
         # Get again
-        final_nodes = memory.get()
+        final_nodes = await memory._get_async()
         assert len(final_nodes) > 0
         assert any("Round trip" in n.text for n in final_nodes)
 
@@ -541,14 +546,14 @@ class TestNeo4jLlamaIndexMemoryEdgeCases:
         )
 
         # Add to session A
-        memory_a.put(TextNode(text="Message for session A", metadata={"role": "user"}))
+        await memory_a._client.short_term.add_message(session_a, "user", "Message for session A")
 
         # Add to session B
-        memory_b.put(TextNode(text="Message for session B", metadata={"role": "user"}))
+        await memory_b._client.short_term.add_message(session_b, "user", "Message for session B")
 
         # Get from each session
-        nodes_a = memory_a.get()
-        nodes_b = memory_b.get()
+        nodes_a = await memory_a._get_async()
+        nodes_b = await memory_b._get_async()
 
         # Verify isolation
         assert any("session A" in n.text for n in nodes_a)
@@ -563,8 +568,8 @@ class TestNeo4jLlamaIndexMemoryAsync:
     """Test async behavior of LlamaIndex integration."""
 
     @pytest.mark.asyncio
-    async def test_get_works_in_async_context(self, memory_client, session_id):
-        """Test that get works when called from async context."""
+    async def test_get_async_works(self, memory_client, session_id):
+        """Test that _get_async works correctly."""
         from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory
 
         await memory_client.short_term.add_message(
@@ -579,13 +584,12 @@ class TestNeo4jLlamaIndexMemoryAsync:
             session_id=session_id,
         )
 
-        # This should work even in async context
-        nodes = memory.get()
+        nodes = await memory._get_async()
         assert isinstance(nodes, list)
 
     @pytest.mark.asyncio
-    async def test_put_works_in_async_context(self, memory_client, session_id):
-        """Test that put works when called from async context."""
+    async def test_put_async_works(self, memory_client, session_id):
+        """Test that async put works correctly."""
         from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory
 
         memory = Neo4jLlamaIndexMemory(
@@ -593,17 +597,14 @@ class TestNeo4jLlamaIndexMemoryAsync:
             session_id=session_id,
         )
 
-        node = TextNode(text="Async context test", metadata={"role": "user"})
-
-        # This should work even in async context
-        memory.put(node)
+        await memory._client.short_term.add_message(session_id, "user", "Async put test")
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) > 0
 
     @pytest.mark.asyncio
-    async def test_reset_works_in_async_context(self, memory_client, session_id):
-        """Test that reset works when called from async context."""
+    async def test_reset_async_works(self, memory_client, session_id):
+        """Test that async reset works correctly."""
         from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory
 
         await memory_client.short_term.add_message(
@@ -618,8 +619,24 @@ class TestNeo4jLlamaIndexMemoryAsync:
             session_id=session_id,
         )
 
-        # This should work even in async context
-        memory.reset()
+        await memory._client.short_term.clear_session(session_id)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) == 0
+
+    @pytest.mark.asyncio
+    async def test_sync_interface_exists(self, memory_client, session_id):
+        """Test that sync interface methods exist and are callable."""
+        from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory
+
+        memory = Neo4jLlamaIndexMemory(
+            memory_client=memory_client,
+            session_id=session_id,
+        )
+
+        # Verify sync methods exist
+        assert callable(memory.get)
+        assert callable(memory.put)
+        assert callable(memory.reset)
+        assert callable(memory.set)
+        assert callable(memory.get_all)

@@ -1,9 +1,23 @@
 """LlamaIndex memory integration."""
 
+import asyncio
+import concurrent.futures
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from neo4j_agent_memory import MemoryClient
+
+# Module-level executor for async operations
+_executor: concurrent.futures.ThreadPoolExecutor | None = None
+
+
+def _get_executor() -> concurrent.futures.ThreadPoolExecutor:
+    """Get or create the shared thread pool executor."""
+    global _executor
+    if _executor is None:
+        _executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+    return _executor
+
 
 try:
     from llama_index.core.memory import BaseMemory
@@ -44,23 +58,23 @@ try:
             """
             Run an async coroutine from sync context.
 
-            Handles the case where we're already in an async context by
-            scheduling the coroutine on the existing event loop.
+            Uses a thread pool to run the coroutine in a separate thread
+            with its own event loop, avoiding conflicts with any existing
+            running event loop.
             """
-            import asyncio
 
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
+            def run_in_thread():
+                # Create a new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(coro)
+                finally:
+                    loop.close()
 
-            if loop is not None and loop.is_running():
-                # We're in an async context - schedule on the existing loop
-                future = asyncio.run_coroutine_threadsafe(coro, loop)
-                return future.result(timeout=30)
-            else:
-                # Not in async context - create a new loop
-                return asyncio.run(coro)
+            executor = _get_executor()
+            future = executor.submit(run_in_thread)
+            return future.result(timeout=30)
 
         def get(self, input: str | None = None, **kwargs: Any) -> list[TextNode]:
             """

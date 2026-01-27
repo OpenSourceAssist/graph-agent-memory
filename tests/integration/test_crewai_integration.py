@@ -1,4 +1,10 @@
-"""Integration tests for CrewAI integration."""
+"""Integration tests for CrewAI integration.
+
+Note: These tests use the internal async methods (_remember_async, etc.) because
+the sync wrappers are designed for use from truly synchronous code. When
+running tests in an async context (pytest-asyncio), the Neo4j async driver
+is bound to the test's event loop, so we call async methods directly.
+"""
 
 import pytest
 
@@ -72,7 +78,8 @@ class TestNeo4jCrewMemoryRemember:
             crew_id=session_id,
         )
 
-        memory.remember(
+        # Use async method directly
+        await memory._remember_async(
             content="The user prefers detailed explanations",
             metadata={"type": "short_term"},
         )
@@ -92,7 +99,7 @@ class TestNeo4jCrewMemoryRemember:
             crew_id=session_id,
         )
 
-        memory.remember(content="Default memory type test")
+        await memory._remember_async(content="Default memory type test")
 
         # Should be stored in short-term memory
         conv = await memory_client.short_term.get_conversation(session_id)
@@ -108,7 +115,7 @@ class TestNeo4jCrewMemoryRemember:
             crew_id=session_id,
         )
 
-        memory.remember(
+        await memory._remember_async(
             content="Python is a programming language",
             metadata={
                 "type": "fact",
@@ -131,7 +138,7 @@ class TestNeo4jCrewMemoryRemember:
             crew_id=session_id,
         )
 
-        memory.remember(
+        await memory._remember_async(
             content="I prefer concise responses",
             metadata={
                 "type": "preference",
@@ -153,7 +160,7 @@ class TestNeo4jCrewMemoryRemember:
             crew_id=session_id,
         )
 
-        memory.remember(content="Memory with no metadata", metadata={})
+        await memory._remember_async(content="Memory with no metadata", metadata={})
 
         # Should default to short-term
         conv = await memory_client.short_term.get_conversation(session_id)
@@ -169,7 +176,7 @@ class TestNeo4jCrewMemoryRemember:
             crew_id=session_id,
         )
 
-        memory.remember(content="Memory with None metadata", metadata=None)
+        await memory._remember_async(content="Memory with None metadata", metadata=None)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) > 0
@@ -191,7 +198,7 @@ class TestNeo4jCrewMemoryRemember:
         ]
 
         for content, metadata in memories:
-            memory.remember(content=content, metadata=metadata)
+            await memory._remember_async(content=content, metadata=metadata)
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) >= 3
@@ -212,7 +219,7 @@ class TestNeo4jCrewMemoryRecall:
             crew_id=session_id,
         )
 
-        results = memory.recall(query="test query")
+        results = await memory._recall_async(query="test query")
 
         assert isinstance(results, list)
 
@@ -235,7 +242,7 @@ class TestNeo4jCrewMemoryRecall:
             crew_id=session_id,
         )
 
-        results = memory.recall(query="capital France")
+        results = await memory._recall_async(query="capital France")
 
         assert isinstance(results, list)
         # Should find the message about Paris
@@ -257,7 +264,7 @@ class TestNeo4jCrewMemoryRecall:
             crew_id=session_id,
         )
 
-        results = memory.recall(query="bullet points")
+        results = await memory._recall_async(query="bullet points")
 
         assert isinstance(results, list)
         if len(results) > 0:
@@ -283,7 +290,7 @@ class TestNeo4jCrewMemoryRecall:
             crew_id=session_id,
         )
 
-        results = memory.recall(query="Paris landmark")
+        results = await memory._recall_async(query="Paris landmark")
 
         assert isinstance(results, list)
 
@@ -307,7 +314,7 @@ class TestNeo4jCrewMemoryRecall:
             crew_id=session_id,
         )
 
-        results = memory.recall(query="test message", n=3)
+        results = await memory._recall_async(query="test message", n=3)
 
         assert len(results) <= 3
 
@@ -321,7 +328,7 @@ class TestNeo4jCrewMemoryRecall:
             crew_id=session_id,
         )
 
-        results = memory.recall(query="")
+        results = await memory._recall_async(query="")
 
         assert isinstance(results, list)
 
@@ -335,7 +342,7 @@ class TestNeo4jCrewMemoryRecall:
             crew_id=session_id,
         )
 
-        results = memory.recall(query="xyznonexistentquery123")
+        results = await memory._recall_async(query="xyznonexistentquery123")
 
         assert isinstance(results, list)
         # May return empty list or no relevant matches
@@ -356,7 +363,7 @@ class TestNeo4jCrewMemoryAgentContext:
             crew_id=session_id,
         )
 
-        context = memory.get_agent_context(
+        context = await memory._get_agent_context_async(
             agent_role="researcher",
             task="Find information about Python",
         )
@@ -385,7 +392,7 @@ class TestNeo4jCrewMemoryAgentContext:
             crew_id=session_id,
         )
 
-        context = memory.get_agent_context(
+        context = await memory._get_agent_context_async(
             agent_role="researcher",
             task="Research Python coding standards",
         )
@@ -403,7 +410,7 @@ class TestNeo4jCrewMemoryAgentContext:
             crew_id=session_id,
         )
 
-        context = memory.get_agent_context(
+        context = await memory._get_agent_context_async(
             agent_role="analyst",
             task="Analyze market trends",
         )
@@ -423,7 +430,7 @@ class TestNeo4jCrewMemoryAgentContext:
 
         roles = ["researcher", "writer", "analyst", "reviewer"]
         for role in roles:
-            context = memory.get_agent_context(
+            context = await memory._get_agent_context_async(
                 agent_role=role,
                 task="Generic task for testing",
             )
@@ -452,13 +459,13 @@ class TestNeo4jCrewMemoryMultiAgent:
         )
 
         # Agent A remembers something
-        memory_a.remember(
+        await memory_a._remember_async(
             content="Important finding from Agent A",
             metadata={"type": "short_term"},
         )
 
         # Agent B should be able to recall it
-        results = memory_b.recall(query="finding Agent A")
+        results = await memory_b._recall_async(query="finding Agent A")
 
         assert isinstance(results, list)
 
@@ -477,7 +484,7 @@ class TestNeo4jCrewMemoryMultiAgent:
         )
 
         # Add to crew A
-        crew_a.remember(
+        await crew_a._remember_async(
             content="Secret information for crew alpha only",
             metadata={"type": "short_term"},
         )
@@ -496,13 +503,13 @@ class TestNeo4jCrewMemoryMultiAgent:
         )
 
         # Task 1: Remember something
-        memory.remember(
+        await memory._remember_async(
             content="Task 1 discovered that the API uses REST",
             metadata={"type": "short_term"},
         )
 
         # Task 2: Should be able to recall Task 1's finding
-        results = memory.recall(query="API REST")
+        results = await memory._recall_async(query="API REST")
 
         assert isinstance(results, list)
 
@@ -523,7 +530,7 @@ class TestNeo4jCrewMemoryEdgeCases:
         )
 
         special_content = "Special: <tag> & \"quotes\" 'apostrophe' \n\t日本語"
-        memory.remember(content=special_content, metadata={"type": "short_term"})
+        await memory._remember_async(content=special_content, metadata={"type": "short_term"})
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert any(special_content in m.content for m in conv.messages)
@@ -539,7 +546,7 @@ class TestNeo4jCrewMemoryEdgeCases:
         )
 
         large_content = "Large content: " + "A" * 5000
-        memory.remember(content=large_content, metadata={"type": "short_term"})
+        await memory._remember_async(content=large_content, metadata={"type": "short_term"})
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert any(len(m.content) > 5000 for m in conv.messages)
@@ -555,7 +562,7 @@ class TestNeo4jCrewMemoryEdgeCases:
         )
 
         # Should handle gracefully
-        memory.remember(content="", metadata={"type": "short_term"})
+        await memory._remember_async(content="", metadata={"type": "short_term"})
 
     @pytest.mark.asyncio
     async def test_preference_with_default_category(self, memory_client, session_id):
@@ -567,7 +574,7 @@ class TestNeo4jCrewMemoryEdgeCases:
             crew_id=session_id,
         )
 
-        memory.remember(
+        await memory._remember_async(
             content="I like detailed responses",
             metadata={"type": "preference"},  # No category specified
         )
@@ -586,7 +593,7 @@ class TestNeo4jCrewMemoryEdgeCases:
             crew_id=session_id,
         )
 
-        memory.remember(
+        await memory._remember_async(
             content="The sky is blue",
             metadata={"type": "fact"},  # No subject/predicate specified
         )
@@ -600,8 +607,8 @@ class TestNeo4jCrewMemoryAsync:
     """Test async behavior of CrewAI integration."""
 
     @pytest.mark.asyncio
-    async def test_remember_works_in_async_context(self, memory_client, session_id):
-        """Test that remember works when called from async context."""
+    async def test_remember_async_works(self, memory_client, session_id):
+        """Test that _remember_async works correctly."""
         from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory
 
         memory = Neo4jCrewMemory(
@@ -609,8 +616,7 @@ class TestNeo4jCrewMemoryAsync:
             crew_id=session_id,
         )
 
-        # This should work even in async context
-        memory.remember(
+        await memory._remember_async(
             content="Async context test for remember",
             metadata={"type": "short_term"},
         )
@@ -619,8 +625,8 @@ class TestNeo4jCrewMemoryAsync:
         assert len(conv.messages) > 0
 
     @pytest.mark.asyncio
-    async def test_recall_works_in_async_context(self, memory_client, session_id):
-        """Test that recall works when called from async context."""
+    async def test_recall_async_works(self, memory_client, session_id):
+        """Test that _recall_async works correctly."""
         from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory
 
         await memory_client.short_term.add_message(
@@ -636,14 +642,13 @@ class TestNeo4jCrewMemoryAsync:
             crew_id=session_id,
         )
 
-        # This should work even in async context
-        results = memory.recall(query="async recall test")
+        results = await memory._recall_async(query="async recall test")
 
         assert isinstance(results, list)
 
     @pytest.mark.asyncio
-    async def test_get_agent_context_works_in_async_context(self, memory_client, session_id):
-        """Test that get_agent_context works when called from async context."""
+    async def test_get_agent_context_async_works(self, memory_client, session_id):
+        """Test that _get_agent_context_async works correctly."""
         from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory
 
         memory = Neo4jCrewMemory(
@@ -651,13 +656,27 @@ class TestNeo4jCrewMemoryAsync:
             crew_id=session_id,
         )
 
-        # This should work even in async context
-        context = memory.get_agent_context(
+        context = await memory._get_agent_context_async(
             agent_role="tester",
             task="Test async context handling",
         )
 
         assert isinstance(context, str)
+
+    @pytest.mark.asyncio
+    async def test_sync_interface_exists(self, memory_client, session_id):
+        """Test that sync interface methods exist and are callable."""
+        from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory
+
+        memory = Neo4jCrewMemory(
+            memory_client=memory_client,
+            crew_id=session_id,
+        )
+
+        # Verify sync methods exist
+        assert callable(memory.remember)
+        assert callable(memory.recall)
+        assert callable(memory.get_agent_context)
 
 
 @pytest.mark.integration
@@ -676,19 +695,19 @@ class TestNeo4jCrewMemoryIntegrationScenarios:
         )
 
         # Researcher finds information
-        memory.remember(
+        await memory._remember_async(
             content="Python 3.12 was released in October 2023",
             metadata={"type": "fact", "subject": "Python", "predicate": "released"},
         )
 
         # Researcher notes a preference
-        memory.remember(
+        await memory._remember_async(
             content="User prefers examples in Python",
             metadata={"type": "preference", "category": "language"},
         )
 
         # Writer needs context
-        context = memory.get_agent_context(
+        context = await memory._get_agent_context_async(
             agent_role="writer",
             task="Write an article about Python",
         )
@@ -696,7 +715,7 @@ class TestNeo4jCrewMemoryIntegrationScenarios:
         assert isinstance(context, str)
 
         # Writer recalls relevant information
-        results = memory.recall(query="Python release")
+        results = await memory._recall_async(query="Python release")
 
         assert isinstance(results, list)
 
@@ -711,13 +730,13 @@ class TestNeo4jCrewMemoryIntegrationScenarios:
         )
 
         # Remember
-        memory.remember(
+        await memory._remember_async(
             content="The project deadline is next Friday",
             metadata={"type": "short_term"},
         )
 
         # Recall
-        results = memory.recall(query="deadline Friday")
+        results = await memory._recall_async(query="deadline Friday")
 
         assert isinstance(results, list)
         # Should find the memory about the deadline
