@@ -544,6 +544,6 @@ python full_pipeline.py
 == See Also
 
 * xref:../../reference/configuration.adoc[Configuration Reference]
-* xref:../../explanation/architecture.adoc[Architecture Overview]
+* xref:../../explanation/graph-architecture.adoc[Graph Architecture Overview]
 * https://cloud.google.com/vertex-ai/docs/generative-ai/embeddings/get-text-embeddings[Vertex AI Embeddings Documentation]
 * https://modelcontextprotocol.io/[Model Context Protocol]
