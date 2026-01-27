@@ -244,6 +244,10 @@ Use this information to provide personalized, contextually relevant responses.""
                 return
 
             try:
+                # Determine if we should extract entities synchronously
+                # Only extract if enabled AND not using async extraction
+                sync_extract = self._extract_entities and not self._extract_entities_async
+
                 # Save request messages
                 request_list = self._normalize_messages(request_messages)
                 for msg in request_list:
@@ -254,7 +258,7 @@ Use this information to provide personalized, contextually relevant responses.""
                             session_id=self._session_id,
                             role=role,
                             content=content,
-                            extract_entities=not self._extract_entities_async,
+                            extract_entities=sync_extract,
                             generate_embedding=True,
                         )
                         if self._extract_entities and self._extract_entities_async:
@@ -271,7 +275,7 @@ Use this information to provide personalized, contextually relevant responses.""
                                 session_id=self._session_id,
                                 role=role,
                                 content=content,
-                                extract_entities=not self._extract_entities_async,
+                                extract_entities=sync_extract,
                                 generate_embedding=True,
                             )
                             if self._extract_entities and self._extract_entities_async:
