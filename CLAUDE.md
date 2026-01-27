@@ -120,7 +120,9 @@ src/neo4j_agent_memory/
     ├── langchain/           # LangChain memory + retriever
     ├── pydantic_ai/         # Pydantic AI dependency + tools
     ├── llamaindex/          # LlamaIndex memory
-    └── crewai/              # CrewAI memory
+    ├── crewai/              # CrewAI memory
+    ├── openai_agents/       # OpenAI Agents SDK memory + tools
+    └── microsoft_agent/     # Microsoft Agent Framework (ContextProvider, GDS)
 
 benchmarks/                   # Extraction quality benchmarks (separate module)
 ├── __init__.py              # Benchmark exports
@@ -1273,6 +1275,33 @@ memory = Neo4jAgentMemory(memory_client=client, session_id="user-123")
 # Pydantic AI
 from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency
 deps = MemoryDependency(client=client, session_id="user-123")
+
+# Microsoft Agent Framework (Preview)
+from neo4j_agent_memory.integrations.microsoft_agent import (
+    Neo4jMicrosoftMemory,
+    GDSConfig,
+    GDSAlgorithm,
+    create_memory_tools,
+)
+
+gds_config = GDSConfig(
+    enabled=True,
+    expose_as_tools=[GDSAlgorithm.SHORTEST_PATH, GDSAlgorithm.NODE_SIMILARITY],
+    fallback_to_basic=True,  # Use Cypher if GDS not installed
+)
+
+memory = Neo4jMicrosoftMemory(
+    memory_client=client,
+    session_id="user-123",
+    gds_config=gds_config,
+)
+
+# Use context provider with ChatAgent
+from agent_framework import ChatAgent
+agent = ChatAgent(
+    context_providers=[memory.context_provider],
+    tools=create_memory_tools(include_gds=True),
+)
 ```
 
 ## Important Implementation Details

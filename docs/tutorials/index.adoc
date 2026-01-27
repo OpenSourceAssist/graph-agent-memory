@@ -35,6 +35,10 @@ After completing the first tutorial, build complete applications:
 | xref:knowledge-graph.adoc[Build a Knowledge Graph from Documents]
 | Process financial documents to extract entities (companies, people, securities), discover relationships, and power intelligent Q&A with LLM integration.
 | ~45 min
+
+| xref:microsoft-agent-memory.adoc[Build a Shopping Assistant with Microsoft Agent Framework]
+| A retail shopping assistant that remembers preferences, uses graph algorithms for recommendations, and learns from past interactions.
+| ~45 min
 |===
 
 == What You'll Learn

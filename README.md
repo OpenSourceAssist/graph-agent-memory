@@ -30,7 +30,7 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 - **Temporal Relationships**: Track when facts become valid or invalid
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Observability**: OpenTelemetry and Opik tracing for monitoring extraction pipelines
-- **Agent Framework Integrations**: LangChain, Pydantic AI, LlamaIndex, CrewAI
+- **Agent Framework Integrations**: LangChain, Pydantic AI, LlamaIndex, CrewAI, OpenAI Agents, Microsoft Agent Framework
 
 ## Installation
 
@@ -47,6 +47,9 @@ python -m spacy download en_core_web_sm
 
 # With LangChain integration
 pip install neo4j-agent-memory[langchain]
+
+# With Microsoft Agent Framework integration
+pip install neo4j-agent-memory[microsoft-agent]
 
 # With CLI tools
 pip install neo4j-agent-memory[cli]
@@ -937,6 +940,56 @@ memory = Neo4jCrewMemory(
 )
 memories = memory.recall("restaurant recommendation")
 ```
+
+### Microsoft Agent Framework (Preview)
+
+> ⚠️ This integration targets Microsoft Agent Framework v1.0.0b (preview). APIs may change before GA release.
+
+```python
+from agent_framework import ChatAgent, ChatCompletionClient
+from neo4j_agent_memory.integrations.microsoft_agent import (
+    Neo4jMicrosoftMemory,
+    GDSConfig,
+    GDSAlgorithm,
+    create_memory_tools,
+)
+
+# Configure with GDS algorithms
+gds_config = GDSConfig(
+    enabled=True,
+    expose_as_tools=[GDSAlgorithm.SHORTEST_PATH, GDSAlgorithm.NODE_SIMILARITY],
+    fallback_to_basic=True,  # Use Cypher if GDS not installed
+)
+
+# Create unified memory interface
+memory = Neo4jMicrosoftMemory(
+    memory_client=client,
+    session_id="user-123",
+    gds_config=gds_config,
+)
+
+# Create memory tools for the agent
+tools = create_memory_tools(
+    include_search=True,       # search_memory
+    include_preferences=True,  # remember_preference, recall_preferences
+    include_gds=True,          # find_connection_path, find_similar_items
+)
+
+# Create agent with context provider (auto-injects memory context)
+agent = ChatAgent(
+    chat_client=ChatCompletionClient(...),
+    name="assistant",
+    tools=tools,
+    context_providers=[memory.context_provider],
+)
+
+# GDS algorithms for graph intelligence
+if memory.gds:
+    path = await memory.gds.find_shortest_path("Entity A", "Entity B")
+    similar = await memory.gds.find_similar_entities("Nike Air Max", limit=5)
+```
+
+See the [Microsoft Agent Framework Integration Guide](docs/how-to/integrations/microsoft-agent.adoc) for full documentation and the [Retail Shopping Assistant example](examples/microsoft_agent_retail_assistant/) for a complete application.
 
 ## Configuration
 

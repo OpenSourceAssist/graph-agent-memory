@@ -1,0 +1,18 @@
+# Microsoft Agent Framework
+agent-framework>=1.0.0b
+
+# Neo4j Agent Memory
+neo4j-agent-memory[openai,microsoft-agent]
+
+# Web framework
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+sse-starlette>=1.6.0
+
+# OpenAI
+openai>=1.0.0
+
+# Environment
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0

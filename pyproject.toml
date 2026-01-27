@@ -19,6 +19,8 @@ keywords = [
     "pydantic-ai",
     "crewai",
     "openai-agents",
+    "microsoft-agent-framework",
+    "semantic-kernel",
     "knowledge-graph",
     "context-graph",
     "reasoning-memory"
@@ -80,10 +82,11 @@ llamaindex = ["llama-index-core>=0.10.0"]
 pydantic-ai = ["pydantic-ai>=0.1.0"]
 crewai = ["crewai>=0.50.0"]
 openai-agents = ["openai>=1.0.0"]
+microsoft-agent = ["agent-framework>=1.0.0b"]
 
 # All optional dependencies (excluding heavy ML models by default)
 all = [
-    "neo4j-agent-memory[openai,anthropic,fuzzy,langchain,llamaindex,pydantic-ai,crewai,openai-agents]",
+    "neo4j-agent-memory[openai,anthropic,fuzzy,langchain,llamaindex,pydantic-ai,crewai,openai-agents,microsoft-agent]",
 ]
 
 # Full install including local models and extraction pipeline
@@ -173,6 +176,7 @@ module = [
     "langchain_core.*",
     "llama_index.*",
     "crewai.*",
+    "agent_framework.*",
 ]
 ignore_missing_imports = true
 
