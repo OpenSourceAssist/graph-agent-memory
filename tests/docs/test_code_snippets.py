@@ -235,8 +235,6 @@ class TestSnippetImports:
             "TracingProvider",
             # Resolution
             "DeduplicationStrategy",
-            # Functions
-            "record_agent_trace",
         }
         actual_missing = set(missing) - allowed_missing
 
