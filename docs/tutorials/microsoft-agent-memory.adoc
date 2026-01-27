@@ -201,9 +201,7 @@ async def handle_tool_calls(tool_calls, memory: Neo4jMicrosoftMemory) -> list[di
             result = await search_products(memory.memory_client, **args)
         else:
             # Memory tool
-            result = await execute_memory_tool(
-                name, args, memory.memory_client, memory.session_id
-            )
+            result = await execute_memory_tool(memory, name, args)
 
         results.append({
             "tool_call_id": tool_call.id,
