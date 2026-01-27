@@ -250,9 +250,13 @@ Use this information to provide personalized, contextually relevant responses.""
 
                 # Save request messages
                 request_list = self._normalize_messages(request_messages)
+                logger.debug(f"Processing {len(request_list)} request messages")
                 for msg in request_list:
                     role = self._get_message_role(msg)
                     content = self._get_message_content(msg)
+                    logger.debug(
+                        f"Message role={role}, content={content[:50] if content else None}"
+                    )
                     if role and content:
                         await self._client.short_term.add_message(
                             session_id=self._session_id,
@@ -261,15 +265,22 @@ Use this information to provide personalized, contextually relevant responses.""
                             extract_entities=sync_extract,
                             generate_embedding=True,
                         )
+                        logger.debug(f"Saved request message: {role}")
                         if self._extract_entities and self._extract_entities_async:
                             self._extraction_queue.append((role, content))
+                    else:
+                        logger.debug(f"Skipping message: role={role}, has_content={bool(content)}")
 
                 # Save response messages
                 if response_messages:
                     response_list = self._normalize_messages(response_messages)
+                    logger.debug(f"Processing {len(response_list)} response messages")
                     for msg in response_list:
                         role = self._get_message_role(msg)
                         content = self._get_message_content(msg)
+                        logger.debug(
+                            f"Message role={role}, content={content[:50] if content else None}"
+                        )
                         if role and content:
                             await self._client.short_term.add_message(
                                 session_id=self._session_id,
@@ -278,15 +289,20 @@ Use this information to provide personalized, contextually relevant responses.""
                                 extract_entities=sync_extract,
                                 generate_embedding=True,
                             )
+                            logger.debug(f"Saved response message: {role}")
                             if self._extract_entities and self._extract_entities_async:
                                 self._extraction_queue.append((role, content))
+                        else:
+                            logger.debug(
+                                f"Skipping message: role={role}, has_content={bool(content)}"
+                            )
 
                 # Trigger background extraction if needed
                 if self._extraction_queue and self._extract_entities_async:
                     await self._trigger_background_extraction()
 
             except Exception as e:
-                logger.warning(f"Error saving messages to memory: {e}")
+                logger.warning(f"Error saving messages to memory: {e}", exc_info=True)
 
         async def thread_created(self, thread_id: str | None) -> None:
             """
@@ -413,11 +429,19 @@ Use this information to provide personalized, contextually relevant responses.""
             return None
 
         def _get_message_content(self, msg: Any) -> str | None:
-            """Extract content from a message object."""
+            """Extract content from a message object.
+
+            Supports Microsoft Agent Framework ChatMessage (which uses .text property)
+            and generic message objects with .content attribute.
+            """
+            # Microsoft Agent Framework ChatMessage uses .text property
+            if hasattr(msg, "text") and msg.text:
+                return msg.text
+            # Fallback for generic message objects
             if hasattr(msg, "content"):
                 return msg.content
             if isinstance(msg, dict):
-                return msg.get("content")
+                return msg.get("content") or msg.get("text")
             return None
 
         async def _get_short_term_context(self, query: str) -> str | None:

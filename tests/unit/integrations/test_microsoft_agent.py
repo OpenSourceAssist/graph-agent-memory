@@ -82,7 +82,7 @@ class TestNeo4jContextProvider:
         mock_memory_client.long_term.search_entities = AsyncMock(return_value=[])
         mock_memory_client.reasoning.get_similar_traces = AsyncMock(return_value=[])
 
-        messages = [ChatMessage(role="user", content="What products do you recommend?")]
+        messages = [ChatMessage(role="user", text="What products do you recommend?")]
         context = await provider.invoking(messages)
 
         assert context is not None
@@ -106,8 +106,8 @@ class TestNeo4jContextProvider:
 
         mock_memory_client.short_term.add_message = AsyncMock()
 
-        request_msgs = [ChatMessage(role="user", content="Hello")]
-        response_msgs = [ChatMessage(role="assistant", content="Hi there!")]
+        request_msgs = [ChatMessage(role="user", text="Hello")]
+        response_msgs = [ChatMessage(role="assistant", text="Hi there!")]
 
         await provider.invoked(
             request_messages=request_msgs,
@@ -127,7 +127,7 @@ class TestNeo4jContextProvider:
         mock_memory_client.short_term.add_message = AsyncMock()
 
         await provider.invoked(
-            request_messages=[ChatMessage(role="user", content="Hello")],
+            request_messages=[ChatMessage(role="user", text="Hello")],
             response_messages=None,
             invoke_exception=ValueError("Test error"),
         )
@@ -209,8 +209,8 @@ class TestNeo4jChatMessageStore:
         mock_memory_client.short_term.add_message = AsyncMock()
 
         messages = [
-            ChatMessage(role="user", content="Hello"),
-            ChatMessage(role="assistant", content="Hi!"),
+            ChatMessage(role="user", text="Hello"),
+            ChatMessage(role="assistant", text="Hi!"),
         ]
 
         await chat_store.add_messages(messages)
@@ -511,8 +511,8 @@ class TestTracing:
         mock_memory.memory_client.reasoning.get_trace = AsyncMock(return_value=mock_trace)
 
         messages = [
-            ChatMessage(role="user", content="Find me running shoes"),
-            ChatMessage(role="assistant", content="Here are some options..."),
+            ChatMessage(role="user", text="Find me running shoes"),
+            ChatMessage(role="assistant", text="Here are some options..."),
         ]
 
         trace = await record_agent_trace(

@@ -90,7 +90,7 @@ class TestNeo4jContextProviderInvoking:
             session_id=session_id,
         )
 
-        messages = [ChatMessage(role="user", content="Hello")]
+        messages = [ChatMessage(role="user", text="Hello")]
         context = await provider.invoking(messages)
 
         assert isinstance(context, Context)
@@ -123,7 +123,7 @@ class TestNeo4jContextProviderInvoking:
             session_id=session_id,
         )
 
-        messages = [ChatMessage(role="user", content="What about Nike shoes?")]
+        messages = [ChatMessage(role="user", text="What about Nike shoes?")]
         context = await provider.invoking(messages)
 
         # Should return a Context object - instructions may be None if no relevant context found
@@ -150,7 +150,7 @@ class TestNeo4jContextProviderInvoking:
             session_id=session_id,
         )
 
-        messages = [ChatMessage(role="user", content="Show me products")]
+        messages = [ChatMessage(role="user", text="Show me products")]
         context = await provider.invoking(messages)
 
         # Should return a Context object - instructions may be None if no relevant context found
@@ -181,7 +181,7 @@ class TestNeo4jContextProviderInvoking:
             session_id=session_id,
         )
 
-        messages = [ChatMessage(role="user", content="Tell me about Nike shoes")]
+        messages = [ChatMessage(role="user", text="Tell me about Nike shoes")]
         context = await provider.invoking(messages)
 
         # Should return a Context object - instructions may be None if no relevant context found
@@ -209,8 +209,17 @@ class TestNeo4jContextProviderInvoked:
             extract_entities_async=False,
         )
 
-        request_msgs = [ChatMessage(role="user", content="Find me blue shoes")]
-        response_msgs = [ChatMessage(role="assistant", content="Here are some blue shoes")]
+        # Microsoft Agent Framework ChatMessage uses 'text' not 'content'
+        request_msgs = [ChatMessage(role="user", text="Find me blue shoes")]
+        response_msgs = [ChatMessage(role="assistant", text="Here are some blue shoes")]
+
+        # Debug: Check ChatMessage structure
+        msg = request_msgs[0]
+        assert hasattr(msg, "role"), "ChatMessage should have role attribute"
+        assert hasattr(msg, "text"), "ChatMessage should have text attribute"
+        assert msg.text == "Find me blue shoes", (
+            f"Expected text='Find me blue shoes', got {msg.text!r}"
+        )
 
         await provider.invoked(
             request_messages=request_msgs,
@@ -219,7 +228,7 @@ class TestNeo4jContextProviderInvoked:
 
         # Verify messages were saved
         conv = await memory_client.short_term.get_conversation(session_id)
-        assert len(conv.messages) >= 2
+        assert len(conv.messages) >= 2, f"Expected at least 2 messages, got {len(conv.messages)}"
 
     @pytest.mark.asyncio
     async def test_invoked_skips_on_exception(self, memory_client, session_id):
@@ -237,7 +246,7 @@ class TestNeo4jContextProviderInvoked:
         await memory_client.short_term.clear_session(session_id)
 
         await provider.invoked(
-            request_messages=[ChatMessage(role="user", content="Test")],
+            request_messages=[ChatMessage(role="user", text="Test")],
             response_messages=None,
             invoke_exception=ValueError("Test error"),
         )
@@ -297,8 +306,8 @@ class TestNeo4jChatMessageStore:
         )
 
         messages = [
-            ChatMessage(role="user", content="Hello"),
-            ChatMessage(role="assistant", content="Hi there!"),
+            ChatMessage(role="user", text="Hello"),
+            ChatMessage(role="assistant", text="Hi there!"),
         ]
 
         await store.add_messages(messages)
@@ -322,8 +331,8 @@ class TestNeo4jChatMessageStore:
         # Add messages
         await store.add_messages(
             [
-                ChatMessage(role="user", content="Test message 1"),
-                ChatMessage(role="assistant", content="Test response 1"),
+                ChatMessage(role="user", text="Test message 1"),
+                ChatMessage(role="assistant", text="Test response 1"),
             ]
         )
 
@@ -345,7 +354,7 @@ class TestNeo4jChatMessageStore:
         )
 
         # Add messages
-        await store.add_messages([ChatMessage(role="user", content="Test")])
+        await store.add_messages([ChatMessage(role="user", text="Test")])
 
         # Clear
         await store.clear()
@@ -611,22 +620,23 @@ class TestGDSIntegration:
         from neo4j_agent_memory.memory.long_term import EntityType
 
         # Create two entities with a relationship
-        e1 = await memory_client.long_term.add_entity(
+        # add_entity returns (entity, dedup_result) tuple
+        e1, _ = await memory_client.long_term.add_entity(
             name="Running Shoes",
             entity_type=EntityType.OBJECT,
             subtype="Product",
             resolve=False,
         )
-        e2 = await memory_client.long_term.add_entity(
+        e2, _ = await memory_client.long_term.add_entity(
             name="Athletic Footwear",
             entity_type=EntityType.CONCEPT,
             resolve=False,
         )
 
         # Create relationship between them
-        await memory_client.long_term.add_entity_relationship(
-            source_id=e1.id,
-            target_id=e2.id,
+        await memory_client.long_term.add_relationship(
+            source=e1,
+            target=e2,
             relationship_type="IS_A",
         )
 
@@ -645,12 +655,13 @@ class TestGDSIntegration:
         from neo4j_agent_memory.memory.long_term import EntityType
 
         # Create some entities
-        e1 = await memory_client.long_term.add_entity(
+        # add_entity returns (entity, dedup_result) tuple
+        e1, _ = await memory_client.long_term.add_entity(
             name="Product A",
             entity_type=EntityType.OBJECT,
             resolve=False,
         )
-        e2 = await memory_client.long_term.add_entity(
+        e2, _ = await memory_client.long_term.add_entity(
             name="Product B",
             entity_type=EntityType.OBJECT,
             resolve=False,
@@ -688,8 +699,8 @@ class TestReasoningTraces:
         )
 
         messages = [
-            ChatMessage(role="user", content="Find me running shoes"),
-            ChatMessage(role="assistant", content="Here are some running shoes..."),
+            ChatMessage(role="user", text="Find me running shoes"),
+            ChatMessage(role="assistant", text="Here are some running shoes..."),
         ]
 
         trace = await record_agent_trace(
@@ -723,7 +734,7 @@ class TestReasoningTraces:
         # Create a trace with embedding
         await record_agent_trace(
             memory=memory,
-            messages=[ChatMessage(role="user", content="Test")],
+            messages=[ChatMessage(role="user", text="Test")],
             task="Find athletic shoes for running",
             generate_embedding=True,
         )
@@ -755,7 +766,7 @@ class TestReasoningTraces:
 
         trace = await record_agent_trace(
             memory=memory,
-            messages=[ChatMessage(role="user", content="Test")],
+            messages=[ChatMessage(role="user", text="Test")],
             task="Test task",
             outcome="Test outcome",
             success=True,
@@ -797,8 +808,8 @@ class TestSessionIsolation:
         conv2 = await memory2.get_conversation()
 
         # Verify isolation
-        conv1_content = [m.content for m in conv1]
-        conv2_content = [m.content for m in conv2]
+        conv1_content = [m.text for m in conv1]
+        conv2_content = [m.text for m in conv2]
 
         assert "Session 1 message" in conv1_content
         assert "Session 2 message" not in conv1_content
@@ -829,7 +840,7 @@ class TestEdgeCases:
         await memory.save_message("user", large_content)
 
         conv = await memory.get_conversation()
-        assert any(large_content in m.content for m in conv)
+        assert any(large_content in m.text for m in conv)
 
     @pytest.mark.asyncio
     async def test_special_characters(self, memory_client, session_id):
@@ -845,7 +856,7 @@ class TestEdgeCases:
         await memory.save_message("user", special_content)
 
         conv = await memory.get_conversation()
-        assert any(special_content in m.content for m in conv)
+        assert any(special_content in m.text for m in conv)
 
     @pytest.mark.asyncio
     async def test_empty_query(self, memory_client, session_id):

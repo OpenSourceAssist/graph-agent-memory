@@ -49,8 +49,8 @@ try:
 
                 # Add messages
                 await message_store.add_messages([
-                    ChatMessage(role="user", content="Hello!"),
-                    ChatMessage(role="assistant", content="Hi there!"),
+                    ChatMessage(role="user", text="Hello!"),
+                    ChatMessage(role="assistant", text="Hi there!"),
                 ])
 
                 # List messages
@@ -165,7 +165,8 @@ try:
                 content = msg.content
 
                 # Build ChatMessage with appropriate attributes
-                chat_msg = ChatMessage(role=role, content=content)
+                # Microsoft Agent Framework ChatMessage uses 'text' not 'content'
+                chat_msg = ChatMessage(role=role, text=content)
 
                 # Restore tool_calls if present
                 if msg.metadata:
@@ -251,7 +252,14 @@ try:
             return "user"
 
         def _get_content(self, msg: ChatMessage) -> str:
-            """Extract content from ChatMessage."""
+            """Extract content from ChatMessage.
+
+            Microsoft Agent Framework ChatMessage uses .text property.
+            """
+            # Microsoft Agent Framework uses .text
+            if hasattr(msg, "text") and msg.text:
+                return msg.text
+            # Fallback for generic message objects
             if hasattr(msg, "content"):
                 return msg.content or ""
             return ""
