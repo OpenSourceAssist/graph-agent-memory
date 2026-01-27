@@ -210,8 +210,13 @@ class TestSnippetImports:
             "Neo4jChatMessageHistory",
             "Neo4jChatStore",
             "Neo4jCrewMemory",
+            "Neo4jLlamaIndexMemory",
+            "Neo4jOpenAIMemory",
             "Neo4jMemoryRetriever",
             "Neo4jMemoryVectorStore",
+            "MemoryDependency",
+            "create_memory_tools",
+            "execute_memory_tool",
             # Schema config
             "SchemaConfig",
             "SchemaModel",

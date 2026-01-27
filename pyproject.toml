@@ -17,6 +17,8 @@ keywords = [
     "langchain",
     "llamaindex",
     "pydantic-ai",
+    "crewai",
+    "openai-agents",
     "knowledge-graph",
     "context-graph",
     "reasoning-memory"
@@ -77,10 +79,11 @@ langchain = ["langchain-core>=0.2.0"]
 llamaindex = ["llama-index-core>=0.10.0"]
 pydantic-ai = ["pydantic-ai>=0.1.0"]
 crewai = ["crewai>=0.50.0"]
+openai-agents = ["openai>=1.0.0"]
 
 # All optional dependencies (excluding heavy ML models by default)
 all = [
-    "neo4j-agent-memory[openai,anthropic,fuzzy,langchain,llamaindex,pydantic-ai,crewai]",
+    "neo4j-agent-memory[openai,anthropic,fuzzy,langchain,llamaindex,pydantic-ai,crewai,openai-agents]",
 ]
 
 # Full install including local models and extraction pipeline

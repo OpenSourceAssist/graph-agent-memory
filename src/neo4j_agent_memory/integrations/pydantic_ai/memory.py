@@ -172,7 +172,11 @@ def create_memory_tools(memory: "MemoryClient") -> list[Callable]:
             entities = await memory.long_term.search_entities(query, limit=5)
             for entity in entities:
                 desc = f": {entity.description}" if entity.description else ""
-                results.append(f"[{entity.type.value}] {entity.display_name}{desc}")
+                # entity.type may be a string or enum
+                entity_type = (
+                    entity.type.value if hasattr(entity.type, "value") else str(entity.type)
+                )
+                results.append(f"[{entity_type}] {entity.display_name}{desc}")
 
             prefs = await memory.long_term.search_preferences(query, limit=5)
             for pref in prefs:

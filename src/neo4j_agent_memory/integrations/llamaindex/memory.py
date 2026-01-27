@@ -1,9 +1,23 @@
 """LlamaIndex memory integration."""
 
+import asyncio
+import concurrent.futures
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from neo4j_agent_memory import MemoryClient
+
+# Module-level executor for async operations
+_executor: concurrent.futures.ThreadPoolExecutor | None = None
+
+
+def _get_executor() -> concurrent.futures.ThreadPoolExecutor:
+    """Get or create the shared thread pool executor."""
+    global _executor
+    if _executor is None:
+        _executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+    return _executor
+
 
 try:
     from llama_index.core.memory import BaseMemory
@@ -40,6 +54,28 @@ try:
             self._client = memory_client
             self._session_id = session_id
 
+        def _run_async(self, coro: Any) -> Any:
+            """
+            Run an async coroutine from sync context.
+
+            Uses a thread pool to run the coroutine in a separate thread
+            with its own event loop, avoiding conflicts with any existing
+            running event loop.
+            """
+
+            def run_in_thread():
+                # Create a new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(coro)
+                finally:
+                    loop.close()
+
+            executor = _get_executor()
+            future = executor.submit(run_in_thread)
+            return future.result(timeout=30)
+
         def get(self, input: str | None = None, **kwargs: Any) -> list[TextNode]:
             """
             Get memory nodes relevant to the input.
@@ -51,21 +87,7 @@ try:
             Returns:
                 List of TextNode objects
             """
-            import asyncio
-
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
-            if loop is not None:
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, self._get_async(input, **kwargs))
-                    return future.result()
-            else:
-                return asyncio.run(self._get_async(input, **kwargs))
+            return self._run_async(self._get_async(input, **kwargs))
 
         async def _get_async(self, input: str | None = None, **kwargs: Any) -> list[TextNode]:
             """Async implementation of get."""
@@ -91,12 +113,16 @@ try:
                     text = f"{entity.display_name}"
                     if entity.description:
                         text += f": {entity.description}"
+                    # entity.type may be a string or enum
+                    entity_type = (
+                        entity.type.value if hasattr(entity.type, "value") else str(entity.type)
+                    )
                     nodes.append(
                         TextNode(
                             text=text,
                             metadata={
                                 "source": "long_term",
-                                "entity_type": entity.type.value,
+                                "entity_type": entity_type,
                                 "id": str(entity.id),
                             },
                         )
@@ -125,47 +151,54 @@ try:
             Args:
                 node: TextNode to store
             """
-            import asyncio
-
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
             role = node.metadata.get("role", "user")
-
-            if loop is not None:
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run,
-                        self._client.short_term.add_message(self._session_id, role, node.text),
-                    )
-                    future.result()
-            else:
-                asyncio.run(self._client.short_term.add_message(self._session_id, role, node.text))
+            self._run_async(self._client.short_term.add_message(self._session_id, role, node.text))
 
         def reset(self) -> None:
             """Reset memory for this session."""
-            import asyncio
+            self._run_async(self._client.short_term.clear_session(self._session_id))
 
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
+        def set(self, nodes: list[TextNode]) -> None:
+            """
+            Set memory to the given nodes, replacing existing content.
 
-            if loop is not None:
-                import concurrent.futures
+            Args:
+                nodes: List of TextNode objects to store
+            """
+            # Reset and then add all nodes
+            self.reset()
+            for node in nodes:
+                self.put(node)
 
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run,
-                        self._client.short_term.clear_session(self._session_id),
-                    )
-                    future.result()
-            else:
-                asyncio.run(self._client.short_term.clear_session(self._session_id))
+        def get_all(self) -> list[TextNode]:
+            """
+            Get all memory nodes for this session.
+
+            Returns:
+                List of all TextNode objects in memory
+            """
+            # Delegate to get() with no query to get all recent messages
+            return self.get(input=None)
+
+        @classmethod
+        def from_defaults(
+            cls,
+            memory_client: "MemoryClient",
+            session_id: str,
+            **kwargs: Any,  # noqa: ARG003 - required by base class signature
+        ) -> "Neo4jLlamaIndexMemory":
+            """
+            Create a Neo4jLlamaIndexMemory instance with default settings.
+
+            Args:
+                memory_client: Neo4j Agent Memory client
+                session_id: Session identifier
+                **kwargs: Additional arguments (ignored)
+
+            Returns:
+                Neo4jLlamaIndexMemory instance
+            """
+            return cls(memory_client=memory_client, session_id=session_id)
 
 except ImportError:
     # LlamaIndex not installed

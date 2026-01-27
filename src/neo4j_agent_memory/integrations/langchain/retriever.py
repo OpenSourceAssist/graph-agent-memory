@@ -91,12 +91,16 @@ try:
                     content = f"{entity.display_name}"
                     if entity.description:
                         content += f": {entity.description}"
+                    # entity.type may be a string or enum
+                    entity_type = (
+                        entity.type.value if hasattr(entity.type, "value") else str(entity.type)
+                    )
                     documents.append(
                         Document(
                             page_content=content,
                             metadata={
                                 "type": "entity",
-                                "entity_type": entity.type.value,
+                                "entity_type": entity_type,
                                 "id": str(entity.id),
                                 "similarity": entity.metadata.get("similarity", 0),
                             },

@@ -44,13 +44,12 @@ try:
             self._client = memory_client
             self._crew_id = crew_id
 
-        def remember(self, content: str, metadata: dict[str, Any] | None = None) -> None:
+        def _run_async(self, coro: Any) -> Any:
             """
-            Store a memory from agent execution.
+            Run an async coroutine from sync context.
 
-            Args:
-                content: Memory content
-                metadata: Optional metadata with memory type
+            Handles the case where we're already in an async context by
+            scheduling the coroutine on the existing event loop.
             """
             import asyncio
 
@@ -59,17 +58,23 @@ try:
             except RuntimeError:
                 loop = None
 
-            if loop is not None:
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run,
-                        self._remember_async(content, metadata),
-                    )
-                    future.result()
+            if loop is not None and loop.is_running():
+                # We're in an async context - schedule on the existing loop
+                future = asyncio.run_coroutine_threadsafe(coro, loop)
+                return future.result(timeout=30)
             else:
-                asyncio.run(self._remember_async(content, metadata))
+                # Not in async context - create a new loop
+                return asyncio.run(coro)
+
+        def remember(self, content: str, metadata: dict[str, Any] | None = None) -> None:
+            """
+            Store a memory from agent execution.
+
+            Args:
+                content: Memory content
+                metadata: Optional metadata with memory type
+            """
+            self._run_async(self._remember_async(content, metadata))
 
         async def _remember_async(
             self, content: str, metadata: dict[str, Any] | None = None
@@ -99,21 +104,7 @@ try:
             Returns:
                 List of memory strings
             """
-            import asyncio
-
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
-            if loop is not None:
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, self._recall_async(query, n))
-                    return future.result()
-            else:
-                return asyncio.run(self._recall_async(query, n))
+            return self._run_async(self._recall_async(query, n))
 
         async def _recall_async(self, query: str, n: int = 5) -> list[str]:
             """Async implementation of recall."""
@@ -145,24 +136,7 @@ try:
             Returns:
                 Formatted context string
             """
-            import asyncio
-
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
-            if loop is not None:
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        asyncio.run,
-                        self._get_agent_context_async(agent_role, task),
-                    )
-                    return future.result()
-            else:
-                return asyncio.run(self._get_agent_context_async(agent_role, task))
+            return self._run_async(self._get_agent_context_async(agent_role, task))
 
         async def _get_agent_context_async(self, agent_role: str, task: str) -> str:
             """Async implementation of get_agent_context."""
