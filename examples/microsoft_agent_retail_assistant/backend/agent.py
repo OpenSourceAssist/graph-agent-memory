@@ -475,7 +475,9 @@ async def run_agent_stream(
                     if tool_name.startswith(("search_memory", "remember_", "recall_", "find_")):
                         # Memory tool
                         result = await execute_memory_tool(
-                            tool_name, arguments, memory.memory_client, memory.session_id
+                            memory,
+                            tool_name,
+                            arguments,
                         )
                     else:
                         # Product tool
