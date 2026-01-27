@@ -167,6 +167,48 @@ try:
             else:
                 asyncio.run(self._client.short_term.clear_session(self._session_id))
 
+        def set(self, nodes: list[TextNode]) -> None:
+            """
+            Set memory to the given nodes, replacing existing content.
+
+            Args:
+                nodes: List of TextNode objects to store
+            """
+            # Reset and then add all nodes
+            self.reset()
+            for node in nodes:
+                self.put(node)
+
+        def get_all(self) -> list[TextNode]:
+            """
+            Get all memory nodes for this session.
+
+            Returns:
+                List of all TextNode objects in memory
+            """
+            # Delegate to get() with no query to get all recent messages
+            return self.get(input=None)
+
+        @classmethod
+        def from_defaults(
+            cls,
+            memory_client: "MemoryClient",
+            session_id: str,
+            **kwargs: Any,  # noqa: ARG003 - required by base class signature
+        ) -> "Neo4jLlamaIndexMemory":
+            """
+            Create a Neo4jLlamaIndexMemory instance with default settings.
+
+            Args:
+                memory_client: Neo4j Agent Memory client
+                session_id: Session identifier
+                **kwargs: Additional arguments (ignored)
+
+            Returns:
+                Neo4jLlamaIndexMemory instance
+            """
+            return cls(memory_client=memory_client, session_id=session_id)
+
 except ImportError:
     # LlamaIndex not installed
     pass

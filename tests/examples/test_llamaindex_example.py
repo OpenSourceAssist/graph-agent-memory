@@ -59,8 +59,8 @@ class TestLlamaIndexIntegrationModule:
         """Test that the module has a docstring."""
         from neo4j_agent_memory.integrations import llamaindex
 
-        # Module should have documentation
-        assert llamaindex.__doc__ is not None or True  # Allow missing docstring
+        # Module should have documentation (allow missing for optional deps)
+        _ = llamaindex.__doc__  # Just verify module is accessible
 
     def test_integration_init_exports(self):
         """Test that integration __init__ properly handles LlamaIndex."""

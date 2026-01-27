@@ -4,7 +4,7 @@ Records OpenAI agent executions as reasoning traces for
 learning from past interactions and improving future responses.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from neo4j_agent_memory.memory.reasoning import ReasoningTrace
@@ -127,7 +127,6 @@ try:
 
             elif role == "tool":
                 # Tool response message
-                tool_call_id = msg.get("tool_call_id", "")
                 if current_step and content:
                     # Could record tool result here
                     pass
