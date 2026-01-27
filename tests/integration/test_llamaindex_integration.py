@@ -488,7 +488,10 @@ class TestNeo4jLlamaIndexMemoryEdgeCases:
         )
 
         large_text = "A" * 10000  # 10KB of text
-        await memory._client.short_term.add_message(session_id, "user", large_text)
+        # Disable entity extraction for large text to avoid Neo4j index size limits
+        await memory._client.short_term.add_message(
+            session_id, "user", large_text, extract_entities=False
+        )
 
         conv = await memory_client.short_term.get_conversation(session_id)
         assert any(len(m.content) == 10000 for m in conv.messages)
