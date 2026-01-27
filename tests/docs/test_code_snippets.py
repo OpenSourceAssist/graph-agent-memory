@@ -217,6 +217,16 @@ class TestSnippetImports:
             "MemoryDependency",
             "create_memory_tools",
             "execute_memory_tool",
+            # Microsoft Agent integration classes
+            "Neo4jContextProvider",
+            "Neo4jChatMessageStore",
+            "Neo4jMicrosoftMemory",
+            "GDSConfig",
+            "GDSAlgorithm",
+            "GDSIntegration",
+            "record_agent_trace",
+            "get_similar_traces",
+            "format_traces_for_prompt",
             # Schema config
             "SchemaConfig",
             "SchemaModel",
