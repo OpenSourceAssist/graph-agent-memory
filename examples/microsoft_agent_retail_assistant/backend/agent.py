@@ -12,9 +12,10 @@ import json
 import logging
 from typing import TYPE_CHECKING, AsyncGenerator
 
-from agent_framework import ChatAgent, ChatCompletionClient, UserMessage
+from agent_framework import ChatAgent, ChatMessage
+from agent_framework.azure import AzureOpenAIChatClient
+from agent_framework.openai import OpenAIChatClient
 from memory_config import Settings
-from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 from neo4j_agent_memory.integrations.microsoft_agent import (
     Neo4jMicrosoftMemory,
@@ -24,7 +25,7 @@ from neo4j_agent_memory.integrations.microsoft_agent import (
 )
 
 if TYPE_CHECKING:
-    pass
+    from agent_framework import ChatClientProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -56,25 +57,21 @@ You have access to memory tools to:
 Always use the appropriate tools to provide personalized assistance."""
 
 
-def get_chat_client() -> ChatCompletionClient:
+def get_chat_client() -> "ChatClientProtocol":
     """Create the chat completion client based on settings."""
     if settings.azure_openai_api_key and settings.azure_openai_endpoint:
         # Use Azure OpenAI
-        client = AsyncAzureOpenAI(
+        return AzureOpenAIChatClient(
             api_key=settings.azure_openai_api_key,
-            azure_endpoint=settings.azure_openai_endpoint,
+            endpoint=settings.azure_openai_endpoint,
+            deployment_name=settings.azure_openai_deployment or "gpt-4",
             api_version="2024-02-01",
-        )
-        return ChatCompletionClient(
-            client=client,
-            model=settings.azure_openai_deployment or "gpt-4",
         )
     elif settings.openai_api_key:
         # Use OpenAI directly
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
-        return ChatCompletionClient(
-            client=client,
-            model="gpt-4-turbo-preview",
+        return OpenAIChatClient(
+            api_key=settings.openai_api_key,
+            model_id="gpt-4-turbo-preview",
         )
     else:
         raise ValueError(
@@ -444,17 +441,19 @@ async def run_agent_stream(
         # Save user message first
         await memory.save_message("user", message)
 
-        # Create user message
-        user_msg = UserMessage(content=message)
+        # Create user message (Microsoft Agent Framework uses 'text' not 'content')
+        user_msg = ChatMessage(role="user", text=message)
 
         # Stream agent response
         full_response = ""
         async for chunk in agent.stream(user_msg):
-            if hasattr(chunk, "content") and chunk.content:
-                full_response += chunk.content
+            # Handle content - check both .text (Microsoft Agent) and .content (generic)
+            chunk_content = getattr(chunk, "text", None) or getattr(chunk, "content", None)
+            if chunk_content:
+                full_response += chunk_content
                 yield {
                     "event": "token",
-                    "data": json.dumps({"content": chunk.content}),
+                    "data": json.dumps({"content": chunk_content}),
                 }
 
             elif hasattr(chunk, "tool_calls") and chunk.tool_calls:
