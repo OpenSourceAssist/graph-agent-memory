@@ -1,0 +1,527 @@
+= OpenAI Agents SDK Integration
+:page-product: agent-memory
+:page-pagination:
+:description: Integrate Neo4j Agent Memory with OpenAI's Agents SDK for persistent memory and knowledge management.
+:keywords: openai, agents, memory, neo4j, function calling
+
+This guide explains how to use Neo4j Agent Memory with OpenAI's Agents SDK to build agents with persistent memory, entity knowledge, and reasoning trace recording.
+
+== Overview
+
+The OpenAI integration provides:
+
+* **Conversation persistence**: Store and retrieve chat history in OpenAI message format
+* **Memory search**: Semantic search across messages, entities, and preferences
+* **Function tools**: Ready-to-use tools for memory operations
+* **Trace recording**: Capture agent reasoning for learning and debugging
+
+== Installation
+
+Install with OpenAI support:
+
+[source,bash]
+----
+pip install neo4j-agent-memory[openai-agents]
+----
+
+== Basic Usage
+
+=== Initialize Memory
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
+from neo4j_agent_memory.integrations.openai_agents import Neo4jOpenAIMemory
+
+settings = MemorySettings(
+    neo4j=Neo4jConfig(
+        uri="bolt://localhost:7687",
+        username="neo4j",
+        password="password",
+    )
+)
+
+async with MemoryClient(settings) as client:
+    memory = Neo4jOpenAIMemory(
+        memory_client=client,
+        session_id="user-123",
+        user_id="user-456",  # Optional
+    )
+
+    # Get context for system prompt
+    context = await memory.get_context("user question")
+
+    # Save messages
+    await memory.save_message("user", "Hello!")
+    await memory.save_message("assistant", "Hi there!")
+
+    # Get conversation in OpenAI format
+    messages = await memory.get_conversation(limit=10)
+----
+
+=== Save and Retrieve Messages
+
+Messages are stored in OpenAI's message format:
+
+[source,python]
+----
+# Save user message
+await memory.save_message(
+    role="user",
+    content="What restaurants do you recommend?",
+)
+
+# Save assistant message with tool calls
+await memory.save_message(
+    role="assistant",
+    content="",
+    tool_calls=[{
+        "id": "call_123",
+        "type": "function",
+        "function": {
+            "name": "search_memory",
+            "arguments": '{"query": "food preferences"}',
+        },
+    }],
+)
+
+# Save tool response
+await memory.save_message(
+    role="tool",
+    content='{"results": [...]}',
+    tool_call_id="call_123",
+)
+
+# Retrieve conversation
+messages = await memory.get_conversation(limit=50)
+# Returns: [{"role": "user", "content": "..."}, ...]
+----
+
+== Memory Tools
+
+Create function calling tools for your agent:
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.openai_agents import create_memory_tools
+
+# Create tools
+tools = create_memory_tools(memory)
+
+# Use with OpenAI client
+from openai import OpenAI
+
+client = OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=messages,
+    tools=tools,
+)
+----
+
+=== Available Tools
+
+==== search_memory
+
+Search conversation history, entities, and preferences:
+
+[source,json]
+----
+{
+  "name": "search_memory",
+  "parameters": {
+    "query": "food preferences",
+    "limit": 5
+  }
+}
+----
+
+==== save_preference
+
+Save a user preference:
+
+[source,json]
+----
+{
+  "name": "save_preference",
+  "parameters": {
+    "category": "food",
+    "preference": "Prefers vegetarian options"
+  }
+}
+----
+
+==== recall_preferences
+
+Retrieve preferences by query or category:
+
+[source,json]
+----
+{
+  "name": "recall_preferences",
+  "parameters": {
+    "query": "dietary",
+    "category": "food"
+  }
+}
+----
+
+==== search_entities
+
+Search the entity knowledge graph:
+
+[source,json]
+----
+{
+  "name": "search_entities",
+  "parameters": {
+    "query": "Italian restaurants",
+    "entity_type": "ORGANIZATION",
+    "limit": 5
+  }
+}
+----
+
+=== Execute Tools
+
+Use the helper function to execute tools:
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.openai_agents.memory import execute_memory_tool
+import json
+
+# When agent makes a tool call
+tool_call = response.choices[0].message.tool_calls[0]
+function = tool_call.function
+
+# Execute the tool
+result = await execute_memory_tool(
+    memory=memory,
+    tool_name=function.name,
+    arguments=json.loads(function.arguments),
+)
+
+# Add result to conversation
+messages.append({
+    "role": "tool",
+    "content": result,
+    "tool_call_id": tool_call.id,
+})
+----
+
+== Reasoning Traces
+
+Record agent executions for learning and debugging:
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.openai_agents import record_agent_trace
+
+# After agent completes a task
+trace = await record_agent_trace(
+    memory=memory,
+    messages=conversation_messages,
+    task="Help user find restaurant recommendations",
+    tool_calls=extracted_tool_calls,  # Optional
+    outcome="Provided 3 restaurant recommendations",
+    success=True,
+)
+----
+
+=== Find Similar Past Tasks
+
+Use past reasoning traces to inform future responses:
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.openai_agents.tracing import (
+    get_similar_traces,
+    format_traces_for_prompt,
+)
+
+# Find similar past tasks
+similar_traces = await get_similar_traces(
+    memory=memory,
+    task="Find restaurant recommendations",
+    limit=3,
+)
+
+# Format for system prompt
+past_experience = format_traces_for_prompt(similar_traces)
+
+system_prompt = f"""You are a helpful assistant.
+
+{past_experience}
+
+Use past experience to improve your responses."""
+----
+
+== Complete Example
+
+Here's a complete example of an OpenAI agent with Neo4j memory:
+
+[source,python]
+----
+import asyncio
+import json
+from openai import OpenAI
+from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
+from neo4j_agent_memory.integrations.openai_agents import (
+    Neo4jOpenAIMemory,
+    create_memory_tools,
+    record_agent_trace,
+)
+from neo4j_agent_memory.integrations.openai_agents.memory import execute_memory_tool
+
+openai_client = OpenAI()
+
+async def main():
+    settings = MemorySettings(
+        neo4j=Neo4jConfig(
+            uri="bolt://localhost:7687",
+            username="neo4j",
+            password="password",
+        )
+    )
+
+    async with MemoryClient(settings) as client:
+        memory = Neo4jOpenAIMemory(
+            memory_client=client,
+            session_id="demo-session",
+        )
+
+        # Get context for system prompt
+        context = await memory.get_context("Help user")
+
+        # Create memory tools
+        tools = create_memory_tools(memory)
+
+        # Build messages
+        messages = [
+            {"role": "system", "content": f"You are a helpful assistant.\n\n{context}"},
+            {"role": "user", "content": "I love Italian food. Can you remember that?"},
+        ]
+
+        # Save user message
+        await memory.save_message("user", messages[-1]["content"])
+
+        # Call OpenAI
+        response = openai_client.chat.completions.create(
+            model="gpt-4",
+            messages=messages,
+            tools=tools,
+        )
+
+        assistant_message = response.choices[0].message
+
+        # Handle tool calls
+        if assistant_message.tool_calls:
+            messages.append(assistant_message.model_dump())
+
+            for tool_call in assistant_message.tool_calls:
+                result = await execute_memory_tool(
+                    memory=memory,
+                    tool_name=tool_call.function.name,
+                    arguments=json.loads(tool_call.function.arguments),
+                )
+                messages.append({
+                    "role": "tool",
+                    "content": result,
+                    "tool_call_id": tool_call.id,
+                })
+
+            # Get final response
+            response = openai_client.chat.completions.create(
+                model="gpt-4",
+                messages=messages,
+                tools=tools,
+            )
+            assistant_message = response.choices[0].message
+
+        # Save assistant response
+        await memory.save_message("assistant", assistant_message.content)
+
+        print(f"Assistant: {assistant_message.content}")
+
+        # Record the trace
+        await record_agent_trace(
+            memory=memory,
+            messages=messages,
+            task="Remember user food preference",
+            success=True,
+        )
+
+if __name__ == "__main__":
+    asyncio.run(main())
+----
+
+== Context Retrieval
+
+Get combined context from all memory types:
+
+[source,python]
+----
+# Get full context
+context = await memory.get_context(
+    query="user question",
+    include_short_term=True,   # Recent conversation
+    include_long_term=True,    # Entities and preferences
+    include_reasoning=True,    # Similar past tasks
+    max_items=10,
+)
+
+# Use in system prompt
+system_prompt = f"""You are a helpful assistant.
+
+## Relevant Context:
+{context}
+
+Use this context to provide personalized responses."""
+----
+
+== Search Operations
+
+Search across different memory types:
+
+[source,python]
+----
+# Search everything
+results = await memory.search(
+    query="Italian food",
+    include_messages=True,
+    include_entities=True,
+    include_preferences=True,
+    limit=10,
+)
+
+# Each result has type and content
+for r in results:
+    print(f"[{r['type']}] {r['content']}")
+----
+
+== Best Practices
+
+=== System Prompt Enhancement
+
+Always include memory context in your system prompt:
+
+[source,python]
+----
+context = await memory.get_context(user_query)
+similar_traces = await get_similar_traces(memory, task_description)
+past_experience = format_traces_for_prompt(similar_traces)
+
+system_prompt = f"""You are a helpful assistant.
+
+## User Context:
+{context}
+
+## Past Experience:
+{past_experience}
+
+Instructions:
+- Use context to personalize responses
+- Learn from past successful interactions
+- Save important user preferences for future reference
+"""
+----
+
+=== Message Persistence
+
+Save all messages for conversation continuity:
+
+[source,python]
+----
+# Save incoming user message
+await memory.save_message("user", user_input)
+
+# ... agent processing ...
+
+# Save outgoing assistant message
+await memory.save_message(
+    "assistant",
+    response.content,
+    tool_calls=response.tool_calls,  # Include if present
+)
+----
+
+=== Trace Recording
+
+Record traces after significant interactions:
+
+[source,python]
+----
+# Record successful task completion
+await record_agent_trace(
+    memory=memory,
+    messages=full_conversation,
+    task="Describe what the agent accomplished",
+    outcome="Brief summary of the result",
+    success=True,
+)
+
+# Record failures for learning
+await record_agent_trace(
+    memory=memory,
+    messages=full_conversation,
+    task="What the agent tried to do",
+    outcome="Why it failed",
+    success=False,
+)
+----
+
+== Troubleshooting
+
+=== ImportError: openai not found
+
+Install the OpenAI package:
+
+[source,bash]
+----
+pip install neo4j-agent-memory[openai-agents]
+# or
+pip install openai
+----
+
+=== Empty Context
+
+If `get_context()` returns empty:
+
+1. Verify embeddings are generated (`generate_embedding=True`)
+2. Check that data exists in Neo4j
+3. Try lowering the similarity threshold
+
+=== Tool Calls Not Working
+
+Ensure you're using a model that supports function calling (e.g., `gpt-4`, `gpt-3.5-turbo`).
+
+== API Reference
+
+=== Neo4jOpenAIMemory
+
+[cols="1,3"]
+|===
+| Method | Description
+
+| `get_context(query)` | Get combined context from all memory types
+| `save_message(role, content)` | Save a conversation message
+| `get_conversation(limit)` | Get messages in OpenAI format
+| `search(query)` | Search across all memory types
+| `add_preference(category, preference)` | Add a user preference
+| `search_preferences(query)` | Search preferences
+| `clear_session()` | Clear session messages
+|===
+
+=== Functions
+
+[cols="1,3"]
+|===
+| Function | Description
+
+| `create_memory_tools(memory)` | Create OpenAI function tools
+| `execute_memory_tool(memory, name, args)` | Execute a memory tool
+| `record_agent_trace(memory, messages, task)` | Record agent execution
+| `get_similar_traces(memory, task)` | Find similar past tasks
+| `format_traces_for_prompt(traces)` | Format traces for prompts
+|===

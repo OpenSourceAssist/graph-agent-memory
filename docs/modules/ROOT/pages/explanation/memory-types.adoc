@@ -1,0 +1,275 @@
+= Understanding the Three Memory Types
+:page-product: agent-memory
+:page-pagination:
+:toc: left
+:toclevels: 2
+
+Why agent memory is divided into short-term, long-term, and reasoning layers, and how they work together.
+
+== The Problem with Stateless Agents
+
+Most AI agents today are stateless. Each conversation starts fresh. The agent doesn't remember:
+
+* What you discussed yesterday
+* Your preferences and interests
+* How it solved similar problems before
+* Facts it learned about your domain
+
+This leads to repetitive interactions, missed context, and agents that never truly learn from experience.
+
+== A Three-Layer Solution
+
+neo4j-agent-memory addresses this with three distinct memory layers, each serving a different purpose:
+
+.Memory Architecture
+[cols="1", options="header"]
+|===
+| [DIAGRAM PLACEHOLDER: Memory Architecture]
+
+a|
+[source,text]
+----
++---------------------------------------------+
+|              MemoryClient                   |
++---------------+-------------+---------------+
+| Short-Term    | Long-Term   | Reasoning     |
+| Memory        | Memory      | Memory        |
++---------------+-------------+---------------+
+|           Neo4j Graph Database              |
+| Nodes · Relationships · Vectors · Spatial   |
++---------------------------------------------+
+----
+|===
+
+=== Short-Term Memory: What Happened
+
+Short-term memory stores *experiences* - the conversations, messages, and interactions your agent has with users.
+
+[cols="1,2"]
+|===
+| Characteristic | Description
+
+| *Temporal*
+| Messages are ordered in time, forming conversation threads
+
+| *Ephemeral-ish*
+| Recent messages matter most; older ones may be summarized or archived
+
+| *Searchable*
+| Semantic search finds relevant past exchanges
+
+| *Scoped*
+| Organized by session/user for context isolation
+|===
+
+Think of it as the agent's "working memory" - what's been happening in the current and recent conversations.
+
+=== Long-Term Memory: What the Agent Knows
+
+Long-term memory stores *declarative knowledge* - entities, facts, and preferences that persist across sessions.
+
+[cols="1,2"]
+|===
+| Characteristic | Description
+
+| *Structured*
+| Entities have types (POLE+O), relationships, and attributes
+
+| *Persistent*
+| Knowledge accumulates over time and across users
+
+| *Connected*
+| Entities relate to each other in a graph
+
+| *Enrichable*
+| Entities can be enhanced with external data (Wikipedia, etc.)
+|===
+
+This is the agent's "semantic memory" - the facts and concepts it has learned.
+
+=== Reasoning Memory: How to Solve Problems
+
+Reasoning memory stores *procedural knowledge* - traces of how the agent reasoned through problems and which tools it used.
+
+[cols="1,2"]
+|===
+| Characteristic | Description
+
+| *Trace-based*
+| Records sequences of thoughts, actions, and observations
+
+| *Tool-aware*
+| Tracks which tools were called, with what arguments, and what results
+
+| *Outcome-linked*
+| Associates reasoning paths with success/failure
+
+| *Searchable*
+| Find similar past reasoning for new problems
+|===
+
+This is the agent's "episodic memory" for problem-solving - remembering *how* it did things, not just *what* it knows.
+
+== Why Three Layers?
+
+=== Different Lifetimes
+
+Each memory type has a different lifecycle:
+
+* *Short-term*: Active during conversation, may be summarized after
+* *Long-term*: Persists indefinitely, grows over time
+* *Reasoning*: Archival - useful for analysis and pattern learning
+
+=== Different Access Patterns
+
+Each type is queried differently:
+
+* *Short-term*: "What did we just discuss?" → Recent messages in sequence
+* *Long-term*: "What do I know about X?" → Graph traversal and semantic search
+* *Reasoning*: "How did I solve similar problems?" → Trace similarity search
+
+=== Different Schemas
+
+Each type has different structure:
+
+* *Short-term*: Linear sequences of messages
+* *Long-term*: Graph of typed entities with relationships
+* *Reasoning*: Trees of traces → steps → tool calls
+
+== How They Connect
+
+The three memory types aren't isolated - they're connected in the same graph:
+
+.Graph Schema
+[cols="1", options="header"]
+|===
+| [DIAGRAM PLACEHOLDER: Graph Schema]
+
+a|
+[source,text]
+----
+(Conversation)-[:HAS_MESSAGE]->(Message)
+(Message)-[:NEXT_MESSAGE]->(Message)
+(Message)-[:MENTIONS]->(Entity)
+(Entity)-[:WORKS_AT]->(Entity)
+(Entity)-[:LOCATED_IN]->(Entity)
+(ReasoningTrace)-[:INITIATED_BY]->(Message)
+(ToolCall)-[:TRIGGERED_BY]->(Message)
+----
+|===
+
+=== Messages → Entities
+
+When you store a message, entity extraction can automatically identify and link entities mentioned in the text. This populates long-term memory from short-term interactions.
+
+=== Traces → Messages
+
+Reasoning traces can link back to the message that triggered them. This connects "what the user asked" to "how the agent reasoned about it."
+
+=== Unified Context
+
+The `get_context()` method combines all three memory types into a single context for LLM prompts:
+
+[source,python]
+----
+context = await client.get_context("restaurant recommendation", session_id="user-123")
+# Returns:
+# - Recent relevant messages (short-term)
+# - Related entities and preferences (long-term)
+# - Similar past reasoning traces (reasoning)
+----
+
+== The Graph Advantage
+
+All three memory types live in Neo4j, which provides unique capabilities:
+
+=== Relationship Traversal
+
+Find how entities connect across memory types:
+
+[source,cypher]
+----
+// Find entities mentioned in messages that triggered successful reasoning
+MATCH (m:Message)-[:MENTIONS]->(e:Entity)
+MATCH (t:ReasoningTrace)-[:INITIATED_BY]->(m)
+WHERE t.success = true
+RETURN e.name, count(*) as mentions
+ORDER BY mentions DESC
+----
+
+=== Temporal Queries
+
+Track how knowledge evolves:
+
+[source,cypher]
+----
+// Find when an entity was first mentioned
+MATCH (m:Message)-[:MENTIONS]->(e:Entity {name: "OpenAI"})
+RETURN min(m.created_at) as first_mention
+----
+
+=== Combined Search
+
+Neo4j combines vector similarity, graph traversal, and property filters:
+
+[source,cypher]
+----
+// Semantic search + graph filter + property filter
+CALL db.index.vector.queryNodes('message_embedding', 10, $embedding)
+YIELD node as m, score
+MATCH (m)-[:MENTIONS]->(e:Entity {type: "PERSON"})
+WHERE m.created_at > datetime() - duration('P7D')
+RETURN m.content, e.name, score
+----
+
+== Best Practices
+
+=== Use Short-Term for Conversation Context
+
+Include recent messages in your LLM prompts for continuity:
+
+[source,python]
+----
+recent = await client.short_term.get_messages(session_id, limit=10)
+context = "\n".join([f"{m.role}: {m.content}" for m in recent])
+----
+
+=== Use Long-Term for Domain Knowledge
+
+Query entities when the user asks about specific topics:
+
+[source,python]
+----
+entities = await client.long_term.search_entities("machine learning")
+# Add entity descriptions to prompt context
+----
+
+=== Use Reasoning for Similar Problems
+
+When facing a new task, find how similar tasks were solved:
+
+[source,python]
+----
+similar = await client.reasoning.search_traces("summarize document")
+# Use successful trace outcomes as examples
+----
+
+=== Connect Across Types
+
+Link reasoning traces to triggering messages for full traceability:
+
+[source,python]
+----
+trace = await client.reasoning.start_trace(
+    session_id,
+    task="Answer user question",
+    triggered_by_message_id=user_message.id,
+)
+----
+
+== See Also
+
+* xref:../how-to/messages.adoc[Store and Search Messages] - Short-term memory operations
+* xref:../how-to/entities.adoc[Work with Entities] - Long-term memory operations
+* xref:../how-to/reasoning-traces.adoc[Record Reasoning Traces] - Reasoning memory operations
+* xref:../reference/api/memory-client.adoc[MemoryClient API] - Full API reference

@@ -1,0 +1,659 @@
+= Add Conversation Memory to a Chatbot
+:page-product: agent-memory
+:page-pagination:
+:toc: right
+:toclevels: 3
+:sectanchors:
+:sectlinks:
+:icons: font
+:source-highlighter: highlight.js
+
+Build a chatbot that remembers users, learns preferences, and provides personalized responses across sessions.
+
+[.lead]
+In this tutorial, we'll build a complete shopping assistant chatbot that uses the context graph to remember customer preferences, track conversation history, and provide personalized product recommendations that improve over time.
+
+== What You'll Learn
+
+* How to persist conversation history across sessions
+* How to automatically learn and store user preferences
+* How to use the context graph to personalize responses
+* How to integrate memory with an LLM for intelligent responses
+
+== Prerequisites
+
+* Completed xref:first-agent-memory.adoc[Build Your First Memory-Enabled Agent] tutorial
+* OpenAI API key
+* Neo4j running (Docker or Aura)
+
+== Time Required
+
+Approximately 45 minutes.
+
+== What We're Building
+
+A shopping assistant that:
+
+1. Remembers who you are across sessions
+2. Learns your brand preferences, sizes, and style
+3. Uses past purchases to inform recommendations
+4. Gets smarter with every interaction
+
+== Step 1: Project Setup
+
+Create a new project:
+
+[source,bash]
+----
+mkdir shopping-assistant
+cd shopping-assistant
+python -m venv venv
+source venv/bin/activate
+
+pip install neo4j-agent-memory[all] openai python-dotenv
+----
+
+Create `.env`:
+
+[source,bash]
+----
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password123
+OPENAI_API_KEY=your-openai-api-key
+----
+
+== Step 2: Create the Memory-Enabled Assistant
+
+Create `assistant.py`:
+
+[source,python]
+----
+# assistant.py
+import asyncio
+import json
+import os
+from datetime import datetime
+from dotenv import load_dotenv
+from openai import AsyncOpenAI
+from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory.extraction import GLiNEREntityExtractor
+
+load_dotenv()
+
+# Initialize clients
+openai_client = AsyncOpenAI()
+memory_client = None
+extractor = None
+
+
+async def initialize():
+    """Initialize memory client and extractor."""
+    global memory_client, extractor
+
+    memory_client = MemoryClient(
+        neo4j_uri=os.getenv("NEO4J_URI"),
+        neo4j_user=os.getenv("NEO4J_USER"),
+        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    )
+
+    await memory_client.initialize()
+    extractor = GLiNEREntityExtractor.for_schema("ecommerce")
+
+    print("✓ Memory system initialized!")
+
+
+async def get_or_create_user(name: str) -> str:
+    """Get existing user or create new one."""
+    # Search for existing user
+    users = await memory_client.long_term.search_entities(
+        query=name,
+        entity_type="CUSTOMER",
+        limit=1,
+    )
+
+    if users and users[0].name.lower() == name.lower():
+        print(f"✓ Welcome back, {name}!")
+        return users[0].id
+
+    # Create new user
+    user = await memory_client.long_term.add_entity(
+        name=name,
+        entity_type="CUSTOMER",
+        properties={
+            "created_at": datetime.now().isoformat(),
+        },
+    )
+    print(f"✓ Nice to meet you, {name}!")
+    return user.id
+
+
+async def build_context(user_id: str, session_id: str, query: str) -> str:
+    """Build personalized context for the LLM."""
+
+    # Get combined context from memory
+    context = await memory_client.get_context(
+        query=query,
+        user_id=user_id,
+        session_id=session_id,
+        include_short_term=True,
+        include_long_term=True,
+        short_term_limit=5,
+        long_term_limit=10,
+    )
+
+    parts = []
+
+    # Add preferences
+    if context.preferences:
+        parts.append("## Customer Preferences")
+        for pref in context.preferences:
+            parts.append(f"- {pref.category}: {pref.preference}")
+
+    # Add recent conversation
+    if context.messages:
+        parts.append("\n## Recent Conversation")
+        for msg in context.messages[-5:]:
+            parts.append(f"- [{msg.role}]: {msg.content[:100]}...")
+
+    # Add relevant entities (products, brands)
+    if context.entities:
+        parts.append("\n## Relevant Information")
+        for entity in context.entities[:5]:
+            if entity.description:
+                parts.append(f"- {entity.name}: {entity.description[:100]}")
+            else:
+                parts.append(f"- {entity.name} ({entity.type})")
+
+    return "\n".join(parts) if parts else "No prior context available."
+
+
+async def extract_and_store_preferences(
+    user_id: str,
+    message: str,
+) -> list[tuple[str, str]]:
+    """Extract preferences from message and store them."""
+
+    # Simple preference patterns (in production, use LLM)
+    preferences_found = []
+
+    message_lower = message.lower()
+
+    # Brand preferences
+    brands = ["nike", "adidas", "puma", "asics", "new balance", "reebok"]
+    for brand in brands:
+        if brand in message_lower and ("like" in message_lower or "prefer" in message_lower or "love" in message_lower):
+            pref = f"Likes {brand.title()} products"
+            await memory_client.long_term.add_preference(
+                user_id=user_id,
+                preference=pref,
+                category="brand",
+                confidence=0.85,
+            )
+            preferences_found.append(("brand", pref))
+
+    # Size mentions
+    import re
+    size_match = re.search(r"size (\d+\.?\d*)", message_lower)
+    if size_match:
+        size = size_match.group(1)
+        pref = f"Shoe size is {size}"
+        await memory_client.long_term.add_preference(
+            user_id=user_id,
+            preference=pref,
+            category="size",
+            confidence=1.0,
+        )
+        preferences_found.append(("size", pref))
+
+    # Budget mentions
+    budget_match = re.search(r"\$(\d+)", message)
+    if budget_match:
+        budget = budget_match.group(1)
+        pref = f"Budget around ${budget}"
+        await memory_client.long_term.add_preference(
+            user_id=user_id,
+            preference=pref,
+            category="budget",
+            confidence=0.9,
+        )
+        preferences_found.append(("budget", pref))
+
+    return preferences_found
+
+
+async def chat(
+    user_id: str,
+    session_id: str,
+    user_message: str,
+) -> str:
+    """Process user message and generate response."""
+
+    # Store user message
+    await memory_client.short_term.add_message(
+        role="user",
+        content=user_message,
+        session_id=session_id,
+        metadata={"user_id": user_id},
+    )
+
+    # Extract entities from message
+    extraction = await extractor.extract(user_message)
+    for entity in extraction.entities:
+        await memory_client.long_term.add_entity(
+            name=entity.name,
+            entity_type=entity.type,
+        )
+
+    # Extract and store preferences
+    new_prefs = await extract_and_store_preferences(user_id, user_message)
+    if new_prefs:
+        print(f"  📝 Learned: {', '.join([p[1] for p in new_prefs])}")
+
+    # Build personalized context
+    context = await build_context(user_id, session_id, user_message)
+
+    # Generate response using OpenAI
+    system_prompt = f"""You are a helpful shopping assistant for an online shoe store.
+
+Use the following customer context to personalize your responses:
+
+{context}
+
+Guidelines:
+- Reference the customer's preferences when making recommendations
+- Remember details from the conversation
+- Be helpful and friendly
+- If you learn something new about the customer, acknowledge it
+- Keep responses concise but personalized
+"""
+
+    response = await openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        temperature=0.7,
+        max_tokens=500,
+    )
+
+    assistant_message = response.choices[0].message.content
+
+    # Store assistant response
+    await memory_client.short_term.add_message(
+        role="assistant",
+        content=assistant_message,
+        session_id=session_id,
+        metadata={"user_id": user_id},
+    )
+
+    return assistant_message
+
+
+async def show_memory_stats(user_id: str):
+    """Show what the system has learned about the user."""
+
+    print("\n" + "="*50)
+    print("📊 What I Remember About You")
+    print("="*50)
+
+    # Get preferences
+    prefs = await memory_client.long_term.get_preferences(user_id=user_id)
+    if prefs:
+        print("\n🏷️ Preferences:")
+        for pref in prefs:
+            print(f"  • {pref.category}: {pref.preference}")
+
+    # Get entities mentioned
+    entities = await memory_client.long_term.search_entities(
+        query="",
+        limit=10,
+    )
+    if entities:
+        print("\n📦 Products/Brands You've Mentioned:")
+        for entity in entities:
+            if entity.type in ["PRODUCT", "BRAND", "ORGANIZATION"]:
+                print(f"  • {entity.name}")
+
+    print("="*50 + "\n")
+
+
+async def main():
+    """Main chat loop."""
+
+    await initialize()
+
+    # Get user name
+    print("\n" + "="*50)
+    print("🛍️  Welcome to the Shopping Assistant!")
+    print("="*50)
+
+    name = input("\nWhat's your name? ").strip()
+    if not name:
+        name = "Guest"
+
+    user_id = await get_or_create_user(name)
+    session_id = f"chat-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
+    print(f"\n💬 Chat started (Session: {session_id})")
+    print("   Type 'quit' to exit, 'memory' to see what I remember\n")
+
+    while True:
+        try:
+            user_input = input(f"{name}: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            break
+
+        if not user_input:
+            continue
+
+        if user_input.lower() == "quit":
+            break
+
+        if user_input.lower() == "memory":
+            await show_memory_stats(user_id)
+            continue
+
+        # Get response
+        response = await chat(user_id, session_id, user_input)
+        print(f"\n🤖 Assistant: {response}\n")
+
+    print("\n👋 Goodbye! Your preferences have been saved for next time.")
+    await memory_client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+----
+
+== Step 3: Test the Assistant
+
+Run the assistant:
+
+[source,bash]
+----
+python assistant.py
+----
+
+Have a conversation like this:
+
+[source]
+----
+🛍️  Welcome to the Shopping Assistant!
+==================================================
+
+What's your name? John
+
+✓ Nice to meet you, John!
+
+💬 Chat started (Session: chat-20240115-143022)
+   Type 'quit' to exit, 'memory' to see what I remember
+
+John: Hi! I'm looking for running shoes for marathon training.
+
+🤖 Assistant: Hi John! Great to hear you're training for a marathon!
+I'd be happy to help you find the perfect running shoes.
+
+What's your typical running distance and pace? Also, do you have any
+brand preferences or a budget in mind?
+
+John: I really like Nike products and my budget is around $150.
+
+  📝 Learned: Likes Nike products, Budget around $150
+
+🤖 Assistant: Perfect! Since you like Nike and have a $150 budget,
+I'd recommend looking at the Nike Pegasus 40 ($130) or the Nike
+Air Zoom Tempo ($140). Both are excellent for marathon training...
+
+John: My size is 10. What about the Pegasus?
+
+  📝 Learned: Shoe size is 10
+
+🤖 Assistant: Great, size 10! The Nike Pegasus 40 is a fantastic choice
+for marathon training at your budget...
+
+John: memory
+
+==================================================
+📊 What I Remember About You
+==================================================
+
+🏷️ Preferences:
+  • brand: Likes Nike products
+  • budget: Budget around $150
+  • size: Shoe size is 10
+
+📦 Products/Brands You've Mentioned:
+  • Nike
+  • Nike Pegasus 40
+
+==================================================
+----
+
+== Step 4: Test Persistence Across Sessions
+
+Exit and restart the assistant:
+
+[source,bash]
+----
+# Exit with 'quit', then restart
+python assistant.py
+----
+
+[source]
+----
+What's your name? John
+
+✓ Welcome back, John!
+
+John: What shoes did we discuss last time?
+
+🤖 Assistant: Welcome back, John! Last time we discussed the Nike Pegasus 40
+which fits well with your preferences - you mentioned you like Nike products,
+have a budget around $150, and wear size 10. Would you like to continue
+exploring that option or look at something different?
+----
+
+The assistant remembers John from the previous session!
+
+== Step 5: Add Product Knowledge
+
+Create `seed_products.py` to add some product data:
+
+[source,python]
+----
+# seed_products.py
+import asyncio
+import os
+from dotenv import load_dotenv
+from neo4j_agent_memory import MemoryClient
+
+load_dotenv()
+
+PRODUCTS = [
+    {
+        "name": "Nike Pegasus 40",
+        "type": "PRODUCT",
+        "description": "Versatile daily trainer with responsive cushioning. Great for marathon training.",
+        "properties": {"brand": "Nike", "price": 130, "category": "Running"}
+    },
+    {
+        "name": "Nike Air Zoom Tempo",
+        "type": "PRODUCT",
+        "description": "Speed-focused trainer with carbon fiber plate for tempo runs.",
+        "properties": {"brand": "Nike", "price": 140, "category": "Running"}
+    },
+    {
+        "name": "Adidas Ultraboost 23",
+        "type": "PRODUCT",
+        "description": "Premium cushioned running shoe with Boost midsole technology.",
+        "properties": {"brand": "Adidas", "price": 190, "category": "Running"}
+    },
+    {
+        "name": "Asics Gel-Nimbus 25",
+        "type": "PRODUCT",
+        "description": "Max cushioning shoe for long-distance comfort.",
+        "properties": {"brand": "Asics", "price": 160, "category": "Running"}
+    },
+    {
+        "name": "New Balance Fresh Foam 1080v13",
+        "type": "PRODUCT",
+        "description": "Plush cushioning with Fresh Foam X technology for smooth rides.",
+        "properties": {"brand": "New Balance", "price": 165, "category": "Running"}
+    },
+]
+
+
+async def main():
+    client = MemoryClient(
+        neo4j_uri=os.getenv("NEO4J_URI"),
+        neo4j_user=os.getenv("NEO4J_USER"),
+        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    )
+
+    await client.initialize()
+
+    print("Seeding product data...")
+
+    for product in PRODUCTS:
+        entity = await client.long_term.add_entity(
+            name=product["name"],
+            entity_type=product["type"],
+            description=product["description"],
+            properties=product["properties"],
+        )
+        print(f"  ✓ Added: {entity.name}")
+
+    await client.close()
+    print("\n✓ Product data seeded!")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+----
+
+Run it:
+
+[source,bash]
+----
+python seed_products.py
+----
+
+Now the assistant can make more informed recommendations based on the actual product catalog.
+
+== Step 6: Add Reasoning Traces
+
+Let's track the assistant's decision-making process. Update the `chat` function:
+
+[source,python]
+----
+async def chat(
+    user_id: str,
+    session_id: str,
+    user_message: str,
+) -> str:
+    """Process user message and generate response with reasoning trace."""
+
+    # Start reasoning trace
+    trace = await memory_client.reasoning.start_trace(
+        task=f"Respond to: {user_message[:50]}...",
+        user_id=user_id,
+        session_id=session_id,
+    )
+
+    try:
+        # Store user message
+        await memory_client.short_term.add_message(
+            role="user",
+            content=user_message,
+            session_id=session_id,
+        )
+
+        # Record step: Extract entities
+        step1 = await memory_client.reasoning.add_step(
+            trace_id=trace.id,
+            description="Extracting entities from user message",
+        )
+
+        extraction = await extractor.extract(user_message)
+
+        await memory_client.reasoning.add_tool_call(
+            step_id=step1.id,
+            tool_name="entity_extraction",
+            arguments={"text": user_message[:100]},
+            result={"entities": [e.name for e in extraction.entities]},
+            success=True,
+        )
+
+        # Record step: Get context
+        step2 = await memory_client.reasoning.add_step(
+            trace_id=trace.id,
+            description="Retrieving personalized context",
+        )
+
+        context = await build_context(user_id, session_id, user_message)
+
+        await memory_client.reasoning.add_tool_call(
+            step_id=step2.id,
+            tool_name="get_context",
+            arguments={"user_id": user_id},
+            result={"context_length": len(context)},
+            success=True,
+        )
+
+        # Record step: Generate response
+        step3 = await memory_client.reasoning.add_step(
+            trace_id=trace.id,
+            description="Generating personalized response",
+        )
+
+        # ... rest of LLM call ...
+
+        # Complete trace
+        await memory_client.reasoning.complete_trace(
+            trace_id=trace.id,
+            outcome="success",
+            result={"response_length": len(assistant_message)},
+        )
+
+        return assistant_message
+
+    except Exception as e:
+        await memory_client.reasoning.complete_trace(
+            trace_id=trace.id,
+            outcome="failure",
+            error=str(e),
+        )
+        raise
+----
+
+== What You've Built
+
+You now have a complete chatbot that:
+
+1. **Persists across sessions** - Users are recognized and their history is maintained
+2. **Learns preferences** - Automatically extracts and stores user preferences
+3. **Builds context** - Uses the context graph for personalized responses
+4. **Tracks reasoning** - Records decision-making for debugging and improvement
+5. **Integrates with LLMs** - Uses OpenAI for natural language understanding
+
+== Extending the Assistant
+
+Ideas for enhancement:
+
+* **Add product recommendations** based on preferences
+* **Track purchase history** and use for future recommendations
+* **Implement multi-turn clarification** when preferences are unclear
+* **Add sentiment analysis** to detect satisfaction
+
+== Next Steps
+
+* xref:knowledge-graph.adoc[Build a Knowledge Graph from Documents] - Extract knowledge from documents
+* xref:../how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Build production-grade agents
+
+== See Also
+
+* xref:../explanation/memory-types.adoc[Understanding Memory Types]
+* xref:../how-to/preferences.adoc[Manage User Preferences]
+* xref:../how-to/reasoning-traces.adoc[Record Reasoning Traces]
