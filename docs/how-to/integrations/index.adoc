@@ -29,6 +29,18 @@ Neo4j Agent Memory provides official integrations for five popular agent framewo
 | xref:openai-agents.adoc[OpenAI Agents SDK]
 | OpenAI function calling with persistent memory
 | ✅ Production Ready
+
+| xref:aws-strands.adoc[AWS Strands Agents]
+| AWS Strands SDK with Bedrock and Context Graph tools
+| ✅ Production Ready
+
+| xref:aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
+| Titan and Cohere embeddings via Bedrock
+| ✅ Production Ready
+
+| xref:aws-hybrid-memory.adoc[AWS Hybrid Memory]
+| AgentCore + Context Graphs combined
+| ✅ Production Ready
 |===
 
 == Quick Start
@@ -51,6 +63,9 @@ pip install neo4j-agent-memory[crewai]
 
 # OpenAI Agents SDK
 pip install neo4j-agent-memory[openai-agents]
+
+# AWS Strands Agents
+pip install neo4j-agent-memory[aws,strands]
 
 # All frameworks
 pip install neo4j-agent-memory[all]
@@ -109,6 +124,22 @@ memory = Neo4jOpenAIMemory(memory_client=client, session_id="user-123")
 messages = await memory.get_conversation()
 ----
 
+=== AWS Strands Agents
+
+[source,python]
+----
+from strands import Agent
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+
+tools = context_graph_tools(
+    neo4j_uri="neo4j+s://...",
+    neo4j_password="...",
+    embedding_provider="bedrock",
+)
+
+agent = Agent(model="anthropic.claude-sonnet-4-20250514-v1:0", tools=tools)
+----
+
 == Choosing a Framework
 
 Not sure which integration to use? See the xref:../../explanation/framework-comparison.adoc[Framework Comparison Guide] for a detailed comparison of features, performance, and use cases.
@@ -146,3 +177,6 @@ Automatically extract entities from conversations:
 * xref:llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
 * xref:crewai.adoc[CrewAI Integration] - Multi-agent shared memory
 * xref:openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
+* xref:aws-strands.adoc[AWS Strands Integration] - Bedrock-powered agents with Context Graph
+* xref:aws-bedrock-embeddings.adoc[AWS Bedrock Embeddings] - Titan embedding configuration
+* xref:aws-hybrid-memory.adoc[AWS Hybrid Memory] - Combined memory providers

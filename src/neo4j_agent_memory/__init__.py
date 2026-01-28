@@ -106,6 +106,29 @@ class MemoryGraph(BaseModel):
 
 from neo4j_agent_memory.graph.client import Neo4jClient
 from neo4j_agent_memory.graph.schema import SchemaManager
+
+# Cloud provider integrations (conditionally imported to avoid requiring dependencies)
+# Google Cloud (v0.3.0+)
+try:
+    from neo4j_agent_memory.embeddings.vertex_ai import VertexAIEmbedder
+except ImportError:
+    VertexAIEmbedder = None  # type: ignore[misc, assignment]
+
+try:
+    from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+except ImportError:
+    Neo4jMemoryService = None  # type: ignore[misc, assignment]
+
+try:
+    from neo4j_agent_memory.mcp.server import Neo4jMemoryMCPServer
+except ImportError:
+    Neo4jMemoryMCPServer = None  # type: ignore[misc, assignment]
+
+# AWS (v0.4.0+)
+try:
+    from neo4j_agent_memory.embeddings.bedrock import BedrockEmbedder
+except ImportError:
+    BedrockEmbedder = None  # type: ignore[misc, assignment]
 from neo4j_agent_memory.memory.long_term import (
     Entity,
     EntityType,
@@ -192,6 +215,12 @@ __all__ = [
     "GraphNode",
     "GraphRelationship",
     "MemoryGraph",
+    # Cloud integrations - Google (v0.3.0+)
+    "VertexAIEmbedder",
+    "Neo4jMemoryService",
+    "Neo4jMemoryMCPServer",
+    # Cloud integrations - AWS (v0.4.0+)
+    "BedrockEmbedder",
     # Exceptions
     "MemoryError",
     "ConnectionError",

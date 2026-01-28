@@ -1513,6 +1513,87 @@ make run-frontend   # Next.js on :3000
 
 See `examples/lennys-memory/README.md` for a full deep dive.
 
+## Financial Services Advisor Example (AWS Strands Demo)
+
+Located in `examples/financial-services-advisor/`, this example demonstrates AWS Strands Agents with Neo4j Agent Memory for financial services use cases including KYC/AML compliance, fraud detection, and relationship intelligence.
+
+### Tech Stack
+- **Backend**: FastAPI + AWS Strands Agents SDK + neo4j-agent-memory
+- **Frontend**: React + Vite + Chakra UI v3 + TypeScript
+- **Infrastructure**: AWS CDK (Lambda, API Gateway, CloudFront, Cognito)
+- **LLM**: Amazon Bedrock (Claude Sonnet)
+- **Database**: Neo4j Aura
+
+### Key Features
+
+- **5 specialized Strands agents**: Supervisor, KYC, AML, Relationship, Compliance
+- **Multi-agent orchestration**: Supervisor pattern delegating to domain-specific agents
+- **Graph-based risk analysis**: Network risk scoring, shell company detection, PEP connections
+- **Complete AWS deployment**: One-click CDK deployment to AWS
+
+### Agents and Tools
+
+**Supervisor Agent:**
+- `delegate_to_kyc_agent` - Customer identity verification
+- `delegate_to_aml_agent` - Transaction monitoring
+- `delegate_to_relationship_agent` - Network analysis
+- `delegate_to_compliance_agent` - Regulatory compliance
+- `summarize_investigation` - Aggregate findings
+
+**KYC Agent:**
+- `verify_identity` - Document verification
+- `check_documents` - Completeness check
+- `assess_customer_risk` - Risk scoring
+- `check_adverse_media` - Media screening
+
+**AML Agent:**
+- `scan_transactions` - Transaction analysis
+- `detect_patterns` - Structuring/layering detection
+- `flag_suspicious` - Alert generation
+- `analyze_velocity` - Transaction velocity
+
+**Relationship Agent:**
+- `find_connections` - Entity network discovery
+- `analyze_network_risk` - Network risk scoring
+- `detect_shell_companies` - Shell company identification
+- `map_beneficial_ownership` - Ownership structure mapping
+
+**Compliance Agent:**
+- `check_sanctions` - Sanctions list screening
+- `verify_pep` - PEP status verification
+- `generate_report` - Compliance report generation
+- `assess_regulatory_requirements` - Regulatory gap analysis
+
+### API Endpoints
+
+**Chat:** `POST /api/chat` - Agent interaction
+**Customers:** `GET/POST /api/customers`, `GET/PUT /api/customers/{id}`, `GET /api/customers/{id}/risk`, `GET /api/customers/{id}/network`
+**Investigations:** `GET/POST /api/investigations`, `GET /api/investigations/{id}`, `PUT /api/investigations/{id}/status`
+**Alerts:** `GET /api/alerts`, `POST /api/alerts/{id}/acknowledge`, `POST /api/alerts/{id}/escalate`
+**Graph:** `GET /api/graph/entity/{name}`, `POST /api/graph/search`
+**Reports:** `POST /api/reports/sar`, `POST /api/reports/risk-assessment`
+
+### Running
+
+```bash
+cd examples/financial-services-advisor
+make install        # Install dependencies
+cp .env.example .env  # Configure environment
+make dev            # Run locally
+
+# Deploy to AWS
+make deploy
+```
+
+### Architecture Diagrams
+
+Located in `docs/diagrams/excalidraw/`:
+- `financial-services-architecture.excalidraw` - Full AWS architecture
+- `multi-agent-workflow.excalidraw` - Agent orchestration flow
+- `financial-graph-schema.excalidraw` - Neo4j graph schema
+
+See `examples/financial-services-advisor/README.md` for detailed documentation.
+
 ## Documentation
 
 The documentation is located in `docs/` and follows the [Diataxis framework](https://diataxis.fr/) for organizing technical documentation into four distinct types.

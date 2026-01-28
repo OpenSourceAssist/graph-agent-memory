@@ -227,6 +227,11 @@ class TestSnippetImports:
             "DeduplicationStrategy",
             # Functions
             "record_agent_trace",
+            # AWS/Strands integration classes (imported from submodules)
+            "context_graph_tools",
+            "HybridMemoryProvider",
+            "StrandsConfig",
+            "MemoryType",
         }
         actual_missing = set(missing) - allowed_missing
 
