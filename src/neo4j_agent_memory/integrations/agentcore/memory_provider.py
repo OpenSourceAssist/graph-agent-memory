@@ -88,7 +88,7 @@ class Neo4jMemoryProvider:
 
     def __init__(
         self,
-        memory_client: "MemoryClient",
+        memory_client: MemoryClient,
         *,
         namespace: str = "default",
         extract_entities: bool = True,

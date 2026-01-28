@@ -99,7 +99,7 @@ class TestBedrockEmbedderMocked:
             mock_body.read.return_value = json.dumps({"embedding": embedding}).encode()
             return {"body": mock_body}
 
-        mock_client.invoke_model.side_effect = lambda **kwargs: create_response([0.1] * 1024)
+        mock_client.invoke_model.side_effect = lambda **_kwargs: create_response([0.1] * 1024)
         return mock_client
 
     @pytest.mark.asyncio

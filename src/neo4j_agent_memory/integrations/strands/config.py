@@ -60,7 +60,7 @@ class StrandsConfig:
         cls,
         prefix: str = "",
         **overrides: Any,
-    ) -> "StrandsConfig":
+    ) -> StrandsConfig:
         """Create configuration from environment variables.
 
         Environment variables (with optional prefix):

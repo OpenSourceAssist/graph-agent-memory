@@ -76,9 +76,11 @@ class TestStrandsConfig:
 
         env = {"NEO4J_PASSWORD": "test-password"}
 
-        with patch.dict(os.environ, env, clear=True):
-            with pytest.raises(ValueError, match="NEO4J_URI"):
-                StrandsConfig.from_env()
+        with (
+            patch.dict(os.environ, env, clear=True),
+            pytest.raises(ValueError, match="NEO4J_URI"),
+        ):
+            StrandsConfig.from_env()
 
     def test_config_from_env_missing_password_raises(self) -> None:
         """Test that missing NEO4J_PASSWORD raises ValueError."""
@@ -86,9 +88,11 @@ class TestStrandsConfig:
 
         env = {"NEO4J_URI": "neo4j+s://test.databases.neo4j.io"}
 
-        with patch.dict(os.environ, env, clear=True):
-            with pytest.raises(ValueError, match="NEO4J_PASSWORD"):
-                StrandsConfig.from_env()
+        with (
+            patch.dict(os.environ, env, clear=True),
+            pytest.raises(ValueError, match="NEO4J_PASSWORD"),
+        ):
+            StrandsConfig.from_env()
 
     def test_config_with_overrides(self) -> None:
         """Test that overrides take precedence over env vars."""
@@ -152,9 +156,11 @@ class TestContextGraphToolsFactory:
         """Test that factory requires neo4j_uri."""
         from neo4j_agent_memory.integrations.strands.tools import context_graph_tools
 
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="neo4j_uri is required"):
-                context_graph_tools()
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            pytest.raises(ValueError, match="neo4j_uri is required"),
+        ):
+            context_graph_tools()
 
     def test_factory_requires_password(self) -> None:
         """Test that factory requires neo4j_password."""
@@ -162,9 +168,11 @@ class TestContextGraphToolsFactory:
 
         env = {"NEO4J_URI": "neo4j+s://test.databases.neo4j.io"}
 
-        with patch.dict(os.environ, env, clear=True):
-            with pytest.raises(ValueError, match="neo4j_password is required"):
-                context_graph_tools()
+        with (
+            patch.dict(os.environ, env, clear=True),
+            pytest.raises(ValueError, match="neo4j_password is required"),
+        ):
+            context_graph_tools()
 
     def test_factory_reads_from_env(self) -> None:
         """Test that factory reads credentials from environment."""
@@ -175,13 +183,14 @@ class TestContextGraphToolsFactory:
             "NEO4J_PASSWORD": "test-password",
         }
 
-        with patch.dict(os.environ, env, clear=False):
-            # Mock strands.tool decorator
-            with patch(
+        with (
+            patch.dict(os.environ, env, clear=False),
+            patch(
                 "neo4j_agent_memory.integrations.strands.tools.context_graph_tools"
-            ) as mock_factory:
-                mock_factory.return_value = [MagicMock(), MagicMock(), MagicMock(), MagicMock()]
-                tools = mock_factory()
+            ) as mock_factory,
+        ):
+            mock_factory.return_value = [MagicMock(), MagicMock(), MagicMock(), MagicMock()]
+            tools = mock_factory()
 
         assert len(tools) == 4
 

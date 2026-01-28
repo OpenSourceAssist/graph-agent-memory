@@ -169,7 +169,7 @@ class HybridMemoryProvider(Neo4jMemoryProvider):
 
     def __init__(
         self,
-        memory_client: "MemoryClient",
+        memory_client: MemoryClient,
         *,
         namespace: str = "default",
         routing_strategy: str | RoutingStrategy = RoutingStrategy.AUTO,

@@ -83,7 +83,7 @@ class Memory:
         cls,
         message: Any,
         session_id: str | None = None,
-    ) -> "Memory":
+    ) -> Memory:
         """Create a Memory from a ShortTermMemory message.
 
         Args:
@@ -106,7 +106,7 @@ class Memory:
         )
 
     @classmethod
-    def from_entity(cls, entity: Any) -> "Memory":
+    def from_entity(cls, entity: Any) -> Memory:
         """Create a Memory from a LongTermMemory entity.
 
         Args:
@@ -130,7 +130,7 @@ class Memory:
         )
 
     @classmethod
-    def from_preference(cls, preference: Any) -> "Memory":
+    def from_preference(cls, preference: Any) -> Memory:
         """Create a Memory from a LongTermMemory preference.
 
         Args:
@@ -151,7 +151,7 @@ class Memory:
         )
 
     @classmethod
-    def from_trace(cls, trace: Any) -> "Memory":
+    def from_trace(cls, trace: Any) -> Memory:
         """Create a Memory from a ReasoningMemory trace.
 
         Args:

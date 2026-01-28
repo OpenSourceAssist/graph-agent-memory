@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -34,7 +33,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Module-level client cache for tool reuse
-_client_cache: dict[str, "MemoryClient"] = {}
+_client_cache: dict[str, MemoryClient] = {}
 
 
 def _run_async(coro: Any) -> Any:
@@ -68,7 +67,7 @@ def _get_or_create_client(
     embedding_provider: str,
     embedding_model: str | None,
     **kwargs: Any,
-) -> "MemoryClient":
+) -> MemoryClient:
     """Get or create a MemoryClient instance.
 
     Uses a cache keyed by connection URI to avoid creating multiple clients.
