@@ -772,6 +772,11 @@ function validateLinks() {
 
   // Check each file for broken links
   for (const htmlFile of htmlFiles) {
+    const relativePath = path.relative(CONFIG.outDir, htmlFile);
+
+    // Skip nav.html - it's an Antora navigation file, not a standalone page
+    if (relativePath.endsWith("nav.html")) continue;
+
     const content = fs.readFileSync(htmlFile, "utf8");
     const linkRegex = /href="([^"#]+)"/g;
     let match;
@@ -788,11 +793,20 @@ function validateLinks() {
       // Skip links to examples directory (outside docs)
       if (href.includes("/examples/")) continue;
 
+      // Skip .adoc links (these are Antora xref links that aren't converted in standalone build)
+      if (href.endsWith(".adoc")) continue;
+
+      // Skip template root links (these point to site root which doesn't exist in standalone build)
+      // These links work correctly when served - they're just relative paths to the site root
+      if (href.match(/^(\.\.\/)+index\.html$/)) continue;
+      if (href.match(/^(\.\.\/)+favicon\.svg$/)) continue;
+      if (href.match(/^(\.\.\/)+style\.css$/)) continue;
+      if (href.match(/^(\.\.\/)+pagefind\//)) continue;
+
       // Resolve relative path
       const linkTarget = path.resolve(path.dirname(htmlFile), href);
 
       if (!fs.existsSync(linkTarget)) {
-        const relativePath = path.relative(CONFIG.outDir, htmlFile);
         errors.push({ file: relativePath, brokenLink: href });
       }
     }

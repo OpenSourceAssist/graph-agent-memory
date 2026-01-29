@@ -1,0 +1,150 @@
+= Agent Framework Integrations
+:page-product: agent-memory
+:page-pagination:
+:description: Integrate Neo4j Agent Memory with popular AI agent frameworks.
+:keywords: langchain, pydantic-ai, llamaindex, crewai, openai, agents, integration
+
+Neo4j Agent Memory provides official integrations for five popular agent frameworks, enabling persistent memory storage backed by Neo4j's graph database.
+
+== Available Integrations
+
+[cols="1,2,1", options="header"]
+|===
+| Framework | Use Case | Status
+
+| xref:langchain.adoc[LangChain]
+| Chains and agents with conversation memory
+| ✅ Production Ready
+
+| xref:pydantic-ai.adoc[PydanticAI]
+| Modern type-safe agents with automatic tracing
+| ✅ Production Ready
+
+| xref:llamaindex.adoc[LlamaIndex]
+| RAG applications with document + graph retrieval
+| ✅ Production Ready
+
+| xref:crewai.adoc[CrewAI]
+| Multi-agent systems with shared memory
+| ✅ Production Ready
+
+| xref:openai-agents.adoc[OpenAI Agents SDK]
+| OpenAI function calling with persistent memory
+| ✅ Production Ready
+|===
+
+== Quick Start
+
+Choose your framework and install:
+
+[source,bash]
+----
+# LangChain
+pip install neo4j-agent-memory[langchain]
+
+# PydanticAI
+pip install neo4j-agent-memory[pydantic-ai]
+
+# LlamaIndex
+pip install neo4j-agent-memory[llamaindex]
+
+# CrewAI
+pip install neo4j-agent-memory[crewai]
+
+# OpenAI Agents SDK
+pip install neo4j-agent-memory[openai-agents]
+
+# All frameworks
+pip install neo4j-agent-memory[all]
+----
+
+== Quick Examples
+
+=== LangChain
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.langchain import Neo4jAgentMemory
+
+memory = Neo4jAgentMemory(memory_client=client, session_id="user-123")
+context = memory.load_memory_variables({"input": "query"})
+memory.save_context({"input": "Hello"}, {"output": "Hi!"})
+----
+
+=== PydanticAI
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency
+
+deps = MemoryDependency(memory_client=client, session_id="user-123")
+context = await deps.get_context("query")
+----
+
+=== LlamaIndex
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory
+
+memory = Neo4jLlamaIndexMemory(memory_client=client, session_id="user-123")
+nodes = memory.get(input="query")
+----
+
+=== CrewAI
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory
+
+memory = Neo4jCrewMemory(memory_client=client, crew_id="my-crew")
+memory.remember("Important fact", metadata={"type": "fact"})
+----
+
+=== OpenAI Agents SDK
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.openai_agents import Neo4jOpenAIMemory
+
+memory = Neo4jOpenAIMemory(memory_client=client, session_id="user-123")
+messages = await memory.get_conversation()
+----
+
+== Choosing a Framework
+
+Not sure which integration to use? See the xref:../../explanation/framework-comparison.adoc[Framework Comparison Guide] for a detailed comparison of features, performance, and use cases.
+
+== Common Patterns
+
+All integrations share these common capabilities:
+
+=== Three-Layer Memory
+
+* **Short-Term**: Conversation history within a session
+* **Long-Term**: Entities, preferences, and facts across sessions
+* **Reasoning**: Task traces and tool usage patterns
+
+=== Semantic Search
+
+All integrations support semantic search via embeddings:
+
+* Search messages by similarity
+* Find related entities
+* Discover relevant preferences
+
+=== Entity Extraction
+
+Automatically extract entities from conversations:
+
+* People, organizations, locations
+* Events and concepts
+* Custom entity types
+
+== Integration Guides
+
+* xref:langchain.adoc[LangChain Integration] - Memory and retriever for chains
+* xref:pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
+* xref:llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
+* xref:crewai.adoc[CrewAI Integration] - Multi-agent shared memory
+* xref:openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
