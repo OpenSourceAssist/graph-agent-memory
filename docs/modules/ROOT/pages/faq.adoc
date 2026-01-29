@@ -32,7 +32,7 @@ POLE+O stands for **P**erson, **O**bject, **L**ocation, **E**vent, **O**rganizat
 
 The package extends this with optional subtypes (e.g., `OBJECT:VEHICLE`, `LOCATION:ADDRESS`).
 
-See xref:poleo-model.adoc[POLE+O Data Model] for complete documentation.
+See xref:explanation/poleo-model.adoc[POLE+O Data Model] for complete documentation.
 
 [[need-neo4j]]
 === Do I need Neo4j to use this package?
@@ -76,7 +76,7 @@ Text → [spaCy] → [GLiNER] → [LLM] → Merge → Filter → Results
 |~500ms
 |===
 
-Each stage is optional and configurable. See xref:entity-extraction.adoc[Entity Extraction] for details.
+Each stage is optional and configurable. See xref:how-to/entity-extraction.adoc[Entity Extraction] for details.
 
 [[single-extractor]]
 === Can I use just one extractor instead of the full pipeline?
@@ -271,7 +271,7 @@ my_schema = DomainSchema(
 extractor = GLiNEREntityExtractor(schema=my_schema)
 ----
 
-See xref:entity-extraction.adoc#custom-schemas[Creating Custom Schemas] for more examples.
+See xref:how-to/entity-extraction.adoc#custom-schemas[Creating Custom Schemas] for more examples.
 
 [[poleo-mapping]]
 === Do schema entity types map to POLE+O types?
@@ -1003,10 +1003,10 @@ else:
 == See Also
 
 * xref:getting-started.adoc[Getting Started] -- Quick start guide
-* xref:entity-extraction.adoc[Entity Extraction Guide] -- Detailed extraction documentation
-* xref:memory-types.adoc[Memory Types] -- Short-term, long-term, and reasoning memory
-* xref:poleo-model.adoc[POLE+O Data Model] -- Entity type classification
-* xref:configuration.adoc[Configuration Reference] -- All configuration options
-* xref:integrations.adoc[Framework Integrations] -- PydanticAI, LangChain, LlamaIndex, CrewAI
+* xref:how-to/entity-extraction.adoc[Entity Extraction Guide] -- Detailed extraction documentation
+* xref:explanation/memory-types.adoc[Memory Types] -- Short-term, long-term, and reasoning memory
+* xref:explanation/poleo-model.adoc[POLE+O Data Model] -- Entity type classification
+* xref:reference/configuration.adoc[Configuration Reference] -- All configuration options
+* xref:how-to/integrations/index.adoc[Framework Integrations] -- PydanticAI, LangChain, LlamaIndex, CrewAI
 * link:../examples/domain-schemas/[Domain Schema Examples] -- Working code examples
 * https://github.com/neo4j-labs/agent-memory/issues[GitHub Issues] -- Report bugs or request features
