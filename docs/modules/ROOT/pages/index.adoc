@@ -280,19 +280,19 @@ asyncio.run(main())
 
 ++++
 <div class="integrations-grid">
-  <a href="integrations.html" class="integration-card">
+  <a href="how-to/integrations/langchain.html" class="integration-card">
     <strong>LangChain</strong>
     <span>Memory &amp; retriever</span>
   </a>
-  <a href="integrations.html" class="integration-card">
+  <a href="how-to/integrations/pydantic-ai.html" class="integration-card">
     <strong>PydanticAI</strong>
     <span>Deps &amp; trace recording</span>
   </a>
-  <a href="integrations.html" class="integration-card">
+  <a href="how-to/integrations/llamaindex.html" class="integration-card">
     <strong>LlamaIndex</strong>
     <span>Memory nodes</span>
   </a>
-  <a href="integrations.html" class="integration-card">
+  <a href="how-to/integrations/crewai.html" class="integration-card">
     <strong>CrewAI</strong>
     <span>Crew memory</span>
   </a>
