@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.2] - Unreleased
+## [0.0.2] - 2026-01-29
 
 ### Added
 
@@ -27,13 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Entity types now support string-based POLE+O classification with dynamic Neo4j label creation
 - Improved deduplication configuration with auto-merge thresholds
 - Enhanced provenance tracking for entity creation
+- Refactored `procedural.*` memory abstraction to `reasoning.*` top level APIs
 
 ### Fixed
 
 - Tracing API fixes for string/enum value support
 - String serialization fixes in async handlers
 
-## [0.0.1] - 2024-12-01
+## [0.0.1] - 2026-01-22
 
 ### Added
 
@@ -67,5 +68,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Schema Persistence**: Store and version custom entity schemas in Neo4j
 
-[0.0.2]: https://github.com/neo4j-labs/agent-memory/compare/v0.0.1...HEAD
+[0.0.2]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.2
 [0.0.1]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.1
