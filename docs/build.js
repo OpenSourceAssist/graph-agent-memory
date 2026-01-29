@@ -796,6 +796,13 @@ function validateLinks() {
       // Skip .adoc links (these are Antora xref links that aren't converted in standalone build)
       if (href.endsWith(".adoc")) continue;
 
+      // Skip template root links (these point to site root which doesn't exist in standalone build)
+      // These links work correctly when served - they're just relative paths to the site root
+      if (href.match(/^(\.\.\/)+index\.html$/)) continue;
+      if (href.match(/^(\.\.\/)+favicon\.svg$/)) continue;
+      if (href.match(/^(\.\.\/)+style\.css$/)) continue;
+      if (href.match(/^(\.\.\/)+pagefind\//)) continue;
+
       // Resolve relative path
       const linkTarget = path.resolve(path.dirname(htmlFile), href);
 
