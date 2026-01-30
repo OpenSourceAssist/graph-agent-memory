@@ -579,7 +579,7 @@ entity = await client.long_term.add_entity(
 
 == See Also
 
-* xref:entity-extraction.adoc[Configure Entity Extraction]
-* xref:deduplication.adoc[Handle Duplicate Entities]
-* xref:../explanation/poleo-model.adoc[The POLE+O Data Model]
-* xref:../reference/api/long-term.adoc[LongTermMemory API Reference]
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
+* xref:how-to/deduplication.adoc[Handle Duplicate Entities]
+* xref:explanation/poleo-model.adoc[The POLE+O Data Model]
+* xref:reference/api/long-term.adoc[LongTermMemory API Reference]

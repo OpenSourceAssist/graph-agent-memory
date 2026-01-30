@@ -352,7 +352,7 @@ weekly = await client.long_term.find_potential_duplicates(
 
 == See Also
 
-* xref:entities.adoc[Work with Entities]
-* xref:entity-extraction.adoc[Configure Entity Extraction]
-* xref:../explanation/resolution-deduplication.adoc[Entity Resolution Concepts]
-* xref:../reference/configuration.adoc#deduplication[Deduplication Configuration Reference]
+* xref:how-to/entities.adoc[Work with Entities]
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
+* xref:explanation/resolution-deduplication.adoc[Entity Resolution Concepts]
+* xref:reference/configuration.adoc#deduplication[Deduplication Configuration Reference]

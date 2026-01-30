@@ -15,13 +15,13 @@ Explanation is *understanding-oriented*. It clarifies and illuminates a topic. I
 |===
 | Topic | What You'll Understand
 
-| xref:memory-types.adoc[The Three Memory Types]
+| xref:explanation/memory-types.adoc[The Three Memory Types]
 | Why agent memory is divided into short-term, long-term, and reasoning memory. How they work together.
 
-| xref:poleo-model.adoc[The POLE+O Data Model]
+| xref:explanation/poleo-model.adoc[The POLE+O Data Model]
 | Why we use Person-Object-Location-Event-Organization for entity classification. Origins and benefits.
 
-| xref:graph-architecture.adoc[Why Neo4j?]
+| xref:explanation/graph-architecture.adoc[Why Neo4j?]
 | Why a graph database is ideal for agent memory. How the schema is designed.
 |===
 
@@ -31,10 +31,10 @@ Explanation is *understanding-oriented*. It clarifies and illuminates a topic. I
 |===
 | Topic | What You'll Understand
 
-| xref:extraction-pipeline.adoc[How Entity Extraction Works]
+| xref:explanation/extraction-pipeline.adoc[How Entity Extraction Works]
 | The multi-stage extraction pipeline. Trade-offs between speed and accuracy.
 
-| xref:resolution-deduplication.adoc[Entity Resolution Concepts]
+| xref:explanation/resolution-deduplication.adoc[Entity Resolution Concepts]
 | How entities are matched and merged. Fuzzy matching, embeddings, and confidence thresholds.
 |===
 
@@ -73,11 +73,11 @@ Explanation documentation:
 * *Reflective*: Can be read and pondered, not just executed
 * *Honest*: Acknowledges trade-offs and limitations
 
-For hands-on learning, see the xref:../tutorials/index.adoc[Tutorials].
+For hands-on learning, see the xref:tutorials/index.adoc[Tutorials].
 
-For solving specific problems, see the xref:../how-to/index.adoc[How-To Guides].
+For solving specific problems, see the xref:how-to/index.adoc[How-To Guides].
 
-For technical details and API documentation, see the xref:../reference/index.adoc[Reference] section.
+For technical details and API documentation, see the xref:reference/index.adoc[Reference] section.
 
 == Further Reading
 

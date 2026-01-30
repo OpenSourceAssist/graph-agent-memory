@@ -816,7 +816,7 @@ async def dynamic_context(ctx: RunContext[AgentDeps]) -> str:
 
 == See Also
 
-* xref:langchain.adoc[Use with LangChain]
-* xref:../reasoning-traces.adoc[Record and Query Reasoning Traces]
-* xref:../../tutorials/conversation-memory.adoc[Tutorial: Add Conversation Memory]
+* xref:how-to/integrations/langchain.adoc[Use with LangChain]
+* xref:how-to/reasoning-traces.adoc[Record and Query Reasoning Traces]
+* xref:tutorials/conversation-memory.adoc[Tutorial: Add Conversation Memory]
 * https://ai.pydantic.dev/[PydanticAI Documentation]

@@ -22,7 +22,7 @@ In this tutorial, we'll build a complete shopping assistant chatbot that uses th
 
 == Prerequisites
 
-* Completed xref:first-agent-memory.adoc[Build Your First Memory-Enabled Agent] tutorial
+* Completed xref:tutorials/first-agent-memory.adoc[Build Your First Memory-Enabled Agent] tutorial
 * OpenAI API key
 * Neo4j running (Docker or Aura)
 
@@ -649,11 +649,11 @@ Ideas for enhancement:
 
 == Next Steps
 
-* xref:knowledge-graph.adoc[Build a Knowledge Graph from Documents] - Extract knowledge from documents
-* xref:../how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Build production-grade agents
+* xref:tutorials/knowledge-graph.adoc[Build a Knowledge Graph from Documents] - Extract knowledge from documents
+* xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Build production-grade agents
 
 == See Also
 
-* xref:../explanation/memory-types.adoc[Understanding Memory Types]
-* xref:../how-to/preferences.adoc[Manage User Preferences]
-* xref:../how-to/reasoning-traces.adoc[Record Reasoning Traces]
+* xref:explanation/memory-types.adoc[Understanding Memory Types]
+* xref:how-to/preferences.adoc[Manage User Preferences]
+* xref:how-to/reasoning-traces.adoc[Record Reasoning Traces]

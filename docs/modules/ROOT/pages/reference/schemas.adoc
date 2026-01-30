@@ -353,6 +353,6 @@ Custom types not in POLE+O are stored with `:Entity:{CustomType}` labels.
 
 == See Also
 
-* xref:extractors.adoc[Extractor Classes Reference] - Extractor API
-* xref:../how-to/entity-extraction.adoc[Configure Entity Extraction] - Pipeline setup
-* xref:../explanation/poleo-model.adoc[POLE+O Model Explained] - Entity classification concepts
+* xref:reference/extractors.adoc[Extractor Classes Reference] - Extractor API
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Pipeline setup
+* xref:explanation/poleo-model.adoc[POLE+O Model Explained] - Entity classification concepts

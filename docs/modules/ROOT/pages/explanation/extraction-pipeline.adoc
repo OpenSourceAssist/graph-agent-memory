@@ -347,7 +347,7 @@ async for chunk_result in streamer.extract_streaming(long_document):
 
 == See Also
 
-* xref:../how-to/entity-extraction.adoc[Configure Entity Extraction] - Practical setup
-* xref:../reference/extractors.adoc[Extractor Classes Reference] - API details
-* xref:../reference/schemas.adoc[Domain Schemas Reference] - Available schemas
-* xref:../how-to/batch-processing.adoc[Process Documents in Batch] - Batch and streaming
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Practical setup
+* xref:reference/extractors.adoc[Extractor Classes Reference] - API details
+* xref:reference/schemas.adoc[Domain Schemas Reference] - Available schemas
+* xref:how-to/batch-processing.adoc[Process Documents in Batch] - Batch and streaming

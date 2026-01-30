@@ -412,6 +412,6 @@ async with MemoryClient(settings) as client:
 
 == See Also
 
-* xref:memory-client.adoc[MemoryClient API]
-* xref:../../how-to/reasoning-traces.adoc[Record Reasoning Traces]
-* xref:../../explanation/memory-types.adoc[Understanding Memory Types]
+* xref:reference/api/memory-client.adoc[MemoryClient API]
+* xref:how-to/reasoning-traces.adoc[Record Reasoning Traces]
+* xref:explanation/memory-types.adoc[Understanding Memory Types]

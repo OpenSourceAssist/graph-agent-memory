@@ -431,6 +431,6 @@ result = await streamer.extract(long_document, deduplicate=True)
 
 == See Also
 
-* xref:schemas.adoc[Domain Schemas Reference] - Available schemas
-* xref:../how-to/entity-extraction.adoc[Configure Entity Extraction] - Pipeline setup
-* xref:../how-to/batch-processing.adoc[Process Documents in Batch] - Batch extraction
+* xref:reference/schemas.adoc[Domain Schemas Reference] - Available schemas
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Pipeline setup
+* xref:how-to/batch-processing.adoc[Process Documents in Batch] - Batch extraction

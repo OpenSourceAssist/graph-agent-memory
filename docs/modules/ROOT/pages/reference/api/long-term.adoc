@@ -422,7 +422,7 @@ async with MemoryClient(settings) as client:
 
 == See Also
 
-* xref:memory-client.adoc[MemoryClient API]
-* xref:../../how-to/entities.adoc[Work with Entities]
-* xref:../../how-to/deduplication.adoc[Handle Duplicate Entities]
-* xref:../../explanation/poleo-model.adoc[POLE+O Model Explained]
+* xref:reference/api/memory-client.adoc[MemoryClient API]
+* xref:how-to/entities.adoc[Work with Entities]
+* xref:how-to/deduplication.adoc[Handle Duplicate Entities]
+* xref:explanation/poleo-model.adoc[POLE+O Model Explained]

@@ -333,5 +333,5 @@ export NAM_GEOCODING__PROVIDER=nominatim
 
 == See Also
 
-* xref:configuration.adoc[Configuration Reference] - Full Python configuration API
-* xref:../how-to/entity-extraction.adoc[Configure Entity Extraction] - Extraction pipeline setup
+* xref:reference/configuration.adoc[Configuration Reference] - Full Python configuration API
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Extraction pipeline setup

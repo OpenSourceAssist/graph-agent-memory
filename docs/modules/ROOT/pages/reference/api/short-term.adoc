@@ -319,6 +319,6 @@ async with MemoryClient(settings) as client:
 
 == See Also
 
-* xref:memory-client.adoc[MemoryClient API]
-* xref:../../how-to/messages.adoc[Store and Search Messages]
-* xref:../../explanation/memory-types.adoc[Understanding Memory Types]
+* xref:reference/api/memory-client.adoc[MemoryClient API]
+* xref:how-to/messages.adoc[Store and Search Messages]
+* xref:explanation/memory-types.adoc[Understanding Memory Types]

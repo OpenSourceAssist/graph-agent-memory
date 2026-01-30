@@ -580,6 +580,6 @@ await client.long_term.add_entity(
 
 == See Also
 
-* xref:entity-extraction.adoc[Configure Entity Extraction]
-* xref:deduplication.adoc[Handle Duplicate Entities]
-* xref:../reference/extractors.adoc[Extractor Classes Reference]
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
+* xref:how-to/deduplication.adoc[Handle Duplicate Entities]
+* xref:reference/extractors.adoc[Extractor Classes Reference]

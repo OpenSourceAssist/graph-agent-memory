@@ -294,7 +294,7 @@ async def worker(settings):
 
 == See Also
 
-* xref:short-term.adoc[ShortTermMemory API]
-* xref:long-term.adoc[LongTermMemory API]
-* xref:reasoning.adoc[ReasoningMemory API]
-* xref:../configuration.adoc[Configuration Reference]
+* xref:reference/api/short-term.adoc[ShortTermMemory API]
+* xref:reference/api/long-term.adoc[LongTermMemory API]
+* xref:reference/api/reasoning.adoc[ReasoningMemory API]
+* xref:reference/configuration.adoc[Configuration Reference]

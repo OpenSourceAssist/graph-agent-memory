@@ -918,7 +918,7 @@ class RobustNeo4jChatMessageHistory(BaseChatMessageHistory):
 
 == See Also
 
-* xref:pydantic-ai.adoc[Use with PydanticAI]
-* xref:llamaindex.adoc[Use with LlamaIndex]
-* xref:../messages.adoc[Store and Search Messages]
+* xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI]
+* xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex]
+* xref:how-to/messages.adoc[Store and Search Messages]
 * https://python.langchain.com/docs/[LangChain Documentation]

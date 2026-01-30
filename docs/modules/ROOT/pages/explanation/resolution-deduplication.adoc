@@ -565,7 +565,7 @@ weekly_review = await memory.find_potential_duplicates(
 
 == See Also
 
-* xref:extraction-pipeline.adoc[How Entity Extraction Works]
-* xref:poleo-model.adoc[The POLE+O Data Model]
-* xref:../how-to/deduplication.adoc[Configure Entity Deduplication]
-* xref:../reference/configuration.adoc#deduplication[Deduplication Configuration Reference]
+* xref:explanation/extraction-pipeline.adoc[How Entity Extraction Works]
+* xref:explanation/poleo-model.adoc[The POLE+O Data Model]
+* xref:how-to/deduplication.adoc[Configure Entity Deduplication]
+* xref:reference/configuration.adoc#deduplication[Deduplication Configuration Reference]

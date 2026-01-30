@@ -269,7 +269,7 @@ trace = await client.reasoning.start_trace(
 
 == See Also
 
-* xref:../how-to/messages.adoc[Store and Search Messages] - Short-term memory operations
-* xref:../how-to/entities.adoc[Work with Entities] - Long-term memory operations
-* xref:../how-to/reasoning-traces.adoc[Record Reasoning Traces] - Reasoning memory operations
-* xref:../reference/api/memory-client.adoc[MemoryClient API] - Full API reference
+* xref:how-to/messages.adoc[Store and Search Messages] - Short-term memory operations
+* xref:how-to/entities.adoc[Work with Entities] - Long-term memory operations
+* xref:how-to/reasoning-traces.adoc[Record Reasoning Traces] - Reasoning memory operations
+* xref:reference/api/memory-client.adoc[MemoryClient API] - Full API reference
