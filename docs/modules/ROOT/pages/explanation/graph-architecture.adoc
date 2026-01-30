@@ -422,7 +422,7 @@ However, most enterprise agent use cases benefit from the combination of graph, 
 
 == See Also
 
-* xref:memory-types.adoc[Understanding the Three Memory Types]
-* xref:poleo-model.adoc[The POLE+O Data Model]
-* xref:../reference/configuration.adoc[Configuration Reference]
-* xref:../how-to/entity-extraction.adoc[Configure Entity Extraction]
+* xref:explanation/memory-types.adoc[Understanding the Three Memory Types]
+* xref:explanation/poleo-model.adoc[The POLE+O Data Model]
+* xref:reference/configuration.adoc[Configuration Reference]
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction]

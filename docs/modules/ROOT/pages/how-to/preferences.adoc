@@ -696,7 +696,7 @@ async def should_confirm_preference(pref) -> bool:
 
 == See Also
 
-* xref:entities.adoc[Work with Entities]
-* xref:messages.adoc[Store and Search Messages]
-* xref:../explanation/memory-types.adoc[Understanding Memory Types]
-* xref:../reference/api/long-term.adoc[LongTermMemory API Reference]
+* xref:how-to/entities.adoc[Work with Entities]
+* xref:how-to/messages.adoc[Store and Search Messages]
+* xref:explanation/memory-types.adoc[Understanding Memory Types]
+* xref:reference/api/long-term.adoc[LongTermMemory API Reference]

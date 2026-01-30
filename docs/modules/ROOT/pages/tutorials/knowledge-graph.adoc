@@ -23,7 +23,7 @@ In this tutorial, we'll process a collection of documents to automatically extra
 
 == Prerequisites
 
-* Completed xref:first-agent-memory.adoc[Build Your First Memory-Enabled Agent] tutorial
+* Completed xref:tutorials/first-agent-memory.adoc[Build Your First Memory-Enabled Agent] tutorial
 * Neo4j running (Docker or Aura)
 * Basic understanding of entity extraction
 
@@ -747,12 +747,12 @@ Ideas for enhancement:
 
 == Next Steps
 
-* xref:../how-to/batch-processing.adoc[Process Documents in Batch] - Scale to thousands of documents
-* xref:../how-to/entity-extraction.adoc[Configure Entity Extraction] - Advanced extraction settings
-* xref:../how-to/deduplication.adoc[Handle Duplicate Entities] - Clean up your graph
+* xref:how-to/batch-processing.adoc[Process Documents in Batch] - Scale to thousands of documents
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Advanced extraction settings
+* xref:how-to/deduplication.adoc[Handle Duplicate Entities] - Clean up your graph
 
 == See Also
 
-* xref:../explanation/extraction-pipeline.adoc[How Entity Extraction Works]
-* xref:../explanation/poleo-model.adoc[The POLE+O Data Model]
-* xref:../reference/schemas.adoc[Domain Schemas Reference]
+* xref:explanation/extraction-pipeline.adoc[How Entity Extraction Works]
+* xref:explanation/poleo-model.adoc[The POLE+O Data Model]
+* xref:reference/schemas.adoc[Domain Schemas Reference]

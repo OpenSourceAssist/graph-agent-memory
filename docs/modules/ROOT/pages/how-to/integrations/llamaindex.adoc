@@ -846,7 +846,7 @@ memory = ChatMemoryBuffer.from_defaults(
 
 == See Also
 
-* xref:pydantic-ai.adoc[Use with PydanticAI]
-* xref:langchain.adoc[Use with LangChain]
-* xref:../entities.adoc[Work with Entities]
+* xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI]
+* xref:how-to/integrations/langchain.adoc[Use with LangChain]
+* xref:how-to/entities.adoc[Work with Entities]
 * https://docs.llamaindex.ai/[LlamaIndex Documentation]

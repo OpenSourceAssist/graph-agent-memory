@@ -194,7 +194,7 @@ When deploying applications using neo4j-agent-memory, you may need these environ
 | Optional
 |===
 
-See xref:configuration.adoc[Configuration Reference] for all available settings.
+See xref:reference/configuration.adoc[Configuration Reference] for all available settings.
 
 == Automatic Deployments
 

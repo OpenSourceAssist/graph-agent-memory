@@ -34,16 +34,23 @@ class TestXrefLinks:
                 if "#" in target:
                     target = target.split("#")[0]
 
-                # Handle relative paths
+                # Handle different path formats
                 if target.startswith("../"):
+                    # Relative path going up - resolve from file's directory
                     target_path = (file_dir / target).resolve()
                 elif target.startswith("/"):
+                    # Absolute path from docs root
                     target_path = docs_dir / target.lstrip("/")
-                elif is_nav_file:
-                    # nav.adoc xrefs are relative to pages directory
+                elif "/" in target or is_nav_file:
+                    # Antora page ID (e.g., "explanation/memory-types.adoc")
+                    # or nav.adoc xrefs - resolve from pages directory root
                     target_path = docs_dir / target
                 else:
+                    # Simple filename - try same directory first, then docs root
+                    # (Antora resolves simple names from pages root)
                     target_path = file_dir / target
+                    if not target_path.exists():
+                        target_path = docs_dir / target
 
                 # Normalize the path
                 target_path = target_path.resolve()
@@ -234,8 +241,8 @@ class TestOrphanedFiles:
                     # Resolve the path
                     if target.startswith("../"):
                         target_path = (file_dir / target).resolve()
-                    elif is_nav_file:
-                        # nav.adoc xrefs are relative to pages directory
+                    elif "/" in target or is_nav_file:
+                        # Antora page ID or nav.adoc xrefs - resolve from pages directory
                         target_path = docs_dir / target
                     else:
                         target_path = file_dir / target

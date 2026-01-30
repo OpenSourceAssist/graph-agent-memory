@@ -690,7 +690,7 @@ await client.reasoning.delete_traces(
 
 == See Also
 
-* xref:messages.adoc[Store and Search Messages]
-* xref:../explanation/memory-types.adoc[Understanding Memory Types]
-* xref:integrations/pydantic-ai.adoc[Use with PydanticAI]
-* xref:../reference/api/reasoning.adoc[ReasoningMemory API Reference]
+* xref:how-to/messages.adoc[Store and Search Messages]
+* xref:explanation/memory-types.adoc[Understanding Memory Types]
+* xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI]
+* xref:reference/api/reasoning.adoc[ReasoningMemory API Reference]

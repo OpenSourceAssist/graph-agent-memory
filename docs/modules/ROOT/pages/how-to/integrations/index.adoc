@@ -12,23 +12,23 @@ Neo4j Agent Memory provides official integrations for five popular agent framewo
 |===
 | Framework | Use Case | Status
 
-| xref:langchain.adoc[LangChain]
+| xref:how-to/integrations/langchain.adoc[LangChain]
 | Chains and agents with conversation memory
 | ✅ Production Ready
 
-| xref:pydantic-ai.adoc[PydanticAI]
+| xref:how-to/integrations/pydantic-ai.adoc[PydanticAI]
 | Modern type-safe agents with automatic tracing
 | ✅ Production Ready
 
-| xref:llamaindex.adoc[LlamaIndex]
+| xref:how-to/integrations/llamaindex.adoc[LlamaIndex]
 | RAG applications with document + graph retrieval
 | ✅ Production Ready
 
-| xref:crewai.adoc[CrewAI]
+| xref:how-to/integrations/crewai.adoc[CrewAI]
 | Multi-agent systems with shared memory
 | ✅ Production Ready
 
-| xref:openai-agents.adoc[OpenAI Agents SDK]
+| xref:how-to/integrations/openai-agents.adoc[OpenAI Agents SDK]
 | OpenAI function calling with persistent memory
 | ✅ Production Ready
 |===
@@ -113,7 +113,7 @@ messages = await memory.get_conversation()
 
 == Choosing a Framework
 
-Not sure which integration to use? See the xref:../../explanation/framework-comparison.adoc[Framework Comparison Guide] for a detailed comparison of features, performance, and use cases.
+Not sure which integration to use? See the xref:explanation/framework-comparison.adoc[Framework Comparison Guide] for a detailed comparison of features, performance, and use cases.
 
 == Common Patterns
 
@@ -143,8 +143,8 @@ Automatically extract entities from conversations:
 
 == Integration Guides
 
-* xref:langchain.adoc[LangChain Integration] - Memory and retriever for chains
-* xref:pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
-* xref:llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
-* xref:crewai.adoc[CrewAI Integration] - Multi-agent shared memory
-* xref:openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
+* xref:how-to/integrations/langchain.adoc[LangChain Integration] - Memory and retriever for chains
+* xref:how-to/integrations/pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
+* xref:how-to/integrations/llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
+* xref:how-to/integrations/crewai.adoc[CrewAI Integration] - Multi-agent shared memory
+* xref:how-to/integrations/openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI

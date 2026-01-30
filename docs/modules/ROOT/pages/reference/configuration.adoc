@@ -894,7 +894,7 @@ NAM_ENRICHMENT__USER_AGENT=neo4j-agent-memory/1.0
 |Richer structured data, requires API key.
 |===
 
-See the xref:../how-to/entities.adoc[Working with Entities] guide for detailed usage documentation.
+See the xref:how-to/entities.adoc[Working with Entities] guide for detailed usage documentation.
 
 == Deduplication Configuration
 
@@ -1326,8 +1326,8 @@ except ValidationError as e:
 
 == Next Steps
 
-* xref:../getting-started.adoc[Get started with neo4j-agent-memory]
-* xref:../how-to/entity-extraction.adoc[Configure entity extraction]
-* xref:../explanation/memory-types.adoc[Learn about memory types]
-* xref:../how-to/integrations/index.adoc[Framework integrations]
-* xref:../faq.adoc[Frequently asked questions]
+* xref:getting-started.adoc[Get started with neo4j-agent-memory]
+* xref:how-to/entity-extraction.adoc[Configure entity extraction]
+* xref:explanation/memory-types.adoc[Learn about memory types]
+* xref:how-to/integrations/index.adoc[Framework integrations]
+* xref:faq.adoc[Frequently asked questions]

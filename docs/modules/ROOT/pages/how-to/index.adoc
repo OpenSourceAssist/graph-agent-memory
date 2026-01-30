@@ -17,16 +17,16 @@ Build and query your context graph—the foundation for personalized agent inter
 |===
 | Guide | What You'll Accomplish
 
-| xref:messages.adoc[Store and Search Messages]
+| xref:how-to/messages.adoc[Store and Search Messages]
 | Add messages to conversations, search by semantic similarity, manage sessions, build conversation context.
 
-| xref:entities.adoc[Work with Entities]
+| xref:how-to/entities.adoc[Work with Entities]
 | Create, update, and query entities in your context graph. Link entities to messages. Build relationship networks.
 
-| xref:preferences.adoc[Manage User Preferences]
+| xref:how-to/preferences.adoc[Manage User Preferences]
 | Store and retrieve user preferences. Personalize agent responses. Learn from user behavior.
 
-| xref:reasoning-traces.adoc[Record Reasoning Traces]
+| xref:how-to/reasoning-traces.adoc[Record Reasoning Traces]
 | Capture agent reasoning steps and tool calls. Learn from past successes. Improve agent decisions over time.
 |===
 
@@ -38,13 +38,13 @@ Automatically extract entities and relationships to populate your context graph 
 |===
 | Guide | What You'll Accomplish
 
-| xref:entity-extraction.adoc[Configure Entity Extraction]
+| xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
 | Set up spaCy, GLiNER, or LLM extractors. Create custom domain schemas for financial services, ecommerce, or any industry. Build multi-stage pipelines.
 
-| xref:batch-processing.adoc[Process Documents in Batch]
+| xref:how-to/batch-processing.adoc[Process Documents in Batch]
 | Extract entities from large document collections efficiently. Handle streaming for long documents. Import product catalogs or financial reports.
 
-| xref:deduplication.adoc[Handle Duplicate Entities]
+| xref:how-to/deduplication.adoc[Handle Duplicate Entities]
 | Configure automatic deduplication. Review and merge flagged duplicates. Maintain a clean context graph.
 
 | Enable Location Geocoding _(coming soon)_
@@ -62,16 +62,16 @@ Connect neo4j-agent-memory to popular agent frameworks for persistent, shared co
 |===
 | Guide | What You'll Accomplish
 
-| xref:integrations/pydantic-ai.adoc[Use with PydanticAI]
+| xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI]
 | Integrate memory as a PydanticAI dependency. Create memory-enabled tools. Build shopping assistants and financial advisors.
 
-| xref:integrations/langchain.adoc[Use with LangChain]
+| xref:how-to/integrations/langchain.adoc[Use with LangChain]
 | Implement custom chat message history. Create context graph tools. Add callbacks for reasoning traces.
 
-| xref:integrations/llamaindex.adoc[Use with LlamaIndex]
+| xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex]
 | Build context-aware retrievers combining documents and graph knowledge. Create RAG applications with persistent memory.
 
-| xref:integrations/crewai.adoc[Use with CrewAI]
+| xref:how-to/integrations/crewai.adoc[Use with CrewAI]
 | Share context graphs across multiple agents. Build collaborative multi-agent systems with persistent shared memory.
 |===
 
@@ -92,8 +92,8 @@ Each guide follows a consistent structure:
 4. *Verification*: How to confirm it worked
 5. *See Also*: Related guides and reference material
 
-If you're new to neo4j-agent-memory, start with the xref:../tutorials/index.adoc[Tutorials] first.
+If you're new to neo4j-agent-memory, start with the xref:tutorials/index.adoc[Tutorials] first.
 
-For understanding the concepts behind these operations, see the xref:../explanation/index.adoc[Explanation] section.
+For understanding the concepts behind these operations, see the xref:explanation/index.adoc[Explanation] section.
 
-For complete API details and configuration options, see the xref:../reference/index.adoc[Reference] section.
+For complete API details and configuration options, see the xref:reference/index.adoc[Reference] section.

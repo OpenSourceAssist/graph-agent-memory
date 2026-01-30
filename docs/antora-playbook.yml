@@ -1,0 +1,26 @@
+site:
+  title: Neo4j Agent Memory
+  start_page: agent-memory::index.adoc
+
+content:
+  sources:
+    - url: ..
+      branches: HEAD
+      start_path: docs
+
+ui:
+  bundle:
+    url: https://static-content.neo4j.com/build/ui-bundle-latest.zip
+    snapshot: true
+
+asciidoc:
+  attributes:
+    page-theme: labs
+    page-product: agent-memory
+    experimental: true
+    source-highlighter: highlight.js
+    icons: font
+    toc: left
+    toclevels: 3
+    sectanchors: ""
+    sectlinks: ""

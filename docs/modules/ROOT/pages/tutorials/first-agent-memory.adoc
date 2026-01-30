@@ -528,13 +528,13 @@ This context graph forms the foundation for intelligent, personalized AI agents.
 
 Now that you have the basics working, explore these tutorials:
 
-* xref:conversation-memory.adoc[Add Conversation Memory to a Chatbot] - Build a chatbot that remembers across sessions
-* xref:knowledge-graph.adoc[Build a Knowledge Graph from Documents] - Extract and connect knowledge from documents
+* xref:tutorials/conversation-memory.adoc[Add Conversation Memory to a Chatbot] - Build a chatbot that remembers across sessions
+* xref:tutorials/knowledge-graph.adoc[Build a Knowledge Graph from Documents] - Extract and connect knowledge from documents
 
 Or dive into the how-to guides:
 
-* xref:../how-to/entity-extraction.adoc[Configure Entity Extraction] - Customize extraction for your domain
-* xref:../how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Build production agents
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Customize extraction for your domain
+* xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Build production agents
 
 == Troubleshooting
 
@@ -574,6 +574,6 @@ docker rm neo4j-memory
 
 == See Also
 
-* xref:../explanation/memory-types.adoc[Understanding Memory Types]
-* xref:../explanation/graph-architecture.adoc[Why Neo4j?]
-* xref:../reference/configuration.adoc[Configuration Reference]
+* xref:explanation/memory-types.adoc[Understanding Memory Types]
+* xref:explanation/graph-architecture.adoc[Why Neo4j?]
+* xref:reference/configuration.adoc[Configuration Reference]

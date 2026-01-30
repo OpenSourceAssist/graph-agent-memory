@@ -450,7 +450,7 @@ await client.short_term.delete_session(session_id)
 
 == See Also
 
-* xref:entities.adoc[Work with Entities]
-* xref:preferences.adoc[Manage User Preferences]
-* xref:../explanation/memory-types.adoc[Understanding Memory Types]
-* xref:../reference/api/short-term.adoc[ShortTermMemory API Reference]
+* xref:how-to/entities.adoc[Work with Entities]
+* xref:how-to/preferences.adoc[Manage User Preferences]
+* xref:explanation/memory-types.adoc[Understanding Memory Types]
+* xref:reference/api/short-term.adoc[ShortTermMemory API Reference]

@@ -15,10 +15,10 @@ Reference guides are *information-oriented*. They describe the machinery and how
 |===
 | Reference | Description
 
-| xref:configuration.adoc[Configuration Reference]
+| xref:reference/configuration.adoc[Configuration Reference]
 | All configuration options for MemorySettings, extraction, embeddings, and more.
 
-| xref:environment-variables.adoc[Environment Variables]
+| xref:reference/environment-variables.adoc[Environment Variables]
 | Complete list of environment variables and their effects.
 |===
 
@@ -28,16 +28,16 @@ Reference guides are *information-oriented*. They describe the machinery and how
 |===
 | Reference | Description
 
-| xref:api/memory-client.adoc[MemoryClient API]
+| xref:reference/api/memory-client.adoc[MemoryClient API]
 | Main entry point for all memory operations.
 
-| xref:api/short-term.adoc[ShortTermMemory API]
+| xref:reference/api/short-term.adoc[ShortTermMemory API]
 | Conversation and message storage API.
 
-| xref:api/long-term.adoc[LongTermMemory API]
+| xref:reference/api/long-term.adoc[LongTermMemory API]
 | Entity, preference, and fact storage API.
 
-| xref:api/reasoning.adoc[ReasoningMemory API]
+| xref:reference/api/reasoning.adoc[ReasoningMemory API]
 | Reasoning trace and tool call API.
 |===
 
@@ -47,10 +47,10 @@ Reference guides are *information-oriented*. They describe the machinery and how
 |===
 | Reference | Description
 
-| xref:extractors.adoc[Extractor Classes]
+| xref:reference/extractors.adoc[Extractor Classes]
 | SpacyEntityExtractor, GLiNEREntityExtractor, LLMEntityExtractor, ExtractionPipeline.
 
-| xref:schemas.adoc[Domain Schemas]
+| xref:reference/schemas.adoc[Domain Schemas]
 | Built-in schemas (POLE+O, podcast, news, etc.) and custom schema creation.
 |===
 
@@ -60,10 +60,10 @@ Reference guides are *information-oriented*. They describe the machinery and how
 |===
 | Reference | Description
 
-| xref:cli.adoc[CLI Reference]
+| xref:reference/cli.adoc[CLI Reference]
 | Command-line interface for extraction and schema management.
 
-| xref:deployment.adoc[Deployment Guide]
+| xref:reference/deployment.adoc[Deployment Guide]
 | Deploy documentation and applications to Vercel, Netlify, etc.
 |===
 
@@ -114,8 +114,8 @@ Reference documentation:
 * *Complete*: Documents all options, not just common ones
 * *Neutral*: States facts without opinions
 
-For learning the library from scratch, see the xref:../tutorials/index.adoc[Tutorials].
+For learning the library from scratch, see the xref:tutorials/index.adoc[Tutorials].
 
-For solving specific problems, see the xref:../how-to/index.adoc[How-To Guides].
+For solving specific problems, see the xref:how-to/index.adoc[How-To Guides].
 
-For understanding concepts and design decisions, see the xref:../explanation/index.adoc[Explanation] section.
+For understanding concepts and design decisions, see the xref:explanation/index.adoc[Explanation] section.
