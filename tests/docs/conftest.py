@@ -51,8 +51,8 @@ def docs_root() -> Path:
 
 @pytest.fixture(scope="session")
 def site_dir() -> Path:
-    """Fixture providing the built _site directory."""
-    return get_docs_root() / "_site"
+    """Fixture providing the built site directory (Antora output)."""
+    return get_docs_root() / "build" / "site"
 
 
 @pytest.fixture(scope="session")
