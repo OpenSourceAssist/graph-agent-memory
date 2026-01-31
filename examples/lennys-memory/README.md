@@ -60,6 +60,7 @@ Tool outputs are now displayed as rich, interactive cards directly in the chat:
 | Tool Pattern | Card Type | Description |
 |-------------|-----------|-------------|
 | Location tools | **MapCard** | Inline Leaflet map with markers, expandable to fullscreen |
+| Entity context tools | **EntityCard** | Wikipedia-style knowledge panel with image, description, mentions |
 | Entity/graph tools | **GraphCard** | Inline NVL graph visualization, expandable to fullscreen |
 | Search/list tools | **DataCard** | Responsive table with auto-detected columns |
 | Stats/metrics tools | **StatsCard** | Grid of color-coded metric boxes |
@@ -148,6 +149,12 @@ make extract-entities
 
 # Geocode Location entities (add lat/lon coordinates for spatial queries)
 make geocode-locations
+
+# Enrich entities with Wikipedia data (descriptions, images, links)
+make enrich
+
+# Check enrichment progress
+make enrich-status
 ```
 
 The loader shows real-time progress with ETA:
@@ -409,37 +416,72 @@ The **podcast domain schema** for GLiNER2 is optimized for this content:
 | role | Job titles and positions | CPO, VP of Growth, PM |
 | metric | Business KPIs | DAU, NPS, Retention rate |
 
-### Background Entity Enrichment
+### Entity Enrichment with Wikipedia
 
-After extraction, entities are automatically enriched with Wikipedia data in the background:
+Entities can be enriched with data from Wikipedia/Wikimedia, adding descriptions, images, and external links. Enrichment is a post-processing step that runs after data loading.
 
+#### Running Enrichment
+
+```bash
+# Enrich all unenriched entities
+make enrich
+
+# Check current enrichment status
+make enrich-status
+
+# Advanced options via the script directly:
+cd backend && uv run python ../scripts/enrich_entities.py --help
 ```
-Entity stored in Neo4j
-         │
-         ▼
-┌─────────────────────────┐
-│  Background Enrichment  │
-│  Service (async queue)  │
-│                         │
-│  1. Query Wikipedia API │
-│  2. Fetch description   │
-│  3. Get image URL       │
-│  4. Get Wikidata ID     │
-│  5. Update Neo4j node   │
-└─────────────────────────┘
-         │
-         ▼
+
+**Script options:**
+- `--types PERSON ORGANIZATION` - Enrich only specific entity types
+- `--limit 100` - Limit number of entities to process
+- `--rate-limit 1.0` - Seconds between API calls (default: 0.5 = 2 req/sec)
+- `--dry-run` - Preview what would be enriched without making changes
+- `--status` - Show current enrichment progress and exit
+
+**Progress display:**
+```
+Progress [████████████████░░░░░░░░░░░░░░] 156/400 (39%) ETA: 2m 15s | ✓142 ✗8 !6 | Brian Chesky
+```
+
+#### Enrichment Data
+
+Enriched entities receive the following properties:
+
+```cypher
 (:Entity:Person {
     name: "Brian Chesky",
     enriched_description: "American businessman and industrial designer...",
     wikipedia_url: "https://en.wikipedia.org/wiki/Brian_Chesky",
     image_url: "https://upload.wikimedia.org/...",
     wikidata_id: "Q4429008",
-    enriched_at: datetime()
+    enriched_at: datetime(),
+    enrichment_provider: "wikimedia"
 })
 ```
 
-Enrichment data is surfaced throughout the UI:
+Entities not found in Wikipedia are marked with `enrichment_error` to avoid repeated lookups.
+
+#### EntityCard Display
+
+When the agent returns entity data via `get_entity_context` or similar tools, enriched entities are displayed as rich **EntityCard** components in the chat:
+
+**Compact view (inline in chat):**
+- Entity image thumbnail (100x100px)
+- Name with type badge (Person/Organization/Location/etc.)
+- Description preview (3 lines)
+- Quick stats: mention count, related entities
+- Wikipedia link
+
+**Expanded view (fullscreen dialog):**
+- Large image display
+- Quick Facts panel (type, subtype, mentions, Wikidata ID)
+- Full description
+- Related entities badges
+- Podcast mentions with speaker and episode info
+
+Enrichment data is also surfaced in:
 - **Memory Context panel**: Entity cards show images, descriptions, and Wikipedia links
 - **Graph View**: Node property panel displays enrichment section with image and description
 - **Map View**: Location popups include enrichment context

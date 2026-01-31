@@ -1459,6 +1459,7 @@ The latest version includes significant frontend improvements:
 - **Neo4j Labs Branding**: Labs Purple (#6366F1) primary accent, custom typography (Syne headings, Public Sans body, JetBrains Mono code), Beta badge, Labs disclaimer
 - **Inline Tool Result Cards**: Tool outputs display as rich cards in the chat:
   - `MapCard`: Inline Leaflet maps for location tools, expandable to fullscreen
+  - `EntityCard`: Wikipedia-style knowledge panel for enriched entities (image, description, mentions)
   - `GraphCard`: Inline NVL graphs for entity/relationship tools, expandable to fullscreen
   - `DataCard`: Responsive tables for search/list results
   - `StatsCard`: Grid of color-coded metrics
@@ -1509,15 +1510,19 @@ The map view (`MemoryMapView.tsx`) supports:
 - `frontend/src/components/branding/LabsDisclaimer.tsx` - Labs project disclaimer
 
 **Tool Result Cards:**
-- `frontend/src/components/chat/cards/types.ts` - TypeScript interfaces (CardType, LocationData, GraphNodeData, etc.)
-- `frontend/src/components/chat/cards/toolCardRegistry.ts` - Tool-to-card mapping logic
+- `frontend/src/components/chat/cards/types.ts` - TypeScript interfaces (CardType, LocationData, GraphNodeData, EntityData, etc.)
+- `frontend/src/components/chat/cards/toolCardRegistry.ts` - Tool-to-card mapping logic (includes `hasEntityData()`, `extractEntityData()`)
 - `frontend/src/components/chat/cards/BaseCard.tsx` - Shared card wrapper with expand button
 - `frontend/src/components/chat/cards/ToolResultCard.tsx` - Smart card selector component
 - `frontend/src/components/chat/cards/MapCard.tsx` - Inline Leaflet map, dynamic import
+- `frontend/src/components/chat/cards/EntityCard.tsx` - Wikipedia-style knowledge panel for enriched entities
 - `frontend/src/components/chat/cards/GraphCard.tsx` - Inline NVL graph, dynamic import
 - `frontend/src/components/chat/cards/DataCard.tsx` - Table with auto-detected columns
 - `frontend/src/components/chat/cards/StatsCard.tsx` - Metrics grid display
 - `frontend/src/components/chat/cards/RawJsonCard.tsx` - JSON fallback
+
+**Scripts:**
+- `scripts/enrich_entities.py` - Wikipedia enrichment script with progress bars, rate limiting, status checking
 
 **Onboarding:**
 - `frontend/src/components/onboarding/WelcomeModal.tsx` - First-time user modal with memory type explanations
