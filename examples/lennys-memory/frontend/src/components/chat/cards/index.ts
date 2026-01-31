@@ -13,6 +13,7 @@ export { MapCard } from "./MapCard";
 export { GraphCard } from "./GraphCard";
 export { DataCard } from "./DataCard";
 export { StatsCard } from "./StatsCard";
+export { EntityCard } from "./EntityCard";
 export { RawJsonCard } from "./RawJsonCard";
 
 // Types
@@ -31,6 +32,10 @@ export type {
   ChartDataPoint,
   StatsCardProps,
   ToolCardMapping,
+  EntityData,
+  EntityMention,
+  RelatedEntity,
+  EntityCardProps,
 } from "./types";
 
 // Registry utilities
@@ -41,5 +46,6 @@ export {
   extractGraphData,
   extractStats,
   extractTableData,
+  extractEntityData,
   getToolDisplayTitle,
 } from "./toolCardRegistry";

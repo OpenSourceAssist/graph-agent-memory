@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 /**
  * Card type enumeration for tool result visualization
  */
-export type CardType = "map" | "graph" | "data" | "stats" | "raw";
+export type CardType = "map" | "graph" | "data" | "stats" | "entity" | "raw";
 
 /**
  * Base props shared by all card components
@@ -158,4 +158,53 @@ export interface ToolCardMapping {
   cardType: CardType;
   title?: string;
   icon?: string;
+}
+
+/**
+ * Entity data for EntityCard
+ */
+export interface EntityData {
+  id: string;
+  name: string;
+  type: string;
+  subtype?: string;
+  description?: string;
+  enriched_description?: string;
+  wikipedia_url?: string;
+  wikidata_id?: string;
+  image_url?: string;
+  confidence?: number;
+}
+
+/**
+ * Entity mention from podcast
+ */
+export interface EntityMention {
+  content: string;
+  speaker?: string;
+  episode?: string;
+  session_id?: string;
+}
+
+/**
+ * Related entity reference
+ */
+export interface RelatedEntity {
+  id: string;
+  name: string;
+  type: string;
+  subtype?: string;
+  co_occurrences?: number;
+}
+
+/**
+ * Entity card props for knowledge panel display
+ */
+export interface EntityCardProps extends BaseCardProps {
+  /** The entity data */
+  entity: EntityData;
+  /** Podcast mentions of this entity */
+  mentions?: EntityMention[];
+  /** Related entities through co-occurrence */
+  relatedEntities?: RelatedEntity[];
 }

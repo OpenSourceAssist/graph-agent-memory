@@ -1,4 +1,4 @@
-.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend neo4j clean geocode-locations extract-entities
+.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend run neo4j clean geocode-locations extract-entities enrich enrich-status
 
 # Default target
 help:
@@ -18,10 +18,13 @@ help:
 	@echo "Post-Processing:"
 	@echo "  make extract-entities   Extract entities from loaded sessions"
 	@echo "  make geocode-locations  Geocode Location entities (add lat/lon coordinates)"
+	@echo "  make enrich             Enrich entities with Wikipedia data"
+	@echo "  make enrich-status      Show enrichment progress/status"
 	@echo ""
 	@echo "Development:"
-	@echo "  make run-backend    Start FastAPI backend (port 8000)"
-	@echo "  make run-frontend   Start Next.js frontend (port 3000)"
+	@echo "  make run            Start both backend and frontend (recommended)"
+	@echo "  make run-backend    Start FastAPI backend only (port 8000)"
+	@echo "  make run-frontend   Start Next.js frontend only (port 3000)"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean          Remove generated files and dependencies"
@@ -85,11 +88,34 @@ extract-entities:
 geocode-locations:
 	cd backend && $(LOAD_ENV) uv run python ../scripts/geocode_locations.py
 
-# Run backend
+# Enrich entities with Wikipedia data
+# Fetches descriptions, images, and links from Wikipedia/Wikimedia
+# Rate limited to 2 req/sec to respect Wikimedia ToS
+enrich:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/enrich_entities.py
+
+# Show enrichment status (how many entities are enriched vs pending)
+enrich-status:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/enrich_entities.py --status
+
+# Run both backend and frontend concurrently
+run:
+	@echo "Starting Lenny's Memory..."
+	@echo "  Backend:  http://localhost:8000"
+	@echo "  Frontend: http://localhost:3000"
+	@echo ""
+	@echo "Press Ctrl+C to stop both servers."
+	@echo ""
+	@trap 'kill 0' INT; \
+	(cd backend && uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000) & \
+	(cd frontend && npm run dev) & \
+	wait
+
+# Run backend only
 run-backend:
 	cd backend && uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
-# Run frontend
+# Run frontend only
 run-frontend:
 	cd frontend && npm run dev
 

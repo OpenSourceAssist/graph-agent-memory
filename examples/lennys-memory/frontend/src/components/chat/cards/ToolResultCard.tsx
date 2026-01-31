@@ -6,6 +6,7 @@ import { MapCard } from "./MapCard";
 import { GraphCard } from "./GraphCard";
 import { DataCard } from "./DataCard";
 import { StatsCard } from "./StatsCard";
+import { EntityCard } from "./EntityCard";
 import { RawJsonCard } from "./RawJsonCard";
 import {
   getCardTypeForTool,
@@ -14,6 +15,7 @@ import {
   extractGraphData,
   extractStats,
   extractTableData,
+  extractEntityData,
 } from "./toolCardRegistry";
 
 interface ToolResultCardProps {
@@ -35,15 +37,22 @@ export function ToolResultCard({ toolCall }: ToolResultCardProps) {
 
   // Parse the result (it may be a JSON string from the backend)
   const parsedResult = useMemo(() => {
-    if (typeof toolCall.result === "string") {
+    let result = toolCall.result;
+    if (typeof result === "string") {
       try {
-        return JSON.parse(toolCall.result);
+        result = JSON.parse(result);
       } catch {
-        return toolCall.result;
+        // Keep as string if not valid JSON
       }
     }
-    return toolCall.result;
-  }, [toolCall.result]);
+    // Debug logging - remove in production
+    console.log(`[ToolResultCard] ${toolCall.name}:`, {
+      rawResult: toolCall.result,
+      parsedResult: result,
+      duration_ms: toolCall.duration_ms,
+    });
+    return result;
+  }, [toolCall.result, toolCall.name, toolCall.duration_ms]);
 
   // Determine card type
   const cardType = useMemo(() => {
@@ -111,7 +120,7 @@ export function ToolResultCard({ toolCall }: ToolResultCardProps) {
     case "data": {
       const { columns, rows, title } = extractTableData(
         toolCall.name,
-        parsedResult
+        parsedResult,
       );
 
       return (
@@ -120,6 +129,34 @@ export function ToolResultCard({ toolCall }: ToolResultCardProps) {
           columns={columns}
           rows={rows}
           title={title}
+          isExpanded={isExpanded}
+          onExpand={handleExpand}
+          onCollapse={handleCollapse}
+        />
+      );
+    }
+
+    case "entity": {
+      const entityData = extractEntityData(parsedResult);
+
+      if (!entityData) {
+        // Fall back to raw JSON if extraction fails
+        return (
+          <RawJsonCard
+            toolCall={toolCall}
+            isExpanded={isExpanded}
+            onExpand={handleExpand}
+            onCollapse={handleCollapse}
+          />
+        );
+      }
+
+      return (
+        <EntityCard
+          toolCall={toolCall}
+          entity={entityData.entity}
+          mentions={entityData.mentions}
+          relatedEntities={entityData.relatedEntities}
           isExpanded={isExpanded}
           onExpand={handleExpand}
           onCollapse={handleCollapse}
