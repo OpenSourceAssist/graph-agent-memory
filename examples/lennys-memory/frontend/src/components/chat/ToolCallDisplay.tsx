@@ -1,23 +1,50 @@
 "use client";
 
-import { Box, Flex, Text, Badge, Code, Stack } from "@chakra-ui/react";
+import {
+  Box,
+  Flex,
+  Text,
+  Badge,
+  Code,
+  Spinner,
+  Collapsible,
+} from "@chakra-ui/react";
 import { useState } from "react";
 import { LuChevronDown, LuChevronRight, LuWrench } from "react-icons/lu";
 import type { ToolCall } from "@/lib/types";
+import { ToolResultCard } from "./cards";
+import { getToolDisplayTitle } from "./cards/toolCardRegistry";
 
 interface ToolCallDisplayProps {
   toolCall: ToolCall;
+  /** Show detailed arguments (for debugging) */
+  showArgs?: boolean;
 }
 
-export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+/**
+ * ToolCallDisplay renders tool invocations in the chat interface.
+ *
+ * Features:
+ * - Collapsible header with tool name, status, and duration
+ * - Rich visualization cards for results (MapCard, GraphCard, DataCard, etc.)
+ * - Pending state indicator while tool is executing
+ * - Optional arguments display for debugging
+ */
+export function ToolCallDisplay({
+  toolCall,
+  showArgs = false,
+}: ToolCallDisplayProps) {
+  const [isExpanded, setIsExpanded] = useState(true); // Default to expanded to show cards
+  const [showArguments, setShowArguments] = useState(false);
 
   const statusColor =
     toolCall.status === "success"
       ? "green"
       : toolCall.status === "error"
         ? "red"
-        : "yellow";
+        : "amber";
+
+  const toolDisplayName = getToolDisplayTitle(toolCall.name);
 
   return (
     <Box
@@ -26,7 +53,7 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
       borderRadius="md"
       overflow="hidden"
     >
-      {/* Header */}
+      {/* Header - clickable to toggle visibility */}
       <Flex
         px={{ base: 2, md: 3 }}
         py={{ base: 2.5, md: 2 }}
@@ -45,9 +72,18 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
           <LuChevronRight size={14} />
         )}
         <LuWrench size={14} />
-        <Text fontSize="sm" fontWeight="medium" flex="1" truncate>
-          {toolCall.name}
+        <Text
+          fontSize="sm"
+          fontWeight="medium"
+          flex="1"
+          truncate
+          title={toolCall.name}
+        >
+          {toolDisplayName}
         </Text>
+        {toolCall.status === "pending" && (
+          <Spinner size="xs" color="amber.500" />
+        )}
         <Badge colorPalette={statusColor} size="sm">
           {toolCall.status}
         </Badge>
@@ -58,33 +94,47 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
         )}
       </Flex>
 
-      {/* Expandable content */}
-      {isExpanded && (
-        <Stack p={{ base: 2, md: 3 }} gap={{ base: 2, md: 3 }}>
-          {/* Arguments */}
-          <Box>
-            <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb="1">
-              Arguments
+      {/* Pending state message */}
+      {isExpanded && toolCall.status === "pending" && (
+        <Box p={3} bg="amber.subtle">
+          <Flex align="center" gap={2}>
+            <Spinner size="sm" color="amber.600" />
+            <Text fontSize="sm" color="amber.fg">
+              Executing {toolDisplayName}...
             </Text>
-            <Code
-              display="block"
-              whiteSpace="pre-wrap"
-              p="2"
-              borderRadius="md"
-              fontSize="xs"
-              bg="bg.subtle"
-              overflowX="auto"
-            >
-              {JSON.stringify(toolCall.args, null, 2)}
-            </Code>
-          </Box>
+          </Flex>
+        </Box>
+      )}
 
-          {/* Result */}
-          {toolCall.result !== undefined && (
-            <Box>
-              <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb="1">
-                Result
+      {/* Result card - only show when we have a result */}
+      {isExpanded && toolCall.result !== undefined && (
+        <Box p={{ base: 2, md: 3 }}>
+          <ToolResultCard toolCall={toolCall} />
+        </Box>
+      )}
+
+      {/* Optional arguments display (for debugging) */}
+      {isExpanded && showArgs && (
+        <Collapsible.Root
+          open={showArguments}
+          onOpenChange={(e) => setShowArguments(e.open)}
+        >
+          <Collapsible.Trigger asChild>
+            <Flex
+              px={3}
+              py={2}
+              cursor="pointer"
+              borderTopWidth="1px"
+              borderColor="border.subtle"
+              _hover={{ bg: "bg.subtle" }}
+            >
+              <Text fontSize="xs" color="fg.muted">
+                {showArguments ? "Hide" : "Show"} Arguments
               </Text>
+            </Flex>
+          </Collapsible.Trigger>
+          <Collapsible.Content>
+            <Box px={3} pb={3}>
               <Code
                 display="block"
                 whiteSpace="pre-wrap"
@@ -92,17 +142,13 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
                 borderRadius="md"
                 fontSize="xs"
                 bg="bg.subtle"
-                maxH={{ base: "150px", md: "200px" }}
-                overflowY="auto"
                 overflowX="auto"
               >
-                {typeof toolCall.result === "string"
-                  ? toolCall.result
-                  : JSON.stringify(toolCall.result, null, 2)}
+                {JSON.stringify(toolCall.args, null, 2)}
               </Code>
             </Box>
-          )}
-        </Stack>
+          </Collapsible.Content>
+        </Collapsible.Root>
       )}
     </Box>
   );

@@ -7,10 +7,12 @@ import {
   Text,
   SimpleGrid,
   Spinner,
+  Wrap,
+  Tag,
   useBreakpointValue,
 } from "@chakra-ui/react";
-import { useRef, useEffect } from "react";
-import { LuMessageSquare, LuBot } from "react-icons/lu";
+import { useRef, useEffect, useState } from "react";
+import { LuMessageSquare, LuBot, LuBrain, LuSparkles } from "react-icons/lu";
 import { MessageList } from "./MessageList";
 import { PromptInput } from "./PromptInput";
 import type { Message } from "@/lib/types";
@@ -18,31 +20,37 @@ import type { Message } from "@/lib/types";
 // Suggested prompts for the empty state
 const SUGGESTED_PROMPTS = [
   {
-    title: "Product Management",
-    prompt:
-      "What did Brian Chesky say about building products that users love?",
+    title: "Product-Market Fit",
+    prompt: "Who has talked about product-market fit and what did they say?",
   },
   {
     title: "Growth Strategies",
     prompt: "What are the best growth strategies discussed by podcast guests?",
   },
   {
-    title: "Career Advice",
-    prompt: "What advice did guests give about career transitions and growth?",
+    title: "Find Connections",
+    prompt: "Find connections between Reid Hoffman and other guests",
+  },
+  {
+    title: "Top Companies",
+    prompt: "What companies are mentioned most often in the podcast?",
   },
   {
     title: "Leadership",
     prompt: "What do successful leaders say about managing teams effectively?",
   },
   {
-    title: "Startup Lessons",
-    prompt: "What are the most important lessons for early-stage startups?",
+    title: "Locations",
+    prompt: "Show me locations mentioned in recent episodes",
   },
-  {
-    title: "Hiring & Culture",
-    prompt:
-      "What did guests say about hiring great people and building culture?",
-  },
+];
+
+// Quick chips that appear above the input
+const QUICK_CHIPS = [
+  "Popular guests",
+  "Product-market fit",
+  "Find connections",
+  "Show locations",
 ];
 
 interface ChatContainerProps {
@@ -100,13 +108,20 @@ export function ChatContainer({
               maxW="3xl"
               w="full"
             >
-              <Stack gap="2">
-                <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="semibold">
+              <Stack gap="2" align="center">
+                <Box color="brand.500" mb={1}>
+                  <LuBrain size={32} />
+                </Box>
+                <Text
+                  fontSize={{ base: "lg", md: "xl" }}
+                  fontWeight="semibold"
+                  fontFamily="heading"
+                >
                   Ask about Lenny's Podcast
                 </Text>
                 <Text color="fg.muted" fontSize={{ base: "xs", md: "sm" }}>
-                  Explore insights from 299 podcast episodes. Click a topic
-                  below or type your own question.
+                  Explore insights from 299 podcast episodes with AI-powered
+                  graph memory. Click a topic or type your own question.
                 </Text>
               </Stack>
 
@@ -124,8 +139,8 @@ export function ChatContainer({
                     cursor="pointer"
                     transition="all 0.2s"
                     _hover={{
-                      borderColor: "blue.500",
-                      bg: "blue.50",
+                      borderColor: "brand.500",
+                      bg: "brand.subtle",
                       transform: "translateY(-1px)",
                       boxShadow: "sm",
                     }}
@@ -138,8 +153,8 @@ export function ChatContainer({
                     minH={{ base: "80px", md: "auto" }}
                   >
                     <Flex align="center" gap={2} mb={{ base: 1, md: 2 }}>
-                      <Box color="blue.500">
-                        <LuMessageSquare size={16} />
+                      <Box color="brand.500">
+                        <LuSparkles size={16} />
                       </Box>
                       <Text
                         fontSize={{ base: "xs", md: "sm" }}
@@ -173,7 +188,7 @@ export function ChatContainer({
                   w="8"
                   h="8"
                   borderRadius="full"
-                  bg="green.subtle"
+                  bg="brand.subtle"
                   alignItems="center"
                   justifyContent="center"
                   flexShrink={0}
@@ -185,13 +200,13 @@ export function ChatContainer({
                   gap="3"
                   px="4"
                   py="3"
-                  bg="blue.subtle"
+                  bg="brand.subtle"
                   borderRadius="lg"
                   border="1px solid"
-                  borderColor="blue.200"
+                  borderColor="brand.muted"
                 >
-                  <Spinner size="sm" color="blue.500" borderWidth="2px" />
-                  <Text fontSize="sm" color="blue.700" fontWeight="medium">
+                  <Spinner size="sm" color="brand.500" borderWidth="2px" />
+                  <Text fontSize="sm" color="brand.fg" fontWeight="medium">
                     Thinking and searching podcasts...
                   </Text>
                 </Flex>

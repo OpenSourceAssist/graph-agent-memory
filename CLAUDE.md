@@ -1452,6 +1452,20 @@ Located in `examples/lennys-memory/`, this is the flagship demo for the library 
 - **SSE streaming**: Real-time token delivery with tool call visualization
 - **Automatic preference learning**: Detects user preferences from natural conversation
 
+### v2.0 UI/UX Features
+
+The latest version includes significant frontend improvements:
+
+- **Neo4j Labs Branding**: Labs Purple (#6366F1) primary accent, custom typography (Syne headings, Public Sans body, JetBrains Mono code), Beta badge, Labs disclaimer
+- **Inline Tool Result Cards**: Tool outputs display as rich cards in the chat:
+  - `MapCard`: Inline Leaflet maps for location tools, expandable to fullscreen
+  - `GraphCard`: Inline NVL graphs for entity/relationship tools, expandable to fullscreen
+  - `DataCard`: Responsive tables for search/list results
+  - `StatsCard`: Grid of color-coded metrics
+  - `RawJsonCard`: Collapsible JSON fallback
+- **Onboarding**: WelcomeModal for first-time users, suggested query chips
+- **Mobile-First Design**: Responsive layout, drawer navigation, FAB for new conversations
+
 ### Agent Tools (19 total)
 
 **Podcast Content Search (6):** `search_podcast_content`, `search_by_speaker`, `search_by_episode`, `get_episode_list`, `get_speaker_list`, `get_memory_stats`
@@ -1485,6 +1499,28 @@ The map view (`MemoryMapView.tsx`) supports:
 - User preferences displayed by category
 - Agent tools accordion
 - Responsive: side panel on desktop, bottom sheet on mobile
+
+### Key Frontend Files (v2.0)
+
+**Theme & Branding:**
+- `frontend/src/theme/index.ts` - Neo4j Labs theme with brand colors, fonts, semantic tokens
+- `frontend/src/components/ui/provider.tsx` - Chakra provider using custom theme
+- `frontend/src/components/layout/Footer.tsx` - Labs footer with repo/community links
+- `frontend/src/components/branding/LabsDisclaimer.tsx` - Labs project disclaimer
+
+**Tool Result Cards:**
+- `frontend/src/components/chat/cards/types.ts` - TypeScript interfaces (CardType, LocationData, GraphNodeData, etc.)
+- `frontend/src/components/chat/cards/toolCardRegistry.ts` - Tool-to-card mapping logic
+- `frontend/src/components/chat/cards/BaseCard.tsx` - Shared card wrapper with expand button
+- `frontend/src/components/chat/cards/ToolResultCard.tsx` - Smart card selector component
+- `frontend/src/components/chat/cards/MapCard.tsx` - Inline Leaflet map, dynamic import
+- `frontend/src/components/chat/cards/GraphCard.tsx` - Inline NVL graph, dynamic import
+- `frontend/src/components/chat/cards/DataCard.tsx` - Table with auto-detected columns
+- `frontend/src/components/chat/cards/StatsCard.tsx` - Metrics grid display
+- `frontend/src/components/chat/cards/RawJsonCard.tsx` - JSON fallback
+
+**Onboarding:**
+- `frontend/src/components/onboarding/WelcomeModal.tsx` - First-time user modal with memory type explanations
 
 ### API Endpoints
 

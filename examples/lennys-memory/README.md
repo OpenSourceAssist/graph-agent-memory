@@ -1,10 +1,19 @@
 # Lenny's Podcast Memory Explorer
 
+![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)
+![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)
+![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)
+
 A full-stack AI agent application that transforms 299 episodes of Lenny's Podcast into a searchable knowledge graph with conversational AI, interactive graph visualization, geospatial analysis, and Wikipedia-enriched entity cards -- all powered by [neo4j-agent-memory](https://github.com/neo4j-labs/agent-memory).
 
 **[Try the live demo →](https://lennys-memory.vercel.app)**
 
-> ⚠️ This example is part of [neo4j-agent-memory](https://github.com/neo4j-labs/agent-memory), a **Neo4j Labs project**. It is actively maintained but not officially supported. For questions, use the [Neo4j Community Forum](https://community.neo4j.com).
+> ⚠️ **Neo4j Labs Project**
+>
+> This project is part of Neo4j Labs and is actively maintained, but not officially
+> supported. There are no SLAs or guarantees around backwards compatibility and
+> deprecation. For questions and support, please use the
+> [Neo4j Community Forum](https://community.neo4j.com).
 
 ---
 
@@ -35,6 +44,36 @@ This is the flagship demo application for the `neo4j-agent-memory` library. It d
 | **LLM** | OpenAI GPT-4o |
 | **Entity Extraction** | spaCy + GLiNER2 + LLM pipeline |
 | **Entity Enrichment** | Wikipedia/Wikimedia API |
+
+## v2.0 Features
+
+The latest version includes significant UI/UX improvements:
+
+### Neo4j Labs Branding
+- Labs Purple (#6366F1) primary accent with Neo4j Teal (#009999) secondary
+- Custom typography: Syne (headings), Public Sans (body), JetBrains Mono (code)
+- Beta status badge and Labs disclaimer throughout
+
+### Inline Tool Result Cards
+Tool outputs are now displayed as rich, interactive cards directly in the chat:
+
+| Tool Pattern | Card Type | Description |
+|-------------|-----------|-------------|
+| Location tools | **MapCard** | Inline Leaflet map with markers, expandable to fullscreen |
+| Entity/graph tools | **GraphCard** | Inline NVL graph visualization, expandable to fullscreen |
+| Search/list tools | **DataCard** | Responsive table with auto-detected columns |
+| Stats/metrics tools | **StatsCard** | Grid of color-coded metric boxes |
+| Other tools | **RawJsonCard** | Collapsible JSON viewer for debugging |
+
+### Onboarding & Education
+- **WelcomeModal**: First-time user introduction explaining memory types
+- **Suggested queries**: Clickable query chips above the input area
+- **Memory type explanations**: Short-term, long-term, and reasoning memory
+
+### Mobile-First Responsive Design
+- Responsive layout with drawer navigation on mobile
+- Touch-optimized controls (44px minimum targets)
+- Floating action button for new conversations
 
 ---
 
@@ -767,20 +806,42 @@ lennys-memory/
 │   ├── package.json
 │   └── src/
 │       ├── app/                   # Next.js app router
+│       │   ├── layout.tsx         # Root layout with fonts
+│       │   └── page.tsx           # Main page with WelcomeModal
+│       ├── theme/
+│       │   └── index.ts           # Neo4j Labs custom theme (v2.0)
 │       ├── components/
+│       │   ├── ui/
+│       │   │   └── provider.tsx   # Chakra provider with custom theme
 │       │   ├── chat/
 │       │   │   ├── ChatContainer.tsx    # Main chat interface
 │       │   │   ├── MessageList.tsx      # Message display
 │       │   │   ├── Message.tsx          # Individual message
-│       │   │   ├── ToolCallDisplay.tsx  # Expandable tool call UI
-│       │   │   └── PromptInput.tsx      # Input with suggested prompts
+│       │   │   ├── ToolCallDisplay.tsx  # Tool result card routing (v2.0)
+│       │   │   ├── PromptInput.tsx      # Input with suggested prompts
+│       │   │   └── cards/               # Tool result cards (v2.0)
+│       │   │       ├── index.ts         # Barrel exports
+│       │   │       ├── types.ts         # Card type definitions
+│       │   │       ├── toolCardRegistry.ts  # Tool-to-card mapping
+│       │   │       ├── BaseCard.tsx     # Shared card wrapper
+│       │   │       ├── ToolResultCard.tsx   # Smart card selector
+│       │   │       ├── MapCard.tsx      # Inline Leaflet map
+│       │   │       ├── GraphCard.tsx    # Inline NVL graph
+│       │   │       ├── DataCard.tsx     # Table display
+│       │   │       ├── StatsCard.tsx    # Metrics grid
+│       │   │       └── RawJsonCard.tsx  # JSON fallback
 │       │   ├── layout/
-│       │   │   ├── AppLayout.tsx        # Responsive layout with drawer
-│       │   │   └── Sidebar.tsx          # Thread list + branding
-│       │   └── memory/
-│       │       ├── MemoryContext.tsx     # Entity cards + preferences panel
-│       │       ├── MemoryGraphView.tsx  # NVL graph visualization
-│       │       └── MemoryMapView.tsx    # Leaflet map visualization
+│       │   │   ├── AppLayout.tsx        # Responsive layout with Labs branding
+│       │   │   ├── Sidebar.tsx          # Thread list
+│       │   │   └── Footer.tsx           # Labs footer links (v2.0)
+│       │   ├── memory/
+│       │   │   ├── MemoryContext.tsx     # Entity cards + preferences panel
+│       │   │   ├── MemoryGraphView.tsx  # NVL graph visualization
+│       │   │   └── MemoryMapView.tsx    # Leaflet map visualization
+│       │   ├── branding/
+│       │   │   └── LabsDisclaimer.tsx   # Labs disclaimer alert (v2.0)
+│       │   └── onboarding/
+│       │       └── WelcomeModal.tsx     # First-time user modal (v2.0)
 │       ├── hooks/
 │       │   ├── useChat.ts              # SSE streaming hook
 │       │   └── useThreads.ts           # Thread management hook

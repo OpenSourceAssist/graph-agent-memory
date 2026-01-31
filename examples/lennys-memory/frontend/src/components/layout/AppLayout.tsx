@@ -12,6 +12,8 @@ import {
   Portal,
   CloseButton,
   Menu,
+  Badge,
+  Link,
   useBreakpointValue,
 } from "@chakra-ui/react";
 import {
@@ -20,10 +22,13 @@ import {
   LuMapPin,
   LuMenu,
   LuEllipsisVertical,
+  LuBrain,
+  LuNetwork,
+  LuExternalLink,
 } from "react-icons/lu";
-import { HiOutlineShare } from "react-icons/hi";
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
+import { Footer } from "./Footer";
 import MemoryGraphView from "@/components/memory/MemoryGraphView";
 import MemoryMapView from "@/components/memory/MemoryMapView";
 import type { Thread } from "@/lib/types";
@@ -131,7 +136,7 @@ export function AppLayout({
           borderColor="border.subtle"
           bg="bg.panel"
         >
-          <Flex alignItems="center">
+          <Flex alignItems="center" gap={2}>
             {/* Mobile hamburger menu */}
             <IconButton
               aria-label="Open menu"
@@ -154,49 +159,75 @@ export function AppLayout({
               {sidebarOpen ? <LuPanelLeftClose /> : <LuPanelLeft />}
             </IconButton>
 
-            <Text
-              ml={{ base: 2, md: 3 }}
-              fontWeight="medium"
-              color="fg.default"
-              fontSize={{ base: "sm", md: "md" }}
-            >
-              <Text as="span" hideBelow="sm">
-                Lenny's Podcast Explorer
+            {/* Logo and title */}
+            <Flex alignItems="center" gap={2}>
+              <Box color="brand.500">
+                <LuBrain size={20} />
+              </Box>
+              <Text
+                fontWeight="semibold"
+                color="fg.default"
+                fontSize={{ base: "sm", md: "md" }}
+                fontFamily="heading"
+              >
+                <Text as="span" hideBelow="sm">
+                  Lenny's Memory
+                </Text>
+                <Text as="span" hideFrom="sm">
+                  Lenny's Memory
+                </Text>
               </Text>
-              <Text as="span" hideFrom="sm">
-                Lenny's Podcast
-              </Text>
-            </Text>
+              <Badge
+                size="sm"
+                colorPalette="brand"
+                variant="subtle"
+                hideBelow="sm"
+              >
+                Beta
+              </Badge>
+            </Flex>
           </Flex>
 
           {/* Desktop action buttons */}
-          <HStack gap={2} hideBelow="sm">
+          <HStack gap={2} hideBelow="md">
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={() => setMapViewOpen(true)}
             >
-              <LuMapPin />
-              <Text ml="2">View Map</Text>
+              <LuMapPin size={16} />
+              <Text ml="1.5">Map</Text>
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={() => setGraphViewOpen(true)}
             >
-              <HiOutlineShare />
-              <Text ml="2">View Graph</Text>
+              <LuNetwork size={16} />
+              <Text ml="1.5">Graph</Text>
             </Button>
+            <Link
+              href="https://github.com/neo4j-labs/agent-memory"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button size="sm" variant="ghost" colorPalette="brand">
+                <LuExternalLink size={16} />
+                <Text ml="1.5" hideBelow="lg">
+                  GitHub
+                </Text>
+              </Button>
+            </Link>
           </HStack>
 
-          {/* Mobile action menu */}
+          {/* Mobile/tablet action menu */}
           <Menu.Root>
             <Menu.Trigger asChild>
               <IconButton
                 aria-label="More options"
                 variant="ghost"
                 size="sm"
-                hideFrom="sm"
+                hideFrom="md"
               >
                 <LuEllipsisVertical />
               </IconButton>
@@ -205,15 +236,27 @@ export function AppLayout({
               <Menu.Positioner>
                 <Menu.Content>
                   <Menu.Item value="map" onClick={() => setMapViewOpen(true)}>
-                    <LuMapPin />
-                    <Text ml="2">View Map</Text>
+                    <LuMapPin size={16} />
+                    <Text ml="2">View All Locations</Text>
                   </Menu.Item>
                   <Menu.Item
                     value="graph"
                     onClick={() => setGraphViewOpen(true)}
                   >
-                    <HiOutlineShare />
-                    <Text ml="2">View Graph</Text>
+                    <LuNetwork size={16} />
+                    <Text ml="2">View Full Graph</Text>
+                  </Menu.Item>
+                  <Menu.Item
+                    value="github"
+                    onClick={() =>
+                      window.open(
+                        "https://github.com/neo4j-labs/agent-memory",
+                        "_blank",
+                      )
+                    }
+                  >
+                    <LuExternalLink size={16} />
+                    <Text ml="2">GitHub</Text>
                   </Menu.Item>
                 </Menu.Content>
               </Menu.Positioner>
@@ -225,6 +268,9 @@ export function AppLayout({
         <Box flex="1" overflow="hidden">
           {children}
         </Box>
+
+        {/* Footer with Labs branding */}
+        <Footer />
       </Stack>
 
       {/* Memory Graph View Modal */}
