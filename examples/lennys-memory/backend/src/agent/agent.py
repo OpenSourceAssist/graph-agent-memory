@@ -30,6 +30,18 @@ from src.agent.tools import (
     # Location query tools
     search_locations,
     search_podcast_content,
+    # NEW: Enhanced reasoning memory tools
+    learn_from_similar_task,
+    get_tool_usage_patterns,
+    get_session_reasoning_history,
+    # NEW: Entity management tools
+    find_duplicate_entities,
+    get_entity_provenance,
+    trigger_entity_enrichment,
+    # NEW: Conversation & summary tools
+    get_conversation_context,
+    list_podcast_sessions,
+    get_episode_summary,
 )
 from src.config import get_settings
 
@@ -61,9 +73,25 @@ You have access to transcripts from the podcast stored in memory. You can:
 - Analyze location clusters to understand geographic focus
 - Calculate distances between mentioned locations
 
-## Personalization
+## Personalization & Memory
 - Access user preferences to tailor responses
 - Learn from successful past interactions
+- Recall earlier parts of the conversation
+
+## Reasoning & Learning
+- Find similar past tasks and learn from successful approaches
+- Analyze which tools work best for different query types
+- Track reasoning history for complex multi-step tasks
+
+## Data Quality & Provenance
+- Check where entity information came from (provenance)
+- Find potential duplicate entities in the knowledge graph
+- Check enrichment status for entities (Wikipedia data availability)
+
+## Episode Overview
+- Get episode summaries with key topics and entities
+- List all podcast sessions with metadata
+- Browse conversation history
 
 Notable guests include Brian Chesky (Airbnb), Andy Johns (growth expert),
 Melissa Perri (product management), Ryan Hoover (Product Hunt), and many others.
@@ -71,16 +99,27 @@ Melissa Perri (product management), Ryan Hoover (Product Hunt), and many others.
 ## Multi-Step Reasoning
 
 For complex questions, you should:
-1. **Plan first**: Break down the question into steps and identify which tools to use
-2. **Execute step by step**: Call tools one at a time, using results to inform next steps
-3. **Synthesize**: Combine information from multiple tool calls into a coherent answer
+1. **Check for similar past tasks**: Use `tool_learn_from_similar_task` to see if you've solved something similar
+2. **Plan first**: Break down the question into steps and identify which tools to use
+3. **Execute step by step**: Call tools one at a time, using results to inform next steps
+4. **Synthesize**: Combine information from multiple tool calls into a coherent answer
 
 For example, if asked "Compare what Brian Chesky and Andy Johns said about growth":
-- First, search for Brian Chesky's comments on growth
+- First, check if you've answered similar comparison questions before
+- Search for Brian Chesky's comments on growth
 - Then, search for Andy Johns' comments on growth
 - Finally, synthesize and compare their perspectives
 
 You can call multiple tools in sequence to gather comprehensive information.
+
+## Tool Selection Strategy
+
+Use `tool_get_tool_patterns` to understand which tools perform best. Recommended tools by task:
+- **Topic exploration**: Start with `tool_search_podcast`, then `tool_search_entities` for deeper context
+- **Person/company info**: Use `tool_get_entity_context` for enriched data, `tool_get_entity_provenance` for sources
+- **Episode overview**: Use `tool_get_episode_summary` before detailed searches
+- **Geographic questions**: Combine `tool_search_locations` with `tool_get_episode_locations`
+- **Complex tasks**: Check `tool_learn_from_similar_task` first to learn from past successes
 
 ## CRITICAL: Always Use Tools
 
@@ -477,6 +516,168 @@ You've successfully handled similar queries before. Consider these approaches:
             limit: Maximum number of similar traces to return
         """
         result = await find_similar_past_queries(ctx, current_query, limit)
+        return json.dumps(result, default=str)
+
+    # ==========================================================================
+    # Enhanced Reasoning Memory Tools (NEW)
+    # ==========================================================================
+
+    @agent.tool
+    async def tool_learn_from_similar_task(
+        ctx: RunContext[AgentDeps],
+        task_description: str,
+        limit: int = 1,
+    ) -> str:
+        """Get full reasoning traces from similar past tasks for few-shot learning.
+
+        Returns complete reasoning steps so you can learn the approach that worked.
+        Use this when facing a complex or unfamiliar task.
+
+        Args:
+            task_description: Description of the current task
+            limit: Number of similar traces to return
+        """
+        result = await learn_from_similar_task(ctx, task_description, limit)
+        return json.dumps(result, default=str)
+
+    @agent.tool
+    async def tool_get_tool_patterns(
+        ctx: RunContext[AgentDeps],
+        tool_name: str | None = None,
+        limit: int = 10,
+    ) -> str:
+        """Analyze tool usage patterns to understand which tools are most effective.
+
+        Returns success rates, average durations, and recommendations.
+        Use this to optimize your tool selection strategy.
+
+        Args:
+            tool_name: Optional specific tool to analyze
+            limit: Maximum number of tools to include
+        """
+        result = await get_tool_usage_patterns(ctx, tool_name, limit)
+        return json.dumps(result, default=str)
+
+    @agent.tool
+    async def tool_get_reasoning_history(
+        ctx: RunContext[AgentDeps],
+        session_id: str | None = None,
+        limit: int = 10,
+    ) -> str:
+        """Get reasoning traces from a session to understand conversation history.
+
+        Use this to see what reasoning approaches were used previously.
+
+        Args:
+            session_id: Session ID to query (defaults to current session)
+            limit: Maximum number of traces to return
+        """
+        result = await get_session_reasoning_history(ctx, session_id, limit)
+        return json.dumps(result, default=str)
+
+    # ==========================================================================
+    # Entity Management Tools (NEW)
+    # ==========================================================================
+
+    @agent.tool
+    async def tool_find_duplicates(
+        ctx: RunContext[AgentDeps],
+        entity_type: str | None = None,
+        limit: int = 20,
+    ) -> str:
+        """Find potential duplicate entities that may need merging.
+
+        Useful for data quality analysis and entity resolution.
+
+        Args:
+            entity_type: Filter by type (PERSON, ORGANIZATION, etc.)
+            limit: Maximum number of duplicate pairs to return
+        """
+        result = await find_duplicate_entities(ctx, entity_type, limit)
+        return json.dumps(result, default=str)
+
+    @agent.tool
+    async def tool_get_entity_provenance(
+        ctx: RunContext[AgentDeps],
+        entity_name: str,
+    ) -> str:
+        """Get the source/provenance information for an entity.
+
+        Shows which messages the entity was extracted from.
+        Use this to understand where information came from.
+
+        Args:
+            entity_name: Name of the entity to get provenance for
+        """
+        result = await get_entity_provenance(ctx, entity_name)
+        return json.dumps(result, default=str)
+
+    @agent.tool
+    async def tool_check_enrichment(
+        ctx: RunContext[AgentDeps],
+        entity_name: str,
+        provider: str = "wikimedia",
+    ) -> str:
+        """Check enrichment status for an entity or request enrichment.
+
+        Shows if entity has Wikipedia data or needs enrichment.
+
+        Args:
+            entity_name: Name of the entity to check
+            provider: Enrichment provider ("wikimedia" or "diffbot")
+        """
+        result = await trigger_entity_enrichment(ctx, entity_name, provider)
+        return json.dumps(result, default=str)
+
+    # ==========================================================================
+    # Conversation & Summary Tools (NEW)
+    # ==========================================================================
+
+    @agent.tool
+    async def tool_get_conversation_context(
+        ctx: RunContext[AgentDeps],
+        limit: int = 10,
+    ) -> str:
+        """Get recent conversation history for context.
+
+        Use this to recall what was discussed earlier in the conversation.
+
+        Args:
+            limit: Maximum number of messages to return
+        """
+        result = await get_conversation_context(ctx, limit)
+        return json.dumps(result, default=str)
+
+    @agent.tool
+    async def tool_list_podcast_sessions(
+        ctx: RunContext[AgentDeps],
+        sort_by: str = "message_count",
+        limit: int = 20,
+    ) -> str:
+        """List available podcast sessions with metadata.
+
+        Shows episodes with message counts and timestamps.
+
+        Args:
+            sort_by: Sort field ("message_count", "created_at", "updated_at")
+            limit: Maximum number of sessions
+        """
+        result = await list_podcast_sessions(ctx, sort_by, "desc", limit)
+        return json.dumps(result, default=str)
+
+    @agent.tool
+    async def tool_get_episode_summary(
+        ctx: RunContext[AgentDeps],
+        episode_guest: str,
+    ) -> str:
+        """Get a summary of a podcast episode including key topics and entities.
+
+        Use this to get a quick overview before diving into specific content.
+
+        Args:
+            episode_guest: Guest name (e.g., "Brian Chesky")
+        """
+        result = await get_episode_summary(ctx, episode_guest)
         return json.dumps(result, default=str)
 
     return agent
