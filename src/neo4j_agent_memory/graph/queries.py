@@ -898,26 +898,28 @@ ORDER BY distance
 """
 
 # Merge two entities (mark source as merged into target)
+# Note: This query uses CALL subqueries which require Neo4j 4.1+
 MERGE_ENTITIES = """
 MATCH (source:Entity {id: $source_id})
 MATCH (target:Entity {id: $target_id})
-// Transfer relationships from source to target
-OPTIONAL MATCH (source)<-[r:MENTIONS]-(m:Message)
-WITH source, target, collect({msg: m, rel: r}) AS mentions
-FOREACH (item IN mentions |
-    MERGE (item.msg)-[:MENTIONS]->(target)
-)
-// Update SAME_AS to point to target
-OPTIONAL MATCH (source)-[r:SAME_AS]-(other:Entity)
-WHERE other <> target
-WITH source, target, collect({other: other, rel: r}) AS sameAs
-FOREACH (item IN sameAs |
+// Transfer MENTIONS relationships from source to target using CALL subquery
+CALL (source, target) {
+    MATCH (source)<-[:MENTIONS]-(m:Message)
+    WHERE NOT (m)-[:MENTIONS]->(target)
+    MERGE (m)-[:MENTIONS]->(target)
+    RETURN count(*) AS mentionsTransferred
+}
+// Transfer SAME_AS relationships to target using CALL subquery
+CALL (source, target) {
+    MATCH (source)-[r:SAME_AS]-(other:Entity)
+    WHERE other <> target AND NOT (target)-[:SAME_AS]-(other)
     MERGE (target)-[:SAME_AS {
-        confidence: item.rel.confidence,
+        confidence: r.confidence,
         match_type: 'merged',
         created_at: datetime()
-    }]-(item.other)
-)
+    }]-(other)
+    RETURN count(*) AS sameAsTransferred
+}
 // Mark source as merged
 SET source.merged_into = target.id,
     source.merged_at = datetime()
