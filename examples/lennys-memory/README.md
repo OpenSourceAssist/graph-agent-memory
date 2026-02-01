@@ -147,6 +147,12 @@ make load-dry-run
 # Extract entities from already loaded sessions (if you used --no-entities initially)
 make extract-entities
 
+# Backfill RELATED_TO relationships between existing entities
+make backfill-relationships
+
+# Check relationship extraction status
+make backfill-relationships-status
+
 # Geocode Location entities (add lat/lon coordinates for spatial queries)
 make geocode-locations
 
@@ -486,6 +492,89 @@ Enrichment data is also surfaced in:
 - **Graph View**: Node property panel displays enrichment section with image and description
 - **Map View**: Location popups include enrichment context
 
+### Relationship Extraction with GLiREL
+
+In addition to extracting entities, the system can extract relationships between entities using GLiREL (GLiNER for Relations). This creates `RELATED_TO` relationships between Entity nodes, capturing semantic connections like "works_at", "founded_by", "lives_in", etc.
+
+#### How It Works
+
+When messages are processed with relationship extraction enabled, the system:
+
+1. **Extracts entities** using the multi-stage pipeline (spaCy + GLiNER2 + LLM)
+2. **Runs GLiREL** on the same text to identify relationships between entity pairs
+3. **Creates RELATED_TO relationships** in Neo4j with:
+   - `relation_type`: The semantic type (e.g., "WORKS_AT", "FOUNDED_BY")
+   - `confidence`: GLiREL's confidence score (0.0-1.0)
+   - `created_at`: Timestamp of extraction
+
+#### Relationship Types
+
+GLiREL extracts relationships based on the POLE+O ontology:
+
+| Relation Type | Description | Example |
+|---------------|-------------|---------|
+| `WORKS_AT` | Person employed by organization | Brian Chesky → Airbnb |
+| `FOUNDED_BY` | Organization founded by person | Airbnb → Brian Chesky |
+| `LIVES_IN` | Person resides in location | Brian Chesky → San Francisco |
+| `LOCATED_IN` | Entity located in place | Airbnb → San Francisco |
+| `MEMBER_OF` | Person belongs to organization | Person → Y Combinator |
+| `SUBSIDIARY_OF` | Organization owned by another | Instagram → Meta |
+| `PARTICIPATED_IN` | Person involved in event | Founder → IPO |
+| `KNOWS` | Person acquainted with person | Brian Chesky → Joe Gebbia |
+
+#### Backfilling Relationships for Existing Data
+
+If you have an existing database with entities but no `RELATED_TO` relationships (e.g., data loaded before relationship extraction was implemented), you can backfill them:
+
+```bash
+# Check current status
+make backfill-relationships-status
+
+# Run the backfill
+make backfill-relationships
+```
+
+**Script options:**
+
+```bash
+cd backend && uv run python ../scripts/backfill_relationships.py --help
+
+Options:
+  --status              Show current status and exit
+  --dry-run             Preview without making changes
+  --reprocess           Reprocess all messages (not just pending)
+  --limit N             Process only N messages
+  --batch-size N        Messages per batch (default: 50)
+  --threshold FLOAT     Confidence threshold (default: 0.5)
+  --device cpu|cuda|mps Device for GLiREL model
+```
+
+**Progress display:**
+```
+  Progress: 450/1200 (38%) | Relations: 2,847 stored | 12.3 msg/s | ETA: 1m 05s
+```
+
+#### Querying Relationships
+
+Once relationships are extracted, you can query them in Neo4j:
+
+```cypher
+// Find all relationships between entities
+MATCH (e1:Entity)-[r:RELATED_TO]->(e2:Entity)
+RETURN e1.name, r.relation_type, e2.name, r.confidence
+ORDER BY r.confidence DESC
+LIMIT 20
+
+// Find who works at a specific company
+MATCH (p:Entity:Person)-[r:RELATED_TO {relation_type: "WORKS_AT"}]->(o:Entity:Organization)
+WHERE o.name = "Airbnb"
+RETURN p.name, r.confidence
+
+// Find all relationships for a person
+MATCH (p:Entity {name: "Brian Chesky"})-[r:RELATED_TO]-(other:Entity)
+RETURN p.name, r.relation_type, other.name, other.type
+```
+
 ### SSE Streaming Architecture
 
 The chat endpoint uses Server-Sent Events for real-time streaming:
@@ -733,13 +822,19 @@ Entity nodes have additional type labels: `:Person`, `:Organization`, `:Location
 // Knowledge graph (entities)
 (Message)-[:MENTIONS]->(Entity)
 (Entity)-[:EXTRACTED_FROM]->(Message)
-(Entity)-[:SAME_AS]->(Entity)  // deduplication
+(Entity)-[:SAME_AS]->(Entity)     // deduplication
+(Entity)-[:RELATED_TO]->(Entity)  // semantic relationships (works_at, founded_by, etc.)
 
 // Reasoning memory (reasoning)
 (ReasoningTrace)-[:INITIATED_BY]->(Message)
 (ReasoningTrace)-[:HAS_STEP]->(ReasoningStep)
 (ReasoningStep)-[:USED_TOOL]->(ToolCall)
 ```
+
+The `RELATED_TO` relationship includes properties:
+- `relation_type`: Semantic type (e.g., "WORKS_AT", "FOUNDED_BY", "LIVES_IN")
+- `confidence`: Extraction confidence score (0.0-1.0)
+- `created_at`: Timestamp of when the relationship was created
 
 ### Example Cypher Queries
 
@@ -766,6 +861,13 @@ MATCH (e:Entity:Location)
 WHERE e.location IS NOT NULL
   AND point.distance(e.location, point({latitude: 37.77, longitude: -122.42})) < 50000
 RETURN e.name, e.location.latitude, e.location.longitude
+
+// Explore relationships between entities
+MATCH (e1:Entity)-[r:RELATED_TO]->(e2:Entity)
+WHERE r.confidence > 0.7
+RETURN e1.name, r.relation_type, e2.name, r.confidence
+ORDER BY r.confidence DESC
+LIMIT 20
 
 // Get a conversation's full context
 MATCH (c:Conversation {session_id: "lenny-podcast-brian-chesky"})

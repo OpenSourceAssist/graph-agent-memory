@@ -1,4 +1,4 @@
-.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend run neo4j clean geocode-locations extract-entities enrich enrich-status
+.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend run neo4j clean geocode-locations extract-entities enrich enrich-status backfill-relationships backfill-relationships-status
 
 # Default target
 help:
@@ -16,10 +16,12 @@ help:
 	@echo "  make load-dry-run   Preview what would be loaded without loading"
 	@echo ""
 	@echo "Post-Processing:"
-	@echo "  make extract-entities   Extract entities from loaded sessions"
-	@echo "  make geocode-locations  Geocode Location entities (add lat/lon coordinates)"
-	@echo "  make enrich             Enrich entities with Wikipedia data"
-	@echo "  make enrich-status      Show enrichment progress/status"
+	@echo "  make extract-entities           Extract entities from loaded sessions"
+	@echo "  make backfill-relationships     Extract relationships between existing entities"
+	@echo "  make backfill-relationships-status  Show relationship extraction status"
+	@echo "  make geocode-locations          Geocode Location entities (add lat/lon coordinates)"
+	@echo "  make enrich                     Enrich entities with Wikipedia data"
+	@echo "  make enrich-status              Show enrichment progress/status"
 	@echo ""
 	@echo "Development:"
 	@echo "  make run            Start both backend and frontend (recommended)"
@@ -82,6 +84,15 @@ extract-entities:
 	cd backend && $(LOAD_ENV) uv run python ../scripts/load_transcripts.py \
 		--data-dir ../data \
 		--extract-entities-only
+
+# Backfill RELATED_TO relationships between existing entities
+# Uses GLiREL for relationship extraction (no LLM required)
+backfill-relationships:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/backfill_relationships.py
+
+# Show relationship extraction status
+backfill-relationships-status:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/backfill_relationships.py --status
 
 # Geocode Location entities (add lat/lon coordinates)
 # Uses Nominatim (OpenStreetMap) by default - rate limited to 1 req/sec
