@@ -154,6 +154,16 @@ Messages in conversations are linked sequentially for efficient traversal:
 (Conversation) -[:FIRST_MESSAGE]-> (Message)     # O(1) access to first message
 (Conversation) -[:HAS_MESSAGE]-> (Message)       # Membership (kept for backward compat)
 (Message) -[:NEXT_MESSAGE]-> (Message)           # Sequential chain
+(Message) -[:MENTIONS]-> (Entity)                # Entity mentions in message
+```
+
+#### Long-Term Memory Relationships
+
+Entities can be linked to each other via extracted relationships:
+
+```
+(Entity) -[:RELATED_TO {relation_type, confidence}]-> (Entity)  # Extracted relationships
+(Entity) -[:SAME_AS]-> (Entity)                                  # Entity deduplication
 ```
 
 #### Cross-Memory Relationships
@@ -1039,7 +1049,7 @@ for chunk in chunks:
     print(f"  Approx tokens: {chunk.approx_token_count}")
 ```
 
-### GLiREL Relation Extraction (without LLM)
+### GLiREL Relationship Extraction (without LLM)
 
 GLiREL extracts relationships between entities without requiring LLM calls:
 
@@ -1053,7 +1063,7 @@ from neo4j_agent_memory.extraction import (
 
 # Check if GLiREL is available
 if is_glirel_available():
-    # Option 1: Separate entity and relation extraction
+    # Option 1: Separate entity and relationship extraction
     from neo4j_agent_memory.extraction import GLiNEREntityExtractor
 
     entity_extractor = GLiNEREntityExtractor.for_schema("poleo")
@@ -1074,6 +1084,41 @@ if is_glirel_available():
 # Default relation types for POLE+O model
 print(DEFAULT_RELATION_TYPES.keys())
 # works_at, lives_in, member_of, knows, located_in, founded_by, owns, etc.
+```
+
+### Automatic Relationship Storage
+
+When adding messages with entity extraction enabled, extracted relationships are automatically stored as `RELATED_TO` relationships in Neo4j:
+
+```python
+# Relationships are stored automatically when adding messages
+await memory.short_term.add_message(
+    "session-1",
+    "user",
+    "Brian Chesky founded Airbnb in San Francisco.",
+    extract_entities=True,
+    extract_relations=True,  # Default: True
+)
+
+# This creates:
+# - Entity nodes: Brian Chesky (PERSON), Airbnb (ORGANIZATION), San Francisco (LOCATION)
+# - MENTIONS relationships: Message -> Entity
+# - RELATED_TO relationships: (Brian Chesky)-[:RELATED_TO {relation_type: "FOUNDED"}]->(Airbnb)
+
+# Batch operations also support relationship extraction
+await memory.short_term.add_messages_batch(
+    "session-1",
+    messages,
+    extract_entities=True,
+    extract_relations=True,  # Default: True (only applies when extract_entities=True)
+)
+
+# Or extract from existing session
+result = await memory.short_term.extract_entities_from_session(
+    "session-1",
+    extract_relations=True,  # Default: True
+)
+print(f"Extracted {result['relations_extracted']} relationships")
 ```
 
 ### Schema Persistence

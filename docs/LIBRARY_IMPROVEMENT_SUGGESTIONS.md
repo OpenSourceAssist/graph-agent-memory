@@ -427,12 +427,186 @@ The library's `_build_metadata_filter_clause()` uses `apoc.convert.fromJsonMap()
 
 ---
 
+## 11. Store Extracted Relations in Short-Term Memory (HIGH PRIORITY)
+
+### Issue Discovered
+The entity extraction pipeline extracts **both entities AND relations**, but only entities are stored. Relations are silently discarded.
+
+### Current Flow
+```
+Text → Extractor → ExtractionResult { entities: [...], relations: [...] }
+                          ↓
+         ShortTermMemory._extract_and_link_entities()
+                          ↓
+         ✅ Creates Entity nodes
+         ✅ Creates MENTIONS relationships (Message→Entity)
+         ❌ IGNORES result.relations ← BUG/MISSING FEATURE
+```
+
+### Code Location
+In `neo4j_agent_memory/memory/short_term.py`:
+
+```python
+async def _extract_and_link_entities(self, message: Message) -> None:
+    """Extract entities from message and link them."""
+    result = await self._extractor.extract(message.content)
+    result = result.filter_invalid_entities()
+
+    for entity in result.entities:
+        # ... creates Entity nodes and MENTIONS relationships
+        pass
+
+    # ❌ result.relations is NEVER processed!
+```
+
+Similarly in `extract_entities_from_session()`:
+```python
+extraction_result = await self._extractor.extract(content)
+extraction_result = extraction_result.filter_invalid_entities()
+
+for entity in extraction_result.entities:
+    # ... stores entities
+    pass
+
+# ❌ extraction_result.relations is NEVER used!
+```
+
+### Impact
+- `RELATED_TO` relationships are never created between entities
+- The knowledge graph only has `Message -[:MENTIONS]-> Entity` connections
+- Entity-to-entity relationships like "Brian Chesky FOUNDED Airbnb" are lost
+- The `get_graph()` method warns about missing `RELATED_TO` relationship type
+
+### Suggested Fix
+
+```python
+async def _extract_and_link_entities(self, message: Message) -> None:
+    """Extract entities from message and link them."""
+    result = await self._extractor.extract(message.content)
+    result = result.filter_invalid_entities()
+
+    # Track created entity IDs for relation linking
+    entity_name_to_id: dict[str, str] = {}
+
+    for entity in result.entities:
+        entity_id = str(uuid4())
+        # ... create entity node ...
+        entity_name_to_id[entity.name.lower()] = entity_id
+
+        # ... create MENTIONS relationship ...
+
+    # NEW: Store extracted relations
+    if self._long_term is not None:  # Need reference to LongTermMemory
+        for relation in result.relations:
+            source_id = entity_name_to_id.get(relation.source.lower())
+            target_id = entity_name_to_id.get(relation.target.lower())
+
+            if source_id and target_id:
+                await self._long_term.add_relationship(
+                    source=source_id,
+                    target=target_id,
+                    relationship_type=relation.relation_type,
+                    description=relation.description,
+                    confidence=relation.confidence,
+                )
+```
+
+### Alternative: Separate Relation Extraction Method
+
+```python
+async def extract_relations_from_session(
+    self,
+    session_id: str,
+    *,
+    batch_size: int = 50,
+    on_progress: Callable[[int, int], None] | None = None,
+) -> dict[str, int]:
+    """
+    Extract and store relations between entities from session messages.
+
+    This is useful after entity extraction to build the knowledge graph.
+    Relations are stored as RELATED_TO relationships between Entity nodes.
+
+    Returns:
+        Stats dict with 'messages_processed' and 'relations_extracted' counts
+    """
+```
+
+### Workaround for Lenny's Memory
+Until the library is fixed, a post-processing script can:
+1. Re-extract relations from messages
+2. Match relation source/target to existing Entity nodes
+3. Create `RELATED_TO` relationships
+
+---
+
+## 12. Graceful Handling of Missing Relationship Types (LOW PRIORITY)
+
+### Issue Discovered
+The `get_graph()` method in `MemoryClient` queries for `RELATED_TO` relationships between entities:
+
+```cypher
+MATCH (e:Entity)
+WITH e LIMIT $limit
+OPTIONAL MATCH (e)-[r:RELATED_TO]-(e2:Entity)
+RETURN e, r, e2
+```
+
+This generates Neo4j warnings when `RELATED_TO` relationships don't exist:
+```
+warn: relationship type does not exist. The relationship type `RELATED_TO` does not exist in database
+```
+
+### Context
+- The `RELATED_TO` type is used for explicit entity-to-entity relationships
+- Many applications (like Lenny's Memory) use `MENTIONS` relationships (Message→Entity) instead
+- The warning is harmless but clutters logs and may confuse users
+
+### Suggested Improvements
+
+**Option A: Query all relationship types dynamically**
+```python
+# First get existing relationship types
+rel_types = await self._client.execute_read(
+    "CALL db.relationshipTypes() YIELD relationshipType RETURN collect(relationshipType)"
+)
+# Only query for types that exist
+if "RELATED_TO" in rel_types:
+    # Include RELATED_TO query
+```
+
+**Option B: Use pattern that doesn't warn on missing types**
+```cypher
+MATCH (e:Entity)
+WITH e LIMIT $limit
+OPTIONAL MATCH (e)-[r]-(e2:Entity)
+WHERE type(r) IN ['RELATED_TO', 'MENTIONS', 'SAME_AS']  -- configurable list
+RETURN e, r, e2
+```
+
+**Option C: Add configuration parameter**
+```python
+async def get_graph(
+    self,
+    entity_relationship_types: list[str] | None = None,  # Default: ["RELATED_TO"]
+    ...
+) -> MemoryGraph:
+```
+
+### Impact
+- Cleaner logs without spurious warnings
+- Better developer experience
+- Supports flexible data models
+
+---
+
 ## Summary Priority Matrix
 
 | Improvement | Priority | Effort | Impact |
 |-------------|----------|--------|--------|
 | Entity Deduplication API | HIGH | Medium | High |
 | Session Listing API | HIGH | Low | High |
+| APOC-Free Queries | HIGH | Low | High |
 | Conversation Summarization | MEDIUM | Medium | Medium |
 | Entity Provenance | MEDIUM | Low | Medium |
 | Tool Statistics Enhancements | MEDIUM | Medium | Medium |
@@ -440,7 +614,7 @@ The library's `_build_metadata_filter_clause()` uses `apoc.convert.fromJsonMap()
 | Message Context Windows | LOWER | Low | Medium |
 | Batch Operations | LOWER | Medium | Low |
 | Type Safety | LOWER | Low | Low |
-| APOC-Free Queries | HIGH | Low | High |
+| Missing Relationship Type Warnings | LOW | Low | Low |
 
 ---
 

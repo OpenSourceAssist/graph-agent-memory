@@ -187,12 +187,19 @@ class TestFindRelatedEntities:
     @pytest.mark.asyncio
     async def test_filters_to_podcast_sessions(self, mock_agent_context):
         """Verify entity co-occurrence query filters to podcast sessions."""
+        # Mock the entity resolution to return a name
+        mock_agent_context.deps.client.long_term.get_entity_by_name = AsyncMock(
+            return_value=MagicMock(name="Airbnb")
+        )
+
         await find_related_entities(mock_agent_context, "Airbnb")
 
-        call_args = mock_agent_context.deps.client._client.execute_read.call_args
-        query = call_args[0][0]
+        # Check that one of the execute_read calls contains the podcast filter
+        calls = mock_agent_context.deps.client._client.execute_read.call_args_list
+        queries = [call[0][0] for call in calls]
 
-        assert "session_id STARTS WITH 'lenny-podcast-'" in query
+        # The main co-occurrence query should filter to podcast sessions
+        assert any("session_id STARTS WITH 'lenny-podcast-'" in q for q in queries)
 
 
 class TestGetMostMentionedEntities:

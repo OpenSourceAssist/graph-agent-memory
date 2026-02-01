@@ -357,6 +357,43 @@ ON CREATE SET
 RETURN r
 """
 
+# Create RELATED_TO relationship between entities by name (for extraction)
+# This query looks up entities by name to support cross-message relations
+CREATE_ENTITY_RELATION_BY_NAME = """
+MATCH (source:Entity)
+WHERE toLower(source.name) = toLower($source_name)
+   OR toLower(source.canonical_name) = toLower($source_name)
+WITH source LIMIT 1
+MATCH (target:Entity)
+WHERE toLower(target.name) = toLower($target_name)
+   OR toLower(target.canonical_name) = toLower($target_name)
+WITH source, target LIMIT 1
+MERGE (source)-[r:RELATED_TO]->(target)
+ON CREATE SET
+    r.relation_type = $relation_type,
+    r.confidence = $confidence,
+    r.created_at = datetime()
+ON MATCH SET
+    r.confidence = CASE WHEN $confidence > r.confidence THEN $confidence ELSE r.confidence END,
+    r.updated_at = datetime()
+RETURN r, source.id AS source_id, target.id AS target_id
+"""
+
+# Create RELATED_TO relationship between entities by ID
+CREATE_ENTITY_RELATION_BY_ID = """
+MATCH (source:Entity {id: $source_id})
+MATCH (target:Entity {id: $target_id})
+MERGE (source)-[r:RELATED_TO]->(target)
+ON CREATE SET
+    r.relation_type = $relation_type,
+    r.confidence = $confidence,
+    r.created_at = datetime()
+ON MATCH SET
+    r.confidence = CASE WHEN $confidence > r.confidence THEN $confidence ELSE r.confidence END,
+    r.updated_at = datetime()
+RETURN r
+"""
+
 LINK_PREFERENCE_TO_ENTITY = """
 MATCH (p:Preference {id: $preference_id})
 MATCH (e:Entity {id: $entity_id})

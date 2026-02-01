@@ -121,6 +121,19 @@ Use `tool_get_tool_patterns` to understand which tools perform best. Recommended
 - **Geographic questions**: Combine `tool_search_locations` with `tool_get_episode_locations`
 - **Complex tasks**: Check `tool_learn_from_similar_task` first to learn from past successes
 
+## Fuzzy Matching & Vector Search
+
+All tools support **fuzzy name matching** via vector search. You don't need exact names:
+- "Chesky" will find "Brian Chesky"
+- "airbnb founder" will find Airbnb-related content
+- "growth strategies" will find semantically similar discussions
+
+**Best practices:**
+- Use natural language queries - tools use semantic search, not just keyword matching
+- For entity lookups, partial names work fine (e.g., "Chesky" instead of "Brian Chesky")
+- When searching by speaker + topic, provide both for best results (e.g., `tool_search_by_speaker("Brian Chesky", "growth")`)
+- If a tool returns no results, try broader search terms or use `tool_search_entities` first to discover exact entity names
+
 ## CRITICAL: Always Use Tools
 
 **You MUST use one or more tools for EVERY user message.** Never respond based solely on your general knowledge.
@@ -230,12 +243,13 @@ You've successfully handled similar queries before. Consider these approaches:
         query: str,
         limit: int = 10,
     ) -> str:
-        """Search podcast transcripts for relevant content.
+        """Search podcast transcripts using semantic/vector search.
 
-        Use this to find discussions about specific topics, concepts, or quotes.
+        Uses AI embeddings to find semantically similar content, not just keyword matches.
+        Good for finding discussions about topics even when exact words aren't used.
 
         Args:
-            query: Search terms or topic to find (e.g., "product market fit", "hiring", "growth loops")
+            query: Natural language search (e.g., "how to find product market fit", "scaling teams", "founder mental health")
             limit: Maximum number of results to return
         """
         result = await search_podcast_content(ctx, query, limit)
@@ -248,13 +262,14 @@ You've successfully handled similar queries before. Consider these approaches:
         topic: str | None = None,
         limit: int = 10,
     ) -> str:
-        """Search for what a specific speaker said.
+        """Search for what a specific speaker said, with semantic topic search.
 
-        Use this to find quotes or discussions from a particular person.
+        Best results when you provide BOTH speaker AND topic - uses vector search on topic.
+        Supports fuzzy speaker matching (e.g., "Chesky" matches "Brian Chesky").
 
         Args:
-            speaker: Name of the speaker (e.g., "Brian Chesky", "Lenny", "Andy Johns")
-            topic: Optional topic to filter by (e.g., "leadership", "growth")
+            speaker: Speaker name - partial matches work (e.g., "Chesky", "Lenny", "Andy")
+            topic: Topic to search for semantically (e.g., "hiring mistakes", "scaling challenges")
             limit: Maximum number of results
         """
         result = await search_by_speaker(ctx, speaker, topic, limit)
@@ -317,13 +332,14 @@ You've successfully handled similar queries before. Consider these approaches:
         entity_type: str | None = None,
         limit: int = 10,
     ) -> str:
-        """Search for entities (people, organizations, topics) mentioned in podcasts.
+        """Search for entities using semantic/vector search with fuzzy matching.
 
-        Use this to find specific people, companies, concepts, or events discussed.
+        Finds people, companies, concepts, or events even with partial names or synonyms.
+        Use this to discover entity names before calling tool_get_entity_context.
 
         Args:
-            query: Search term (e.g., "product-market fit", "Y Combinator", "growth")
-            entity_type: Filter by type - PERSON, ORGANIZATION, LOCATION, EVENT, CONCEPT
+            query: Search term - can be partial name or concept (e.g., "Chesky", "Y Combinator", "product growth")
+            entity_type: Optional filter - PERSON, ORGANIZATION, LOCATION, EVENT, CONCEPT
             limit: Maximum number of results
         """
         result = await search_entities(ctx, query, entity_type, limit)
@@ -334,12 +350,13 @@ You've successfully handled similar queries before. Consider these approaches:
         ctx: RunContext[AgentDeps],
         entity_name: str,
     ) -> str:
-        """Get detailed context about a specific entity.
+        """Get detailed context about an entity with Wikipedia enrichment.
 
-        Use this to get comprehensive information including Wikipedia data and podcast mentions.
+        Supports fuzzy name matching - partial names like "Chesky" will find "Brian Chesky".
+        Returns enriched data (Wikipedia summary, image, URL) if available, plus podcast mentions.
 
         Args:
-            entity_name: Name of the entity (e.g., "Brian Chesky", "Airbnb")
+            entity_name: Full or partial entity name (e.g., "Brian Chesky", "Chesky", "Airbnb")
         """
         result = await get_entity_context(ctx, entity_name)
         return json.dumps(result, default=str)

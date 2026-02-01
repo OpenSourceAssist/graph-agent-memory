@@ -164,16 +164,51 @@ async def search_by_speaker(
         return [{"error": "Memory client not available"}]
 
     try:
-        # Use the internal Neo4j client to run a custom query
-        # This filters by speaker metadata stored in messages
+        # If topic is provided, use vector search with speaker filter for best results
+        if topic:
+            messages = await ctx.deps.client.short_term.search_messages(
+                query=topic,
+                limit=limit * 2,  # Fetch extra to filter by speaker
+                threshold=0.5,  # Lower threshold for better recall
+                metadata_filters={"source": "lenny_podcast"},
+            )
+
+            # Filter by speaker name (case-insensitive, partial match)
+            speaker_lower = speaker.lower()
+            results = []
+            for msg in messages:
+                msg_speaker = msg.metadata.get("speaker", "").lower()
+                if speaker_lower in msg_speaker or msg_speaker in speaker_lower:
+                    results.append({
+                        "content": (
+                            msg.content[:500] + "..."
+                            if len(msg.content) > 500
+                            else msg.content
+                        ),
+                        "speaker": msg.metadata.get("speaker", "Unknown"),
+                        "episode_guest": msg.metadata.get("episode_guest", "Unknown"),
+                        "relevance": round(msg.metadata.get("similarity", 0), 3),
+                    })
+                    if len(results) >= limit:
+                        break
+
+            if results:
+                return results
+
+        # Fallback: Use Cypher with fuzzy speaker matching
         query = """
         MATCH (c:Conversation)-[:HAS_MESSAGE]->(m:Message)
         WHERE c.session_id STARTS WITH 'lenny-podcast-'
         AND m.metadata IS NOT NULL
-        AND m.metadata CONTAINS $speaker_pattern
+        AND (
+            m.metadata CONTAINS $speaker_pattern
+            OR toLower(m.metadata) CONTAINS toLower($speaker_lower)
+        )
         """
-
-        params: dict[str, Any] = {"speaker_pattern": f'"speaker": "{speaker}"'}
+        params: dict[str, Any] = {
+            "speaker_pattern": f'"speaker": "{speaker}"',
+            "speaker_lower": speaker.lower(),
+        }
 
         if topic:
             query += " AND toLower(m.content) CONTAINS toLower($topic)"
@@ -404,10 +439,11 @@ async def search_entities(
         entities = await ctx.deps.client.long_term.search_entities(
             query=query,
             entity_types=entity_types,
-            limit=limit * 2 if collapse_duplicates else limit,  # Fetch extra to account for dedup
+            limit=limit * 2 if collapse_duplicates else limit,  # Fetch extra for dedup
+            threshold=0.5,  # Lower threshold for better recall
         )
 
-        if collapse_duplicates:
+        if collapse_duplicates and entities:
             # Collapse SAME_AS clusters to canonical entities
             entities = await _collapse_duplicate_entities(ctx, entities, limit)
 
@@ -493,6 +529,8 @@ async def get_entity_context(
 ) -> dict[str, Any]:
     """Get full context about an entity including enrichment data and status.
 
+    Uses vector search to find entities even with partial or fuzzy name matches.
+
     Args:
         ctx: The agent run context.
         entity_name: Name of entity (e.g., "Brian Chesky", "Airbnb").
@@ -508,10 +546,41 @@ async def get_entity_context(
         return {"error": "Memory client not available"}
 
     try:
-        # Get entity by name
+        # First try exact name match
         entity = await ctx.deps.client.long_term.get_entity_by_name(entity_name)
+
+        # If not found, try vector search for fuzzy matching
         if not entity:
-            return {"error": f"Entity '{entity_name}' not found"}
+            entities = await ctx.deps.client.long_term.search_entities(
+                query=entity_name,
+                limit=5,
+                threshold=0.5,  # Lower threshold for name matching
+            )
+            if entities:
+                # Use the best match
+                entity = entities[0]
+
+        # Still not found? Try case-insensitive Cypher search
+        if not entity:
+            query = """
+            MATCH (e:Entity)
+            WHERE toLower(e.name) CONTAINS toLower($name)
+               OR toLower($name) CONTAINS toLower(e.name)
+            RETURN e
+            ORDER BY size(e.name) ASC
+            LIMIT 1
+            """
+            results = await ctx.deps.client._client.execute_read(
+                query, {"name": entity_name}
+            )
+            if results:
+                # Parse the entity from Cypher result
+                entity = await ctx.deps.client.long_term.get_entity_by_name(
+                    results[0]["e"]["name"]
+                )
+
+        if not entity:
+            return {"error": f"Entity '{entity_name}' not found. Try searching with search_entities tool first."}
 
         # Get mentions from the graph (filter to podcast sessions only)
         query = """
@@ -548,21 +617,41 @@ async def get_entity_context(
         # Determine enrichment status
         enrichment_status = _get_enrichment_status(entity)
 
+        # Get enrichment fields - check both direct attributes and properties dict
+        image_url = (
+            getattr(entity, "image_url", None)
+            or (entity.properties.get("image_url") if hasattr(entity, "properties") else None)
+        )
+        enrichment_provider = (
+            getattr(entity, "enrichment_provider", None)
+            or (entity.properties.get("enrichment_provider") if hasattr(entity, "properties") else None)
+        )
+        enriched_at = (
+            entity.properties.get("enriched_at") if hasattr(entity, "properties") else None
+        )
+        wikidata_id = (
+            getattr(entity, "wikidata_id", None)
+            or (entity.properties.get("wikidata_id") if hasattr(entity, "properties") else None)
+        )
+
+        # Return in format expected by frontend EntityCard
+        # Frontend expects: { entity: {...}, mentions: [...] } with enrichment fields at entity level
         return {
-            "name": entity.name,
-            "type": entity.type,
-            "subtype": entity.subtype,
-            "description": entity.description,
-            "enrichment": {
-                "status": enrichment_status,
-                "provider": getattr(entity, "enrichment_provider", None)
-                    or entity.properties.get("enrichment_provider") if hasattr(entity, "properties") else None,
-                "enriched_at": str(entity.properties.get("enriched_at"))
-                    if hasattr(entity, "properties") and entity.properties.get("enriched_at") else None,
+            "entity": {
+                "id": str(entity.id) if hasattr(entity, "id") else entity.name,
+                "name": entity.name,
+                "type": entity.type,
+                "subtype": entity.subtype,
+                "description": entity.description,
+                # Enrichment fields at top level for frontend compatibility
                 "enriched_description": entity.enriched_description,
                 "wikipedia_url": entity.wikipedia_url,
-                "image_url": entity.properties.get("image_url")
-                    if hasattr(entity, "properties") else None,
+                "image_url": image_url,
+                "wikidata_id": wikidata_id,
+                # Additional enrichment metadata
+                "enrichment_status": enrichment_status,
+                "enrichment_provider": enrichment_provider,
+                "enriched_at": str(enriched_at) if enriched_at else None,
             },
             "mentions": mention_list,
             "mention_count": len(mention_list),
@@ -592,6 +681,8 @@ async def find_related_entities(
 ) -> list[dict[str, Any]]:
     """Find entities related to a given entity via the knowledge graph.
 
+    Uses fuzzy name matching to find the entity, then returns co-occurring entities.
+
     Args:
         ctx: The agent run context.
         entity_name: Starting entity (e.g., "Airbnb").
@@ -604,6 +695,11 @@ async def find_related_entities(
         return [{"error": "Memory client not available"}]
 
     try:
+        # First, resolve the entity name using fuzzy matching
+        resolved_name = await _resolve_entity_name(ctx, entity_name)
+        if not resolved_name:
+            return [{"error": f"Entity '{entity_name}' not found"}]
+
         # Find entities that co-occur in the same messages (podcast sessions only)
         query = """
         MATCH (e1:Entity {name: $name})<-[:MENTIONS]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
@@ -617,7 +713,7 @@ async def find_related_entities(
                e2.description AS description, co_occurrences
         """
         results = await ctx.deps.client._client.execute_read(
-            query, {"name": entity_name, "limit": limit}
+            query, {"name": resolved_name, "limit": limit}
         )
 
         return [
@@ -632,6 +728,44 @@ async def find_related_entities(
         ]
     except Exception as e:
         return [{"error": f"Failed to find related entities: {str(e)}"}]
+
+
+async def _resolve_entity_name(
+    ctx: RunContext[AgentDeps],
+    entity_name: str,
+) -> str | None:
+    """Resolve an entity name using multiple matching strategies.
+
+    Returns the canonical entity name or None if not found.
+    """
+    # Try exact match first
+    entity = await ctx.deps.client.long_term.get_entity_by_name(entity_name)
+    if entity:
+        return entity.name
+
+    # Try vector search
+    entities = await ctx.deps.client.long_term.search_entities(
+        query=entity_name,
+        limit=3,
+        threshold=0.5,
+    )
+    if entities:
+        return entities[0].name
+
+    # Try case-insensitive substring match
+    query = """
+    MATCH (e:Entity)
+    WHERE toLower(e.name) CONTAINS toLower($name)
+       OR toLower($name) CONTAINS toLower(e.name)
+    RETURN e.name AS name
+    ORDER BY size(e.name) ASC
+    LIMIT 1
+    """
+    results = await ctx.deps.client._client.execute_read(query, {"name": entity_name})
+    if results:
+        return results[0]["name"]
+
+    return None
 
 
 async def get_most_mentioned_entities(

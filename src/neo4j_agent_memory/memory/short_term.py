@@ -290,6 +290,7 @@ class ShortTermMemory(BaseMemory[Message]):
         batch_size: int = 100,
         generate_embeddings: bool = True,
         extract_entities: bool = False,
+        extract_relations: bool = True,
         on_progress: Callable[[int, int], None] | None = None,
         on_batch_complete: Callable[[int, list[Message]], None] | None = None,
     ) -> list[Message]:
@@ -313,6 +314,8 @@ class ShortTermMemory(BaseMemory[Message]):
                                 generate_embeddings_batch() for deferred processing.
             extract_entities: Whether to extract entities (disabled by default for
                             performance - can use extract_entities_from_session() later)
+            extract_relations: Whether to extract and store relations between entities
+                              (only applies when extract_entities=True)
             on_progress: Callback for progress updates (completed_count, total_count)
             on_batch_complete: Callback after each batch completes (batch_num, batch_messages)
 
@@ -414,7 +417,7 @@ class ShortTermMemory(BaseMemory[Message]):
         # Extract entities if enabled (done separately for performance)
         if extract_entities and self._extractor is not None:
             for msg in all_created:
-                await self._extract_and_link_entities(msg)
+                await self._extract_and_link_entities(msg, extract_relations=extract_relations)
 
         return all_created
 
@@ -485,6 +488,7 @@ class ShortTermMemory(BaseMemory[Message]):
         *,
         conversation_id: UUID | str | None = None,
         extract_entities: bool = True,
+        extract_relations: bool = True,
         generate_embedding: bool = True,
         metadata: dict[str, Any] | None = None,
     ) -> Message:
@@ -497,6 +501,7 @@ class ShortTermMemory(BaseMemory[Message]):
             content: Message content
             conversation_id: Optional specific conversation ID
             extract_entities: Whether to extract entities from content
+            extract_relations: Whether to extract and store relations between entities
             generate_embedding: Whether to generate embedding
             metadata: Optional metadata
 
@@ -540,7 +545,7 @@ class ShortTermMemory(BaseMemory[Message]):
 
         # Extract and link entities if enabled
         if extract_entities and self._extractor is not None:
-            await self._extract_and_link_entities(message)
+            await self._extract_and_link_entities(message, extract_relations=extract_relations)
 
         return message
 
@@ -855,10 +860,11 @@ class ShortTermMemory(BaseMemory[Message]):
         *,
         batch_size: int = 50,
         skip_existing: bool = True,
+        extract_relations: bool = True,
         on_progress: Callable[[int, int], None] | None = None,
     ) -> dict[str, int]:
         """
-        Extract entities from all messages in a session.
+        Extract entities and relations from all messages in a session.
 
         This is useful for batch processing messages that were loaded without
         entity extraction (e.g., using extract_entities=False for performance).
@@ -867,13 +873,14 @@ class ShortTermMemory(BaseMemory[Message]):
             session_id: Session to process
             batch_size: Messages to process per batch
             skip_existing: Skip messages that already have entity links (MENTIONS relationships)
+            extract_relations: Whether to also extract and store relations between entities
             on_progress: Progress callback (processed_count, total_count)
 
         Returns:
-            Stats dict with 'messages_processed' and 'entities_extracted' counts
+            Stats dict with 'messages_processed', 'entities_extracted', and 'relations_extracted' counts
         """
         if self._extractor is None:
-            return {"messages_processed": 0, "entities_extracted": 0}
+            return {"messages_processed": 0, "entities_extracted": 0, "relations_extracted": 0}
 
         # Get messages to process
         if skip_existing:
@@ -893,11 +900,12 @@ class ShortTermMemory(BaseMemory[Message]):
         results = await self._client.execute_read(query, {"session_id": session_id})
 
         if not results:
-            return {"messages_processed": 0, "entities_extracted": 0}
+            return {"messages_processed": 0, "entities_extracted": 0, "relations_extracted": 0}
 
         total = len(results)
         processed = 0
         entities_extracted = 0
+        relations_extracted = 0
 
         # Process in batches
         for i in range(0, total, batch_size):
@@ -912,6 +920,9 @@ class ShortTermMemory(BaseMemory[Message]):
 
                 # Filter out invalid entities (stopwords, numbers, etc.)
                 extraction_result = extraction_result.filter_invalid_entities()
+
+                # Track entity name to ID mapping for relation linking
+                entity_name_to_id: dict[str, str] = {}
 
                 for entity in extraction_result.entities:
                     # Create or get entity with dynamic labels for type/subtype
@@ -934,6 +945,9 @@ class ShortTermMemory(BaseMemory[Message]):
                         },
                     )
 
+                    # Store mapping for relation linking
+                    entity_name_to_id[entity.name.lower().strip()] = entity_id
+
                     # Link message to entity
                     await self._client.execute_write(
                         queries.LINK_MESSAGE_TO_ENTITY,
@@ -947,13 +961,24 @@ class ShortTermMemory(BaseMemory[Message]):
                     )
                     entities_extracted += 1
 
+                # Store extracted relations
+                if extract_relations and extraction_result.relations:
+                    stored = await self._store_relations(
+                        extraction_result.relations, entity_name_to_id
+                    )
+                    relations_extracted += stored
+
                 processed += 1
 
             # Report progress after each batch
             if on_progress:
                 on_progress(processed, total)
 
-        return {"messages_processed": processed, "entities_extracted": entities_extracted}
+        return {
+            "messages_processed": processed,
+            "entities_extracted": entities_extracted,
+            "relations_extracted": relations_extracted,
+        }
 
     async def _ensure_conversation(
         self,
@@ -1015,8 +1040,15 @@ class ShortTermMemory(BaseMemory[Message]):
             },
         )
 
-    async def _extract_and_link_entities(self, message: Message) -> None:
-        """Extract entities from message and link them."""
+    async def _extract_and_link_entities(
+        self, message: Message, *, extract_relations: bool = True
+    ) -> None:
+        """Extract entities from message and link them.
+
+        Args:
+            message: The message to extract entities from
+            extract_relations: Whether to also extract and store relations between entities
+        """
         if self._extractor is None:
             return
 
@@ -1024,6 +1056,9 @@ class ShortTermMemory(BaseMemory[Message]):
 
         # Filter out invalid entities (stopwords, numbers, etc.)
         result = result.filter_invalid_entities()
+
+        # Track entity name to ID mapping for relation linking
+        entity_name_to_id: dict[str, str] = {}
 
         for entity in result.entities:
             # Create or get entity with dynamic labels for type/subtype
@@ -1046,6 +1081,9 @@ class ShortTermMemory(BaseMemory[Message]):
                 },
             )
 
+            # Store mapping for relation linking
+            entity_name_to_id[entity.name.lower().strip()] = entity_id
+
             # Link message to entity
             await self._client.execute_write(
                 queries.LINK_MESSAGE_TO_ENTITY,
@@ -1057,6 +1095,68 @@ class ShortTermMemory(BaseMemory[Message]):
                     "end_pos": entity.end_pos,
                 },
             )
+
+        # Store extracted relations
+        if extract_relations and result.relations:
+            await self._store_relations(result.relations, entity_name_to_id)
+
+    async def _store_relations(
+        self,
+        relations: list,
+        entity_name_to_id: dict[str, str],
+    ) -> int:
+        """Store extracted relations as RELATED_TO relationships between entities.
+
+        This method first tries to use the local entity_name_to_id mapping
+        (for entities extracted from the same message), then falls back to
+        looking up entities by name in the database (for cross-message relations).
+
+        Args:
+            relations: List of ExtractedRelation objects from the extractor
+            entity_name_to_id: Mapping of lowercase entity names to their IDs
+
+        Returns:
+            Number of relations successfully stored
+        """
+        if not relations:
+            return 0
+
+        stored_count = 0
+        for relation in relations:
+            source_name = relation.source.lower().strip()
+            target_name = relation.target.lower().strip()
+
+            # First try the local mapping (entities from same message)
+            source_id = entity_name_to_id.get(source_name)
+            target_id = entity_name_to_id.get(target_name)
+
+            if source_id and target_id:
+                # Both entities found locally, use ID-based query
+                await self._client.execute_write(
+                    queries.CREATE_ENTITY_RELATION_BY_ID,
+                    {
+                        "source_id": source_id,
+                        "target_id": target_id,
+                        "relation_type": relation.relation_type,
+                        "confidence": relation.confidence,
+                    },
+                )
+                stored_count += 1
+            else:
+                # Try name-based lookup for cross-message relations
+                result = await self._client.execute_write(
+                    queries.CREATE_ENTITY_RELATION_BY_NAME,
+                    {
+                        "source_name": relation.source,
+                        "target_name": relation.target,
+                        "relation_type": relation.relation_type,
+                        "confidence": relation.confidence,
+                    },
+                )
+                if result:
+                    stored_count += 1
+
+        return stored_count
 
     async def get_conversation_summary(
         self,
