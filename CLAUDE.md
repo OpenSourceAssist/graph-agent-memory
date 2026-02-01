@@ -106,7 +106,7 @@ src/neo4j_agent_memory/
 ├── graph/
 │   ├── client.py            # Async Neo4j client wrapper
 │   ├── schema.py            # Index/constraint management
-│   ├── queries.py           # Cypher query templates
+│   ├── queries.py           # All Cypher queries (centralized)
 │   └── query_builder.py     # Dynamic query builder with label validation
 ├── cli/
 │   ├── __init__.py          # CLI exports
@@ -1355,6 +1355,17 @@ deps = MemoryDependency(client=client, session_id="user-123")
 16. **Provenance Tracking**: Entities can be linked to their source messages via `EXTRACTED_FROM` relationships and to extractors via `EXTRACTED_BY` relationships. Use `link_entity_to_message()` and `link_entity_to_extractor()` to create provenance links. Query with `get_entity_provenance()`, `get_entities_from_message()`, or `get_entities_by_extractor()`. Extractor nodes (`(:Extractor)`) are auto-created when linking.
 
 17. **Background Enrichment**: Entities can be enriched with additional data from external services (Wikipedia, Diffbot) in a non-blocking background process. Use `EnrichmentConfig` to configure providers. The `enrichment/` module provides `WikimediaProvider`, `DiffbotProvider`, `CachedEnrichmentProvider`, `CompositeEnrichmentProvider`, and `BackgroundEnrichmentService`. Enrichment happens asynchronously after entity creation - the entity is stored immediately, then enriched data is fetched and merged in the background. Enrichment is disabled by default; enable with `enrichment.enabled=True` in settings.
+
+18. **Centralized Cypher Queries**: All Cypher queries are centralized in `graph/queries.py`. This module contains:
+    - **Query constants**: All static queries as uppercase constants (e.g., `CREATE_CONVERSATION`, `GET_ENTITY`, `SEARCH_MESSAGES_BY_EMBEDDING`)
+    - **Query builder functions**: Functions that generate dynamic DDL queries where identifiers can't be parameterized (e.g., `create_constraint_query()`, `create_vector_index_query()`)
+    - **Metadata search helper**: `build_metadata_search_query()` for dynamic WHERE clause construction
+    
+    When adding new database operations:
+    - Add queries as constants in `queries.py` (uppercase, descriptive names)
+    - Import and use via `from neo4j_agent_memory.graph import queries` then `queries.CREATE_MESSAGE`
+    - For DDL operations with dynamic names (indexes, constraints), use the query builder functions
+    - The `query_builder.py` module handles entity creation with dynamic labels (type/subtype)
 
 ## Environment Variables
 

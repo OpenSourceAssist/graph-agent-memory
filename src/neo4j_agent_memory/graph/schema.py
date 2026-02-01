@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from neo4j_agent_memory.core.exceptions import SchemaError
+from neo4j_agent_memory.graph import queries
 
 if TYPE_CHECKING:
     from neo4j_agent_memory.graph.client import Neo4jClient
@@ -118,11 +119,7 @@ class SchemaManager:
             if exists:
                 return
 
-            query = f"""
-            CREATE CONSTRAINT {constraint_name} IF NOT EXISTS
-            FOR (n:{label})
-            REQUIRE n.{property_name} IS UNIQUE
-            """
+            query = queries.create_constraint_query(constraint_name, label, property_name)
             await self._client.execute_write(query)
         except Exception as e:
             raise SchemaError(f"Failed to create constraint {constraint_name}: {e}") from e
@@ -139,11 +136,7 @@ class SchemaManager:
             if exists:
                 return
 
-            query = f"""
-            CREATE INDEX {index_name} IF NOT EXISTS
-            FOR (n:{label})
-            ON (n.{property_name})
-            """
+            query = queries.create_index_query(index_name, label, property_name)
             await self._client.execute_write(query)
         except Exception as e:
             raise SchemaError(f"Failed to create index {index_name}: {e}") from e
@@ -160,17 +153,9 @@ class SchemaManager:
             if exists:
                 return
 
-            query = f"""
-            CREATE VECTOR INDEX {index_name} IF NOT EXISTS
-            FOR (n:{label})
-            ON (n.{property_name})
-            OPTIONS {{
-                indexConfig: {{
-                    `vector.dimensions`: {self._vector_dimensions},
-                    `vector.similarity_function`: 'cosine'
-                }}
-            }}
-            """
+            query = queries.create_vector_index_query(
+                index_name, label, property_name, self._vector_dimensions
+            )
             await self._client.execute_write(query)
         except Exception:
             # Vector indexes require Neo4j 5.11+, log warning but don't fail
@@ -189,11 +174,7 @@ class SchemaManager:
             if exists:
                 return
 
-            query = f"""
-            CREATE POINT INDEX {index_name} IF NOT EXISTS
-            FOR (n:{label})
-            ON (n.{property_name})
-            """
+            query = queries.create_point_index_query(index_name, label, property_name)
             await self._client.execute_write(query)
         except Exception:
             # Point indexes require Neo4j 5.0+, log warning but don't fail
@@ -202,18 +183,18 @@ class SchemaManager:
     async def drop_all(self) -> None:
         """Drop all memory-related indexes and constraints."""
         # Get all constraints
-        constraints = await self._client.execute_read("SHOW CONSTRAINTS YIELD name RETURN name")
+        constraints = await self._client.execute_read(queries.SHOW_CONSTRAINTS)
         for constraint in constraints:
             name = constraint["name"]
             if self._is_memory_schema(name):
-                await self._client.execute_write(f"DROP CONSTRAINT {name} IF EXISTS")
+                await self._client.execute_write(queries.drop_constraint_query(name))
 
         # Get all indexes
-        indexes = await self._client.execute_read("SHOW INDEXES YIELD name RETURN name")
+        indexes = await self._client.execute_read(queries.SHOW_INDEXES)
         for index in indexes:
             name = index["name"]
             if self._is_memory_schema(name):
-                await self._client.execute_write(f"DROP INDEX {name} IF EXISTS")
+                await self._client.execute_write(queries.drop_index_query(name))
 
     def _is_memory_schema(self, name: str) -> bool:
         """Check if a schema element belongs to agent memory."""
@@ -232,12 +213,8 @@ class SchemaManager:
 
     async def get_schema_info(self) -> dict:
         """Get information about the current schema."""
-        constraints = await self._client.execute_read(
-            "SHOW CONSTRAINTS YIELD name, type, labelsOrTypes, properties RETURN *"
-        )
-        indexes = await self._client.execute_read(
-            "SHOW INDEXES YIELD name, type, labelsOrTypes, properties RETURN *"
-        )
+        constraints = await self._client.execute_read(queries.SHOW_CONSTRAINTS_DETAIL)
+        indexes = await self._client.execute_read(queries.SHOW_INDEXES_DETAIL)
 
         return {
             "constraints": [

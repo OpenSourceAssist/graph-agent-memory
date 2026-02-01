@@ -18,8 +18,21 @@ from src.agent.dependencies import AgentDeps
 
 
 def _guest_to_session_id(guest_name: str) -> str:
-    """Convert a guest name to a session_id format."""
-    slug = re.sub(r"[^a-z0-9]+", guest_name.lower(), "-").strip("-")
+    """Convert a guest name to a session_id format.
+
+    Handles Unicode characters by normalizing to ASCII equivalents
+    (e.g., "Tobi Lütke" -> "tobi-lutke", not "tobi-l-tke").
+    """
+    import unicodedata
+
+    # Normalize Unicode characters to their ASCII equivalents
+    # NFD decomposes characters (ü -> u + combining umlaut)
+    # Then we strip combining characters
+    normalized = unicodedata.normalize("NFD", guest_name)
+    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+
+    # Convert to lowercase and replace non-alphanumeric with hyphens
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-")
     return f"lenny-podcast-{slug}"
 
 
@@ -260,11 +273,8 @@ async def search_by_episode(
         return [{"error": "Memory client not available"}]
 
     try:
-        # Convert guest name to session_id format
-        import re
-
-        slug = re.sub(r"[^a-z0-9]+", "-", guest_name.lower()).strip("-")
-        session_id = f"lenny-podcast-{slug}"
+        # Convert guest name to session_id format (handles Unicode like "Lütke" -> "lutke")
+        session_id = _guest_to_session_id(guest_name)
 
         if topic:
             # Search within episode for specific topic
@@ -847,8 +857,7 @@ async def search_locations(
     try:
         session_id = None
         if episode_guest:
-            slug = re.sub(r"[^a-z0-9]+", "-", episode_guest.lower()).strip("-")
-            session_id = f"lenny-podcast-{slug}"
+            session_id = _guest_to_session_id(episode_guest)
 
         locations = await ctx.deps.client.get_locations(
             session_id=session_id,
@@ -962,8 +971,7 @@ async def get_episode_locations(
         return [{"error": "Memory client not available"}]
 
     try:
-        slug = re.sub(r"[^a-z0-9]+", "-", episode_guest.lower()).strip("-")
-        session_id = f"lenny-podcast-{slug}"
+        session_id = _guest_to_session_id(episode_guest)
 
         locations = await ctx.deps.client.get_locations(
             session_id=session_id,
@@ -1078,8 +1086,7 @@ async def get_location_clusters(
     try:
         session_id = None
         if episode_guest:
-            slug = re.sub(r"[^a-z0-9]+", "-", episode_guest.lower()).strip("-")
-            session_id = f"lenny-podcast-{slug}"
+            session_id = _guest_to_session_id(episode_guest)
 
         locations = await ctx.deps.client.get_locations(
             session_id=session_id,
@@ -1809,8 +1816,7 @@ async def get_episode_summary(
         return {"error": "Memory client not available"}
 
     try:
-        slug = re.sub(r"[^a-z0-9]+", "-", episode_guest.lower()).strip("-")
-        session_id = f"lenny-podcast-{slug}"
+        session_id = _guest_to_session_id(episode_guest)
 
         # Get conversation summary if available
         try:

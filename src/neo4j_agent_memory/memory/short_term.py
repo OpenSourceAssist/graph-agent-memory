@@ -662,16 +662,7 @@ class ShortTermMemory(BaseMemory[Message]):
         if metadata_clause:
             # Use a modified query that includes metadata filtering
             # Metadata is stored as JSON string - we use CONTAINS for filtering
-            cypher_query = f"""
-            CALL db.index.vector.queryNodes('message_embedding_idx', $limit * 2, $embedding)
-            YIELD node, score
-            WHERE score >= $threshold
-            WITH node AS m, score
-            WHERE m.metadata IS NOT NULL AND {metadata_clause}
-            RETURN m, score
-            ORDER BY score DESC
-            LIMIT $limit
-            """
+            cypher_query = queries.build_metadata_search_query(metadata_clause)
             params = {
                 "embedding": query_embedding,
                 "limit": limit,
@@ -884,18 +875,9 @@ class ShortTermMemory(BaseMemory[Message]):
 
         # Get messages to process
         if skip_existing:
-            query = """
-            MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)
-            WHERE NOT (m)-[:MENTIONS]->(:Entity)
-            RETURN m.id AS id, m.content AS content
-            ORDER BY m.timestamp ASC
-            """
+            query = queries.GET_MESSAGES_FOR_ENTITY_EXTRACTION
         else:
-            query = """
-            MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)
-            RETURN m.id AS id, m.content AS content
-            ORDER BY m.timestamp ASC
-            """
+            query = queries.GET_ALL_MESSAGES_FOR_SESSION
 
         results = await self._client.execute_read(query, {"session_id": session_id})
 
@@ -1232,15 +1214,8 @@ class ShortTermMemory(BaseMemory[Message]):
         # Get key entities if requested
         key_entities: list[str] = []
         if include_entities:
-            entity_query = """
-            MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)-[:MENTIONS]->(e:Entity)
-            WITH e.name AS name, e.type AS type, count(*) AS mention_count
-            ORDER BY mention_count DESC
-            LIMIT 10
-            RETURN name, type, mention_count
-            """
             entity_results = await self._client.execute_read(
-                entity_query, {"session_id": session_id}
+                queries.GET_SUMMARY_ENTITIES, {"session_id": session_id}
             )
             key_entities = [row["name"] for row in entity_results]
 
