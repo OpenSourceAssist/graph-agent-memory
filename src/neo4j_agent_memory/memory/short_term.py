@@ -44,6 +44,74 @@ def _to_python_datetime(neo4j_datetime) -> datetime:
         return datetime.utcnow()
 
 
+def _build_metadata_filter_clause_json(
+    filters: dict[str, Any], param_prefix: str = "mf", metadata_prop: str = "m.metadata"
+) -> tuple[str, dict[str, Any]]:
+    """
+    Build Cypher WHERE clause from metadata filters using JSON string matching.
+
+    This version works without APOC by using string CONTAINS on the JSON metadata.
+    Only supports simple equality filters for string values.
+
+    Args:
+        filters: Dictionary of filter conditions (only simple equality supported)
+        param_prefix: Prefix for parameter names
+        metadata_prop: Property path for the metadata JSON string
+
+    Returns:
+        Tuple of (WHERE clause string, parameters dict)
+    """
+    if not filters:
+        return "", {}
+
+    clauses = []
+    params = {}
+
+    for i, (key, value) in enumerate(filters.items()):
+        param_name = f"{param_prefix}_{i}"
+
+        if isinstance(value, dict):
+            # Operator-based filters not supported without APOC
+            # Fall back to simple equality if $eq operator
+            if "$eq" in value:
+                value = value["$eq"]
+            else:
+                # Skip unsupported operators
+                continue
+
+        if isinstance(value, str):
+            # For string values, use CONTAINS on the JSON string
+            # Match pattern like: "key": "value" or "key":"value"
+            # Use a pattern that matches the JSON encoding
+            json_pattern = f'"{key}": "{value}"'
+            json_pattern_no_space = f'"{key}":"{value}"'
+            params[param_name] = json_pattern
+            params[f"{param_name}_alt"] = json_pattern_no_space
+            clauses.append(
+                f"({metadata_prop} CONTAINS ${param_name} OR {metadata_prop} CONTAINS ${param_name}_alt)"
+            )
+        elif isinstance(value, bool):
+            # For boolean values
+            json_pattern = f'"{key}": {str(value).lower()}'
+            json_pattern_no_space = f'"{key}":{str(value).lower()}'
+            params[param_name] = json_pattern
+            params[f"{param_name}_alt"] = json_pattern_no_space
+            clauses.append(
+                f"({metadata_prop} CONTAINS ${param_name} OR {metadata_prop} CONTAINS ${param_name}_alt)"
+            )
+        elif isinstance(value, (int, float)):
+            # For numeric values
+            json_pattern = f'"{key}": {value}'
+            json_pattern_no_space = f'"{key}":{value}'
+            params[param_name] = json_pattern
+            params[f"{param_name}_alt"] = json_pattern_no_space
+            clauses.append(
+                f"({metadata_prop} CONTAINS ${param_name} OR {metadata_prop} CONTAINS ${param_name}_alt)"
+            )
+
+    return " AND ".join(clauses) if clauses else "", params
+
+
 def _build_metadata_filter_clause(
     filters: dict[str, Any], param_prefix: str = "mf", metadata_var: str = "md"
 ) -> tuple[str, dict[str, Any]]:
@@ -580,20 +648,21 @@ class ShortTermMemory(BaseMemory[Message]):
         query_embedding = await self._embedder.embed(query)
 
         # Build metadata filter clause if provided
-        metadata_clause, metadata_params = _build_metadata_filter_clause(metadata_filters or {})
+        # Use JSON string matching which doesn't require APOC
+        metadata_clause, metadata_params = _build_metadata_filter_clause_json(
+            metadata_filters or {}, metadata_prop="m.metadata"
+        )
 
         # Build the query with optional metadata filtering
         if metadata_clause:
             # Use a modified query that includes metadata filtering
-            # Metadata is stored as JSON string, so we parse it with apoc.convert.fromJsonMap
+            # Metadata is stored as JSON string - we use CONTAINS for filtering
             cypher_query = f"""
             CALL db.index.vector.queryNodes('message_embedding_idx', $limit * 2, $embedding)
             YIELD node, score
             WHERE score >= $threshold
             WITH node AS m, score
-            WITH m, score,
-                 CASE WHEN m.metadata IS NOT NULL THEN apoc.convert.fromJsonMap(m.metadata) ELSE {{}} END AS md
-            WHERE {metadata_clause}
+            WHERE m.metadata IS NOT NULL AND {metadata_clause}
             RETURN m, score
             ORDER BY score DESC
             LIMIT $limit

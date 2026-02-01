@@ -332,9 +332,11 @@ async def search_entities(
         return [{"error": "Memory client not available"}]
 
     try:
+        # Convert single entity_type to list for the API
+        entity_types = [entity_type] if entity_type else None
         entities = await ctx.deps.client.long_term.search_entities(
             query=query,
-            entity_type=entity_type,
+            entity_types=entity_types,
             limit=limit,
         )
 
