@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   Box,
   VStack,
@@ -16,6 +16,7 @@ import {
 import { HiX, HiRefresh } from "react-icons/hi";
 import { LuExpand, LuExternalLink, LuSparkles } from "react-icons/lu";
 import dynamic from "next/dynamic";
+import type NVL from "@neo4j-nvl/base";
 import { api } from "@/lib/api";
 import type { MemoryGraph, GraphNode, GraphRelationship } from "@/lib/types";
 
@@ -149,6 +150,10 @@ export default function MemoryGraphView({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [expandingNode, setExpandingNode] = useState<string | null>(null);
 
+  // NVL ref for zoom-to-fit
+  const nvlRef = useRef<NVL | null>(null);
+  const [hasInitialFit, setHasInitialFit] = useState(false);
+
   const loadGraphData = async () => {
     setIsLoading(true);
     setError(null);
@@ -156,6 +161,7 @@ export default function MemoryGraphView({
     setSelectedRelationship(null);
     setExpandedNodes(new Set());
     setExpandingNode(null);
+    setHasInitialFit(false);
     try {
       const data = await api.memory.getGraph(threadId);
       setGraphData(data);
@@ -442,6 +448,15 @@ export default function MemoryGraphView({
       return memoryFilters[memoryType];
     });
   }, [graphData, memoryFilters]);
+
+  // Callback to perform initial zoom-to-fit when layout is done
+  const handleLayoutDone = useCallback(() => {
+    if (!hasInitialFit && nvlRef.current && filteredNodes.length > 0) {
+      const nodeIds = filteredNodes.map((n) => n.id);
+      nvlRef.current.fit(nodeIds);
+      setHasInitialFit(true);
+    }
+  }, [hasInitialFit, filteredNodes]);
 
   const filteredRelationships = useMemo(() => {
     if (!graphData) return [];
@@ -759,9 +774,13 @@ export default function MemoryGraphView({
             <Box height="100%" width="100%" position="relative">
               <Box height="100%" width="100%" style={{ touchAction: "none" }}>
                 <InteractiveNvlWrapper
+                  ref={nvlRef}
                   nodes={nvlNodes}
                   rels={nvlRelationships}
                   mouseEventCallbacks={mouseEventCallbacks}
+                  nvlCallbacks={{
+                    onLayoutDone: handleLayoutDone,
+                  }}
                   nvlOptions={{
                     layout: "d3Force",
                     initialZoom: 1,
