@@ -659,13 +659,18 @@ async def get_memory_graph(
 ) -> MemoryGraph:
     """Get the memory graph for visualization.
 
-    Uses the new get_graph() API from neo4j-agent-memory for efficient
-    graph export with filtering options.
+    When a session_id is provided, returns a conversation-centric view showing:
+    - All messages in the conversation
+    - NEXT_MESSAGE chain connecting them
+    - Entities mentioned in each message via MENTIONS relationships
+
+    Without session_id, uses the standard get_graph() API for a broader view.
 
     Args:
         memory_types: Comma-separated list of memory types to include
                      (short_term, long_term, reasoning). Defaults to all.
-        session_id: Optional session ID to filter by.
+        session_id: Optional session ID to filter by. When provided, shows
+                   conversation message chain with connected entities.
         limit: Maximum number of nodes to return.
 
     Returns all nodes and relationships from the memory graph database.
@@ -675,20 +680,22 @@ async def get_memory_graph(
         return MemoryGraph(nodes=[], relationships=[])
 
     try:
-        # Parse memory types if provided
+        # If session_id provided, use custom query for conversation view
+        if session_id:
+            return await _get_conversation_graph(memory, session_id, limit)
+
+        # Otherwise use the standard get_graph() API
         types_list = None
         if memory_types:
             types_list = [t.strip() for t in memory_types.split(",")]
 
-        # Use the new get_graph() API
         graph = await memory.get_graph(
             memory_types=types_list,
             session_id=session_id,
-            include_embeddings=False,  # Don't include embeddings for visualization
+            include_embeddings=False,
             limit=limit,
         )
 
-        # Convert to response format (the API already returns the right structure)
         nodes = [
             GraphNode(
                 id=node.id,
@@ -717,6 +724,175 @@ async def get_memory_graph(
         print(f"Error fetching memory graph: {e}")
         traceback.print_exc()
         return MemoryGraph(nodes=[], relationships=[])
+
+
+async def _get_conversation_graph(memory, session_id: str, limit: int = 1000) -> MemoryGraph:
+    """Get conversation-centric graph with messages, NEXT_MESSAGE chain, and entities.
+
+    This provides a visualization showing:
+    1. The Conversation node
+    2. All Message nodes connected via HAS_MESSAGE
+    3. NEXT_MESSAGE relationships forming the message chain
+    4. Entity nodes connected via MENTIONS relationships
+    """
+    nodes: list[GraphNode] = []
+    relationships: list[GraphRelationship] = []
+    node_ids_seen: set[str] = set()
+
+    # Query 1: Get conversation, messages, and NEXT_MESSAGE chain
+    messages_query = """
+    MATCH (c:Conversation {session_id: $session_id})
+    OPTIONAL MATCH (c)-[hm:HAS_MESSAGE]->(m:Message)
+    OPTIONAL MATCH (m)-[nm:NEXT_MESSAGE]->(m2:Message)
+    RETURN c, hm, m, nm, m2
+    ORDER BY m.timestamp
+    LIMIT $limit
+    """
+
+    results = await memory._client.execute_read(
+        messages_query, {"session_id": session_id, "limit": limit}
+    )
+
+    for row in results:
+        # Add Conversation node
+        if row.get("c"):
+            conv = dict(row["c"])
+            conv_id = conv.get("id") or conv.get("session_id")
+            if conv_id and conv_id not in node_ids_seen:
+                props = {k: serialize_neo4j_value(v) for k, v in conv.items() if v is not None}
+                props.pop("embedding", None)
+                nodes.append(
+                    GraphNode(
+                        id=str(conv_id),
+                        labels=["Conversation"],
+                        properties=props,
+                    )
+                )
+                node_ids_seen.add(str(conv_id))
+
+        # Add Message node
+        if row.get("m"):
+            msg = dict(row["m"])
+            msg_id = msg.get("id")
+            if msg_id and msg_id not in node_ids_seen:
+                props = {k: serialize_neo4j_value(v) for k, v in msg.items() if v is not None}
+                props.pop("embedding", None)
+                # Truncate content for display
+                if props.get("content") and len(props["content"]) > 200:
+                    props["content"] = props["content"][:200] + "..."
+                nodes.append(
+                    GraphNode(
+                        id=str(msg_id),
+                        labels=["Message"],
+                        properties=props,
+                    )
+                )
+                node_ids_seen.add(str(msg_id))
+
+            # Add HAS_MESSAGE relationship
+            conv = row.get("c")
+            if conv and msg_id:
+                conv_id = conv.get("id") or conv.get("session_id")
+                if conv_id:
+                    rel_id = f"hm-{conv_id}-{msg_id}"
+                    relationships.append(
+                        GraphRelationship(
+                            id=rel_id,
+                            from_node=str(conv_id),
+                            to_node=str(msg_id),
+                            type="HAS_MESSAGE",
+                            properties={},
+                        )
+                    )
+
+        # Add second Message node (for NEXT_MESSAGE)
+        if row.get("m2"):
+            msg2 = dict(row["m2"])
+            msg2_id = msg2.get("id")
+            if msg2_id and msg2_id not in node_ids_seen:
+                props = {k: serialize_neo4j_value(v) for k, v in msg2.items() if v is not None}
+                props.pop("embedding", None)
+                if props.get("content") and len(props["content"]) > 200:
+                    props["content"] = props["content"][:200] + "..."
+                nodes.append(
+                    GraphNode(
+                        id=str(msg2_id),
+                        labels=["Message"],
+                        properties=props,
+                    )
+                )
+                node_ids_seen.add(str(msg2_id))
+
+        # Add NEXT_MESSAGE relationship
+        if row.get("nm") and row.get("m") and row.get("m2"):
+            msg = row["m"]
+            msg2 = row["m2"]
+            msg_id = msg.get("id")
+            msg2_id = msg2.get("id")
+            if msg_id and msg2_id:
+                rel_id = f"nm-{msg_id}-{msg2_id}"
+                relationships.append(
+                    GraphRelationship(
+                        id=rel_id,
+                        from_node=str(msg_id),
+                        to_node=str(msg2_id),
+                        type="NEXT_MESSAGE",
+                        properties={},
+                    )
+                )
+
+    # Query 2: Get entities connected to messages via MENTIONS
+    entities_query = """
+    MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)
+    MATCH (m)-[mentions:MENTIONS]->(e:Entity)
+    RETURN m.id AS message_id, mentions, e
+    LIMIT $limit
+    """
+
+    entity_results = await memory._client.execute_read(
+        entities_query, {"session_id": session_id, "limit": limit}
+    )
+
+    for row in entity_results:
+        # Add Entity node
+        if row.get("e"):
+            entity = dict(row["e"])
+            entity_id = entity.get("id")
+            if entity_id and entity_id not in node_ids_seen:
+                props = {k: serialize_neo4j_value(v) for k, v in entity.items() if v is not None}
+                props.pop("embedding", None)
+                # Get entity type labels
+                entity_type = entity.get("type", "Entity")
+                labels = ["Entity"]
+                if entity_type and entity_type != "Entity":
+                    labels.append(entity_type)
+                nodes.append(
+                    GraphNode(
+                        id=str(entity_id),
+                        labels=labels,
+                        properties=props,
+                    )
+                )
+                node_ids_seen.add(str(entity_id))
+
+        # Add MENTIONS relationship
+        msg_id = row.get("message_id")
+        entity = row.get("e")
+        if msg_id and entity:
+            entity_id = entity.get("id")
+            if entity_id and str(msg_id) in node_ids_seen:
+                rel_id = f"mentions-{msg_id}-{entity_id}"
+                relationships.append(
+                    GraphRelationship(
+                        id=rel_id,
+                        from_node=str(msg_id),
+                        to_node=str(entity_id),
+                        type="MENTIONS",
+                        properties={},
+                    )
+                )
+
+    return MemoryGraph(nodes=nodes, relationships=relationships)
 
 
 @router.get("/locations", response_model=list[LocationEntity])
