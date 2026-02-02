@@ -7,6 +7,7 @@ import { GraphCard } from "./GraphCard";
 import { DataCard } from "./DataCard";
 import { StatsCard } from "./StatsCard";
 import { EntityCard } from "./EntityCard";
+import { MemoryGraphCard } from "./MemoryGraphCard";
 import { RawJsonCard } from "./RawJsonCard";
 import {
   getCardTypeForTool,
@@ -16,6 +17,7 @@ import {
   extractStats,
   extractTableData,
   extractEntityData,
+  extractMemoryGraphData,
 } from "./toolCardRegistry";
 
 interface ToolResultCardProps {
@@ -151,6 +153,32 @@ export function ToolResultCard({ toolCall }: ToolResultCardProps) {
           entity={entityData.entity}
           mentions={entityData.mentions}
           relatedEntities={entityData.relatedEntities}
+          isExpanded={isExpanded}
+          onExpand={handleExpand}
+          onCollapse={handleCollapse}
+        />
+      );
+    }
+
+    case "memory_graph": {
+      const memoryData = extractMemoryGraphData(parsedResult);
+
+      if (!memoryData) {
+        // Fall back to raw JSON if extraction fails
+        return (
+          <RawJsonCard
+            toolCall={toolCall}
+            isExpanded={isExpanded}
+            onExpand={handleExpand}
+            onCollapse={handleCollapse}
+          />
+        );
+      }
+
+      return (
+        <MemoryGraphCard
+          toolCall={toolCall}
+          result={memoryData}
           isExpanded={isExpanded}
           onExpand={handleExpand}
           onCollapse={handleCollapse}

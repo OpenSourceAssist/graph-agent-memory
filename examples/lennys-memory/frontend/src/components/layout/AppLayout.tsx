@@ -18,17 +18,15 @@ import {
 import {
   LuPanelLeftClose,
   LuPanelLeft,
-  LuMapPin,
   LuMenu,
   LuBrain,
-  LuNetwork,
   LuExternalLink,
+  LuInfo,
 } from "react-icons/lu";
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Footer } from "./Footer";
-import MemoryGraphView from "@/components/memory/MemoryGraphView";
-import MemoryMapView from "@/components/memory/MemoryMapView";
+import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import type { Thread } from "@/lib/types";
 
 interface AppLayoutProps {
@@ -54,8 +52,7 @@ export function AppLayout({
 }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [graphViewOpen, setGraphViewOpen] = useState(false);
-  const [mapViewOpen, setMapViewOpen] = useState(false);
+  const [aboutModalOpen, setAboutModalOpen] = useState(false);
 
   // Detect mobile viewport
   const isMobile = useBreakpointValue({ base: true, md: false });
@@ -191,18 +188,10 @@ export function AppLayout({
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setMapViewOpen(true)}
+              onClick={() => setAboutModalOpen(true)}
             >
-              <LuMapPin size={16} />
-              <Text ml="1.5">Map</Text>
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setGraphViewOpen(true)}
-            >
-              <LuNetwork size={16} />
-              <Text ml="1.5">Graph</Text>
+              <LuInfo size={16} />
+              <Text ml="1.5">About</Text>
             </Button>
             <Link
               href="https://github.com/neo4j-labs/agent-memory"
@@ -218,17 +207,26 @@ export function AppLayout({
             </Link>
           </HStack>
 
-          {/* Mobile action button - just GitHub link since Graph/Map don't work well on mobile */}
-          <Link
-            href="https://github.com/neo4j-labs/agent-memory"
-            target="_blank"
-            rel="noopener noreferrer"
-            hideFrom="md"
-          >
-            <IconButton aria-label="GitHub" variant="ghost" size="sm">
-              <LuExternalLink />
+          {/* Mobile action buttons */}
+          <HStack gap={1} hideFrom="md">
+            <IconButton
+              aria-label="About"
+              variant="ghost"
+              size="sm"
+              onClick={() => setAboutModalOpen(true)}
+            >
+              <LuInfo />
             </IconButton>
-          </Link>
+            <Link
+              href="https://github.com/neo4j-labs/agent-memory"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <IconButton aria-label="GitHub" variant="ghost" size="sm">
+                <LuExternalLink />
+              </IconButton>
+            </Link>
+          </HStack>
         </Flex>
 
         {/* Content area */}
@@ -240,18 +238,10 @@ export function AppLayout({
         <Footer />
       </Stack>
 
-      {/* Memory Graph View Modal */}
-      <MemoryGraphView
-        isOpen={graphViewOpen}
-        onClose={() => setGraphViewOpen(false)}
-        threadId={activeThreadId || undefined}
-      />
-
-      {/* Memory Map View Modal */}
-      <MemoryMapView
-        isOpen={mapViewOpen}
-        onClose={() => setMapViewOpen(false)}
-        threadId={activeThreadId || undefined}
+      {/* About Modal */}
+      <WelcomeModal
+        isOpen={aboutModalOpen}
+        onClose={() => setAboutModalOpen(false)}
       />
     </Flex>
   );

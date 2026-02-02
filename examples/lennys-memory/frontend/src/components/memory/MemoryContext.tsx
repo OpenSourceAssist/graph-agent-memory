@@ -89,12 +89,24 @@ const AGENT_TOOLS = {
   ],
   memory: [
     {
+      name: "memory_graph_search",
+      description: "Vector search + graph traversal visualization",
+    },
+    {
       name: "get_user_preferences",
       description: "Get stored user preferences",
     },
     {
       name: "find_similar_queries",
       description: "Find similar past interactions",
+    },
+    {
+      name: "learn_from_similar_task",
+      description: "Learn from past reasoning traces",
+    },
+    {
+      name: "get_tool_patterns",
+      description: "Analyze tool usage patterns",
     },
   ],
 };

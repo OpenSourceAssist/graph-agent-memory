@@ -17,40 +17,48 @@ import { MessageList } from "./MessageList";
 import { PromptInput } from "./PromptInput";
 import type { Message } from "@/lib/types";
 
-// Suggested prompts for the empty state
+// Suggested prompts for the empty state - designed to showcase different features
 const SUGGESTED_PROMPTS = [
   {
-    title: "Founder Mode",
-    prompt: "What does Brian Chesky say about founder mode?",
+    title: "Explore a Topic",
+    prompt:
+      "Use memory graph search to explore what guests say about scaling engineering teams",
+    // Showcases: MemoryGraphCard (vector search + graph traversal)
   },
   {
-    title: "Product-Market Fit",
-    prompt: "What do guests say about product-market fit?",
-  },
-  {
-    title: "Find Connections",
-    prompt: "Find connections between Tobi Lutke and other guests",
+    title: "Who is Brian Chesky?",
+    prompt: "Tell me about Brian Chesky",
+    // Showcases: EntityCard with Wikipedia enrichment, image, description
   },
   {
     title: "Top Companies",
-    prompt: "What companies are mentioned most in the podcast?",
+    prompt: "What are the most mentioned companies in the podcast?",
+    // Showcases: StatsCard with bar visualization
   },
   {
-    title: "Leadership Advice",
-    prompt: "Compare advice from Julie Zhuo and Deb Liu on leadership",
+    title: "Related Entities",
+    prompt: "What entities are related to Airbnb?",
+    // Showcases: GraphCard with NVL visualization
   },
   {
-    title: "Explore Locations",
-    prompt: "Show me locations mentioned in episodes",
+    title: "Speaker Quotes",
+    prompt:
+      "What did Brian Chesky say about micromanagement and being in the details?",
+    // Showcases: DataCard with podcast transcript results
+  },
+  {
+    title: "Map View",
+    prompt: "Show me locations mentioned in the Brian Chesky episode",
+    // Showcases: MapCard with geographic visualization
   },
 ];
 
 // Quick chips that appear above the input
 const QUICK_CHIPS = [
-  "Popular guests",
-  "Product-market fit",
-  "Find connections",
-  "Show locations",
+  "Top companies",
+  "Who is Brian Chesky?",
+  "Related to Airbnb",
+  "Explore growth strategies",
 ];
 
 interface ChatContainerProps {

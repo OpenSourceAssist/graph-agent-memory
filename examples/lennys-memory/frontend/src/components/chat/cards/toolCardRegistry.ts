@@ -49,6 +49,11 @@ export function getCardTypeForTool(
     return "graph";
   }
 
+  // Memory graph search -> MemoryGraphCard (combined vector + graph visualization)
+  if (name.includes("memory_graph_search")) {
+    return "memory_graph";
+  }
+
   // Stats tools -> StatsCard
   if (
     name.includes("get_stats") ||
@@ -385,13 +390,36 @@ export function extractStats(toolName: string, result: unknown): StatItem[] {
   }
 
   if (name.includes("top_entities") && Array.isArray(result)) {
-    const colors = ["blue", "green", "purple", "orange", "red", "teal"];
+    // Map entity types to color palettes matching EntityCard colors
+    const typeColors: Record<string, string> = {
+      PERSON: "pink",
+      ORGANIZATION: "orange",
+      LOCATION: "blue",
+      EVENT: "purple",
+      CONCEPT: "green",
+      TOPIC: "green",
+      OBJECT: "cyan",
+    };
+    const fallbackColors = [
+      "blue",
+      "green",
+      "purple",
+      "orange",
+      "teal",
+      "pink",
+    ];
+
     result.slice(0, 6).forEach((entity, i) => {
       const e = entity as Record<string, unknown>;
+      const entityType = String(e.type || "").toUpperCase();
+      // Use type-specific color if available, otherwise cycle through fallback colors
+      const colorPalette =
+        typeColors[entityType] || fallbackColors[i % fallbackColors.length];
+
       stats.push({
         label: String(e.name || "Unknown"),
-        value: Number(e.mentions || e.count || 0),
-        colorPalette: colors[i % colors.length],
+        value: Number(e.mentions || e.count || e.mention_count || 0),
+        colorPalette,
       });
     });
   }
@@ -418,8 +446,12 @@ export function extractTableData(
   let columns: ColumnDef[] = [];
   let title: string | undefined;
 
-  // Podcast search results
-  if (name.includes("search_podcast") || name.includes("search_by_speaker")) {
+  // Podcast search results (including search_episode which returns transcript segments)
+  if (
+    name.includes("search_podcast") ||
+    name.includes("search_by_speaker") ||
+    name.includes("search_episode")
+  ) {
     title = "Podcast Matches";
     columns = [
       { key: "speaker", label: "Speaker", width: "20%" },
@@ -427,13 +459,13 @@ export function extractTableData(
       { key: "episode_guest", label: "Episode", width: "20%" },
     ];
   }
-  // Episode list
-  else if (name.includes("list_episode") || name.includes("episode")) {
+  // Episode list (but not search_episode which is handled above)
+  else if (name.includes("list_episode") || name === "episode") {
     title = "Episodes";
     columns = [
-      { key: "title", label: "Episode", width: "50%" },
-      { key: "guest", label: "Guest", width: "30%" },
-      { key: "date", label: "Date", width: "20%" },
+      { key: "guest", label: "Guest", width: "50%" },
+      { key: "session_id", label: "Episode ID", width: "30%" },
+      { key: "message_count", label: "Messages", width: "20%" },
     ];
   }
   // Speaker list
@@ -594,4 +626,102 @@ export function getToolDisplayTitle(toolName: string): string {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 
   return name;
+}
+
+/**
+ * Memory graph node for visualization
+ */
+export interface MemoryGraphNode {
+  id: string;
+  label: string;
+  type: string;
+  properties?: Record<string, unknown>;
+}
+
+/**
+ * Memory graph relationship for visualization
+ */
+export interface MemoryGraphRelationship {
+  id: string;
+  from: string;
+  to: string;
+  type: string;
+}
+
+/**
+ * Memory graph search result summary
+ */
+export interface MemoryGraphSummary {
+  messages_found: number;
+  entities_found: number;
+  relationships_found: number;
+}
+
+/**
+ * Complete memory graph search result
+ */
+export interface MemoryGraphSearchResult {
+  query: string;
+  nodes: MemoryGraphNode[];
+  relationships: MemoryGraphRelationship[];
+  summary: MemoryGraphSummary;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Extract memory graph data from tool result
+ */
+export function extractMemoryGraphData(
+  result: unknown,
+): MemoryGraphSearchResult | null {
+  if (!result || typeof result !== "object") return null;
+
+  const r = result as Record<string, unknown>;
+
+  // Check for error response
+  if (r.error) {
+    return {
+      query: String(r.query || ""),
+      nodes: [],
+      relationships: [],
+      summary: {
+        messages_found: 0,
+        entities_found: 0,
+        relationships_found: 0,
+      },
+      error: String(r.error),
+    };
+  }
+
+  // Check for valid memory graph structure
+  if (!("nodes" in r) || !Array.isArray(r.nodes)) return null;
+
+  return {
+    query: String(r.query || ""),
+    nodes: (r.nodes as unknown[]).map((n) => {
+      const node = n as Record<string, unknown>;
+      return {
+        id: String(node.id || ""),
+        label: String(node.label || "Unknown"),
+        type: String(node.type || "Entity"),
+        properties: node.properties as Record<string, unknown> | undefined,
+      };
+    }),
+    relationships: ((r.relationships as unknown[]) || []).map((rel) => {
+      const relationship = rel as Record<string, unknown>;
+      return {
+        id: String(relationship.id || ""),
+        from: String(relationship.from || ""),
+        to: String(relationship.to || ""),
+        type: String(relationship.type || "RELATED"),
+      };
+    }),
+    summary: (r.summary as MemoryGraphSummary) || {
+      messages_found: 0,
+      entities_found: 0,
+      relationships_found: 0,
+    },
+    message: r.message as string | undefined,
+  };
 }

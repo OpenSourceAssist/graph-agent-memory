@@ -35,6 +35,8 @@ import {
   LuBookOpen,
   LuMessageSquare,
   LuLink,
+  LuLightbulb,
+  LuPackage,
 } from "react-icons/lu";
 import type { ToolCall } from "@/lib/types";
 import type { EntityCardProps, EntityData } from "./types";
@@ -53,6 +55,11 @@ function getEntityIcon(type: string) {
       return <LuMapPin size={16} />;
     case "EVENT":
       return <LuCalendar size={16} />;
+    case "CONCEPT":
+    case "TOPIC":
+      return <LuLightbulb size={16} />;
+    case "OBJECT":
+      return <LuPackage size={16} />;
     default:
       return <LuBox size={16} />;
   }
@@ -72,6 +79,11 @@ function getEntityColor(type: string): string {
       return "blue";
     case "EVENT":
       return "purple";
+    case "CONCEPT":
+    case "TOPIC":
+      return "green";
+    case "OBJECT":
+      return "cyan";
     default:
       return "gray";
   }
@@ -162,12 +174,36 @@ export function EntityCard({
           </HStack>
         </Box>
 
-        {/* Description */}
+        {/* Description - with fallback to mention content */}
         <Text fontSize="sm" color="fg.muted" lineClamp={3}>
           {entity.enriched_description ||
             entity.description ||
-            "No description available"}
+            (mentions.length > 0 && mentions[0].content
+              ? `Mentioned in podcast: "${mentions[0].content.slice(0, 150)}${mentions[0].content.length > 150 ? "..." : ""}"`
+              : "No description available")}
         </Text>
+
+        {/* Related entities preview - show top 3 */}
+        {relatedEntities.length > 0 && (
+          <HStack gap={1} flexWrap="wrap">
+            <LuLink size={12} style={{ flexShrink: 0 }} />
+            {relatedEntities.slice(0, 3).map((rel, idx) => (
+              <Badge
+                key={idx}
+                size="xs"
+                variant="subtle"
+                colorPalette={getEntityColor(rel.type)}
+              >
+                {rel.name}
+              </Badge>
+            ))}
+            {relatedEntities.length > 3 && (
+              <Text fontSize="xs" color="fg.muted">
+                +{relatedEntities.length - 3}
+              </Text>
+            )}
+          </HStack>
+        )}
 
         {/* Quick stats */}
         <HStack gap={3} fontSize="xs" color="fg.muted">
@@ -175,12 +211,6 @@ export function EntityCard({
             <HStack gap={1}>
               <LuMessageSquare size={12} />
               <Text>{mentions.length} mentions</Text>
-            </HStack>
-          )}
-          {relatedEntities.length > 0 && (
-            <HStack gap={1}>
-              <LuLink size={12} />
-              <Text>{relatedEntities.length} related</Text>
             </HStack>
           )}
         </HStack>

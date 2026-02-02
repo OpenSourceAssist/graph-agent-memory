@@ -239,16 +239,35 @@ async def search_by_speaker(
 
         results = await ctx.deps.client._client.execute_read(query, params)
 
-        return [
-            {
-                "content": (
-                    r["content"][:500] + "..." if len(r["content"]) > 500 else r["content"]
-                ),
-                "session_id": r["session_id"],
-                "metadata": r["metadata"],
-            }
-            for r in results
-        ]
+        formatted_results = []
+        for r in results:
+            # Parse metadata JSON to extract speaker and episode info
+            metadata = {}
+            if r.get("metadata"):
+                try:
+                    metadata = json.loads(r["metadata"])
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {}
+
+            # Extract episode guest from session_id (format: lenny-podcast-guest-name)
+            session_id = r.get("session_id", "")
+            episode_guest = metadata.get("episode_guest", "")
+            if not episode_guest and session_id.startswith("lenny-podcast-"):
+                # Convert session_id back to guest name (e.g., "lenny-podcast-julie-zhuo" -> "Julie Zhuo")
+                guest_part = session_id.replace("lenny-podcast-", "")
+                episode_guest = " ".join(word.capitalize() for word in guest_part.split("-"))
+
+            formatted_results.append(
+                {
+                    "content": (
+                        r["content"][:500] + "..." if len(r["content"]) > 500 else r["content"]
+                    ),
+                    "speaker": metadata.get("speaker", "Unknown"),
+                    "episode_guest": episode_guest or "Unknown",
+                }
+            )
+
+        return formatted_results
     except Exception as e:
         return [{"error": f"Search failed: {str(e)}"}]
 
@@ -445,33 +464,112 @@ async def search_entities(
         return [{"error": "Memory client not available"}]
 
     try:
-        # Convert single entity_type to list for the API
-        entity_types = [entity_type] if entity_type else None
-        entities = await ctx.deps.client.long_term.search_entities(
-            query=query,
-            entity_types=entity_types,
-            limit=limit * 2 if collapse_duplicates else limit,  # Fetch extra for dedup
-            threshold=0.5,  # Lower threshold for better recall
-        )
+        # Use direct Cypher query to get all entity properties including enriched_description
+        # (The library's search_entities doesn't map enriched_description to the Entity object)
+        embedder = ctx.deps.client.long_term._embedder
+        if embedder is None:
+            return [{"error": "Embedder not available"}]
 
-        if collapse_duplicates and entities:
+        query_embedding = await embedder.embed(query)
+
+        # Build the Cypher query with optional type filter
+        cypher = """
+        CALL db.index.vector.queryNodes('entity_embedding_idx', $limit, $embedding)
+        YIELD node, score
+        WHERE score >= $threshold
+        """
+        if entity_type:
+            cypher += " AND node.type = $entity_type"
+        cypher += """
+        RETURN node.id AS id,
+               node.name AS name,
+               node.type AS type,
+               node.subtype AS subtype,
+               node.description AS description,
+               node.enriched_description AS enriched_description,
+               node.wikipedia_url AS wikipedia_url,
+               score
+        ORDER BY score DESC
+        """
+
+        params = {
+            "embedding": query_embedding,
+            "limit": limit * 2 if collapse_duplicates else limit,
+            "threshold": 0.5,
+            "entity_type": entity_type.upper() if entity_type else None,
+        }
+
+        results = await ctx.deps.client._client.execute_read(cypher, params)
+
+        if collapse_duplicates and results:
             # Collapse SAME_AS clusters to canonical entities
-            entities = await _collapse_duplicate_entities(ctx, entities, limit)
+            results = await _collapse_duplicate_entity_results(ctx, results, limit)
 
         return [
             {
-                "name": e.name,
-                "type": e.type,
-                "subtype": e.subtype,
-                "description": e.description,
-                "wikipedia_url": e.wikipedia_url,
-                "enriched": bool(e.enriched_description),
-                "aliases": getattr(e, "aliases", None),  # Include aliases if available
+                "name": r["name"],
+                "type": r["type"],
+                "subtype": r.get("subtype"),
+                # Use enriched_description as fallback if description is empty
+                "description": r.get("description") or r.get("enriched_description") or "",
+                "wikipedia_url": r.get("wikipedia_url"),
+                "enriched": bool(r.get("enriched_description")),
             }
-            for e in entities[:limit]
+            for r in results[:limit]
         ]
     except Exception as e:
         return [{"error": f"Entity search failed: {str(e)}"}]
+
+
+async def _collapse_duplicate_entity_results(
+    ctx: RunContext[AgentDeps],
+    results: list[dict[str, Any]],
+    limit: int,
+) -> list[dict[str, Any]]:
+    """Collapse entity results that are linked via SAME_AS relationships.
+
+    Returns canonical entities with their aliases collected.
+    """
+    if not results:
+        return results
+
+    try:
+        entity_names = [r["name"] for r in results]
+
+        # Find canonical entities for any that have SAME_AS relationships
+        query = """
+        UNWIND $names AS name
+        MATCH (e:Entity {name: name})
+        OPTIONAL MATCH (e)-[:SAME_AS*0..]->(canonical:Entity)
+        WHERE canonical.is_canonical = true OR NOT (canonical)-[:SAME_AS]->()
+        WITH e, COALESCE(canonical, e) AS canon
+        RETURN e.name AS original_name,
+               canon.name AS canonical_name
+        """
+        canonical_results = await ctx.deps.client._client.execute_read(
+            query, {"names": entity_names}
+        )
+
+        # Build mapping from original to canonical
+        canonical_map = {}
+        for r in canonical_results:
+            canonical_map[r["original_name"]] = r["canonical_name"]
+
+        # Deduplicate entities, keeping only canonical ones
+        seen_canonical = set()
+        deduped = []
+        for r in results:
+            canonical_name = canonical_map.get(r["name"], r["name"])
+            if canonical_name not in seen_canonical:
+                seen_canonical.add(canonical_name)
+                deduped.append(r)
+                if len(deduped) >= limit:
+                    break
+
+        return deduped
+    except Exception:
+        # If dedup fails, return original results
+        return results[:limit]
 
 
 async def _collapse_duplicate_entities(
@@ -858,8 +956,7 @@ async def search_locations(
         limit: Maximum number of results to return.
 
     Returns:
-        Locations with coordinates for map visualization.
-        The frontend map view can display these with markers, clusters, or heatmap.
+        Locations mentioned in podcasts. Includes coordinates if available for map visualization.
     """
     if not ctx.deps.client:
         return [{"error": "Memory client not available"}]
@@ -869,25 +966,47 @@ async def search_locations(
         if episode_guest:
             session_id = _guest_to_session_id(episode_guest)
 
-        locations = await ctx.deps.client.get_locations(
-            session_id=session_id,
-            has_coordinates=True,
-            limit=limit,
-        )
+        # Query LOCATION entities - coordinates stored in location point property
+        cypher_query = """
+        MATCH (e:Entity)
+        WHERE e.type = 'LOCATION'
+        AND e.location IS NOT NULL
+        """
+        params: dict[str, Any] = {}
 
-        # If query provided, filter by name match
+        if session_id:
+            cypher_query += """
+            AND EXISTS {
+                MATCH (c:Conversation)-[:HAS_MESSAGE]->(m:Message)-[:MENTIONS]->(e)
+                WHERE c.session_id = $session_id
+            }
+            """
+            params["session_id"] = session_id
+
         if query:
-            query_lower = query.lower()
-            locations = [loc for loc in locations if query_lower in loc.get("name", "").lower()]
+            cypher_query += """
+            AND toLower(e.name) CONTAINS toLower($query)
+            """
+            params["query"] = query
+
+        cypher_query += """
+        RETURN e.id AS id, e.name AS name, e.type AS type, e.subtype AS subtype,
+               e.location.y AS latitude, e.location.x AS longitude,
+               e.description AS description, e.enriched_description AS enriched_description
+        LIMIT $limit
+        """
+        params["limit"] = limit
+
+        locations = await ctx.deps.client._client.execute_read(cypher_query, params)
 
         return [
             {
                 "name": loc.get("name"),
                 "type": loc.get("type", "LOCATION"),
+                "subtype": loc.get("subtype"),
                 "latitude": loc.get("latitude"),
                 "longitude": loc.get("longitude"),
-                "country": loc.get("country"),
-                "description": loc.get("description"),
+                "description": loc.get("description") or loc.get("enriched_description"),
             }
             for loc in locations
         ]
@@ -974,8 +1093,8 @@ async def get_episode_locations(
         episode_guest: Guest name (e.g., "Brian Chesky").
 
     Returns:
-        A geographic profile of the episode's content.
-        Uses session_id filtering to scope to the conversation.
+        A geographic profile of the episode's content with all locations mentioned.
+        Includes coordinates if available for map visualization.
     """
     if not ctx.deps.client:
         return [{"error": "Memory client not available"}]
@@ -983,20 +1102,33 @@ async def get_episode_locations(
     try:
         session_id = _guest_to_session_id(episode_guest)
 
-        locations = await ctx.deps.client.get_locations(
-            session_id=session_id,
-            has_coordinates=True,
-            limit=100,
+        # Query LOCATION entities for this episode - coordinates in location point property
+        cypher_query = """
+        MATCH (c:Conversation)-[:HAS_MESSAGE]->(m:Message)-[:MENTIONS]->(e:Entity)
+        WHERE c.session_id = $session_id
+        AND e.type = 'LOCATION'
+        AND e.location IS NOT NULL
+        WITH e, count(m) AS mention_count
+        RETURN e.id AS id, e.name AS name, e.type AS type, e.subtype AS subtype,
+               e.location.y AS latitude, e.location.x AS longitude,
+               e.description AS description, e.enriched_description AS enriched_description,
+               mention_count
+        ORDER BY mention_count DESC
+        LIMIT 100
+        """
+        locations = await ctx.deps.client._client.execute_read(
+            cypher_query, {"session_id": session_id}
         )
 
         return [
             {
                 "name": loc.get("name"),
                 "type": loc.get("type", "LOCATION"),
+                "subtype": loc.get("subtype"),
                 "latitude": loc.get("latitude"),
                 "longitude": loc.get("longitude"),
-                "country": loc.get("country"),
-                "description": loc.get("description"),
+                "description": loc.get("description") or loc.get("enriched_description"),
+                "mentions": loc.get("mention_count"),
             }
             for loc in locations
         ]
@@ -1660,16 +1792,30 @@ async def trigger_entity_enrichment(
         if not entity:
             return {"error": f"Entity '{entity_name}' not found"}
 
-        # Check if already enriched
-        if entity.properties.get("enriched_description"):
+        # Get metadata dict for checking enrichment properties
+        # Entity model stores extra properties in metadata, not properties
+        metadata = getattr(entity, "metadata", {}) or {}
+
+        # Check if already enriched - check both direct attributes and metadata
+        enriched_description = getattr(entity, "enriched_description", None) or metadata.get(
+            "enriched_description"
+        )
+        wikipedia_url = getattr(entity, "wikipedia_url", None) or metadata.get("wikipedia_url")
+        image_url = getattr(entity, "image_url", None) or metadata.get("image_url")
+        enrichment_provider = getattr(entity, "enrichment_provider", None) or metadata.get(
+            "enrichment_provider"
+        )
+        enriched_at = metadata.get("enriched_at")
+
+        if enriched_description:
             return {
                 "status": "already_enriched",
                 "entity_name": entity.name,
-                "enrichment_provider": entity.properties.get("enrichment_provider"),
-                "enriched_at": str(entity.properties.get("enriched_at")),
-                "description": entity.properties.get("enriched_description"),
-                "wikipedia_url": entity.properties.get("wikipedia_url"),
-                "image_url": entity.properties.get("image_url"),
+                "enrichment_provider": enrichment_provider,
+                "enriched_at": str(enriched_at) if enriched_at else None,
+                "description": enriched_description,
+                "wikipedia_url": wikipedia_url,
+                "image_url": image_url,
             }
 
         # Trigger enrichment if enrichment service is available
@@ -1877,3 +2023,386 @@ async def get_episode_summary(
         }
     except Exception as e:
         return {"error": f"Failed to get episode summary: {str(e)}"}
+
+
+# =============================================================================
+# Memory Graph Search Tool (NEW)
+# =============================================================================
+
+
+async def memory_graph_search(
+    ctx: RunContext[AgentDeps],
+    query: str,
+    limit: int = 10,
+    include_related_entities: bool = True,
+    max_related_per_entity: int = 5,
+) -> dict[str, Any]:
+    """Search memory using vector similarity, then traverse the graph to find entities.
+
+    This tool combines semantic search with knowledge graph traversal:
+    1. Vector search finds semantically similar messages
+    2. Graph traversal finds entities mentioned in those messages
+    3. Expands to find ALL entities related to the mentioned ones
+
+    Use this tool when you want to explore the knowledge graph starting from a
+    semantic concept rather than a specific entity name.
+
+    Args:
+        ctx: The agent run context.
+        query: Natural language search query (e.g., "product-market fit", "scaling teams")
+        limit: Maximum number of messages to find via vector search (default 10)
+        include_related_entities: Whether to also find entities related to the mentioned ones
+        max_related_per_entity: Maximum related entities to include per found entity (default 5)
+
+    Returns:
+        A graph structure with:
+        - nodes: Messages found via vector search + Entities mentioned + Related entities
+        - relationships: MENTIONS links (Message->Entity) + RELATED_TO links (Entity->Entity)
+        - metadata: Search scores, entity types, co-occurrence counts
+    """
+    if not ctx.deps.client:
+        return {"error": "Memory client not available"}
+
+    try:
+        # Step 1: Vector search for similar messages
+        messages = await ctx.deps.client.short_term.search_messages(
+            query=query,
+            limit=limit,
+            threshold=0.5,
+            metadata_filters={"source": "lenny_podcast"},
+        )
+
+        if not messages:
+            return {
+                "query": query,
+                "nodes": [],
+                "relationships": [],
+                "summary": {
+                    "messages_found": 0,
+                    "entities_found": 0,
+                    "relationships_found": 0,
+                },
+                "message": f"No messages found matching '{query}'",
+            }
+
+        # Collect message IDs for graph traversal
+        message_ids = [str(msg.id) for msg in messages]
+
+        # Step 2: Find entities mentioned in these messages
+        entity_query = """
+        UNWIND $message_ids AS msg_id
+        MATCH (m:Message)
+        WHERE m.id = msg_id
+        OPTIONAL MATCH (m)-[mentions:MENTIONS]->(e:Entity)
+        RETURN
+            m.id AS message_id,
+            collect(DISTINCT {
+                id: e.id,
+                name: e.name,
+                type: e.type,
+                subtype: e.subtype,
+                description: e.description,
+                confidence: mentions.confidence
+            }) AS mentioned_entities
+        """
+
+        entity_results = await ctx.deps.client._client.execute_read(
+            entity_query,
+            {"message_ids": message_ids},
+        )
+
+        # Build graph structure
+        nodes: list[dict[str, Any]] = []
+        relationships: list[dict[str, Any]] = []
+        seen_node_ids: set[str] = set()
+        seen_rel_ids: set[str] = set()
+        mentioned_entity_ids: list[str] = []
+
+        # Add message nodes with full content
+        for msg in messages:
+            msg_id = f"msg-{msg.id}"
+            if msg_id not in seen_node_ids:
+                metadata = msg.metadata or {}
+                # Include more content in the node
+                content = msg.content
+                if len(content) > 300:
+                    content = content[:300] + "..."
+                nodes.append(
+                    {
+                        "id": msg_id,
+                        "label": metadata.get("speaker", "Message"),
+                        "type": "Message",
+                        "properties": {
+                            "content": content,
+                            "speaker": metadata.get("speaker"),
+                            "episode": metadata.get("episode_guest"),
+                            "similarity": round(metadata.get("similarity", 0), 3),
+                        },
+                    }
+                )
+                seen_node_ids.add(msg_id)
+
+        # Process entities mentioned in messages
+        for row in entity_results:
+            msg_id = f"msg-{row['message_id']}"
+
+            for entity in row.get("mentioned_entities", []):
+                if not entity or not entity.get("id"):
+                    continue
+                entity_id = f"entity-{entity['id']}"
+                raw_entity_id = entity["id"]
+
+                if entity_id not in seen_node_ids:
+                    nodes.append(
+                        {
+                            "id": entity_id,
+                            "label": entity.get("name", "Unknown"),
+                            "type": entity.get("type", "Entity"),
+                            "properties": {
+                                "subtype": entity.get("subtype"),
+                                "description": entity.get("description"),
+                            },
+                        }
+                    )
+                    seen_node_ids.add(entity_id)
+                    mentioned_entity_ids.append(raw_entity_id)
+
+                # Add MENTIONS relationship
+                rel_id = f"mentions-{msg_id}-{entity_id}"
+                if rel_id not in seen_rel_ids:
+                    relationships.append(
+                        {
+                            "id": rel_id,
+                            "from": msg_id,
+                            "to": entity_id,
+                            "type": "MENTIONS",
+                        }
+                    )
+                    seen_rel_ids.add(rel_id)
+
+        # Step 3: Find related entities that ALSO have message connections
+        # This ensures no disconnected entity nodes in the graph
+        if include_related_entities and mentioned_entity_ids:
+            # Get related entities that have at least one message mentioning them
+            related_query = """
+            UNWIND $entity_ids AS eid
+            MATCH (e:Entity {id: eid})
+            OPTIONAL MATCH (e)-[r:RELATED_TO]-(related:Entity)
+            WHERE related IS NOT NULL
+            // Only include related entities that have message connections
+            AND EXISTS { (related)<-[:MENTIONS]-(:Message) }
+            WITH e, related, r,
+                 CASE WHEN startNode(r) = e THEN 'outgoing' ELSE 'incoming' END AS direction
+            ORDER BY r.co_occurrences DESC
+            WITH e, collect({
+                entity: related,
+                direction: direction,
+                co_occurrences: r.co_occurrences
+            })[0..$max_related] AS related_list
+            RETURN e.id AS source_id, related_list
+            """
+
+            related_results = await ctx.deps.client._client.execute_read(
+                related_query,
+                {
+                    "entity_ids": mentioned_entity_ids,
+                    "max_related": max_related_per_entity,
+                },
+            )
+
+            # Track which related entities we add so we can fetch their messages
+            new_related_entity_ids: list[str] = []
+
+            # Add related entities and relationships
+            for row in related_results:
+                source_id = row["source_id"]
+                source_node_id = f"entity-{source_id}"
+
+                for rel_info in row.get("related_list", []):
+                    if not rel_info:
+                        continue
+                    related_entity = rel_info.get("entity")
+                    if not related_entity or not related_entity.get("id"):
+                        continue
+
+                    related_id = f"entity-{related_entity['id']}"
+                    raw_related_id = related_entity["id"]
+
+                    # Add related entity node if not seen
+                    if related_id not in seen_node_ids:
+                        nodes.append(
+                            {
+                                "id": related_id,
+                                "label": related_entity.get("name", "Unknown"),
+                                "type": related_entity.get("type", "Entity"),
+                                "properties": {
+                                    "subtype": related_entity.get("subtype"),
+                                    "description": related_entity.get("description"),
+                                    "co_occurrences": rel_info.get("co_occurrences"),
+                                },
+                            }
+                        )
+                        seen_node_ids.add(related_id)
+                        new_related_entity_ids.append(raw_related_id)
+
+                    # Add RELATED_TO relationship (normalize direction)
+                    if rel_info.get("direction") == "outgoing":
+                        rel_from, rel_to = source_node_id, related_id
+                    else:
+                        rel_from, rel_to = related_id, source_node_id
+
+                    rel_id = f"related-{rel_from}-{rel_to}"
+                    reverse_rel_id = f"related-{rel_to}-{rel_from}"
+
+                    if rel_id not in seen_rel_ids and reverse_rel_id not in seen_rel_ids:
+                        relationships.append(
+                            {
+                                "id": rel_id,
+                                "from": rel_from,
+                                "to": rel_to,
+                                "type": "RELATED_TO",
+                                "properties": {
+                                    "co_occurrences": rel_info.get("co_occurrences"),
+                                },
+                            }
+                        )
+                        seen_rel_ids.add(rel_id)
+
+        # Step 4: Find any RELATED_TO relationships between all entities in our set
+        all_entity_ids = [n["id"].replace("entity-", "") for n in nodes if n["type"] != "Message"]
+        if len(all_entity_ids) > 1:
+            inter_rel_query = """
+            MATCH (e1:Entity)-[r:RELATED_TO]->(e2:Entity)
+            WHERE e1.id IN $entity_ids AND e2.id IN $entity_ids
+            RETURN e1.id AS from_id, e2.id AS to_id, r.co_occurrences AS co_occurrences
+            """
+            inter_results = await ctx.deps.client._client.execute_read(
+                inter_rel_query, {"entity_ids": all_entity_ids}
+            )
+
+            for rel in inter_results:
+                rel_from = f"entity-{rel['from_id']}"
+                rel_to = f"entity-{rel['to_id']}"
+                rel_id = f"related-{rel_from}-{rel_to}"
+                reverse_rel_id = f"related-{rel_to}-{rel_from}"
+
+                if rel_id not in seen_rel_ids and reverse_rel_id not in seen_rel_ids:
+                    relationships.append(
+                        {
+                            "id": rel_id,
+                            "from": rel_from,
+                            "to": rel_to,
+                            "type": "RELATED_TO",
+                            "properties": {
+                                "co_occurrences": rel.get("co_occurrences"),
+                            },
+                        }
+                    )
+                    seen_rel_ids.add(rel_id)
+
+        # Step 5: Find additional messages that mention any of the entities in our graph
+        # This shows messages connected to entities (beyond the original vector search results)
+        if all_entity_ids:
+            # Get up to 2 messages per entity (to avoid explosion but ensure connectivity)
+            messages_for_entities_query = """
+            UNWIND $entity_ids AS eid
+            MATCH (e:Entity {id: eid})<-[mentions:MENTIONS]-(m:Message)
+            WHERE NOT m.id IN $existing_message_ids
+            WITH e, m, mentions
+            ORDER BY mentions.confidence DESC
+            WITH e, collect({
+                message_id: m.id,
+                content: m.content,
+                metadata: m.metadata
+            })[0..2] AS messages
+            RETURN e.id AS entity_id, messages
+            """
+
+            # Get existing message IDs (strip the "msg-" prefix)
+            existing_msg_ids = [
+                n["id"].replace("msg-", "") for n in nodes if n["type"] == "Message"
+            ]
+
+            msg_results = await ctx.deps.client._client.execute_read(
+                messages_for_entities_query,
+                {
+                    "entity_ids": all_entity_ids,
+                    "existing_message_ids": existing_msg_ids,
+                },
+            )
+
+            for row in msg_results:
+                entity_id = f"entity-{row['entity_id']}"
+
+                for msg_info in row.get("messages", []):
+                    if not msg_info or not msg_info.get("message_id"):
+                        continue
+
+                    msg_id = f"msg-{msg_info['message_id']}"
+
+                    # Add message node if not seen
+                    if msg_id not in seen_node_ids:
+                        # Parse metadata
+                        metadata = {}
+                        if msg_info.get("metadata"):
+                            try:
+                                metadata = json.loads(msg_info["metadata"])
+                            except (json.JSONDecodeError, TypeError):
+                                metadata = {}
+
+                        content = msg_info.get("content", "")
+                        if len(content) > 300:
+                            content = content[:300] + "..."
+
+                        nodes.append(
+                            {
+                                "id": msg_id,
+                                "label": metadata.get("speaker", "Message"),
+                                "type": "Message",
+                                "properties": {
+                                    "content": content,
+                                    "speaker": metadata.get("speaker"),
+                                    "episode": metadata.get("episode_guest"),
+                                    "source": "entity_connection",  # Mark as found via entity
+                                },
+                            }
+                        )
+                        seen_node_ids.add(msg_id)
+
+                    # Add MENTIONS relationship from message to entity
+                    rel_id = f"mentions-{msg_id}-{entity_id}"
+                    if rel_id not in seen_rel_ids:
+                        relationships.append(
+                            {
+                                "id": rel_id,
+                                "from": msg_id,
+                                "to": entity_id,
+                                "type": "MENTIONS",
+                            }
+                        )
+                        seen_rel_ids.add(rel_id)
+
+        # Step 6: Remove any disconnected nodes (entities with no relationships)
+        # Build set of all node IDs that have at least one relationship
+        connected_node_ids: set[str] = set()
+        for rel in relationships:
+            connected_node_ids.add(rel["from"])
+            connected_node_ids.add(rel["to"])
+
+        # Filter nodes to only include connected ones
+        nodes = [n for n in nodes if n["id"] in connected_node_ids]
+
+        return {
+            "query": query,
+            "nodes": nodes,
+            "relationships": relationships,
+            "summary": {
+                "messages_found": len([n for n in nodes if n["type"] == "Message"]),
+                "entities_found": len([n for n in nodes if n["type"] != "Message"]),
+                "relationships_found": len(relationships),
+            },
+        }
+
+    except Exception as e:
+        logger.exception(f"[memory_graph_search] Error for query '{query}': {e}")
+        return {"error": f"Memory graph search failed: {str(e)}"}

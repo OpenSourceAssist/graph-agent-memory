@@ -8,7 +8,14 @@ import type { ReactNode } from "react";
 /**
  * Card type enumeration for tool result visualization
  */
-export type CardType = "map" | "graph" | "data" | "stats" | "entity" | "raw";
+export type CardType =
+  | "map"
+  | "graph"
+  | "data"
+  | "stats"
+  | "entity"
+  | "memory_graph"
+  | "raw";
 
 /**
  * Base props shared by all card components

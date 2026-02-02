@@ -8,30 +8,30 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from src.agent.tools import (
+    # NEW: Entity management tools
+    find_duplicate_entities,
     find_related_entities,
     find_similar_past_queries,
+    # NEW: Conversation & summary tools
+    get_conversation_context,
     get_entity_context,
+    get_entity_provenance,
     get_episode_list,
+    get_episode_summary,
     get_memory_stats,
     get_most_mentioned_entities,
+    get_session_reasoning_history,
     get_speaker_list,
+    get_tool_usage_patterns,
     get_user_preferences,
+    # NEW: Enhanced reasoning memory tools
+    learn_from_similar_task,
+    list_podcast_sessions,
     search_by_episode,
     search_by_speaker,
     search_entities,
     search_podcast_content,
-    # NEW: Enhanced reasoning memory tools
-    learn_from_similar_task,
-    get_tool_usage_patterns,
-    get_session_reasoning_history,
-    # NEW: Entity management tools
-    find_duplicate_entities,
-    get_entity_provenance,
     trigger_entity_enrichment,
-    # NEW: Conversation & summary tools
-    get_conversation_context,
-    list_podcast_sessions,
-    get_episode_summary,
 )
 
 
@@ -586,12 +586,13 @@ class TestTriggerEntityEnrichment:
         mock_entity = MagicMock()
         mock_entity.name = "Airbnb"
         mock_entity.type = "ORGANIZATION"
-        mock_entity.properties = {
-            "enriched_description": "A travel company...",
-            "enrichment_provider": "wikimedia",
+        # Entity model uses direct attributes and metadata dict, not properties
+        mock_entity.enriched_description = "A travel company..."
+        mock_entity.enrichment_provider = "wikimedia"
+        mock_entity.wikipedia_url = "https://en.wikipedia.org/wiki/Airbnb"
+        mock_entity.image_url = "https://example.com/airbnb.jpg"
+        mock_entity.metadata = {
             "enriched_at": "2024-01-01T12:00:00",
-            "wikipedia_url": "https://en.wikipedia.org/wiki/Airbnb",
-            "image_url": "https://example.com/airbnb.jpg",
         }
 
         mock_agent_context.deps.client.long_term.get_entity_by_name = AsyncMock(
@@ -610,7 +611,12 @@ class TestTriggerEntityEnrichment:
         mock_entity = MagicMock()
         mock_entity.name = "New Entity"
         mock_entity.type = "ORGANIZATION"
-        mock_entity.properties = {}  # No enrichment data
+        # Entity model uses direct attributes - set to None for unenriched entity
+        mock_entity.enriched_description = None
+        mock_entity.enrichment_provider = None
+        mock_entity.wikipedia_url = None
+        mock_entity.image_url = None
+        mock_entity.metadata = {}  # No enrichment data
 
         mock_agent_context.deps.client.long_term.get_entity_by_name = AsyncMock(
             return_value=mock_entity
