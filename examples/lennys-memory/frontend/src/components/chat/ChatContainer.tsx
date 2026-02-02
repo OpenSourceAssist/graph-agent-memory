@@ -42,7 +42,8 @@ const SUGGESTED_PROMPTS = [
   },
   {
     title: "Speaker Quotes",
-    prompt: "What did Tobi Lutke say about company culture?",
+    prompt:
+      "What did Brian Chesky say about micromanagement and being in the details?",
     // Showcases: DataCard with podcast transcript results
   },
   {

@@ -464,33 +464,112 @@ async def search_entities(
         return [{"error": "Memory client not available"}]
 
     try:
-        # Convert single entity_type to list for the API
-        entity_types = [entity_type] if entity_type else None
-        entities = await ctx.deps.client.long_term.search_entities(
-            query=query,
-            entity_types=entity_types,
-            limit=limit * 2 if collapse_duplicates else limit,  # Fetch extra for dedup
-            threshold=0.5,  # Lower threshold for better recall
-        )
+        # Use direct Cypher query to get all entity properties including enriched_description
+        # (The library's search_entities doesn't map enriched_description to the Entity object)
+        embedder = ctx.deps.client.long_term._embedder
+        if embedder is None:
+            return [{"error": "Embedder not available"}]
 
-        if collapse_duplicates and entities:
+        query_embedding = await embedder.embed(query)
+
+        # Build the Cypher query with optional type filter
+        cypher = """
+        CALL db.index.vector.queryNodes('entity_embedding_idx', $limit, $embedding)
+        YIELD node, score
+        WHERE score >= $threshold
+        """
+        if entity_type:
+            cypher += " AND node.type = $entity_type"
+        cypher += """
+        RETURN node.id AS id,
+               node.name AS name,
+               node.type AS type,
+               node.subtype AS subtype,
+               node.description AS description,
+               node.enriched_description AS enriched_description,
+               node.wikipedia_url AS wikipedia_url,
+               score
+        ORDER BY score DESC
+        """
+
+        params = {
+            "embedding": query_embedding,
+            "limit": limit * 2 if collapse_duplicates else limit,
+            "threshold": 0.5,
+            "entity_type": entity_type.upper() if entity_type else None,
+        }
+
+        results = await ctx.deps.client._client.execute_read(cypher, params)
+
+        if collapse_duplicates and results:
             # Collapse SAME_AS clusters to canonical entities
-            entities = await _collapse_duplicate_entities(ctx, entities, limit)
+            results = await _collapse_duplicate_entity_results(ctx, results, limit)
 
         return [
             {
-                "name": e.name,
-                "type": e.type,
-                "subtype": e.subtype,
-                "description": e.description,
-                "wikipedia_url": e.wikipedia_url,
-                "enriched": bool(e.enriched_description),
-                "aliases": getattr(e, "aliases", None),  # Include aliases if available
+                "name": r["name"],
+                "type": r["type"],
+                "subtype": r.get("subtype"),
+                # Use enriched_description as fallback if description is empty
+                "description": r.get("description") or r.get("enriched_description") or "",
+                "wikipedia_url": r.get("wikipedia_url"),
+                "enriched": bool(r.get("enriched_description")),
             }
-            for e in entities[:limit]
+            for r in results[:limit]
         ]
     except Exception as e:
         return [{"error": f"Entity search failed: {str(e)}"}]
+
+
+async def _collapse_duplicate_entity_results(
+    ctx: RunContext[AgentDeps],
+    results: list[dict[str, Any]],
+    limit: int,
+) -> list[dict[str, Any]]:
+    """Collapse entity results that are linked via SAME_AS relationships.
+
+    Returns canonical entities with their aliases collected.
+    """
+    if not results:
+        return results
+
+    try:
+        entity_names = [r["name"] for r in results]
+
+        # Find canonical entities for any that have SAME_AS relationships
+        query = """
+        UNWIND $names AS name
+        MATCH (e:Entity {name: name})
+        OPTIONAL MATCH (e)-[:SAME_AS*0..]->(canonical:Entity)
+        WHERE canonical.is_canonical = true OR NOT (canonical)-[:SAME_AS]->()
+        WITH e, COALESCE(canonical, e) AS canon
+        RETURN e.name AS original_name,
+               canon.name AS canonical_name
+        """
+        canonical_results = await ctx.deps.client._client.execute_read(
+            query, {"names": entity_names}
+        )
+
+        # Build mapping from original to canonical
+        canonical_map = {}
+        for r in canonical_results:
+            canonical_map[r["original_name"]] = r["canonical_name"]
+
+        # Deduplicate entities, keeping only canonical ones
+        seen_canonical = set()
+        deduped = []
+        for r in results:
+            canonical_name = canonical_map.get(r["name"], r["name"])
+            if canonical_name not in seen_canonical:
+                seen_canonical.add(canonical_name)
+                deduped.append(r)
+                if len(deduped) >= limit:
+                    break
+
+        return deduped
+    except Exception:
+        # If dedup fails, return original results
+        return results[:limit]
 
 
 async def _collapse_duplicate_entities(
