@@ -11,7 +11,6 @@ import {
   Drawer,
   Portal,
   CloseButton,
-  Menu,
   Badge,
   Link,
   useBreakpointValue,
@@ -21,7 +20,6 @@ import {
   LuPanelLeft,
   LuMapPin,
   LuMenu,
-  LuEllipsisVertical,
   LuBrain,
   LuNetwork,
   LuExternalLink,
@@ -220,48 +218,17 @@ export function AppLayout({
             </Link>
           </HStack>
 
-          {/* Mobile/tablet action menu */}
-          <Menu.Root>
-            <Menu.Trigger asChild>
-              <IconButton
-                aria-label="More options"
-                variant="ghost"
-                size="sm"
-                hideFrom="md"
-              >
-                <LuEllipsisVertical />
-              </IconButton>
-            </Menu.Trigger>
-            <Portal>
-              <Menu.Positioner>
-                <Menu.Content>
-                  <Menu.Item value="map" onClick={() => setMapViewOpen(true)}>
-                    <LuMapPin size={16} />
-                    <Text ml="2">View All Locations</Text>
-                  </Menu.Item>
-                  <Menu.Item
-                    value="graph"
-                    onClick={() => setGraphViewOpen(true)}
-                  >
-                    <LuNetwork size={16} />
-                    <Text ml="2">View Full Graph</Text>
-                  </Menu.Item>
-                  <Menu.Item
-                    value="github"
-                    onClick={() =>
-                      window.open(
-                        "https://github.com/neo4j-labs/agent-memory",
-                        "_blank",
-                      )
-                    }
-                  >
-                    <LuExternalLink size={16} />
-                    <Text ml="2">GitHub</Text>
-                  </Menu.Item>
-                </Menu.Content>
-              </Menu.Positioner>
-            </Portal>
-          </Menu.Root>
+          {/* Mobile action button - just GitHub link since Graph/Map don't work well on mobile */}
+          <Link
+            href="https://github.com/neo4j-labs/agent-memory"
+            target="_blank"
+            rel="noopener noreferrer"
+            hideFrom="md"
+          >
+            <IconButton aria-label="GitHub" variant="ghost" size="sm">
+              <LuExternalLink />
+            </IconButton>
+          </Link>
         </Flex>
 
         {/* Content area */}
