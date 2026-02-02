@@ -37,28 +37,48 @@ const STORAGE_KEY = "lennys-memory-welcome-shown";
 interface WelcomeModalProps {
   /** Callback when user starts using the app */
   onGetStarted?: () => void;
+  /** Control modal open state externally */
+  isOpen?: boolean;
+  /** Callback when modal is closed externally */
+  onClose?: () => void;
 }
 
 /**
  * Welcome modal for first-time users.
  * Explains the memory types and provides sample queries.
+ * Can also be opened manually via the About button.
  */
-export function WelcomeModal({ onGetStarted }: WelcomeModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function WelcomeModal({
+  onGetStarted,
+  isOpen: externalIsOpen,
+  onClose: externalOnClose,
+}: WelcomeModalProps) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
 
-  // Check if user has seen the welcome modal
+  // Use external control if provided, otherwise use internal state
+  const isControlled = externalIsOpen !== undefined;
+  const isOpen = isControlled ? externalIsOpen : internalIsOpen;
+
+  // Check if user has seen the welcome modal (only for uncontrolled mode)
   useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem(STORAGE_KEY);
-    if (!hasSeenWelcome) {
-      // Small delay so the page renders first
-      const timer = setTimeout(() => setIsOpen(true), 500);
-      return () => clearTimeout(timer);
+    if (!isControlled) {
+      const hasSeenWelcome = localStorage.getItem(STORAGE_KEY);
+      if (!hasSeenWelcome) {
+        // Small delay so the page renders first
+        const timer = setTimeout(() => setInternalIsOpen(true), 500);
+        return () => clearTimeout(timer);
+      }
     }
-  }, []);
+  }, [isControlled]);
 
   const handleClose = () => {
-    localStorage.setItem(STORAGE_KEY, "true");
-    setIsOpen(false);
+    // Only set localStorage on first-time close (not when opened via About button)
+    if (!isControlled) {
+      localStorage.setItem(STORAGE_KEY, "true");
+      setInternalIsOpen(false);
+    } else {
+      externalOnClose?.();
+    }
   };
 
   const handleGetStarted = () => {
