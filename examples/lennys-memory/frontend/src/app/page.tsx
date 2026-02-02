@@ -1,7 +1,7 @@
 "use client";
 
 import { Flex, useBreakpointValue, IconButton } from "@chakra-ui/react";
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { LuBrain } from "react-icons/lu";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatContainer } from "@/components/chat/ChatContainer";
@@ -24,8 +24,42 @@ export default function Home() {
     isStreaming,
     memoryEnabled,
     setMemoryEnabled,
-    sendMessage,
+    sendMessage: sendMessageToThread,
   } = useChat(activeThreadId);
+
+  // Track pending message to send after thread creation
+  const pendingMessageRef = useRef<string | null>(null);
+
+  // Send pending message when thread becomes available
+  useEffect(() => {
+    if (pendingMessageRef.current && activeThreadId && !isStreaming) {
+      const msg = pendingMessageRef.current;
+      pendingMessageRef.current = null;
+      sendMessageToThread(msg);
+    }
+  }, [activeThreadId, isStreaming, sendMessageToThread]);
+
+  // Wrapper that creates a thread if needed before sending
+  const handleSendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
+
+      // If no active thread, create one first then send
+      if (!activeThreadId) {
+        pendingMessageRef.current = content;
+        try {
+          await createThread();
+          // Message will be sent by the effect when activeThreadId updates
+        } catch (err) {
+          console.error("Failed to create thread:", err);
+          pendingMessageRef.current = null;
+        }
+      } else {
+        await sendMessageToThread(content);
+      }
+    },
+    [activeThreadId, createThread, sendMessageToThread],
+  );
 
   // Mobile memory panel state (separate from memoryEnabled toggle)
   const [mobileMemoryOpen, setMobileMemoryOpen] = useState(false);
@@ -48,7 +82,7 @@ export default function Home() {
           <ChatContainer
             messages={messages}
             isStreaming={isStreaming}
-            onSendMessage={sendMessage}
+            onSendMessage={handleSendMessage}
             threadId={activeThreadId}
           />
 

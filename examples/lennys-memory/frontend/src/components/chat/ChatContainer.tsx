@@ -88,17 +88,7 @@ export function ChatContainer({
     }
   }, [messages]);
 
-  if (!threadId) {
-    return (
-      <Flex h="full" alignItems="center" justifyContent="center">
-        <Stack textAlign="center" gap="4">
-          <Text fontSize="lg" color="fg.muted">
-            Select a conversation or create a new one
-          </Text>
-        </Stack>
-      </Flex>
-    );
-  }
+  // Don't block UI when threadId is null - user can still type and we'll create a thread on send
 
   return (
     <Flex direction="column" h="full" overflow="hidden" flex="1">
