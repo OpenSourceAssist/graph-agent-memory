@@ -67,13 +67,13 @@ class TestFirstAgentMemoryTutorial:
         )
 
         # Retrieve as shown in tutorial
-        messages = await memory_client.short_term.get_session_messages(
+        conversation = await memory_client.short_term.get_conversation(
             session_id=session_id,
         )
 
-        assert len(messages) == 2
-        assert messages[0].role == "user"
-        assert messages[1].role == "assistant"
+        assert len(conversation.messages) == 2
+        assert conversation.messages[0].role.value == "user"
+        assert conversation.messages[1].role.value == "assistant"
 
     async def test_search_messages(self, memory_client):
         """Test semantic search as shown in the tutorial."""

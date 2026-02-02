@@ -100,20 +100,28 @@ class MockEmbedder:
 async def memory_client():
     """Create a real memory client for integration tests.
 
-    Requires NEO4J_URI, NEO4J_USERNAME, and NEO4J_PASSWORD environment variables.
+    Requires NEO4J_URI, NEO4J_USERNAME, and NEO4J_PASSWORD environment variables
+    and a running Neo4j instance.
     """
     if not neo4j_available():
         pytest.skip("Neo4j not available - set NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD")
 
-    from neo4j_agent_memory import MemoryClient
+    from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
+    from neo4j_agent_memory.core.exceptions import ConnectionError
 
-    client = MemoryClient(
-        os.environ["NEO4J_URI"],
-        os.environ["NEO4J_USERNAME"],
-        os.environ["NEO4J_PASSWORD"],
-        embedder=MockEmbedder(),
+    settings = MemorySettings(
+        neo4j=Neo4jConfig(
+            uri=os.environ["NEO4J_URI"],
+            username=os.environ["NEO4J_USERNAME"],
+            password=os.environ["NEO4J_PASSWORD"],
+        ),
     )
-    await client.initialize()
+
+    client = MemoryClient(settings, embedder=MockEmbedder())
+    try:
+        await client.__aenter__()
+    except ConnectionError:
+        pytest.skip("Neo4j not reachable - is the database running?")
 
     yield client
 
@@ -126,4 +134,4 @@ async def memory_client():
         DETACH DELETE c, m
         """
     )
-    await client.close()
+    await client.__aexit__(None, None, None)

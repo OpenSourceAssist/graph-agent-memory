@@ -156,10 +156,13 @@ export const memory = {
     );
   },
 
-  getGraph: (threadId?: string) => {
+  getGraph: (threadId?: string, episodeSessionIds?: string[]) => {
     const params = new URLSearchParams();
     if (threadId) {
       params.set("session_id", threadId);
+    }
+    if (episodeSessionIds && episodeSessionIds.length > 0) {
+      params.set("episode_session_ids", episodeSessionIds.join(","));
     }
     const query = params.toString();
     return fetchAPI<MemoryGraph>(`/memory/graph${query ? `?${query}` : ""}`);

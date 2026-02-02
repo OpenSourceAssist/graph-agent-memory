@@ -8,6 +8,9 @@ This module provides tools for:
 """
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 import math
 import re
 from typing import Any
@@ -18,8 +21,21 @@ from src.agent.dependencies import AgentDeps
 
 
 def _guest_to_session_id(guest_name: str) -> str:
-    """Convert a guest name to a session_id format."""
-    slug = re.sub(r"[^a-z0-9]+", guest_name.lower(), "-").strip("-")
+    """Convert a guest name to a session_id format.
+
+    Handles Unicode characters by normalizing to ASCII equivalents
+    (e.g., "Tobi Lütke" -> "tobi-lutke", not "tobi-l-tke").
+    """
+    import unicodedata
+
+    # Normalize Unicode characters to their ASCII equivalents
+    # NFD decomposes characters (ü -> u + combining umlaut)
+    # Then we strip combining characters
+    normalized = unicodedata.normalize("NFD", guest_name)
+    ascii_name = normalized.encode("ascii", "ignore").decode("ascii")
+
+    # Convert to lowercase and replace non-alphanumeric with hyphens
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-")
     return f"lenny-podcast-{slug}"
 
 
@@ -43,6 +59,7 @@ async def search_podcast_content(
     ctx: RunContext[AgentDeps],
     query: str,
     limit: int = 10,
+    context_messages: int = 0,
 ) -> list[dict[str, Any]]:
     """Search podcast transcripts using semantic search.
 
@@ -50,12 +67,18 @@ async def search_podcast_content(
         ctx: The agent run context.
         query: Search terms or topic to find.
         limit: Maximum number of results to return.
+        context_messages: Number of surrounding messages to include for context (0-3).
+            When > 0, includes messages before/after each result for fuller context.
 
     Returns:
         List of matching transcript segments with speaker, episode, and content.
+        When context_messages > 0, includes surrounding conversation context.
     """
     if not ctx.deps.client:
         return [{"error": "Memory client not available"}]
+
+    # Clamp context_messages to reasonable range
+    context_messages = max(0, min(3, context_messages))
 
     try:
         messages = await ctx.deps.client.short_term.search_messages(
@@ -65,18 +88,73 @@ async def search_podcast_content(
             metadata_filters={"source": "lenny_podcast"},
         )
 
-        return [
-            {
+        results = []
+        for msg in messages:
+            result = {
                 "content": (msg.content[:500] + "..." if len(msg.content) > 500 else msg.content),
                 "speaker": msg.metadata.get("speaker", "Unknown"),
                 "episode_guest": msg.metadata.get("episode_guest", "Unknown"),
                 "timestamp": msg.metadata.get("timestamp", ""),
                 "relevance": round(msg.metadata.get("similarity", 0), 3),
             }
-            for msg in messages
-        ]
+
+            # Fetch surrounding context if requested
+            if context_messages > 0 and hasattr(msg, "id") and msg.id:
+                try:
+                    context = await _get_message_context(ctx, str(msg.id), context_messages)
+                    if context:
+                        result["context_before"] = context.get("before", [])
+                        result["context_after"] = context.get("after", [])
+                except Exception:
+                    pass  # Silently skip context on error
+
+            results.append(result)
+
+        return results
     except Exception as e:
         return [{"error": f"Search failed: {str(e)}"}]
+
+
+async def _get_message_context(
+    ctx: RunContext[AgentDeps],
+    message_id: str,
+    context_size: int,
+) -> dict[str, list[dict[str, str]]]:
+    """Get surrounding messages for context.
+
+    Uses NEXT_MESSAGE relationships if available, otherwise falls back to
+    timestamp-based ordering.
+    """
+    try:
+        # Try to get context using message relationships
+        query = """
+        MATCH (m:Message)
+        WHERE elementId(m) = $message_id
+        OPTIONAL MATCH (before:Message)-[:NEXT_MESSAGE*1..{context}]->(m)
+        OPTIONAL MATCH (m)-[:NEXT_MESSAGE*1..{context}]->(after:Message)
+        WITH m,
+             collect(DISTINCT before)[0..{context}] AS before_msgs,
+             collect(DISTINCT after)[0..{context}] AS after_msgs
+        RETURN [b IN before_msgs | {{
+            content: left(b.content, 200),
+            speaker: b.metadata.speaker
+        }}] AS context_before,
+        [a IN after_msgs | {{
+            content: left(a.content, 200),
+            speaker: a.metadata.speaker
+        }}] AS context_after
+        """.replace("{context}", str(context_size))
+
+        results = await ctx.deps.client._client.execute_read(query, {"message_id": message_id})
+
+        if results and results[0]:
+            return {
+                "before": results[0].get("context_before", []),
+                "after": results[0].get("context_after", []),
+            }
+        return {"before": [], "after": []}
+    except Exception:
+        return {"before": [], "after": []}
 
 
 async def search_by_speaker(
@@ -100,16 +178,51 @@ async def search_by_speaker(
         return [{"error": "Memory client not available"}]
 
     try:
-        # Use the internal Neo4j client to run a custom query
-        # This filters by speaker metadata stored in messages
+        # If topic is provided, use vector search with speaker filter for best results
+        if topic:
+            messages = await ctx.deps.client.short_term.search_messages(
+                query=topic,
+                limit=limit * 2,  # Fetch extra to filter by speaker
+                threshold=0.5,  # Lower threshold for better recall
+                metadata_filters={"source": "lenny_podcast"},
+            )
+
+            # Filter by speaker name (case-insensitive, partial match)
+            speaker_lower = speaker.lower()
+            results = []
+            for msg in messages:
+                msg_speaker = msg.metadata.get("speaker", "").lower()
+                if speaker_lower in msg_speaker or msg_speaker in speaker_lower:
+                    results.append(
+                        {
+                            "content": (
+                                msg.content[:500] + "..." if len(msg.content) > 500 else msg.content
+                            ),
+                            "speaker": msg.metadata.get("speaker", "Unknown"),
+                            "episode_guest": msg.metadata.get("episode_guest", "Unknown"),
+                            "relevance": round(msg.metadata.get("similarity", 0), 3),
+                        }
+                    )
+                    if len(results) >= limit:
+                        break
+
+            if results:
+                return results
+
+        # Fallback: Use Cypher with fuzzy speaker matching
         query = """
         MATCH (c:Conversation)-[:HAS_MESSAGE]->(m:Message)
         WHERE c.session_id STARTS WITH 'lenny-podcast-'
         AND m.metadata IS NOT NULL
-        AND m.metadata CONTAINS $speaker_pattern
+        AND (
+            m.metadata CONTAINS $speaker_pattern
+            OR toLower(m.metadata) CONTAINS toLower($speaker_lower)
+        )
         """
-
-        params: dict[str, Any] = {"speaker_pattern": f'"speaker": "{speaker}"'}
+        params: dict[str, Any] = {
+            "speaker_pattern": f'"speaker": "{speaker}"',
+            "speaker_lower": speaker.lower(),
+        }
 
         if topic:
             query += " AND toLower(m.content) CONTAINS toLower($topic)"
@@ -161,11 +274,8 @@ async def search_by_episode(
         return [{"error": "Memory client not available"}]
 
     try:
-        # Convert guest name to session_id format
-        import re
-
-        slug = re.sub(r"[^a-z0-9]+", "-", guest_name.lower()).strip("-")
-        session_id = f"lenny-podcast-{slug}"
+        # Convert guest name to session_id format (handles Unicode like "Lütke" -> "lutke")
+        session_id = _guest_to_session_id(guest_name)
 
         if topic:
             # Search within episode for specific topic
@@ -316,6 +426,7 @@ async def search_entities(
     query: str,
     entity_type: str | None = None,
     limit: int = 10,
+    collapse_duplicates: bool = True,
 ) -> list[dict[str, Any]]:
     """Search for entities (people, organizations, topics) mentioned in podcasts.
 
@@ -324,6 +435,8 @@ async def search_entities(
         query: Search term (e.g., "product-market fit", "Y Combinator").
         entity_type: Filter by type - PERSON, ORGANIZATION, LOCATION, EVENT, CONCEPT.
         limit: Maximum number of results to return.
+        collapse_duplicates: If True, collapse entities linked via SAME_AS relationships
+            to show only the canonical entity. This prevents duplicate results.
 
     Returns:
         List of entities with descriptions and mention counts.
@@ -332,11 +445,18 @@ async def search_entities(
         return [{"error": "Memory client not available"}]
 
     try:
+        # Convert single entity_type to list for the API
+        entity_types = [entity_type] if entity_type else None
         entities = await ctx.deps.client.long_term.search_entities(
             query=query,
-            entity_type=entity_type,
-            limit=limit,
+            entity_types=entity_types,
+            limit=limit * 2 if collapse_duplicates else limit,  # Fetch extra for dedup
+            threshold=0.5,  # Lower threshold for better recall
         )
+
+        if collapse_duplicates and entities:
+            # Collapse SAME_AS clusters to canonical entities
+            entities = await _collapse_duplicate_entities(ctx, entities, limit)
 
         return [
             {
@@ -346,34 +466,133 @@ async def search_entities(
                 "description": e.description,
                 "wikipedia_url": e.wikipedia_url,
                 "enriched": bool(e.enriched_description),
+                "aliases": getattr(e, "aliases", None),  # Include aliases if available
             }
-            for e in entities
+            for e in entities[:limit]
         ]
     except Exception as e:
         return [{"error": f"Entity search failed: {str(e)}"}]
+
+
+async def _collapse_duplicate_entities(
+    ctx: RunContext[AgentDeps],
+    entities: list,
+    limit: int,
+) -> list:
+    """Collapse entities that are linked via SAME_AS relationships.
+
+    Returns canonical entities with their aliases collected.
+    """
+    if not entities:
+        return entities
+
+    try:
+        entity_names = [e.name for e in entities]
+
+        # Find canonical entities for any that have SAME_AS relationships
+        query = """
+        UNWIND $names AS name
+        MATCH (e:Entity {name: name})
+        OPTIONAL MATCH (e)-[:SAME_AS*0..]->(canonical:Entity)
+        WHERE canonical.is_canonical = true OR NOT (canonical)-[:SAME_AS]->()
+        WITH e, COALESCE(canonical, e) AS canon
+        OPTIONAL MATCH (alias:Entity)-[:SAME_AS*]->(canon)
+        RETURN e.name AS original_name,
+               canon.name AS canonical_name,
+               collect(DISTINCT alias.name) AS aliases
+        """
+        results = await ctx.deps.client._client.execute_read(query, {"names": entity_names})
+
+        # Build mapping from original to canonical
+        canonical_map = {}
+        aliases_map = {}
+        for r in results:
+            canonical_map[r["original_name"]] = r["canonical_name"]
+            if r["canonical_name"] not in aliases_map:
+                aliases_map[r["canonical_name"]] = set()
+            aliases_map[r["canonical_name"]].update(r["aliases"] or [])
+
+        # Deduplicate entities, keeping only canonical ones
+        seen_canonical = set()
+        deduped = []
+        for e in entities:
+            canonical_name = canonical_map.get(e.name, e.name)
+            if canonical_name not in seen_canonical:
+                seen_canonical.add(canonical_name)
+                # Add aliases to the entity if available
+                if hasattr(e, "__dict__"):
+                    e.aliases = list(aliases_map.get(canonical_name, set()) - {canonical_name})
+                deduped.append(e)
+                if len(deduped) >= limit:
+                    break
+
+        return deduped
+    except Exception:
+        # On error, return original list without deduplication
+        return entities[:limit]
 
 
 async def get_entity_context(
     ctx: RunContext[AgentDeps],
     entity_name: str,
 ) -> dict[str, Any]:
-    """Get full context about an entity including enrichment data.
+    """Get full context about an entity including enrichment data and status.
+
+    Uses vector search to find entities even with partial or fuzzy name matches.
 
     Args:
         ctx: The agent run context.
         entity_name: Name of entity (e.g., "Brian Chesky", "Airbnb").
 
     Returns:
-        Entity details, Wikipedia summary (if available), and podcast mentions.
+        Entity details, enrichment status, Wikipedia summary (if available),
+        and podcast mentions. The enrichment_status field indicates:
+        - "enriched": Entity has Wikipedia/external data
+        - "pending": Enrichment was attempted but no data found
+        - "not_attempted": Entity has not been enriched yet
     """
+    logger.info(f"[get_entity_context] Called with entity_name='{entity_name}'")
+
     if not ctx.deps.client:
+        logger.warning("[get_entity_context] Memory client not available!")
         return {"error": "Memory client not available"}
 
     try:
-        # Get entity by name
+        # First try exact name match
+        logger.info(f"[get_entity_context] Trying exact name match for '{entity_name}'")
         entity = await ctx.deps.client.long_term.get_entity_by_name(entity_name)
+        logger.info(f"[get_entity_context] Exact match result: {entity is not None}")
+
+        # If not found, try vector search for fuzzy matching
         if not entity:
-            return {"error": f"Entity '{entity_name}' not found"}
+            entities = await ctx.deps.client.long_term.search_entities(
+                query=entity_name,
+                limit=5,
+                threshold=0.5,  # Lower threshold for name matching
+            )
+            if entities:
+                # Use the best match
+                entity = entities[0]
+
+        # Still not found? Try case-insensitive Cypher search
+        if not entity:
+            query = """
+            MATCH (e:Entity)
+            WHERE toLower(e.name) CONTAINS toLower($name)
+               OR toLower($name) CONTAINS toLower(e.name)
+            RETURN e
+            ORDER BY size(e.name) ASC
+            LIMIT 1
+            """
+            results = await ctx.deps.client._client.execute_read(query, {"name": entity_name})
+            if results:
+                # Parse the entity from Cypher result
+                entity = await ctx.deps.client.long_term.get_entity_by_name(results[0]["e"]["name"])
+
+        if not entity:
+            return {
+                "error": f"Entity '{entity_name}' not found. Try searching with search_entities tool first."
+            }
 
         # Get mentions from the graph (filter to podcast sessions only)
         query = """
@@ -407,17 +626,70 @@ async def get_entity_context(
                 }
             )
 
+        # Determine enrichment status
+        enrichment_status = _get_enrichment_status(entity)
+
+        # Get enrichment fields - check both direct attributes and metadata dict
+        # The Entity model stores extra properties in metadata, not as direct attributes
+        metadata = getattr(entity, "metadata", {}) or {}
+
+        enriched_description = getattr(entity, "enriched_description", None) or metadata.get(
+            "enriched_description"
+        )
+        wikipedia_url = getattr(entity, "wikipedia_url", None) or metadata.get("wikipedia_url")
+        image_url = getattr(entity, "image_url", None) or metadata.get("image_url")
+        enrichment_provider = getattr(entity, "enrichment_provider", None) or metadata.get(
+            "enrichment_provider"
+        )
+        enriched_at = metadata.get("enriched_at")
+        wikidata_id = getattr(entity, "wikidata_id", None) or metadata.get("wikidata_id")
+
+        # Return in format expected by frontend EntityCard
+        # Frontend expects: { entity: {...}, mentions: [...] } with enrichment fields at entity level
         return {
-            "name": entity.name,
-            "type": entity.type,
-            "subtype": entity.subtype,
-            "description": entity.description,
-            "enriched_description": entity.enriched_description,
-            "wikipedia_url": entity.wikipedia_url,
+            "entity": {
+                "id": str(entity.id) if hasattr(entity, "id") else entity.name,
+                "name": entity.name,
+                "type": entity.type,
+                "subtype": entity.subtype,
+                "description": entity.description,
+                # Enrichment fields at top level for frontend compatibility
+                "enriched_description": enriched_description,
+                "wikipedia_url": wikipedia_url,
+                "image_url": image_url,
+                "wikidata_id": wikidata_id,
+                # Additional enrichment metadata
+                "enrichment_status": enrichment_status,
+                "enrichment_provider": enrichment_provider,
+                "enriched_at": str(enriched_at) if enriched_at else None,
+            },
             "mentions": mention_list,
+            "mention_count": len(mention_list),
         }
     except Exception as e:
+        logger.exception(f"[get_entity_context] Exception for entity '{entity_name}': {e}")
         return {"error": f"Failed to get entity context: {str(e)}"}
+
+
+def _get_enrichment_status(entity) -> str:
+    """Determine the enrichment status of an entity."""
+    # Get metadata dict for checking enrichment properties
+    metadata = getattr(entity, "metadata", {}) or {}
+
+    # Check if entity has enriched data
+    enriched_description = getattr(entity, "enriched_description", None) or metadata.get(
+        "enriched_description"
+    )
+    wikipedia_url = getattr(entity, "wikipedia_url", None) or metadata.get("wikipedia_url")
+
+    if enriched_description or wikipedia_url:
+        return "enriched"
+
+    # Check if enrichment was attempted but failed
+    if metadata.get("enrichment_attempted"):
+        return "pending"  # Attempted but no data found
+
+    return "not_attempted"
 
 
 async def find_related_entities(
@@ -426,6 +698,8 @@ async def find_related_entities(
     limit: int = 10,
 ) -> list[dict[str, Any]]:
     """Find entities related to a given entity via the knowledge graph.
+
+    Uses fuzzy name matching to find the entity, then returns co-occurring entities.
 
     Args:
         ctx: The agent run context.
@@ -439,6 +713,11 @@ async def find_related_entities(
         return [{"error": "Memory client not available"}]
 
     try:
+        # First, resolve the entity name using fuzzy matching
+        resolved_name = await _resolve_entity_name(ctx, entity_name)
+        if not resolved_name:
+            return [{"error": f"Entity '{entity_name}' not found"}]
+
         # Find entities that co-occur in the same messages (podcast sessions only)
         query = """
         MATCH (e1:Entity {name: $name})<-[:MENTIONS]-(m:Message)<-[:HAS_MESSAGE]-(c:Conversation)
@@ -452,7 +731,7 @@ async def find_related_entities(
                e2.description AS description, co_occurrences
         """
         results = await ctx.deps.client._client.execute_read(
-            query, {"name": entity_name, "limit": limit}
+            query, {"name": resolved_name, "limit": limit}
         )
 
         return [
@@ -467,6 +746,44 @@ async def find_related_entities(
         ]
     except Exception as e:
         return [{"error": f"Failed to find related entities: {str(e)}"}]
+
+
+async def _resolve_entity_name(
+    ctx: RunContext[AgentDeps],
+    entity_name: str,
+) -> str | None:
+    """Resolve an entity name using multiple matching strategies.
+
+    Returns the canonical entity name or None if not found.
+    """
+    # Try exact match first
+    entity = await ctx.deps.client.long_term.get_entity_by_name(entity_name)
+    if entity:
+        return entity.name
+
+    # Try vector search
+    entities = await ctx.deps.client.long_term.search_entities(
+        query=entity_name,
+        limit=3,
+        threshold=0.5,
+    )
+    if entities:
+        return entities[0].name
+
+    # Try case-insensitive substring match
+    query = """
+    MATCH (e:Entity)
+    WHERE toLower(e.name) CONTAINS toLower($name)
+       OR toLower($name) CONTAINS toLower(e.name)
+    RETURN e.name AS name
+    ORDER BY size(e.name) ASC
+    LIMIT 1
+    """
+    results = await ctx.deps.client._client.execute_read(query, {"name": entity_name})
+    if results:
+        return results[0]["name"]
+
+    return None
 
 
 async def get_most_mentioned_entities(
@@ -496,8 +813,10 @@ async def get_most_mentioned_entities(
         WITH e, count(r) AS mentions
         ORDER BY mentions DESC
         LIMIT $limit
-        RETURN e.name AS name, e.type AS type, e.subtype AS subtype,
-               e.description AS description, e.wikipedia_url AS wikipedia_url,
+        RETURN e.name AS name, e.type AS type,
+               e.subtype AS subtype,
+               e.description AS description,
+               e.wikipedia_url AS wikipedia_url,
                mentions
         """
         results = await ctx.deps.client._client.execute_read(
@@ -548,8 +867,7 @@ async def search_locations(
     try:
         session_id = None
         if episode_guest:
-            slug = re.sub(r"[^a-z0-9]+", "-", episode_guest.lower()).strip("-")
-            session_id = f"lenny-podcast-{slug}"
+            session_id = _guest_to_session_id(episode_guest)
 
         locations = await ctx.deps.client.get_locations(
             session_id=session_id,
@@ -663,8 +981,7 @@ async def get_episode_locations(
         return [{"error": "Memory client not available"}]
 
     try:
-        slug = re.sub(r"[^a-z0-9]+", "-", episode_guest.lower()).strip("-")
-        session_id = f"lenny-podcast-{slug}"
+        session_id = _guest_to_session_id(episode_guest)
 
         locations = await ctx.deps.client.get_locations(
             session_id=session_id,
@@ -717,11 +1034,11 @@ async def find_location_path(
         WITH start, end LIMIT 1
         MATCH path = shortestPath((start)-[*..6]-(end))
         RETURN start.name AS from_location,
-               start.latitude AS from_lat,
-               start.longitude AS from_lon,
+               start.location.latitude AS from_lat,
+               start.location.longitude AS from_lon,
                end.name AS to_location,
-               end.latitude AS to_lat,
-               end.longitude AS to_lon,
+               end.location.latitude AS to_lat,
+               end.location.longitude AS to_lon,
                [n IN nodes(path) |
                 CASE
                     WHEN n:Entity THEN {type: 'entity', name: n.name, entity_type: n.type}
@@ -779,8 +1096,7 @@ async def get_location_clusters(
     try:
         session_id = None
         if episode_guest:
-            slug = re.sub(r"[^a-z0-9]+", "-", episode_guest.lower()).strip("-")
-            session_id = f"lenny-podcast-{slug}"
+            session_id = _guest_to_session_id(episode_guest)
 
         locations = await ctx.deps.client.get_locations(
             session_id=session_id,
@@ -968,3 +1284,596 @@ async def find_similar_past_queries(
         ]
     except Exception as e:
         return [{"error": f"Failed to find similar traces: {str(e)}"}]
+
+
+# =============================================================================
+# Enhanced Reasoning Memory Tools (NEW)
+# =============================================================================
+
+
+async def learn_from_similar_task(
+    ctx: RunContext[AgentDeps],
+    task_description: str,
+    limit: int = 1,
+) -> list[dict[str, Any]]:
+    """Get full reasoning traces from similar past tasks for few-shot learning.
+
+    Unlike find_similar_past_queries which returns summaries, this returns
+    the complete reasoning steps so the agent can learn the approach.
+
+    Args:
+        ctx: The agent run context.
+        task_description: Description of the current task.
+        limit: Number of similar traces to return.
+
+    Returns:
+        Complete reasoning traces including all steps and tool calls.
+    """
+    if not ctx.deps.client:
+        return [{"error": "Memory client not available"}]
+
+    try:
+        traces = await ctx.deps.client.reasoning.get_similar_traces(
+            task=task_description,
+            limit=limit,
+            success_only=True,
+            threshold=0.6,  # Lower threshold to find more potential matches
+        )
+
+        results = []
+        for trace in traces:
+            # Get the full trace with steps
+            full_trace = await ctx.deps.client.reasoning.get_trace_with_steps(trace.id)
+            if not full_trace:
+                continue
+
+            steps_data = []
+            for step in full_trace.steps or []:
+                step_info = {
+                    "step_number": step.step_number,
+                    "thought": step.thought,
+                    "action": step.action,
+                    "observation": step.observation,
+                }
+                # Include tool calls if present
+                if step.tool_calls:
+                    step_info["tool_calls"] = [
+                        {
+                            "tool_name": tc.tool_name,
+                            "arguments": tc.arguments,
+                            "status": tc.status.value if tc.status else "unknown",
+                            "duration_ms": tc.duration_ms,
+                        }
+                        for tc in step.tool_calls
+                    ]
+                steps_data.append(step_info)
+
+            results.append(
+                {
+                    "task": full_trace.task,
+                    "outcome": full_trace.outcome,
+                    "success": full_trace.success,
+                    "similarity": trace.metadata.get("similarity", 0) if trace.metadata else 0,
+                    "steps": steps_data,
+                }
+            )
+
+        return results
+    except Exception as e:
+        return [{"error": f"Failed to get similar traces: {str(e)}"}]
+
+
+async def get_tool_usage_patterns(
+    ctx: RunContext[AgentDeps],
+    tool_name: str | None = None,
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Analyze tool usage patterns to understand which tools are most effective.
+
+    Returns statistics about tool calls including success rates, average durations,
+    and common tool sequences.
+
+    Args:
+        ctx: The agent run context.
+        tool_name: Optional specific tool to analyze.
+        limit: Maximum number of tools to include in analysis.
+
+    Returns:
+        Tool usage statistics and patterns.
+    """
+    if not ctx.deps.client:
+        return {"error": "Memory client not available"}
+
+    try:
+        # Get pre-aggregated tool stats
+        stats = await ctx.deps.client.reasoning.get_tool_stats(tool_name=tool_name)
+
+        tool_data = []
+        for s in stats[:limit]:
+            tool_info = {
+                "tool_name": s.tool_name,
+                "total_calls": s.total_calls,
+                "success_count": s.success_count,
+                "failure_count": s.failure_count,
+                "success_rate": round(s.success_rate * 100, 1) if s.success_rate else 0,
+                "avg_duration_ms": round(s.avg_duration_ms, 1) if s.avg_duration_ms else None,
+            }
+            tool_data.append(tool_info)
+
+        # Sort by success rate and usage
+        tool_data.sort(key=lambda x: (x["success_rate"], x["total_calls"]), reverse=True)
+
+        return {
+            "tools": tool_data,
+            "total_tools_analyzed": len(tool_data),
+            "recommendation": _get_tool_recommendation(tool_data),
+        }
+    except Exception as e:
+        return {"error": f"Failed to get tool patterns: {str(e)}"}
+
+
+def _get_tool_recommendation(tool_data: list[dict]) -> str:
+    """Generate a recommendation based on tool usage patterns."""
+    if not tool_data:
+        return "No tool usage data available yet."
+
+    # Find best performing tools
+    best_tools = [t for t in tool_data if t["success_rate"] >= 90 and t["total_calls"] >= 5]
+    if best_tools:
+        top_tool = best_tools[0]
+        return f"'{top_tool['tool_name']}' has highest success rate ({top_tool['success_rate']}%) with {top_tool['total_calls']} calls."
+
+    # Find most used tools
+    most_used = sorted(tool_data, key=lambda x: x["total_calls"], reverse=True)
+    if most_used:
+        return f"'{most_used[0]['tool_name']}' is most frequently used ({most_used[0]['total_calls']} calls)."
+
+    return "Continue using tools to build usage patterns."
+
+
+async def get_session_reasoning_history(
+    ctx: RunContext[AgentDeps],
+    session_id: str | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Get reasoning traces from a session to understand the conversation history.
+
+    Args:
+        ctx: The agent run context.
+        session_id: Session ID to query. Defaults to current session.
+        limit: Maximum number of traces to return.
+
+    Returns:
+        List of reasoning traces from the session.
+    """
+    if not ctx.deps.client:
+        return [{"error": "Memory client not available"}]
+
+    try:
+        target_session = session_id or ctx.deps.session_id
+        traces = await ctx.deps.client.reasoning.get_session_traces(
+            session_id=target_session,
+            limit=limit,
+        )
+
+        return [
+            {
+                "id": str(t.id),
+                "task": t.task,
+                "outcome": t.outcome,
+                "success": t.success,
+                "started_at": t.started_at.isoformat() if t.started_at else None,
+                "completed_at": t.completed_at.isoformat() if t.completed_at else None,
+                "steps_count": len(t.steps) if t.steps else 0,
+            }
+            for t in traces
+        ]
+    except Exception as e:
+        return [{"error": f"Failed to get session traces: {str(e)}"}]
+
+
+# =============================================================================
+# Entity Management Tools (NEW)
+# =============================================================================
+
+
+async def find_duplicate_entities(
+    ctx: RunContext[AgentDeps],
+    entity_type: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Find potential duplicate entities that may need merging.
+
+    Useful for data quality improvement and entity resolution.
+
+    Args:
+        ctx: The agent run context.
+        entity_type: Filter by entity type (PERSON, ORGANIZATION, etc.)
+        limit: Maximum number of duplicate pairs to return.
+
+    Returns:
+        Pairs of potentially duplicate entities with similarity scores.
+    """
+    if not ctx.deps.client:
+        return [{"error": "Memory client not available"}]
+
+    try:
+        # Use the library's deduplication capabilities
+        duplicates = await ctx.deps.client.long_term.find_potential_duplicates(
+            entity_type=entity_type,
+            limit=limit,
+        )
+
+        return [
+            {
+                "entity1": {
+                    "id": str(d.entity1.id),
+                    "name": d.entity1.name,
+                    "type": d.entity1.type,
+                },
+                "entity2": {
+                    "id": str(d.entity2.id),
+                    "name": d.entity2.name,
+                    "type": d.entity2.type,
+                },
+                "similarity": round(d.similarity, 3),
+                "status": d.status,
+            }
+            for d in duplicates
+        ]
+    except AttributeError:
+        # Method may not exist in older library versions
+        # Fallback: Use custom Cypher to find similar names
+        return await _find_duplicates_fallback(ctx, entity_type, limit)
+    except Exception as e:
+        return [{"error": f"Failed to find duplicates: {str(e)}"}]
+
+
+async def _find_duplicates_fallback(
+    ctx: RunContext[AgentDeps],
+    entity_type: str | None,
+    limit: int,
+) -> list[dict[str, Any]]:
+    """Fallback duplicate detection using fuzzy string matching in Cypher."""
+    try:
+        type_filter = "AND e1.type = $entity_type" if entity_type else ""
+        query = f"""
+        MATCH (e1:Entity)
+        WHERE e1.name IS NOT NULL {type_filter}
+        WITH e1
+        MATCH (e2:Entity)
+        WHERE e2.name IS NOT NULL
+          AND id(e1) < id(e2)
+          AND e1.type = e2.type
+          AND (
+            toLower(e1.name) CONTAINS toLower(e2.name)
+            OR toLower(e2.name) CONTAINS toLower(e1.name)
+            OR apoc.text.levenshteinSimilarity(toLower(e1.name), toLower(e2.name)) > 0.8
+          )
+        RETURN e1.name AS name1, e1.type AS type1, elementId(e1) AS id1,
+               e2.name AS name2, e2.type AS type2, elementId(e2) AS id2,
+               apoc.text.levenshteinSimilarity(toLower(e1.name), toLower(e2.name)) AS similarity
+        ORDER BY similarity DESC
+        LIMIT $limit
+        """
+        results = await ctx.deps.client._client.execute_read(
+            query, {"entity_type": entity_type, "limit": limit}
+        )
+
+        return [
+            {
+                "entity1": {"id": r["id1"], "name": r["name1"], "type": r["type1"]},
+                "entity2": {"id": r["id2"], "name": r["name2"], "type": r["type2"]},
+                "similarity": round(r["similarity"], 3) if r["similarity"] else 0.8,
+                "status": "pending",
+            }
+            for r in results
+        ]
+    except Exception as e:
+        return [{"error": f"Fallback duplicate detection failed: {str(e)}"}]
+
+
+async def get_entity_provenance(
+    ctx: RunContext[AgentDeps],
+    entity_name: str,
+) -> dict[str, Any]:
+    """Get the provenance (source) information for an entity.
+
+    Shows which messages the entity was extracted from and extraction confidence.
+
+    Args:
+        ctx: The agent run context.
+        entity_name: Name of the entity to get provenance for.
+
+    Returns:
+        Source messages, extraction dates, and confidence scores.
+    """
+    if not ctx.deps.client:
+        return {"error": "Memory client not available"}
+
+    try:
+        query = """
+        MATCH (e:Entity)
+        WHERE toLower(e.name) = toLower($name)
+        WITH e LIMIT 1
+        OPTIONAL MATCH (e)-[r:EXTRACTED_FROM|MENTIONED_IN]->(m:Message)
+        OPTIONAL MATCH (m)-[:PART_OF]->(c:Conversation)
+        RETURN e.name AS entity_name,
+               e.type AS entity_type,
+               e.created_at AS created_at,
+               e.confidence AS confidence,
+               e.enrichment_provider AS enrichment_provider,
+               e.enriched_at AS enriched_at,
+               collect(DISTINCT {
+                   message_id: elementId(m),
+                   content_preview: left(m.content, 150),
+                   speaker: m.metadata.speaker,
+                   session_id: c.session_id,
+                   relationship_type: type(r)
+               })[0..5] AS sources
+        """
+        results = await ctx.deps.client._client.execute_read(query, {"name": entity_name})
+
+        if not results:
+            return {"error": f"Entity '{entity_name}' not found"}
+
+        r = results[0]
+        return {
+            "entity": {
+                "name": r["entity_name"],
+                "type": r["entity_type"],
+                "created_at": str(r["created_at"]) if r["created_at"] else None,
+                "confidence": r["confidence"],
+            },
+            "enrichment": {
+                "provider": r["enrichment_provider"],
+                "enriched_at": str(r["enriched_at"]) if r["enriched_at"] else None,
+            },
+            "sources": [s for s in r["sources"] if s.get("message_id")],
+            "total_mentions": len([s for s in r["sources"] if s.get("message_id")]),
+        }
+    except Exception as e:
+        return {"error": f"Failed to get entity provenance: {str(e)}"}
+
+
+async def trigger_entity_enrichment(
+    ctx: RunContext[AgentDeps],
+    entity_name: str,
+    provider: str = "wikimedia",
+) -> dict[str, Any]:
+    """Request enrichment for an entity from Wikipedia or other providers.
+
+    Args:
+        ctx: The agent run context.
+        entity_name: Name of the entity to enrich.
+        provider: Enrichment provider ("wikimedia" or "diffbot").
+
+    Returns:
+        Enrichment status and data if available.
+    """
+    if not ctx.deps.client:
+        return {"error": "Memory client not available"}
+
+    try:
+        # First, find the entity
+        entity = await ctx.deps.client.long_term.get_entity_by_name(entity_name)
+        if not entity:
+            return {"error": f"Entity '{entity_name}' not found"}
+
+        # Check if already enriched
+        if entity.properties.get("enriched_description"):
+            return {
+                "status": "already_enriched",
+                "entity_name": entity.name,
+                "enrichment_provider": entity.properties.get("enrichment_provider"),
+                "enriched_at": str(entity.properties.get("enriched_at")),
+                "description": entity.properties.get("enriched_description"),
+                "wikipedia_url": entity.properties.get("wikipedia_url"),
+                "image_url": entity.properties.get("image_url"),
+            }
+
+        # Trigger enrichment if enrichment service is available
+        # NOTE: This requires the enrichment service to be running
+        # For now, return status indicating enrichment needed
+        return {
+            "status": "enrichment_needed",
+            "entity_name": entity.name,
+            "entity_type": entity.type,
+            "message": f"Entity '{entity_name}' needs enrichment. Run the enrichment script or enable background enrichment.",
+            "suggestion": "Use `make enrich` to enrich entities with Wikipedia data.",
+        }
+    except Exception as e:
+        return {"error": f"Failed to trigger enrichment: {str(e)}"}
+
+
+# =============================================================================
+# Conversation & Summary Tools (NEW)
+# =============================================================================
+
+
+async def get_conversation_context(
+    ctx: RunContext[AgentDeps],
+    limit: int = 10,
+    include_tool_calls: bool = False,
+) -> list[dict[str, Any]]:
+    """Get recent conversation history for context.
+
+    Args:
+        ctx: The agent run context.
+        limit: Maximum number of messages to return.
+        include_tool_calls: Whether to include tool call details.
+
+    Returns:
+        Recent messages in the current conversation.
+    """
+    if not ctx.deps.client:
+        return [{"error": "Memory client not available"}]
+
+    try:
+        messages = await ctx.deps.client.short_term.get_conversation(
+            session_id=ctx.deps.session_id,
+            limit=limit,
+        )
+
+        results = []
+        for msg in messages:
+            msg_data = {
+                "role": msg.role,
+                "content": msg.content[:500] if len(msg.content) > 500 else msg.content,
+                "timestamp": msg.metadata.get("timestamp") if msg.metadata else None,
+            }
+            if include_tool_calls and hasattr(msg, "tool_calls") and msg.tool_calls:
+                msg_data["tool_calls"] = [
+                    {"name": tc.get("name"), "status": tc.get("status")} for tc in msg.tool_calls
+                ]
+            results.append(msg_data)
+
+        return results
+    except Exception as e:
+        return [{"error": f"Failed to get conversation context: {str(e)}"}]
+
+
+async def list_podcast_sessions(
+    ctx: RunContext[AgentDeps],
+    sort_by: str = "message_count",
+    order: str = "desc",
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """List available podcast sessions with metadata.
+
+    Args:
+        ctx: The agent run context.
+        sort_by: Sort field ("message_count", "created_at", "updated_at").
+        order: Sort order ("asc" or "desc").
+        limit: Maximum number of sessions.
+
+    Returns:
+        List of sessions with message counts and metadata.
+    """
+    if not ctx.deps.client:
+        return [{"error": "Memory client not available"}]
+
+    try:
+        # Try using the library's list_sessions if available
+        try:
+            sessions = await ctx.deps.client.short_term.list_sessions(
+                prefix="lenny-podcast-",
+                limit=limit,
+            )
+            return [
+                {
+                    "session_id": s.session_id,
+                    "message_count": s.message_count,
+                    "created_at": s.created_at.isoformat() if s.created_at else None,
+                    "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+                    "preview": s.preview[:100] if s.preview else None,
+                }
+                for s in sessions
+            ]
+        except AttributeError:
+            pass
+
+        # Fallback: Use direct Cypher query
+        order_clause = "DESC" if order == "desc" else "ASC"
+        sort_field = {
+            "message_count": "message_count",
+            "created_at": "c.created_at",
+            "updated_at": "c.updated_at",
+        }.get(sort_by, "message_count")
+
+        query = f"""
+        MATCH (c:Conversation)
+        WHERE c.session_id STARTS WITH 'lenny-podcast-'
+        OPTIONAL MATCH (c)-[:HAS_MESSAGE]->(m:Message)
+        WITH c, count(m) AS message_count
+        RETURN c.session_id AS session_id,
+               c.title AS title,
+               message_count,
+               c.created_at AS created_at,
+               c.updated_at AS updated_at
+        ORDER BY {sort_field} {order_clause}
+        LIMIT $limit
+        """
+        results = await ctx.deps.client._client.execute_read(query, {"limit": limit})
+
+        return [
+            {
+                "session_id": r["session_id"],
+                "title": r["title"],
+                "message_count": r["message_count"],
+                "created_at": str(r["created_at"]) if r["created_at"] else None,
+                "updated_at": str(r["updated_at"]) if r["updated_at"] else None,
+            }
+            for r in results
+        ]
+    except Exception as e:
+        return [{"error": f"Failed to list sessions: {str(e)}"}]
+
+
+async def get_episode_summary(
+    ctx: RunContext[AgentDeps],
+    episode_guest: str,
+) -> dict[str, Any]:
+    """Get a summary of a podcast episode including key topics and entities.
+
+    Args:
+        ctx: The agent run context.
+        episode_guest: Guest name (e.g., "Brian Chesky").
+
+    Returns:
+        Episode summary with key topics, entities, and highlights.
+    """
+    if not ctx.deps.client:
+        return {"error": "Memory client not available"}
+
+    try:
+        session_id = _guest_to_session_id(episode_guest)
+
+        # Get conversation summary if available
+        try:
+            summary = await ctx.deps.client.short_term.get_conversation_summary(
+                session_id=session_id,
+            )
+            if summary:
+                return {
+                    "episode_guest": episode_guest,
+                    "session_id": session_id,
+                    "summary": summary.summary,
+                    "key_topics": summary.key_topics,
+                    "key_entities": summary.key_entities,
+                    "generated_at": summary.generated_at.isoformat()
+                    if summary.generated_at
+                    else None,
+                }
+        except AttributeError:
+            pass
+
+        # Fallback: Generate summary from entities and message stats
+        query = """
+        MATCH (c:Conversation {session_id: $session_id})
+        OPTIONAL MATCH (c)-[:HAS_MESSAGE]->(m:Message)
+        WITH c, count(m) AS message_count
+        OPTIONAL MATCH (m)-[:MENTIONS]->(e:Entity)
+        WITH c, message_count, collect(DISTINCT e.name)[0..10] AS entities
+        RETURN c.title AS title,
+               c.session_id AS session_id,
+               message_count,
+               entities
+        """
+        results = await ctx.deps.client._client.execute_read(query, {"session_id": session_id})
+
+        if not results:
+            return {"error": f"Episode with guest '{episode_guest}' not found"}
+
+        r = results[0]
+        return {
+            "episode_guest": episode_guest,
+            "session_id": r["session_id"],
+            "title": r["title"],
+            "message_count": r["message_count"],
+            "key_entities": r["entities"] or [],
+            "summary": None,  # No AI summary available in fallback mode
+            "note": "Full AI summary requires conversation summarization feature.",
+        }
+    except Exception as e:
+        return {"error": f"Failed to get episode summary: {str(e)}"}

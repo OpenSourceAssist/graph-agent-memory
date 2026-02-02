@@ -242,7 +242,7 @@ GLiNER doesn't just match labels - it uses the semantic meaning of descriptions:
 
 This is why domain schemas significantly improve extraction quality.
 
-== Relation Extraction with GLiREL
+== Relationship Extraction with GLiREL
 
 Beyond entities, GLiREL extracts relationships:
 
@@ -257,7 +257,52 @@ result = await extractor.extract("Marc works at a16z in San Francisco")
 # Relations: [Marc -[WORKS_AT]-> a16z, a16z -[LOCATED_IN]-> San Francisco]
 ----
 
-Relation extraction finds typed connections between entities, building richer knowledge graphs.
+Relationship extraction finds typed connections between entities, building richer knowledge graphs.
+
+== Automatic Relationship Storage
+
+When adding messages with entity extraction enabled, extracted relationships are automatically stored as `RELATED_TO` relationships in Neo4j:
+
+[source,python]
+----
+# Relationships are stored automatically when adding messages
+await memory.short_term.add_message(
+    "session-1",
+    "user",
+    "Brian Chesky founded Airbnb in San Francisco.",
+    extract_entities=True,
+    extract_relations=True,  # Default: True
+)
+
+# This creates:
+# - Entity nodes: Brian Chesky (PERSON), Airbnb (ORGANIZATION), San Francisco (LOCATION)
+# - MENTIONS relationships: Message -> Entity
+# - RELATED_TO relationships: (Brian Chesky)-[:RELATED_TO {relation_type: "FOUNDED"}]->(Airbnb)
+----
+
+The relationship storage works for:
+
+* **`add_message()`** - Extract and store from individual messages (default: `extract_relations=True`)
+* **`add_messages_batch()`** - Batch operations (default: `extract_relations=True`, only applies when `extract_entities=True`)
+* **`extract_entities_from_session()`** - Post-hoc extraction from existing messages (default: `extract_relations=True`)
+
+[source,python]
+----
+# Post-hoc extraction with relationship storage
+result = await memory.short_term.extract_entities_from_session(
+    "session-1",
+    extract_relations=True,  # Default: True
+)
+print(f"Extracted {result['relations_extracted']} relationships")
+----
+
+=== Relationship Storage Strategies
+
+Relationships can reference entities in two ways:
+
+1. **Same-message entities**: When both the source and target entity are extracted from the same message, relationships are created using entity IDs (most efficient).
+
+2. **Cross-message entities**: When a relationship references an entity from a previous message, the system looks up entities by name. This enables building a connected knowledge graph across a conversation.
 
 == Performance Considerations
 

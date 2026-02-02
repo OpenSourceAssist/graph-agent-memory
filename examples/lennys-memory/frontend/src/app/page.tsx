@@ -6,6 +6,7 @@ import { LuBrain } from "react-icons/lu";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatContainer } from "@/components/chat/ChatContainer";
 import { MemoryContextPanel } from "@/components/memory/MemoryContext";
+import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import { useThreads } from "@/hooks/useThreads";
 import { useChat } from "@/hooks/useChat";
 
@@ -26,48 +27,53 @@ export default function Home() {
   const isMobile = useBreakpointValue({ base: true, lg: false });
 
   return (
-    <AppLayout
-      threads={threads}
-      activeThreadId={activeThreadId}
-      onSelectThread={selectThread}
-      onCreateThread={createThread}
-      onDeleteThread={deleteThread}
-      memoryEnabled={memoryEnabled}
-      onToggleMemory={setMemoryEnabled}
-    >
-      <Flex h="full" position="relative">
-        <ChatContainer
-          messages={messages}
-          isStreaming={isStreaming}
-          onSendMessage={sendMessage}
-          threadId={activeThreadId}
-        />
+    <>
+      {/* Welcome modal for first-time users */}
+      <WelcomeModal />
 
-        {/* Desktop: Always show panel when memoryEnabled */}
-        {/* Mobile: Show bottom sheet only when mobileMemoryOpen */}
-        <MemoryContextPanel
-          threadId={activeThreadId}
-          isVisible={isMobile ? mobileMemoryOpen : memoryEnabled}
-          onClose={() => setMobileMemoryOpen(false)}
-        />
+      <AppLayout
+        threads={threads}
+        activeThreadId={activeThreadId}
+        onSelectThread={selectThread}
+        onCreateThread={createThread}
+        onDeleteThread={deleteThread}
+        memoryEnabled={memoryEnabled}
+        onToggleMemory={setMemoryEnabled}
+      >
+        <Flex h="full" position="relative">
+          <ChatContainer
+            messages={messages}
+            isStreaming={isStreaming}
+            onSendMessage={sendMessage}
+            threadId={activeThreadId}
+          />
 
-        {/* Mobile FAB to open memory context */}
-        {isMobile && memoryEnabled && !mobileMemoryOpen && (
-          <IconButton
-            aria-label="View memory context"
-            position="absolute"
-            bottom="100px"
-            right="4"
-            borderRadius="full"
-            size="lg"
-            colorPalette="blue"
-            boxShadow="lg"
-            onClick={() => setMobileMemoryOpen(true)}
-          >
-            <LuBrain />
-          </IconButton>
-        )}
-      </Flex>
-    </AppLayout>
+          {/* Desktop: Always show panel when memoryEnabled */}
+          {/* Mobile: Show bottom sheet only when mobileMemoryOpen */}
+          <MemoryContextPanel
+            threadId={activeThreadId}
+            isVisible={isMobile ? mobileMemoryOpen : memoryEnabled}
+            onClose={() => setMobileMemoryOpen(false)}
+          />
+
+          {/* Mobile FAB to open memory context */}
+          {isMobile && memoryEnabled && !mobileMemoryOpen && (
+            <IconButton
+              aria-label="View memory context"
+              position="absolute"
+              bottom="100px"
+              right="4"
+              borderRadius="full"
+              size="lg"
+              colorPalette="brand"
+              boxShadow="lg"
+              onClick={() => setMobileMemoryOpen(true)}
+            >
+              <LuBrain />
+            </IconButton>
+          )}
+        </Flex>
+      </AppLayout>
+    </>
   );
 }
