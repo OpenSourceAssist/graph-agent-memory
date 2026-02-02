@@ -1423,6 +1423,61 @@ deps = MemoryDependency(client=client, session_id="user-123")
     WHERE e.name = $name OR ('aliases' IN keys(e) AND $name IN e.aliases)
     ```
 
+24. **Graph Visualization with Episode Session IDs**: The `/api/memory/graph` endpoint accepts an `episode_session_ids` parameter (comma-separated) to include full conversations and entities from podcast episodes in addition to the current thread. This is used when tool call results contain references to specific episodes.
+
+    ```python
+    # Backend endpoint signature
+    @router.get("/memory/graph")
+    async def get_memory_graph(
+        session_id: str | None = None,
+        episode_session_ids: str | None = None,  # e.g., "lenny-podcast-brian-chesky,lenny-podcast-andy-johns"
+        limit: int = 1000,
+    ) -> MemoryGraph:
+        ...
+    ```
+
+25. **Sidebar Entity Filtering by Thread**: The `/api/memory/context` endpoint filters entities to show only those mentioned in the current conversation (via `MENTIONS` relationships to messages), rather than a global search. It prioritizes enriched entities (those with Wikipedia data) and filters out short names (≤2 chars).
+
+    ```cypher
+    // Query used when thread_id is provided
+    MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)-[:MENTIONS]->(e:Entity)
+    WITH e, count(m) AS mention_count
+    WHERE size(e.name) > 2
+    RETURN e, mention_count,
+           CASE WHEN e.enriched_description IS NOT NULL THEN 1 ELSE 0 END AS is_enriched
+    ORDER BY is_enriched DESC, mention_count DESC
+    LIMIT 15
+    ```
+
+26. **Guest Name to Session ID Conversion**: The lennys-memory frontend converts guest names to session IDs using a slug pattern. This is used to map episode references in tool results to their corresponding session IDs.
+
+    ```typescript
+    // Frontend pattern (MemoryGraphView.tsx)
+    const guestToSessionId = (guestName: string): string => {
+      const normalized = guestName
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")  // Remove diacritics
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+      return `lenny-podcast-${normalized}`;
+    };
+    ```
+
+27. **Neo4j Relationship Property Access**: When querying relationships in Neo4j, the returned relationship objects use `._properties` to access properties, not direct dict conversion. Always use fallback patterns:
+
+    ```python
+    # Correct way to access relationship properties
+    if hasattr(rel, "_properties"):
+        props = {k: serialize_neo4j_value(v) for k, v in rel._properties.items()}
+    elif hasattr(rel, "items"):
+        props = {k: serialize_neo4j_value(v) for k, v in rel.items()}
+    else:
+        props = {}
+    ```
+
 ## Environment Variables
 
 - `NEO4J_URI` - Neo4j connection URI (default: `bolt://localhost:7687`)
@@ -1595,6 +1650,8 @@ The latest version includes significant frontend improvements:
 - Double-click to expand node neighbors
 - Memory type filtering (short-term, long-term, reasoning)
 - Wikipedia enrichment section in node property panel with images
+- **Episode session ID extraction**: Automatically extracts `session_id`, `episode`, `episode_guest`, and `guest` fields from tool call results to include related podcast conversations in the graph
+- **Reasoning memory visualization**: Shows ReasoningTrace → HAS_STEP → ReasoningStep → USES_TOOL → ToolCall → INSTANCE_OF → Tool relationships
 
 ### Map Visualization Features
 
@@ -1609,6 +1666,8 @@ The map view (`MemoryMapView.tsx`) supports:
 ### Memory Context Panel
 
 - Entity cards with images, descriptions, Wikipedia links
+- **Thread-scoped entities**: Shows only entities mentioned in the current conversation (not global search)
+- Prioritizes enriched entities with Wikipedia data
 - User preferences displayed by category
 - Agent tools accordion
 - Responsive: side panel on desktop, bottom sheet on mobile

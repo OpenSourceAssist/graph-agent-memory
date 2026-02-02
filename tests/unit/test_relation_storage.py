@@ -1,15 +1,16 @@
 """Unit tests for relation storage in short-term memory."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 from neo4j_agent_memory.extraction.base import (
     ExtractedEntity,
     ExtractedRelation,
     ExtractionResult,
 )
-from neo4j_agent_memory.memory.short_term import ShortTermMemory, Message, MessageRole
+from neo4j_agent_memory.memory.short_term import Message, MessageRole, ShortTermMemory
 
 
 class MockExtractorWithRelations:
@@ -100,7 +101,8 @@ class TestRelationStorage:
 
         # Find the relation creation call
         relation_calls = [
-            call for call in calls
+            call
+            for call in calls
             if "CREATE_ENTITY_RELATION_BY_ID" in str(call) or "relation_type" in str(call)
         ]
         assert len(relation_calls) >= 1
@@ -219,8 +221,7 @@ class TestRelationStorage:
         # Verify that relations were stored
         calls = mock_client.execute_write.call_args_list
         relation_calls = [
-            call for call in calls
-            if len(call[0]) > 1 and "relation_type" in str(call[0][1])
+            call for call in calls if len(call[0]) > 1 and "relation_type" in str(call[0][1])
         ]
         assert len(relation_calls) >= 1
 
@@ -251,8 +252,7 @@ class TestRelationStorage:
         # Should have: 1 message creation + 2 entity creations + 2 MENTIONS = 5
         # Should NOT have RELATED_TO call
         relation_calls = [
-            call for call in calls
-            if len(call[0]) > 1 and "relation_type" in str(call[0][1])
+            call for call in calls if len(call[0]) > 1 and "relation_type" in str(call[0][1])
         ]
         assert len(relation_calls) == 0
 

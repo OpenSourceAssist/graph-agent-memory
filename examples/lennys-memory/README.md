@@ -619,6 +619,8 @@ Event types:
 The graph visualization is powered by the Neo4j Visualization Library:
 
 - **Conversation-scoped**: Shows only nodes and relationships relevant to the current thread
+- **Episode data integration**: Automatically includes full conversations and entities from podcast episodes referenced in tool call results (extracts `session_id`, `episode`, `episode_guest`, and `guest` fields)
+- **Reasoning memory visualization**: Displays ReasoningTrace → ReasoningStep → ToolCall → Tool relationships for the current session
 - **Color-coded nodes**: Messages (blue), Entities (green/orange/red by type), Preferences (purple), Traces (gray)
 - **Double-click to expand**: Click any node to fetch and display its neighbors from the graph
 - **Memory type filtering**: Toggle visibility of short-term, long-term, and reasoning memory nodes
@@ -641,6 +643,7 @@ The map visualization supports advanced geospatial exploration:
 A persistent side panel (or bottom sheet on mobile) showing:
 
 - **Entity cards**: With images, descriptions, and Wikipedia links for enriched entities
+- **Thread-scoped entities**: Shows only entities mentioned in the current conversation (not a global search), prioritizing enriched entities
 - **User preferences**: Learned from conversation, categorized by type
 - **Recent messages**: Summary of the current conversation
 - **Agent tools**: Expandable accordion listing all 19 available tools
@@ -700,8 +703,8 @@ Here are questions that showcase different capabilities:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/memory/context` | Get preferences, entities, recent messages for a thread |
-| GET | `/api/memory/graph` | Export memory graph (nodes + relationships) |
+| GET | `/api/memory/context` | Get thread-scoped entities, preferences, recent messages |
+| GET | `/api/memory/graph` | Export memory graph with optional `episode_session_ids` param for podcast data |
 | GET | `/api/memory/graph/neighbors/{node_id}` | Get neighbors for incremental graph exploration |
 | GET | `/api/memory/traces` | List reasoning traces |
 | GET | `/api/memory/traces/{id}` | Get trace with steps and tool calls |
