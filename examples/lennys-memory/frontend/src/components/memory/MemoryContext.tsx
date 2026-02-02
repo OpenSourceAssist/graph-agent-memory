@@ -224,8 +224,8 @@ export function MemoryContextPanel({
   const [context, setContext] = useState<MemoryContextType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Detect mobile viewport
-  const isMobile = useBreakpointValue({ base: true, lg: false });
+  // Detect mobile viewport - default to false during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, lg: false }) ?? false;
 
   useEffect(() => {
     if (!isVisible) return;

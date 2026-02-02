@@ -77,8 +77,9 @@ export function ChatContainer({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Responsive values - 2x2 grid on mobile for better use of space
-  const isMobile = useBreakpointValue({ base: true, sm: false });
-  const promptColumns = useBreakpointValue({ base: 2, sm: 2, lg: 3 });
+  // Default to false/2 during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, sm: false }) ?? false;
+  const promptColumns = useBreakpointValue({ base: 2, sm: 2, lg: 3 }) ?? 2;
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -87,17 +88,7 @@ export function ChatContainer({
     }
   }, [messages]);
 
-  if (!threadId) {
-    return (
-      <Flex h="full" alignItems="center" justifyContent="center">
-        <Stack textAlign="center" gap="4">
-          <Text fontSize="lg" color="fg.muted">
-            Select a conversation or create a new one
-          </Text>
-        </Stack>
-      </Flex>
-    );
-  }
+  // Don't block UI when threadId is null - user can still type and we'll create a thread on send
 
   return (
     <Flex direction="column" h="full" overflow="hidden" flex="1">

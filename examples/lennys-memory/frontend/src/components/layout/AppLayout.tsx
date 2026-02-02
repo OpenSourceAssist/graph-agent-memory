@@ -38,6 +38,7 @@ interface AppLayoutProps {
   onDeleteThread: (id: string) => void;
   memoryEnabled: boolean;
   onToggleMemory: (enabled: boolean) => void;
+  isLoadingThreads?: boolean;
 }
 
 export function AppLayout({
@@ -49,13 +50,14 @@ export function AppLayout({
   onDeleteThread,
   memoryEnabled,
   onToggleMemory,
+  isLoadingThreads = false,
 }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
 
-  // Detect mobile viewport
-  const isMobile = useBreakpointValue({ base: true, md: false });
+  // Detect mobile viewport - default to false during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, md: false }) ?? false;
 
   return (
     <Flex h="100vh" overflow="hidden" bg="bg.canvas">
@@ -77,6 +79,7 @@ export function AppLayout({
             onDeleteThread={onDeleteThread}
             memoryEnabled={memoryEnabled}
             onToggleMemory={onToggleMemory}
+            isLoading={isLoadingThreads}
           />
         </Box>
       )}
@@ -113,6 +116,7 @@ export function AppLayout({
                 onDeleteThread={onDeleteThread}
                 memoryEnabled={memoryEnabled}
                 onToggleMemory={onToggleMemory}
+                isLoading={isLoadingThreads}
               />
             </Drawer.Content>
           </Drawer.Positioner>

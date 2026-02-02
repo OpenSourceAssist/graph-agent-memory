@@ -37,48 +37,58 @@ const STORAGE_KEY = "lennys-memory-welcome-shown";
 interface WelcomeModalProps {
   /** Callback when user starts using the app */
   onGetStarted?: () => void;
-  /** Control modal open state externally */
+  /** Control modal open state externally (for About button) */
   isOpen?: boolean;
-  /** Callback when modal is closed externally */
+  /** Callback when modal is closed */
   onClose?: () => void;
+  /** Whether to auto-show for first-time users (default: true) */
+  autoShowForNewUsers?: boolean;
 }
 
 /**
  * Welcome modal for first-time users.
  * Explains the memory types and provides sample queries.
  * Can also be opened manually via the About button.
+ *
+ * Supports two modes:
+ * 1. Auto-open for first-time users (checks localStorage)
+ * 2. Manual open via isOpen prop (About button)
  */
 export function WelcomeModal({
   onGetStarted,
   isOpen: externalIsOpen,
   onClose: externalOnClose,
+  autoShowForNewUsers = true,
 }: WelcomeModalProps) {
-  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const [autoShowOpen, setAutoShowOpen] = useState(false);
+  const [hasCheckedStorage, setHasCheckedStorage] = useState(false);
 
-  // Use external control if provided, otherwise use internal state
-  const isControlled = externalIsOpen !== undefined;
-  const isOpen = isControlled ? externalIsOpen : internalIsOpen;
+  // Modal is open if either externally controlled OR auto-show triggered
+  const isOpen = externalIsOpen || autoShowOpen;
 
-  // Check if user has seen the welcome modal (only for uncontrolled mode)
+  // Check if user has seen the welcome modal (for auto-show)
   useEffect(() => {
-    if (!isControlled) {
+    if (autoShowForNewUsers && !hasCheckedStorage) {
+      // Check localStorage only on client side
       const hasSeenWelcome = localStorage.getItem(STORAGE_KEY);
+      setHasCheckedStorage(true);
+
       if (!hasSeenWelcome) {
         // Small delay so the page renders first
-        const timer = setTimeout(() => setInternalIsOpen(true), 500);
+        const timer = setTimeout(() => setAutoShowOpen(true), 500);
         return () => clearTimeout(timer);
       }
     }
-  }, [isControlled]);
+  }, [autoShowForNewUsers, hasCheckedStorage]);
 
   const handleClose = () => {
-    // Only set localStorage on first-time close (not when opened via About button)
-    if (!isControlled) {
+    // If auto-show was triggered, mark as seen
+    if (autoShowOpen) {
       localStorage.setItem(STORAGE_KEY, "true");
-      setInternalIsOpen(false);
-    } else {
-      externalOnClose?.();
+      setAutoShowOpen(false);
     }
+    // Always call external onClose if provided
+    externalOnClose?.();
   };
 
   const handleGetStarted = () => {
