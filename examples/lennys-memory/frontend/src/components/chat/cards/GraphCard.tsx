@@ -12,12 +12,60 @@ import {
   HStack,
   Badge,
 } from "@chakra-ui/react";
-import { DialogRoot, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogCloseTrigger, DialogBackdrop, DialogPositioner } from "@chakra-ui/react";
+import {
+  DialogRoot,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogCloseTrigger,
+  DialogBackdrop,
+  DialogPositioner,
+} from "@chakra-ui/react";
 import dynamic from "next/dynamic";
 import { BaseCard } from "./BaseCard";
 import { LuNetwork } from "react-icons/lu";
 import type { GraphCardProps, GraphNodeData } from "./types";
-import { nodeColors } from "@/theme";
+
+// Entity type colors - handles both uppercase and capitalized types
+const graphNodeColors: Record<string, string> = {
+  // Entity types - both cases for flexibility
+  Person: "#DA7194",
+  PERSON: "#DA7194",
+  Organization: "#F79767",
+  ORGANIZATION: "#F79767",
+  Location: "#68BDF6",
+  LOCATION: "#68BDF6",
+  Topic: "#A4DD00",
+  TOPIC: "#A4DD00",
+  Concept: "#A4DD00",
+  CONCEPT: "#A4DD00",
+  Event: "#C990C0",
+  EVENT: "#C990C0",
+  Object: "#57C7E3",
+  OBJECT: "#57C7E3",
+  Episode: "#C990C0",
+  EPISODE: "#C990C0",
+  Preference: "#F59E0B",
+  PREFERENCE: "#F59E0B",
+  // Entity as fallback for untyped entities
+  Entity: "#8B5CF6",
+  ENTITY: "#8B5CF6",
+  // Default - purple instead of gray
+  default: "#8B5CF6",
+};
+
+// Get color for a node type with fallback
+function getNodeColor(type: string): string {
+  return (
+    graphNodeColors[type] ||
+    graphNodeColors[type.toUpperCase()] ||
+    graphNodeColors[
+      type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()
+    ] ||
+    graphNodeColors.default
+  );
+}
 
 // Define types for NVL
 interface NvlNode {
@@ -48,7 +96,7 @@ const InteractiveNvlWrapper = dynamic(
         </Text>
       </VStack>
     ),
-  }
+  },
 );
 
 /**
@@ -71,15 +119,23 @@ export function GraphCard({
 }: GraphCardProps) {
   const [selectedNode, setSelectedNode] = useState<GraphNodeData | null>(null);
 
-  // Convert to NVL format
+  // Convert to NVL format with label fallbacks and focus node highlighting
   const nvlNodes: NvlNode[] = useMemo(() => {
-    return nodes.map((node) => ({
-      id: node.id,
-      caption: node.label,
-      size: isExpanded ? 20 : 15,
-      color: nodeColors[node.type as keyof typeof nodeColors] || nodeColors.default,
-      selected: node.id === focusNodeId,
-    }));
+    return nodes.map((node) => {
+      const isFocus = node.id === focusNodeId;
+      // Calculate size: focus node is 1.5x larger
+      const baseSize = isExpanded ? 22 : 16;
+      const focusSize = isExpanded ? 35 : 25;
+
+      return {
+        id: node.id,
+        // Ensure caption always has a value for label visibility
+        caption: node.label || node.id || "Unknown",
+        size: isFocus ? focusSize : baseSize,
+        color: getNodeColor(node.type),
+        selected: isFocus,
+      };
+    });
   }, [nodes, focusNodeId, isExpanded]);
 
   const nvlRels: NvlRelationship[] = useMemo(() => {
@@ -125,34 +181,44 @@ export function GraphCard({
               disableWebGL: false,
             }}
           />
-          {/* Legend - only in expanded mode */}
-          {isExpanded && nodeTypes.length > 0 && (
+          {/* Legend - shown in both compact and expanded modes */}
+          {nodeTypes.length > 0 && (
             <Box
               position="absolute"
-              bottom={4}
-              left={4}
-              bg="white"
-              p={2}
+              bottom={isExpanded ? 4 : 2}
+              left={isExpanded ? 4 : 2}
+              bg="whiteAlpha.900"
+              p={isExpanded ? 2 : 1.5}
               borderRadius="md"
               borderWidth="1px"
               borderColor="border.subtle"
-              maxW="200px"
+              maxW={isExpanded ? "200px" : "160px"}
+              boxShadow="sm"
             >
-              <Text fontSize="xs" fontWeight="medium" mb={1}>
-                Node Types
-              </Text>
+              {isExpanded && (
+                <Text fontSize="xs" fontWeight="medium" mb={1}>
+                  Node Types
+                </Text>
+              )}
               <Flex wrap="wrap" gap={1}>
-                {nodeTypes.map((type) => (
+                {/* Show all types in expanded, limit to 4 in compact */}
+                {nodeTypes.slice(0, isExpanded ? undefined : 4).map((type) => (
                   <HStack key={type} gap={1}>
                     <Box
-                      w={3}
-                      h={3}
+                      w={isExpanded ? 3 : 2.5}
+                      h={isExpanded ? 3 : 2.5}
                       borderRadius="full"
-                      bg={nodeColors[type as keyof typeof nodeColors] || nodeColors.default}
+                      bg={getNodeColor(type)}
+                      flexShrink={0}
                     />
                     <Text fontSize="xs">{type}</Text>
                   </HStack>
                 ))}
+                {!isExpanded && nodeTypes.length > 4 && (
+                  <Text fontSize="xs" color="fg.muted">
+                    +{nodeTypes.length - 4}
+                  </Text>
+                )}
               </Flex>
             </Box>
           )}
