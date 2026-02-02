@@ -154,6 +154,92 @@ export default function MemoryGraphView({
   const nvlRef = useRef<NVL | null>(null);
   const [hasInitialFit, setHasInitialFit] = useState(false);
 
+  /**
+   * Convert a guest name to a session_id format.
+   * Handles Unicode characters and special formatting.
+   */
+  const guestToSessionId = (guestName: string): string => {
+    // Normalize unicode, convert to lowercase, replace spaces with hyphens
+    const normalized = guestName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+      .toLowerCase()
+      .replace(/\s+/g, "-") // Replace spaces with hyphens
+      .replace(/[^a-z0-9-]/g, "") // Remove non-alphanumeric except hyphens
+      .replace(/-+/g, "-") // Collapse multiple hyphens
+      .replace(/^-|-$/g, ""); // Trim leading/trailing hyphens
+    return `lenny-podcast-${normalized}`;
+  };
+
+  /**
+   * Extract episode session IDs from tool call results in thread messages.
+   * Looks for session_id fields and episode_guest fields in tool results.
+   */
+  const extractEpisodeSessionIds = (
+    messages: Array<{ toolCalls?: Array<{ result?: unknown }> }>,
+  ): string[] => {
+    const sessionIds = new Set<string>();
+
+    for (const message of messages) {
+      if (!message.toolCalls) continue;
+
+      for (const toolCall of message.toolCalls) {
+        if (!toolCall.result) continue;
+
+        // Recursively search for session_id and episode_guest fields in the result
+        const findSessionIds = (obj: unknown): void => {
+          if (!obj || typeof obj !== "object") return;
+
+          if (Array.isArray(obj)) {
+            for (const item of obj) {
+              findSessionIds(item);
+            }
+          } else {
+            const record = obj as Record<string, unknown>;
+            // Check for session_id that matches podcast pattern
+            if (
+              typeof record.session_id === "string" &&
+              record.session_id.startsWith("lenny-podcast-")
+            ) {
+              sessionIds.add(record.session_id);
+            }
+            // Also check for episode field (some tools return it differently)
+            if (
+              typeof record.episode === "string" &&
+              record.episode.startsWith("lenny-podcast-")
+            ) {
+              sessionIds.add(record.episode);
+            }
+            // Check for episode_guest field and convert to session_id
+            if (
+              typeof record.episode_guest === "string" &&
+              record.episode_guest.length > 0 &&
+              record.episode_guest !== "Unknown"
+            ) {
+              sessionIds.add(guestToSessionId(record.episode_guest));
+            }
+            // Also check for guest field
+            if (
+              typeof record.guest === "string" &&
+              record.guest.length > 0 &&
+              record.guest !== "Unknown"
+            ) {
+              sessionIds.add(guestToSessionId(record.guest));
+            }
+            // Recurse into nested objects
+            for (const value of Object.values(record)) {
+              findSessionIds(value);
+            }
+          }
+        };
+
+        findSessionIds(toolCall.result);
+      }
+    }
+
+    return Array.from(sessionIds);
+  };
+
   const loadGraphData = async () => {
     setIsLoading(true);
     setError(null);
@@ -163,7 +249,24 @@ export default function MemoryGraphView({
     setExpandingNode(null);
     setHasInitialFit(false);
     try {
-      const data = await api.memory.getGraph(threadId);
+      // First, fetch the thread's messages to extract episode session IDs from tool calls
+      let episodeSessionIds: string[] = [];
+      if (threadId) {
+        try {
+          const threadData = await api.threads.get(threadId);
+          if (threadData.messages) {
+            episodeSessionIds = extractEpisodeSessionIds(threadData.messages);
+          }
+        } catch {
+          // If fetching thread fails, continue without episode session IDs
+          console.warn(
+            "Could not fetch thread messages for episode extraction",
+          );
+        }
+      }
+
+      // Fetch graph data including episode conversations if any were found
+      const data = await api.memory.getGraph(threadId, episodeSessionIds);
       setGraphData(data);
 
       if (data.nodes.length === 0) {

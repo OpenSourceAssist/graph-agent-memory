@@ -1367,6 +1367,62 @@ deps = MemoryDependency(client=client, session_id="user-123")
     - For DDL operations with dynamic names (indexes, constraints), use the query builder functions
     - The `query_builder.py` module handles entity creation with dynamic labels (type/subtype)
 
+19. **Retrieving Session Messages**: Use `short_term.get_conversation(session_id)` to retrieve messages for a session. This returns a `Conversation` object with a `.messages` attribute containing the list of `Message` objects. There is no `get_session_messages()` method.
+
+    ```python
+    # Correct usage
+    conversation = await client.short_term.get_conversation(session_id)
+    messages = conversation.messages  # List[Message]
+    
+    # Access message properties
+    for msg in messages:
+        print(f"{msg.role.value}: {msg.content}")  # role is MessageRole enum
+    ```
+
+20. **Entity Search Parameters**: When searching entities by type, use `entity_types` (plural, as a list), not `entity_type` (singular string):
+
+    ```python
+    # Correct usage
+    results = await client.long_term.search_entities(
+        query="Apple",
+        entity_types=["ORGANIZATION", "PERSON"],  # List of types
+        limit=10,
+    )
+    
+    # Wrong - this parameter doesn't exist
+    # results = await client.long_term.search_entities(query="Apple", entity_type="ORGANIZATION")
+    ```
+
+21. **Entity Model Attributes**: The `Entity` model uses `.type` for the entity type, not `.entity_type`:
+
+    ```python
+    entity, _ = await client.long_term.add_entity("Apple Inc", "ORGANIZATION")
+    print(entity.type)       # "ORGANIZATION" - correct
+    print(entity.subtype)    # Optional subtype
+    print(entity.full_type)  # "ORGANIZATION" or "ORGANIZATION:COMPANY" with subtype
+    # entity.entity_type     # Wrong - this attribute doesn't exist
+    ```
+
+22. **Entity Metadata Access**: Entity enrichment data (from Wikipedia, Diffbot) is stored in the `metadata` dict, not as direct attributes. Use `getattr()` with fallback to `metadata.get()`:
+
+    ```python
+    # Enrichment fields may be in metadata dict
+    metadata = entity.metadata or {}
+    enriched_description = getattr(entity, "enriched_description", None) or metadata.get("enriched_description")
+    wikipedia_url = getattr(entity, "wikipedia_url", None) or metadata.get("wikipedia_url")
+    image_url = getattr(entity, "image_url", None) or metadata.get("image_url")
+    ```
+
+23. **Neo4j Property Key Warnings**: When querying optional properties in Cypher, avoid referencing properties that may not exist in the schema. Use `'property' IN keys(node)` to check existence before accessing:
+
+    ```cypher
+    // Wrong - warns if 'aliases' property doesn't exist on any node
+    WHERE e.name = $name OR $name IN e.aliases
+    
+    // Correct - check property exists first
+    WHERE e.name = $name OR ('aliases' IN keys(e) AND $name IN e.aliases)
+    ```
+
 ## Environment Variables
 
 - `NEO4J_URI` - Neo4j connection URI (default: `bolt://localhost:7687`)

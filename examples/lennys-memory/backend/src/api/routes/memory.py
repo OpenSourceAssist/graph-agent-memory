@@ -294,28 +294,60 @@ async def get_memory_context(
                 )
             )
 
-        # Get entities
-        if query:
-            entity_results = await memory.long_term.search_entities(query, limit=10)
-        else:
-            entity_results = await memory.long_term.search_entities("", limit=10)
-
-        for ent in entity_results:
-            # Extract enrichment fields from entity attributes
-            attrs = getattr(ent, "attributes", {}) or {}
-            entities.append(
-                Entity(
-                    id=str(ent.id),
-                    name=ent.name,
-                    type=ent.type if isinstance(ent.type, str) else ent.type.value,
-                    subtype=getattr(ent, "subtype", None),
-                    description=ent.description,
-                    enriched_description=attrs.get("enriched_description")
-                    or getattr(ent, "enriched_description", None),
-                    wikipedia_url=attrs.get("wikipedia_url") or getattr(ent, "wikipedia_url", None),
-                    image_url=attrs.get("image_url") or getattr(ent, "image_url", None),
+        # Get entities - filter by current thread if thread_id provided
+        if thread_id:
+            # Get entities mentioned in the current conversation, prioritizing enriched ones
+            entity_query = """
+            MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)-[:MENTIONS]->(e:Entity)
+            WITH e, count(m) AS mention_count
+            // Filter out low-quality entities (single chars, common words)
+            WHERE size(e.name) > 2
+            // Prioritize enriched entities and those with more mentions
+            RETURN e,
+                   mention_count,
+                   CASE WHEN e.enriched_description IS NOT NULL THEN 1 ELSE 0 END AS is_enriched
+            ORDER BY is_enriched DESC, mention_count DESC
+            LIMIT 15
+            """
+            try:
+                entity_results = await memory._client.execute_read(
+                    entity_query, {"session_id": thread_id}
                 )
-            )
+                for row in entity_results:
+                    ent = dict(row["e"])
+                    entities.append(
+                        Entity(
+                            id=ent.get("id", ""),
+                            name=ent.get("name", ""),
+                            type=ent.get("type", "Entity"),
+                            subtype=ent.get("subtype"),
+                            description=ent.get("description"),
+                            enriched_description=ent.get("enriched_description"),
+                            wikipedia_url=ent.get("wikipedia_url"),
+                            image_url=ent.get("image_url"),
+                        )
+                    )
+            except Exception:
+                pass
+        elif query:
+            # Search entities by query
+            entity_results = await memory.long_term.search_entities(query, limit=10)
+            for ent in entity_results:
+                attrs = getattr(ent, "attributes", {}) or {}
+                entities.append(
+                    Entity(
+                        id=str(ent.id),
+                        name=ent.name,
+                        type=ent.type if isinstance(ent.type, str) else ent.type.value,
+                        subtype=getattr(ent, "subtype", None),
+                        description=ent.description,
+                        enriched_description=attrs.get("enriched_description")
+                        or getattr(ent, "enriched_description", None),
+                        wikipedia_url=attrs.get("wikipedia_url")
+                        or getattr(ent, "wikipedia_url", None),
+                        image_url=attrs.get("image_url") or getattr(ent, "image_url", None),
+                    )
+                )
 
     except Exception:
         pass
@@ -655,6 +687,7 @@ def serialize_neo4j_value(value: Any) -> Any:
 async def get_memory_graph(
     memory_types: str | None = None,
     session_id: str | None = None,
+    episode_session_ids: str | None = None,
     limit: int = 1000,
 ) -> MemoryGraph:
     """Get the memory graph for visualization.
@@ -664,6 +697,10 @@ async def get_memory_graph(
     - NEXT_MESSAGE chain connecting them
     - Entities mentioned in each message via MENTIONS relationships
 
+    When episode_session_ids is also provided, additionally includes:
+    - Full conversations from those podcast episodes
+    - All entities mentioned in those episodes
+
     Without session_id, uses the standard get_graph() API for a broader view.
 
     Args:
@@ -671,6 +708,8 @@ async def get_memory_graph(
                      (short_term, long_term, reasoning). Defaults to all.
         session_id: Optional session ID to filter by. When provided, shows
                    conversation message chain with connected entities.
+        episode_session_ids: Comma-separated list of podcast episode session IDs
+                            to include in the graph (e.g., from tool call results).
         limit: Maximum number of nodes to return.
 
     Returns all nodes and relationships from the memory graph database.
@@ -680,9 +719,14 @@ async def get_memory_graph(
         return MemoryGraph(nodes=[], relationships=[])
 
     try:
+        # Parse episode session IDs if provided
+        episode_ids_list: list[str] = []
+        if episode_session_ids:
+            episode_ids_list = [s.strip() for s in episode_session_ids.split(",") if s.strip()]
+
         # If session_id provided, use custom query for conversation view
         if session_id:
-            return await _get_conversation_graph(memory, session_id, limit)
+            return await _get_conversation_graph(memory, session_id, limit, episode_ids_list)
 
         # Otherwise use the standard get_graph() API
         types_list = None
@@ -726,7 +770,9 @@ async def get_memory_graph(
         return MemoryGraph(nodes=[], relationships=[])
 
 
-async def _get_conversation_graph(memory, session_id: str, limit: int = 1000) -> MemoryGraph:
+async def _get_conversation_graph(
+    memory, session_id: str, limit: int = 1000, episode_session_ids: list[str] | None = None
+) -> MemoryGraph:
     """Get conversation-centric graph with messages, NEXT_MESSAGE chain, and entities.
 
     This provides a visualization showing:
@@ -734,23 +780,33 @@ async def _get_conversation_graph(memory, session_id: str, limit: int = 1000) ->
     2. All Message nodes connected via HAS_MESSAGE
     3. NEXT_MESSAGE relationships forming the message chain
     4. Entity nodes connected via MENTIONS relationships
+
+    When episode_session_ids is provided, also includes:
+    5. Full conversations from those podcast episodes
+    6. All entities mentioned in those episodes
     """
     nodes: list[GraphNode] = []
     relationships: list[GraphRelationship] = []
     node_ids_seen: set[str] = set()
 
-    # Query 1: Get conversation, messages, and NEXT_MESSAGE chain
+    # Combine all session IDs to query
+    all_session_ids = [session_id]
+    if episode_session_ids:
+        all_session_ids.extend(episode_session_ids)
+
+    # Query 1: Get conversations, messages, and NEXT_MESSAGE chain for all sessions
     messages_query = """
-    MATCH (c:Conversation {session_id: $session_id})
+    MATCH (c:Conversation)
+    WHERE c.session_id IN $session_ids
     OPTIONAL MATCH (c)-[hm:HAS_MESSAGE]->(m:Message)
     OPTIONAL MATCH (m)-[nm:NEXT_MESSAGE]->(m2:Message)
     RETURN c, hm, m, nm, m2
-    ORDER BY m.timestamp
+    ORDER BY c.session_id, m.timestamp
     LIMIT $limit
     """
 
     results = await memory._client.execute_read(
-        messages_query, {"session_id": session_id, "limit": limit}
+        messages_query, {"session_ids": all_session_ids, "limit": limit}
     )
 
     for row in results:
@@ -841,16 +897,18 @@ async def _get_conversation_graph(memory, session_id: str, limit: int = 1000) ->
                     )
                 )
 
-    # Query 2: Get entities connected to messages via MENTIONS
+    # Query 2: Get entities connected to messages via MENTIONS for all sessions
     entities_query = """
-    MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)
+    MATCH (c:Conversation)
+    WHERE c.session_id IN $session_ids
+    MATCH (c)-[:HAS_MESSAGE]->(m:Message)
     MATCH (m)-[mentions:MENTIONS]->(e:Entity)
     RETURN m.id AS message_id, mentions, e
     LIMIT $limit
     """
 
     entity_results = await memory._client.execute_read(
-        entities_query, {"session_id": session_id, "limit": limit}
+        entities_query, {"session_ids": all_session_ids, "limit": limit}
     )
 
     for row in entity_results:
@@ -891,6 +949,154 @@ async def _get_conversation_graph(memory, session_id: str, limit: int = 1000) ->
                         properties={},
                     )
                 )
+
+    # Query 3: Get reasoning memory (traces, steps, tool calls, tools) for the sessions
+    # Only query for the main session_id (not podcast episodes) since reasoning traces
+    # are associated with the current conversation, not the podcast content
+    reasoning_query = """
+    MATCH (rt:ReasoningTrace {session_id: $session_id})
+    OPTIONAL MATCH (rt)-[hs:HAS_STEP]->(rs:ReasoningStep)
+    OPTIONAL MATCH (rs)-[ut:USES_TOOL]->(tc:ToolCall)
+    OPTIONAL MATCH (tc)-[io:INSTANCE_OF]->(t:Tool)
+    RETURN rt, hs, rs, ut, tc, io, t
+    ORDER BY rs.step_number
+    LIMIT $limit
+    """
+
+    reasoning_results = await memory._client.execute_read(
+        reasoning_query, {"session_id": session_id, "limit": limit}
+    )
+
+    for row in reasoning_results:
+        # Add ReasoningTrace node
+        if row.get("rt"):
+            trace = dict(row["rt"])
+            trace_id = trace.get("id")
+            if trace_id and trace_id not in node_ids_seen:
+                props = {k: serialize_neo4j_value(v) for k, v in trace.items() if v is not None}
+                props.pop("task_embedding", None)
+                nodes.append(
+                    GraphNode(
+                        id=str(trace_id),
+                        labels=["ReasoningTrace"],
+                        properties=props,
+                    )
+                )
+                node_ids_seen.add(str(trace_id))
+
+        # Add ReasoningStep node
+        if row.get("rs"):
+            step = dict(row["rs"])
+            step_id = step.get("id")
+            if step_id and step_id not in node_ids_seen:
+                props = {k: serialize_neo4j_value(v) for k, v in step.items() if v is not None}
+                nodes.append(
+                    GraphNode(
+                        id=str(step_id),
+                        labels=["ReasoningStep"],
+                        properties=props,
+                    )
+                )
+                node_ids_seen.add(str(step_id))
+
+            # Add HAS_STEP relationship
+            trace = row.get("rt")
+            if trace and step_id:
+                trace_id = trace.get("id")
+                if trace_id:
+                    rel_id = f"hs-{trace_id}-{step_id}"
+                    hs_rel = row.get("hs")
+                    rel_props = {}
+                    if hs_rel:
+                        # Handle Neo4j relationship object - use _properties or items()
+                        try:
+                            if hasattr(hs_rel, "_properties"):
+                                rel_props = {
+                                    k: serialize_neo4j_value(v)
+                                    for k, v in hs_rel._properties.items()
+                                }
+                            elif hasattr(hs_rel, "items"):
+                                rel_props = {k: serialize_neo4j_value(v) for k, v in hs_rel.items()}
+                        except Exception:
+                            rel_props = {}
+                    relationships.append(
+                        GraphRelationship(
+                            id=rel_id,
+                            from_node=str(trace_id),
+                            to_node=str(step_id),
+                            type="HAS_STEP",
+                            properties=rel_props,
+                        )
+                    )
+
+        # Add ToolCall node
+        if row.get("tc"):
+            tc = dict(row["tc"])
+            tc_id = tc.get("id")
+            if tc_id and tc_id not in node_ids_seen:
+                props = {k: serialize_neo4j_value(v) for k, v in tc.items() if v is not None}
+                # Truncate result if too long
+                if (
+                    props.get("result")
+                    and isinstance(props["result"], str)
+                    and len(props["result"]) > 500
+                ):
+                    props["result"] = props["result"][:500] + "..."
+                nodes.append(
+                    GraphNode(
+                        id=str(tc_id),
+                        labels=["ToolCall"],
+                        properties=props,
+                    )
+                )
+                node_ids_seen.add(str(tc_id))
+
+            # Add USES_TOOL relationship
+            step = row.get("rs")
+            if step and tc_id:
+                step_id = step.get("id")
+                if step_id:
+                    rel_id = f"ut-{step_id}-{tc_id}"
+                    relationships.append(
+                        GraphRelationship(
+                            id=rel_id,
+                            from_node=str(step_id),
+                            to_node=str(tc_id),
+                            type="USES_TOOL",
+                            properties={},
+                        )
+                    )
+
+        # Add Tool node
+        if row.get("t"):
+            tool = dict(row["t"])
+            tool_name = tool.get("name")
+            if tool_name and tool_name not in node_ids_seen:
+                props = {k: serialize_neo4j_value(v) for k, v in tool.items() if v is not None}
+                nodes.append(
+                    GraphNode(
+                        id=str(tool_name),  # Use name as ID for Tool nodes
+                        labels=["Tool"],
+                        properties=props,
+                    )
+                )
+                node_ids_seen.add(str(tool_name))
+
+            # Add INSTANCE_OF relationship
+            tc = row.get("tc")
+            if tc and tool_name:
+                tc_id = tc.get("id")
+                if tc_id:
+                    rel_id = f"io-{tc_id}-{tool_name}"
+                    relationships.append(
+                        GraphRelationship(
+                            id=rel_id,
+                            from_node=str(tc_id),
+                            to_node=str(tool_name),
+                            type="INSTANCE_OF",
+                            properties={},
+                        )
+                    )
 
     return MemoryGraph(nodes=nodes, relationships=relationships)
 
