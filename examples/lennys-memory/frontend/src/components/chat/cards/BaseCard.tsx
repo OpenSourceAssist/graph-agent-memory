@@ -61,6 +61,8 @@ export function BaseCard({
       overflow="hidden"
       height={isExpanded ? "100%" : "auto"}
       borderColor="border.subtle"
+      borderLeftWidth="3px"
+      borderLeftColor={`${colorPalette}.500`}
     >
       {/* Header */}
       <Card.Header py={2} px={3} bg="bg.muted">
@@ -71,12 +73,7 @@ export function BaseCard({
                 {icon}
               </Box>
             )}
-            <Text
-              fontSize="sm"
-              fontWeight="medium"
-              truncate
-              title={title}
-            >
+            <Text fontSize="sm" fontWeight="medium" truncate title={title}>
               {title}
             </Text>
             <Badge size="sm" colorPalette={statusColor} flexShrink={0}>
@@ -95,10 +92,17 @@ export function BaseCard({
           </Flex>
           <IconButton
             aria-label={isExpanded ? "Minimize" : "Expand to fullscreen"}
-            size="xs"
+            size={{ base: "sm", md: "xs" }}
             variant="ghost"
             onClick={isExpanded ? onCollapse : onExpand}
             flexShrink={0}
+            minW={{ base: "32px", md: "auto" }}
+            minH={{ base: "32px", md: "auto" }}
+            _focusVisible={{
+              outline: "2px solid",
+              outlineColor: "brand.500",
+              outlineOffset: "2px",
+            }}
           >
             {isExpanded ? <LuMinimize2 /> : <LuExpand />}
           </IconButton>

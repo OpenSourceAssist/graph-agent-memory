@@ -1,6 +1,7 @@
 "use client";
 
 import { Box, Flex, Text, Link, HStack, Separator } from "@chakra-ui/react";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   LuFlaskConical,
   LuGithub,
@@ -60,45 +61,54 @@ export function Footer() {
 
         {/* Right: Links */}
         <HStack gap={4} fontSize="xs">
-          <Link
-            href="https://github.com/neo4j-labs/agent-memory"
-            target="_blank"
-            rel="noopener noreferrer"
-            color="fg.muted"
-            display="flex"
-            alignItems="center"
-            gap={1}
-            _hover={{ color: "brand.fg" }}
-          >
-            <LuGithub size={14} />
-            <Text hideBelow="sm">GitHub</Text>
-          </Link>
-          <Link
-            href="https://community.neo4j.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            color="fg.muted"
-            display="flex"
-            alignItems="center"
-            gap={1}
-            _hover={{ color: "brand.fg" }}
-          >
-            <LuMessageCircle size={14} />
-            <Text hideBelow="sm">Community</Text>
-          </Link>
-          <Link
-            href="https://github.com/neo4j-labs/agent-memory#readme"
-            target="_blank"
-            rel="noopener noreferrer"
-            color="fg.muted"
-            display="flex"
-            alignItems="center"
-            gap={1}
-            _hover={{ color: "brand.fg" }}
-          >
-            <LuBookOpen size={14} />
-            <Text hideBelow="sm">Docs</Text>
-          </Link>
+          <Tooltip content="GitHub" positioning={{ placement: "top" }}>
+            <Link
+              href="https://github.com/neo4j-labs/agent-memory"
+              target="_blank"
+              rel="noopener noreferrer"
+              color="fg.muted"
+              display="flex"
+              alignItems="center"
+              gap={1}
+              _hover={{ color: "brand.fg" }}
+              p={1}
+            >
+              <LuGithub size={14} />
+              <Text hideBelow="sm">GitHub</Text>
+            </Link>
+          </Tooltip>
+          <Tooltip content="Community Forum" positioning={{ placement: "top" }}>
+            <Link
+              href="https://community.neo4j.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              color="fg.muted"
+              display="flex"
+              alignItems="center"
+              gap={1}
+              _hover={{ color: "brand.fg" }}
+              p={1}
+            >
+              <LuMessageCircle size={14} />
+              <Text hideBelow="sm">Community</Text>
+            </Link>
+          </Tooltip>
+          <Tooltip content="Documentation" positioning={{ placement: "top" }}>
+            <Link
+              href="https://github.com/neo4j-labs/agent-memory#readme"
+              target="_blank"
+              rel="noopener noreferrer"
+              color="fg.muted"
+              display="flex"
+              alignItems="center"
+              gap={1}
+              _hover={{ color: "brand.fg" }}
+              p={1}
+            >
+              <LuBookOpen size={14} />
+              <Text hideBelow="sm">Docs</Text>
+            </Link>
+          </Tooltip>
         </HStack>
       </Flex>
     </Box>

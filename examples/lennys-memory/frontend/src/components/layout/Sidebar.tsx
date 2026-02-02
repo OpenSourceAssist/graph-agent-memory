@@ -11,6 +11,7 @@ import {
   Link,
   Separator,
 } from "@chakra-ui/react";
+import { Switch } from "@/components/ui/switch";
 import {
   LuPlus,
   LuTrash2,
@@ -84,32 +85,17 @@ export function Sidebar({
         minH={{ base: "44px", md: "auto" }}
         bg={memoryEnabled ? "green.subtle" : "bg.muted"}
         borderRadius="md"
-        cursor="pointer"
-        onClick={() => onToggleMemory(!memoryEnabled)}
       >
         <LuBrain size={16} />
         <Text fontSize="sm" flex="1">
           Memory
         </Text>
-        <Box
-          w="8"
-          h="4"
-          bg={memoryEnabled ? "green.solid" : "gray.300"}
-          borderRadius="full"
-          position="relative"
-          transition="background 0.2s"
-        >
-          <Box
-            position="absolute"
-            top="2px"
-            left={memoryEnabled ? "18px" : "2px"}
-            w="3"
-            h="3"
-            bg="white"
-            borderRadius="full"
-            transition="left 0.2s"
-          />
-        </Box>
+        <Switch
+          checked={memoryEnabled}
+          onCheckedChange={(e) => onToggleMemory(e.checked)}
+          colorPalette="green"
+          size="sm"
+        />
       </Flex>
 
       {/* Thread list */}
@@ -122,6 +108,7 @@ export function Sidebar({
           threads.map((thread) => (
             <Flex
               key={thread.id}
+              className="group"
               px="3"
               py={{ base: 3, md: 2 }}
               minH={{ base: "44px", md: "auto" }}
@@ -147,13 +134,16 @@ export function Sidebar({
               <IconButton
                 aria-label="Delete thread"
                 variant="ghost"
-                size="xs"
+                size={{ base: "sm", md: "xs" }}
+                minW={{ base: "32px", md: "auto" }}
+                minH={{ base: "32px", md: "auto" }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDeleteThread(thread.id);
                 }}
-                opacity={0}
+                opacity={{ base: 0.6, md: 0 }}
                 _groupHover={{ opacity: 1 }}
+                transition="opacity 0.15s"
               >
                 <LuTrash2 size={14} />
               </IconButton>
