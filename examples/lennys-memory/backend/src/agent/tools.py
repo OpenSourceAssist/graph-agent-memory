@@ -8,6 +8,9 @@ This module provides tools for:
 """
 
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 import math
 import re
 from typing import Any
@@ -548,12 +551,17 @@ async def get_entity_context(
         - "pending": Enrichment was attempted but no data found
         - "not_attempted": Entity has not been enriched yet
     """
+    logger.info(f"[get_entity_context] Called with entity_name='{entity_name}'")
+
     if not ctx.deps.client:
+        logger.warning("[get_entity_context] Memory client not available!")
         return {"error": "Memory client not available"}
 
     try:
         # First try exact name match
+        logger.info(f"[get_entity_context] Trying exact name match for '{entity_name}'")
         entity = await ctx.deps.client.long_term.get_entity_by_name(entity_name)
+        logger.info(f"[get_entity_context] Exact match result: {entity is not None}")
 
         # If not found, try vector search for fuzzy matching
         if not entity:
@@ -621,19 +629,20 @@ async def get_entity_context(
         # Determine enrichment status
         enrichment_status = _get_enrichment_status(entity)
 
-        # Get enrichment fields - check both direct attributes and properties dict
-        image_url = getattr(entity, "image_url", None) or (
-            entity.properties.get("image_url") if hasattr(entity, "properties") else None
+        # Get enrichment fields - check both direct attributes and metadata dict
+        # The Entity model stores extra properties in metadata, not as direct attributes
+        metadata = getattr(entity, "metadata", {}) or {}
+
+        enriched_description = getattr(entity, "enriched_description", None) or metadata.get(
+            "enriched_description"
         )
-        enrichment_provider = getattr(entity, "enrichment_provider", None) or (
-            entity.properties.get("enrichment_provider") if hasattr(entity, "properties") else None
+        wikipedia_url = getattr(entity, "wikipedia_url", None) or metadata.get("wikipedia_url")
+        image_url = getattr(entity, "image_url", None) or metadata.get("image_url")
+        enrichment_provider = getattr(entity, "enrichment_provider", None) or metadata.get(
+            "enrichment_provider"
         )
-        enriched_at = (
-            entity.properties.get("enriched_at") if hasattr(entity, "properties") else None
-        )
-        wikidata_id = getattr(entity, "wikidata_id", None) or (
-            entity.properties.get("wikidata_id") if hasattr(entity, "properties") else None
-        )
+        enriched_at = metadata.get("enriched_at")
+        wikidata_id = getattr(entity, "wikidata_id", None) or metadata.get("wikidata_id")
 
         # Return in format expected by frontend EntityCard
         # Frontend expects: { entity: {...}, mentions: [...] } with enrichment fields at entity level
@@ -645,8 +654,8 @@ async def get_entity_context(
                 "subtype": entity.subtype,
                 "description": entity.description,
                 # Enrichment fields at top level for frontend compatibility
-                "enriched_description": entity.enriched_description,
-                "wikipedia_url": entity.wikipedia_url,
+                "enriched_description": enriched_description,
+                "wikipedia_url": wikipedia_url,
                 "image_url": image_url,
                 "wikidata_id": wikidata_id,
                 # Additional enrichment metadata
@@ -658,19 +667,27 @@ async def get_entity_context(
             "mention_count": len(mention_list),
         }
     except Exception as e:
+        logger.exception(f"[get_entity_context] Exception for entity '{entity_name}': {e}")
         return {"error": f"Failed to get entity context: {str(e)}"}
 
 
 def _get_enrichment_status(entity) -> str:
     """Determine the enrichment status of an entity."""
+    # Get metadata dict for checking enrichment properties
+    metadata = getattr(entity, "metadata", {}) or {}
+
     # Check if entity has enriched data
-    if entity.enriched_description or entity.wikipedia_url:
+    enriched_description = getattr(entity, "enriched_description", None) or metadata.get(
+        "enriched_description"
+    )
+    wikipedia_url = getattr(entity, "wikipedia_url", None) or metadata.get("wikipedia_url")
+
+    if enriched_description or wikipedia_url:
         return "enriched"
 
     # Check if enrichment was attempted but failed
-    if hasattr(entity, "properties"):
-        if entity.properties.get("enrichment_attempted"):
-            return "pending"  # Attempted but no data found
+    if metadata.get("enrichment_attempted"):
+        return "pending"  # Attempted but no data found
 
     return "not_attempted"
 
@@ -798,8 +815,8 @@ async def get_most_mentioned_entities(
         LIMIT $limit
         RETURN e.name AS name, e.type AS type,
                e.subtype AS subtype,
-               COALESCE(e.description, null) AS description,
-               COALESCE(e.wikipedia_url, null) AS wikipedia_url,
+               e.description AS description,
+               e.wikipedia_url AS wikipedia_url,
                mentions
         """
         results = await ctx.deps.client._client.execute_read(
@@ -1017,11 +1034,11 @@ async def find_location_path(
         WITH start, end LIMIT 1
         MATCH path = shortestPath((start)-[*..6]-(end))
         RETURN start.name AS from_location,
-               start.latitude AS from_lat,
-               start.longitude AS from_lon,
+               start.location.latitude AS from_lat,
+               start.location.longitude AS from_lon,
                end.name AS to_location,
-               end.latitude AS to_lat,
-               end.longitude AS to_lon,
+               end.location.latitude AS to_lat,
+               end.location.longitude AS to_lon,
                [n IN nodes(path) |
                 CASE
                     WHEN n:Entity THEN {type: 'entity', name: n.name, entity_type: n.type}

@@ -190,7 +190,7 @@ WITH c, message_count, first_msg_time, last_msg_time,
      head([msg IN messages WHERE msg.timestamp = first_msg_time | msg.content]) AS first_content,
      head([msg IN messages WHERE msg.timestamp = last_msg_time | msg.content]) AS last_content
 WITH c.session_id AS session_id,
-     COALESCE(c.title, null) AS title,
+     c.title AS title,
      c.created_at AS created_at,
      c.updated_at AS updated_at,
      message_count,
@@ -246,7 +246,7 @@ RETURN e
 
 GET_ENTITY_BY_NAME = """
 MATCH (e:Entity)
-WHERE e.name = $name OR e.canonical_name = $name OR $name IN COALESCE(e.aliases, [])
+WHERE e.name = $name OR e.canonical_name = $name OR ('aliases' IN keys(e) AND $name IN e.aliases)
 RETURN e
 LIMIT 1
 """

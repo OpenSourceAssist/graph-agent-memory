@@ -473,10 +473,10 @@ async def get_top_entities(
         LIMIT $limit
         RETURN e.id AS id, e.name AS name, e.type AS type,
                e.subtype AS subtype,
-               COALESCE(e.description, null) AS description,
-               COALESCE(e.wikipedia_url, null) AS wikipedia_url,
-               COALESCE(e.enriched_description, null) AS enriched_description,
-               COALESCE(e.image_url, null) AS image_url,
+               e.description AS description,
+               e.wikipedia_url AS wikipedia_url,
+               e.enriched_description AS enriched_description,
+               e.image_url AS image_url,
                mentions
         """
         results = await memory._client.execute_read(query, {"type": entity_type, "limit": limit})
