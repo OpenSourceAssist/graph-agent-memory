@@ -10,8 +10,14 @@ import { useThreads } from "@/hooks/useThreads";
 import { useChat } from "@/hooks/useChat";
 
 export default function Home() {
-  const { threads, activeThreadId, createThread, deleteThread, selectThread } =
-    useThreads();
+  const {
+    threads,
+    activeThreadId,
+    createThread,
+    deleteThread,
+    selectThread,
+    isLoading: isLoadingThreads,
+  } = useThreads();
 
   const {
     messages,
@@ -36,6 +42,7 @@ export default function Home() {
         onDeleteThread={deleteThread}
         memoryEnabled={memoryEnabled}
         onToggleMemory={setMemoryEnabled}
+        isLoadingThreads={isLoadingThreads}
       >
         <Flex h="full" position="relative">
           <ChatContainer

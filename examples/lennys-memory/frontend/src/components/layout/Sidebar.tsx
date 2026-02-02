@@ -10,6 +10,7 @@ import {
   Heading,
   Link,
   Separator,
+  Spinner,
 } from "@chakra-ui/react";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -32,6 +33,7 @@ interface SidebarProps {
   memoryEnabled: boolean;
   onToggleMemory: (enabled: boolean) => void;
   onThreadSelect?: () => void; // Called after selecting a thread (for mobile drawer close)
+  isLoading?: boolean; // Whether threads are being loaded
 }
 
 export function Sidebar({
@@ -43,6 +45,7 @@ export function Sidebar({
   memoryEnabled,
   onToggleMemory,
   onThreadSelect,
+  isLoading = false,
 }: SidebarProps) {
   const handleSelectThread = (id: string) => {
     onSelectThread(id);
@@ -100,7 +103,14 @@ export function Sidebar({
 
       {/* Thread list */}
       <Stack flex="1" gap="1" overflowY="auto">
-        {threads.length === 0 ? (
+        {isLoading ? (
+          <Flex justify="center" align="center" py="8">
+            <Spinner size="sm" color="fg.muted" />
+            <Text fontSize="sm" color="fg.muted" ml="2">
+              Loading...
+            </Text>
+          </Flex>
+        ) : threads.length === 0 ? (
           <Text fontSize="sm" color="fg.muted" textAlign="center" py="8">
             No conversations yet
           </Text>

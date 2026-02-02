@@ -7,7 +7,8 @@ import { api } from "@/lib/api";
 export function useThreads() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Start with loading true since we fetch on mount
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch threads on mount
@@ -22,7 +23,9 @@ export function useThreads() {
           setActiveThreadId(data[0].id);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch threads");
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch threads",
+        );
       } finally {
         setIsLoading(false);
       }
@@ -53,11 +56,13 @@ export function useThreads() {
           setActiveThreadId(remaining.length > 0 ? remaining[0].id : null);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to delete thread");
+        setError(
+          err instanceof Error ? err.message : "Failed to delete thread",
+        );
         throw err;
       }
     },
-    [activeThreadId, threads]
+    [activeThreadId, threads],
   );
 
   const selectThread = useCallback((id: string) => {
@@ -68,7 +73,7 @@ export function useThreads() {
     try {
       const updated = await api.threads.update(id, title);
       setThreads((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, title: updated.title } : t))
+        prev.map((t) => (t.id === id ? { ...t, title: updated.title } : t)),
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update thread");
