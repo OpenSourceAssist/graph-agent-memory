@@ -266,6 +266,27 @@ ORDER BY e.created_at DESC
 LIMIT $limit
 """
 
+UPDATE_ENTITY_EMBEDDING = """
+MATCH (e:Entity {id: $id})
+SET e.embedding = $embedding
+RETURN e
+"""
+
+GET_ENTITIES_WITHOUT_EMBEDDINGS = """
+MATCH (e:Entity)
+WHERE e.embedding IS NULL
+RETURN e.id AS id, e.name AS name, e.type AS type, e.description AS description
+ORDER BY e.created_at
+SKIP $skip
+LIMIT $limit
+"""
+
+COUNT_ENTITIES_WITHOUT_EMBEDDINGS = """
+MATCH (e:Entity)
+WHERE e.embedding IS NULL
+RETURN count(e) AS count
+"""
+
 CREATE_PREFERENCE = """
 CREATE (p:Preference {
     id: $id,

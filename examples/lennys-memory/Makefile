@@ -1,4 +1,4 @@
-.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend run neo4j clean geocode-locations extract-entities enrich enrich-status backfill-relationships backfill-relationships-status
+.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend run neo4j clean geocode-locations extract-entities enrich enrich-status backfill-relationships backfill-relationships-status backfill-embeddings backfill-embeddings-status
 
 # Default target
 help:
@@ -19,6 +19,8 @@ help:
 	@echo "  make extract-entities           Extract entities from loaded sessions"
 	@echo "  make backfill-relationships     Extract relationships between existing entities"
 	@echo "  make backfill-relationships-status  Show relationship extraction status"
+	@echo "  make backfill-embeddings        Generate embeddings for entities (for vector search)"
+	@echo "  make backfill-embeddings-status Show embedding generation status"
 	@echo "  make geocode-locations          Geocode Location entities (add lat/lon coordinates)"
 	@echo "  make enrich                     Enrich entities with Wikipedia data"
 	@echo "  make enrich-status              Show enrichment progress/status"
@@ -93,6 +95,15 @@ backfill-relationships:
 # Show relationship extraction status
 backfill-relationships-status:
 	cd backend && $(LOAD_ENV) uv run python ../scripts/backfill_relationships.py --status
+
+# Generate embeddings for entities that don't have them
+# Required for semantic vector search of entities
+backfill-embeddings:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/backfill_embeddings.py
+
+# Show embedding generation status
+backfill-embeddings-status:
+	cd backend && $(LOAD_ENV) uv run python ../scripts/backfill_embeddings.py --status
 
 # Geocode Location entities (add lat/lon coordinates)
 # Uses Nominatim (OpenStreetMap) by default - rate limited to 1 req/sec

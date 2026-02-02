@@ -142,9 +142,7 @@ async def _get_message_context(
         }}] AS context_after
         """.replace("{context}", str(context_size))
 
-        results = await ctx.deps.client._client.execute_read(
-            query, {"message_id": message_id}
-        )
+        results = await ctx.deps.client._client.execute_read(query, {"message_id": message_id})
 
         if results and results[0]:
             return {
@@ -192,16 +190,16 @@ async def search_by_speaker(
             for msg in messages:
                 msg_speaker = msg.metadata.get("speaker", "").lower()
                 if speaker_lower in msg_speaker or msg_speaker in speaker_lower:
-                    results.append({
-                        "content": (
-                            msg.content[:500] + "..."
-                            if len(msg.content) > 500
-                            else msg.content
-                        ),
-                        "speaker": msg.metadata.get("speaker", "Unknown"),
-                        "episode_guest": msg.metadata.get("episode_guest", "Unknown"),
-                        "relevance": round(msg.metadata.get("similarity", 0), 3),
-                    })
+                    results.append(
+                        {
+                            "content": (
+                                msg.content[:500] + "..." if len(msg.content) > 500 else msg.content
+                            ),
+                            "speaker": msg.metadata.get("speaker", "Unknown"),
+                            "episode_guest": msg.metadata.get("episode_guest", "Unknown"),
+                            "relevance": round(msg.metadata.get("similarity", 0), 3),
+                        }
+                    )
                     if len(results) >= limit:
                         break
 
@@ -500,9 +498,7 @@ async def _collapse_duplicate_entities(
                canon.name AS canonical_name,
                collect(DISTINCT alias.name) AS aliases
         """
-        results = await ctx.deps.client._client.execute_read(
-            query, {"names": entity_names}
-        )
+        results = await ctx.deps.client._client.execute_read(query, {"names": entity_names})
 
         # Build mapping from original to canonical
         canonical_map = {}
@@ -580,17 +576,15 @@ async def get_entity_context(
             ORDER BY size(e.name) ASC
             LIMIT 1
             """
-            results = await ctx.deps.client._client.execute_read(
-                query, {"name": entity_name}
-            )
+            results = await ctx.deps.client._client.execute_read(query, {"name": entity_name})
             if results:
                 # Parse the entity from Cypher result
-                entity = await ctx.deps.client.long_term.get_entity_by_name(
-                    results[0]["e"]["name"]
-                )
+                entity = await ctx.deps.client.long_term.get_entity_by_name(results[0]["e"]["name"])
 
         if not entity:
-            return {"error": f"Entity '{entity_name}' not found. Try searching with search_entities tool first."}
+            return {
+                "error": f"Entity '{entity_name}' not found. Try searching with search_entities tool first."
+            }
 
         # Get mentions from the graph (filter to podcast sessions only)
         query = """
@@ -628,20 +622,17 @@ async def get_entity_context(
         enrichment_status = _get_enrichment_status(entity)
 
         # Get enrichment fields - check both direct attributes and properties dict
-        image_url = (
-            getattr(entity, "image_url", None)
-            or (entity.properties.get("image_url") if hasattr(entity, "properties") else None)
+        image_url = getattr(entity, "image_url", None) or (
+            entity.properties.get("image_url") if hasattr(entity, "properties") else None
         )
-        enrichment_provider = (
-            getattr(entity, "enrichment_provider", None)
-            or (entity.properties.get("enrichment_provider") if hasattr(entity, "properties") else None)
+        enrichment_provider = getattr(entity, "enrichment_provider", None) or (
+            entity.properties.get("enrichment_provider") if hasattr(entity, "properties") else None
         )
         enriched_at = (
             entity.properties.get("enriched_at") if hasattr(entity, "properties") else None
         )
-        wikidata_id = (
-            getattr(entity, "wikidata_id", None)
-            or (entity.properties.get("wikidata_id") if hasattr(entity, "properties") else None)
+        wikidata_id = getattr(entity, "wikidata_id", None) or (
+            entity.properties.get("wikidata_id") if hasattr(entity, "properties") else None
         )
 
         # Return in format expected by frontend EntityCard
@@ -805,8 +796,10 @@ async def get_most_mentioned_entities(
         WITH e, count(r) AS mentions
         ORDER BY mentions DESC
         LIMIT $limit
-        RETURN e.name AS name, e.type AS type, e.subtype AS subtype,
-               e.description AS description, e.wikipedia_url AS wikipedia_url,
+        RETURN e.name AS name, e.type AS type,
+               e.subtype AS subtype,
+               COALESCE(e.description, null) AS description,
+               COALESCE(e.wikipedia_url, null) AS wikipedia_url,
                mentions
         """
         results = await ctx.deps.client._client.execute_read(
@@ -1338,13 +1331,15 @@ async def learn_from_similar_task(
                     ]
                 steps_data.append(step_info)
 
-            results.append({
-                "task": full_trace.task,
-                "outcome": full_trace.outcome,
-                "success": full_trace.success,
-                "similarity": trace.metadata.get("similarity", 0) if trace.metadata else 0,
-                "steps": steps_data,
-            })
+            results.append(
+                {
+                    "task": full_trace.task,
+                    "outcome": full_trace.outcome,
+                    "success": full_trace.success,
+                    "similarity": trace.metadata.get("similarity", 0) if trace.metadata else 0,
+                    "steps": steps_data,
+                }
+            )
 
         return results
     except Exception as e:
@@ -1712,8 +1707,7 @@ async def get_conversation_context(
             }
             if include_tool_calls and hasattr(msg, "tool_calls") and msg.tool_calls:
                 msg_data["tool_calls"] = [
-                    {"name": tc.get("name"), "status": tc.get("status")}
-                    for tc in msg.tool_calls
+                    {"name": tc.get("name"), "status": tc.get("status")} for tc in msg.tool_calls
                 ]
             results.append(msg_data)
 
@@ -1830,7 +1824,9 @@ async def get_episode_summary(
                     "summary": summary.summary,
                     "key_topics": summary.key_topics,
                     "key_entities": summary.key_entities,
-                    "generated_at": summary.generated_at.isoformat() if summary.generated_at else None,
+                    "generated_at": summary.generated_at.isoformat()
+                    if summary.generated_at
+                    else None,
                 }
         except AttributeError:
             pass
@@ -1847,9 +1843,7 @@ async def get_episode_summary(
                message_count,
                entities
         """
-        results = await ctx.deps.client._client.execute_read(
-            query, {"session_id": session_id}
-        )
+        results = await ctx.deps.client._client.execute_read(query, {"session_id": session_id})
 
         if not results:
             return {"error": f"Episode with guest '{episode_guest}' not found"}
