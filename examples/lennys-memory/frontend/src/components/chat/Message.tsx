@@ -53,7 +53,15 @@ export function Message({ message }: MessageProps) {
   }, [message.toolCalls, allExpanded]);
 
   return (
-    <Flex gap={{ base: 2, md: 3 }} alignItems="flex-start">
+    <Flex
+      gap={{ base: 2, md: 3 }}
+      alignItems="flex-start"
+      p={{ base: 2, md: 3 }}
+      mx={{ base: -2, md: -3 }}
+      borderRadius="lg"
+      transition="background 0.15s"
+      _hover={{ bg: "bg.subtle" }}
+    >
       {/* Avatar */}
       <Flex
         w={{ base: 7, md: 8 }}
@@ -63,6 +71,8 @@ export function Message({ message }: MessageProps) {
         alignItems="center"
         justifyContent="center"
         flexShrink={0}
+        role="img"
+        aria-label={isUser ? "User avatar" : "Assistant avatar"}
       >
         {isUser ? <LuUser size={16} /> : <LuBot size={16} />}
       </Flex>

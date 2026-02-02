@@ -68,9 +68,9 @@ export function ChatContainer({
 }: ChatContainerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Responsive values
+  // Responsive values - 2x2 grid on mobile for better use of space
   const isMobile = useBreakpointValue({ base: true, sm: false });
-  const promptColumns = useBreakpointValue({ base: 1, sm: 2, lg: 3 });
+  const promptColumns = useBreakpointValue({ base: 2, sm: 2, lg: 3 });
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -109,8 +109,14 @@ export function ChatContainer({
               w="full"
             >
               <Stack gap="2" align="center">
-                <Box color="brand.500" mb={1}>
-                  <LuBrain size={32} />
+                <Box
+                  color="brand.500"
+                  mb={2}
+                  p={{ base: 3, md: 4 }}
+                  bg="brand.subtle"
+                  borderRadius="full"
+                >
+                  <LuBrain size={isMobile ? 32 : 40} />
                 </Box>
                 <Text
                   fontSize={{ base: "lg", md: "xl" }}
@@ -119,7 +125,12 @@ export function ChatContainer({
                 >
                   Ask about Lenny's Podcast
                 </Text>
-                <Text color="fg.muted" fontSize={{ base: "xs", md: "sm" }}>
+                <Text
+                  color="fg.muted"
+                  fontSize={{ base: "xs", md: "sm" }}
+                  maxW="md"
+                  px={2}
+                >
                   Explore insights from 299 podcast episodes with AI-powered
                   graph memory. Click a topic or type your own question.
                 </Text>
@@ -130,7 +141,7 @@ export function ChatContainer({
                   <Box
                     key={item.title}
                     as="button"
-                    p={{ base: 3, md: 4 }}
+                    p={{ base: 2.5, md: 4 }}
                     borderRadius="lg"
                     border="1px solid"
                     borderColor="border.subtle"
@@ -147,19 +158,25 @@ export function ChatContainer({
                     _active={{
                       transform: "scale(0.98)",
                     }}
+                    _focusVisible={{
+                      outline: "2px solid",
+                      outlineColor: "brand.500",
+                      outlineOffset: "2px",
+                    }}
                     onClick={() => !isStreaming && onSendMessage(item.prompt)}
                     opacity={isStreaming ? 0.5 : 1}
                     pointerEvents={isStreaming ? "none" : "auto"}
-                    minH={{ base: "80px", md: "auto" }}
+                    minH={{ base: "auto", md: "auto" }}
                   >
-                    <Flex align="center" gap={2} mb={{ base: 1, md: 2 }}>
-                      <Box color="brand.500">
-                        <LuSparkles size={16} />
+                    <Flex align="center" gap={1.5} mb={{ base: 0.5, md: 2 }}>
+                      <Box color="brand.500" flexShrink={0}>
+                        <LuSparkles size={isMobile ? 14 : 16} />
                       </Box>
                       <Text
                         fontSize={{ base: "xs", md: "sm" }}
                         fontWeight="medium"
                         color="fg.default"
+                        lineClamp={1}
                       >
                         {item.title}
                       </Text>
@@ -169,6 +186,7 @@ export function ChatContainer({
                       color="fg.muted"
                       lineHeight="tall"
                       lineClamp={{ base: 2, md: 3 }}
+                      hideBelow="sm"
                     >
                       {item.prompt}
                     </Text>

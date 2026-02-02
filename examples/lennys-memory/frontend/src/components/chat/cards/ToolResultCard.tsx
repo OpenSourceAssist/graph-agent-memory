@@ -45,14 +45,8 @@ export function ToolResultCard({ toolCall }: ToolResultCardProps) {
         // Keep as string if not valid JSON
       }
     }
-    // Debug logging - remove in production
-    console.log(`[ToolResultCard] ${toolCall.name}:`, {
-      rawResult: toolCall.result,
-      parsedResult: result,
-      duration_ms: toolCall.duration_ms,
-    });
     return result;
-  }, [toolCall.result, toolCall.name, toolCall.duration_ms]);
+  }, [toolCall.result]);
 
   // Determine card type
   const cardType = useMemo(() => {
