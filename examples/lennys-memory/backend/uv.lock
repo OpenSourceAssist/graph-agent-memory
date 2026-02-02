@@ -1760,7 +1760,7 @@ requires-dist = [
     { name = "glirel", specifier = ">=0.1.0" },
     { name = "loguru", specifier = ">=0.7.0" },
     { name = "neo4j", specifier = ">=5.26.0" },
-    { name = "neo4j-agent-memory", extras = ["extraction", "openai"], editable = "../../../" },
+    { name = "neo4j-agent-memory", extras = ["extraction", "openai"], git = "https://github.com/neo4j-labs/agent-memory" },
     { name = "pydantic-ai", specifier = ">=0.0.39" },
     { name = "pydantic-settings", specifier = ">=2.6.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
@@ -2245,7 +2245,7 @@ wheels = [
 [[package]]
 name = "neo4j-agent-memory"
 version = "0.0.2"
-source = { editable = "../../../" }
+source = { git = "https://github.com/neo4j-labs/agent-memory#600a03d4f6837c57735c6f4d1a5a993aae3ae915" }
 dependencies = [
     { name = "neo4j" },
     { name = "pydantic" },
@@ -2259,55 +2259,6 @@ extraction = [
 ]
 openai = [
     { name = "openai" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.20.0" },
-    { name = "click", marker = "extra == 'cli'", specifier = ">=8.0.0" },
-    { name = "crewai", marker = "extra == 'crewai'", specifier = ">=0.50.0" },
-    { name = "gliner", marker = "extra == 'extraction'", specifier = ">=0.2.0" },
-    { name = "gliner", marker = "extra == 'gliner'", specifier = ">=0.2.0" },
-    { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.2.0" },
-    { name = "llama-index-core", marker = "extra == 'llamaindex'", specifier = ">=0.10.0" },
-    { name = "neo4j", specifier = ">=5.20.0" },
-    { name = "neo4j-agent-memory", extras = ["all", "sentence-transformers", "spacy", "gliner"], marker = "extra == 'full'" },
-    { name = "neo4j-agent-memory", extras = ["openai", "anthropic", "fuzzy", "langchain", "llamaindex", "pydantic-ai", "crewai", "openai-agents"], marker = "extra == 'all'" },
-    { name = "openai", marker = "extra == 'openai'", specifier = ">=1.0.0" },
-    { name = "openai", marker = "extra == 'openai-agents'", specifier = ">=1.0.0" },
-    { name = "opentelemetry-api", marker = "extra == 'observability'", specifier = ">=1.20.0" },
-    { name = "opentelemetry-api", marker = "extra == 'opentelemetry'", specifier = ">=1.20.0" },
-    { name = "opentelemetry-exporter-otlp", marker = "extra == 'opentelemetry'", specifier = ">=1.20.0" },
-    { name = "opentelemetry-sdk", marker = "extra == 'observability'", specifier = ">=1.20.0" },
-    { name = "opentelemetry-sdk", marker = "extra == 'opentelemetry'", specifier = ">=1.20.0" },
-    { name = "opik", marker = "extra == 'opik'", specifier = ">=1.0.0" },
-    { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "pydantic-ai", marker = "extra == 'pydantic-ai'", specifier = ">=0.1.0" },
-    { name = "pydantic-settings", specifier = ">=2.0.0" },
-    { name = "rapidfuzz", marker = "extra == 'fuzzy'", specifier = ">=3.0.0" },
-    { name = "rich", marker = "extra == 'cli'", specifier = ">=13.0.0" },
-    { name = "sentence-transformers", marker = "extra == 'sentence-transformers'", specifier = ">=2.2.0" },
-    { name = "spacy", marker = "extra == 'extraction'", specifier = ">=3.7.0" },
-    { name = "spacy", marker = "extra == 'spacy'", specifier = ">=3.7.0" },
-]
-provides-extras = ["openai", "anthropic", "sentence-transformers", "spacy", "gliner", "extraction", "fuzzy", "cli", "opentelemetry", "opik", "observability", "langchain", "llamaindex", "pydantic-ai", "crewai", "openai-agents", "all", "full"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "beautifulsoup4", specifier = ">=4.12.0" },
-    { name = "mypy", specifier = ">=1.8.0" },
-    { name = "pre-commit", specifier = ">=3.6.0" },
-    { name = "pytest", specifier = ">=8.0.0" },
-    { name = "pytest-asyncio", specifier = ">=0.23.0" },
-    { name = "pytest-cov", specifier = ">=4.1.0" },
-    { name = "pytest-timeout", specifier = ">=2.3.0" },
-    { name = "ruff", specifier = ">=0.3.0" },
-    { name = "testcontainers", extras = ["neo4j"], specifier = ">=4.0.0" },
-]
-docs = [
-    { name = "mkdocs", specifier = ">=1.5.0" },
-    { name = "mkdocs-material", specifier = ">=9.5.0" },
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.24.0" },
 ]
 
 [[package]]
