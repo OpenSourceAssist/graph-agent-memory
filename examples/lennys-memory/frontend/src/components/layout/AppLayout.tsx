@@ -54,8 +54,8 @@ export function AppLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
 
-  // Detect mobile viewport
-  const isMobile = useBreakpointValue({ base: true, md: false });
+  // Detect mobile viewport - default to false during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, md: false }) ?? false;
 
   return (
     <Flex h="100vh" overflow="hidden" bg="bg.canvas">

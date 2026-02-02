@@ -6,7 +6,6 @@ import { LuBrain } from "react-icons/lu";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatContainer } from "@/components/chat/ChatContainer";
 import { MemoryContextPanel } from "@/components/memory/MemoryContext";
-import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
 import { useThreads } from "@/hooks/useThreads";
 import { useChat } from "@/hooks/useChat";
 
@@ -24,13 +23,11 @@ export default function Home() {
 
   // Mobile memory panel state (separate from memoryEnabled toggle)
   const [mobileMemoryOpen, setMobileMemoryOpen] = useState(false);
-  const isMobile = useBreakpointValue({ base: true, lg: false });
+  // Default to false during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, lg: false }) ?? false;
 
   return (
     <>
-      {/* Welcome modal for first-time users */}
-      <WelcomeModal />
-
       <AppLayout
         threads={threads}
         activeThreadId={activeThreadId}

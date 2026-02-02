@@ -77,8 +77,9 @@ export function ChatContainer({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Responsive values - 2x2 grid on mobile for better use of space
-  const isMobile = useBreakpointValue({ base: true, sm: false });
-  const promptColumns = useBreakpointValue({ base: 2, sm: 2, lg: 3 });
+  // Default to false/2 during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, sm: false }) ?? false;
+  const promptColumns = useBreakpointValue({ base: 2, sm: 2, lg: 3 }) ?? 2;
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
