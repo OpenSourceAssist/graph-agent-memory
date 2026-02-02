@@ -20,28 +20,28 @@ import type { Message } from "@/lib/types";
 // Suggested prompts for the empty state
 const SUGGESTED_PROMPTS = [
   {
-    title: "Product-Market Fit",
-    prompt: "Who has talked about product-market fit and what did they say?",
+    title: "Founder Mode",
+    prompt: "What does Brian Chesky say about founder mode?",
   },
   {
-    title: "Growth Strategies",
-    prompt: "What are the best growth strategies discussed by podcast guests?",
+    title: "Product-Market Fit",
+    prompt: "What do guests say about product-market fit?",
   },
   {
     title: "Find Connections",
-    prompt: "Find connections between Reid Hoffman and other guests",
+    prompt: "Find connections between Tobi Lutke and other guests",
   },
   {
     title: "Top Companies",
-    prompt: "What companies are mentioned most often in the podcast?",
+    prompt: "What companies are mentioned most in the podcast?",
   },
   {
-    title: "Leadership",
-    prompt: "What do successful leaders say about managing teams effectively?",
+    title: "Leadership Advice",
+    prompt: "Compare advice from Julie Zhuo and Deb Liu on leadership",
   },
   {
-    title: "Locations",
-    prompt: "Show me locations mentioned in recent episodes",
+    title: "Explore Locations",
+    prompt: "Show me locations mentioned in episodes",
   },
 ];
 
