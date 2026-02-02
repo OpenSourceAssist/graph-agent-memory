@@ -133,7 +133,7 @@ class TestMessageQueries:
         # so we use a direct DETACH DELETE for this test
         results = await neo4j_client.execute_write(
             "MATCH (m:Message {id: $id}) DETACH DELETE m RETURN count(m) > 0 AS deleted",
-            {"id": msg_id}
+            {"id": msg_id},
         )
         assert results[0]["deleted"] is True
 
@@ -396,9 +396,7 @@ class TestSchemaPersistenceQueries:
         )
 
         # Get schema by name
-        results = await neo4j_client.execute_read(
-            queries.GET_SCHEMA_BY_NAME, {"name": schema_name}
-        )
+        results = await neo4j_client.execute_read(queries.GET_SCHEMA_BY_NAME, {"name": schema_name})
         assert len(results) == 1
         assert results[0]["s"]["id"] == schema_id
         assert results[0]["s"]["version"] == "1.0"
@@ -439,9 +437,7 @@ class TestSchemaPersistenceQueries:
         )
 
         # Get active schema should return v2
-        results = await neo4j_client.execute_read(
-            queries.GET_SCHEMA_BY_NAME, {"name": schema_name}
-        )
+        results = await neo4j_client.execute_read(queries.GET_SCHEMA_BY_NAME, {"name": schema_name})
         assert len(results) == 1
         assert results[0]["s"]["version"] == "2.0"
 
@@ -476,9 +472,7 @@ class TestSchemaPersistenceQueries:
         assert results[0]["deleted"] is True
 
         # Verify deletion
-        results = await neo4j_client.execute_read(
-            queries.GET_SCHEMA_BY_NAME, {"name": schema_name}
-        )
+        results = await neo4j_client.execute_read(queries.GET_SCHEMA_BY_NAME, {"name": schema_name})
         assert len(results) == 0
 
 
@@ -556,9 +550,7 @@ class TestReasoningMemoryQueries:
         )
 
         # Verify trace
-        results = await neo4j_client.execute_read(
-            queries.GET_TRACE_WITH_STEPS, {"id": trace_id}
-        )
+        results = await neo4j_client.execute_read(queries.GET_TRACE_WITH_STEPS, {"id": trace_id})
         assert len(results) == 1
         assert results[0]["rt"]["task"] == "Find information about Neo4j"
 
@@ -600,9 +592,7 @@ class TestReasoningMemoryQueries:
         )
 
         # Verify step is linked to trace
-        results = await neo4j_client.execute_read(
-            queries.GET_TRACE_WITH_STEPS, {"id": trace_id}
-        )
+        results = await neo4j_client.execute_read(queries.GET_TRACE_WITH_STEPS, {"id": trace_id})
         assert len(results) == 1
         steps = results[0]["steps"]
         assert len(steps) == 1
@@ -668,9 +658,7 @@ class TestSessionQueries:
         )
 
         # Delete session
-        await neo4j_client.execute_write(
-            queries.DELETE_SESSION_DATA, {"session_id": session_id}
-        )
+        await neo4j_client.execute_write(queries.DELETE_SESSION_DATA, {"session_id": session_id})
 
         # Verify conversation is gone
         results = await neo4j_client.execute_read(

@@ -51,36 +51,36 @@ class TestQueryConstants:
             if "{" in query.split()[0] if query.split() else True:
                 continue
             first_word = query.strip().split()[0].upper()
-            assert any(
-                first_word.startswith(valid) for valid in valid_starts
-            ), f"{name} starts with unexpected keyword: {first_word}"
+            assert any(first_word.startswith(valid) for valid in valid_starts), (
+                f"{name} starts with unexpected keyword: {first_word}"
+            )
 
     def test_queries_have_balanced_braces(self):
         """Query strings should have balanced curly braces."""
         for name, query in self.get_all_query_constants():
             open_count = query.count("{")
             close_count = query.count("}")
-            assert (
-                open_count == close_count
-            ), f"{name} has unbalanced braces: {open_count} open, {close_count} close"
+            assert open_count == close_count, (
+                f"{name} has unbalanced braces: {open_count} open, {close_count} close"
+            )
 
     def test_queries_have_balanced_parentheses(self):
         """Query strings should have balanced parentheses."""
         for name, query in self.get_all_query_constants():
             open_count = query.count("(")
             close_count = query.count(")")
-            assert (
-                open_count == close_count
-            ), f"{name} has unbalanced parentheses: {open_count} open, {close_count} close"
+            assert open_count == close_count, (
+                f"{name} has unbalanced parentheses: {open_count} open, {close_count} close"
+            )
 
     def test_queries_have_balanced_brackets(self):
         """Query strings should have balanced square brackets."""
         for name, query in self.get_all_query_constants():
             open_count = query.count("[")
             close_count = query.count("]")
-            assert (
-                open_count == close_count
-            ), f"{name} has unbalanced brackets: {open_count} open, {close_count} close"
+            assert open_count == close_count, (
+                f"{name} has unbalanced brackets: {open_count} open, {close_count} close"
+            )
 
 
 class TestShortTermMemoryQueries:
