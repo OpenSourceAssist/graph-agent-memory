@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # Neo4j database
+  neo4j:
+    image: neo4j:5-community
+    container_name: financial-advisor-neo4j
+    ports:
+      - "7474:7474"  # Browser
+      - "7687:7687"  # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/password
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: financial-advisor-backend
+    ports:
+      - "8000:8080"
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=password
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT:-}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-us-central1}
+      - VERTEX_AI_MODEL_ID=${VERTEX_AI_MODEL_ID:-gemini-2.5-flash}
+      - VERTEX_AI_EMBEDDING_MODEL=${VERTEX_AI_EMBEDDING_MODEL:-text-embedding-004}
+      - LOG_LEVEL=INFO
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    volumes:
+      # Mount Google Cloud credentials for local development
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-~/.config/gcloud/application_default_credentials.json}:/app/credentials.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend (development mode)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: financial-advisor-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:8080
+
+  # Data loader (run once)
+  data-loader:
+    image: python:3.11-slim
+    container_name: financial-advisor-data-loader
+    working_dir: /app
+    volumes:
+      - ./data:/app
+    environment:
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=password
+    command: >
+      bash -c "
+        pip install neo4j &&
+        python load_sample_data.py
+      "
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    profiles:
+      - load-data
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
