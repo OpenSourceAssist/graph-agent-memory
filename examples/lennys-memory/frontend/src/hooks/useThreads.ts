@@ -13,25 +13,33 @@ export function useThreads() {
 
   // Fetch threads on mount
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchThreads = async () => {
       setIsLoading(true);
       try {
         const data = await api.threads.list();
-        setThreads(data);
-        // Select most recent thread if none selected
-        if (!activeThreadId && data.length > 0) {
-          setActiveThreadId(data[0].id);
+        if (!controller.signal.aborted) {
+          setThreads(data);
+          // Don't auto-select thread - let user start fresh or pick one
+          // This avoids a second API call to fetch messages on initial load
         }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch threads",
-        );
+        if (!controller.signal.aborted) {
+          setError(
+            err instanceof Error ? err.message : "Failed to fetch threads",
+          );
+        }
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchThreads();
+
+    return () => controller.abort();
   }, []);
 
   const createThread = useCallback(async (title?: string) => {
