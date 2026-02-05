@@ -39,9 +39,5 @@ EXPOSE 8080
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import socket; s = socket.socket(); s.connect(('localhost', 8080)); s.close()" || exit 1
-
 # Run the MCP server
 CMD ["python", "-m", "neo4j_agent_memory.mcp.server", "--transport", "sse", "--host", "0.0.0.0", "--port", "8080"]
