@@ -98,9 +98,9 @@ async def demo_vertex_ai_embeddings(client):
         location=os.environ.get("VERTEX_AI_LOCATION", "us-central1"),
     )
 
-    print(f"Model: {embedder.model}")
+    print(f"Model: {embedder._model}")
     print(f"Dimensions: {embedder.dimensions}")
-    print(f"Location: {embedder.location}")
+    print(f"Location: {embedder._location}")
 
     print_subheader("Generating Embeddings")
 
