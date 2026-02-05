@@ -14,6 +14,8 @@ dependencies = [
     "neo4j-agent-memory[extraction,openai]",
     "spacy>=3.7.0",
     "gliner>=0.2.0",
+    "glirel>=0.1.0",
+    "loguru>=0.7.0",
     "en-core-web-sm",
 ]
 

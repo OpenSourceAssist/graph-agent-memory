@@ -10,7 +10,9 @@ import {
   Heading,
   Link,
   Separator,
+  Spinner,
 } from "@chakra-ui/react";
+import { Switch } from "@/components/ui/switch";
 import {
   LuPlus,
   LuTrash2,
@@ -31,6 +33,7 @@ interface SidebarProps {
   memoryEnabled: boolean;
   onToggleMemory: (enabled: boolean) => void;
   onThreadSelect?: () => void; // Called after selecting a thread (for mobile drawer close)
+  isLoading?: boolean; // Whether threads are being loaded
 }
 
 export function Sidebar({
@@ -42,6 +45,7 @@ export function Sidebar({
   memoryEnabled,
   onToggleMemory,
   onThreadSelect,
+  isLoading = false,
 }: SidebarProps) {
   const handleSelectThread = (id: string) => {
     onSelectThread(id);
@@ -84,37 +88,29 @@ export function Sidebar({
         minH={{ base: "44px", md: "auto" }}
         bg={memoryEnabled ? "green.subtle" : "bg.muted"}
         borderRadius="md"
-        cursor="pointer"
-        onClick={() => onToggleMemory(!memoryEnabled)}
       >
         <LuBrain size={16} />
         <Text fontSize="sm" flex="1">
           Memory
         </Text>
-        <Box
-          w="8"
-          h="4"
-          bg={memoryEnabled ? "green.solid" : "gray.300"}
-          borderRadius="full"
-          position="relative"
-          transition="background 0.2s"
-        >
-          <Box
-            position="absolute"
-            top="2px"
-            left={memoryEnabled ? "18px" : "2px"}
-            w="3"
-            h="3"
-            bg="white"
-            borderRadius="full"
-            transition="left 0.2s"
-          />
-        </Box>
+        <Switch
+          checked={memoryEnabled}
+          onCheckedChange={(e) => onToggleMemory(e.checked)}
+          colorPalette="green"
+          size="sm"
+        />
       </Flex>
 
       {/* Thread list */}
       <Stack flex="1" gap="1" overflowY="auto">
-        {threads.length === 0 ? (
+        {isLoading ? (
+          <Flex justify="center" align="center" py="8">
+            <Spinner size="sm" color="fg.muted" />
+            <Text fontSize="sm" color="fg.muted" ml="2">
+              Loading...
+            </Text>
+          </Flex>
+        ) : threads.length === 0 ? (
           <Text fontSize="sm" color="fg.muted" textAlign="center" py="8">
             No conversations yet
           </Text>
@@ -122,6 +118,7 @@ export function Sidebar({
           threads.map((thread) => (
             <Flex
               key={thread.id}
+              className="group"
               px="3"
               py={{ base: 3, md: 2 }}
               minH={{ base: "44px", md: "auto" }}
@@ -147,13 +144,16 @@ export function Sidebar({
               <IconButton
                 aria-label="Delete thread"
                 variant="ghost"
-                size="xs"
+                size={{ base: "sm", md: "xs" }}
+                minW={{ base: "32px", md: "auto" }}
+                minH={{ base: "32px", md: "auto" }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDeleteThread(thread.id);
                 }}
-                opacity={0}
+                opacity={{ base: 0.6, md: 0 }}
                 _groupHover={{ opacity: 1 }}
+                transition="opacity 0.15s"
               >
                 <LuTrash2 size={14} />
               </IconButton>

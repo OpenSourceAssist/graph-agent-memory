@@ -143,7 +143,7 @@ class TestEntitiesHowTo:
 
         results = await memory_client.long_term.search_entities(
             query="Apple stock NASDAQ",
-            entity_type="SECURITY",
+            entity_types=["SECURITY"],
             limit=5,
         )
 
@@ -164,12 +164,12 @@ class TestEntitiesHowTo:
         # Search only for organizations
         results = await memory_client.long_term.search_entities(
             query="Amazon company",
-            entity_type="ORGANIZATION",
+            entity_types=["ORGANIZATION"],
             limit=5,
         )
 
         for entity in results:
-            assert entity.entity_type == "ORGANIZATION"
+            assert entity.type == "ORGANIZATION"
 
 
 @pytest.mark.asyncio

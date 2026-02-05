@@ -15,90 +15,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
+from neo4j_agent_memory.graph import queries
 from neo4j_agent_memory.schema.models import EntitySchemaConfig
 
 if TYPE_CHECKING:
     from neo4j_agent_memory.graph.client import Neo4jClient
-
-
-# =============================================================================
-# SCHEMA PERSISTENCE QUERIES
-# =============================================================================
-
-CREATE_SCHEMA = """
-CREATE (s:Schema {
-    id: $id,
-    name: $name,
-    version: $version,
-    description: $description,
-    config: $config,
-    is_active: $is_active,
-    created_at: datetime(),
-    created_by: $created_by
-})
-RETURN s
-"""
-
-GET_SCHEMA_BY_NAME = """
-MATCH (s:Schema {name: $name})
-WHERE s.is_active = true
-RETURN s
-ORDER BY s.created_at DESC
-LIMIT 1
-"""
-
-GET_SCHEMA_BY_NAME_VERSION = """
-MATCH (s:Schema {name: $name, version: $version})
-RETURN s
-LIMIT 1
-"""
-
-GET_SCHEMA_BY_ID = """
-MATCH (s:Schema {id: $id})
-RETURN s
-"""
-
-LIST_SCHEMAS = """
-MATCH (s:Schema)
-WHERE $name IS NULL OR s.name = $name
-WITH s
-ORDER BY s.name, s.created_at DESC
-WITH s.name AS name, collect(s) AS versions
-RETURN name, head(versions) AS latest, size(versions) AS version_count
-"""
-
-LIST_SCHEMA_VERSIONS = """
-MATCH (s:Schema {name: $name})
-RETURN s
-ORDER BY s.created_at DESC
-"""
-
-UPDATE_SCHEMA_ACTIVE = """
-MATCH (s:Schema {name: $name})
-SET s.is_active = false
-WITH s
-MATCH (active:Schema {id: $id})
-SET active.is_active = true
-RETURN active
-"""
-
-DELETE_SCHEMA = """
-MATCH (s:Schema {id: $id})
-DELETE s
-RETURN count(s) > 0 AS deleted
-"""
-
-DELETE_SCHEMA_BY_NAME = """
-MATCH (s:Schema {name: $name})
-DELETE s
-RETURN count(s) AS deleted_count
-"""
-
-DEACTIVATE_SCHEMA_VERSIONS = """
-MATCH (s:Schema {name: $name})
-SET s.is_active = false
-RETURN count(s) AS updated
-"""
 
 
 @dataclass
@@ -213,13 +134,13 @@ class SchemaManager:
         # Deactivate other versions if setting this as active
         if set_active:
             await self._client.execute_write(
-                DEACTIVATE_SCHEMA_VERSIONS,
+                queries.DEACTIVATE_SCHEMA_VERSIONS,
                 {"name": schema.name},
             )
 
         # Create the new schema node
         results = await self._client.execute_write(
-            CREATE_SCHEMA,
+            queries.CREATE_SCHEMA,
             {
                 "id": schema_id,
                 "name": schema.name,
@@ -256,7 +177,7 @@ class SchemaManager:
             EntitySchemaConfig if found, None otherwise
         """
         results = await self._client.execute_read(
-            GET_SCHEMA_BY_NAME,
+            queries.GET_SCHEMA_BY_NAME,
             {"name": name},
         )
 
@@ -277,7 +198,7 @@ class SchemaManager:
             EntitySchemaConfig if found, None otherwise
         """
         results = await self._client.execute_read(
-            GET_SCHEMA_BY_NAME_VERSION,
+            queries.GET_SCHEMA_BY_NAME_VERSION,
             {"name": name, "version": version},
         )
 
@@ -297,7 +218,7 @@ class SchemaManager:
             StoredSchema with full details if found, None otherwise
         """
         results = await self._client.execute_read(
-            GET_SCHEMA_BY_NAME,
+            queries.GET_SCHEMA_BY_NAME,
             {"name": name},
         )
 
@@ -316,7 +237,7 @@ class SchemaManager:
             StoredSchema if found, None otherwise
         """
         results = await self._client.execute_read(
-            GET_SCHEMA_BY_ID,
+            queries.GET_SCHEMA_BY_ID,
             {"id": str(schema_id)},
         )
 
@@ -335,7 +256,7 @@ class SchemaManager:
             List of SchemaListItem with summary info
         """
         results = await self._client.execute_read(
-            LIST_SCHEMAS,
+            queries.LIST_SCHEMAS,
             {"name": name},
         )
 
@@ -365,7 +286,7 @@ class SchemaManager:
             List of StoredSchema for all versions, newest first
         """
         results = await self._client.execute_read(
-            LIST_SCHEMA_VERSIONS,
+            queries.LIST_SCHEMA_VERSIONS,
             {"name": name},
         )
 
@@ -383,7 +304,7 @@ class SchemaManager:
         """
         # First find the schema to activate
         results = await self._client.execute_read(
-            GET_SCHEMA_BY_NAME_VERSION,
+            queries.GET_SCHEMA_BY_NAME_VERSION,
             {"name": name, "version": version},
         )
 
@@ -394,7 +315,7 @@ class SchemaManager:
 
         # Update active status
         results = await self._client.execute_write(
-            UPDATE_SCHEMA_ACTIVE,
+            queries.UPDATE_SCHEMA_ACTIVE,
             {"name": name, "id": schema_id},
         )
 
@@ -413,7 +334,7 @@ class SchemaManager:
             True if deleted, False if not found
         """
         results = await self._client.execute_write(
-            DELETE_SCHEMA,
+            queries.DELETE_SCHEMA,
             {"id": str(schema_id)},
         )
 
@@ -431,7 +352,7 @@ class SchemaManager:
             Number of versions deleted
         """
         results = await self._client.execute_write(
-            DELETE_SCHEMA_BY_NAME,
+            queries.DELETE_SCHEMA_BY_NAME,
             {"name": name},
         )
 
@@ -447,7 +368,7 @@ class SchemaManager:
             True if schema exists
         """
         results = await self._client.execute_read(
-            GET_SCHEMA_BY_NAME,
+            queries.GET_SCHEMA_BY_NAME,
             {"name": name},
         )
 
@@ -456,17 +377,7 @@ class SchemaManager:
     async def ensure_schema_index(self) -> None:
         """Create index on Schema nodes for efficient lookups."""
         # Create index on name for fast lookups
-        index_query = """
-        CREATE INDEX schema_name_idx IF NOT EXISTS
-        FOR (s:Schema)
-        ON (s.name)
-        """
-        await self._client.execute_write(index_query, {})
+        await self._client.execute_write(queries.CREATE_SCHEMA_NAME_INDEX, {})
 
         # Create index on id for direct lookups
-        id_index_query = """
-        CREATE INDEX schema_id_idx IF NOT EXISTS
-        FOR (s:Schema)
-        ON (s.id)
-        """
-        await self._client.execute_write(id_index_query, {})
+        await self._client.execute_write(queries.CREATE_SCHEMA_ID_INDEX, {})

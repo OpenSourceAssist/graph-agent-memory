@@ -1,0 +1,436 @@
+= Extractor Classes Reference
+:page-product: agent-memory
+:page-pagination:
+:toc: left
+:toclevels: 2
+
+Reference for entity extraction classes and the extraction pipeline.
+
+== EntityExtractor Protocol
+
+All extractors implement the `EntityExtractor` protocol:
+
+[source,python]
+----
+from typing import Protocol
+from neo4j_agent_memory.extraction import ExtractionResult
+
+class EntityExtractor(Protocol):
+    async def extract(self, text: str) -> ExtractionResult:
+        """Extract entities from text."""
+        ...
+
+    async def extract_batch(
+        self,
+        texts: list[str],
+        batch_size: int = 10,
+        max_concurrency: int = 5,
+    ) -> BatchExtractionResult:
+        """Extract entities from multiple texts."""
+        ...
+----
+
+== ExtractionResult
+
+Result of entity extraction:
+
+[source,python]
+----
+@dataclass
+class ExtractionResult:
+    entities: list[ExtractedEntity]
+    source_text: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def entity_count(self) -> int: ...
+
+    def filter_by_type(self, entity_type: str) -> ExtractionResult: ...
+    def filter_by_confidence(self, min_confidence: float) -> ExtractionResult: ...
+    def filter_invalid_entities(self) -> ExtractionResult: ...
+----
+
+== ExtractedEntity
+
+Individual extracted entity:
+
+[source,python]
+----
+@dataclass
+class ExtractedEntity:
+    name: str
+    entity_type: str
+    confidence: float
+    subtype: str | None = None
+    start_pos: int | None = None
+    end_pos: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def full_type(self) -> str:
+        """Returns 'TYPE:SUBTYPE' or just 'TYPE'."""
+        ...
+----
+
+== SpacyEntityExtractor
+
+Statistical NER using spaCy models.
+
+=== Constructor
+
+[source,python]
+----
+SpacyEntityExtractor(
+    model: str = "en_core_web_sm",
+    type_mapping: dict[str, str] | None = None,
+)
+----
+
+=== Parameters
+
+[cols="1,1,3", options="header"]
+|===
+| Parameter | Default | Description
+
+| `model`
+| `en_core_web_sm`
+| spaCy model name (requires installation)
+
+| `type_mapping`
+| _default mapping_
+| Map spaCy labels to POLE+O types
+|===
+
+=== Default Type Mapping
+
+[cols="1,1", options="header"]
+|===
+| spaCy Label | POLE+O Type
+
+| `PERSON`
+| `PERSON`
+
+| `ORG`
+| `ORGANIZATION`
+
+| `GPE`, `LOC`
+| `LOCATION`
+
+| `EVENT`
+| `EVENT`
+
+| `PRODUCT`, `WORK_OF_ART`
+| `OBJECT`
+|===
+
+=== Example
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import SpacyEntityExtractor
+
+extractor = SpacyEntityExtractor(model="en_core_web_sm")
+result = await extractor.extract("John works at Apple in California")
+----
+
+== GLiNEREntityExtractor
+
+Zero-shot NER using GLiNER models with domain schemas.
+
+=== Constructor
+
+[source,python]
+----
+GLiNEREntityExtractor(
+    model: str = "gliner-community/gliner_medium-v2.5",
+    schema: DomainSchema | str | None = None,
+    threshold: float = 0.5,
+    device: str = "cpu",
+)
+----
+
+=== Parameters
+
+[cols="1,1,3", options="header"]
+|===
+| Parameter | Default | Description
+
+| `model`
+| `gliner-community/gliner_medium-v2.5`
+| GLiNER model name
+
+| `schema`
+| `None`
+| Domain schema (name or object)
+
+| `threshold`
+| `0.5`
+| Confidence threshold (0.0-1.0)
+
+| `device`
+| `cpu`
+| Device for inference (`cpu`, `cuda`)
+|===
+
+=== Factory Methods
+
+[source,python]
+----
+# Create with named schema
+extractor = GLiNEREntityExtractor.for_schema("podcast")
+extractor = GLiNEREntityExtractor.for_schema("poleo", threshold=0.6)
+
+# Create for POLE+O model
+extractor = GLiNEREntityExtractor.for_poleo()
+----
+
+=== Example
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import GLiNEREntityExtractor
+
+# With domain schema
+extractor = GLiNEREntityExtractor.for_schema("podcast")
+result = await extractor.extract("Marc Andreessen discusses AI on the show")
+----
+
+== LLMEntityExtractor
+
+LLM-based extraction using OpenAI models.
+
+=== Constructor
+
+[source,python]
+----
+LLMEntityExtractor(
+    model: str = "gpt-4o-mini",
+    api_key: str | None = None,
+    entity_types: list[str] | None = None,
+    temperature: float = 0.0,
+)
+----
+
+=== Parameters
+
+[cols="1,1,3", options="header"]
+|===
+| Parameter | Default | Description
+
+| `model`
+| `gpt-4o-mini`
+| OpenAI model name
+
+| `api_key`
+| _from env_
+| OpenAI API key
+
+| `entity_types`
+| _POLE+O types_
+| Entity types to extract
+
+| `temperature`
+| `0.0`
+| LLM temperature
+|===
+
+=== Example
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import LLMEntityExtractor
+
+extractor = LLMEntityExtractor(model="gpt-4o")
+result = await extractor.extract("John Smith, CEO of Acme, spoke at the conference")
+----
+
+== ExtractionPipeline
+
+Multi-stage extraction combining multiple extractors.
+
+=== Constructor
+
+[source,python]
+----
+ExtractionPipeline(
+    stages: list[EntityExtractor],
+    merge_strategy: MergeStrategy = MergeStrategy.CONFIDENCE,
+)
+----
+
+=== Merge Strategies
+
+[cols="1,3", options="header"]
+|===
+| Strategy | Description
+
+| `CONFIDENCE`
+| Keep entity with highest confidence
+
+| `UNION`
+| Keep all unique entities from all stages
+
+| `INTERSECTION`
+| Keep only entities found by multiple stages
+
+| `FIRST`
+| Use first stage's result, fallback to later stages
+
+| `LAST`
+| Use last stage's result, override earlier
+|===
+
+=== Example
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import (
+    ExtractionPipeline,
+    SpacyEntityExtractor,
+    GLiNEREntityExtractor,
+    MergeStrategy,
+)
+
+pipeline = ExtractionPipeline(
+    stages=[
+        SpacyEntityExtractor(),
+        GLiNEREntityExtractor.for_schema("podcast"),
+    ],
+    merge_strategy=MergeStrategy.CONFIDENCE,
+)
+
+result = await pipeline.extract(text)
+----
+
+== ExtractorBuilder
+
+Fluent builder for creating extraction pipelines.
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import ExtractorBuilder
+
+extractor = (
+    ExtractorBuilder()
+    .with_spacy("en_core_web_sm")
+    .with_gliner_schema("podcast", threshold=0.5)
+    .with_llm_fallback("gpt-4o-mini")
+    .merge_by_confidence()
+    .build()
+)
+----
+
+=== Builder Methods
+
+[cols="2,3", options="header"]
+|===
+| Method | Description
+
+| `.with_spacy(model)`
+| Add spaCy extractor
+
+| `.with_gliner(threshold)`
+| Add GLiNER with default schema
+
+| `.with_gliner_schema(name, threshold)`
+| Add GLiNER with domain schema
+
+| `.with_llm(model)`
+| Add LLM extractor
+
+| `.with_llm_fallback(model)`
+| Add LLM as fallback stage
+
+| `.merge_by_confidence()`
+| Use confidence merge strategy
+
+| `.merge_union()`
+| Use union merge strategy
+
+| `.build()`
+| Create extractor/pipeline
+|===
+
+== GLiRELExtractor
+
+Relation extraction using GLiREL (requires GLiNER entities first).
+
+=== Constructor
+
+[source,python]
+----
+GLiRELExtractor(
+    model: str = "jackboyla/glirel_base",
+    relation_types: dict[str, str] | None = None,
+    threshold: float = 0.5,
+    device: str = "cpu",
+)
+----
+
+=== Example
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import (
+    GLiNEREntityExtractor,
+    GLiRELExtractor,
+)
+
+# Extract entities first
+entity_extractor = GLiNEREntityExtractor.for_poleo()
+entity_result = await entity_extractor.extract(text)
+
+# Then extract relations
+relation_extractor = GLiRELExtractor()
+relations = await relation_extractor.extract_relations(
+    text,
+    entities=entity_result.entities,
+)
+
+for rel in relations:
+    print(f"{rel.source} -[{rel.relation_type}]-> {rel.target}")
+----
+
+== GLiNERWithRelationsExtractor
+
+Combined entity and relation extraction.
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import GLiNERWithRelationsExtractor
+
+extractor = GLiNERWithRelationsExtractor.for_poleo()
+result = await extractor.extract("John works at Acme Corp")
+
+print(result.entities)   # [John, Acme Corp]
+print(result.relations)  # [John -[WORKS_AT]-> Acme Corp]
+----
+
+== StreamingExtractor
+
+Process long documents in chunks.
+
+[source,python]
+----
+from neo4j_agent_memory.extraction import StreamingExtractor
+
+streamer = StreamingExtractor(
+    base_extractor,
+    chunk_size=4000,
+    overlap=200,
+    split_on_sentences=True,
+)
+
+# Stream results
+async for chunk_result in streamer.extract_streaming(long_document):
+    print(f"Chunk {chunk_result.chunk.index}: {chunk_result.entity_count} entities")
+
+# Or get complete result with deduplication
+result = await streamer.extract(long_document, deduplicate=True)
+----
+
+== See Also
+
+* xref:reference/schemas.adoc[Domain Schemas Reference] - Available schemas
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Pipeline setup
+* xref:how-to/batch-processing.adoc[Process Documents in Batch] - Batch extraction
