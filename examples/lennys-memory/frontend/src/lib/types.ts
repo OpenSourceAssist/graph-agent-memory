@@ -142,3 +142,10 @@ export interface LocationEntity {
   conversations: ConversationRef[];
   distance_km?: number | null; // Distance from search point (for nearby queries)
 }
+
+// Quick-start suggestion from previous conversations
+export interface QuickStartSuggestion {
+  id: string; // original thread id
+  firstMessage: string; // content of first user message
+  timestamp: string; // when it was sent
+}

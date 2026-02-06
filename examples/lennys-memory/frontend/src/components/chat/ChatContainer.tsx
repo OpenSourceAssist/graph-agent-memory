@@ -7,12 +7,12 @@ import {
   Text,
   SimpleGrid,
   Spinner,
-  Wrap,
-  Tag,
   useBreakpointValue,
+  Alert,
+  CloseButton,
 } from "@chakra-ui/react";
-import { useRef, useEffect, useState } from "react";
-import { LuMessageSquare, LuBot, LuBrain, LuSparkles } from "react-icons/lu";
+import { useRef, useEffect } from "react";
+import { LuBot, LuBrain, LuSparkles } from "react-icons/lu";
 import { MessageList } from "./MessageList";
 import { PromptInput } from "./PromptInput";
 import type { Message } from "@/lib/types";
@@ -53,26 +53,20 @@ const SUGGESTED_PROMPTS = [
   },
 ];
 
-// Quick chips that appear above the input
-const QUICK_CHIPS = [
-  "Top companies",
-  "Who is Brian Chesky?",
-  "Related to Airbnb",
-  "Explore growth strategies",
-];
-
 interface ChatContainerProps {
   messages: Message[];
   isStreaming: boolean;
+  error: string | null;
   onSendMessage: (content: string) => void;
-  threadId: string | null;
+  onClearError?: () => void;
 }
 
 export function ChatContainer({
   messages,
   isStreaming,
+  error,
   onSendMessage,
-  threadId,
+  onClearError,
 }: ChatContainerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -88,10 +82,30 @@ export function ChatContainer({
     }
   }, [messages]);
 
-  // Don't block UI when threadId is null - user can still type and we'll create a thread on send
-
   return (
     <Flex direction="column" h="full" overflow="hidden" flex="1">
+      {/* Error display */}
+      {error && (
+        <Box px={{ base: 2, md: 4 }} pt={{ base: 2, md: 4 }}>
+          <Alert.Root status="error">
+            <Alert.Indicator />
+            <Alert.Content>
+              <Alert.Title>Error</Alert.Title>
+              <Alert.Description>{error}</Alert.Description>
+            </Alert.Content>
+            {onClearError && (
+              <CloseButton
+                size="sm"
+                onClick={onClearError}
+                pos="relative"
+                top="-2"
+                insetEnd="-2"
+              />
+            )}
+          </Alert.Root>
+        </Box>
+      )}
+
       {/* Messages area */}
       <Box ref={scrollRef} flex="1" overflowY="auto" p={{ base: 2, md: 4 }}>
         {messages.length === 0 ? (

@@ -5,56 +5,47 @@ import {
   Stack,
   Text,
   Button,
-  IconButton,
   Flex,
   Heading,
   Link,
   Separator,
-  Spinner,
+  Skeleton,
 } from "@chakra-ui/react";
-import { Switch } from "@/components/ui/switch";
 import {
   LuPlus,
-  LuTrash2,
   LuMessageSquare,
-  LuBrain,
   LuGithub,
   LuExternalLink,
   LuDatabase,
+  LuSparkles,
 } from "react-icons/lu";
-import type { Thread } from "@/lib/types";
+import type { QuickStartSuggestion } from "@/lib/types";
 
 interface SidebarProps {
-  threads: Thread[];
-  activeThreadId: string | null;
-  onSelectThread: (id: string) => void;
-  onCreateThread: () => void;
-  onDeleteThread: (id: string) => void;
-  memoryEnabled: boolean;
-  onToggleMemory: (enabled: boolean) => void;
-  onThreadSelect?: () => void; // Called after selecting a thread (for mobile drawer close)
-  isLoading?: boolean; // Whether threads are being loaded
+  suggestions: QuickStartSuggestion[];
+  isLoading: boolean;
+  onNewConversation: () => void;
+  onSelectSuggestion: (suggestion: QuickStartSuggestion) => void;
+  hasActiveConversation: boolean;
+  onSidebarAction?: () => void; // Called after any action (for mobile drawer close)
 }
 
 export function Sidebar({
-  threads,
-  activeThreadId,
-  onSelectThread,
-  onCreateThread,
-  onDeleteThread,
-  memoryEnabled,
-  onToggleMemory,
-  onThreadSelect,
-  isLoading = false,
+  suggestions,
+  isLoading,
+  onNewConversation,
+  onSelectSuggestion,
+  hasActiveConversation,
+  onSidebarAction,
 }: SidebarProps) {
-  const handleSelectThread = (id: string) => {
-    onSelectThread(id);
-    onThreadSelect?.();
+  const handleNewConversation = () => {
+    onNewConversation();
+    onSidebarAction?.();
   };
 
-  const handleCreateThread = () => {
-    onCreateThread();
-    onThreadSelect?.();
+  const handleSelectSuggestion = (suggestion: QuickStartSuggestion) => {
+    onSelectSuggestion(suggestion);
+    onSidebarAction?.();
   };
 
   return (
@@ -71,93 +62,62 @@ export function Sidebar({
       <Button
         w="full"
         size="sm"
-        variant="outline"
-        onClick={handleCreateThread}
+        variant={hasActiveConversation ? "outline" : "solid"}
+        colorPalette="blue"
+        onClick={handleNewConversation}
         minH={{ base: "44px", md: "auto" }}
       >
         <LuPlus />
         New Conversation
       </Button>
 
-      {/* Memory toggle */}
-      <Flex
-        alignItems="center"
-        gap="2"
-        px="3"
-        py={{ base: 3, md: 2 }}
-        minH={{ base: "44px", md: "auto" }}
-        bg={memoryEnabled ? "green.subtle" : "bg.muted"}
-        borderRadius="md"
-      >
-        <LuBrain size={16} />
-        <Text fontSize="sm" flex="1">
-          Memory
+      {/* Quick Start section */}
+      <Stack gap="2">
+        <Flex alignItems="center" gap="2">
+          <LuSparkles size={14} />
+          <Text fontSize="sm" fontWeight="medium" color="fg.muted">
+            Quick Start
+          </Text>
+        </Flex>
+        <Text fontSize="xs" color="fg.muted">
+          Click a topic to start a new conversation
         </Text>
-        <Switch
-          checked={memoryEnabled}
-          onCheckedChange={(e) => onToggleMemory(e.checked)}
-          colorPalette="green"
-          size="sm"
-        />
-      </Flex>
+      </Stack>
 
-      {/* Thread list */}
+      {/* Suggestions list */}
       <Stack flex="1" gap="1" overflowY="auto">
         {isLoading ? (
-          <Flex justify="center" align="center" py="8">
-            <Spinner size="sm" color="fg.muted" />
-            <Text fontSize="sm" color="fg.muted" ml="2">
-              Loading...
-            </Text>
-          </Flex>
-        ) : threads.length === 0 ? (
+          // Loading skeletons
+          <>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} height="60px" borderRadius="md" />
+            ))}
+          </>
+        ) : suggestions.length === 0 ? (
           <Text fontSize="sm" color="fg.muted" textAlign="center" py="8">
-            No conversations yet
+            No previous conversations yet
           </Text>
         ) : (
-          threads.map((thread) => (
-            <Flex
-              key={thread.id}
-              className="group"
+          suggestions.map((suggestion) => (
+            <Box
+              key={suggestion.id}
               px="3"
               py={{ base: 3, md: 2 }}
               minH={{ base: "44px", md: "auto" }}
-              bg={
-                activeThreadId === thread.id ? "bg.emphasized" : "transparent"
-              }
+              bg="bg.muted"
               borderRadius="md"
               cursor="pointer"
-              _hover={{ bg: "bg.muted" }}
-              _active={{ bg: "bg.emphasized" }}
-              onClick={() => handleSelectThread(thread.id)}
-              alignItems="center"
-              gap="2"
+              _hover={{ bg: "bg.emphasized" }}
+              _active={{ bg: "bg.subtle" }}
+              onClick={() => handleSelectSuggestion(suggestion)}
             >
-              <Text
-                flex="1"
-                fontSize="sm"
-                truncate
-                color={activeThreadId === thread.id ? "fg.default" : "fg.muted"}
-              >
-                {thread.title}
+              <Text fontSize="sm" color="fg.default" lineClamp={2}>
+                {suggestion.firstMessage}
               </Text>
-              <IconButton
-                aria-label="Delete thread"
-                variant="ghost"
-                size={{ base: "sm", md: "xs" }}
-                minW={{ base: "32px", md: "auto" }}
-                minH={{ base: "32px", md: "auto" }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteThread(thread.id);
-                }}
-                opacity={{ base: 0.6, md: 0 }}
-                _groupHover={{ opacity: 1 }}
-                transition="opacity 0.15s"
-              >
-                <LuTrash2 size={14} />
-              </IconButton>
-            </Flex>
+              <Text fontSize="xs" color="fg.muted" mt="1">
+                {new Date(suggestion.timestamp).toLocaleDateString()}
+              </Text>
+            </Box>
           ))
         )}
       </Stack>

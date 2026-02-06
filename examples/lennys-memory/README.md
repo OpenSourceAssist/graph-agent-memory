@@ -8,6 +8,12 @@ A full-stack AI agent application that transforms 299 episodes of Lenny's Podcas
 
 **[Try the live demo →](https://lennys-memory.vercel.app)**
 
+<!-- TODO: Add screenshot of the main app interface -->
+![App Screenshot](docs/images/app-screenshot.png)
+
+<!-- TODO: Add screenshot of the Neo4j data model -->
+![Data Model](docs/images/data-model.png)
+
 > ⚠️ **Neo4j Labs Project**
 >
 > This project is part of Neo4j Labs and is actively maintained, but not officially
@@ -62,19 +68,35 @@ Tool outputs are now displayed as rich, interactive cards directly in the chat:
 | Location tools | **MapCard** | Inline Leaflet map with markers, expandable to fullscreen |
 | Entity context tools | **EntityCard** | Wikipedia-style knowledge panel with image, description, mentions |
 | Entity/graph tools | **GraphCard** | Inline NVL graph visualization, expandable to fullscreen |
+| Memory graph search | **MemoryGraphCard** | Combined vector search + graph traversal visualization |
 | Search/list tools | **DataCard** | Responsive table with auto-detected columns |
 | Stats/metrics tools | **StatsCard** | Grid of color-coded metric boxes |
 | Other tools | **RawJsonCard** | Collapsible JSON viewer for debugging |
 
+<!-- TODO: Add screenshot showing tool call cards in action -->
+![Tool Call Cards](docs/images/tool-call-cards.png)
+
 ### Onboarding & Education
 - **WelcomeModal**: First-time user introduction explaining memory types
-- **Suggested queries**: Clickable query chips above the input area
+- **Suggested queries**: Clickable prompt cards in the empty state
 - **Memory type explanations**: Short-term, long-term, and reasoning memory
+
+### Simplified Conversation Model
+- **Quick Start suggestions**: Previous first messages shown as clickable cards in the sidebar
+- **Single conversation focus**: Each session treats the app as a fresh conversation
+- **Clicking a suggestion**: Creates a new conversation with that message as the first query
+- **Always-on memory**: Memory is always enabled (no toggle) for simplified UX
+
+### Agent Configuration Panel
+The right sidebar displays static agent configuration info:
+- **Available Tools**: All 19 agent tools organized by category
+- **Agent Capabilities**: Multi-step reasoning, conversation memory, preference learning, knowledge graph
+- **Tool Call Cards**: Documentation of all 7 card types with descriptions and triggering tools
 
 ### Mobile-First Responsive Design
 - Responsive layout with drawer navigation on mobile
 - Touch-optimized controls (44px minimum targets)
-- Floating action button for new conversations
+- Floating action button to open agent configuration panel on mobile
 
 ---
 
@@ -638,15 +660,15 @@ The map visualization supports advanced geospatial exploration:
 - **Location statistics**: Side panel with counts by type and subtype
 - **Conversation-scoped**: Filter to show only locations from the current thread
 
-#### Memory Context Panel
+#### Agent Configuration Panel
 
-A persistent side panel (or bottom sheet on mobile) showing:
+A persistent side panel (or bottom sheet on mobile) showing static agent configuration:
 
-- **Entity cards**: With images, descriptions, and Wikipedia links for enriched entities
-- **Thread-scoped entities**: Shows only entities mentioned in the current conversation (not a global search), prioritizing enriched entities
-- **User preferences**: Learned from conversation, categorized by type
-- **Recent messages**: Summary of the current conversation
-- **Agent tools**: Expandable accordion listing all 19 available tools
+- **Available Tools**: All 19 agent tools organized by category (Podcast Search, Entity Queries, Location Analysis, Memory & Preferences)
+- **Agent Capabilities**: Descriptions of multi-step reasoning, conversation memory, preference learning, and knowledge graph capabilities
+- **Tool Call Cards**: Documentation of all 7 visualization card types (MapCard, DataCard, StatsCard, EntityCard, GraphCard, MemoryGraphCard, RawJsonCard) with descriptions and the tools that trigger each card type
+
+This panel is static (no API calls) and serves as a reference for understanding the agent's capabilities.
 
 ---
 
@@ -990,8 +1012,9 @@ lennys-memory/
 │       │   └── onboarding/
 │       │       └── WelcomeModal.tsx     # First-time user modal (v2.0)
 │       ├── hooks/
-│       │   ├── useChat.ts              # SSE streaming hook
-│       │   └── useThreads.ts           # Thread management hook
+│       │   ├── useChat.ts              # SSE streaming hook with AbortController
+│       │   ├── useQuickStart.ts        # Quick-start suggestions from previous conversations
+│       │   └── useThreads.ts           # Thread management hook (legacy)
 │       └── lib/
 │           ├── api.ts                  # API client functions
 │           └── types.ts                # TypeScript type definitions

@@ -27,30 +27,24 @@ import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Footer } from "./Footer";
 import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
-import type { Thread } from "@/lib/types";
+import type { QuickStartSuggestion } from "@/lib/types";
 
 interface AppLayoutProps {
   children: React.ReactNode;
-  threads: Thread[];
-  activeThreadId: string | null;
-  onSelectThread: (id: string) => void;
-  onCreateThread: () => void;
-  onDeleteThread: (id: string) => void;
-  memoryEnabled: boolean;
-  onToggleMemory: (enabled: boolean) => void;
-  isLoadingThreads?: boolean;
+  suggestions: QuickStartSuggestion[];
+  isLoadingSuggestions: boolean;
+  onNewConversation: () => void;
+  onSelectSuggestion: (suggestion: QuickStartSuggestion) => void;
+  hasActiveConversation: boolean;
 }
 
 export function AppLayout({
   children,
-  threads,
-  activeThreadId,
-  onSelectThread,
-  onCreateThread,
-  onDeleteThread,
-  memoryEnabled,
-  onToggleMemory,
-  isLoadingThreads = false,
+  suggestions,
+  isLoadingSuggestions,
+  onNewConversation,
+  onSelectSuggestion,
+  hasActiveConversation,
 }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -72,14 +66,11 @@ export function AppLayout({
           hideBelow="md"
         >
           <Sidebar
-            threads={threads}
-            activeThreadId={activeThreadId}
-            onSelectThread={onSelectThread}
-            onCreateThread={onCreateThread}
-            onDeleteThread={onDeleteThread}
-            memoryEnabled={memoryEnabled}
-            onToggleMemory={onToggleMemory}
-            isLoading={isLoadingThreads}
+            suggestions={suggestions}
+            isLoading={isLoadingSuggestions}
+            onNewConversation={onNewConversation}
+            onSelectSuggestion={onSelectSuggestion}
+            hasActiveConversation={hasActiveConversation}
           />
         </Box>
       )}
@@ -103,20 +94,12 @@ export function AppLayout({
                 <CloseButton size="sm" />
               </Drawer.CloseTrigger>
               <Sidebar
-                threads={threads}
-                activeThreadId={activeThreadId}
-                onSelectThread={(id) => {
-                  onSelectThread(id);
-                  setMobileMenuOpen(false);
-                }}
-                onCreateThread={() => {
-                  onCreateThread();
-                  setMobileMenuOpen(false);
-                }}
-                onDeleteThread={onDeleteThread}
-                memoryEnabled={memoryEnabled}
-                onToggleMemory={onToggleMemory}
-                isLoading={isLoadingThreads}
+                suggestions={suggestions}
+                isLoading={isLoadingSuggestions}
+                onNewConversation={onNewConversation}
+                onSelectSuggestion={onSelectSuggestion}
+                hasActiveConversation={hasActiveConversation}
+                onSidebarAction={() => setMobileMenuOpen(false)}
               />
             </Drawer.Content>
           </Drawer.Positioner>
