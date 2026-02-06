@@ -1,0 +1,409 @@
+= Choosing an Agent Framework Integration
+:page-product: agent-memory
+:page-pagination:
+:description: Compare Neo4j Agent Memory integrations for LangChain, PydanticAI, LlamaIndex, CrewAI, and OpenAI Agents SDK.
+:keywords: agent, framework, comparison, langchain, pydantic-ai, llamaindex, crewai, openai
+
+Neo4j Agent Memory provides integrations for five popular agent frameworks. This guide helps you choose the right integration for your use case.
+
+== Feature Comparison Matrix
+
+[cols="2,1,1,1,1,1", options="header"]
+|===
+| Feature | LangChain | PydanticAI | LlamaIndex | CrewAI | OpenAI Agents
+
+| *Memory Class*
+| `Neo4jAgentMemory`
+| `MemoryDependency`
+| `Neo4jLlamaIndexMemory`
+| `Neo4jCrewMemory`
+| `Neo4jOpenAIMemory`
+
+| *Retriever Support*
+| ✅ `Neo4jMemoryRetriever`
+| ❌
+| ✅ Native `TextNode`
+| ❌
+| ❌
+
+| *Built-in Tools*
+| ❌ Custom required
+| ✅ `create_memory_tools()`
+| ❌ Custom required
+| ❌ Custom required
+| ✅ `create_memory_tools()`
+
+| *Trace Recording*
+| ❌ Manual
+| ✅ `record_agent_trace()`
+| ❌ Manual
+| ❌ Manual
+| ✅ `record_agent_trace()`
+
+| *Multi-Agent*
+| ⚠️ Limited
+| ⚠️ Limited
+| ⚠️ Limited
+| ✅ Native
+| ⚠️ Limited
+
+| *Async Support*
+| ✅ Via wrapper
+| ✅ Native
+| ✅ Via wrapper
+| ✅ Via wrapper
+| ✅ Native
+
+| *Test Coverage*
+| ✅ 39 tests
+| ✅ 38 tests
+| ✅ 25 tests
+| ✅ 30 tests
+| ✅ 35 tests
+|===
+
+== Quick Decision Guide
+
+=== Use LangChain if:
+
+* You have an existing LangChain application
+* You need retriever integration for RAG pipelines
+* You want the most battle-tested integration
+* You're building chains with conversation memory
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.langchain import Neo4jAgentMemory
+
+memory = Neo4jAgentMemory(memory_client=client, session_id="user-123")
+context = memory.load_memory_variables({"input": "query"})
+----
+
+=== Use PydanticAI if:
+
+* Starting a new project from scratch
+* You want automatic reasoning trace recording
+* You prefer modern dependency injection patterns
+* You need type-safe tool definitions
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency, create_memory_tools
+
+deps = MemoryDependency(memory_client=client, session_id="user-123")
+tools = create_memory_tools(deps)
+context = await deps.get_context("query")
+----
+
+=== Use LlamaIndex if:
+
+* Building RAG applications
+* You need `TextNode` compatibility
+* Combining document retrieval with graph knowledge
+* Using LlamaIndex chat engines or agents
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory
+
+memory = Neo4jLlamaIndexMemory(memory_client=client, session_id="user-123")
+nodes = memory.get(input="query")  # Returns TextNode objects
+----
+
+=== Use CrewAI if:
+
+* Building multi-agent systems
+* Need shared memory across agents
+* Want agent-specific context generation
+* Using CrewAI's crew and task abstractions
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory
+
+memory = Neo4jCrewMemory(memory_client=client, crew_id="research-crew")
+memory.remember("Finding from research", metadata={"type": "fact"})
+results = memory.recall("previous findings")
+----
+
+=== Use OpenAI Agents SDK if:
+
+* Using OpenAI's official agent framework
+* You want function calling tools in OpenAI format
+* Prefer OpenAI message format for conversations
+* Building with GPT-4 or GPT-3.5
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.openai_agents import Neo4jOpenAIMemory, create_memory_tools
+
+memory = Neo4jOpenAIMemory(memory_client=client, session_id="user-123")
+tools = create_memory_tools(memory)  # OpenAI function format
+messages = await memory.get_conversation()  # OpenAI message format
+----
+
+== Memory Types Support
+
+All integrations support the three-layer memory architecture:
+
+[cols="2,1,1,1", options="header"]
+|===
+| Memory Type | Description | Use Case | All Integrations
+
+| *Short-Term*
+| Conversation history
+| Session context
+| ✅
+
+| *Long-Term*
+| Entities, preferences, facts
+| Persistent knowledge
+| ✅
+
+| *Reasoning*
+| Task traces, tool usage
+| Learning from past
+| ✅
+|===
+
+== Installation
+
+Install with your preferred framework:
+
+[source,bash]
+----
+# LangChain
+pip install neo4j-agent-memory[langchain]
+
+# PydanticAI
+pip install neo4j-agent-memory[pydantic-ai]
+
+# LlamaIndex
+pip install neo4j-agent-memory[llamaindex]
+
+# CrewAI
+pip install neo4j-agent-memory[crewai]
+
+# OpenAI Agents SDK
+pip install neo4j-agent-memory[openai-agents]
+
+# All frameworks
+pip install neo4j-agent-memory[all]
+----
+
+== Detailed Comparison
+
+=== Context Retrieval
+
+All integrations provide a way to get combined context for LLM prompts:
+
+[cols="1,2", options="header"]
+|===
+| Framework | Method
+
+| LangChain
+| `memory.load_memory_variables({"input": query})`
+
+| PydanticAI
+| `await deps.get_context(query)`
+
+| LlamaIndex
+| `memory.get(input=query)` → TextNode list
+
+| CrewAI
+| `memory.get_agent_context(agent_role, task)`
+
+| OpenAI Agents
+| `await memory.get_context(query)`
+|===
+
+=== Message Storage
+
+[cols="1,2", options="header"]
+|===
+| Framework | Method
+
+| LangChain
+| `memory.save_context(inputs, outputs)`
+
+| PydanticAI
+| `await deps.save_interaction(user_msg, assistant_msg)`
+
+| LlamaIndex
+| `memory.put(TextNode(text=content))`
+
+| CrewAI
+| `memory.remember(content, metadata)`
+
+| OpenAI Agents
+| `await memory.save_message(role, content)`
+|===
+
+=== Search Operations
+
+[cols="1,2", options="header"]
+|===
+| Framework | Method
+
+| LangChain
+| Via `Neo4jMemoryRetriever.get_relevant_documents()`
+
+| PydanticAI
+| Via memory tools or direct client access
+
+| LlamaIndex
+| `memory.get(input=query)` with semantic search
+
+| CrewAI
+| `memory.recall(query, n=5)`
+
+| OpenAI Agents
+| `await memory.search(query)`
+|===
+
+== Performance Considerations
+
+=== Async vs Sync
+
+[cols="1,2,2", options="header"]
+|===
+| Framework | API Style | Notes
+
+| LangChain
+| Sync (async under hood)
+| Uses ThreadPoolExecutor for async bridging
+
+| PydanticAI
+| Async native
+| Best performance for async applications
+
+| LlamaIndex
+| Sync (async under hood)
+| Uses ThreadPoolExecutor for async bridging
+
+| CrewAI
+| Sync (async under hood)
+| Uses ThreadPoolExecutor for async bridging
+
+| OpenAI Agents
+| Async native
+| Best performance for async applications
+|===
+
+=== Embedding Generation
+
+All integrations support configurable embedding generation:
+
+* `generate_embedding=True` - Enable for semantic search
+* `generate_embedding=False` - Disable for faster writes
+
+=== Entity Extraction
+
+All integrations support configurable entity extraction:
+
+* `extract_entities=True` - Extract entities from messages
+* `extract_entities=False` - Disable for faster processing
+
+== Migration Guide
+
+=== From Custom Memory to Neo4j Agent Memory
+
+1. Install the integration for your framework
+2. Replace your memory class with the Neo4j-backed version
+3. Update configuration to point to Neo4j
+4. Migrate existing data if needed
+
+=== Between Frameworks
+
+The underlying Neo4j data model is the same across all integrations. To switch frameworks:
+
+1. Install the new framework integration
+2. Use the same Neo4j database
+3. Update your code to use the new integration API
+4. Existing data (messages, entities, traces) will be available
+
+== Best Practices
+
+=== Choose Based on Existing Stack
+
+If you already use a framework, choose that integration:
+
+* LangChain project → LangChain integration
+* LlamaIndex project → LlamaIndex integration
+* CrewAI project → CrewAI integration
+* OpenAI-native → OpenAI Agents integration
+
+=== For New Projects
+
+Consider PydanticAI or OpenAI Agents for new projects:
+
+* Modern async-native design
+* Built-in trace recording
+* Type-safe tool creation
+* Better IDE support
+
+=== For RAG Applications
+
+LlamaIndex integration works best with document-based RAG:
+
+* Native TextNode support
+* Combines document and graph retrieval
+* Works with LlamaIndex indices and query engines
+
+=== For Multi-Agent Systems
+
+CrewAI integration is designed for multi-agent collaboration:
+
+* Shared memory across agents
+* Agent-specific context generation
+* Cross-task knowledge persistence
+
+== Troubleshooting
+
+=== Import Errors
+
+Each integration requires its framework to be installed:
+
+[source,bash]
+----
+# If you get "ImportError: No module named 'langchain_core'"
+pip install langchain-core
+
+# If you get "ImportError: No module named 'llama_index'"
+pip install llama-index-core
+
+# If you get "ImportError: No module named 'pydantic_ai'"
+pip install pydantic-ai
+
+# If you get "ImportError: No module named 'crewai'"
+pip install crewai
+
+# If you get "ImportError: No module named 'openai'"
+pip install openai
+----
+
+=== Async/Sync Issues
+
+If you encounter event loop issues:
+
+* LangChain, LlamaIndex, CrewAI: Use sync methods directly
+* PydanticAI, OpenAI Agents: Use `asyncio.run()` or async context
+
+=== Empty Results
+
+If searches return empty:
+
+1. Verify embeddings are generated
+2. Check data exists in Neo4j Browser
+3. Try lowering similarity thresholds
+
+== Summary
+
+| Use Case | Recommended Framework |
+|----------|----------------------|
+| Existing LangChain app | LangChain |
+| New project | PydanticAI or OpenAI Agents |
+| RAG with documents | LlamaIndex |
+| Multi-agent systems | CrewAI |
+| OpenAI function calling | OpenAI Agents |
+| Maximum flexibility | Direct MemoryClient |

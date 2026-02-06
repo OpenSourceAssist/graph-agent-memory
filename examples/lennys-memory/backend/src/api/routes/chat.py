@@ -24,6 +24,7 @@ from neo4j_agent_memory.memory.reasoning import ToolCallStatus
 from neo4j_agent_memory.memory.short_term import MessageRole
 from src.agent.agent import get_podcast_agent
 from src.agent.dependencies import AgentDeps
+from src.api.routes.threads import update_thread_activity
 from src.api.schemas import ChatRequest
 from src.memory.client import get_memory_client
 
@@ -362,6 +363,9 @@ async def stream_chat_response(
                 role=MessageRole.ASSISTANT,
                 content=full_response,
             )
+
+        # Update thread activity (2 messages: user + assistant)
+        update_thread_activity(request.thread_id, increment_messages=2)
 
     except Exception as e:
         logger.exception("Error in chat stream")

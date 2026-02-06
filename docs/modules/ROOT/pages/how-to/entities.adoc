@@ -1,0 +1,585 @@
+= Work with Entities
+:page-product: agent-memory
+:page-pagination:
+:toc: right
+:toclevels: 3
+:sectanchors:
+:sectlinks:
+:icons: font
+:source-highlighter: highlight.js
+
+How to create, search, and manage entities in long-term memory.
+
+== Prerequisites
+
+* Neo4j database running with vector index support
+* `neo4j-agent-memory` installed
+* For automatic extraction: embedding model configured
+
+== Add Entities Manually
+
+=== Basic Entity Creation
+
+Create entities with name and type:
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient
+
+client = MemoryClient(
+    neo4j_uri="bolt://localhost:7687",
+    neo4j_user="neo4j",
+    neo4j_password="password",
+)
+
+# Add a customer entity
+entity = await client.long_term.add_entity(
+    name="John Smith",
+    entity_type="PERSON",
+)
+
+print(f"Created entity: {entity.id}")
+----
+
+=== Entity with Properties
+
+Add rich metadata to entities:
+
+.Financial Services Example
+[source,python]
+----
+# Add a client entity with full profile
+client_entity = await client.long_term.add_entity(
+    name="Acme Investment Holdings LLC",
+    entity_type="ORGANIZATION",
+    properties={
+        "client_id": "CL-78901",
+        "client_type": "institutional",
+        "aum": 50000000,  # Assets under management
+        "risk_profile": "moderate-growth",
+        "relationship_manager": "Sarah Johnson",
+        "onboarded_date": "2020-03-15",
+        "kyc_status": "verified",
+        "jurisdiction": "US",
+    },
+)
+
+# Add a security entity
+security = await client.long_term.add_entity(
+    name="Apple Inc.",
+    entity_type="SECURITY",
+    properties={
+        "ticker": "AAPL",
+        "exchange": "NASDAQ",
+        "sector": "Technology",
+        "industry": "Consumer Electronics",
+        "market_cap": "3T",
+        "asset_class": "US Large Cap Equity",
+    },
+)
+----
+
+.Ecommerce Retail Example
+[source,python]
+----
+# Add a product entity
+product = await client.long_term.add_entity(
+    name="Nike Air Max 90",
+    entity_type="PRODUCT",
+    properties={
+        "sku": "SKU-NKE-AM90-001",
+        "brand": "Nike",
+        "category": "Footwear",
+        "subcategory": "Running Shoes",
+        "price": 129.99,
+        "colors": ["white", "black", "red"],
+        "sizes_available": ["8", "9", "10", "11", "12"],
+        "rating": 4.7,
+        "review_count": 2341,
+    },
+)
+
+# Add a customer entity
+customer = await client.long_term.add_entity(
+    name="Jane Doe",
+    entity_type="CUSTOMER",
+    properties={
+        "customer_id": "CUST-12345",
+        "email": "jane.doe@example.com",
+        "tier": "gold",
+        "lifetime_value": 2500.00,
+        "preferred_categories": ["footwear", "athletic wear"],
+        "preferred_brands": ["Nike", "Adidas"],
+        "shoe_size": "9",
+    },
+)
+----
+
+=== Entity with Description
+
+Add searchable descriptions for semantic retrieval:
+
+[source,python]
+----
+# Description enables semantic search
+entity = await client.long_term.add_entity(
+    name="Q4 2024 Earnings Report",
+    entity_type="DOCUMENT",
+    description="""
+    Quarterly earnings report for Q4 2024 showing strong revenue growth
+    of 15% year-over-year. Key highlights include expansion into European
+    markets, successful product launches in the athletic footwear segment,
+    and improved gross margins due to supply chain optimization.
+    """,
+    properties={
+        "document_type": "earnings_report",
+        "fiscal_period": "Q4 2024",
+        "release_date": "2025-01-15",
+        "status": "published",
+    },
+)
+----
+
+== Search Entities
+
+=== Semantic Search
+
+Find entities by meaning:
+
+[source,python]
+----
+# Find technology companies
+results = await client.long_term.search_entities(
+    query="tech companies in the smartphone industry",
+    limit=10,
+)
+
+for entity in results:
+    print(f"{entity.name} ({entity.type})")
+    print(f"  Score: {entity.score:.3f}")
+    if entity.description:
+        print(f"  Description: {entity.description[:100]}...")
+----
+
+=== Filter by Type
+
+Search within specific entity types:
+
+.Find financial institutions
+[source,python]
+----
+results = await client.long_term.search_entities(
+    query="investment bank wealth management",
+    entity_type="FINANCIAL_INSTITUTION",
+    limit=20,
+)
+----
+
+.Find products in a category
+[source,python]
+----
+results = await client.long_term.search_entities(
+    query="comfortable running shoes for marathon training",
+    entity_type="PRODUCT",
+    limit=15,
+)
+----
+
+=== Filter by Properties
+
+Combine semantic search with property filters:
+
+.Find high-value customers interested in luxury goods
+[source,python]
+----
+results = await client.long_term.search_entities(
+    query="luxury fashion premium brands",
+    entity_type="CUSTOMER",
+    property_filter={
+        "tier": "gold",
+        "lifetime_value": {"$gte": 5000},
+    },
+    limit=50,
+)
+----
+
+.Find securities in specific sectors
+[source,python]
+----
+results = await client.long_term.search_entities(
+    query="artificial intelligence machine learning",
+    entity_type="SECURITY",
+    property_filter={
+        "sector": "Technology",
+        "market_cap": {"$in": ["Large Cap", "Mega Cap"]},
+    },
+    limit=30,
+)
+----
+
+== Create Relationships
+
+=== Direct Relationships
+
+Link entities together:
+
+[source,python]
+----
+# Customer purchased product
+await client.long_term.add_relationship(
+    from_entity=customer.id,
+    to_entity=product.id,
+    relationship_type="PURCHASED",
+    properties={
+        "order_id": "ORD-98765",
+        "purchase_date": "2024-01-15",
+        "quantity": 1,
+        "price_paid": 119.99,
+        "channel": "mobile_app",
+    },
+)
+
+# Client holds security
+await client.long_term.add_relationship(
+    from_entity=client_entity.id,
+    to_entity=security.id,
+    relationship_type="HOLDS",
+    properties={
+        "shares": 10000,
+        "cost_basis": 150.00,
+        "acquired_date": "2023-06-01",
+        "account_type": "taxable",
+    },
+)
+----
+
+=== Find Related Entities
+
+Query the knowledge graph for connected entities:
+
+.Find products purchased together
+[source,python]
+----
+# Get products frequently bought with a specific item
+related = await client.long_term.get_related_entities(
+    entity_id=product.id,
+    relationship_type="FREQUENTLY_BOUGHT_WITH",
+    limit=10,
+)
+
+for entity, relationship in related:
+    print(f"{entity.name}")
+    print(f"  Co-purchase count: {relationship.properties.get('count')}")
+----
+
+.Find client's complete portfolio
+[source,python]
+----
+# Get all securities held by a client
+holdings = await client.long_term.get_related_entities(
+    entity_id=client_entity.id,
+    relationship_type="HOLDS",
+    direction="outgoing",
+    limit=100,
+)
+
+total_value = 0
+for security, holding in holdings:
+    shares = holding.properties.get("shares", 0)
+    # Would need current price from market data
+    print(f"{security.name}: {shares} shares")
+----
+
+=== Graph Traversal
+
+Find entities through multi-hop paths:
+
+.Find customers who bought products from the same brand
+[source,python]
+----
+# Cypher query for complex traversal
+query = """
+MATCH (c1:Customer)-[:PURCHASED]->(p1:Product)-[:MADE_BY]->(brand:Brand)
+      <-[:MADE_BY]-(p2:Product)<-[:PURCHASED]-(c2:Customer)
+WHERE c1.id = $customer_id AND c1 <> c2
+RETURN DISTINCT c2, count(DISTINCT p2) as shared_brand_purchases
+ORDER BY shared_brand_purchases DESC
+LIMIT 10
+"""
+
+results = await client.long_term.execute_query(
+    query,
+    parameters={"customer_id": customer.id}
+)
+----
+
+== Update Entities
+
+=== Modify Properties
+
+Update entity properties:
+
+[source,python]
+----
+# Update customer tier after purchase milestone
+await client.long_term.update_entity(
+    entity_id=customer.id,
+    properties={
+        "tier": "platinum",
+        "lifetime_value": 10500.00,
+        "tier_upgraded_at": "2024-01-20",
+    },
+)
+----
+
+=== Merge Entities
+
+Combine duplicate entities:
+
+[source,python]
+----
+# Merge duplicate customer records
+await client.long_term.merge_entities(
+    primary_id=entity1.id,
+    duplicate_id=entity2.id,
+    merge_properties=True,  # Combine properties from both
+    keep_aliases=True,      # Store duplicate name as alias
+)
+----
+
+== Delete Entities
+
+=== Remove Single Entity
+
+[source,python]
+----
+# Delete an entity (also removes its relationships)
+await client.long_term.delete_entity(entity_id=entity.id)
+----
+
+=== Bulk Delete
+
+[source,python]
+----
+# Delete all entities of a specific type
+await client.long_term.delete_entities(
+    entity_type="TEMPORARY_ENTITY",
+)
+
+# Delete entities matching criteria
+await client.long_term.delete_entities(
+    property_filter={"status": "archived"},
+)
+----
+
+== Work with Facts
+
+Facts are structured assertions about entities:
+
+=== Add Facts
+
+[source,python]
+----
+# Add facts about an entity
+await client.long_term.add_fact(
+    entity_id=customer.id,
+    fact="Prefers to receive shipments on weekends",
+    category="shipping_preference",
+    confidence=0.95,
+    source="stated_in_conversation",
+)
+
+await client.long_term.add_fact(
+    entity_id=client_entity.id,
+    fact="Has a 5-year investment horizon for retirement accounts",
+    category="investment_goal",
+    confidence=0.90,
+    source="advisory_call_2024-01-15",
+)
+----
+
+=== Query Facts
+
+[source,python]
+----
+# Get all facts about an entity
+facts = await client.long_term.get_entity_facts(
+    entity_id=customer.id,
+)
+
+for fact in facts:
+    print(f"[{fact.category}] {fact.fact}")
+    print(f"  Confidence: {fact.confidence}, Source: {fact.source}")
+----
+
+== Entity Enrichment
+
+Automatically enrich entities with external data:
+
+=== Enable Enrichment
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory.enrichment import WikimediaEnricher
+
+# Configure enrichment
+client = MemoryClient(
+    neo4j_uri="bolt://localhost:7687",
+    neo4j_user="neo4j",
+    neo4j_password="password",
+    enrichment_provider=WikimediaEnricher(),
+)
+
+# Entity will be automatically enriched
+entity = await client.long_term.add_entity(
+    name="Apple Inc.",
+    entity_type="ORGANIZATION",
+    auto_enrich=True,
+)
+
+print(f"Description: {entity.description}")
+print(f"Wikipedia URL: {entity.wikipedia_url}")
+print(f"Wikidata ID: {entity.wikidata_id}")
+----
+
+=== Manual Enrichment
+
+[source,python]
+----
+# Enrich existing entity
+enriched = await client.long_term.enrich_entity(
+    entity_id=entity.id,
+    provider="wikimedia",
+)
+----
+
+== Entity Statistics
+
+Get insights about your entity graph:
+
+[source,python]
+----
+stats = await client.long_term.get_entity_statistics()
+
+print(f"Total entities: {stats.total_entities}")
+print(f"Total relationships: {stats.total_relationships}")
+
+print("\nEntities by type:")
+for entity_type, count in stats.by_type.items():
+    print(f"  {entity_type}: {count}")
+
+print("\nRelationships by type:")
+for rel_type, count in stats.by_relationship.items():
+    print(f"  {rel_type}: {count}")
+----
+
+== Best Practices
+
+=== 1. Use Consistent Entity Types
+
+Define a clear taxonomy for your domain:
+
+.Financial Services Entity Types
+[source,python]
+----
+ENTITY_TYPES = {
+    "PERSON": ["Client", "Advisor", "Contact"],
+    "ORGANIZATION": ["Financial Institution", "Company", "Fund"],
+    "SECURITY": ["Stock", "Bond", "ETF", "Mutual Fund"],
+    "ACCOUNT": ["Investment Account", "Retirement Account", "Trust"],
+    "TRANSACTION": ["Trade", "Deposit", "Withdrawal", "Transfer"],
+    "DOCUMENT": ["Report", "Statement", "Agreement", "Prospectus"],
+}
+----
+
+.Ecommerce Entity Types
+[source,python]
+----
+ENTITY_TYPES = {
+    "PERSON": ["Customer", "Seller", "Support Agent"],
+    "PRODUCT": ["Physical Product", "Digital Product", "Service"],
+    "CATEGORY": ["Department", "Category", "Subcategory"],
+    "BRAND": ["Brand", "Manufacturer"],
+    "ORDER": ["Order", "Return", "Exchange"],
+    "LOCATION": ["Warehouse", "Store", "Shipping Address"],
+    "PROMOTION": ["Coupon", "Sale", "Bundle"],
+}
+----
+
+=== 2. Design for Queries
+
+Structure entities based on how you'll query them:
+
+[source,python]
+----
+# Good: Separate entities for different query patterns
+await client.long_term.add_entity(
+    name="Nike",
+    entity_type="BRAND",
+    properties={"headquarters": "Oregon"}
+)
+
+await client.long_term.add_entity(
+    name="Nike Air Max 90",
+    entity_type="PRODUCT",
+    properties={"brand": "Nike", "category": "Running"}
+)
+
+# Then connect them
+await client.long_term.add_relationship(
+    from_entity=product.id,
+    to_entity=brand.id,
+    relationship_type="MADE_BY",
+)
+----
+
+=== 3. Include Searchable Descriptions
+
+Descriptions enable semantic search:
+
+[source,python]
+----
+# Good: Rich, searchable description
+entity = await client.long_term.add_entity(
+    name="AAPL",
+    entity_type="SECURITY",
+    description="""
+    Apple Inc. common stock traded on NASDAQ. Technology company
+    known for iPhone, Mac computers, iPad, Apple Watch, and services
+    including App Store, iCloud, and Apple Music. Part of the
+    "Magnificent Seven" large-cap tech stocks.
+    """,
+)
+
+# Avoid: No description (only findable by exact name match)
+entity = await client.long_term.add_entity(
+    name="AAPL",
+    entity_type="SECURITY",
+)
+----
+
+=== 4. Track Provenance
+
+Record where entities came from:
+
+[source,python]
+----
+entity = await client.long_term.add_entity(
+    name="John Smith",
+    entity_type="PERSON",
+    properties={
+        "source": "crm_import",
+        "source_id": "CRM-12345",
+        "imported_at": "2024-01-15T10:00:00Z",
+        "last_verified": "2024-01-15T10:00:00Z",
+    },
+)
+----
+
+== See Also
+
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
+* xref:how-to/deduplication.adoc[Handle Duplicate Entities]
+* xref:explanation/poleo-model.adoc[The POLE+O Data Model]
+* xref:reference/api/long-term.adoc[LongTermMemory API Reference]

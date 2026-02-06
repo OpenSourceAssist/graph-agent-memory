@@ -1,39 +1,68 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import type { Message, ToolCall, SSEEvent } from "@/lib/types";
 import { api, streamChat } from "@/lib/api";
 
-export function useChat(threadId: string | null) {
+/**
+ * Simplified chat hook that manages thread lifecycle internally.
+ * - Creates threads automatically when needed
+ * - Uses AbortController to cancel in-flight requests
+ * - Memory is always enabled (no toggle)
+ */
+export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load messages when thread changes
-  useEffect(() => {
-    if (!threadId) {
-      setMessages([]);
-      return;
+  // AbortController ref for cancelling in-flight requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Clear error
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  // Start a new conversation, optionally with an initial message
+  const startNewConversation = useCallback(async (initialMessage?: string) => {
+    // Cancel any in-flight requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
 
-    const loadMessages = async () => {
+    setError(null);
+    setMessages([]);
+    setThreadId(null);
+    setIsStreaming(false);
+
+    if (initialMessage) {
+      // Create thread and send message
       try {
-        const thread = await api.threads.get(threadId);
-        setMessages(thread.messages || []);
+        const thread = await api.threads.create();
+        setThreadId(thread.id);
+        // Send the initial message
+        await sendMessageToThread(thread.id, initialMessage);
       } catch (err) {
-        // Thread might be new, no messages yet
-        setMessages([]);
+        setError(
+          err instanceof Error ? err.message : "Failed to create conversation",
+        );
       }
-    };
+    }
+  }, []);
 
-    loadMessages();
-  }, [threadId]);
+  // Internal function to send message to a specific thread
+  const sendMessageToThread = useCallback(
+    async (targetThreadId: string, content: string) => {
+      if (!content.trim() || isStreaming) return;
 
-  const sendMessage = useCallback(
-    async (content: string) => {
-      if (!threadId || !content.trim() || isStreaming) return;
+      // Cancel any previous streaming
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
 
       setError(null);
       setIsStreaming(true);
@@ -62,12 +91,13 @@ export function useChat(threadId: string | null) {
         // Track tool calls by ID
         const toolCallsMap = new Map<string, ToolCall>();
 
-        // Stream response
-        for await (const event of streamChat(
-          threadId,
-          content,
-          memoryEnabled,
-        )) {
+        // Stream response (memory always enabled)
+        for await (const event of streamChat(targetThreadId, content, true)) {
+          // Check if aborted
+          if (abortControllerRef.current?.signal.aborted) {
+            break;
+          }
+
           switch (event.type) {
             case "token":
               setMessages((prev) =>
@@ -138,6 +168,10 @@ export function useChat(threadId: string | null) {
           }
         }
       } catch (err) {
+        // Handle AbortError gracefully (user cancelled)
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
         const errorMessage =
           err instanceof Error ? err.message : "Failed to send message";
         setError(errorMessage);
@@ -152,20 +186,41 @@ export function useChat(threadId: string | null) {
         setIsStreaming(false);
       }
     },
-    [threadId, isStreaming, memoryEnabled],
+    [isStreaming],
   );
 
-  const clearMessages = useCallback(() => {
-    setMessages([]);
-  }, []);
+  // Public sendMessage - creates thread if needed
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
+
+      if (!threadId) {
+        // Create thread first, then send message
+        try {
+          const thread = await api.threads.create();
+          setThreadId(thread.id);
+          await sendMessageToThread(thread.id, content);
+        } catch (err) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to create conversation",
+          );
+        }
+      } else {
+        await sendMessageToThread(threadId, content);
+      }
+    },
+    [threadId, sendMessageToThread],
+  );
 
   return {
     messages,
+    threadId,
     isStreaming,
-    memoryEnabled,
-    setMemoryEnabled,
     error,
     sendMessage,
-    clearMessages,
+    startNewConversation,
+    clearError,
   };
 }

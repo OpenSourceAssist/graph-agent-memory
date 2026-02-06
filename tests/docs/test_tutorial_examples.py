@@ -72,8 +72,8 @@ class TestFirstAgentMemoryTutorial:
         )
 
         assert len(conversation.messages) == 2
-        assert conversation.messages[0].role == "user"
-        assert conversation.messages[1].role == "assistant"
+        assert conversation.messages[0].role.value == "user"
+        assert conversation.messages[1].role.value == "assistant"
 
     async def test_search_messages(self, memory_client):
         """Test semantic search as shown in the tutorial."""

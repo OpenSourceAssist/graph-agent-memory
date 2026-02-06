@@ -106,7 +106,7 @@ src/neo4j_agent_memory/
 ├── graph/
 │   ├── client.py            # Async Neo4j client wrapper
 │   ├── schema.py            # Index/constraint management
-│   ├── queries.py           # Cypher query templates
+│   ├── queries.py           # All Cypher queries (centralized)
 │   └── query_builder.py     # Dynamic query builder with label validation
 ├── cli/
 │   ├── __init__.py          # CLI exports
@@ -154,6 +154,16 @@ Messages in conversations are linked sequentially for efficient traversal:
 (Conversation) -[:FIRST_MESSAGE]-> (Message)     # O(1) access to first message
 (Conversation) -[:HAS_MESSAGE]-> (Message)       # Membership (kept for backward compat)
 (Message) -[:NEXT_MESSAGE]-> (Message)           # Sequential chain
+(Message) -[:MENTIONS]-> (Entity)                # Entity mentions in message
+```
+
+#### Long-Term Memory Relationships
+
+Entities can be linked to each other via extracted relationships:
+
+```
+(Entity) -[:RELATED_TO {relation_type, confidence}]-> (Entity)  # Extracted relationships
+(Entity) -[:SAME_AS]-> (Entity)                                  # Entity deduplication
 ```
 
 #### Cross-Memory Relationships
@@ -1039,7 +1049,7 @@ for chunk in chunks:
     print(f"  Approx tokens: {chunk.approx_token_count}")
 ```
 
-### GLiREL Relation Extraction (without LLM)
+### GLiREL Relationship Extraction (without LLM)
 
 GLiREL extracts relationships between entities without requiring LLM calls:
 
@@ -1053,7 +1063,7 @@ from neo4j_agent_memory.extraction import (
 
 # Check if GLiREL is available
 if is_glirel_available():
-    # Option 1: Separate entity and relation extraction
+    # Option 1: Separate entity and relationship extraction
     from neo4j_agent_memory.extraction import GLiNEREntityExtractor
 
     entity_extractor = GLiNEREntityExtractor.for_schema("poleo")
@@ -1074,6 +1084,41 @@ if is_glirel_available():
 # Default relation types for POLE+O model
 print(DEFAULT_RELATION_TYPES.keys())
 # works_at, lives_in, member_of, knows, located_in, founded_by, owns, etc.
+```
+
+### Automatic Relationship Storage
+
+When adding messages with entity extraction enabled, extracted relationships are automatically stored as `RELATED_TO` relationships in Neo4j:
+
+```python
+# Relationships are stored automatically when adding messages
+await memory.short_term.add_message(
+    "session-1",
+    "user",
+    "Brian Chesky founded Airbnb in San Francisco.",
+    extract_entities=True,
+    extract_relations=True,  # Default: True
+)
+
+# This creates:
+# - Entity nodes: Brian Chesky (PERSON), Airbnb (ORGANIZATION), San Francisco (LOCATION)
+# - MENTIONS relationships: Message -> Entity
+# - RELATED_TO relationships: (Brian Chesky)-[:RELATED_TO {relation_type: "FOUNDED"}]->(Airbnb)
+
+# Batch operations also support relationship extraction
+await memory.short_term.add_messages_batch(
+    "session-1",
+    messages,
+    extract_entities=True,
+    extract_relations=True,  # Default: True (only applies when extract_entities=True)
+)
+
+# Or extract from existing session
+result = await memory.short_term.extract_entities_from_session(
+    "session-1",
+    extract_relations=True,  # Default: True
+)
+print(f"Extracted {result['relations_extracted']} relationships")
 ```
 
 ### Schema Persistence
@@ -1311,6 +1356,128 @@ deps = MemoryDependency(client=client, session_id="user-123")
 
 17. **Background Enrichment**: Entities can be enriched with additional data from external services (Wikipedia, Diffbot) in a non-blocking background process. Use `EnrichmentConfig` to configure providers. The `enrichment/` module provides `WikimediaProvider`, `DiffbotProvider`, `CachedEnrichmentProvider`, `CompositeEnrichmentProvider`, and `BackgroundEnrichmentService`. Enrichment happens asynchronously after entity creation - the entity is stored immediately, then enriched data is fetched and merged in the background. Enrichment is disabled by default; enable with `enrichment.enabled=True` in settings.
 
+18. **Centralized Cypher Queries**: All Cypher queries are centralized in `graph/queries.py`. This module contains:
+    - **Query constants**: All static queries as uppercase constants (e.g., `CREATE_CONVERSATION`, `GET_ENTITY`, `SEARCH_MESSAGES_BY_EMBEDDING`)
+    - **Query builder functions**: Functions that generate dynamic DDL queries where identifiers can't be parameterized (e.g., `create_constraint_query()`, `create_vector_index_query()`)
+    - **Metadata search helper**: `build_metadata_search_query()` for dynamic WHERE clause construction
+    
+    When adding new database operations:
+    - Add queries as constants in `queries.py` (uppercase, descriptive names)
+    - Import and use via `from neo4j_agent_memory.graph import queries` then `queries.CREATE_MESSAGE`
+    - For DDL operations with dynamic names (indexes, constraints), use the query builder functions
+    - The `query_builder.py` module handles entity creation with dynamic labels (type/subtype)
+
+19. **Retrieving Session Messages**: Use `short_term.get_conversation(session_id)` to retrieve messages for a session. This returns a `Conversation` object with a `.messages` attribute containing the list of `Message` objects. There is no `get_session_messages()` method.
+
+    ```python
+    # Correct usage
+    conversation = await client.short_term.get_conversation(session_id)
+    messages = conversation.messages  # List[Message]
+    
+    # Access message properties
+    for msg in messages:
+        print(f"{msg.role.value}: {msg.content}")  # role is MessageRole enum
+    ```
+
+20. **Entity Search Parameters**: When searching entities by type, use `entity_types` (plural, as a list), not `entity_type` (singular string):
+
+    ```python
+    # Correct usage
+    results = await client.long_term.search_entities(
+        query="Apple",
+        entity_types=["ORGANIZATION", "PERSON"],  # List of types
+        limit=10,
+    )
+    
+    # Wrong - this parameter doesn't exist
+    # results = await client.long_term.search_entities(query="Apple", entity_type="ORGANIZATION")
+    ```
+
+21. **Entity Model Attributes**: The `Entity` model uses `.type` for the entity type, not `.entity_type`:
+
+    ```python
+    entity, _ = await client.long_term.add_entity("Apple Inc", "ORGANIZATION")
+    print(entity.type)       # "ORGANIZATION" - correct
+    print(entity.subtype)    # Optional subtype
+    print(entity.full_type)  # "ORGANIZATION" or "ORGANIZATION:COMPANY" with subtype
+    # entity.entity_type     # Wrong - this attribute doesn't exist
+    ```
+
+22. **Entity Metadata Access**: Entity enrichment data (from Wikipedia, Diffbot) is stored in the `metadata` dict, not as direct attributes. Use `getattr()` with fallback to `metadata.get()`:
+
+    ```python
+    # Enrichment fields may be in metadata dict
+    metadata = entity.metadata or {}
+    enriched_description = getattr(entity, "enriched_description", None) or metadata.get("enriched_description")
+    wikipedia_url = getattr(entity, "wikipedia_url", None) or metadata.get("wikipedia_url")
+    image_url = getattr(entity, "image_url", None) or metadata.get("image_url")
+    ```
+
+23. **Neo4j Property Key Warnings**: When querying optional properties in Cypher, avoid referencing properties that may not exist in the schema. Use `'property' IN keys(node)` to check existence before accessing:
+
+    ```cypher
+    // Wrong - warns if 'aliases' property doesn't exist on any node
+    WHERE e.name = $name OR $name IN e.aliases
+    
+    // Correct - check property exists first
+    WHERE e.name = $name OR ('aliases' IN keys(e) AND $name IN e.aliases)
+    ```
+
+24. **Graph Visualization with Episode Session IDs**: The `/api/memory/graph` endpoint accepts an `episode_session_ids` parameter (comma-separated) to include full conversations and entities from podcast episodes in addition to the current thread. This is used when tool call results contain references to specific episodes.
+
+    ```python
+    # Backend endpoint signature
+    @router.get("/memory/graph")
+    async def get_memory_graph(
+        session_id: str | None = None,
+        episode_session_ids: str | None = None,  # e.g., "lenny-podcast-brian-chesky,lenny-podcast-andy-johns"
+        limit: int = 1000,
+    ) -> MemoryGraph:
+        ...
+    ```
+
+25. **Sidebar Entity Filtering by Thread**: The `/api/memory/context` endpoint filters entities to show only those mentioned in the current conversation (via `MENTIONS` relationships to messages), rather than a global search. It prioritizes enriched entities (those with Wikipedia data) and filters out short names (≤2 chars).
+
+    ```cypher
+    // Query used when thread_id is provided
+    MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)-[:MENTIONS]->(e:Entity)
+    WITH e, count(m) AS mention_count
+    WHERE size(e.name) > 2
+    RETURN e, mention_count,
+           CASE WHEN e.enriched_description IS NOT NULL THEN 1 ELSE 0 END AS is_enriched
+    ORDER BY is_enriched DESC, mention_count DESC
+    LIMIT 15
+    ```
+
+26. **Guest Name to Session ID Conversion**: The lennys-memory frontend converts guest names to session IDs using a slug pattern. This is used to map episode references in tool results to their corresponding session IDs.
+
+    ```typescript
+    // Frontend pattern (MemoryGraphView.tsx)
+    const guestToSessionId = (guestName: string): string => {
+      const normalized = guestName
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")  // Remove diacritics
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+      return `lenny-podcast-${normalized}`;
+    };
+    ```
+
+27. **Neo4j Relationship Property Access**: When querying relationships in Neo4j, the returned relationship objects use `._properties` to access properties, not direct dict conversion. Always use fallback patterns:
+
+    ```python
+    # Correct way to access relationship properties
+    if hasattr(rel, "_properties"):
+        props = {k: serialize_neo4j_value(v) for k, v in rel._properties.items()}
+    elif hasattr(rel, "items"):
+        props = {k: serialize_neo4j_value(v) for k, v in rel.items()}
+    else:
+        props = {}
+    ```
+
 ## Environment Variables
 
 - `NEO4J_URI` - Neo4j connection URI (default: `bolt://localhost:7687`)
@@ -1452,6 +1619,21 @@ Located in `examples/lennys-memory/`, this is the flagship demo for the library 
 - **SSE streaming**: Real-time token delivery with tool call visualization
 - **Automatic preference learning**: Detects user preferences from natural conversation
 
+### v2.0 UI/UX Features
+
+The latest version includes significant frontend improvements:
+
+- **Neo4j Labs Branding**: Labs Purple (#6366F1) primary accent, custom typography (Syne headings, Public Sans body, JetBrains Mono code), Beta badge, Labs disclaimer
+- **Inline Tool Result Cards**: Tool outputs display as rich cards in the chat:
+  - `MapCard`: Inline Leaflet maps for location tools, expandable to fullscreen
+  - `EntityCard`: Wikipedia-style knowledge panel for enriched entities (image, description, mentions)
+  - `GraphCard`: Inline NVL graphs for entity/relationship tools, expandable to fullscreen
+  - `DataCard`: Responsive tables for search/list results
+  - `StatsCard`: Grid of color-coded metrics
+  - `RawJsonCard`: Collapsible JSON fallback
+- **Onboarding**: WelcomeModal for first-time users, suggested query chips
+- **Mobile-First Design**: Responsive layout, drawer navigation, FAB for new conversations
+
 ### Agent Tools (19 total)
 
 **Podcast Content Search (6):** `search_podcast_content`, `search_by_speaker`, `search_by_episode`, `get_episode_list`, `get_speaker_list`, `get_memory_stats`
@@ -1468,6 +1650,8 @@ Located in `examples/lennys-memory/`, this is the flagship demo for the library 
 - Double-click to expand node neighbors
 - Memory type filtering (short-term, long-term, reasoning)
 - Wikipedia enrichment section in node property panel with images
+- **Episode session ID extraction**: Automatically extracts `session_id`, `episode`, `episode_guest`, and `guest` fields from tool call results to include related podcast conversations in the graph
+- **Reasoning memory visualization**: Shows ReasoningTrace → HAS_STEP → ReasoningStep → USES_TOOL → ToolCall → INSTANCE_OF → Tool relationships
 
 ### Map Visualization Features
 
@@ -1482,9 +1666,37 @@ The map view (`MemoryMapView.tsx`) supports:
 ### Memory Context Panel
 
 - Entity cards with images, descriptions, Wikipedia links
+- **Thread-scoped entities**: Shows only entities mentioned in the current conversation (not global search)
+- Prioritizes enriched entities with Wikipedia data
 - User preferences displayed by category
 - Agent tools accordion
 - Responsive: side panel on desktop, bottom sheet on mobile
+
+### Key Frontend Files (v2.0)
+
+**Theme & Branding:**
+- `frontend/src/theme/index.ts` - Neo4j Labs theme with brand colors, fonts, semantic tokens
+- `frontend/src/components/ui/provider.tsx` - Chakra provider using custom theme
+- `frontend/src/components/layout/Footer.tsx` - Labs footer with repo/community links
+- `frontend/src/components/branding/LabsDisclaimer.tsx` - Labs project disclaimer
+
+**Tool Result Cards:**
+- `frontend/src/components/chat/cards/types.ts` - TypeScript interfaces (CardType, LocationData, GraphNodeData, EntityData, etc.)
+- `frontend/src/components/chat/cards/toolCardRegistry.ts` - Tool-to-card mapping logic (includes `hasEntityData()`, `extractEntityData()`)
+- `frontend/src/components/chat/cards/BaseCard.tsx` - Shared card wrapper with expand button
+- `frontend/src/components/chat/cards/ToolResultCard.tsx` - Smart card selector component
+- `frontend/src/components/chat/cards/MapCard.tsx` - Inline Leaflet map, dynamic import
+- `frontend/src/components/chat/cards/EntityCard.tsx` - Wikipedia-style knowledge panel for enriched entities
+- `frontend/src/components/chat/cards/GraphCard.tsx` - Inline NVL graph, dynamic import
+- `frontend/src/components/chat/cards/DataCard.tsx` - Table with auto-detected columns
+- `frontend/src/components/chat/cards/StatsCard.tsx` - Metrics grid display
+- `frontend/src/components/chat/cards/RawJsonCard.tsx` - JSON fallback
+
+**Scripts:**
+- `scripts/enrich_entities.py` - Wikipedia enrichment script with progress bars, rate limiting, status checking
+
+**Onboarding:**
+- `frontend/src/components/onboarding/WelcomeModal.tsx` - First-time user modal with memory type explanations
 
 ### API Endpoints
 

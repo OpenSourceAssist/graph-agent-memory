@@ -1,10 +1,25 @@
 # Lenny's Podcast Memory Explorer
 
+![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)
+![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)
+![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)
+
 A full-stack AI agent application that transforms 299 episodes of Lenny's Podcast into a searchable knowledge graph with conversational AI, interactive graph visualization, geospatial analysis, and Wikipedia-enriched entity cards -- all powered by [neo4j-agent-memory](https://github.com/neo4j-labs/agent-memory).
 
 **[Try the live demo →](https://lennys-memory.vercel.app)**
 
-> ⚠️ This example is part of [neo4j-agent-memory](https://github.com/neo4j-labs/agent-memory), a **Neo4j Labs project**. It is actively maintained but not officially supported. For questions, use the [Neo4j Community Forum](https://community.neo4j.com).
+<!-- TODO: Add screenshot of the main app interface -->
+![App Screenshot](docs/images/app-screenshot.png)
+
+<!-- TODO: Add screenshot of the Neo4j data model -->
+![Data Model](docs/images/data-model.png)
+
+> ⚠️ **Neo4j Labs Project**
+>
+> This project is part of Neo4j Labs and is actively maintained, but not officially
+> supported. There are no SLAs or guarantees around backwards compatibility and
+> deprecation. For questions and support, please use the
+> [Neo4j Community Forum](https://community.neo4j.com).
 
 ---
 
@@ -35,6 +50,53 @@ This is the flagship demo application for the `neo4j-agent-memory` library. It d
 | **LLM** | OpenAI GPT-4o |
 | **Entity Extraction** | spaCy + GLiNER2 + LLM pipeline |
 | **Entity Enrichment** | Wikipedia/Wikimedia API |
+
+## v2.0 Features
+
+The latest version includes significant UI/UX improvements:
+
+### Neo4j Labs Branding
+- Labs Purple (#6366F1) primary accent with Neo4j Teal (#009999) secondary
+- Custom typography: Syne (headings), Public Sans (body), JetBrains Mono (code)
+- Beta status badge and Labs disclaimer throughout
+
+### Inline Tool Result Cards
+Tool outputs are now displayed as rich, interactive cards directly in the chat:
+
+| Tool Pattern | Card Type | Description |
+|-------------|-----------|-------------|
+| Location tools | **MapCard** | Inline Leaflet map with markers, expandable to fullscreen |
+| Entity context tools | **EntityCard** | Wikipedia-style knowledge panel with image, description, mentions |
+| Entity/graph tools | **GraphCard** | Inline NVL graph visualization, expandable to fullscreen |
+| Memory graph search | **MemoryGraphCard** | Combined vector search + graph traversal visualization |
+| Search/list tools | **DataCard** | Responsive table with auto-detected columns |
+| Stats/metrics tools | **StatsCard** | Grid of color-coded metric boxes |
+| Other tools | **RawJsonCard** | Collapsible JSON viewer for debugging |
+
+<!-- TODO: Add screenshot showing tool call cards in action -->
+![Tool Call Cards](docs/images/tool-call-cards.png)
+
+### Onboarding & Education
+- **WelcomeModal**: First-time user introduction explaining memory types
+- **Suggested queries**: Clickable prompt cards in the empty state
+- **Memory type explanations**: Short-term, long-term, and reasoning memory
+
+### Simplified Conversation Model
+- **Quick Start suggestions**: Previous first messages shown as clickable cards in the sidebar
+- **Single conversation focus**: Each session treats the app as a fresh conversation
+- **Clicking a suggestion**: Creates a new conversation with that message as the first query
+- **Always-on memory**: Memory is always enabled (no toggle) for simplified UX
+
+### Agent Configuration Panel
+The right sidebar displays static agent configuration info:
+- **Available Tools**: All 19 agent tools organized by category
+- **Agent Capabilities**: Multi-step reasoning, conversation memory, preference learning, knowledge graph
+- **Tool Call Cards**: Documentation of all 7 card types with descriptions and triggering tools
+
+### Mobile-First Responsive Design
+- Responsive layout with drawer navigation on mobile
+- Touch-optimized controls (44px minimum targets)
+- Floating action button to open agent configuration panel on mobile
 
 ---
 
@@ -107,8 +169,20 @@ make load-dry-run
 # Extract entities from already loaded sessions (if you used --no-entities initially)
 make extract-entities
 
+# Backfill RELATED_TO relationships between existing entities
+make backfill-relationships
+
+# Check relationship extraction status
+make backfill-relationships-status
+
 # Geocode Location entities (add lat/lon coordinates for spatial queries)
 make geocode-locations
+
+# Enrich entities with Wikipedia data (descriptions, images, links)
+make enrich
+
+# Check enrichment progress
+make enrich-status
 ```
 
 The loader shows real-time progress with ETA:
@@ -370,40 +444,158 @@ The **podcast domain schema** for GLiNER2 is optimized for this content:
 | role | Job titles and positions | CPO, VP of Growth, PM |
 | metric | Business KPIs | DAU, NPS, Retention rate |
 
-### Background Entity Enrichment
+### Entity Enrichment with Wikipedia
 
-After extraction, entities are automatically enriched with Wikipedia data in the background:
+Entities can be enriched with data from Wikipedia/Wikimedia, adding descriptions, images, and external links. Enrichment is a post-processing step that runs after data loading.
 
+#### Running Enrichment
+
+```bash
+# Enrich all unenriched entities
+make enrich
+
+# Check current enrichment status
+make enrich-status
+
+# Advanced options via the script directly:
+cd backend && uv run python ../scripts/enrich_entities.py --help
 ```
-Entity stored in Neo4j
-         │
-         ▼
-┌─────────────────────────┐
-│  Background Enrichment  │
-│  Service (async queue)  │
-│                         │
-│  1. Query Wikipedia API │
-│  2. Fetch description   │
-│  3. Get image URL       │
-│  4. Get Wikidata ID     │
-│  5. Update Neo4j node   │
-└─────────────────────────┘
-         │
-         ▼
+
+**Script options:**
+- `--types PERSON ORGANIZATION` - Enrich only specific entity types
+- `--limit 100` - Limit number of entities to process
+- `--rate-limit 1.0` - Seconds between API calls (default: 0.5 = 2 req/sec)
+- `--dry-run` - Preview what would be enriched without making changes
+- `--status` - Show current enrichment progress and exit
+
+**Progress display:**
+```
+Progress [████████████████░░░░░░░░░░░░░░] 156/400 (39%) ETA: 2m 15s | ✓142 ✗8 !6 | Brian Chesky
+```
+
+#### Enrichment Data
+
+Enriched entities receive the following properties:
+
+```cypher
 (:Entity:Person {
     name: "Brian Chesky",
     enriched_description: "American businessman and industrial designer...",
     wikipedia_url: "https://en.wikipedia.org/wiki/Brian_Chesky",
     image_url: "https://upload.wikimedia.org/...",
     wikidata_id: "Q4429008",
-    enriched_at: datetime()
+    enriched_at: datetime(),
+    enrichment_provider: "wikimedia"
 })
 ```
 
-Enrichment data is surfaced throughout the UI:
+Entities not found in Wikipedia are marked with `enrichment_error` to avoid repeated lookups.
+
+#### EntityCard Display
+
+When the agent returns entity data via `get_entity_context` or similar tools, enriched entities are displayed as rich **EntityCard** components in the chat:
+
+**Compact view (inline in chat):**
+- Entity image thumbnail (100x100px)
+- Name with type badge (Person/Organization/Location/etc.)
+- Description preview (3 lines)
+- Quick stats: mention count, related entities
+- Wikipedia link
+
+**Expanded view (fullscreen dialog):**
+- Large image display
+- Quick Facts panel (type, subtype, mentions, Wikidata ID)
+- Full description
+- Related entities badges
+- Podcast mentions with speaker and episode info
+
+Enrichment data is also surfaced in:
 - **Memory Context panel**: Entity cards show images, descriptions, and Wikipedia links
 - **Graph View**: Node property panel displays enrichment section with image and description
 - **Map View**: Location popups include enrichment context
+
+### Relationship Extraction with GLiREL
+
+In addition to extracting entities, the system can extract relationships between entities using GLiREL (GLiNER for Relations). This creates `RELATED_TO` relationships between Entity nodes, capturing semantic connections like "works_at", "founded_by", "lives_in", etc.
+
+#### How It Works
+
+When messages are processed with relationship extraction enabled, the system:
+
+1. **Extracts entities** using the multi-stage pipeline (spaCy + GLiNER2 + LLM)
+2. **Runs GLiREL** on the same text to identify relationships between entity pairs
+3. **Creates RELATED_TO relationships** in Neo4j with:
+   - `relation_type`: The semantic type (e.g., "WORKS_AT", "FOUNDED_BY")
+   - `confidence`: GLiREL's confidence score (0.0-1.0)
+   - `created_at`: Timestamp of extraction
+
+#### Relationship Types
+
+GLiREL extracts relationships based on the POLE+O ontology:
+
+| Relation Type | Description | Example |
+|---------------|-------------|---------|
+| `WORKS_AT` | Person employed by organization | Brian Chesky → Airbnb |
+| `FOUNDED_BY` | Organization founded by person | Airbnb → Brian Chesky |
+| `LIVES_IN` | Person resides in location | Brian Chesky → San Francisco |
+| `LOCATED_IN` | Entity located in place | Airbnb → San Francisco |
+| `MEMBER_OF` | Person belongs to organization | Person → Y Combinator |
+| `SUBSIDIARY_OF` | Organization owned by another | Instagram → Meta |
+| `PARTICIPATED_IN` | Person involved in event | Founder → IPO |
+| `KNOWS` | Person acquainted with person | Brian Chesky → Joe Gebbia |
+
+#### Backfilling Relationships for Existing Data
+
+If you have an existing database with entities but no `RELATED_TO` relationships (e.g., data loaded before relationship extraction was implemented), you can backfill them:
+
+```bash
+# Check current status
+make backfill-relationships-status
+
+# Run the backfill
+make backfill-relationships
+```
+
+**Script options:**
+
+```bash
+cd backend && uv run python ../scripts/backfill_relationships.py --help
+
+Options:
+  --status              Show current status and exit
+  --dry-run             Preview without making changes
+  --reprocess           Reprocess all messages (not just pending)
+  --limit N             Process only N messages
+  --batch-size N        Messages per batch (default: 50)
+  --threshold FLOAT     Confidence threshold (default: 0.5)
+  --device cpu|cuda|mps Device for GLiREL model
+```
+
+**Progress display:**
+```
+  Progress: 450/1200 (38%) | Relations: 2,847 stored | 12.3 msg/s | ETA: 1m 05s
+```
+
+#### Querying Relationships
+
+Once relationships are extracted, you can query them in Neo4j:
+
+```cypher
+// Find all relationships between entities
+MATCH (e1:Entity)-[r:RELATED_TO]->(e2:Entity)
+RETURN e1.name, r.relation_type, e2.name, r.confidence
+ORDER BY r.confidence DESC
+LIMIT 20
+
+// Find who works at a specific company
+MATCH (p:Entity:Person)-[r:RELATED_TO {relation_type: "WORKS_AT"}]->(o:Entity:Organization)
+WHERE o.name = "Airbnb"
+RETURN p.name, r.confidence
+
+// Find all relationships for a person
+MATCH (p:Entity {name: "Brian Chesky"})-[r:RELATED_TO]-(other:Entity)
+RETURN p.name, r.relation_type, other.name, other.type
+```
 
 ### SSE Streaming Architecture
 
@@ -449,6 +641,8 @@ Event types:
 The graph visualization is powered by the Neo4j Visualization Library:
 
 - **Conversation-scoped**: Shows only nodes and relationships relevant to the current thread
+- **Episode data integration**: Automatically includes full conversations and entities from podcast episodes referenced in tool call results (extracts `session_id`, `episode`, `episode_guest`, and `guest` fields)
+- **Reasoning memory visualization**: Displays ReasoningTrace → ReasoningStep → ToolCall → Tool relationships for the current session
 - **Color-coded nodes**: Messages (blue), Entities (green/orange/red by type), Preferences (purple), Traces (gray)
 - **Double-click to expand**: Click any node to fetch and display its neighbors from the graph
 - **Memory type filtering**: Toggle visibility of short-term, long-term, and reasoning memory nodes
@@ -466,14 +660,15 @@ The map visualization supports advanced geospatial exploration:
 - **Location statistics**: Side panel with counts by type and subtype
 - **Conversation-scoped**: Filter to show only locations from the current thread
 
-#### Memory Context Panel
+#### Agent Configuration Panel
 
-A persistent side panel (or bottom sheet on mobile) showing:
+A persistent side panel (or bottom sheet on mobile) showing static agent configuration:
 
-- **Entity cards**: With images, descriptions, and Wikipedia links for enriched entities
-- **User preferences**: Learned from conversation, categorized by type
-- **Recent messages**: Summary of the current conversation
-- **Agent tools**: Expandable accordion listing all 19 available tools
+- **Available Tools**: All 19 agent tools organized by category (Podcast Search, Entity Queries, Location Analysis, Memory & Preferences)
+- **Agent Capabilities**: Descriptions of multi-step reasoning, conversation memory, preference learning, and knowledge graph capabilities
+- **Tool Call Cards**: Documentation of all 7 visualization card types (MapCard, DataCard, StatsCard, EntityCard, GraphCard, MemoryGraphCard, RawJsonCard) with descriptions and the tools that trigger each card type
+
+This panel is static (no API calls) and serves as a reference for understanding the agent's capabilities.
 
 ---
 
@@ -530,8 +725,8 @@ Here are questions that showcase different capabilities:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/memory/context` | Get preferences, entities, recent messages for a thread |
-| GET | `/api/memory/graph` | Export memory graph (nodes + relationships) |
+| GET | `/api/memory/context` | Get thread-scoped entities, preferences, recent messages |
+| GET | `/api/memory/graph` | Export memory graph with optional `episode_session_ids` param for podcast data |
 | GET | `/api/memory/graph/neighbors/{node_id}` | Get neighbors for incremental graph exploration |
 | GET | `/api/memory/traces` | List reasoning traces |
 | GET | `/api/memory/traces/{id}` | Get trace with steps and tool calls |
@@ -652,13 +847,19 @@ Entity nodes have additional type labels: `:Person`, `:Organization`, `:Location
 // Knowledge graph (entities)
 (Message)-[:MENTIONS]->(Entity)
 (Entity)-[:EXTRACTED_FROM]->(Message)
-(Entity)-[:SAME_AS]->(Entity)  // deduplication
+(Entity)-[:SAME_AS]->(Entity)     // deduplication
+(Entity)-[:RELATED_TO]->(Entity)  // semantic relationships (works_at, founded_by, etc.)
 
 // Reasoning memory (reasoning)
 (ReasoningTrace)-[:INITIATED_BY]->(Message)
 (ReasoningTrace)-[:HAS_STEP]->(ReasoningStep)
 (ReasoningStep)-[:USED_TOOL]->(ToolCall)
 ```
+
+The `RELATED_TO` relationship includes properties:
+- `relation_type`: Semantic type (e.g., "WORKS_AT", "FOUNDED_BY", "LIVES_IN")
+- `confidence`: Extraction confidence score (0.0-1.0)
+- `created_at`: Timestamp of when the relationship was created
 
 ### Example Cypher Queries
 
@@ -685,6 +886,13 @@ MATCH (e:Entity:Location)
 WHERE e.location IS NOT NULL
   AND point.distance(e.location, point({latitude: 37.77, longitude: -122.42})) < 50000
 RETURN e.name, e.location.latitude, e.location.longitude
+
+// Explore relationships between entities
+MATCH (e1:Entity)-[r:RELATED_TO]->(e2:Entity)
+WHERE r.confidence > 0.7
+RETURN e1.name, r.relation_type, e2.name, r.confidence
+ORDER BY r.confidence DESC
+LIMIT 20
 
 // Get a conversation's full context
 MATCH (c:Conversation {session_id: "lenny-podcast-brian-chesky"})
@@ -767,23 +975,46 @@ lennys-memory/
 │   ├── package.json
 │   └── src/
 │       ├── app/                   # Next.js app router
+│       │   ├── layout.tsx         # Root layout with fonts
+│       │   └── page.tsx           # Main page with WelcomeModal
+│       ├── theme/
+│       │   └── index.ts           # Neo4j Labs custom theme (v2.0)
 │       ├── components/
+│       │   ├── ui/
+│       │   │   └── provider.tsx   # Chakra provider with custom theme
 │       │   ├── chat/
 │       │   │   ├── ChatContainer.tsx    # Main chat interface
 │       │   │   ├── MessageList.tsx      # Message display
 │       │   │   ├── Message.tsx          # Individual message
-│       │   │   ├── ToolCallDisplay.tsx  # Expandable tool call UI
-│       │   │   └── PromptInput.tsx      # Input with suggested prompts
+│       │   │   ├── ToolCallDisplay.tsx  # Tool result card routing (v2.0)
+│       │   │   ├── PromptInput.tsx      # Input with suggested prompts
+│       │   │   └── cards/               # Tool result cards (v2.0)
+│       │   │       ├── index.ts         # Barrel exports
+│       │   │       ├── types.ts         # Card type definitions
+│       │   │       ├── toolCardRegistry.ts  # Tool-to-card mapping
+│       │   │       ├── BaseCard.tsx     # Shared card wrapper
+│       │   │       ├── ToolResultCard.tsx   # Smart card selector
+│       │   │       ├── MapCard.tsx      # Inline Leaflet map
+│       │   │       ├── GraphCard.tsx    # Inline NVL graph
+│       │   │       ├── DataCard.tsx     # Table display
+│       │   │       ├── StatsCard.tsx    # Metrics grid
+│       │   │       └── RawJsonCard.tsx  # JSON fallback
 │       │   ├── layout/
-│       │   │   ├── AppLayout.tsx        # Responsive layout with drawer
-│       │   │   └── Sidebar.tsx          # Thread list + branding
-│       │   └── memory/
-│       │       ├── MemoryContext.tsx     # Entity cards + preferences panel
-│       │       ├── MemoryGraphView.tsx  # NVL graph visualization
-│       │       └── MemoryMapView.tsx    # Leaflet map visualization
+│       │   │   ├── AppLayout.tsx        # Responsive layout with Labs branding
+│       │   │   ├── Sidebar.tsx          # Thread list
+│       │   │   └── Footer.tsx           # Labs footer links (v2.0)
+│       │   ├── memory/
+│       │   │   ├── MemoryContext.tsx     # Entity cards + preferences panel
+│       │   │   ├── MemoryGraphView.tsx  # NVL graph visualization
+│       │   │   └── MemoryMapView.tsx    # Leaflet map visualization
+│       │   ├── branding/
+│       │   │   └── LabsDisclaimer.tsx   # Labs disclaimer alert (v2.0)
+│       │   └── onboarding/
+│       │       └── WelcomeModal.tsx     # First-time user modal (v2.0)
 │       ├── hooks/
-│       │   ├── useChat.ts              # SSE streaming hook
-│       │   └── useThreads.ts           # Thread management hook
+│       │   ├── useChat.ts              # SSE streaming hook with AbortController
+│       │   ├── useQuickStart.ts        # Quick-start suggestions from previous conversations
+│       │   └── useThreads.ts           # Thread management hook (legacy)
 │       └── lib/
 │           ├── api.ts                  # API client functions
 │           └── types.ts                # TypeScript type definitions

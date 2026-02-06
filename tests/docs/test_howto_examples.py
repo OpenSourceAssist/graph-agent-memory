@@ -169,7 +169,7 @@ class TestEntitiesHowTo:
         )
 
         for entity in results:
-            assert entity.entity_type == "ORGANIZATION"
+            assert entity.type == "ORGANIZATION"
 
 
 @pytest.mark.asyncio

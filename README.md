@@ -24,7 +24,7 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 - **Entity Deduplication on Ingest**: Automatic duplicate detection with configurable auto-merge and flagging
 - **Provenance Tracking**: Track where entities were extracted from and which extractor produced them
 - **Background Entity Enrichment**: Automatically enrich entities with Wikipedia and Diffbot data
-- **GLiREL Relation Extraction**: Extract relationships without LLM calls using GLiREL
+- **Relationship Extraction & Storage**: Extract relationships using GLiREL (no LLM) and automatically store as graph relationships
 - **Vector + Graph Search**: Semantic similarity search and graph traversal in a single database
 - **Geospatial Queries**: Spatial indexes on Location entities for radius and bounding box search
 - **Temporal Relationships**: Track when facts become valid or invalid
@@ -728,7 +728,7 @@ async for chunk_result in streamer.extract_streaming(long_document):
 result = await streamer.extract(long_document, deduplicate=True)
 ```
 
-### GLiREL Relation Extraction
+### GLiREL Relationship Extraction
 
 Extract relationships between entities without LLM calls:
 
@@ -740,6 +740,41 @@ if is_glirel_available():
     result = await extractor.extract("John works at Acme Corp in NYC.")
     print(result.entities)   # John, Acme Corp, NYC
     print(result.relations)  # John -[WORKS_AT]-> Acme Corp
+```
+
+### Automatic Relationship Storage
+
+When adding messages with entity extraction enabled, extracted relationships are automatically stored as `RELATED_TO` relationships in Neo4j:
+
+```python
+# Relationships are stored automatically when adding messages
+await memory.short_term.add_message(
+    "session-1",
+    "user",
+    "Brian Chesky founded Airbnb in San Francisco.",
+    extract_entities=True,
+    extract_relations=True,  # Default: True
+)
+
+# This creates:
+# - Entity nodes: Brian Chesky (PERSON), Airbnb (ORGANIZATION), San Francisco (LOCATION)
+# - MENTIONS relationships: Message -> Entity
+# - RELATED_TO relationships: (Brian Chesky)-[:RELATED_TO {relation_type: "FOUNDED"}]->(Airbnb)
+
+# Batch operations also support relationship extraction
+await memory.short_term.add_messages_batch(
+    "session-1",
+    messages,
+    extract_entities=True,
+    extract_relations=True,  # Default: True (only applies when extract_entities=True)
+)
+
+# Or extract from existing session
+result = await memory.short_term.extract_entities_from_session(
+    "session-1",
+    extract_relations=True,  # Default: True
+)
+print(f"Extracted {result['relations_extracted']} relationships")
 ```
 
 ## Entity Deduplication
@@ -1058,6 +1093,11 @@ The package automatically creates the following schema:
 - `(Conversation)-[:HAS_MESSAGE]->(Message)` - Membership
 - `(Conversation)-[:FIRST_MESSAGE]->(Message)` - First message in conversation
 - `(Message)-[:NEXT_MESSAGE]->(Message)` - Sequential message chain
+- `(Message)-[:MENTIONS]->(Entity)` - Entity mentions in message
+
+**Long-term memory:**
+- `(Entity)-[:RELATED_TO {relation_type, confidence}]->(Entity)` - Extracted relationships
+- `(Entity)-[:SAME_AS]->(Entity)` - Entity deduplication
 
 **Cross-memory linking:**
 - `(ReasoningTrace)-[:INITIATED_BY]->(Message)` - Trace triggered by message
