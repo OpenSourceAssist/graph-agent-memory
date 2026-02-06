@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Syne, Public_Sans, JetBrains_Mono } from "next/font/google";
 import { Provider } from "@/components/ui/provider";
 import "./globals.css";
@@ -42,6 +43,7 @@ export default function RootLayout({
         className={`${syne.variable} ${publicSans.variable} ${jetbrainsMono.variable}`}
       >
         <Provider>{children}</Provider>
+        <Analytics />
       </body>
     </html>
   );
