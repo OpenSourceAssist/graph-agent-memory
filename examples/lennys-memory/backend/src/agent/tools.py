@@ -826,7 +826,7 @@ async def find_related_entities(
         ORDER BY co_occurrences DESC
         LIMIT $limit
         RETURN e2.name AS name, e2.type AS type, e2.subtype AS subtype,
-               e2.description AS description, co_occurrences
+               e2.enriched_description AS enriched_description, co_occurrences
         """
         results = await ctx.deps.client._client.execute_read(
             query, {"name": resolved_name, "limit": limit}
@@ -837,7 +837,7 @@ async def find_related_entities(
                 "name": r["name"],
                 "type": r["type"],
                 "subtype": r["subtype"],
-                "description": r["description"],
+                "enriched_description": r["enriched_description"],
                 "co_occurrences": r["co_occurrences"],
             }
             for r in results
@@ -2193,11 +2193,10 @@ async def memory_graph_search(
             AND EXISTS { (related)<-[:MENTIONS]-(:Message) }
             WITH e, related, r,
                  CASE WHEN startNode(r) = e THEN 'outgoing' ELSE 'incoming' END AS direction
-            ORDER BY r.co_occurrences DESC
+            ORDER BY related.name
             WITH e, collect({
                 entity: related,
-                direction: direction,
-                co_occurrences: r.co_occurrences
+                direction: direction
             })[0..$max_related] AS related_list
             RETURN e.id AS source_id, related_list
             """
@@ -2237,8 +2236,9 @@ async def memory_graph_search(
                                 "type": related_entity.get("type", "Entity"),
                                 "properties": {
                                     "subtype": related_entity.get("subtype"),
-                                    "description": related_entity.get("description"),
-                                    "co_occurrences": rel_info.get("co_occurrences"),
+                                    "enriched_description": related_entity.get(
+                                        "enriched_description"
+                                    ),
                                 },
                             }
                         )
@@ -2261,9 +2261,7 @@ async def memory_graph_search(
                                 "from": rel_from,
                                 "to": rel_to,
                                 "type": "RELATED_TO",
-                                "properties": {
-                                    "co_occurrences": rel_info.get("co_occurrences"),
-                                },
+                                "properties": {},
                             }
                         )
                         seen_rel_ids.add(rel_id)
@@ -2274,7 +2272,7 @@ async def memory_graph_search(
             inter_rel_query = """
             MATCH (e1:Entity)-[r:RELATED_TO]->(e2:Entity)
             WHERE e1.id IN $entity_ids AND e2.id IN $entity_ids
-            RETURN e1.id AS from_id, e2.id AS to_id, r.co_occurrences AS co_occurrences
+            RETURN e1.id AS from_id, e2.id AS to_id
             """
             inter_results = await ctx.deps.client._client.execute_read(
                 inter_rel_query, {"entity_ids": all_entity_ids}
@@ -2293,9 +2291,7 @@ async def memory_graph_search(
                             "from": rel_from,
                             "to": rel_to,
                             "type": "RELATED_TO",
-                            "properties": {
-                                "co_occurrences": rel.get("co_occurrences"),
-                            },
+                            "properties": {},
                         }
                     )
                     seen_rel_ids.add(rel_id)

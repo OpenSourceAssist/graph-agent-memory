@@ -232,16 +232,25 @@ class TestSearchEntities:
     @pytest.mark.asyncio
     async def test_returns_expected_fields(self, mock_agent_context):
         """Verify returned entity data structure."""
-        mock_entity = MagicMock()
-        mock_entity.name = "Product-Market Fit"
-        mock_entity.type = "CONCEPT"
-        mock_entity.subtype = "business"
-        mock_entity.description = "A business concept"
-        mock_entity.wikipedia_url = "https://en.wikipedia.org/wiki/Product-market_fit"
-        mock_entity.enriched_description = "Enriched description"
+        # Mock the embedder
+        mock_embedder = MagicMock()
+        mock_embedder.embed = AsyncMock(return_value=[0.1] * 1536)
+        mock_agent_context.deps.client.long_term._embedder = mock_embedder
 
-        mock_agent_context.deps.client.long_term.search_entities = AsyncMock(
-            return_value=[mock_entity]
+        # Mock execute_read to return entity data as the function uses direct Cypher
+        mock_agent_context.deps.client._client.execute_read = AsyncMock(
+            return_value=[
+                {
+                    "id": "123",
+                    "name": "Product-Market Fit",
+                    "type": "CONCEPT",
+                    "subtype": "business",
+                    "description": None,  # description property doesn't exist
+                    "enriched_description": "Enriched description",
+                    "wikipedia_url": "https://en.wikipedia.org/wiki/Product-market_fit",
+                    "score": 0.95,
+                }
+            ]
         )
 
         results = await search_entities(mock_agent_context, "product-market fit")

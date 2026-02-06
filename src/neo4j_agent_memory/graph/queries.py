@@ -246,7 +246,7 @@ RETURN e
 
 GET_ENTITY_BY_NAME = """
 MATCH (e:Entity)
-WHERE e.name = $name OR e.canonical_name = $name OR ('aliases' IN keys(e) AND $name IN e.aliases)
+WHERE e.name = $name OR e.canonical_name = $name OR $name IN COALESCE(e.aliases, [])
 RETURN e
 LIMIT 1
 """

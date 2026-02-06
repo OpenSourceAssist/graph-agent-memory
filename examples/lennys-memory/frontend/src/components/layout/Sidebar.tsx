@@ -18,6 +18,7 @@ import {
   LuExternalLink,
   LuDatabase,
   LuSparkles,
+  LuBookOpen,
 } from "react-icons/lu";
 import type { QuickStartSuggestion } from "@/lib/types";
 
@@ -213,32 +214,62 @@ export function Sidebar({
           </Flex>
         </Stack>
 
-        {/* GitHub link */}
-        <Link
-          href="https://github.com/neo4j-labs/agent-memory/tree/main/examples/lennys-memory"
-          target="_blank"
-          rel="noopener noreferrer"
-          _hover={{ textDecoration: "none" }}
-        >
-          <Flex
-            px="3"
-            py={{ base: 2.5, md: 2 }}
-            minH={{ base: "44px", md: "auto" }}
-            bg="bg.muted"
-            borderRadius="md"
-            alignItems="center"
-            gap="2"
-            _hover={{ bg: "bg.emphasized" }}
-            _active={{ bg: "bg.subtle" }}
-            transition="background 0.2s"
+        {/* Blog post and GitHub links */}
+        <Flex gap="2">
+          <Link
+            href="https://neo4j.com/blog/developer/meet-lennys-memory-building-context-graphs-for-ai-agents/"
+            target="_blank"
+            rel="noopener noreferrer"
+            flex="1"
+            _hover={{ textDecoration: "none" }}
           >
-            <LuGithub size={16} />
-            <Text fontSize="xs" color="fg.muted" flex="1">
-              View source on GitHub
-            </Text>
-            <LuExternalLink size={12} />
-          </Flex>
-        </Link>
+            <Flex
+              px="2"
+              py={{ base: 2.5, md: 2 }}
+              minH={{ base: "44px", md: "auto" }}
+              bg="bg.muted"
+              borderRadius="md"
+              alignItems="center"
+              justifyContent="center"
+              gap="1.5"
+              _hover={{ bg: "bg.emphasized" }}
+              _active={{ bg: "bg.subtle" }}
+              transition="background 0.2s"
+            >
+              <LuBookOpen size={14} />
+              <Text fontSize="xs" color="fg.muted">
+                Blog
+              </Text>
+            </Flex>
+          </Link>
+
+          <Link
+            href="https://github.com/neo4j-labs/agent-memory/tree/main/examples/lennys-memory"
+            target="_blank"
+            rel="noopener noreferrer"
+            flex="1"
+            _hover={{ textDecoration: "none" }}
+          >
+            <Flex
+              px="2"
+              py={{ base: 2.5, md: 2 }}
+              minH={{ base: "44px", md: "auto" }}
+              bg="bg.muted"
+              borderRadius="md"
+              alignItems="center"
+              justifyContent="center"
+              gap="1.5"
+              _hover={{ bg: "bg.emphasized" }}
+              _active={{ bg: "bg.subtle" }}
+              transition="background 0.2s"
+            >
+              <LuGithub size={14} />
+              <Text fontSize="xs" color="fg.muted">
+                Source
+              </Text>
+            </Flex>
+          </Link>
+        </Flex>
       </Stack>
     </Stack>
   );
