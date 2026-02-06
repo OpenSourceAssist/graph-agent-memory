@@ -12,6 +12,7 @@ import {
   CloseButton,
   Flex,
   Separator,
+  Link,
 } from "@chakra-ui/react";
 import {
   DialogRoot,
@@ -30,6 +31,8 @@ import {
   LuDatabase,
   LuSparkles,
   LuArrowRight,
+  LuBookOpen,
+  LuExternalLink,
 } from "react-icons/lu";
 
 const STORAGE_KEY = "lennys-memory-welcome-shown";
@@ -214,6 +217,42 @@ export function WelcomeModal({
                     Find connections between Reid Hoffman and other guests
                   </SampleQuery>
                 </VStack>
+
+                <Separator />
+
+                {/* Blog Post Link */}
+                <Link
+                  href="https://neo4j.com/blog/developer/meet-lennys-memory-building-context-graphs-for-ai-agents/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  _hover={{ textDecoration: "none" }}
+                >
+                  <Flex
+                    px={3}
+                    py={2}
+                    bg="blue.subtle"
+                    borderRadius="md"
+                    alignItems="center"
+                    gap={2}
+                    _hover={{ bg: "blue.100" }}
+                    transition="background 0.2s"
+                  >
+                    <Box color="blue.600" flexShrink={0}>
+                      <LuBookOpen size={16} />
+                    </Box>
+                    <Box flex="1">
+                      <Text fontSize="sm" fontWeight="medium" color="blue.700">
+                        Learn how it's built
+                      </Text>
+                      <Text fontSize="xs" color="blue.600">
+                        Read the blog post about context graphs for AI agents
+                      </Text>
+                    </Box>
+                    <Box color="blue.500" flexShrink={0}>
+                      <LuExternalLink size={14} />
+                    </Box>
+                  </Flex>
+                </Link>
               </VStack>
             </DialogBody>
 

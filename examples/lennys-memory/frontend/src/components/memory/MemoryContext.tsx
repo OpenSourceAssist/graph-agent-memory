@@ -196,7 +196,54 @@ export function MemoryContextPanel({
   const renderContent = () => (
     <Stack gap="4">
       {/* Agent Context Accordion */}
-      <Accordion.Root collapsible size="sm" defaultValue={["tools"]}>
+      <Accordion.Root collapsible size="sm" defaultValue={["capabilities"]}>
+        {/* Agent Capabilities */}
+        <Accordion.Item value="capabilities">
+          <Accordion.ItemTrigger>
+            <Flex flex="1" alignItems="center" gap="2">
+              <LuSettings size={12} />
+              <Span fontSize="xs">Agent Capabilities</Span>
+            </Flex>
+            <Accordion.ItemIndicator />
+          </Accordion.ItemTrigger>
+          <Accordion.ItemContent>
+            <Stack gap="2" py="2">
+              <Box p="2" bg="green.subtle" borderRadius="md">
+                <Text fontSize="xs" fontWeight="medium" color="green.700">
+                  Multi-step Reasoning
+                </Text>
+                <Text fontSize="xs" color="green.600">
+                  Plans and executes complex queries step by step
+                </Text>
+              </Box>
+              <Box p="2" bg="blue.subtle" borderRadius="md">
+                <Text fontSize="xs" fontWeight="medium" color="blue.700">
+                  Conversation Memory
+                </Text>
+                <Text fontSize="xs" color="blue.600">
+                  Maintains context across messages in the thread
+                </Text>
+              </Box>
+              <Box p="2" bg="purple.subtle" borderRadius="md">
+                <Text fontSize="xs" fontWeight="medium" color="purple.700">
+                  Preference Learning
+                </Text>
+                <Text fontSize="xs" color="purple.600">
+                  Adapts responses based on your stored preferences
+                </Text>
+              </Box>
+              <Box p="2" bg="orange.subtle" borderRadius="md">
+                <Text fontSize="xs" fontWeight="medium" color="orange.700">
+                  Knowledge Graph
+                </Text>
+                <Text fontSize="xs" color="orange.600">
+                  Queries entities and relationships in Neo4j
+                </Text>
+              </Box>
+            </Stack>
+          </Accordion.ItemContent>
+        </Accordion.Item>
+
         {/* Available Tools */}
         <Accordion.Item value="tools">
           <Accordion.ItemTrigger>
@@ -277,53 +324,6 @@ export function MemoryContextPanel({
                     </Text>
                   ))}
                 </Stack>
-              </Box>
-            </Stack>
-          </Accordion.ItemContent>
-        </Accordion.Item>
-
-        {/* Agent Capabilities */}
-        <Accordion.Item value="capabilities">
-          <Accordion.ItemTrigger>
-            <Flex flex="1" alignItems="center" gap="2">
-              <LuSettings size={12} />
-              <Span fontSize="xs">Agent Capabilities</Span>
-            </Flex>
-            <Accordion.ItemIndicator />
-          </Accordion.ItemTrigger>
-          <Accordion.ItemContent>
-            <Stack gap="2" py="2">
-              <Box p="2" bg="green.subtle" borderRadius="md">
-                <Text fontSize="xs" fontWeight="medium" color="green.700">
-                  Multi-step Reasoning
-                </Text>
-                <Text fontSize="xs" color="green.600">
-                  Plans and executes complex queries step by step
-                </Text>
-              </Box>
-              <Box p="2" bg="blue.subtle" borderRadius="md">
-                <Text fontSize="xs" fontWeight="medium" color="blue.700">
-                  Conversation Memory
-                </Text>
-                <Text fontSize="xs" color="blue.600">
-                  Maintains context across messages in the thread
-                </Text>
-              </Box>
-              <Box p="2" bg="purple.subtle" borderRadius="md">
-                <Text fontSize="xs" fontWeight="medium" color="purple.700">
-                  Preference Learning
-                </Text>
-                <Text fontSize="xs" color="purple.600">
-                  Adapts responses based on your stored preferences
-                </Text>
-              </Box>
-              <Box p="2" bg="orange.subtle" borderRadius="md">
-                <Text fontSize="xs" fontWeight="medium" color="orange.700">
-                  Knowledge Graph
-                </Text>
-                <Text fontSize="xs" color="orange.600">
-                  Queries entities and relationships in Neo4j
-                </Text>
               </Box>
             </Stack>
           </Accordion.ItemContent>

@@ -505,9 +505,8 @@ async def get_top_entities(
         LIMIT $limit
         RETURN e.id AS id, e.name AS name, e.type AS type,
                e.subtype AS subtype,
-               e.description AS description,
-               e.wikipedia_url AS wikipedia_url,
                e.enriched_description AS enriched_description,
+               e.wikipedia_url AS wikipedia_url,
                e.image_url AS image_url,
                mentions
         """
@@ -519,9 +518,8 @@ async def get_top_entities(
                 "name": r["name"],
                 "type": r["type"],
                 "subtype": r["subtype"],
-                "description": r["description"],
-                "wikipedia_url": r["wikipedia_url"],
                 "enriched_description": r["enriched_description"],
+                "wikipedia_url": r["wikipedia_url"],
                 "image_url": r["image_url"],
                 "mentions": r["mentions"],
             }
@@ -633,7 +631,7 @@ async def get_related_entities(
         ORDER BY co_occurrences DESC
         LIMIT $limit
         RETURN e2.id AS id, e2.name AS name, e2.type AS type, e2.subtype AS subtype,
-               e2.description AS description, co_occurrences
+               e2.enriched_description AS enriched_description, co_occurrences
         """
         results = await memory._client.execute_read(query, {"name": entity_name, "limit": limit})
 
@@ -643,7 +641,7 @@ async def get_related_entities(
                 "name": r["name"],
                 "type": r["type"],
                 "subtype": r["subtype"],
-                "description": r["description"],
+                "enriched_description": r["enriched_description"],
                 "co_occurrences": r["co_occurrences"],
             }
             for r in results
