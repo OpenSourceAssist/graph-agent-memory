@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from google.adk.runners import Runner
