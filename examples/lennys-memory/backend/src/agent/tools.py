@@ -485,7 +485,6 @@ async def search_entities(
                node.name AS name,
                node.type AS type,
                node.subtype AS subtype,
-               node.description AS description,
                node.enriched_description AS enriched_description,
                node.wikipedia_url AS wikipedia_url,
                score
@@ -510,8 +509,7 @@ async def search_entities(
                 "name": r["name"],
                 "type": r["type"],
                 "subtype": r.get("subtype"),
-                # Use enriched_description as fallback if description is empty
-                "description": r.get("description") or r.get("enriched_description") or "",
+                "description": r.get("enriched_description") or "",
                 "wikipedia_url": r.get("wikipedia_url"),
                 "enriched": bool(r.get("enriched_description")),
             }
@@ -913,7 +911,7 @@ async def get_most_mentioned_entities(
         LIMIT $limit
         RETURN e.name AS name, e.type AS type,
                e.subtype AS subtype,
-               e.description AS description,
+               e.enriched_description AS enriched_description,
                e.wikipedia_url AS wikipedia_url,
                mentions
         """
@@ -926,7 +924,7 @@ async def get_most_mentioned_entities(
                 "name": r["name"],
                 "type": r["type"],
                 "subtype": r["subtype"],
-                "description": r["description"],
+                "description": r.get("enriched_description") or "",
                 "wikipedia_url": r["wikipedia_url"],
                 "mentions": r["mentions"],
             }
@@ -992,7 +990,7 @@ async def search_locations(
         cypher_query += """
         RETURN e.id AS id, e.name AS name, e.type AS type, e.subtype AS subtype,
                e.location.y AS latitude, e.location.x AS longitude,
-               e.description AS description, e.enriched_description AS enriched_description
+               e.enriched_description AS enriched_description
         LIMIT $limit
         """
         params["limit"] = limit
@@ -1006,7 +1004,7 @@ async def search_locations(
                 "subtype": loc.get("subtype"),
                 "latitude": loc.get("latitude"),
                 "longitude": loc.get("longitude"),
-                "description": loc.get("description") or loc.get("enriched_description"),
+                "description": loc.get("enriched_description") or "",
             }
             for loc in locations
         ]
@@ -1111,7 +1109,7 @@ async def get_episode_locations(
         WITH e, count(m) AS mention_count
         RETURN e.id AS id, e.name AS name, e.type AS type, e.subtype AS subtype,
                e.location.y AS latitude, e.location.x AS longitude,
-               e.description AS description, e.enriched_description AS enriched_description,
+               e.enriched_description AS enriched_description,
                mention_count
         ORDER BY mention_count DESC
         LIMIT 100
@@ -1127,7 +1125,7 @@ async def get_episode_locations(
                 "subtype": loc.get("subtype"),
                 "latitude": loc.get("latitude"),
                 "longitude": loc.get("longitude"),
-                "description": loc.get("description") or loc.get("enriched_description"),
+                "description": loc.get("enriched_description") or "",
                 "mentions": loc.get("mention_count"),
             }
             for loc in locations
@@ -2101,7 +2099,7 @@ async def memory_graph_search(
                 name: e.name,
                 type: e.type,
                 subtype: e.subtype,
-                description: e.description,
+                enriched_description: e.enriched_description,
                 confidence: mentions.confidence
             }) AS mentioned_entities
         """
@@ -2160,7 +2158,7 @@ async def memory_graph_search(
                             "type": entity.get("type", "Entity"),
                             "properties": {
                                 "subtype": entity.get("subtype"),
-                                "description": entity.get("description"),
+                                "enriched_description": entity.get("enriched_description"),
                             },
                         }
                     )
