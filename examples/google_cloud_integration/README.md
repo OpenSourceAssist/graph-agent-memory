@@ -1,6 +1,6 @@
 # Google Cloud Integration Examples
 
-This directory contains comprehensive examples demonstrating Neo4j Agent Memory's Google Cloud integration features introduced in v0.3.0.
+This directory contains comprehensive examples demonstrating Neo4j Agent Memory's Google Cloud integration features introduced in v0.0.3.
 
 ## Features Demonstrated
 

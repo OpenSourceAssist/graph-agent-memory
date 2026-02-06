@@ -7,7 +7,7 @@ help:
 	@echo ""
 	@echo "Local Development:"
 	@echo "  make install     - Install backend (uv) and frontend (npm) dependencies"
-	@echo "  make dev         - Start development servers (Neo4j + backend + frontend)"
+	@echo "  make dev         - Start development servers (backend + frontend)"
 	@echo "  make start       - Start all services with Docker Compose"
 	@echo "  make stop        - Stop all services"
 	@echo "  make logs        - View service logs"
@@ -37,11 +37,7 @@ install:
 
 dev:
 	@echo "Starting development environment..."
-	@echo "This will start Neo4j, backend, and frontend."
-	@echo ""
-	docker-compose up neo4j -d
-	@echo "Waiting for Neo4j to be ready..."
-	sleep 10
+	@echo "This will start backend, and frontend."
 	@echo ""
 	@echo "Starting backend (http://localhost:8000)..."
 	cd backend && uv run uvicorn src.main:app --reload --port 8000 &

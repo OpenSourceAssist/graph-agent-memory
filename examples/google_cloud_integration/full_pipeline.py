@@ -2,7 +2,7 @@
 """Full Google Cloud Integration Pipeline Demo.
 
 This comprehensive example demonstrates all Google Cloud features
-introduced in neo4j-agent-memory v0.3.0:
+introduced in neo4j-agent-memory v0.0.3:
 
 1. Vertex AI Embeddings - Generate embeddings using Google's models
 2. Google ADK Integration - Use Neo4jMemoryService with ADK agents
@@ -317,7 +317,7 @@ async def main():
     """Run the complete Google Cloud integration pipeline."""
     print("\n" + "=" * 70)
     print("  Neo4j Agent Memory - Google Cloud Integration Pipeline")
-    print("  Version 0.3.0 Feature Demonstration")
+    print("  Version 0.0.3 Feature Demonstration")
     print("=" * 70)
 
     print()
