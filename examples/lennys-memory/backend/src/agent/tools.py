@@ -524,50 +524,26 @@ async def _collapse_duplicate_entity_results(
     results: list[dict[str, Any]],
     limit: int,
 ) -> list[dict[str, Any]]:
-    """Collapse entity results that are linked via SAME_AS relationships.
+    """Deduplicate entity results by name.
 
-    Returns canonical entities with their aliases collected.
+    Note: SAME_AS relationship support is not yet implemented in the database.
+    This function currently just deduplicates by exact name match.
     """
     if not results:
         return results
 
-    try:
-        entity_names = [r["name"] for r in results]
+    # Simple deduplication by name
+    seen_names = set()
+    deduped = []
+    for r in results:
+        name = r.get("name")
+        if name and name not in seen_names:
+            seen_names.add(name)
+            deduped.append(r)
+            if len(deduped) >= limit:
+                break
 
-        # Find canonical entities for any that have SAME_AS relationships
-        query = """
-        UNWIND $names AS name
-        MATCH (e:Entity {name: name})
-        OPTIONAL MATCH (e)-[:SAME_AS*0..]->(canonical:Entity)
-        WHERE canonical.is_canonical = true OR NOT (canonical)-[:SAME_AS]->()
-        WITH e, COALESCE(canonical, e) AS canon
-        RETURN e.name AS original_name,
-               canon.name AS canonical_name
-        """
-        canonical_results = await ctx.deps.client._client.execute_read(
-            query, {"names": entity_names}
-        )
-
-        # Build mapping from original to canonical
-        canonical_map = {}
-        for r in canonical_results:
-            canonical_map[r["original_name"]] = r["canonical_name"]
-
-        # Deduplicate entities, keeping only canonical ones
-        seen_canonical = set()
-        deduped = []
-        for r in results:
-            canonical_name = canonical_map.get(r["name"], r["name"])
-            if canonical_name not in seen_canonical:
-                seen_canonical.add(canonical_name)
-                deduped.append(r)
-                if len(deduped) >= limit:
-                    break
-
-        return deduped
-    except Exception:
-        # If dedup fails, return original results
-        return results[:limit]
+    return deduped
 
 
 async def _collapse_duplicate_entities(
@@ -575,57 +551,26 @@ async def _collapse_duplicate_entities(
     entities: list,
     limit: int,
 ) -> list:
-    """Collapse entities that are linked via SAME_AS relationships.
+    """Deduplicate entities by name.
 
-    Returns canonical entities with their aliases collected.
+    Note: SAME_AS relationship support is not yet implemented in the database.
+    This function currently just deduplicates by exact name match.
     """
     if not entities:
         return entities
 
-    try:
-        entity_names = [e.name for e in entities]
+    # Simple deduplication by name
+    seen_names = set()
+    deduped = []
+    for e in entities:
+        name = getattr(e, "name", None)
+        if name and name not in seen_names:
+            seen_names.add(name)
+            deduped.append(e)
+            if len(deduped) >= limit:
+                break
 
-        # Find canonical entities for any that have SAME_AS relationships
-        query = """
-        UNWIND $names AS name
-        MATCH (e:Entity {name: name})
-        OPTIONAL MATCH (e)-[:SAME_AS*0..]->(canonical:Entity)
-        WHERE canonical.is_canonical = true OR NOT (canonical)-[:SAME_AS]->()
-        WITH e, COALESCE(canonical, e) AS canon
-        OPTIONAL MATCH (alias:Entity)-[:SAME_AS*]->(canon)
-        RETURN e.name AS original_name,
-               canon.name AS canonical_name,
-               collect(DISTINCT alias.name) AS aliases
-        """
-        results = await ctx.deps.client._client.execute_read(query, {"names": entity_names})
-
-        # Build mapping from original to canonical
-        canonical_map = {}
-        aliases_map = {}
-        for r in results:
-            canonical_map[r["original_name"]] = r["canonical_name"]
-            if r["canonical_name"] not in aliases_map:
-                aliases_map[r["canonical_name"]] = set()
-            aliases_map[r["canonical_name"]].update(r["aliases"] or [])
-
-        # Deduplicate entities, keeping only canonical ones
-        seen_canonical = set()
-        deduped = []
-        for e in entities:
-            canonical_name = canonical_map.get(e.name, e.name)
-            if canonical_name not in seen_canonical:
-                seen_canonical.add(canonical_name)
-                # Add aliases to the entity if available
-                if hasattr(e, "__dict__"):
-                    e.aliases = list(aliases_map.get(canonical_name, set()) - {canonical_name})
-                deduped.append(e)
-                if len(deduped) >= limit:
-                    break
-
-        return deduped
-    except Exception:
-        # On error, return original list without deduplication
-        return entities[:limit]
+    return deduped
 
 
 async def get_entity_context(
