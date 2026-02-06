@@ -288,7 +288,7 @@ jobs:
 
       - name: Run quick example validation
         run: |
-          uv run pytest tests/examples/test_entity_resolution.py tests/examples/test_full_stack_apps.py \
+          uv run pytest tests/examples/test_entity_resolution.py tests/examples/test_full_stack_apps.py tests/examples/test_google_cloud_financial_advisor.py tests/examples/test_google_cloud_integration.py tests/examples/test_google_adk_demo.py \
             -v \
             --tb=short \
             --timeout=60
