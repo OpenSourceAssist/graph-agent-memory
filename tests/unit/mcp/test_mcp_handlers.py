@@ -68,7 +68,7 @@ class TestMCPHandlers:
         mock_message.id = "msg-1"
         mock_message.role = MagicMock(value="user")
         mock_message.content = "Test message"
-        mock_message.timestamp = None
+        mock_message.created_at = None
         mock_message.metadata = {"similarity": 0.9}
 
         mock_memory_client.short_term.search_messages = AsyncMock(return_value=[mock_message])
@@ -218,7 +218,7 @@ class TestMCPHandlers:
         mock_message.id = "msg-1"
         mock_message.role = MagicMock(value="user")
         mock_message.content = "Hello"
-        mock_message.timestamp = None
+        mock_message.created_at = None
         mock_message.metadata = None
 
         mock_conversation = MagicMock()

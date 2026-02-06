@@ -60,7 +60,7 @@ This document tracks product improvement suggestions identified during the devel
 * <<api-docs-generation,Automated API Reference Generation>>
 * <<version-matrix-testing,Documentation Version Matrix Testing>>
 
-=== Implemented (v0.3.0)
+=== Implemented (v0.0.3)
 
 .Google Cloud Integration
 * <<vertex-ai-embeddings,Vertex AI Embeddings>> ✅
@@ -955,9 +955,9 @@ docs/
 * 5 explanation pages covering architecture and concepts
 
 
-== v0.3.0 Roadmap (Implemented)
+== v0.0.3 Roadmap (Implemented)
 
-The following features were implemented as part of the v0.3.0 Google Cloud Integration release.
+The following features were implemented as part of the v0.0.3 Google Cloud Integration release.
 
 === Google Cloud Integration
 

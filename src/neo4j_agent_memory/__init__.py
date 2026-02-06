@@ -107,22 +107,51 @@ class MemoryGraph(BaseModel):
 from neo4j_agent_memory.graph.client import Neo4jClient
 from neo4j_agent_memory.graph.schema import SchemaManager
 
-# Google Cloud integrations (v0.3.0+)
-# These are imported conditionally to avoid requiring google dependencies
+# Google Cloud integrations (v0.0.3+)
+# These are imported conditionally to avoid requiring google dependencies.
+# Stub classes provide actionable error messages when optional deps are missing.
 try:
     from neo4j_agent_memory.embeddings.vertex_ai import VertexAIEmbedder
 except ImportError:
-    VertexAIEmbedder = None  # type: ignore[misc, assignment]
+
+    class VertexAIEmbedder:  # type: ignore[no-redef]
+        """Stub for VertexAIEmbedder when google-cloud-aiplatform is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "VertexAIEmbedder requires google-cloud-aiplatform. "
+                "Install with: pip install neo4j-agent-memory[vertex-ai]"
+            )
+
 
 try:
     from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 except ImportError:
-    Neo4jMemoryService = None  # type: ignore[misc, assignment]
+
+    class Neo4jMemoryService:  # type: ignore[no-redef]
+        """Stub for Neo4jMemoryService when google-adk is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Neo4jMemoryService requires google-adk. "
+                "Install with: pip install neo4j-agent-memory[google-adk]"
+            )
+
 
 try:
     from neo4j_agent_memory.mcp.server import Neo4jMemoryMCPServer
 except ImportError:
-    Neo4jMemoryMCPServer = None  # type: ignore[misc, assignment]
+
+    class Neo4jMemoryMCPServer:  # type: ignore[no-redef]
+        """Stub for Neo4jMemoryMCPServer when mcp is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Neo4jMemoryMCPServer requires the mcp package. "
+                "Install with: pip install neo4j-agent-memory[mcp]"
+            )
+
+
 from neo4j_agent_memory.memory.long_term import (
     Entity,
     EntityType,
@@ -151,7 +180,7 @@ from neo4j_agent_memory.memory.short_term import (
     ShortTermMemory,
 )
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 __all__ = [
     # Main client
@@ -209,7 +238,7 @@ __all__ = [
     "GraphNode",
     "GraphRelationship",
     "MemoryGraph",
-    # Google Cloud integrations (v0.3.0+)
+    # Google Cloud integrations (v0.0.3+)
     "VertexAIEmbedder",
     "Neo4jMemoryService",
     "Neo4jMemoryMCPServer",

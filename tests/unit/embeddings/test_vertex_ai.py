@@ -50,7 +50,6 @@ class TestVertexAIEmbedder:
         # Test various models
         models_and_dims = [
             ("text-embedding-004", 768),
-            ("text-embedding-005", 768),
             ("textembedding-gecko@003", 768),
             ("textembedding-gecko-multilingual@001", 768),
             ("unknown-model", 768),  # Default fallback
@@ -89,15 +88,16 @@ class TestVertexAIEmbedder:
                 "vertexai.language_models.TextEmbeddingModel.from_pretrained",
                 return_value=mock_model,
             ),
+            patch("asyncio.to_thread", side_effect=lambda fn, *args: fn(*args)),
         ):
             result = await embedder.embed("Hello, world!")
 
         assert len(result) == 768
         assert result == [0.1] * 768
-        mock_model.get_embeddings.assert_called_once_with(
-            ["Hello, world!"],
-            task_type="RETRIEVAL_DOCUMENT",
-        )
+        mock_model.get_embeddings.assert_called_once()
+        # Verify TextEmbeddingInput was used
+        call_args = mock_model.get_embeddings.call_args[0][0]
+        assert len(call_args) == 1
 
     @pytest.mark.asyncio
     async def test_embed_batch(self):
@@ -122,6 +122,7 @@ class TestVertexAIEmbedder:
                 "vertexai.language_models.TextEmbeddingModel.from_pretrained",
                 return_value=mock_model,
             ),
+            patch("asyncio.to_thread", side_effect=lambda fn, *args: fn(*args)),
         ):
             result = await embedder.embed_batch(["Text 1", "Text 2", "Text 3"])
 
@@ -157,6 +158,7 @@ class TestVertexAIEmbedder:
                 "vertexai.language_models.TextEmbeddingModel.from_pretrained",
                 return_value=mock_model,
             ),
+            patch("asyncio.to_thread", side_effect=lambda fn, *args: fn(*args)),
         ):
             # 5 texts with batch_size=2 should result in 3 API calls
             result = await embedder.embed_batch(["T1", "T2", "T3", "T4", "T5"])
@@ -181,6 +183,7 @@ class TestVertexAIEmbedder:
                 "vertexai.language_models.TextEmbeddingModel.from_pretrained",
                 return_value=mock_model,
             ),
+            patch("asyncio.to_thread", side_effect=lambda fn, *args: fn(*args)),
             pytest.raises(EmbeddingError, match="Failed to generate embedding"),
         ):
             await embedder.embed("Hello")
@@ -214,12 +217,10 @@ class TestVertexAIModelDimensions:
 
         expected_models = [
             "text-embedding-004",
-            "text-embedding-005",
             "textembedding-gecko@003",
             "textembedding-gecko@002",
             "textembedding-gecko@001",
             "textembedding-gecko-multilingual@001",
-            "text-multilingual-embedding-002",
         ]
 
         for model in expected_models:

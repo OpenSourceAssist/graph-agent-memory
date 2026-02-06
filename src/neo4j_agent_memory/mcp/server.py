@@ -51,7 +51,7 @@ try:
             memory_client: MemoryClient,
             *,
             server_name: str = "neo4j-agent-memory",
-            server_version: str = "0.3.0",
+            server_version: str = "0.0.3",
         ):
             """Initialize the MCP server.
 

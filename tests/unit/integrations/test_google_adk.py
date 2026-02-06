@@ -49,7 +49,7 @@ class TestMemoryEntryTypes:
         mock_msg.id = "msg-123"
         mock_msg.content = "Test message"
         mock_msg.role = MagicMock(value="user")
-        mock_msg.timestamp = datetime.now()
+        mock_msg.created_at = datetime.now()
         mock_msg.metadata = {"similarity": 0.9}
         mock_msg.session_id = "session-1"
 
@@ -250,7 +250,7 @@ class TestNeo4jMemoryService:
         mock_msg.id = "msg-1"
         mock_msg.content = "Project deadline is next week"
         mock_msg.role = MagicMock(value="user")
-        mock_msg.timestamp = None
+        mock_msg.created_at = None
         mock_msg.metadata = {"similarity": 0.9}
 
         mock_entity = MagicMock()
@@ -304,7 +304,7 @@ class TestNeo4jMemoryService:
         mock_msg.id = "msg-1"
         mock_msg.content = "Hello"
         mock_msg.role = MagicMock(value="user")
-        mock_msg.timestamp = None
+        mock_msg.created_at = None
         mock_msg.metadata = None
 
         mock_conversation = MagicMock()
@@ -328,7 +328,7 @@ class TestNeo4jMemoryService:
         mock_msg.id = "msg-new"
         mock_msg.content = "New message"
         mock_msg.role = MagicMock(value="user")
-        mock_msg.timestamp = None
+        mock_msg.created_at = None
         mock_msg.metadata = None
 
         mock_memory_client.short_term.add_message = AsyncMock(return_value=mock_msg)

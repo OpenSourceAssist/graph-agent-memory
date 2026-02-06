@@ -6,6 +6,7 @@ Supports Google Cloud's Vertex AI text embedding models including:
 - textembedding-gecko-multilingual@001 (768 dimensions)
 """
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 from neo4j_agent_memory.core.exceptions import EmbeddingError
@@ -18,12 +19,10 @@ if TYPE_CHECKING:
 # Model dimensions mapping
 VERTEX_MODEL_DIMENSIONS = {
     "text-embedding-004": 768,
-    "text-embedding-005": 768,
     "textembedding-gecko@003": 768,
     "textembedding-gecko@002": 768,
     "textembedding-gecko@001": 768,
     "textembedding-gecko-multilingual@001": 768,
-    "text-multilingual-embedding-002": 768,
 }
 
 # Default batch size (Vertex AI supports up to 250 texts per request)
@@ -132,6 +131,16 @@ class VertexAIEmbedder(BaseEmbedder):
             raise EmbeddingError(f"Failed to initialize Vertex AI: {e}") from e
 
     @property
+    def model(self) -> str:
+        """Return the Vertex AI model name."""
+        return self._model
+
+    @property
+    def task_type(self) -> str:
+        """Return the embedding task type."""
+        return self._task_type
+
+    @property
     def dimensions(self) -> int:
         """Return the embedding dimensions."""
         return self._dimensions
@@ -151,14 +160,14 @@ class VertexAIEmbedder(BaseEmbedder):
         model = self._ensure_initialized()
 
         try:
-            # Vertex AI SDK uses sync API, so we call it directly
-            # In production, consider using run_in_executor for true async
-            embeddings = model.get_embeddings(
-                [text],
-                task_type=self._task_type,
-            )
+            from vertexai.language_models import TextEmbeddingInput
+
+            input_obj = TextEmbeddingInput(text, task_type=self._task_type)
+            embeddings = await asyncio.to_thread(model.get_embeddings, [input_obj])
             return embeddings[0].values
 
+        except EmbeddingError:
+            raise
         except Exception as e:
             raise EmbeddingError(f"Failed to generate embedding: {e}") from e
 
@@ -181,16 +190,18 @@ class VertexAIEmbedder(BaseEmbedder):
         all_embeddings: list[list[float]] = []
 
         try:
+            from vertexai.language_models import TextEmbeddingInput
+
             # Process in batches (Vertex AI limit is 250 per request)
             for i in range(0, len(texts), self._batch_size):
                 batch = texts[i : i + self._batch_size]
-                embeddings = model.get_embeddings(
-                    batch,
-                    task_type=self._task_type,
-                )
+                inputs = [TextEmbeddingInput(t, task_type=self._task_type) for t in batch]
+                embeddings = await asyncio.to_thread(model.get_embeddings, inputs)
                 all_embeddings.extend([e.values for e in embeddings])
 
             return all_embeddings
 
+        except EmbeddingError:
+            raise
         except Exception as e:
             raise EmbeddingError(f"Failed to generate embeddings: {e}") from e

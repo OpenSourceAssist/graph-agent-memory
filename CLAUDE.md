@@ -1331,7 +1331,7 @@ from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 memory_service = Neo4jMemoryService(client, user_id="user-123")
 ```
 
-### Google Cloud Integration (v0.3.0)
+### Google Cloud Integration (v0.0.3)
 
 The library provides comprehensive Google Cloud support including Vertex AI embeddings, Google ADK integration, and an MCP server for Cloud API Registry.
 
