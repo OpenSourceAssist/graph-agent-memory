@@ -17,7 +17,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class VertexAISettings(BaseSettings):
     """Vertex AI configuration for LLM and embeddings."""
 
-    model_config = SettingsConfigDict(env_prefix="VERTEX_AI_")
+    model_config = SettingsConfigDict(
+        env_prefix="VERTEX_AI_",
+        env_file=("../.env", ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     project_id: str | None = Field(
         default=None,
@@ -46,7 +51,12 @@ class VertexAISettings(BaseSettings):
 class Neo4jSettings(BaseSettings):
     """Neo4j Aura configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="NEO4J_")
+    model_config = SettingsConfigDict(
+        env_prefix="NEO4J_",
+        env_file=("../.env", ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     uri: str = Field(
         default="bolt://localhost:7687",
@@ -85,7 +95,7 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=("../.env", ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

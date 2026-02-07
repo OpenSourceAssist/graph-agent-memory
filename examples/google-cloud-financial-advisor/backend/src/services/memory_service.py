@@ -85,7 +85,7 @@ class FinancialMemoryService:
             return
 
         self._client = MemoryClient(self._memory_settings)
-        await self._client.initialize()
+        await self._client.connect()
 
         self._memory_service = Neo4jMemoryService(
             memory_client=self._client,
@@ -113,9 +113,7 @@ class FinancialMemoryService:
             RuntimeError: If service not initialized.
         """
         if not self._client:
-            raise RuntimeError(
-                "Memory service not initialized. Call initialize() first."
-            )
+            raise RuntimeError("Memory service not initialized. Call initialize() first.")
         return self._client
 
     @property
@@ -126,9 +124,7 @@ class FinancialMemoryService:
             RuntimeError: If service not initialized.
         """
         if not self._memory_service:
-            raise RuntimeError(
-                "Memory service not initialized. Call initialize() first."
-            )
+            raise RuntimeError("Memory service not initialized. Call initialize() first.")
         return self._memory_service
 
     async def search_context(

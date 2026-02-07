@@ -60,13 +60,13 @@ async def chat(
         supervisor = get_supervisor_agent(memory_service)
 
         # Create or get session
-        session = session_service.get_session(
+        session = await session_service.get_session(
             app_name="financial_advisor",
             user_id="user",
             session_id=session_id,
         )
         if session is None:
-            session = session_service.create_session(
+            session = await session_service.create_session(
                 app_name="financial_advisor",
                 user_id="user",
                 session_id=session_id,
@@ -90,22 +90,19 @@ async def chat(
             session_service=session_service,
         )
 
-        # Run the agent
-        result = await runner.run_async(
+        # Run the agent (run_async returns an async generator of events)
+        response_text = ""
+        tool_calls = []
+        agents_consulted = set()
+
+        async for event in runner.run_async(
             user_id="user",
             session_id=session_id,
             new_message=types.Content(
                 role="user",
                 parts=[types.Part(text=user_message)],
             ),
-        )
-
-        # Extract response content
-        response_text = ""
-        tool_calls = []
-        agents_consulted = set()
-
-        for event in result.events:
+        ):
             if hasattr(event, "content") and event.content:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:
@@ -122,11 +119,8 @@ async def chat(
             if hasattr(event, "agent_name"):
                 agents_consulted.add(event.agent_name)
 
-        # If no text response, try to get from final output
-        if not response_text and hasattr(result, "output"):
-            response_text = (
-                str(result.output) if result.output else "Investigation complete."
-            )
+        if not response_text:
+            response_text = "Investigation complete."
 
         # Store the conversation in memory
         await memory_service.add_session(

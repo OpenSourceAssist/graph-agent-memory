@@ -50,7 +50,16 @@ build-backend = "hatchling.build"
 packages = ["src"]
 
 [tool.uv]
-dev-dependencies = [
+package = true
+
+[tool.uv.sources]
+# For local development, use the editable path:
+neo4j-agent-memory = { path = "../../..", editable = true }
+# For deployment (production), use the Git URL:
+# neo4j-agent-memory = { git = "https://github.com/neo4j-labs/agent-memory" }
+
+[dependency-groups]
+dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "ruff>=0.1.0",
