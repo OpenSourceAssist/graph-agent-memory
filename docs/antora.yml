@@ -1,0 +1,10 @@
+name: agent-memory
+version: master
+title: Neo4j Agent Memory
+nav:
+  - modules/ROOT/nav.adoc
+asciidoc:
+  attributes:
+    page-theme: labs
+    page-product: agent-memory
+    page-pagination: ''
