@@ -9,6 +9,16 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load .env into process environment so ADK/genai can find GOOGLE_API_KEY etc.
+# Check parent dir first (project root), then current dir (backend/)
+_env_file = Path(__file__).resolve().parent.parent.parent / ".env"
+if _env_file.exists():
+    load_dotenv(_env_file)
+load_dotenv()  # also load backend/.env if present (overrides)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
