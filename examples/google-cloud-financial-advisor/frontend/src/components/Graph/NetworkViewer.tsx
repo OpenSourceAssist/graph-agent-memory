@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from "react";
 import {
   Box,
   Card,
@@ -11,122 +11,128 @@ import {
   Input,
   SimpleGrid,
   Stat,
-} from '@chakra-ui/react'
-import { LuRefreshCw, LuZoomIn, LuZoomOut, LuMaximize } from 'react-icons/lu'
-import { Network, DataSet } from 'vis-network/standalone'
-import { getCustomerNetwork, getGraphStats, type NetworkData } from '../../lib/api'
+} from "@chakra-ui/react";
+import { LuRefreshCw, LuZoomIn, LuZoomOut, LuMaximize } from "react-icons/lu";
+import { Network, DataSet } from "vis-network/standalone";
+import {
+  getCustomerNetwork,
+  getGraphStats,
+  type NetworkData,
+} from "../../lib/api";
 
 interface NetworkViewerProps {
-  customerId: string | null
+  customerId: string | null;
 }
 
 const nodeColors: Record<string, string> = {
-  Customer: '#4299E1',
-  Organization: '#48BB78',
-  Transaction: '#ECC94B',
-  Alert: '#F56565',
-  Account: '#9F7AEA',
-  Address: '#ED8936',
-  Document: '#38B2AC',
-}
+  Customer: "#4299E1",
+  Organization: "#48BB78",
+  Transaction: "#ECC94B",
+  Alert: "#F56565",
+  Account: "#9F7AEA",
+  Address: "#ED8936",
+  Document: "#38B2AC",
+};
 
 export function NetworkViewer({ customerId }: NetworkViewerProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const networkRef = useRef<Network | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [networkData, setNetworkData] = useState<NetworkData | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const networkRef = useRef<Network | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [networkData, setNetworkData] = useState<NetworkData | null>(null);
   const [stats, setStats] = useState<{
-    nodes: { total: number; by_label: Record<string, number> }
-    relationships: { total: number; by_type: Record<string, number> }
-  } | null>(null)
-  const [inputCustomerId, setInputCustomerId] = useState(customerId || '')
-  const [depth, setDepth] = useState(2)
+    total_nodes: number;
+    total_relationships: number;
+    nodes_by_label: Record<string, number>;
+    relationships_by_type: Record<string, number>;
+  } | null>(null);
+  const [inputCustomerId, setInputCustomerId] = useState(customerId || "");
+  const depth = 2;
 
   useEffect(() => {
-    loadStats()
-  }, [])
+    loadStats();
+  }, []);
 
   useEffect(() => {
     if (customerId) {
-      setInputCustomerId(customerId)
-      loadNetwork(customerId)
+      setInputCustomerId(customerId);
+      loadNetwork(customerId);
     }
-  }, [customerId])
+  }, [customerId]);
 
   useEffect(() => {
     if (networkData && containerRef.current) {
-      renderNetwork()
+      renderNetwork();
     }
-  }, [networkData])
+  }, [networkData]);
 
   const loadStats = async () => {
     try {
-      const data = await getGraphStats()
-      setStats(data)
+      const data = await getGraphStats();
+      setStats(data);
     } catch (error) {
-      console.error('Failed to load graph stats:', error)
+      console.error("Failed to load graph stats:", error);
     }
-  }
+  };
 
   const loadNetwork = async (custId: string) => {
     try {
-      setLoading(true)
-      const data = await getCustomerNetwork(custId, depth)
-      setNetworkData(data)
+      setLoading(true);
+      const data = await getCustomerNetwork(custId, depth);
+      setNetworkData(data);
     } catch (error) {
-      console.error('Failed to load network:', error)
+      console.error("Failed to load network:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSearch = () => {
     if (inputCustomerId.trim()) {
-      loadNetwork(inputCustomerId.trim())
+      loadNetwork(inputCustomerId.trim());
     }
-  }
+  };
 
   const renderNetwork = () => {
-    if (!containerRef.current || !networkData) return
+    if (!containerRef.current || !networkData) return;
 
     // Clean up previous network
     if (networkRef.current) {
-      networkRef.current.destroy()
+      networkRef.current.destroy();
     }
 
     // Create nodes dataset
     const nodes = new DataSet(
       networkData.nodes.map((node) => ({
         id: node.id,
-        label: node.name || node.id,
-        color: nodeColors[node.labels[0]] || '#718096',
-        shape: node.isSource ? 'star' : 'dot',
-        size: node.isSource ? 30 : 20,
-        title: `${node.labels.join(', ')}\n${JSON.stringify(node.properties, null, 2)}`,
-      }))
-    )
+        label: node.label || node.id,
+        color: nodeColors[node.type] || "#718096",
+        shape: node.isRoot ? "star" : "dot",
+        size: node.isRoot ? 30 : 20,
+        title: `${node.type}: ${node.label}`,
+      })),
+    );
 
     // Create edges dataset
     const edges = new DataSet(
       networkData.edges.map((edge, index) => ({
         id: index,
-        from: edge.source,
-        to: edge.target,
-        label: edge.type,
-        arrows: 'to',
+        from: edge.from,
+        to: edge.to,
+        label: edge.relationship,
+        arrows: "to",
         font: { size: 10 },
-      }))
-    )
+      })),
+    );
 
     // Network options
     const options = {
       nodes: {
-        font: { size: 12, color: '#333' },
+        font: { size: 12, color: "#333" },
         borderWidth: 2,
       },
       edges: {
-        color: { color: '#999', highlight: '#333' },
-        smooth: { type: 'continuous' },
+        color: { color: "#999", highlight: "#333" },
+        smooth: { enabled: true, type: "continuous", roundness: 0.5 },
       },
       physics: {
         stabilization: { iterations: 100 },
@@ -139,34 +145,34 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
         hover: true,
         tooltipDelay: 200,
       },
-    }
+    };
 
     networkRef.current = new Network(
       containerRef.current,
       { nodes, edges },
-      options
-    )
-  }
+      options,
+    );
+  };
 
   const handleZoomIn = () => {
     if (networkRef.current) {
-      const scale = networkRef.current.getScale()
-      networkRef.current.moveTo({ scale: scale * 1.3 })
+      const scale = networkRef.current.getScale();
+      networkRef.current.moveTo({ scale: scale * 1.3 });
     }
-  }
+  };
 
   const handleZoomOut = () => {
     if (networkRef.current) {
-      const scale = networkRef.current.getScale()
-      networkRef.current.moveTo({ scale: scale / 1.3 })
+      const scale = networkRef.current.getScale();
+      networkRef.current.moveTo({ scale: scale / 1.3 });
     }
-  }
+  };
 
   const handleFit = () => {
     if (networkRef.current) {
-      networkRef.current.fit()
+      networkRef.current.fit();
     }
-  }
+  };
 
   return (
     <Box>
@@ -177,7 +183,7 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
             <Card.Body>
               <Stat.Root>
                 <Stat.Label>Total Nodes</Stat.Label>
-                <Stat.ValueText>{stats.nodes.total}</Stat.ValueText>
+                <Stat.ValueText>{stats.total_nodes}</Stat.ValueText>
               </Stat.Root>
             </Card.Body>
           </Card.Root>
@@ -185,7 +191,7 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
             <Card.Body>
               <Stat.Root>
                 <Stat.Label>Relationships</Stat.Label>
-                <Stat.ValueText>{stats.relationships.total}</Stat.ValueText>
+                <Stat.ValueText>{stats.total_relationships}</Stat.ValueText>
               </Stat.Root>
             </Card.Body>
           </Card.Root>
@@ -193,7 +199,9 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
             <Card.Body>
               <Stat.Root>
                 <Stat.Label>Customers</Stat.Label>
-                <Stat.ValueText>{stats.nodes.by_label.Customer || 0}</Stat.ValueText>
+                <Stat.ValueText>
+                  {stats.nodes_by_label.Customer || 0}
+                </Stat.ValueText>
               </Stat.Root>
             </Card.Body>
           </Card.Root>
@@ -201,7 +209,9 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
             <Card.Body>
               <Stat.Root>
                 <Stat.Label>Organizations</Stat.Label>
-                <Stat.ValueText>{stats.nodes.by_label.Organization || 0}</Stat.ValueText>
+                <Stat.ValueText>
+                  {stats.nodes_by_label.Organization || 0}
+                </Stat.ValueText>
               </Stat.Root>
             </Card.Body>
           </Card.Root>
@@ -231,7 +241,7 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
               placeholder="Enter customer ID..."
               value={inputCustomerId}
               onChange={(e) => setInputCustomerId(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
             />
             <Button onClick={handleSearch} colorPalette="blue">
               Load Network
@@ -249,7 +259,7 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
             {Object.entries(nodeColors).map(([label, color]) => (
               <Badge
                 key={label}
-                style={{ backgroundColor: color, color: 'white' }}
+                style={{ backgroundColor: color, color: "white" }}
               >
                 {label}
               </Badge>
@@ -269,7 +279,7 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
             <>
               <Box p={2} borderBottom="1px" borderColor="border.muted">
                 <Text fontSize="sm" color="fg.muted">
-                  Showing {networkData.nodes.length} nodes and{' '}
+                  Showing {networkData.nodes.length} nodes and{" "}
                   {networkData.edges.length} relationships
                 </Text>
               </Box>
@@ -285,5 +295,5 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
         </Card.Body>
       </Card.Root>
     </Box>
-  )
+  );
 }

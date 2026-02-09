@@ -8,6 +8,7 @@ graph client for connection reuse.
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -99,7 +100,7 @@ class Neo4jDomainService:
             filters.append("t.type = $tx_type")
             params["tx_type"] = transaction_type
 
-        where_extra = ("AND " + " AND ".join(filters)) if filters else ""
+        where_extra = ("WHERE " + " AND ".join(filters)) if filters else ""
 
         query = f"""
         MATCH (c:Customer {{id: $id}})-[:HAS_TRANSACTION]->(t:Transaction)
@@ -388,22 +389,21 @@ class Neo4jDomainService:
         """Create a new alert linked to a customer."""
         query = """
         MATCH (c:Customer {id: $customer_id})
-        CREATE (a:Alert {
-            id: $id,
-            type: $type,
-            severity: $severity,
-            status: $status,
-            title: $title,
-            description: $description,
-            evidence: $evidence,
-            requires_sar: $requires_sar,
-            auto_generated: $auto_generated,
-            created_at: datetime()
-        })
+        MERGE (a:Alert {id: $id})
+        ON CREATE SET
+            a.type = $type,
+            a.severity = $severity,
+            a.status = $status,
+            a.title = $title,
+            a.description = $description,
+            a.evidence = $evidence,
+            a.requires_sar = $requires_sar,
+            a.auto_generated = $auto_generated,
+            a.created_at = datetime()
         MERGE (c)-[:HAS_ALERT]->(a)
         RETURN a {.*, customer_id: c.id, customer_name: c.name} AS alert
         """
-        alert_id = alert.get("id", f"ALERT-{datetime.now().strftime('%Y%m%d%H%M%S')}")
+        alert_id = alert.get("id", f"ALERT-{uuid.uuid4().hex[:8].upper()}")
         results = await self._graph.execute_write(
             query,
             {

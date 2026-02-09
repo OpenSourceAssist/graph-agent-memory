@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Box,
   Heading,
@@ -7,60 +7,64 @@ import {
   Badge,
   VStack,
   HStack,
-  Spinner,
-  Button,
+  Skeleton,
   Select,
   createListCollection,
-} from '@chakra-ui/react'
-import { useState } from 'react'
-import { getAlerts, updateAlert, Alert } from '../../lib/api'
+  EmptyState,
+} from "@chakra-ui/react";
+import { useState } from "react";
+import { LuTriangleAlert } from "react-icons/lu";
+import { getAlerts, updateAlert, Alert } from "../../lib/api";
 
 function SeverityBadge({ severity }: { severity: string }) {
   const colorMap: Record<string, string> = {
-    LOW: 'green',
-    MEDIUM: 'yellow',
-    HIGH: 'orange',
-    CRITICAL: 'red',
-  }
+    LOW: "green",
+    MEDIUM: "yellow",
+    HIGH: "orange",
+    CRITICAL: "red",
+  };
   return (
-    <Badge colorPalette={colorMap[severity] || 'gray'} variant="solid">
+    <Badge colorPalette={colorMap[severity] || "gray"} variant="solid">
       {severity}
     </Badge>
-  )
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const colorMap: Record<string, string> = {
-    new: 'blue',
-    acknowledged: 'purple',
-    investigating: 'orange',
-    resolved: 'green',
-    false_positive: 'gray',
-  }
+    new: "blue",
+    acknowledged: "purple",
+    investigating: "orange",
+    resolved: "green",
+    false_positive: "gray",
+  };
   return (
-    <Badge colorPalette={colorMap[status] || 'gray'} variant="outline">
-      {status.replace('_', ' ')}
+    <Badge colorPalette={colorMap[status] || "gray"} variant="outline">
+      {status.replace("_", " ")}
     </Badge>
-  )
+  );
 }
 
-function AlertCard({ alert, onStatusChange }: {
-  alert: Alert
-  onStatusChange: (id: string, status: string) => void
+function AlertCard({
+  alert,
+  onStatusChange,
+}: {
+  alert: Alert;
+  onStatusChange: (id: string, status: string) => void;
 }) {
   const statusOptions = createListCollection({
     items: [
-      { label: 'New', value: 'new' },
-      { label: 'Acknowledged', value: 'acknowledged' },
-      { label: 'Investigating', value: 'investigating' },
-      { label: 'Resolved', value: 'resolved' },
-      { label: 'False Positive', value: 'false_positive' },
+      { label: "New", value: "new" },
+      { label: "Acknowledged", value: "acknowledged" },
+      { label: "Investigating", value: "investigating" },
+      { label: "Resolved", value: "resolved" },
+      { label: "False Positive", value: "false_positive" },
     ],
-  })
+  });
 
   return (
-    <Card.Root mb={4}>
-      <Card.Header>
+    <Card.Root mb={3} _hover={{ shadow: "sm" }} transition="shadow 0.15s">
+      <Card.Header py={3}>
         <HStack justify="space-between">
           <VStack align="start" gap={1}>
             <HStack>
@@ -77,24 +81,31 @@ function AlertCard({ alert, onStatusChange }: {
           )}
         </HStack>
       </Card.Header>
-      <Card.Body>
-        <Text color="gray.600" mb={3}>{alert.description}</Text>
+      <Card.Body pt={0}>
+        <Text color="fg.muted" mb={3}>
+          {alert.description}
+        </Text>
 
-        <Text fontSize="sm" color="gray.500" mb={2}>
-          Customer: <Text as="span" fontWeight="medium">{alert.customer_name || alert.customer_id}</Text>
+        <Text fontSize="sm" color="fg.muted" mb={2}>
+          Customer:{" "}
+          <Text as="span" fontWeight="medium" color="fg">
+            {alert.customer_name || alert.customer_id}
+          </Text>
         </Text>
 
         {alert.evidence.length > 0 && (
-          <Box mt={3}>
-            <Text fontSize="sm" fontWeight="medium" mb={1}>Evidence:</Text>
+          <Box mt={3} p={2} bg="bg.subtle" borderRadius="md">
+            <Text fontSize="sm" fontWeight="medium" mb={1}>
+              Evidence:
+            </Text>
             <VStack align="start" gap={1}>
               {alert.evidence.slice(0, 3).map((ev, i) => (
-                <Text key={i} fontSize="xs" color="gray.600">
-                  • {ev}
+                <Text key={i} fontSize="xs" color="fg.muted">
+                  {ev}
                 </Text>
               ))}
               {alert.evidence.length > 3 && (
-                <Text fontSize="xs" color="gray.400">
+                <Text fontSize="xs" color="fg.subtle">
                   +{alert.evidence.length - 3} more...
                 </Text>
               )}
@@ -103,7 +114,7 @@ function AlertCard({ alert, onStatusChange }: {
         )}
 
         <HStack mt={4} justify="space-between">
-          <Text fontSize="xs" color="gray.400">
+          <Text fontSize="xs" color="fg.subtle">
             {new Date(alert.created_at).toLocaleString()}
           </Text>
           <Select.Root
@@ -127,60 +138,52 @@ function AlertCard({ alert, onStatusChange }: {
         </HStack>
       </Card.Body>
     </Card.Root>
-  )
+  );
 }
 
 export default function AlertsPanel() {
-  const [severityFilter, setSeverityFilter] = useState<string | undefined>()
-  const [statusFilter, setStatusFilter] = useState<string | undefined>()
-  const queryClient = useQueryClient()
+  const [severityFilter, setSeverityFilter] = useState<string | undefined>();
+  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const queryClient = useQueryClient();
 
   const { data: alerts, isLoading } = useQuery({
-    queryKey: ['alerts', severityFilter, statusFilter],
-    queryFn: () => getAlerts({ severity: severityFilter, status: statusFilter }),
-  })
+    queryKey: ["alerts", severityFilter, statusFilter],
+    queryFn: () =>
+      getAlerts({ severity: severityFilter, status: statusFilter }),
+  });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       updateAlert(id, { status }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['alerts'] })
-      queryClient.invalidateQueries({ queryKey: ['alertSummary'] })
+      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["alertSummary"] });
     },
-  })
+  });
 
   const handleStatusChange = (id: string, status: string) => {
-    updateMutation.mutate({ id, status })
-  }
+    updateMutation.mutate({ id, status });
+  };
 
   const severityOptions = createListCollection({
     items: [
-      { label: 'All Severities', value: '' },
-      { label: 'Critical', value: 'CRITICAL' },
-      { label: 'High', value: 'HIGH' },
-      { label: 'Medium', value: 'MEDIUM' },
-      { label: 'Low', value: 'LOW' },
+      { label: "All Severities", value: "" },
+      { label: "Critical", value: "CRITICAL" },
+      { label: "High", value: "HIGH" },
+      { label: "Medium", value: "MEDIUM" },
+      { label: "Low", value: "LOW" },
     ],
-  })
+  });
 
   const statusOptions = createListCollection({
     items: [
-      { label: 'All Statuses', value: '' },
-      { label: 'New', value: 'new' },
-      { label: 'Acknowledged', value: 'acknowledged' },
-      { label: 'Investigating', value: 'investigating' },
-      { label: 'Resolved', value: 'resolved' },
+      { label: "All Statuses", value: "" },
+      { label: "New", value: "new" },
+      { label: "Acknowledged", value: "acknowledged" },
+      { label: "Investigating", value: "investigating" },
+      { label: "Resolved", value: "resolved" },
     ],
-  })
-
-  if (isLoading) {
-    return (
-      <Box textAlign="center" py={10}>
-        <Spinner size="xl" />
-        <Text mt={4}>Loading alerts...</Text>
-      </Box>
-    )
-  }
+  });
 
   return (
     <Box>
@@ -226,10 +229,26 @@ export default function AlertsPanel() {
         </HStack>
       </HStack>
 
-      {alerts?.length === 0 ? (
+      {isLoading ? (
+        <VStack gap={3} align="stretch">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} height="120px" borderRadius="md" />
+          ))}
+        </VStack>
+      ) : alerts?.length === 0 ? (
         <Card.Root>
-          <Card.Body textAlign="center" py={10}>
-            <Text color="gray.500">No alerts found</Text>
+          <Card.Body py={10}>
+            <EmptyState.Root>
+              <EmptyState.Content>
+                <EmptyState.Indicator>
+                  <LuTriangleAlert />
+                </EmptyState.Indicator>
+                <EmptyState.Title>No alerts found</EmptyState.Title>
+                <EmptyState.Description>
+                  Adjust your filters or check back later
+                </EmptyState.Description>
+              </EmptyState.Content>
+            </EmptyState.Root>
           </Card.Body>
         </Card.Root>
       ) : (
@@ -242,5 +261,5 @@ export default function AlertsPanel() {
         ))
       )}
     </Box>
-  )
+  );
 }

@@ -1,6 +1,6 @@
 """API routes for Google Cloud Financial Advisor."""
 
-from . import alerts, chat, customers, graph, investigations
+from . import alerts, chat, customers, graph, investigations, traces
 
 __all__ = [
     "chat",
@@ -8,4 +8,5 @@ __all__ = [
     "investigations",
     "alerts",
     "graph",
+    "traces",
 ]

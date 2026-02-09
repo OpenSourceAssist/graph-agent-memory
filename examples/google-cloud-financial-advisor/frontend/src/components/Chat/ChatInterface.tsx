@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
 import {
   Box,
   Heading,
@@ -10,9 +9,9 @@ import {
   Input,
   Button,
   Badge,
-  Spinner,
   SimpleGrid,
 } from "@chakra-ui/react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   FiSend,
   FiUser,
@@ -24,78 +23,64 @@ import {
   FiFileText,
   FiActivity,
 } from "react-icons/fi";
-import {
-  sendChatMessage,
-  ChatMessage as ChatMessageType,
-  ChatResponse,
-} from "../../lib/api";
+import { useAgentStream, AgentState } from "../../hooks/useAgentStream";
+import { AgentOrchestrationView } from "./AgentOrchestrationView";
+import { AgentActivityTimeline } from "./AgentActivityTimeline";
 
-interface Message extends ChatMessageType {
+interface Message {
+  role: "user" | "assistant";
+  content: string;
   agents_consulted?: string[];
   tool_calls?: Array<{ tool_name: string; agent?: string }>;
   response_time_ms?: number;
+  // Captured stream state for post-completion timeline
+  agentStates?: Map<string, AgentState>;
+  traceId?: string | null;
 }
 
 function ChatMessage({ message }: { message: Message }) {
   const isUser = message.role === "user";
 
   return (
-    <Box alignSelf={isUser ? "flex-end" : "flex-start"} maxW="80%" mb={4}>
-      <HStack gap={2} mb={1} justify={isUser ? "flex-end" : "flex-start"}>
-        <Box p={1} borderRadius="full" bg={isUser ? "blue.100" : "green.100"}>
-          {isUser ? <FiUser /> : <FiCpu />}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+    >
+      <Box alignSelf={isUser ? "flex-end" : "flex-start"} maxW="85%" mb={4}>
+        <HStack gap={2} mb={1} justify={isUser ? "flex-end" : "flex-start"}>
+          <Box p={1} borderRadius="full" bg={isUser ? "blue.100" : "green.100"}>
+            {isUser ? <FiUser size={14} /> : <FiCpu size={14} />}
+          </Box>
+          <Text fontSize="xs" color="fg.muted">
+            {isUser ? "You" : "Financial Advisor"}
+          </Text>
+        </HStack>
+
+        <Box
+          bg={isUser ? "blue.600" : "bg.panel"}
+          color={isUser ? "white" : "fg"}
+          px={4}
+          py={3}
+          borderRadius="lg"
+          shadow={isUser ? "none" : "xs"}
+          border={isUser ? "none" : "1px solid"}
+          borderColor="border.subtle"
+        >
+          <Text whiteSpace="pre-wrap">{message.content}</Text>
         </Box>
-        <Text fontSize="xs" color="gray.500">
-          {isUser ? "You" : "Financial Advisor"}
-        </Text>
-      </HStack>
 
-      <Box
-        bg={isUser ? "blue.500" : "white"}
-        color={isUser ? "white" : "gray.800"}
-        px={4}
-        py={3}
-        borderRadius="lg"
-        shadow={isUser ? "none" : "sm"}
-        border={isUser ? "none" : "1px solid"}
-        borderColor="gray.200"
-      >
-        <Text whiteSpace="pre-wrap">{message.content}</Text>
-      </Box>
-
-      {/* Agent info for assistant messages */}
-      {!isUser &&
-        message.agents_consulted &&
-        message.agents_consulted.length > 0 && (
-          <HStack mt={2} gap={1} flexWrap="wrap">
-            <Text fontSize="xs" color="gray.400">
-              Agents:
-            </Text>
-            {message.agents_consulted.map((agent) => (
-              <Badge
-                key={agent}
-                size="sm"
-                variant="outline"
-                colorPalette="green"
-              >
-                {agent.replace("_agent", "")}
-              </Badge>
-            ))}
-          </HStack>
+        {/* Agent activity timeline for assistant messages */}
+        {!isUser && (
+          <AgentActivityTimeline
+            agentStates={message.agentStates || new Map()}
+            agentsConsulted={message.agents_consulted || []}
+            totalDurationMs={message.response_time_ms}
+            traceId={message.traceId}
+          />
         )}
-
-      {!isUser && message.tool_calls && message.tool_calls.length > 0 && (
-        <Text fontSize="xs" color="gray.400" mt={1}>
-          {message.tool_calls.length} tool calls
-        </Text>
-      )}
-
-      {!isUser && message.response_time_ms && (
-        <Text fontSize="xs" color="gray.400" mt={1}>
-          Response time: {message.response_time_ms}ms
-        </Text>
-      )}
-    </Box>
+      </Box>
+    </motion.div>
   );
 }
 
@@ -105,43 +90,53 @@ export default function ChatInterface() {
   const [sessionId, setSessionId] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const {
+    isStreaming,
+    activeAgent,
+    agentStates,
+    finalResponse,
+    streamResult,
+    error,
+    delegationChain,
+    startStream,
+  } = useAgentStream();
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, agentStates, isStreaming]);
 
-  const chatMutation = useMutation({
-    mutationFn: (message: string) =>
-      sendChatMessage({
-        message,
-        session_id: sessionId,
-      }),
-    onSuccess: (response: ChatResponse) => {
-      setSessionId(response.session_id);
+  // When stream completes, add the assistant message
+  useEffect(() => {
+    if (finalResponse && streamResult && !isStreaming) {
+      setSessionId(streamResult.sessionId || undefined);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: response.message.content,
-          agents_consulted: response.agents_consulted,
-          tool_calls: response.tool_calls,
-          response_time_ms: response.response_time_ms,
+          content: finalResponse,
+          agents_consulted: streamResult.agentsConsulted,
+          response_time_ms: streamResult.totalDurationMs,
+          agentStates: new Map(agentStates),
+          traceId: streamResult.traceId,
         },
       ]);
-    },
-  });
+    }
+    // Only trigger when streaming stops with a result
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming]);
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isStreaming) return;
 
     // Add user message
     setMessages((prev) => [...prev, { role: "user", content: input }]);
 
-    // Send to API
-    chatMutation.mutate(input);
+    // Start streaming
+    startStream(input, sessionId);
     setInput("");
   };
 
@@ -159,7 +154,7 @@ export default function ChatInterface() {
       icon: FiShield,
       color: "red",
       prompt:
-        "Run a full compliance investigation on CUST-003 Global Holdings Ltd — check KYC documents, scan for structuring patterns, trace the shell company network, and screen against sanctions lists",
+        "Run a full compliance investigation on CUST-003 Global Holdings Ltd \u2014 check KYC documents, scan for structuring patterns, trace the shell company network, and screen against sanctions lists",
     },
     {
       title: "Detect Structuring Pattern",
@@ -183,7 +178,7 @@ export default function ChatInterface() {
       icon: FiUsers,
       color: "purple",
       prompt:
-        "Trace the beneficial ownership chain from Global Holdings Ltd through Shell Corp Cayman and Anonymous Trust Seychelles — who ultimately controls these entities?",
+        "Trace the beneficial ownership chain from Global Holdings Ltd through Shell Corp Cayman and Anonymous Trust Seychelles \u2014 who ultimately controls these entities?",
     },
     {
       title: "Investigate Wire Transfers",
@@ -207,21 +202,28 @@ export default function ChatInterface() {
     <Box h="calc(100vh - 100px)" display="flex" flexDirection="column">
       <HStack justify="space-between" mb={4}>
         <Heading size="lg">AI Financial Advisor</Heading>
-        {sessionId && (
-          <Badge variant="outline">Session: {sessionId.slice(0, 8)}...</Badge>
-        )}
+        <HStack gap={2}>
+          {isStreaming && (
+            <Badge colorPalette="green" variant="solid" size="sm">
+              Streaming
+            </Badge>
+          )}
+          {sessionId && (
+            <Badge variant="outline">Session: {sessionId.slice(0, 8)}...</Badge>
+          )}
+        </HStack>
       </HStack>
 
       {/* Messages area */}
       <Card.Root flex="1" mb={4} overflow="hidden">
         <Card.Body overflowY="auto" display="flex" flexDirection="column" p={4}>
-          {messages.length === 0 ? (
+          {messages.length === 0 && !isStreaming ? (
             <VStack justify="center" flex="1" gap={6} py={4}>
               <VStack gap={1}>
-                <Heading size="md" color="gray.600">
+                <Heading size="md" color="fg.muted">
                   AI Financial Advisor
                 </Heading>
-                <Text color="gray.500" textAlign="center" fontSize="sm">
+                <Text color="fg.muted" textAlign="center" fontSize="sm">
                   Multi-agent compliance investigations powered by Google ADK
                   and Neo4j
                 </Text>
@@ -257,7 +259,7 @@ export default function ChatInterface() {
                             {item.title}
                           </Text>
                         </HStack>
-                        <Text fontSize="xs" color="gray.500" lineClamp={2}>
+                        <Text fontSize="xs" color="fg.muted" lineClamp={2}>
                           {item.prompt}
                         </Text>
                         <HStack gap={1} flexWrap="wrap" mt={1}>
@@ -280,17 +282,32 @@ export default function ChatInterface() {
             </VStack>
           ) : (
             <VStack align="stretch" gap={0}>
-              {messages.map((msg, i) => (
-                <ChatMessage key={i} message={msg} />
-              ))}
-              {chatMutation.isPending && (
-                <HStack alignSelf="flex-start" gap={2} p={4}>
-                  <Spinner size="sm" />
-                  <Text fontSize="sm" color="gray.500">
-                    Agents analyzing...
-                  </Text>
-                </HStack>
-              )}
+              <AnimatePresence>
+                {messages.map((msg, i) => (
+                  <ChatMessage key={i} message={msg} />
+                ))}
+              </AnimatePresence>
+
+              {/* Live agent orchestration view during streaming */}
+              <AnimatePresence>
+                {isStreaming && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    <Box mb={4}>
+                      <AgentOrchestrationView
+                        agentStates={agentStates}
+                        activeAgent={activeAgent}
+                        delegationChain={delegationChain}
+                        isStreaming={isStreaming}
+                      />
+                    </Box>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div ref={messagesEndRef} />
             </VStack>
           )}
@@ -304,22 +321,22 @@ export default function ChatInterface() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          disabled={chatMutation.isPending}
+          disabled={isStreaming}
           size="lg"
         />
         <Button
           colorPalette="blue"
           onClick={handleSend}
-          disabled={!input.trim() || chatMutation.isPending}
+          disabled={!input.trim() || isStreaming}
           size="lg"
         >
           <FiSend />
         </Button>
       </HStack>
 
-      {chatMutation.isError && (
+      {error && (
         <Text color="red.500" fontSize="sm" mt={2}>
-          Error: {(chatMutation.error as Error).message}
+          Error: {error}
         </Text>
       )}
     </Box>

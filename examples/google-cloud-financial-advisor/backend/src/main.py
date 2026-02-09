@@ -23,7 +23,7 @@ load_dotenv()  # also load backend/.env if present (overrides)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api.routes import alerts, chat, customers, graph, investigations
+from .api.routes import alerts, chat, customers, graph, investigations, traces
 from .config import get_settings
 from .services.memory_service import get_memory_service
 from .services.neo4j_service import Neo4jDomainService
@@ -113,6 +113,7 @@ app.include_router(customers.router, prefix="/api")
 app.include_router(investigations.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
 app.include_router(graph.router, prefix="/api")
+app.include_router(traces.router, prefix="/api")
 
 
 @app.get("/")

@@ -218,6 +218,9 @@ class FinancialMemoryService:
     ) -> None:
         """Store a conversation session.
 
+        Stores messages to Neo4j and triggers entity extraction
+        (via extract_on_store=True) to build the knowledge graph.
+
         Args:
             session_id: Session identifier.
             messages: List of messages with 'role' and 'content'.
@@ -226,7 +229,13 @@ class FinancialMemoryService:
             "id": session_id,
             "messages": messages,
         }
+        logger.info(
+            "Storing session %s (%d messages, extract_on_store=True)",
+            session_id,
+            len(messages),
+        )
         await self.adk_memory_service.add_session_to_memory(session)
+        logger.info("Session %s stored with entity extraction triggered", session_id)
 
     async def clear_session(self, session_id: str) -> None:
         """Clear all memories for a session.
