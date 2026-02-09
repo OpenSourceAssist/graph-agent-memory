@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Sanctioned Corp Ltd",
+    "list": "OFAC SDN",
+    "reason": "Narcotics trafficking",
+    "added": "2020-01-15",
+    "aliases": ["Sanctioned Corp", "SC Ltd"]
+  },
+  {
+    "name": "Bad Actor Holdings",
+    "list": "EU Consolidated",
+    "reason": "Human rights violations",
+    "added": "2021-03-22",
+    "aliases": []
+  },
+  {
+    "name": "Ivan Petrov",
+    "list": "OFAC SDN",
+    "reason": "Russian sanctions",
+    "added": "2022-02-28",
+    "aliases": ["I. Petrov", "Petrov Ivan"]
+  }
+]

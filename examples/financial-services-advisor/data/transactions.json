@@ -1,0 +1,179 @@
+[
+  {
+    "id": "TXN-001",
+    "from_account": "ACC-001",
+    "to_account": "ACC-003",
+    "amount": 50000.00,
+    "currency": "USD",
+    "type": "wire_transfer",
+    "timestamp": "2025-01-15T10:30:00Z",
+    "description": "Payment for consulting services",
+    "beneficiary": {
+      "name": "Global Trade Ltd",
+      "jurisdiction": "UK"
+    }
+  },
+  {
+    "id": "TXN-002",
+    "from_account": "ACC-003",
+    "to_account": null,
+    "amount": 125000.00,
+    "currency": "USD",
+    "type": "wire_transfer",
+    "timestamp": "2025-01-16T14:22:00Z",
+    "description": "Investment transfer",
+    "beneficiary": {
+      "name": "Pacific Holdings BVI",
+      "bank_name": "Caribbean International Bank",
+      "jurisdiction": "BVI"
+    }
+  },
+  {
+    "id": "TXN-003",
+    "from_account": "ACC-005",
+    "to_account": null,
+    "amount": 9800.00,
+    "currency": "USD",
+    "type": "wire_transfer",
+    "timestamp": "2025-01-17T09:15:00Z",
+    "description": "Dividend distribution",
+    "beneficiary": {
+      "name": "Offshore Services Ltd",
+      "jurisdiction": "Cayman Islands"
+    }
+  },
+  {
+    "id": "TXN-004",
+    "from_account": "ACC-005",
+    "to_account": null,
+    "amount": 9700.00,
+    "currency": "USD",
+    "type": "wire_transfer",
+    "timestamp": "2025-01-17T09:45:00Z",
+    "description": "Dividend distribution",
+    "beneficiary": {
+      "name": "Offshore Services Ltd",
+      "jurisdiction": "Cayman Islands"
+    }
+  },
+  {
+    "id": "TXN-005",
+    "from_account": "ACC-005",
+    "to_account": null,
+    "amount": 9600.00,
+    "currency": "USD",
+    "type": "wire_transfer",
+    "timestamp": "2025-01-17T10:15:00Z",
+    "description": "Dividend distribution",
+    "beneficiary": {
+      "name": "Offshore Services Ltd",
+      "jurisdiction": "Cayman Islands"
+    }
+  },
+  {
+    "id": "TXN-006",
+    "from_account": "ACC-006",
+    "to_account": "ACC-007",
+    "amount": 5000.00,
+    "currency": "USD",
+    "type": "internal_transfer",
+    "timestamp": "2025-01-18T11:00:00Z",
+    "description": "Savings transfer"
+  },
+  {
+    "id": "TXN-007",
+    "from_account": "ACC-009",
+    "to_account": null,
+    "amount": 250000.00,
+    "currency": "AED",
+    "type": "wire_transfer",
+    "timestamp": "2025-01-19T08:30:00Z",
+    "description": "Gold purchase",
+    "beneficiary": {
+      "name": "Dubai Gold Souk Trading",
+      "jurisdiction": "AE"
+    }
+  },
+  {
+    "id": "TXN-008",
+    "from_account": "ACC-010",
+    "to_account": null,
+    "amount": 75000.00,
+    "currency": "USD",
+    "type": "wire_transfer",
+    "timestamp": "2025-01-20T15:45:00Z",
+    "description": "Equipment purchase",
+    "beneficiary": {
+      "name": "Industrial Machinery Corp",
+      "jurisdiction": "CN"
+    }
+  },
+  {
+    "id": "TXN-009",
+    "from_account": "ACC-008",
+    "to_account": null,
+    "amount": 15000.00,
+    "currency": "USD",
+    "type": "wire_transfer",
+    "timestamp": "2025-01-21T12:00:00Z",
+    "description": "Political campaign contribution",
+    "beneficiary": {
+      "name": "Citizens for Progress PAC",
+      "jurisdiction": "US"
+    }
+  },
+  {
+    "id": "TXN-010",
+    "from_account": "ACC-013",
+    "to_account": null,
+    "amount": 9900.00,
+    "currency": "USD",
+    "type": "cash_deposit",
+    "timestamp": "2025-01-22T09:00:00Z",
+    "description": "Cash deposit"
+  },
+  {
+    "id": "TXN-011",
+    "from_account": "ACC-013",
+    "to_account": null,
+    "amount": 9850.00,
+    "currency": "USD",
+    "type": "cash_deposit",
+    "timestamp": "2025-01-22T14:30:00Z",
+    "description": "Cash deposit"
+  },
+  {
+    "id": "TXN-012",
+    "from_account": "ACC-013",
+    "to_account": null,
+    "amount": 9750.00,
+    "currency": "USD",
+    "type": "cash_deposit",
+    "timestamp": "2025-01-23T10:15:00Z",
+    "description": "Cash deposit"
+  },
+  {
+    "id": "TXN-013",
+    "from_account": "ACC-011",
+    "to_account": "ACC-012",
+    "amount": 500000.00,
+    "currency": "NOK",
+    "type": "internal_transfer",
+    "timestamp": "2025-01-24T16:00:00Z",
+    "description": "Investment allocation"
+  },
+  {
+    "id": "TXN-014",
+    "from_account": "ACC-012",
+    "to_account": null,
+    "amount": 100000.00,
+    "currency": "USD",
+    "type": "wire_transfer",
+    "timestamp": "2025-01-25T11:30:00Z",
+    "description": "Startup investment",
+    "beneficiary": {
+      "name": "TechStartup Inc",
+      "jurisdiction": "US"
+    }
+  }
+]

@@ -1,0 +1,243 @@
+[
+  {
+    "id": "CUST-001",
+    "name": "Acme Corporation",
+    "type": "corporate",
+    "industry": "technology",
+    "jurisdiction": "US",
+    "risk_level": "low",
+    "tax_id": "12-3456789",
+    "contacts": [
+      {
+        "name": "John Smith",
+        "role": "CEO",
+        "email": "john.smith@acme.example.com",
+        "phone": "+1-555-0101",
+        "pep_status": false
+      },
+      {
+        "name": "Jane Doe",
+        "role": "CFO",
+        "email": "jane.doe@acme.example.com",
+        "phone": "+1-555-0102",
+        "pep_status": false
+      }
+    ],
+    "accounts": [
+      {
+        "id": "ACC-001",
+        "type": "business_checking",
+        "currency": "USD",
+        "status": "active"
+      },
+      {
+        "id": "ACC-002",
+        "type": "business_savings",
+        "currency": "USD",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "CUST-002",
+    "name": "Global Trade Ltd",
+    "type": "corporate",
+    "industry": "import_export",
+    "jurisdiction": "UK",
+    "risk_level": "medium",
+    "tax_id": "GB123456789",
+    "contacts": [
+      {
+        "name": "Robert Chen",
+        "role": "Managing Director",
+        "email": "r.chen@globaltrade.example.com",
+        "phone": "+44-20-7123-4567",
+        "pep_status": false
+      }
+    ],
+    "accounts": [
+      {
+        "id": "ACC-003",
+        "type": "business_checking",
+        "currency": "GBP",
+        "status": "active"
+      },
+      {
+        "id": "ACC-004",
+        "type": "business_checking",
+        "currency": "USD",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "CUST-003",
+    "name": "Pacific Holdings BVI",
+    "type": "corporate",
+    "industry": "investment",
+    "jurisdiction": "BVI",
+    "risk_level": "high",
+    "tax_id": "BVI-2024-001234",
+    "contacts": [
+      {
+        "name": "Michael Wong",
+        "role": "Director",
+        "email": "m.wong@pacificholdings.example.com",
+        "phone": "+1-284-555-0199",
+        "pep_status": false
+      }
+    ],
+    "accounts": [
+      {
+        "id": "ACC-005",
+        "type": "investment",
+        "currency": "USD",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "CUST-004",
+    "name": "Maria Garcia",
+    "type": "individual",
+    "jurisdiction": "US",
+    "risk_level": "low",
+    "contacts": [
+      {
+        "name": "Maria Garcia",
+        "role": "Account Holder",
+        "email": "maria.garcia@example.com",
+        "phone": "+1-555-0150",
+        "pep_status": false
+      }
+    ],
+    "accounts": [
+      {
+        "id": "ACC-006",
+        "type": "personal_checking",
+        "currency": "USD",
+        "status": "active"
+      },
+      {
+        "id": "ACC-007",
+        "type": "personal_savings",
+        "currency": "USD",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "CUST-005",
+    "name": "Ambassador James Wilson",
+    "type": "individual",
+    "jurisdiction": "US",
+    "risk_level": "high",
+    "contacts": [
+      {
+        "name": "James Wilson",
+        "role": "Account Holder",
+        "email": "james.wilson@example.com",
+        "phone": "+1-555-0175",
+        "pep_status": true
+      }
+    ],
+    "accounts": [
+      {
+        "id": "ACC-008",
+        "type": "personal_checking",
+        "currency": "USD",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "CUST-006",
+    "name": "Desert Sands Trading LLC",
+    "type": "corporate",
+    "industry": "precious_metals",
+    "jurisdiction": "AE",
+    "risk_level": "high",
+    "tax_id": "AE-TRN-123456",
+    "contacts": [
+      {
+        "name": "Ahmed Al-Rashid",
+        "role": "Owner",
+        "email": "a.alrashid@desertsands.example.com",
+        "phone": "+971-4-555-0100",
+        "pep_status": false
+      }
+    ],
+    "accounts": [
+      {
+        "id": "ACC-009",
+        "type": "business_checking",
+        "currency": "AED",
+        "status": "active"
+      },
+      {
+        "id": "ACC-010",
+        "type": "business_checking",
+        "currency": "USD",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "CUST-007",
+    "name": "Nordic Ventures AS",
+    "type": "corporate",
+    "industry": "venture_capital",
+    "jurisdiction": "NO",
+    "risk_level": "low",
+    "tax_id": "NO123456789MVA",
+    "contacts": [
+      {
+        "name": "Erik Larsson",
+        "role": "Partner",
+        "email": "e.larsson@nordicventures.example.com",
+        "phone": "+47-22-555-0100",
+        "pep_status": false
+      }
+    ],
+    "accounts": [
+      {
+        "id": "ACC-011",
+        "type": "business_checking",
+        "currency": "NOK",
+        "status": "active"
+      },
+      {
+        "id": "ACC-012",
+        "type": "investment",
+        "currency": "USD",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "CUST-008",
+    "name": "Sunrise Construction Co",
+    "type": "corporate",
+    "industry": "construction",
+    "jurisdiction": "US",
+    "risk_level": "medium",
+    "tax_id": "45-6789012",
+    "contacts": [
+      {
+        "name": "David Miller",
+        "role": "President",
+        "email": "d.miller@sunriseconstruction.example.com",
+        "phone": "+1-555-0200",
+        "pep_status": false
+      }
+    ],
+    "accounts": [
+      {
+        "id": "ACC-013",
+        "type": "business_checking",
+        "currency": "USD",
+        "status": "active"
+      }
+    ]
+  }
+]
