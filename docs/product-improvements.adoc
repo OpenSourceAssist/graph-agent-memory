@@ -60,6 +60,16 @@ This document tracks product improvement suggestions identified during the devel
 * <<api-docs-generation,Automated API Reference Generation>>
 * <<version-matrix-testing,Documentation Version Matrix Testing>>
 
+=== Implemented (v0.0.4)
+
+.Domain Data Access & Financial Advisor
+* <<memoryclient-graph-property,MemoryClient.graph Property>> ✅
+* <<neo4j-domain-service,Neo4jDomainService Pattern>> ✅
+* <<bind-tool-pattern,_bind_tool ADK Function Signature Pattern>> ✅
+* <<financial-advisor-neo4j-wiring,Financial Advisor Neo4j Wiring>> ✅
+* <<domain-data-loading,Domain Data Loading (Sanctions, PEP, Alerts)>> ✅
+* <<neo4j-integration-tests,Neo4j Integration Test Suite>> ✅
+
 === Implemented (v0.0.3)
 
 .Google Cloud Integration
@@ -1113,6 +1123,178 @@ gcloud run deploy neo4j-memory-mcp \
   --region us-central1 \
   --set-secrets NEO4J_URI=neo4j-uri:latest,NEO4J_PASSWORD=neo4j-password:latest
 ----
+
+
+== v0.0.4 Roadmap (Implemented)
+
+The following features were implemented as part of the v0.0.4 Domain Data Access & Financial Advisor release.
+
+=== Package Enhancement
+
+[[memoryclient-graph-property]]
+==== MemoryClient.graph Property ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `neo4j_agent_memory.MemoryClient.graph` property exposing `Neo4jClient`
+
+**Features Implemented**:
+
+* `graph` property on `MemoryClient` that exposes the underlying `Neo4jClient` instance
+* Allows applications to run custom Cypher queries alongside memory operations without creating a separate Neo4j connection
+* `execute_read()` and `execute_write()` methods for running arbitrary Cypher with parameters
+* Raises `RuntimeError` if accessed before `connect()` is called
+* Non-breaking addition — existing code is unaffected
+
+.Usage Example
+[source,python]
+----
+async with MemoryClient(settings) as client:
+    # Use memory APIs as usual
+    await client.short_term.add_messages(session_id, messages)
+
+    # Also run custom domain queries on the same connection
+    result = await client.graph.execute_read(
+        "MATCH (c:Customer {id: $id}) RETURN c",
+        {"id": "CUST-001"}
+    )
+----
+
+'''
+
+=== Example Application Patterns
+
+[[neo4j-domain-service]]
+==== Neo4jDomainService Pattern ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `examples/google-cloud/financial-advisor/backend/src/services/neo4j_service.py`
+
+**Features Implemented**:
+
+* `Neo4jDomainService` class that wraps `MemoryClient.graph` for domain-specific Cypher queries
+* 21 async methods organized by domain: customers, transactions, network/relationships, alerts
+* Customer queries: `list_customers()`, `get_customer()`, `get_customer_risk()`
+* Transaction queries: `get_transactions()`, `detect_structuring()`, `detect_rapid_movement()`, `detect_layering()`, `get_velocity_metrics()`
+* Network queries: `find_connections()`, `detect_shell_companies()`, `trace_ownership()`, `get_network_risk()`
+* Alert CRUD: `list_alerts()`, `get_alert()`, `create_alert()`, `update_alert()`, `get_alert_summary()`
+* Compliance queries: `check_sanctions()`, `check_pep_status()`
+* Clean separation: domain data via Cypher, agent memory via neo4j-agent-memory APIs
+
+.Architecture
+[source]
+----
+MemoryClient
+├── short_term    → Agent conversation memory
+├── long_term     → Entity extraction, preferences
+├── reasoning     → Trace storage
+└── graph         → Neo4jClient
+    └── Neo4jDomainService  → Domain-specific Cypher queries
+        ├── Customer queries
+        ├── Transaction queries
+        ├── Network queries
+        ├── Alert CRUD
+        └── Compliance checks
+----
+
+'''
+
+[[bind-tool-pattern]]
+==== _bind_tool ADK Function Signature Pattern ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED**
+Implementation:: `examples/google-cloud/financial-advisor/backend/src/agents/kyc_agent.py` (and all agent modules)
+
+**Features Implemented**:
+
+* `_bind_tool()` helper that injects `neo4j_service` into tool functions while hiding it from ADK's `FunctionTool` signature inspection
+* Uses `inspect.signature()` to build a new signature excluding the `neo4j_service` parameter
+* Uses `functools.wraps` to preserve the original function's name and docstring (which ADK uses for tool descriptions)
+* Solves the problem of ADK treating all function parameters as agent-callable — services should not be exposed to the LLM
+
+.Pattern
+[source,python]
+----
+def _bind_tool(func, neo4j_service):
+    """Bind neo4j_service to a tool function, hiding it from ADK."""
+    @wraps(func)
+    async def wrapper(**kwargs):
+        return await func(neo4j_service=neo4j_service, **kwargs)
+
+    # Remove neo4j_service from the visible signature
+    sig = inspect.signature(func)
+    params = [p for name, p in sig.parameters.items() if name != "neo4j_service"]
+    wrapper.__signature__ = sig.replace(parameters=params)
+    return wrapper
+----
+
+'''
+
+[[financial-advisor-neo4j-wiring]]
+==== Financial Advisor Neo4j Wiring ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: 16 tool functions across 4 modules, 2 API route modules, app startup in `main.py`
+
+**Features Implemented**:
+
+* **KYC tools** (`kyc_tools.py`): `verify_identity()`, `check_documents()`, `assess_customer_risk()`, `check_adverse_media()` — all query Neo4j for customer data, documents, and risk factors
+* **AML tools** (`aml_tools.py`): `scan_transactions()`, `detect_patterns()`, `flag_suspicious_transaction()`, `analyze_velocity()` — Cypher-based transaction analysis, pattern detection (structuring, rapid movement, layering), and alert creation
+* **Relationship tools** (`relationship_tools.py`): `find_connections()`, `analyze_network_risk()`, `detect_shell_companies()`, `map_beneficial_ownership()` — variable-length path queries, shell company detection, ownership chain traversal
+* **Compliance tools** (`compliance_tools.py`): `check_sanctions()`, `verify_pep_status()`, `generate_sar_report()`, `assess_regulatory_requirements()` — sanctions/PEP screening via Neo4j nodes, SAR report generation from live data
+* **Customer API** (`customers.py`): List, detail, and risk endpoints backed by `Neo4jDomainService`
+* **Alerts API** (`alerts.py`): Full CRUD plus summary dashboard backed by `Neo4jDomainService`
+* **App startup** (`main.py`): `Neo4jDomainService` initialized in lifespan, stored on `app.state`
+
+'''
+
+[[domain-data-loading]]
+==== Domain Data Loading (Sanctions, PEP, Alerts) ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED**
+Implementation:: `data/load_sample_data.py`, `data/sanctions.json`, `data/pep.json`, `data/alerts.json`
+
+**Features Implemented**:
+
+* **Sanctions data** (`sanctions.json`): Sanctioned entities with aliases, programs, jurisdictions, and identification details; loaded as `(:SanctionedEntity)` and `(:SanctionAlias)` nodes
+* **PEP data** (`pep.json`): Politically Exposed Persons with positions, countries, risk levels, associated persons, and financial disclosures; loaded as `(:PEP)` nodes
+* **Alert data** (`alerts.json`): Pre-built compliance alerts with severity, status, descriptions, and linked customers/transactions; loaded as `(:Alert)` nodes with `(:Customer)-[:HAS_ALERT]->(:Alert)` relationships
+* **Enhanced customer data** (`customers.json`): Added `date_of_birth`, `nationality`, `address`, `occupation`, `employer`, `account_opened`, `kyc_status`, `documents` array, and `business_type`/`directors` for corporate customers
+* **Document nodes**: `(:Customer)-[:HAS_DOCUMENT]->(:Document)` relationships with `type`, `status`, `expiry_date`
+* Neo4j constraints for all new node types (`SanctionedEntity`, `PEP`, `Alert`, `Document`)
+* Idempotent loading via `MERGE` — safe to re-run
+
+'''
+
+[[neo4j-integration-tests]]
+==== Neo4j Integration Test Suite ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED**
+Implementation:: `tests/examples/test_financial_advisor_neo4j_integration.py`
+
+**Features Implemented**:
+
+* 82 unit tests covering all new Financial Advisor functionality
+* `TestNeo4jDomainService` (36 tests): Verifies all 21 service methods with mocked Neo4j driver, validates Cypher query structure and parameter passing
+* `TestToolFunctions` (23 tests): Tests all 16 tool functions with mock `Neo4jDomainService`, validates return structures and error handling
+* `TestAgentWiring` (4 tests): Verifies `_bind_tool()` pattern exists in all agent modules
+* `TestCustomerRouteHelpers` (3 tests): Tests `_compute_risk()` helper and risk level computation
+* `TestAlertRouteHelpers` (3 tests): Tests `_to_python_datetime()` Neo4j DateTime conversion
+* `TestMemoryClientGraphProperty` (2 tests): Validates `MemoryClient.graph` property exists and is documented
+* `TestNewFileStructure` (11 tests): Validates all new files exist with correct structure (JSON schemas, Python syntax)
+* Custom module loading infrastructure that handles relative imports without requiring ADK/FastAPI dependencies
+* Runs without Neo4j connection (all Neo4j calls mocked)
 
 
 == Contributing
