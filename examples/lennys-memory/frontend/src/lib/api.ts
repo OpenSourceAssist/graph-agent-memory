@@ -5,9 +5,6 @@
 import type {
   Thread,
   ThreadWithMessages,
-  Preference,
-  Entity,
-  MemoryContext,
   MemoryGraph,
   LocationEntity,
   SSEEvent,
@@ -15,27 +12,46 @@ import type {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
+// Default timeout for API requests (10 seconds)
+const DEFAULT_TIMEOUT = 10000;
+
 /**
- * Generic fetch wrapper with error handling.
+ * Generic fetch wrapper with error handling and timeout.
  */
 async function fetchAPI<T>(
   endpoint: string,
-  options?: RequestInit,
+  options?: RequestInit & { timeout?: number },
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options || {};
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(error || `HTTP ${response.status}`);
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...fetchOptions,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...fetchOptions?.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Request timed out");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response.json();
 }
 
 // Thread API
@@ -59,107 +75,15 @@ export const threads = {
     }),
 };
 
-// Preferences API
-export const preferences = {
-  list: (category?: string) =>
-    fetchAPI<Preference[]>(
-      `/preferences${category ? `?category=${category}` : ""}`,
-    ),
-
-  add: (category: string, preference: string, context?: string) =>
-    fetchAPI<Preference>("/preferences", {
-      method: "POST",
-      body: JSON.stringify({ category, preference, context }),
-    }),
-
-  delete: (id: string) =>
-    fetchAPI<{ status: string }>(`/preferences/${id}`, { method: "DELETE" }),
-};
-
-// Entities API
-export const entities = {
-  list: (type?: string, query?: string) => {
-    const params = new URLSearchParams();
-    if (type) params.set("type", type);
-    if (query) params.set("query", query);
-    const queryStr = params.toString();
-    return fetchAPI<Entity[]>(`/entities${queryStr ? `?${queryStr}` : ""}`);
-  },
-
-  /**
-   * Get most mentioned entities across all podcasts.
-   */
-  top: (entityType?: string, limit: number = 10) => {
-    const params = new URLSearchParams();
-    if (entityType) params.set("entity_type", entityType);
-    params.set("limit", String(limit));
-    return fetchAPI<
-      Array<{
-        id: string;
-        name: string;
-        type: string;
-        subtype?: string;
-        description?: string;
-        wikipedia_url?: string;
-        enriched_description?: string;
-        mentions: number;
-      }>
-    >(`/entities/top?${params}`);
-  },
-
-  /**
-   * Get full context for an entity including enrichment and mentions.
-   */
-  context: (entityName: string) =>
-    fetchAPI<{
-      entity: {
-        id: string;
-        name: string;
-        type: string;
-        subtype?: string;
-        description?: string;
-        enriched_description?: string;
-        wikipedia_url?: string;
-      };
-      mentions: Array<{
-        content: string;
-        speaker: string;
-        session_id: string;
-      }>;
-    }>(`/entities/${encodeURIComponent(entityName)}/context`),
-
-  /**
-   * Get entities related to a given entity through co-occurrence.
-   */
-  related: (entityName: string, limit: number = 10) =>
-    fetchAPI<
-      Array<{
-        id: string;
-        name: string;
-        type: string;
-        subtype?: string;
-        description?: string;
-        co_occurrences: number;
-      }>
-    >(`/entities/related/${encodeURIComponent(entityName)}?limit=${limit}`),
-};
-
 // Memory API
 export const memory = {
-  getContext: (threadId?: string, query?: string) => {
-    const params = new URLSearchParams();
-    if (threadId) params.set("thread_id", threadId);
-    if (query) params.set("query", query);
-    const queryStr = params.toString();
-    return fetchAPI<MemoryContext>(
-      `/memory/context${queryStr ? `?${queryStr}` : ""}`,
-    );
-  },
-
-  getGraph: (threadId?: string) => {
+  getGraph: (threadId?: string, episodeSessionIds?: string[]) => {
     const params = new URLSearchParams();
     if (threadId) {
       params.set("session_id", threadId);
+    }
+    if (episodeSessionIds && episodeSessionIds.length > 0) {
+      params.set("episode_session_ids", episodeSessionIds.join(","));
     }
     const query = params.toString();
     return fetchAPI<MemoryGraph>(`/memory/graph${query ? `?${query}` : ""}`);
@@ -371,8 +295,6 @@ export async function* streamChat(
 
 export const api = {
   threads,
-  preferences,
-  entities,
   memory,
   locations,
   streamChat,

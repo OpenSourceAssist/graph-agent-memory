@@ -1,4 +1,6 @@
 = POLE+O Data Model
+:page-product: agent-memory
+:page-pagination:
 :toc: left
 :toclevels: 3
 :sectanchors:
@@ -621,6 +623,6 @@ For each entity, also identify:
 
 == Next Steps
 
-* xref:../how-to/entity-extraction.adoc[Configure the extraction pipeline]
-* xref:../memory-types.adoc[Work with entities in long-term memory]
-* xref:../reference/configuration.adoc[Full configuration reference]
+* xref:how-to/entity-extraction.adoc[Configure the extraction pipeline]
+* xref:explanation/memory-types.adoc[Work with entities in long-term memory]
+* xref:reference/configuration.adoc[Full configuration reference]

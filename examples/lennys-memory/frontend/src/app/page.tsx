@@ -1,70 +1,84 @@
 "use client";
 
 import { Flex, useBreakpointValue, IconButton } from "@chakra-ui/react";
-import { useState } from "react";
-import { LuBrain } from "react-icons/lu";
+import { useState, useCallback } from "react";
+import { LuBot } from "react-icons/lu";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ChatContainer } from "@/components/chat/ChatContainer";
 import { MemoryContextPanel } from "@/components/memory/MemoryContext";
-import { useThreads } from "@/hooks/useThreads";
+import { useQuickStart } from "@/hooks/useQuickStart";
 import { useChat } from "@/hooks/useChat";
+import type { QuickStartSuggestion } from "@/lib/types";
 
 export default function Home() {
-  const { threads, activeThreadId, createThread, deleteThread, selectThread } =
-    useThreads();
-
   const {
     messages,
+    threadId,
     isStreaming,
-    memoryEnabled,
-    setMemoryEnabled,
+    error,
     sendMessage,
-  } = useChat(activeThreadId);
+    startNewConversation,
+    clearError,
+  } = useChat();
 
-  // Mobile memory panel state (separate from memoryEnabled toggle)
-  const [mobileMemoryOpen, setMobileMemoryOpen] = useState(false);
-  const isMobile = useBreakpointValue({ base: true, lg: false });
+  const { suggestions, isLoading: isLoadingSuggestions } = useQuickStart(10);
+
+  // Mobile panel state
+  const [mobileConfigOpen, setMobileConfigOpen] = useState(false);
+  // Default to false during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, lg: false }) ?? false;
+
+  // Handle selecting a quick-start suggestion
+  const handleSelectSuggestion = useCallback(
+    async (suggestion: QuickStartSuggestion) => {
+      await startNewConversation(suggestion.firstMessage);
+    },
+    [startNewConversation],
+  );
+
+  // Handle starting a new blank conversation
+  const handleNewConversation = useCallback(() => {
+    startNewConversation();
+  }, [startNewConversation]);
 
   return (
     <AppLayout
-      threads={threads}
-      activeThreadId={activeThreadId}
-      onSelectThread={selectThread}
-      onCreateThread={createThread}
-      onDeleteThread={deleteThread}
-      memoryEnabled={memoryEnabled}
-      onToggleMemory={setMemoryEnabled}
+      suggestions={suggestions}
+      isLoadingSuggestions={isLoadingSuggestions}
+      onNewConversation={handleNewConversation}
+      onSelectSuggestion={handleSelectSuggestion}
+      hasActiveConversation={messages.length > 0}
     >
       <Flex h="full" position="relative">
         <ChatContainer
           messages={messages}
           isStreaming={isStreaming}
+          error={error}
           onSendMessage={sendMessage}
-          threadId={activeThreadId}
+          onClearError={clearError}
         />
 
-        {/* Desktop: Always show panel when memoryEnabled */}
-        {/* Mobile: Show bottom sheet only when mobileMemoryOpen */}
+        {/* Desktop: Always show config panel */}
+        {/* Mobile: Show bottom sheet only when mobileConfigOpen */}
         <MemoryContextPanel
-          threadId={activeThreadId}
-          isVisible={isMobile ? mobileMemoryOpen : memoryEnabled}
-          onClose={() => setMobileMemoryOpen(false)}
+          isVisible={isMobile ? mobileConfigOpen : true}
+          onClose={() => setMobileConfigOpen(false)}
         />
 
-        {/* Mobile FAB to open memory context */}
-        {isMobile && memoryEnabled && !mobileMemoryOpen && (
+        {/* Mobile FAB to open agent config */}
+        {isMobile && !mobileConfigOpen && (
           <IconButton
-            aria-label="View memory context"
+            aria-label="View agent configuration"
             position="absolute"
             bottom="100px"
             right="4"
             borderRadius="full"
             size="lg"
-            colorPalette="blue"
+            colorPalette="brand"
             boxShadow="lg"
-            onClick={() => setMobileMemoryOpen(true)}
+            onClick={() => setMobileConfigOpen(true)}
           >
-            <LuBrain />
+            <LuBot />
           </IconButton>
         )}
       </Flex>

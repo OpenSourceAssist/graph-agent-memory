@@ -11,51 +11,47 @@ import {
   Drawer,
   Portal,
   CloseButton,
-  Menu,
+  Badge,
+  Link,
   useBreakpointValue,
 } from "@chakra-ui/react";
 import {
   LuPanelLeftClose,
   LuPanelLeft,
-  LuMapPin,
   LuMenu,
-  LuEllipsisVertical,
+  LuBrain,
+  LuExternalLink,
+  LuInfo,
 } from "react-icons/lu";
-import { HiOutlineShare } from "react-icons/hi";
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
-import MemoryGraphView from "@/components/memory/MemoryGraphView";
-import MemoryMapView from "@/components/memory/MemoryMapView";
-import type { Thread } from "@/lib/types";
+import { Footer } from "./Footer";
+import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
+import type { QuickStartSuggestion } from "@/lib/types";
 
 interface AppLayoutProps {
   children: React.ReactNode;
-  threads: Thread[];
-  activeThreadId: string | null;
-  onSelectThread: (id: string) => void;
-  onCreateThread: () => void;
-  onDeleteThread: (id: string) => void;
-  memoryEnabled: boolean;
-  onToggleMemory: (enabled: boolean) => void;
+  suggestions: QuickStartSuggestion[];
+  isLoadingSuggestions: boolean;
+  onNewConversation: () => void;
+  onSelectSuggestion: (suggestion: QuickStartSuggestion) => void;
+  hasActiveConversation: boolean;
 }
 
 export function AppLayout({
   children,
-  threads,
-  activeThreadId,
-  onSelectThread,
-  onCreateThread,
-  onDeleteThread,
-  memoryEnabled,
-  onToggleMemory,
+  suggestions,
+  isLoadingSuggestions,
+  onNewConversation,
+  onSelectSuggestion,
+  hasActiveConversation,
 }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [graphViewOpen, setGraphViewOpen] = useState(false);
-  const [mapViewOpen, setMapViewOpen] = useState(false);
+  const [aboutModalOpen, setAboutModalOpen] = useState(false);
 
-  // Detect mobile viewport
-  const isMobile = useBreakpointValue({ base: true, md: false });
+  // Detect mobile viewport - default to false during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, md: false }) ?? false;
 
   return (
     <Flex h="100vh" overflow="hidden" bg="bg.canvas">
@@ -70,13 +66,11 @@ export function AppLayout({
           hideBelow="md"
         >
           <Sidebar
-            threads={threads}
-            activeThreadId={activeThreadId}
-            onSelectThread={onSelectThread}
-            onCreateThread={onCreateThread}
-            onDeleteThread={onDeleteThread}
-            memoryEnabled={memoryEnabled}
-            onToggleMemory={onToggleMemory}
+            suggestions={suggestions}
+            isLoading={isLoadingSuggestions}
+            onNewConversation={onNewConversation}
+            onSelectSuggestion={onSelectSuggestion}
+            hasActiveConversation={hasActiveConversation}
           />
         </Box>
       )}
@@ -100,19 +94,12 @@ export function AppLayout({
                 <CloseButton size="sm" />
               </Drawer.CloseTrigger>
               <Sidebar
-                threads={threads}
-                activeThreadId={activeThreadId}
-                onSelectThread={(id) => {
-                  onSelectThread(id);
-                  setMobileMenuOpen(false);
-                }}
-                onCreateThread={() => {
-                  onCreateThread();
-                  setMobileMenuOpen(false);
-                }}
-                onDeleteThread={onDeleteThread}
-                memoryEnabled={memoryEnabled}
-                onToggleMemory={onToggleMemory}
+                suggestions={suggestions}
+                isLoading={isLoadingSuggestions}
+                onNewConversation={onNewConversation}
+                onSelectSuggestion={onSelectSuggestion}
+                hasActiveConversation={hasActiveConversation}
+                onSidebarAction={() => setMobileMenuOpen(false)}
               />
             </Drawer.Content>
           </Drawer.Positioner>
@@ -131,7 +118,7 @@ export function AppLayout({
           borderColor="border.subtle"
           bg="bg.panel"
         >
-          <Flex alignItems="center">
+          <Flex alignItems="center" gap={2}>
             {/* Mobile hamburger menu */}
             <IconButton
               aria-label="Open menu"
@@ -154,91 +141,94 @@ export function AppLayout({
               {sidebarOpen ? <LuPanelLeftClose /> : <LuPanelLeft />}
             </IconButton>
 
-            <Text
-              ml={{ base: 2, md: 3 }}
-              fontWeight="medium"
-              color="fg.default"
-              fontSize={{ base: "sm", md: "md" }}
-            >
-              <Text as="span" hideBelow="sm">
-                Lenny's Podcast Explorer
+            {/* Logo and title */}
+            <Flex alignItems="center" gap={2}>
+              <Box color="brand.500">
+                <LuBrain size={20} />
+              </Box>
+              <Text
+                fontWeight="semibold"
+                color="fg.default"
+                fontSize={{ base: "sm", md: "md" }}
+                fontFamily="heading"
+              >
+                <Text as="span" hideBelow="sm">
+                  Lenny's Memory
+                </Text>
+                <Text as="span" hideFrom="sm">
+                  Lenny's Memory
+                </Text>
               </Text>
-              <Text as="span" hideFrom="sm">
-                Lenny's Podcast
-              </Text>
-            </Text>
+              <Badge
+                size="sm"
+                colorPalette="brand"
+                variant="subtle"
+                hideBelow="sm"
+              >
+                Beta
+              </Badge>
+            </Flex>
           </Flex>
 
           {/* Desktop action buttons */}
-          <HStack gap={2} hideBelow="sm">
+          <HStack gap={2} hideBelow="md">
             <Button
               size="sm"
-              variant="outline"
-              onClick={() => setMapViewOpen(true)}
+              variant="ghost"
+              onClick={() => setAboutModalOpen(true)}
             >
-              <LuMapPin />
-              <Text ml="2">View Map</Text>
+              <LuInfo size={16} />
+              <Text ml="1.5">About</Text>
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setGraphViewOpen(true)}
+            <Link
+              href="https://github.com/neo4j-labs/agent-memory"
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              <HiOutlineShare />
-              <Text ml="2">View Graph</Text>
-            </Button>
+              <Button size="sm" variant="ghost" colorPalette="brand">
+                <LuExternalLink size={16} />
+                <Text ml="1.5" hideBelow="lg">
+                  GitHub
+                </Text>
+              </Button>
+            </Link>
           </HStack>
 
-          {/* Mobile action menu */}
-          <Menu.Root>
-            <Menu.Trigger asChild>
-              <IconButton
-                aria-label="More options"
-                variant="ghost"
-                size="sm"
-                hideFrom="sm"
-              >
-                <LuEllipsisVertical />
+          {/* Mobile action buttons */}
+          <HStack gap={1} hideFrom="md">
+            <IconButton
+              aria-label="About"
+              variant="ghost"
+              size="sm"
+              onClick={() => setAboutModalOpen(true)}
+            >
+              <LuInfo />
+            </IconButton>
+            <Link
+              href="https://github.com/neo4j-labs/agent-memory"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <IconButton aria-label="GitHub" variant="ghost" size="sm">
+                <LuExternalLink />
               </IconButton>
-            </Menu.Trigger>
-            <Portal>
-              <Menu.Positioner>
-                <Menu.Content>
-                  <Menu.Item value="map" onClick={() => setMapViewOpen(true)}>
-                    <LuMapPin />
-                    <Text ml="2">View Map</Text>
-                  </Menu.Item>
-                  <Menu.Item
-                    value="graph"
-                    onClick={() => setGraphViewOpen(true)}
-                  >
-                    <HiOutlineShare />
-                    <Text ml="2">View Graph</Text>
-                  </Menu.Item>
-                </Menu.Content>
-              </Menu.Positioner>
-            </Portal>
-          </Menu.Root>
+            </Link>
+          </HStack>
         </Flex>
 
         {/* Content area */}
         <Box flex="1" overflow="hidden">
           {children}
         </Box>
+
+        {/* Footer with Labs branding */}
+        <Footer />
       </Stack>
 
-      {/* Memory Graph View Modal */}
-      <MemoryGraphView
-        isOpen={graphViewOpen}
-        onClose={() => setGraphViewOpen(false)}
-        threadId={activeThreadId || undefined}
-      />
-
-      {/* Memory Map View Modal */}
-      <MemoryMapView
-        isOpen={mapViewOpen}
-        onClose={() => setMapViewOpen(false)}
-        threadId={activeThreadId || undefined}
+      {/* About Modal */}
+      <WelcomeModal
+        isOpen={aboutModalOpen}
+        onClose={() => setAboutModalOpen(false)}
       />
     </Flex>
   );

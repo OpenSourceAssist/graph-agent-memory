@@ -1,4 +1,6 @@
 = Choosing an Agent Framework Integration
+:page-product: agent-memory
+:page-pagination:
 :description: Compare Neo4j Agent Memory integrations for LangChain, PydanticAI, LlamaIndex, CrewAI, and OpenAI Agents SDK.
 :keywords: agent, framework, comparison, langchain, pydantic-ai, llamaindex, crewai, openai
 

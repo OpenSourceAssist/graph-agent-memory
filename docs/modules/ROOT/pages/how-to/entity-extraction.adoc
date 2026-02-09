@@ -1,4 +1,6 @@
 = Configure Entity Extraction
+:page-product: agent-memory
+:page-pagination:
 :toc: right
 :toclevels: 3
 :sectanchors:
@@ -801,7 +803,7 @@ await log_metrics(metrics)
 
 == See Also
 
-* xref:../reference/schemas.adoc[Domain Schemas Reference]
-* xref:../reference/extractors.adoc[Extractor Classes Reference]
-* xref:deduplication.adoc[Handle Duplicate Entities]
-* xref:../explanation/extraction-pipeline.adoc[How Entity Extraction Works]
+* xref:reference/schemas.adoc[Domain Schemas Reference]
+* xref:reference/extractors.adoc[Extractor Classes Reference]
+* xref:how-to/deduplication.adoc[Handle Duplicate Entities]
+* xref:explanation/extraction-pipeline.adoc[How Entity Extraction Works]

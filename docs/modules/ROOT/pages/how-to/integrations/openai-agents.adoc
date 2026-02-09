@@ -1,4 +1,6 @@
 = OpenAI Agents SDK Integration
+:page-product: agent-memory
+:page-pagination:
 :description: Integrate Neo4j Agent Memory with OpenAI's Agents SDK for persistent memory and knowledge management.
 :keywords: openai, agents, memory, neo4j, function calling
 

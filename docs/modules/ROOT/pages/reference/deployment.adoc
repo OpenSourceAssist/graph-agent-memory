@@ -1,4 +1,6 @@
 = Documentation Deployment Guide
+:page-product: agent-memory
+:page-pagination:
 :toc: left
 :toclevels: 3
 :source-highlighter: highlight.js
@@ -192,7 +194,7 @@ When deploying applications using neo4j-agent-memory, you may need these environ
 | Optional
 |===
 
-See xref:configuration.adoc[Configuration Reference] for all available settings.
+See xref:reference/configuration.adoc[Configuration Reference] for all available settings.
 
 == Automatic Deployments
 

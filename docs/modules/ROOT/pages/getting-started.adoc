@@ -1,4 +1,6 @@
 = Getting Started
+:page-product: agent-memory
+:page-pagination:
 :toc: left
 :toclevels: 3
 :sectanchors:
@@ -266,7 +268,7 @@ async with MemoryClient(settings) as memory:
     )
 ----
 
-See xref:configuration.adoc#_geocoding_configuration[Geocoding Configuration] for more details.
+See xref:reference/configuration.adoc#_geocoding_configuration[Geocoding Configuration] for more details.
 
 == Configuration with Environment Variables
 
@@ -329,7 +331,7 @@ except NotConnectedError as e:
 
 == Next Steps
 
-* xref:memory-types.adoc[Learn about the three memory types]
-* xref:entity-extraction.adoc[Configure entity extraction]
-* xref:poleo-model.adoc[Understand the POLE+O data model]
-* xref:configuration.adoc[Explore all configuration options]
+* xref:explanation/memory-types.adoc[Learn about the three memory types]
+* xref:how-to/entity-extraction.adoc[Configure entity extraction]
+* xref:explanation/poleo-model.adoc[Understand the POLE+O data model]
+* xref:reference/configuration.adoc[Explore all configuration options]
