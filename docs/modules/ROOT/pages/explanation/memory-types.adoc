@@ -22,13 +22,8 @@ This leads to repetitive interactions, missed context, and agents that never tru
 neo4j-agent-memory addresses this with three distinct memory layers, each serving a different purpose:
 
 .Memory Architecture
-[cols="1", options="header"]
-|===
-| [DIAGRAM PLACEHOLDER: Memory Architecture]
-
-a|
-[source,text]
-----
+[listing]
+....
 +---------------------------------------------+
 |              MemoryClient                   |
 +---------------+-------------+---------------+
@@ -38,8 +33,7 @@ a|
 |           Neo4j Graph Database              |
 | Nodes · Relationships · Vectors · Spatial   |
 +---------------------------------------------+
-----
-|===
+....
 
 === Short-Term Memory: What Happened
 
@@ -141,13 +135,8 @@ Each type has different structure:
 The three memory types aren't isolated - they're connected in the same graph:
 
 .Graph Schema
-[cols="1", options="header"]
-|===
-| [DIAGRAM PLACEHOLDER: Graph Schema]
-
-a|
-[source,text]
-----
+[listing]
+....
 (Conversation)-[:HAS_MESSAGE]->(Message)
 (Message)-[:NEXT_MESSAGE]->(Message)
 (Message)-[:MENTIONS]->(Entity)
@@ -155,8 +144,7 @@ a|
 (Entity)-[:LOCATED_IN]->(Entity)
 (ReasoningTrace)-[:INITIATED_BY]->(Message)
 (ToolCall)-[:TRIGGERED_BY]->(Message)
-----
-|===
+....
 
 === Messages → Entities
 

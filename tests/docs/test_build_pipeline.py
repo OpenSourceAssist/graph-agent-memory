@@ -59,9 +59,9 @@ class TestBuildScriptExists:
         assert package_json.exists(), "package.json not found in docs directory"
 
     def test_favicon_exists(self, docs_root: Path):
-        """Verify favicon exists."""
-        favicon = docs_root / "assets" / "favicon.svg"
-        assert favicon.exists(), "assets/favicon.svg not found"
+        """Verify favicon exists in Antora images directory."""
+        favicon = docs_root / "modules" / "ROOT" / "images" / "assets" / "favicon.svg"
+        assert favicon.exists(), "modules/ROOT/images/assets/favicon.svg not found"
 
 
 @pytest.mark.docs

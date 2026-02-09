@@ -349,7 +349,7 @@ Map schema types to POLE+O for graph storage:
 | `:Entity:Object`
 |===
 
-Custom types not in POLE+O are stored with `:Entity:{CustomType}` labels.
+Custom types not in POLE+O are stored with `:Entity:\{CustomType\}` labels.
 
 == See Also
 
