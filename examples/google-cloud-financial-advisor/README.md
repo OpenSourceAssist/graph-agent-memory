@@ -18,6 +18,30 @@ This example application showcases the Google Cloud-Neo4j integration through a 
 
 ---
 
+## Sample Prompts
+
+> Run a full compliance investigation on CUST-003 Global Holdings Ltd — check KYC documents, scan for structuring patterns, trace the shell company network, and screen against sanctions lists"
+
+> I see four cash deposits of $9,500 each from CUST-003 in late January. Analyze whether this is a structuring pattern and identify where the funds went"
+
+> Compare the risk profiles of all three customers and flag which ones need enhanced due diligence"
+
+> Trace the beneficial ownership chain from Global Holdings Ltd through Shell Corp Cayman and Anonymous Trust Seychelles — who ultimately controls these entities?"
+
+> Maria Garcia (CUST-002) has rapid wire transfers totaling over $280K. Investigate whether her import/export business justifies this transaction volume"
+
+> Generate a Suspicious Activity Report for the $250,000 wire from an unknown offshore entity to CUST-003 that was moved to Shell Corp Cayman the next day"
+
+
+Here's what each prompt demonstrates:
+
+1. **Full multi-agent orchestration** — explicitly requests all 4 specialist agents (KYC, AML, Relationship, Compliance) to work together on one investigation
+2. **AML pattern detection** — highlights the structuring pattern ($9,500 deposits just under the $10K reporting threshold) and fund tracing
+3. **Cross-customer comparison** — engages KYC across all 3 risk profiles (low/medium/high), showing the range of the demo data
+4. **Relationship/shell company analysis** — deep network tracing through the BVI → Cayman → Seychelles corporate layers
+5. **Transaction velocity analysis** — focuses on CUST-002 (Maria Garcia), who's underutilized in the current prompts, and triggers the AML agent's velocity analysis
+6. **SAR generation** — triggers the Compliance agent's `generate_sar_report` tool on a specific suspicious transaction
+
 ## Getting Started Tutorial
 
 This tutorial walks you through setting up the Financial Advisor from scratch, including Google Cloud configuration, Neo4j setup, and running your first compliance investigation.
