@@ -64,7 +64,7 @@ logs:
 
 load-data:
 	@echo "Loading sample data into Neo4j..."
-	docker-compose run --rm data-loader
+	cd backend && uv run python ../data/load_sample_data.py
 	@echo "Done!"
 
 # Code Quality
