@@ -1059,6 +1059,99 @@ class TestMemoryClientGraphProperty:
 
 
 # ============================================================================
+# SSE Streaming Helper Tests
+# ============================================================================
+
+
+class TestSSEHelpers:
+    """Test SSE helper functions from chat.py."""
+
+    @pytest.fixture(autouse=True)
+    def _load(self):
+        """Extract _sse_event and _truncate_result from chat.py."""
+        source = (BACKEND_SRC / "api" / "routes" / "chat.py").read_text()
+        code = "import json\n\n"
+
+        # Extract _sse_event
+        lines = source.split("\n")
+        for func_name in ("_sse_event", "_truncate_result"):
+            in_func = False
+            func_lines = []
+            for line in lines:
+                if line.startswith(f"def {func_name}("):
+                    in_func = True
+                elif in_func and line and not line[0].isspace() and line.strip():
+                    break
+                if in_func:
+                    func_lines.append(line)
+            code += "\n".join(func_lines) + "\n\n"
+
+        ns: dict[str, Any] = {}
+        exec(code, ns)
+        self._sse_event = ns["_sse_event"]
+        self._truncate_result = ns["_truncate_result"]
+
+    def test_sse_event_format(self):
+        result = self._sse_event("agent_start", {"agent": "kyc_agent"})
+        assert result.startswith("event: agent_start\n")
+        assert "data: " in result
+        assert result.endswith("\n\n")
+        import json
+
+        data_line = result.split("\n")[1]
+        data = json.loads(data_line.replace("data: ", ""))
+        assert data["agent"] == "kyc_agent"
+
+    def test_sse_event_types(self):
+        for event_type in [
+            "agent_start",
+            "agent_complete",
+            "agent_delegate",
+            "tool_call",
+            "tool_result",
+            "memory_access",
+            "thinking",
+            "response",
+            "trace_saved",
+            "done",
+            "error",
+        ]:
+            result = self._sse_event(event_type, {"test": True})
+            assert result.startswith(f"event: {event_type}\n")
+
+    def test_truncate_result_none(self):
+        assert self._truncate_result(None) is None
+
+    def test_truncate_result_string(self):
+        result = self._truncate_result("hello")
+        assert result == "hello"
+        assert isinstance(result, str)
+
+    def test_truncate_result_dict(self):
+        result = self._truncate_result({"key": "value"})
+        assert isinstance(result, str)
+        assert "key" in result
+        assert "value" in result
+
+    def test_truncate_result_list(self):
+        result = self._truncate_result([1, 2, 3])
+        assert isinstance(result, str)
+        assert "[1, 2, 3]" == result
+
+    def test_truncate_result_long_string(self):
+        long_str = "x" * 600
+        result = self._truncate_result(long_str, max_len=500)
+        assert len(result) == 503  # 500 + "..."
+        assert result.endswith("...")
+
+    def test_truncate_result_long_dict(self):
+        big_dict = {"key": "v" * 600}
+        result = self._truncate_result(big_dict, max_len=500)
+        assert isinstance(result, str)
+        assert result.endswith("...")
+
+
+# ============================================================================
 # Structure Validation
 # ============================================================================
 
@@ -1137,10 +1230,60 @@ class TestNewFileStructure:
         assert "Neo4jDomainService" in content
         assert "neo4j_service" in content
 
+    def test_main_registers_traces_router(self, app_dir):
+        content = (app_dir / "backend" / "src" / "main.py").read_text()
+        assert "traces" in content, "main.py should import traces router"
+        assert "traces.router" in content, "main.py should register traces.router"
+
     def test_routes_use_app_state(self, app_dir):
         for route_file in ["customers.py", "alerts.py"]:
             content = (app_dir / "backend" / "src" / "api" / "routes" / route_file).read_text()
             assert "_get_neo4j_service" in content, f"{route_file} missing _get_neo4j_service"
+
+    def test_chat_has_both_endpoints(self, app_dir):
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "chat.py").read_text()
+        assert "async def chat_stream" in content, "chat.py should have chat_stream"
+        assert "async def chat(" in content, "chat.py should have original chat endpoint"
+        assert "StreamingResponse" in content, "chat.py should use StreamingResponse"
+        assert "text/event-stream" in content, "chat.py should use SSE content type"
+
+    def test_chat_records_reasoning_traces(self, app_dir):
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "chat.py").read_text()
+        assert "start_trace" in content, "chat.py should call start_trace"
+        assert "add_step" in content, "chat.py should call add_step"
+        assert "record_tool_call" in content, "chat.py should call record_tool_call"
+        assert "complete_trace" in content, "chat.py should call complete_trace"
+        assert "ToolCallStatus" in content, "chat.py should import ToolCallStatus"
+
+    def test_chat_filters_internal_adk_functions(self, app_dir):
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "chat.py").read_text()
+        assert "_internal_fns" in content, "chat.py should define _internal_fns set"
+        assert '"transfer_to_agent"' in content, "Should filter transfer_to_agent"
+        assert '"transfer"' in content, "Should filter transfer"
+
+    def test_traces_route_has_endpoints(self, app_dir):
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "traces.py").read_text()
+        assert "get_session_traces" in content, "traces.py should have get_session_traces"
+        assert "get_trace_detail" in content, "traces.py should have get_trace_detail"
+        assert "reasoning" in content, "traces.py should use reasoning layer"
+        assert "list_traces" in content, "traces.py should call list_traces"
+        assert "get_trace" in content, "traces.py should call get_trace"
+
+    def test_routes_init_exports_traces(self, app_dir):
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "__init__.py").read_text()
+        assert "traces" in content, "__init__.py should export traces module"
+
+    def test_neo4j_service_uses_merge_for_alerts(self, app_dir):
+        content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text()
+        assert "MERGE (a:Alert" in content, "create_alert should use MERGE"
+        assert "ON CREATE SET" in content, "create_alert should use ON CREATE SET"
+        assert "import uuid" in content, "Should import uuid for alert IDs"
+
+    def test_neo4j_service_uses_where_not_and(self, app_dir):
+        """Verify get_transactions uses WHERE (not AND) for optional filters."""
+        content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text()
+        # The dynamic filter should use WHERE, not AND
+        assert 'where_extra = ("WHERE "' in content, "get_transactions should use WHERE"
 
     def test_no_hardcoded_sample_data_in_tools(self, app_dir):
         for tool_file in [
@@ -1160,3 +1303,48 @@ class TestNewFileStructure:
         for route_file in ["customers.py", "alerts.py", "investigations.py"]:
             content = (app_dir / "backend" / "src" / "api" / "routes" / route_file).read_text()
             assert "SAMPLE_CUSTOMERS" not in content, f"{route_file} still has SAMPLE_CUSTOMERS"
+
+    # -- Frontend structure --------------------------------------------------
+
+    def test_frontend_has_agent_stream_hook(self):
+        hook = APP_DIR / "frontend" / "src" / "hooks" / "useAgentStream.ts"
+        assert hook.exists(), "useAgentStream.ts should exist"
+        content = hook.read_text()
+        assert "useAgentStream" in content, "Should export useAgentStream"
+        assert "agentStates" in content, "Should track agentStates"
+        assert "streamChatMessage" in content, "Should use streamChatMessage from api"
+
+    def test_frontend_has_orchestration_view(self):
+        comp = APP_DIR / "frontend" / "src" / "components" / "Chat" / "AgentOrchestrationView.tsx"
+        assert comp.exists()
+        content = comp.read_text()
+        assert "framer-motion" in content or "motion" in content, "Should use framer-motion"
+        assert "AnimatePresence" in content, "Should use AnimatePresence"
+
+    def test_frontend_has_activity_timeline(self):
+        comp = APP_DIR / "frontend" / "src" / "components" / "Chat" / "AgentActivityTimeline.tsx"
+        assert comp.exists()
+        content = comp.read_text()
+        assert "Timeline" in content, "Should use Chakra Timeline"
+
+    def test_frontend_has_tool_call_card(self):
+        comp = APP_DIR / "frontend" / "src" / "components" / "Chat" / "ToolCallCard.tsx"
+        assert comp.exists()
+        content = comp.read_text()
+        assert "formatValue" in content, "Should have formatValue helper"
+
+    def test_frontend_has_memory_access_indicator(self):
+        comp = APP_DIR / "frontend" / "src" / "components" / "Chat" / "MemoryAccessIndicator.tsx"
+        assert comp.exists()
+
+    def test_frontend_api_has_streaming(self):
+        api = APP_DIR / "frontend" / "src" / "lib" / "api.ts"
+        content = api.read_text()
+        assert "streamChatMessage" in content, "api.ts should have streamChatMessage"
+        assert "getSessionTraces" in content, "api.ts should have getSessionTraces"
+        assert "AgentEvent" in content, "api.ts should define AgentEvent type"
+
+    def test_frontend_package_has_framer_motion(self):
+        pkg = APP_DIR / "frontend" / "package.json"
+        content = pkg.read_text()
+        assert "framer-motion" in content, "package.json should include framer-motion"

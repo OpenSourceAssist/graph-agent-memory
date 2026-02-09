@@ -116,7 +116,14 @@ class TestGoogleCloudFinancialAdvisor:
         routes_dir = app_dir / "backend" / "src" / "api" / "routes"
         assert routes_dir.exists(), f"Routes directory not found: {routes_dir}"
 
-        expected_routes = ["chat.py", "alerts.py", "customers.py", "graph.py", "investigations.py"]
+        expected_routes = [
+            "chat.py",
+            "alerts.py",
+            "customers.py",
+            "graph.py",
+            "investigations.py",
+            "traces.py",
+        ]
         for route in expected_routes:
             assert (routes_dir / route).exists(), f"Route file not found: {route}"
 
@@ -139,6 +146,74 @@ class TestGoogleCloudFinancialAdvisor:
         frontend_src = app_dir / "frontend" / "src"
         assert frontend_src.exists(), f"Frontend src not found: {frontend_src}"
 
-        expected_dirs = ["components", "lib"]
+        expected_dirs = ["components", "lib", "hooks"]
         for dir_name in expected_dirs:
             assert (frontend_src / dir_name).exists(), f"Frontend src/{dir_name} not found"
+
+    def test_frontend_has_agent_stream_hook(self, app_dir):
+        """Verify the useAgentStream hook exists."""
+        hook = app_dir / "frontend" / "src" / "hooks" / "useAgentStream.ts"
+        assert hook.exists(), f"useAgentStream hook not found: {hook}"
+
+    def test_frontend_has_agent_visualization_components(self, app_dir):
+        """Verify frontend has agent visualization components."""
+        chat_dir = app_dir / "frontend" / "src" / "components" / "Chat"
+        expected = [
+            "ChatInterface.tsx",
+            "AgentOrchestrationView.tsx",
+            "AgentActivityTimeline.tsx",
+            "ToolCallCard.tsx",
+            "MemoryAccessIndicator.tsx",
+        ]
+        for component in expected:
+            assert (chat_dir / component).exists(), f"Component not found: {component}"
+
+    def test_frontend_package_has_framer_motion(self, app_dir):
+        """Verify frontend depends on framer-motion."""
+        package_json = app_dir / "frontend" / "package.json"
+        content = package_json.read_text()
+        assert "framer-motion" in content, "Frontend should depend on framer-motion"
+
+    def test_backend_chat_has_stream_endpoint(self, app_dir):
+        """Verify chat.py has the SSE streaming endpoint."""
+        chat = app_dir / "backend" / "src" / "api" / "routes" / "chat.py"
+        content = chat.read_text()
+        assert "chat_stream" in content, "chat.py should have chat_stream function"
+        assert "text/event-stream" in content, "chat.py should use SSE content type"
+        assert "_sse_event" in content, "chat.py should have _sse_event helper"
+        assert "_truncate_result" in content, "chat.py should have _truncate_result helper"
+
+    def test_backend_chat_filters_internal_functions(self, app_dir):
+        """Verify chat.py filters ADK internal transfer functions."""
+        chat = app_dir / "backend" / "src" / "api" / "routes" / "chat.py"
+        content = chat.read_text()
+        assert "transfer_to_agent" in content, "Should reference transfer_to_agent"
+        assert "_internal_fns" in content, "Should have _internal_fns set"
+
+    def test_backend_traces_route_exists(self, app_dir):
+        """Verify traces.py has expected endpoints."""
+        traces = app_dir / "backend" / "src" / "api" / "routes" / "traces.py"
+        content = traces.read_text()
+        assert "get_session_traces" in content, "Should have get_session_traces"
+        assert "get_trace_detail" in content, "Should have get_trace_detail"
+
+    def test_backend_main_registers_traces_router(self, app_dir):
+        """Verify main.py registers the traces router."""
+        main = app_dir / "backend" / "src" / "main.py"
+        content = main.read_text()
+        assert "traces" in content, "main.py should import and register traces router"
+
+    def test_backend_neo4j_service_uses_merge_for_alerts(self, app_dir):
+        """Verify create_alert uses MERGE instead of CREATE."""
+        neo4j_service = app_dir / "backend" / "src" / "services" / "neo4j_service.py"
+        content = neo4j_service.read_text()
+        assert "MERGE (a:Alert" in content, "create_alert should use MERGE"
+        assert "ON CREATE SET" in content, "create_alert should use ON CREATE SET"
+
+    def test_frontend_api_has_streaming_support(self, app_dir):
+        """Verify api.ts has streaming functions."""
+        api = app_dir / "frontend" / "src" / "lib" / "api.ts"
+        content = api.read_text()
+        assert "streamChatMessage" in content, "api.ts should have streamChatMessage"
+        assert "getSessionTraces" in content, "api.ts should have getSessionTraces"
+        assert "AgentEvent" in content, "api.ts should define AgentEvent type"

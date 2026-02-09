@@ -1897,7 +1897,7 @@ Located in `examples/google-cloud-financial-advisor/`, this demonstrates the Goo
 
 ### Tech Stack
 - **Backend**: FastAPI + Google ADK (Agent Development Kit) + neo4j-agent-memory
-- **Frontend**: React + Vite + Chakra UI v3 + TypeScript
+- **Frontend**: React + Vite + Chakra UI v3 + Framer Motion + TypeScript
 - **Database**: Neo4j 5.x
 - **LLM**: Gemini 2.5 Flash (via Google AI Studio)
 - **Embeddings**: Vertex AI text-embedding-004
@@ -1913,6 +1913,41 @@ A supervisor agent orchestrates 4 specialist agents:
 | **AML Agent** | `scan_transactions`, `detect_patterns`, `analyze_velocity` | Transaction monitoring, pattern detection |
 | **Relationship Agent** | `map_network`, `trace_ownership`, `analyze_connections` | Network analysis, beneficial ownership |
 | **Compliance Agent** | `screen_sanctions`, `check_pep`, `generate_sar_report` | Sanctions/PEP screening, SAR generation |
+
+### Real-Time SSE Streaming & Agent Visualization
+
+The chat system supports two modes:
+- **`POST /api/chat`** — Original synchronous endpoint, returns final response JSON
+- **`POST /api/chat/stream`** — SSE streaming endpoint, emits real-time agent events
+
+**SSE Event Types:**
+- `agent_start` / `agent_complete` — Agent lifecycle events
+- `agent_delegate` — Supervisor delegating to a sub-agent (from/to)
+- `tool_call` / `tool_result` — Tool invocations with args and truncated results
+- `memory_access` — Neo4j memory search/store operations detected by tool name patterns
+- `thinking` — Intermediate agent reasoning text (non-final responses)
+- `response` — Final consolidated response text
+- `trace_saved` — Reasoning trace persisted to Neo4j (trace_id, step_count, tool_call_count)
+- `done` — Stream complete with summary (agents_consulted, total_duration_ms)
+- `error` — Error during stream processing
+
+**Internal ADK function filtering**: `transfer_to_agent` and `transfer` are ADK-internal functions for agent delegation — these are excluded from `tool_call`/`tool_result` events to avoid noise. Delegation is instead surfaced via `agent_delegate` events detected from `event.actions.transfer_to_agent` and author transitions.
+
+**`_truncate_result()` helper**: Always returns a string — uses `json.dumps()` for dicts/lists to prevent `[object Object]` display on the frontend.
+
+### Reasoning Trace Persistence
+
+After each streaming chat completes, reasoning traces are saved to Neo4j via the `MemoryClient.reasoning` layer:
+1. `start_trace(session_id, task)` — Creates trace node
+2. `add_step(trace_id, thought, action)` — One step per agent activation
+3. `record_tool_call(step_id, tool_name, arguments, result, status)` — Tool calls nested under steps
+4. `complete_trace(trace_id, outcome, success)` — Finalizes with outcome text
+
+**Trace retrieval API:**
+- `GET /api/traces/{session_id}` — Lists traces for a session (with steps and tool calls)
+- `GET /api/traces/detail/{trace_id}` — Single trace by ID
+
+Entity extraction is triggered via `memory_service.add_session()` which calls `adk_memory_service.add_session_to_memory(session)` with `extract_on_store=True`. Optional extractors (spaCy, GLiNER, LLM) warn but don't fail if not installed.
 
 ### Neo4j Domain Data Integration
 
@@ -1936,6 +1971,8 @@ async with MemoryClient(settings) as client:
 - Initialized in `main.py` lifespan: `Neo4jDomainService(memory_service.client.graph)`
 - Stored on `app.state.neo4j_service`, accessed in routes via `request.app.state`
 - Provides async methods: `list_customers`, `get_customer`, `get_transactions`, `detect_structuring`, `detect_rapid_movement`, `detect_layering`, `find_connections`, `detect_shell_companies`, `trace_ownership`, `get_network_risk`, `list_alerts`, `create_alert`, `check_sanctions`, `check_pep`, etc.
+- Alert creation uses `MERGE...ON CREATE SET` (not `CREATE`) to avoid uniqueness constraint violations
+- Alert fallback IDs use UUID: `ALERT-{uuid.uuid4().hex[:8].upper()}`
 
 **Tool function binding** (`_bind_tool` pattern):
 - Tool functions accept `neo4j_service` as a keyword-only arg
@@ -1950,6 +1987,7 @@ async with MemoryClient(settings) as client:
 **Cypher gotchas** (Neo4j 5+):
 - Implicit grouping: mixing aggregation with non-aggregated expressions requires `WITH` clause
 - `CASE WHEN ... AND x NOT IN [...]` — extract into variables first: `WITH a.status AS stat ... NOT stat IN [...]`
+- Dynamic WHERE: When adding optional filters after a MATCH pattern, use `WHERE` (not `AND`) — `AND` is only valid inside an existing `WHERE` clause
 
 ### Key Implementation Details
 
@@ -1959,6 +1997,23 @@ async with MemoryClient(settings) as client:
 - **Nested BaseSettings**: Each nested Pydantic settings class needs its own `env_file=("../.env", ".env")` config
 - **Event null guards**: ADK events can have `content` set but `content.parts` as `None` — always guard with `and event.content.parts`
 - **Local dev deps**: Uses `[tool.uv.sources]` with editable local path: `neo4j-agent-memory = { path = "../../..", editable = true }`
+
+### Frontend Architecture
+
+**Real-time agent visualization** with Framer Motion + Chakra UI v3:
+- `useAgentStream` hook manages SSE connection, parses events, tracks per-agent state
+- `AgentOrchestrationView` — Animated panel showing live agent activity during processing (slide-in cards, pulsing active dots, staggered tool call animations)
+- `AgentActivityTimeline` — Post-completion Chakra UI `Timeline` showing reasoning trace per message
+- `ToolCallCard` — Animated tool call display with spinning loader → checkmark transition
+- `MemoryAccessIndicator` — Neo4j memory read/write flash animation
+
+**UI/UX patterns (Chakra UI v3)**:
+- Semantic tokens throughout: `bg.panel`, `bg.subtle`, `fg`, `fg.muted`, `border.subtle`
+- `colorPalette` for agent color coding (blue=supervisor, teal=KYC, orange=AML, purple=relationship, red=compliance)
+- Chakra `Stat`, `Skeleton`, `EmptyState`, `Collapsible`, `Timeline` compound components
+- `framer-motion` `AnimatePresence` + `motion.div` for orchestrated animations
+
+**react-icons/lu v5.5.0 naming**: Uses newer names — `LuTriangleAlert` (not `LuAlertTriangle`), `LuCircleAlert` (not `LuAlertCircle`), `LuCircleCheck` (not `LuCheckCircle`)
 
 ### Running
 
@@ -1983,7 +2038,7 @@ make dev
 ### Key Files
 
 **Backend:**
-- `backend/src/main.py` - FastAPI app, initializes `Neo4jDomainService` in lifespan
+- `backend/src/main.py` - FastAPI app, initializes `Neo4jDomainService` in lifespan, registers all routers
 - `backend/src/config.py` - Pydantic settings with nested VertexAI/Neo4j/GCS configs
 - `backend/src/services/neo4j_service.py` - `Neo4jDomainService` — all domain Cypher queries
 - `backend/src/services/memory_service.py` - MemoryClient wrapper (uses `connect()`, not `initialize()`)
@@ -1996,14 +2051,26 @@ make dev
 - `backend/src/tools/aml_tools.py` - AML tools (structuring, velocity, pattern detection)
 - `backend/src/tools/relationship_tools.py` - Network analysis tools
 - `backend/src/tools/compliance_tools.py` - Sanctions/PEP screening, SAR generation
+- `backend/src/api/routes/chat.py` - `POST /api/chat` (sync) and `POST /api/chat/stream` (SSE) with reasoning trace recording
+- `backend/src/api/routes/traces.py` - `GET /api/traces/{session_id}` and `GET /api/traces/detail/{trace_id}`
 - `backend/src/api/routes/customers.py` - Customer endpoints via `Neo4jDomainService`
 - `backend/src/api/routes/alerts.py` - Alert endpoints via `Neo4jDomainService`
-- `backend/src/api/routes/chat.py` - Chat endpoint with `async for` on ADK runner
 - `backend/src/api/routes/investigations.py` - Investigation endpoint
 
 **Frontend:**
-- `frontend/src/components/Chat/ChatInterface.tsx` - Chat UI with suggested prompt cards (SimpleGrid + Card.Root)
-- `frontend/src/components/Dashboard/` - Customer overview, risk indicators
+- `frontend/src/hooks/useAgentStream.ts` - SSE connection hook, per-agent state management
+- `frontend/src/lib/api.ts` - API client with `streamChatMessage()`, `getSessionTraces()`, SSE parsing
+- `frontend/src/components/Chat/ChatInterface.tsx` - Chat UI with streaming + orchestration panel
+- `frontend/src/components/Chat/AgentOrchestrationView.tsx` - Real-time animated multi-agent visualization
+- `frontend/src/components/Chat/AgentActivityTimeline.tsx` - Post-completion reasoning trace timeline
+- `frontend/src/components/Chat/ToolCallCard.tsx` - Animated tool call display with `formatValue()` helper
+- `frontend/src/components/Chat/MemoryAccessIndicator.tsx` - Neo4j memory operation indicator
+- `frontend/src/components/Dashboard/Sidebar.tsx` - Grouped nav, active route indicator, alert badge count
+- `frontend/src/components/Dashboard/CustomerDashboard.tsx` - Stat components, Skeleton loading, semantic tokens
+- `frontend/src/components/Dashboard/AlertsPanel.tsx` - EmptyState, Skeleton loading, semantic tokens
+- `frontend/src/components/Investigation/InvestigationPanel.tsx` - Timeline audit trail, Collapsible sections
+- `frontend/src/components/Investigation/AgentWorkflow.tsx` - Agent workflow visualization
+- `frontend/src/components/Graph/NetworkViewer.tsx` - vis-network graph visualization
 
 **Data:**
 - `data/customers.json` - 3 sample customers with full KYC properties (dob, nationality, docs)
@@ -2015,7 +2082,8 @@ make dev
 - `data/load_sample_data.py` - Loads all JSON data into Neo4j (customers, orgs, txns, sanctions, PEPs, alerts)
 
 **Tests:**
-- `tests/examples/test_financial_advisor_neo4j_integration.py` - 82 tests: Neo4jDomainService, tool functions, route helpers, _bind_tool, structure validation
+- `tests/examples/test_google_cloud_financial_advisor.py` - Structure validation tests (directory structure, file existence, dependencies)
+- `tests/examples/test_financial_advisor_neo4j_integration.py` - Unit tests: Neo4jDomainService, tool functions, route helpers, _bind_tool, SSE helpers, traces route, structure validation
 
 See `examples/google-cloud-financial-advisor/README.md` for the full getting started tutorial.
 

@@ -11,6 +11,8 @@ This example application showcases the Google Cloud-Neo4j integration through a 
 ### Key Features
 
 - **Multi-Agent Investigation**: Coordinated KYC, AML, relationship, and compliance analysis using Google ADK
+- **Real-Time Agent Visualization**: SSE streaming shows agent delegation, tool calls, and memory access as they happen — animated with Framer Motion
+- **Reasoning Trace Persistence**: All agent reasoning (thoughts, tool calls, results) stored to Neo4j via the reasoning memory layer
 - **Context Graph Intelligence**: Relationship mapping and network analysis with Neo4j
 - **Explainable AI**: Full audit trails for regulatory compliance (EU AI Act ready)
 - **Real-time Monitoring**: Transaction and behavior pattern detection
@@ -323,19 +325,22 @@ Type a query like:
 Investigate customer CUST-003 for potential money laundering risks
 ```
 
-Press Enter and watch as the multi-agent system:
+Press Enter and watch the **real-time agent orchestration panel** as it streams events:
 
-1. **Supervisor Agent** analyzes your request
-2. **KYC Agent** verifies customer identity
-3. **AML Agent** scans transaction patterns
+1. **Supervisor Agent** analyzes your request (pulsing active indicator)
+2. **KYC Agent** activates — tool calls slide in with arguments and results
+3. **AML Agent** scans transaction patterns — memory access indicators flash
 4. **Relationship Agent** maps network connections
 5. **Compliance Agent** checks sanctions lists
+6. **Reasoning trace** is automatically saved to Neo4j
 
-<!-- ![Application - Agent thinking](docs/screenshots/app-agent-thinking.png) -->
+Each agent card animates in from the left as it becomes active, tool calls appear with staggered fade-in animations, and results show success/error transitions.
+
+<!-- ![Application - Agent orchestration](docs/screenshots/app-agent-orchestration.png) -->
 
 #### 7.3 Review the Results
 
-The supervisor synthesizes all findings into a comprehensive report:
+The supervisor synthesizes all findings into a comprehensive report. Each assistant message includes an expandable **Agent Activity** section showing the reasoning trace timeline — click to see the full chain of agent reasoning, tool calls with arguments and results, and memory operations.
 
 <!-- ![Application - Investigation results](docs/screenshots/app-investigation-results.png) -->
 
@@ -486,6 +491,35 @@ make install
 | **Relationship Agent** | Network analysis using Context Graph |
 | **Compliance Agent** | Sanctions/PEP screening, report generation |
 
+### SSE Streaming & Reasoning Traces
+
+The chat backend provides two modes of interaction:
+
+1. **Synchronous** (`POST /api/chat`) — Returns a complete JSON response after all agents finish
+2. **Streaming** (`POST /api/chat/stream`) — Streams real-time Server-Sent Events as agents work
+
+The SSE stream emits structured events for each stage of the multi-agent workflow:
+
+```
+Client                     Server (SSE stream)
+  |                            |
+  |-- POST /api/chat/stream -->|
+  |<-- agent_start (supervisor)|
+  |<-- agent_delegate ---------|  (supervisor → kyc_agent)
+  |<-- agent_start (kyc_agent) |
+  |<-- tool_call --------------|  (verify_identity)
+  |<-- tool_result ------------|  (verified, 320ms)
+  |<-- memory_access ----------|  (search context)
+  |<-- agent_complete ---------|  (kyc_agent done)
+  |<-- agent_delegate ---------|  (supervisor → aml_agent)
+  |<-- ...                     |
+  |<-- response ---------------|  (final text)
+  |<-- trace_saved ------------|  (reasoning trace persisted)
+  |<-- done -------------------|  (summary)
+```
+
+After streaming completes, the full reasoning trace (agent steps, tool calls, results) is automatically persisted to Neo4j and retrievable via `GET /api/traces/{session_id}`.
+
 ---
 
 ## Project Structure
@@ -494,21 +528,48 @@ make install
 google-cloud-financial-advisor/
 ├── backend/
 │   ├── src/
-│   │   ├── agents/        # Google ADK agent definitions
-│   │   ├── tools/         # Agent tools (KYC, AML, etc.)
-│   │   ├── api/routes/    # FastAPI endpoints
-│   │   ├── models/        # Pydantic models
-│   │   └── services/      # Memory service, risk service
+│   │   ├── agents/            # Google ADK agent definitions
+│   │   │   ├── supervisor.py  # Orchestrator with sub-agents
+│   │   │   ├── kyc_agent.py   # KYC specialist + _bind_tool
+│   │   │   ├── aml_agent.py   # AML specialist
+│   │   │   ├── relationship_agent.py
+│   │   │   └── compliance_agent.py
+│   │   ├── tools/             # Agent tools (KYC, AML, etc.)
+│   │   ├── api/routes/        # FastAPI endpoints
+│   │   │   ├── chat.py        # POST /chat (sync) + /chat/stream (SSE)
+│   │   │   ├── traces.py      # GET /traces/{session_id}, /traces/detail/{id}
+│   │   │   ├── customers.py   # Customer CRUD
+│   │   │   ├── alerts.py      # Alert management
+│   │   │   └── ...
+│   │   ├── models/            # Pydantic models
+│   │   └── services/          # Neo4jDomainService, FinancialMemoryService
 │   ├── Dockerfile
-│   └── pyproject.toml     # Dependencies managed with uv
+│   └── pyproject.toml         # Dependencies managed with uv
 ├── frontend/
 │   ├── src/
-│   │   ├── components/    # React components
-│   │   └── lib/           # API client
-│   └── package.json
+│   │   ├── hooks/
+│   │   │   └── useAgentStream.ts   # SSE connection + agent state management
+│   │   ├── components/
+│   │   │   ├── Chat/
+│   │   │   │   ├── ChatInterface.tsx           # Main chat with streaming
+│   │   │   │   ├── AgentOrchestrationView.tsx  # Real-time agent visualization
+│   │   │   │   ├── AgentActivityTimeline.tsx   # Post-completion trace timeline
+│   │   │   │   ├── ToolCallCard.tsx            # Animated tool call display
+│   │   │   │   └── MemoryAccessIndicator.tsx   # Neo4j memory flash indicator
+│   │   │   ├── Dashboard/
+│   │   │   │   ├── Sidebar.tsx            # Grouped nav, alert badges
+│   │   │   │   ├── CustomerDashboard.tsx  # Stats, skeleton loading
+│   │   │   │   └── AlertsPanel.tsx        # Empty states, semantic tokens
+│   │   │   ├── Investigation/
+│   │   │   │   ├── InvestigationPanel.tsx  # Timeline audit trail
+│   │   │   │   └── AgentWorkflow.tsx       # Workflow visualization
+│   │   │   └── Graph/
+│   │   │       └── NetworkViewer.tsx       # vis-network visualization
+│   │   └── lib/
+│   │       └── api.ts          # API client + SSE parsing
+│   └── package.json            # Includes framer-motion, chakra v3
 ├── infrastructure/        # Cloud Run deployment configs
 ├── data/                  # Sample data (JSON) and load_sample_data.py
-├── docs/                  # Documentation
 ├── Makefile              # Development commands
 └── docker-compose.yml    # Local development setup
 ```
@@ -519,15 +580,22 @@ google-cloud-financial-advisor/
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/chat` | POST | Send message to AI advisor |
+| `/api/chat` | POST | Send message to AI advisor (synchronous response) |
+| `/api/chat/stream` | POST | Send message with SSE streaming (real-time agent events) |
 | `/api/chat/history/{session_id}` | GET | Get conversation history |
+| `/api/chat/search` | POST | Search the context graph |
+| `/api/traces/{session_id}` | GET | Get reasoning traces for a session |
+| `/api/traces/detail/{trace_id}` | GET | Get a single reasoning trace with full details |
 | `/api/customers` | GET | List customers |
+| `/api/customers/{id}` | GET | Get customer details |
 | `/api/customers/{id}/risk` | GET | Risk assessment |
 | `/api/customers/{id}/network` | GET | Relationship network |
 | `/api/investigations` | POST | Create investigation |
 | `/api/investigations/{id}/start` | POST | Start multi-agent investigation |
-| `/api/investigations/{id}/audit-trail` | GET | Get reasoning trace |
+| `/api/investigations/{id}/audit-trail` | GET | Get investigation audit trail |
 | `/api/alerts` | GET | List compliance alerts |
+| `/api/alerts/{id}` | GET/PATCH | Get or update an alert |
+| `/api/alerts/summary` | GET | Alert statistics summary |
 | `/api/graph/stats` | GET | Graph statistics |
 
 Full API documentation available at http://localhost:8000/docs when running locally.
