@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
@@ -23,7 +23,6 @@ from ...models.investigation import (
     InvestigationType,
 )
 from ...services.memory_service import FinancialMemoryService, get_memory_service
-from ...tools.kyc_tools import SAMPLE_CUSTOMERS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/investigations", tags=["investigations"])
@@ -65,13 +64,18 @@ async def list_investigations(
 @router.post("", response_model=Investigation)
 async def create_investigation(
     request: InvestigationCreate,
+    raw_request: Request,
 ) -> Investigation:
     """Create a new investigation."""
-    if request.customer_id not in SAMPLE_CUSTOMERS:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Customer {request.customer_id} not found",
-        )
+    # Validate customer exists in Neo4j
+    neo4j_service = getattr(raw_request.app.state, "neo4j_service", None)
+    if neo4j_service:
+        customer = await neo4j_service.get_customer(request.customer_id)
+        if not customer:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Customer {request.customer_id} not found",
+            )
 
     investigation_id = f"INV-{uuid.uuid4().hex[:8].upper()}"
     session_id = f"inv-session-{investigation_id}"
@@ -113,6 +117,7 @@ async def get_investigation(investigation_id: str) -> Investigation:
 @router.post("/{investigation_id}/start")
 async def start_investigation(
     investigation_id: str,
+    raw_request: Request,
     memory_service: FinancialMemoryService = Depends(get_initialized_memory_service),
 ) -> dict[str, Any]:
     """Start a multi-agent investigation.
@@ -150,8 +155,9 @@ async def start_investigation(
     )
 
     try:
-        # Get the supervisor agent
-        supervisor = get_supervisor_agent(memory_service)
+        # Get the supervisor agent (with neo4j_service for tool bindings)
+        neo4j_service = getattr(raw_request.app.state, "neo4j_service", None)
+        supervisor = get_supervisor_agent(memory_service, neo4j_service=neo4j_service)
 
         # Create session
         session = await session_service.create_session(

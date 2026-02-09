@@ -26,6 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .api.routes import alerts, chat, customers, graph, investigations
 from .config import get_settings
 from .services.memory_service import get_memory_service
+from .services.neo4j_service import Neo4jDomainService
 
 # Configure logging
 logging.basicConfig(
@@ -49,6 +50,16 @@ async def lifespan(app: FastAPI):
     try:
         await memory_service.initialize()
         logger.info("Memory service initialized")
+
+        # Create domain data service using the same Neo4j connection
+        neo4j_service = Neo4jDomainService(memory_service.client.graph)
+        app.state.neo4j_service = neo4j_service
+        logger.info("Neo4j domain service initialized")
+
+        # Reset and recreate agent with neo4j_service so tools can query Neo4j
+        from .agents.supervisor import reset_supervisor_agent
+
+        reset_supervisor_agent()
     except Exception as e:
         logger.warning(f"Memory service initialization failed: {e}")
         logger.warning("Some features may be unavailable without Neo4j connection")

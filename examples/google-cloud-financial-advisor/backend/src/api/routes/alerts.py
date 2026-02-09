@@ -1,4 +1,7 @@
-"""Alert API routes."""
+"""Alert API routes.
+
+All alert data is queried from Neo4j via the Neo4jDomainService.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +9,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from ...models.alert import (
     Alert,
@@ -17,72 +20,62 @@ from ...models.alert import (
     AlertType,
     AlertUpdate,
 )
-from ...tools.kyc_tools import SAMPLE_CUSTOMERS
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
-# Sample alerts for demo
-_alerts: dict[str, Alert] = {
-    "ALERT-001": Alert(
-        id="ALERT-001",
-        customer_id="CUST-003",
-        customer_name="Global Holdings Ltd",
-        type=AlertType.AML,
-        severity=AlertSeverity.CRITICAL,
-        status=AlertStatus.NEW,
-        title="Structuring Pattern Detected",
-        description="Multiple cash deposits just under $10,000 threshold detected over 4 consecutive days.",
-        transaction_id="TXN-203,TXN-204,TXN-205,TXN-206",
-        evidence=[
-            "TXN-203: $9,500 cash deposit on 2024-01-20",
-            "TXN-204: $9,500 cash deposit on 2024-01-21",
-            "TXN-205: $9,500 cash deposit on 2024-01-22",
-            "TXN-206: $9,500 cash deposit on 2024-01-23",
-        ],
-        requires_sar=True,
-        auto_generated=True,
-    ),
-    "ALERT-002": Alert(
-        id="ALERT-002",
-        customer_id="CUST-003",
-        customer_name="Global Holdings Ltd",
-        type=AlertType.NETWORK,
-        severity=AlertSeverity.HIGH,
-        status=AlertStatus.NEW,
-        title="Shell Company Indicators",
-        description="Customer network shows multiple connections to entities with shell company characteristics.",
-        evidence=[
-            "Connected to Shell Corp - Cayman (no employees, nominee directors)",
-            "Connected to Anonymous Trust - Seychelles (opaque structure)",
-            "BVI jurisdiction with nominee director services",
-        ],
-        requires_sar=False,
-        auto_generated=True,
-    ),
-    "ALERT-003": Alert(
-        id="ALERT-003",
-        customer_id="CUST-002",
-        customer_name="Maria Garcia",
-        type=AlertType.TRANSACTION,
-        severity=AlertSeverity.MEDIUM,
-        status=AlertStatus.ACKNOWLEDGED,
-        title="Rapid Wire Movement",
-        description="Funds received and moved within 24-48 hours with minimal change.",
-        evidence=[
-            "Pattern of receive-and-send within 2 days",
-            "Consistent 2-4% reduction (possible fees/commission)",
-            "Multiple counterparties in high-risk jurisdictions",
-        ],
-        requires_sar=False,
-        auto_generated=True,
-        acknowledged_at=datetime.now(),
-    ),
-}
+
+def _get_neo4j_service(request: Request):
+    """Get Neo4jDomainService from app state."""
+    svc = getattr(request.app.state, "neo4j_service", None)
+    if svc is None:
+        raise HTTPException(status_code=503, detail="Neo4j service not available")
+    return svc
+
+
+def _to_python_datetime(val) -> datetime | None:
+    """Convert a Neo4j DateTime or other value to a Python datetime."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val
+    # neo4j.time.DateTime has .to_native() -> python datetime
+    if hasattr(val, "to_native"):
+        return val.to_native()
+    return None
+
+
+def _alert_from_dict(data: dict) -> Alert:
+    """Build an Alert response model from a Neo4j dict."""
+    # Map Neo4j severity/status/type values to enums (handle case differences)
+    severity_val = (data.get("severity") or "MEDIUM").upper()
+    status_val = (data.get("status") or "new").lower()
+    type_val = (data.get("type") or "aml").lower()
+
+    return Alert(
+        id=data.get("id", ""),
+        customer_id=data.get("customer_id", ""),
+        customer_name=data.get("customer_name"),
+        type=AlertType(type_val) if type_val in AlertType._value2member_map_ else AlertType.AML,
+        severity=AlertSeverity(severity_val),
+        status=AlertStatus(status_val)
+        if status_val in AlertStatus._value2member_map_
+        else AlertStatus.NEW,
+        title=data.get("title", ""),
+        description=data.get("description", ""),
+        transaction_id=data.get("transaction_id"),
+        evidence=data.get("evidence") or [],
+        requires_sar=data.get("requires_sar", False),
+        auto_generated=data.get("auto_generated", False),
+        created_at=_to_python_datetime(data.get("created_at")) or datetime.now(),
+        acknowledged_at=_to_python_datetime(data.get("acknowledged_at")),
+        resolved_at=_to_python_datetime(data.get("resolved_at")),
+    )
 
 
 @router.get("", response_model=list[Alert])
 async def list_alerts(
+    request: Request,
     status: AlertStatus | None = Query(None, description="Filter by status"),
     severity: AlertSeverity | None = Query(None, description="Filter by severity"),
     type: AlertType | None = Query(None, description="Filter by type"),
@@ -91,139 +84,107 @@ async def list_alerts(
     offset: int = Query(0, ge=0),
 ) -> list[Alert]:
     """List alerts with optional filtering."""
-    alerts = list(_alerts.values())
+    neo4j_service = _get_neo4j_service(request)
 
-    if status:
-        alerts = [a for a in alerts if a.status == status]
-    if severity:
-        alerts = [a for a in alerts if a.severity == severity]
-    if type:
-        alerts = [a for a in alerts if a.type == type]
-    if customer_id:
-        alerts = [a for a in alerts if a.customer_id == customer_id]
-
-    # Sort by severity (CRITICAL first) then by created_at
-    severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-    alerts.sort(
-        key=lambda x: (severity_order.get(x.severity, 4), x.created_at), reverse=False
+    rows = await neo4j_service.list_alerts(
+        status=status.value.upper() if status else None,
+        severity=severity.value if severity else None,
+        alert_type=type.value if type else None,
+        customer_id=customer_id,
+        limit=limit,
+        offset=offset,
     )
 
-    return alerts[offset : offset + limit]
+    return [_alert_from_dict(r) for r in rows]
 
 
 @router.get("/summary", response_model=AlertSummary)
-async def get_alert_summary() -> AlertSummary:
+async def get_alert_summary(request: Request) -> AlertSummary:
     """Get summary statistics for alerts."""
-    alerts = list(_alerts.values())
+    neo4j_service = _get_neo4j_service(request)
 
-    by_severity = {}
-    by_status = {}
-    by_type = {}
-    critical_unresolved = 0
-    high_unresolved = 0
-
-    for alert in alerts:
-        # By severity
-        sev = alert.severity.value
-        by_severity[sev] = by_severity.get(sev, 0) + 1
-
-        # By status
-        stat = alert.status.value
-        by_status[stat] = by_status.get(stat, 0) + 1
-
-        # By type
-        t = alert.type.value
-        by_type[t] = by_type.get(t, 0) + 1
-
-        # Unresolved counts
-        if alert.status not in [AlertStatus.RESOLVED, AlertStatus.FALSE_POSITIVE]:
-            if alert.severity == AlertSeverity.CRITICAL:
-                critical_unresolved += 1
-            elif alert.severity == AlertSeverity.HIGH:
-                high_unresolved += 1
+    summary = await neo4j_service.get_alert_summary()
 
     return AlertSummary(
-        total=len(alerts),
-        by_severity=by_severity,
-        by_status=by_status,
-        by_type=by_type,
-        critical_unresolved=critical_unresolved,
-        high_unresolved=high_unresolved,
+        total=summary.get("total", 0),
+        by_severity=summary.get("by_severity", {}),
+        by_status=summary.get("by_status", {}),
+        by_type=summary.get("by_type", {}),
+        critical_unresolved=summary.get("critical_unresolved", 0),
+        high_unresolved=summary.get("high_unresolved", 0),
     )
 
 
 @router.get("/{alert_id}", response_model=Alert)
-async def get_alert(alert_id: str) -> Alert:
+async def get_alert(request: Request, alert_id: str) -> Alert:
     """Get a specific alert."""
-    if alert_id not in _alerts:
+    neo4j_service = _get_neo4j_service(request)
+
+    data = await neo4j_service.get_alert(alert_id)
+    if not data:
         raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
-    return _alerts[alert_id]
+    return _alert_from_dict(data)
 
 
 @router.post("", response_model=Alert)
-async def create_alert(request: AlertCreate) -> Alert:
+async def create_alert(request: Request, body: AlertCreate) -> Alert:
     """Create a new alert."""
-    if request.customer_id not in SAMPLE_CUSTOMERS:
+    neo4j_service = _get_neo4j_service(request)
+
+    # Verify customer exists
+    customer = await neo4j_service.get_customer(body.customer_id)
+    if not customer:
         raise HTTPException(
             status_code=404,
-            detail=f"Customer {request.customer_id} not found",
+            detail=f"Customer {body.customer_id} not found",
         )
 
     alert_id = f"ALERT-{uuid.uuid4().hex[:6].upper()}"
 
-    customer = SAMPLE_CUSTOMERS[request.customer_id]
-
-    alert = Alert(
-        id=alert_id,
-        customer_id=request.customer_id,
-        customer_name=customer.get("name"),
-        type=request.type,
-        severity=request.severity,
-        status=AlertStatus.NEW,
-        title=request.title,
-        description=request.description,
-        transaction_id=request.transaction_id,
-        evidence=request.evidence,
-        requires_sar=request.severity in [AlertSeverity.CRITICAL, AlertSeverity.HIGH],
-        auto_generated=False,
+    data = await neo4j_service.create_alert(
+        {
+            "id": alert_id,
+            "customer_id": body.customer_id,
+            "type": body.type.value.upper(),
+            "severity": body.severity.value,
+            "status": "NEW",
+            "title": body.title,
+            "description": body.description,
+            "evidence": body.evidence,
+            "requires_sar": body.severity in [AlertSeverity.CRITICAL, AlertSeverity.HIGH],
+            "auto_generated": False,
+        }
     )
 
-    _alerts[alert_id] = alert
     logger.info(f"Created alert {alert_id}")
-
-    return alert
+    return _alert_from_dict(data)
 
 
 @router.patch("/{alert_id}", response_model=Alert)
-async def update_alert(alert_id: str, update: AlertUpdate) -> Alert:
+async def update_alert(request: Request, alert_id: str, update: AlertUpdate) -> Alert:
     """Update an alert."""
-    if alert_id not in _alerts:
+    neo4j_service = _get_neo4j_service(request)
+
+    existing = await neo4j_service.get_alert(alert_id)
+    if not existing:
         raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
 
-    alert = _alerts[alert_id]
-
+    updates = {}
     if update.status:
-        alert.status = update.status
-        if update.status == AlertStatus.ACKNOWLEDGED:
-            alert.acknowledged_at = datetime.now()
-        elif update.status in [AlertStatus.RESOLVED, AlertStatus.FALSE_POSITIVE]:
-            alert.resolved_at = datetime.now()
-
+        updates["status"] = update.status.value.upper()
     if update.severity:
-        alert.severity = update.severity
-
+        updates["severity"] = update.severity.value
     if update.assigned_to:
-        alert.assigned_to = update.assigned_to
-
-    if update.notes:
-        alert.notes.append(
-            {
-                "timestamp": datetime.now().isoformat(),
-                "note": update.notes,
-            }
-        )
-
+        updates["assigned_to"] = update.assigned_to
     if update.resolution_notes:
-        alert.resolution_notes = update.resolution_notes
+        updates["resolution_notes"] = update.resolution_notes
 
-    return alert
+    if updates:
+        data = await neo4j_service.update_alert(alert_id, updates)
+    else:
+        data = existing
+
+    if not data:
+        raise HTTPException(status_code=500, detail="Failed to update alert")
+
+    return _alert_from_dict(data)

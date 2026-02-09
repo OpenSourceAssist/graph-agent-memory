@@ -1,7 +1,7 @@
 """Compliance tools for sanctions screening, PEP verification, and reporting.
 
 These tools are used by the Compliance Agent to perform regulatory checks
-and prepare required reports.
+and prepare required reports. Sanctions and PEP data is queried from Neo4j.
 """
 
 from __future__ import annotations
@@ -10,137 +10,38 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from ..services.neo4j_service import Neo4jDomainService
+
 logger = logging.getLogger(__name__)
 
-# Sample sanctions list (in production, this would use real sanctions APIs)
-SAMPLE_SANCTIONS_LIST = {
-    "entities": [
-        {
-            "name": "Sanctioned Corp Ltd",
-            "list": "OFAC SDN",
-            "reason": "Narcotics trafficking",
-            "added": "2020-01-15",
-        },
-        {
-            "name": "Bad Actor Holdings",
-            "list": "EU Consolidated",
-            "reason": "Human rights violations",
-            "added": "2021-03-22",
-        },
-        {
-            "name": "Ivan Petrov",
-            "list": "OFAC SDN",
-            "reason": "Russian sanctions",
-            "added": "2022-02-28",
-        },
-    ],
-    "aliases": {
-        "Sanctioned Corp Ltd": ["Sanctioned Corp", "SC Ltd"],
-        "Ivan Petrov": ["I. Petrov", "Petrov Ivan"],
-    },
-}
 
-# Sample PEP database
-SAMPLE_PEP_DATABASE = {
-    "peps": [
-        {
-            "name": "Carlos Rodriguez",
-            "position": "Minister of Finance",
-            "country": "MX",
-            "tier": 1,
-        },
-        {
-            "name": "Elena Volkov",
-            "position": "Former Deputy Prime Minister",
-            "country": "RU",
-            "tier": 1,
-        },
-        {
-            "name": "James Wilson",
-            "position": "State Senator",
-            "country": "US",
-            "tier": 2,
-        },
-    ],
-    "pep_relatives": [
-        {"name": "Maria Rodriguez", "relation": "spouse", "pep": "Carlos Rodriguez"},
-    ],
-}
-
-
-def check_sanctions(
+async def check_sanctions(
     entity_name: str,
     lists: list[str] | None = None,
     include_aliases: bool = True,
+    *,
+    neo4j_service: Neo4jDomainService,
 ) -> dict[str, Any]:
-    """Screen an entity against sanctions lists.
-
-    Checks the entity name against OFAC, EU, UN, and other
-    sanctions lists for potential matches.
-
-    Args:
-        entity_name: Name of the entity to screen.
-        lists: Specific lists to check (default: all).
-        include_aliases: Whether to check known aliases.
-
-    Returns:
-        Sanctions screening results with match details.
-    """
+    """Screen an entity against sanctions lists."""
     logger.info(f"Checking sanctions for: {entity_name}")
 
+    results = await neo4j_service.check_sanctions(entity_name, include_aliases=include_aliases)
+
     matches = []
-    entity_lower = entity_name.lower()
+    for r in results:
+        entity = r.get("entity", {})
+        match = {
+            "match_type": r.get("match_type", "PARTIAL"),
+            "sanctioned_name": entity.get("name"),
+            "list": entity.get("list"),
+            "reason": entity.get("reason"),
+            "date_added": entity.get("added"),
+            "confidence": r.get("confidence", 0.7),
+        }
+        if r.get("match_type") == "ALIAS":
+            match["matched_alias"] = entity_name
+        matches.append(match)
 
-    # Check direct matches
-    for sanctioned in SAMPLE_SANCTIONS_LIST["entities"]:
-        if sanctioned["name"].lower() == entity_lower:
-            matches.append(
-                {
-                    "match_type": "EXACT",
-                    "sanctioned_name": sanctioned["name"],
-                    "list": sanctioned["list"],
-                    "reason": sanctioned["reason"],
-                    "date_added": sanctioned["added"],
-                    "confidence": 1.0,
-                }
-            )
-        elif (
-            entity_lower in sanctioned["name"].lower()
-            or sanctioned["name"].lower() in entity_lower
-        ):
-            matches.append(
-                {
-                    "match_type": "PARTIAL",
-                    "sanctioned_name": sanctioned["name"],
-                    "list": sanctioned["list"],
-                    "reason": sanctioned["reason"],
-                    "date_added": sanctioned["added"],
-                    "confidence": 0.7,
-                }
-            )
-
-    # Check aliases if enabled
-    if include_aliases:
-        for sanctioned_name, aliases in SAMPLE_SANCTIONS_LIST["aliases"].items():
-            for alias in aliases:
-                if alias.lower() == entity_lower:
-                    # Find the original entry
-                    for sanctioned in SAMPLE_SANCTIONS_LIST["entities"]:
-                        if sanctioned["name"] == sanctioned_name:
-                            matches.append(
-                                {
-                                    "match_type": "ALIAS",
-                                    "matched_alias": alias,
-                                    "sanctioned_name": sanctioned_name,
-                                    "list": sanctioned["list"],
-                                    "reason": sanctioned["reason"],
-                                    "date_added": sanctioned["added"],
-                                    "confidence": 0.95,
-                                }
-                            )
-                            break
-
-    # Determine status
     if matches:
         has_exact = any(m["match_type"] == "EXACT" for m in matches)
         status = "HIT" if has_exact else "POTENTIAL_MATCH"
@@ -162,75 +63,40 @@ def check_sanctions(
     }
 
 
-def verify_pep_status(
+async def verify_pep_status(
     person_name: str,
     include_relatives: bool = True,
     include_associates: bool = False,
+    *,
+    neo4j_service: Neo4jDomainService,
 ) -> dict[str, Any]:
-    """Verify if a person is a Politically Exposed Person.
-
-    Checks against PEP databases including current and former
-    political figures, and optionally their relatives.
-
-    Args:
-        person_name: Name of the person to verify.
-        include_relatives: Check for relatives of PEPs.
-        include_associates: Check for close associates.
-
-    Returns:
-        PEP verification results with match details.
-    """
+    """Verify if a person is a Politically Exposed Person."""
     logger.info(f"Verifying PEP status for: {person_name}")
 
-    person_lower = person_name.lower()
+    results = await neo4j_service.check_pep(person_name, include_relatives=include_relatives)
+
     matches = []
+    for r in results:
+        pep = r.get("pep", {})
+        match_type = r.get("match_type", "POTENTIAL_PEP")
+        match = {
+            "match_type": match_type,
+            "name": pep.get("name"),
+            "confidence": r.get("confidence", 0.7),
+        }
+        if match_type == "PEP_RELATIVE":
+            match["relation"] = pep.get("relation")
+            match["related_pep"] = pep.get("pep_name")
+        else:
+            match["position"] = pep.get("position")
+            match["country"] = pep.get("country")
+            match["tier"] = pep.get("tier")
+        matches.append(match)
 
-    # Check direct PEP matches
-    for pep in SAMPLE_PEP_DATABASE["peps"]:
-        if pep["name"].lower() == person_lower:
-            matches.append(
-                {
-                    "match_type": "DIRECT_PEP",
-                    "name": pep["name"],
-                    "position": pep["position"],
-                    "country": pep["country"],
-                    "tier": pep["tier"],
-                    "confidence": 1.0,
-                }
-            )
-        elif person_lower in pep["name"].lower() or pep["name"].lower() in person_lower:
-            matches.append(
-                {
-                    "match_type": "POTENTIAL_PEP",
-                    "name": pep["name"],
-                    "position": pep["position"],
-                    "country": pep["country"],
-                    "tier": pep["tier"],
-                    "confidence": 0.7,
-                }
-            )
-
-    # Check PEP relatives if enabled
-    if include_relatives:
-        for relative in SAMPLE_PEP_DATABASE["pep_relatives"]:
-            if relative["name"].lower() == person_lower:
-                matches.append(
-                    {
-                        "match_type": "PEP_RELATIVE",
-                        "name": relative["name"],
-                        "relation": relative["relation"],
-                        "related_pep": relative["pep"],
-                        "confidence": 0.95,
-                    }
-                )
-
-    # Determine status
     if matches:
         has_direct = any(m["match_type"] == "DIRECT_PEP" for m in matches)
         is_pep = has_direct or any(m["match_type"] == "POTENTIAL_PEP" for m in matches)
-        status = (
-            "PEP_CONFIRMED" if has_direct else "PEP_ASSOCIATED" if matches else "CLEAR"
-        )
+        status = "PEP_CONFIRMED" if has_direct else "PEP_ASSOCIATED" if matches else "CLEAR"
         risk_level = "HIGH" if is_pep else "MEDIUM"
     else:
         status = "CLEAR"
@@ -250,29 +116,21 @@ def verify_pep_status(
     }
 
 
-def generate_sar_report(
+async def generate_sar_report(
     customer_id: str,
     suspicious_activity: str,
     transaction_ids: list[str] | None = None,
     narrative: str | None = None,
+    *,
+    neo4j_service: Neo4jDomainService,
 ) -> dict[str, Any]:
-    """Generate a Suspicious Activity Report (SAR) draft.
-
-    Creates a structured SAR document based on investigation findings
-    for regulatory filing.
-
-    Args:
-        customer_id: The customer under investigation.
-        suspicious_activity: Type of suspicious activity.
-        transaction_ids: Related transaction identifiers.
-        narrative: Detailed narrative of findings.
-
-    Returns:
-        SAR draft with all required fields.
-    """
+    """Generate a Suspicious Activity Report (SAR) draft."""
     logger.info(f"Generating SAR for customer {customer_id}")
 
-    # In production, this would pull real customer/transaction data
+    # Fetch customer data from Neo4j
+    customer = await neo4j_service.get_customer(customer_id)
+    customer_name = customer.get("name", "Unknown") if customer else "Unknown"
+
     sar_reference = f"SAR-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
     activity_codes = {
@@ -286,11 +144,17 @@ def generate_sar_report(
 
     activity_code = activity_codes.get(suspicious_activity.lower(), "99")
 
+    # Get transaction details if IDs provided
+    txn_count = 0
+    if transaction_ids:
+        txn_count = len(transaction_ids)
+
     sar_draft = {
         "sar_reference": sar_reference,
         "filing_institution": "Financial Services Demo Bank",
         "subject_information": {
             "customer_id": customer_id,
+            "customer_name": customer_name,
             "subject_type": "customer",
         },
         "suspicious_activity": {
@@ -303,10 +167,9 @@ def generate_sar_report(
         },
         "transaction_summary": {
             "transaction_ids": transaction_ids or [],
-            "count": len(transaction_ids) if transaction_ids else 0,
+            "count": txn_count,
         },
-        "narrative": narrative
-        or "Detailed narrative to be completed by compliance officer.",
+        "narrative": narrative or "Detailed narrative to be completed by compliance officer.",
         "filing_status": "DRAFT",
         "filing_deadline": "Within 30 days of detection",
         "created_by": "AI Compliance Assistant",
@@ -328,33 +191,39 @@ def generate_sar_report(
     }
 
 
-def assess_regulatory_requirements(
+async def assess_regulatory_requirements(
     customer_id: str,
     jurisdictions: list[str] | None = None,
     transaction_types: list[str] | None = None,
+    *,
+    neo4j_service: Neo4jDomainService,
 ) -> dict[str, Any]:
-    """Assess applicable regulatory requirements for a customer.
-
-    Determines which regulations apply based on customer type,
-    jurisdictions involved, and transaction patterns.
-
-    Args:
-        customer_id: The customer identifier.
-        jurisdictions: Jurisdictions involved in transactions.
-        transaction_types: Types of transactions conducted.
-
-    Returns:
-        Regulatory assessment with applicable requirements.
-    """
+    """Assess applicable regulatory requirements for a customer."""
     logger.info(f"Assessing regulatory requirements for {customer_id}")
 
-    jurisdictions = jurisdictions or ["US"]
-    transaction_types = transaction_types or ["wire", "cash"]
+    # Fetch customer to determine jurisdictions from their profile and network
+    customer = await neo4j_service.get_customer(customer_id)
+
+    if not jurisdictions:
+        jurisdictions = ["US"]
+        if customer:
+            nationality = customer.get("nationality")
+            if nationality and nationality != "US":
+                jurisdictions.append(nationality)
+            cust_jurisdiction = customer.get("jurisdiction")
+            if cust_jurisdiction and cust_jurisdiction not in jurisdictions:
+                jurisdictions.append(cust_jurisdiction)
+
+    if not transaction_types:
+        # Infer from actual transactions
+        transactions = await neo4j_service.get_transactions(customer_id)
+        transaction_types = (
+            list({t["type"] for t in transactions}) if transactions else ["wire", "cash"]
+        )
 
     applicable_regulations = []
     filing_requirements = []
 
-    # US Regulations
     if "US" in jurisdictions:
         applicable_regulations.extend(
             [
@@ -380,8 +249,7 @@ def assess_regulatory_requirements(
             ]
         )
 
-        # CTR requirement for cash transactions
-        if "cash" in transaction_types:
+        if any("cash" in t for t in transaction_types):
             filing_requirements.append(
                 {
                     "filing_type": "CTR",
@@ -390,7 +258,6 @@ def assess_regulatory_requirements(
                 }
             )
 
-    # EU Regulations
     eu_countries = ["DE", "FR", "ES", "IT", "NL"]
     if any(j in eu_countries for j in jurisdictions):
         applicable_regulations.append(
@@ -405,7 +272,6 @@ def assess_regulatory_requirements(
             }
         )
 
-    # High-risk jurisdiction requirements
     high_risk = ["KY", "BVI", "PA", "SC"]
     if any(j in high_risk for j in jurisdictions):
         applicable_regulations.append(
@@ -427,7 +293,6 @@ def assess_regulatory_requirements(
             }
         )
 
-    # FATF requirements
     applicable_regulations.append(
         {
             "regulation": "FATF Recommendations",

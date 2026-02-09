@@ -6,7 +6,7 @@ import logging
 import time
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
@@ -43,6 +43,7 @@ async def get_initialized_memory_service() -> FinancialMemoryService:
 @router.post("", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
+    raw_request: Request,
     memory_service: FinancialMemoryService = Depends(get_initialized_memory_service),
 ) -> ChatResponse:
     """Send a message to the financial advisor and get a response.
@@ -56,8 +57,11 @@ async def chat(
     session_id = request.session_id or str(uuid.uuid4())
 
     try:
-        # Get the supervisor agent
-        supervisor = get_supervisor_agent(memory_service)
+        # Get neo4j_service from app state (set during startup)
+        neo4j_service = getattr(raw_request.app.state, "neo4j_service", None)
+
+        # Get the supervisor agent (passes neo4j_service to tool bindings)
+        supervisor = get_supervisor_agent(memory_service, neo4j_service=neo4j_service)
 
         # Create or get session
         session = await session_service.get_session(

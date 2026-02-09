@@ -1,7 +1,7 @@
 """AML (Anti-Money Laundering) tools for transaction monitoring and pattern detection.
 
 These tools are used by the AML Agent to analyze transactions and detect
-suspicious activity patterns.
+suspicious activity patterns. All data is queried from Neo4j.
 """
 
 from __future__ import annotations
@@ -10,186 +10,28 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from ..services.neo4j_service import Neo4jDomainService
+
 logger = logging.getLogger(__name__)
 
-# Sample transaction database
-SAMPLE_TRANSACTIONS = {
-    "CUST-001": [
-        {
-            "id": "TXN-001",
-            "date": "2024-01-15",
-            "type": "deposit",
-            "amount": 5000,
-            "currency": "USD",
-            "counterparty": "Employer Payroll",
-            "description": "Salary",
-        },
-        {
-            "id": "TXN-002",
-            "date": "2024-01-20",
-            "type": "withdrawal",
-            "amount": 1500,
-            "currency": "USD",
-            "counterparty": "Landlord",
-            "description": "Rent",
-        },
-        {
-            "id": "TXN-003",
-            "date": "2024-02-15",
-            "type": "deposit",
-            "amount": 5000,
-            "currency": "USD",
-            "counterparty": "Employer Payroll",
-            "description": "Salary",
-        },
-    ],
-    "CUST-002": [
-        {
-            "id": "TXN-101",
-            "date": "2024-01-05",
-            "type": "wire_in",
-            "amount": 45000,
-            "currency": "USD",
-            "counterparty": "Garcia Trading LLC - Spain",
-            "description": "Trade Payment",
-        },
-        {
-            "id": "TXN-102",
-            "date": "2024-01-07",
-            "type": "wire_out",
-            "amount": 43000,
-            "currency": "USD",
-            "counterparty": "Supplier Co - Panama",
-            "description": "Supplier Payment",
-        },
-        {
-            "id": "TXN-103",
-            "date": "2024-01-15",
-            "type": "wire_in",
-            "amount": 52000,
-            "currency": "USD",
-            "counterparty": "Garcia Trading LLC - Spain",
-            "description": "Trade Payment",
-        },
-        {
-            "id": "TXN-104",
-            "date": "2024-01-16",
-            "type": "wire_out",
-            "amount": 50000,
-            "currency": "USD",
-            "counterparty": "Supplier Co - Panama",
-            "description": "Supplier Payment",
-        },
-        {
-            "id": "TXN-105",
-            "date": "2024-01-25",
-            "type": "wire_in",
-            "amount": 48000,
-            "currency": "USD",
-            "counterparty": "Client ABC - Mexico",
-            "description": "Trade Payment",
-        },
-        {
-            "id": "TXN-106",
-            "date": "2024-01-26",
-            "type": "wire_out",
-            "amount": 46000,
-            "currency": "USD",
-            "counterparty": "Supplier Co - Panama",
-            "description": "Supplier Payment",
-        },
-    ],
-    "CUST-003": [
-        {
-            "id": "TXN-201",
-            "date": "2024-01-10",
-            "type": "wire_in",
-            "amount": 250000,
-            "currency": "USD",
-            "counterparty": "Unknown Offshore Entity",
-            "description": "Investment",
-        },
-        {
-            "id": "TXN-202",
-            "date": "2024-01-11",
-            "type": "wire_out",
-            "amount": 248000,
-            "currency": "USD",
-            "counterparty": "Shell Corp - Cayman",
-            "description": "Investment Distribution",
-        },
-        {
-            "id": "TXN-203",
-            "date": "2024-01-20",
-            "type": "cash_deposit",
-            "amount": 9500,
-            "currency": "USD",
-            "counterparty": "Cash",
-            "description": "Operating Funds",
-        },
-        {
-            "id": "TXN-204",
-            "date": "2024-01-21",
-            "type": "cash_deposit",
-            "amount": 9500,
-            "currency": "USD",
-            "counterparty": "Cash",
-            "description": "Operating Funds",
-        },
-        {
-            "id": "TXN-205",
-            "date": "2024-01-22",
-            "type": "cash_deposit",
-            "amount": 9500,
-            "currency": "USD",
-            "counterparty": "Cash",
-            "description": "Operating Funds",
-        },
-        {
-            "id": "TXN-206",
-            "date": "2024-01-23",
-            "type": "cash_deposit",
-            "amount": 9500,
-            "currency": "USD",
-            "counterparty": "Cash",
-            "description": "Operating Funds",
-        },
-        {
-            "id": "TXN-207",
-            "date": "2024-02-01",
-            "type": "wire_out",
-            "amount": 35000,
-            "currency": "USD",
-            "counterparty": "Anonymous Trust - Seychelles",
-            "description": "Consulting Fee",
-        },
-    ],
-}
 
-
-def scan_transactions(
+async def scan_transactions(
     customer_id: str,
     days: int = 90,
     min_amount: float | None = None,
     transaction_type: str | None = None,
+    *,
+    neo4j_service: Neo4jDomainService,
 ) -> dict[str, Any]:
-    """Scan customer transactions for the specified period.
-
-    Retrieves and analyzes transactions for a customer, optionally
-    filtered by amount or type.
-
-    Args:
-        customer_id: The customer identifier.
-        days: Number of days to look back.
-        min_amount: Minimum transaction amount to include.
-        transaction_type: Filter by transaction type.
-
-    Returns:
-        Transaction scan results with summary statistics.
-    """
+    """Scan customer transactions for the specified period."""
     logger.info(f"Scanning transactions for customer {customer_id}, last {days} days")
 
-    transactions = SAMPLE_TRANSACTIONS.get(customer_id, [])
+    transactions = await neo4j_service.get_transactions(
+        customer_id,
+        days=days,
+        min_amount=min_amount,
+        transaction_type=transaction_type,
+    )
     if not transactions:
         return {
             "customer_id": customer_id,
@@ -198,62 +40,37 @@ def scan_transactions(
             "timestamp": datetime.now().isoformat(),
         }
 
-    # Apply filters
-    filtered_txns = transactions
-    if min_amount:
-        filtered_txns = [t for t in filtered_txns if t["amount"] >= min_amount]
-    if transaction_type:
-        filtered_txns = [t for t in filtered_txns if t["type"] == transaction_type]
-
-    # Calculate statistics
-    total_amount = sum(t["amount"] for t in filtered_txns)
-    deposits = sum(
-        t["amount"]
-        for t in filtered_txns
-        if "deposit" in t["type"] or "in" in t["type"]
-    )
+    total_amount = sum(t["amount"] for t in transactions)
+    deposits = sum(t["amount"] for t in transactions if "deposit" in t["type"] or "in" in t["type"])
     withdrawals = sum(
-        t["amount"]
-        for t in filtered_txns
-        if "withdrawal" in t["type"] or "out" in t["type"]
+        t["amount"] for t in transactions if "withdrawal" in t["type"] or "out" in t["type"]
     )
-
-    # Get unique counterparties
-    counterparties = list(set(t["counterparty"] for t in filtered_txns))
+    counterparties = list({t["counterparty"] for t in transactions if t.get("counterparty")})
 
     return {
         "customer_id": customer_id,
         "period_days": days,
-        "transaction_count": len(filtered_txns),
+        "transaction_count": len(transactions),
         "total_volume": total_amount,
         "total_deposits": deposits,
         "total_withdrawals": withdrawals,
         "unique_counterparties": len(counterparties),
         "counterparties": counterparties,
-        "transactions": filtered_txns,
+        "transactions": transactions,
         "timestamp": datetime.now().isoformat(),
     }
 
 
-def detect_patterns(
+async def detect_patterns(
     customer_id: str,
     pattern_types: list[str] | None = None,
+    *,
+    neo4j_service: Neo4jDomainService,
 ) -> dict[str, Any]:
-    """Detect suspicious transaction patterns.
-
-    Analyzes transactions for known money laundering typologies
-    including structuring, layering, and rapid movement.
-
-    Args:
-        customer_id: The customer identifier.
-        pattern_types: Specific patterns to check (optional).
-
-    Returns:
-        Pattern detection results with confidence scores.
-    """
+    """Detect suspicious transaction patterns."""
     logger.info(f"Detecting patterns for customer {customer_id}")
 
-    transactions = SAMPLE_TRANSACTIONS.get(customer_id, [])
+    transactions = await neo4j_service.get_transactions(customer_id)
     if not transactions:
         return {
             "customer_id": customer_id,
@@ -264,56 +81,46 @@ def detect_patterns(
 
     patterns_detected = []
 
-    # Check for structuring (multiple transactions just under $10,000)
-    cash_deposits = [t for t in transactions if "cash" in t["type"].lower()]
-    structuring_candidates = [t for t in cash_deposits if 9000 <= t["amount"] < 10000]
-    if len(structuring_candidates) >= 2:
+    # Structuring detection via Neo4j
+    structuring_txns = await neo4j_service.detect_structuring(customer_id)
+    if len(structuring_txns) >= 2:
         patterns_detected.append(
             {
                 "pattern": "STRUCTURING",
                 "confidence": 0.85,
                 "description": "Multiple cash deposits just under $10,000 reporting threshold",
-                "evidence": [t["id"] for t in structuring_candidates],
-                "total_amount": sum(t["amount"] for t in structuring_candidates),
+                "evidence": [t["id"] for t in structuring_txns],
+                "total_amount": sum(t["amount"] for t in structuring_txns),
                 "risk_level": "HIGH",
             }
         )
 
-    # Check for rapid movement (funds moved within 24-48 hours of receipt)
-    wire_ins = [t for t in transactions if "wire_in" in t["type"]]
-    wire_outs = [t for t in transactions if "wire_out" in t["type"]]
-    for win in wire_ins:
-        for wout in wire_outs:
-            # Check if outgoing is within 2 days and similar amount
-            if abs(win["amount"] - wout["amount"]) < win["amount"] * 0.1:  # Within 10%
-                patterns_detected.append(
-                    {
-                        "pattern": "RAPID_MOVEMENT",
-                        "confidence": 0.75,
-                        "description": "Funds moved quickly after receipt with minimal change",
-                        "evidence": [win["id"], wout["id"]],
-                        "in_amount": win["amount"],
-                        "out_amount": wout["amount"],
-                        "risk_level": "MEDIUM",
-                    }
-                )
-                break
+    # Rapid movement detection via Neo4j
+    rapid_pairs = await neo4j_service.detect_rapid_movement(customer_id)
+    if rapid_pairs:
+        first = rapid_pairs[0]
+        patterns_detected.append(
+            {
+                "pattern": "RAPID_MOVEMENT",
+                "confidence": 0.75,
+                "description": "Funds moved quickly after receipt with minimal change",
+                "evidence": [first["inbound"]["id"], first["outbound"]["id"]],
+                "in_amount": first["inbound"]["amount"],
+                "out_amount": first["outbound"]["amount"],
+                "risk_level": "MEDIUM",
+            }
+        )
 
-    # Check for layering (multiple jurisdictions)
-    offshore_keywords = ["offshore", "cayman", "bvi", "panama", "seychelles", "unknown"]
-    offshore_txns = [
-        t
-        for t in transactions
-        if any(kw in t["counterparty"].lower() for kw in offshore_keywords)
-    ]
-    if len(offshore_txns) >= 2:
+    # Layering detection via Neo4j
+    layering_txns = await neo4j_service.detect_layering(customer_id)
+    if len(layering_txns) >= 2:
         patterns_detected.append(
             {
                 "pattern": "LAYERING",
                 "confidence": 0.70,
                 "description": "Multiple transactions with offshore/high-risk jurisdictions",
-                "evidence": [t["id"] for t in offshore_txns],
-                "jurisdictions": list(set(t["counterparty"] for t in offshore_txns)),
+                "evidence": [t["id"] for t in layering_txns],
+                "jurisdictions": list({t["counterparty"] for t in layering_txns}),
                 "risk_level": "HIGH",
             }
         )
@@ -327,92 +134,83 @@ def detect_patterns(
     }
 
 
-def flag_suspicious_transaction(
+async def flag_suspicious_transaction(
     transaction_id: str,
     reason: str,
     severity: str = "MEDIUM",
+    *,
+    neo4j_service: Neo4jDomainService,
 ) -> dict[str, Any]:
-    """Flag a specific transaction as suspicious.
-
-    Creates an alert for a transaction requiring further investigation.
-
-    Args:
-        transaction_id: The transaction identifier.
-        reason: Reason for flagging.
-        severity: Alert severity (LOW/MEDIUM/HIGH/CRITICAL).
-
-    Returns:
-        Flag confirmation with alert ID.
-    """
+    """Flag a specific transaction as suspicious."""
     logger.info(f"Flagging transaction {transaction_id} as suspicious")
 
-    # Find the transaction
-    for customer_id, txns in SAMPLE_TRANSACTIONS.items():
-        for txn in txns:
-            if txn["id"] == transaction_id:
-                return {
-                    "alert_id": f"ALERT-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    "transaction_id": transaction_id,
-                    "customer_id": customer_id,
-                    "transaction_amount": txn["amount"],
-                    "reason": reason,
-                    "severity": severity,
-                    "status": "FLAGGED",
-                    "requires_sar": severity in ["HIGH", "CRITICAL"],
-                    "timestamp": datetime.now().isoformat(),
-                }
+    # Find the transaction and its customer
+    query = """
+    MATCH (c:Customer)-[:HAS_TRANSACTION]->(t:Transaction {id: $txn_id})
+    RETURN c.id AS customer_id, t {.*} AS transaction
+    """
+    results = await neo4j_service._graph.execute_read(query, {"txn_id": transaction_id})
+    if not results:
+        return {
+            "transaction_id": transaction_id,
+            "status": "NOT_FOUND",
+            "message": "Transaction not found",
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    row = results[0]
+    customer_id = row["customer_id"]
+    txn = row["transaction"]
+
+    # Create alert in Neo4j
+    alert = await neo4j_service.create_alert(
+        {
+            "customer_id": customer_id,
+            "type": "AML",
+            "severity": severity,
+            "status": "NEW",
+            "title": f"Suspicious Transaction: {transaction_id}",
+            "description": reason,
+            "evidence": [f"{transaction_id}: ${txn['amount']:,.0f} {txn.get('type', '')}"],
+            "requires_sar": severity in ["HIGH", "CRITICAL"],
+        }
+    )
 
     return {
+        "alert_id": alert.get("id", "ALERT-NEW"),
         "transaction_id": transaction_id,
-        "status": "NOT_FOUND",
-        "message": "Transaction not found",
+        "customer_id": customer_id,
+        "transaction_amount": txn["amount"],
+        "reason": reason,
+        "severity": severity,
+        "status": "FLAGGED",
+        "requires_sar": severity in ["HIGH", "CRITICAL"],
         "timestamp": datetime.now().isoformat(),
     }
 
 
-def analyze_velocity(
+async def analyze_velocity(
     customer_id: str,
     metric: str = "all",
+    *,
+    neo4j_service: Neo4jDomainService,
 ) -> dict[str, Any]:
-    """Analyze transaction velocity patterns.
-
-    Examines transaction frequency, amounts, and timing to identify
-    unusual velocity patterns that may indicate suspicious activity.
-
-    Args:
-        customer_id: The customer identifier.
-        metric: Specific metric to analyze (count/amount/all).
-
-    Returns:
-        Velocity analysis with anomaly detection.
-    """
+    """Analyze transaction velocity patterns."""
     logger.info(f"Analyzing velocity for customer {customer_id}")
 
-    transactions = SAMPLE_TRANSACTIONS.get(customer_id, [])
-    if not transactions:
+    metrics = await neo4j_service.get_velocity_metrics(customer_id)
+    if metrics["total_transactions"] == 0:
         return {
             "customer_id": customer_id,
             "status": "NO_DATA",
             "timestamp": datetime.now().isoformat(),
         }
 
-    # Calculate velocity metrics
-    total_txns = len(transactions)
-    total_amount = sum(t["amount"] for t in transactions)
-    avg_amount = total_amount / total_txns if total_txns > 0 else 0
+    type_counts = metrics["transactions_by_type"]
+    type_amounts = metrics["volume_by_type"]
 
-    # Group by type
-    type_counts = {}
-    type_amounts = {}
-    for txn in transactions:
-        t_type = txn["type"]
-        type_counts[t_type] = type_counts.get(t_type, 0) + 1
-        type_amounts[t_type] = type_amounts.get(t_type, 0) + txn["amount"]
-
-    # Detect velocity anomalies
     anomalies = []
 
-    # High frequency cash transactions
     cash_count = sum(v for k, v in type_counts.items() if "cash" in k)
     if cash_count >= 3:
         anomalies.append(
@@ -423,7 +221,6 @@ def analyze_velocity(
             }
         )
 
-    # High wire volume
     wire_amount = sum(v for k, v in type_amounts.items() if "wire" in k)
     if wire_amount > 100000:
         anomalies.append(
@@ -434,14 +231,19 @@ def analyze_velocity(
             }
         )
 
-    # Large individual transactions
-    large_txns = [t for t in transactions if t["amount"] > 50000]
-    if large_txns:
+    # Check for large individual transactions
+    large_txns_query = """
+    MATCH (c:Customer {id: $id})-[:HAS_TRANSACTION]->(t:Transaction)
+    WHERE t.amount > 50000
+    RETURN t.id AS id
+    """
+    large_results = await neo4j_service._graph.execute_read(large_txns_query, {"id": customer_id})
+    if large_results:
         anomalies.append(
             {
                 "type": "LARGE_TRANSACTIONS",
-                "description": f"{len(large_txns)} transactions over $50,000",
-                "transactions": [t["id"] for t in large_txns],
+                "description": f"{len(large_results)} transactions over $50,000",
+                "transactions": [r["id"] for r in large_results],
                 "risk_level": "HIGH",
             }
         )
@@ -450,17 +252,13 @@ def analyze_velocity(
         "customer_id": customer_id,
         "period_analyzed": "90 days",
         "metrics": {
-            "total_transactions": total_txns,
-            "total_volume": total_amount,
-            "average_transaction": round(avg_amount, 2),
+            "total_transactions": metrics["total_transactions"],
+            "total_volume": metrics["total_volume"],
+            "average_transaction": round(metrics["average_transaction"], 2),
             "transactions_by_type": type_counts,
             "volume_by_type": type_amounts,
         },
         "anomalies_detected": anomalies,
-        "velocity_risk": "HIGH"
-        if len(anomalies) >= 2
-        else "MEDIUM"
-        if anomalies
-        else "LOW",
+        "velocity_risk": ("HIGH" if len(anomalies) >= 2 else "MEDIUM" if anomalies else "LOW"),
         "timestamp": datetime.now().isoformat(),
     }

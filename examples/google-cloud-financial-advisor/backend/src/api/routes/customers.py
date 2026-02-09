@@ -1,159 +1,223 @@
-"""Customer API routes."""
+"""Customer API routes.
+
+All customer data is queried from Neo4j via the Neo4jDomainService.
+"""
 
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from ...models.customer import Customer, CustomerCreate, CustomerRisk, RiskLevel
-from ...tools.kyc_tools import (
-    SAMPLE_CUSTOMERS,
-    assess_customer_risk,
-    verify_identity,
-)
-from ...tools.relationship_tools import find_connections
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/customers", tags=["customers"])
 
 
+def _get_neo4j_service(request: Request):
+    """Get Neo4jDomainService from app state."""
+    svc = getattr(request.app.state, "neo4j_service", None)
+    if svc is None:
+        raise HTTPException(status_code=503, detail="Neo4j service not available")
+    return svc
+
+
+def _compute_risk(customer: dict) -> dict[str, Any]:
+    """Compute risk score and level from customer data (same logic as kyc_tools)."""
+    base_score = 20
+    risk_factors = customer.get("risk_factors", []) or []
+
+    risk_weights = {
+        "offshore_jurisdiction": 25,
+        "nominee_directors": 20,
+        "shell_company_indicators": 30,
+        "high_risk_business": 15,
+        "international_transactions": 10,
+        "pep_connection": 25,
+        "adverse_media": 20,
+    }
+
+    total_score = base_score
+    contributing_factors = []
+
+    for factor in risk_factors:
+        weight = risk_weights.get(factor, 10)
+        total_score += weight
+        contributing_factors.append(
+            {
+                "factor": factor,
+                "weight": weight,
+                "description": factor.replace("_", " ").title(),
+            }
+        )
+
+    documents = customer.get("documents", []) or []
+    pending_docs = sum(1 for d in documents if d.get("status") != "verified")
+    if pending_docs > 0:
+        total_score += pending_docs * 5
+        contributing_factors.append(
+            {
+                "factor": "incomplete_documentation",
+                "weight": pending_docs * 5,
+                "description": f"{pending_docs} documents pending verification",
+            }
+        )
+
+    total_score = min(total_score, 100)
+
+    if total_score >= 75:
+        risk_level = "CRITICAL"
+    elif total_score >= 50:
+        risk_level = "HIGH"
+    elif total_score >= 30:
+        risk_level = "MEDIUM"
+    else:
+        risk_level = "LOW"
+
+    return {
+        "risk_score": total_score,
+        "risk_level": risk_level,
+        "contributing_factors": contributing_factors,
+    }
+
+
+def _customer_from_dict(cust_id: str, cust: dict, risk: dict) -> Customer:
+    """Build a Customer response model from a Neo4j dict."""
+    return Customer(
+        id=cust_id,
+        name=cust.get("name", "Unknown"),
+        type=cust.get("type", "individual"),
+        nationality=cust.get("nationality"),
+        address=cust.get("address") or cust.get("registered_address"),
+        occupation=cust.get("occupation"),
+        employer=cust.get("employer"),
+        jurisdiction=cust.get("jurisdiction"),
+        business_type=cust.get("business_type"),
+        kyc_status=cust.get("kyc_status", "pending"),
+        risk_level=RiskLevel(risk["risk_level"]),
+        risk_score=risk["risk_score"],
+        risk_factors=cust.get("risk_factors") or [],
+    )
+
+
 @router.get("", response_model=list[Customer])
 async def list_customers(
+    request: Request,
     type: str | None = Query(None, description="Filter by customer type"),
     risk_level: str | None = Query(None, description="Filter by risk level"),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ) -> list[Customer]:
     """List all customers with optional filtering."""
+    neo4j_service = _get_neo4j_service(request)
+
+    rows = await neo4j_service.list_customers(customer_type=type, limit=1000, offset=0)
+
     customers = []
+    for cust in rows:
+        cust_id = cust.get("id", "")
+        risk = _compute_risk(cust)
 
-    for cust_id, cust_data in SAMPLE_CUSTOMERS.items():
-        # Apply filters
-        if type and cust_data.get("type") != type:
+        if risk_level and risk["risk_level"] != risk_level:
             continue
 
-        # Get risk assessment
-        risk = assess_customer_risk(cust_id)
-        cust_risk_level = risk.get("risk_level", "MEDIUM")
-
-        if risk_level and cust_risk_level != risk_level:
-            continue
-
-        customer = Customer(
-            id=cust_id,
-            name=cust_data.get("name", "Unknown"),
-            type=cust_data.get("type", "individual"),
-            nationality=cust_data.get("nationality"),
-            address=cust_data.get("address") or cust_data.get("registered_address"),
-            occupation=cust_data.get("occupation"),
-            employer=cust_data.get("employer"),
-            jurisdiction=cust_data.get("jurisdiction"),
-            business_type=cust_data.get("business_type"),
-            kyc_status=cust_data.get("kyc_status", "pending"),
-            risk_level=RiskLevel(cust_risk_level),
-            risk_score=risk.get("risk_score", 0),
-            risk_factors=cust_data.get("risk_factors", []),
-        )
-        customers.append(customer)
+        customers.append(_customer_from_dict(cust_id, cust, risk))
 
     # Apply pagination
     return customers[offset : offset + limit]
 
 
 @router.get("/{customer_id}", response_model=Customer)
-async def get_customer(customer_id: str) -> Customer:
+async def get_customer(request: Request, customer_id: str) -> Customer:
     """Get a specific customer by ID."""
-    cust_data = SAMPLE_CUSTOMERS.get(customer_id)
-    if not cust_data:
+    neo4j_service = _get_neo4j_service(request)
+
+    cust = await neo4j_service.get_customer(customer_id)
+    if not cust:
         raise HTTPException(status_code=404, detail=f"Customer {customer_id} not found")
 
-    # Get risk assessment
-    risk = assess_customer_risk(customer_id)
-
-    return Customer(
-        id=customer_id,
-        name=cust_data.get("name", "Unknown"),
-        type=cust_data.get("type", "individual"),
-        nationality=cust_data.get("nationality"),
-        address=cust_data.get("address") or cust_data.get("registered_address"),
-        occupation=cust_data.get("occupation"),
-        employer=cust_data.get("employer"),
-        jurisdiction=cust_data.get("jurisdiction"),
-        business_type=cust_data.get("business_type"),
-        kyc_status=cust_data.get("kyc_status", "pending"),
-        risk_level=RiskLevel(risk.get("risk_level", "MEDIUM")),
-        risk_score=risk.get("risk_score", 0),
-        risk_factors=cust_data.get("risk_factors", []),
-    )
+    risk = _compute_risk(cust)
+    return _customer_from_dict(customer_id, cust, risk)
 
 
 @router.get("/{customer_id}/risk", response_model=CustomerRisk)
-async def get_customer_risk(customer_id: str) -> CustomerRisk:
+async def get_customer_risk(request: Request, customer_id: str) -> CustomerRisk:
     """Get risk assessment for a customer."""
-    if customer_id not in SAMPLE_CUSTOMERS:
+    neo4j_service = _get_neo4j_service(request)
+
+    cust = await neo4j_service.get_customer(customer_id)
+    if not cust:
         raise HTTPException(status_code=404, detail=f"Customer {customer_id} not found")
 
-    risk = assess_customer_risk(customer_id)
+    risk = _compute_risk(cust)
+
+    recommendations = {
+        "CRITICAL": "Immediate escalation required. Consider account restriction pending investigation.",
+        "HIGH": "Enhanced due diligence required. Senior review recommended.",
+        "MEDIUM": "Standard enhanced monitoring. Periodic review required.",
+        "LOW": "Standard monitoring procedures apply.",
+    }
 
     return CustomerRisk(
         customer_id=customer_id,
-        customer_name=risk.get("customer_name", "Unknown"),
-        risk_score=risk.get("risk_score", 0),
-        risk_level=RiskLevel(risk.get("risk_level", "MEDIUM")),
-        contributing_factors=risk.get("contributing_factors", []),
-        kyc_status=risk.get("kyc_status", "pending"),
-        recommendation=risk.get("recommendation", "Review required"),
+        customer_name=cust.get("name", "Unknown"),
+        risk_score=risk["risk_score"],
+        risk_level=RiskLevel(risk["risk_level"]),
+        contributing_factors=risk["contributing_factors"],
+        kyc_status=cust.get("kyc_status", "pending"),
+        recommendation=recommendations.get(risk["risk_level"], "Review required"),
     )
 
 
 @router.get("/{customer_id}/network")
 async def get_customer_network(
+    request: Request,
     customer_id: str,
     depth: int = Query(2, ge=1, le=3, description="Network traversal depth"),
 ) -> dict[str, Any]:
-    """Get the relationship network for a customer.
+    """Get the relationship network for a customer."""
+    neo4j_service = _get_neo4j_service(request)
 
-    Returns nodes and edges for graph visualization.
-    """
-    if customer_id not in SAMPLE_CUSTOMERS:
+    cust = await neo4j_service.get_customer(customer_id)
+    if not cust:
         raise HTTPException(status_code=404, detail=f"Customer {customer_id} not found")
 
-    # Get connections
-    connections = find_connections(customer_id, depth=depth)
+    conn_data = await neo4j_service.find_connections(customer_id, depth=depth)
 
-    if connections.get("status") == "NOT_FOUND":
-        raise HTTPException(status_code=404, detail="Customer not found in network")
-
-    # Format for visualization
     nodes = [
         {
             "id": customer_id,
-            "label": connections.get("entity_name", customer_id),
-            "type": connections.get("entity_type", "UNKNOWN"),
+            "label": cust.get("name", customer_id),
+            "type": cust.get("type", "UNKNOWN"),
             "isRoot": True,
         }
     ]
 
     edges = []
 
-    for conn in connections.get("connections", []):
+    for conn in conn_data.get("connections", []):
+        entity = conn.get("entity", {})
+        entity_id = entity.get("id") or entity.get("name")
+        distance = conn.get("distance", 1)
+        rel_types = conn.get("rel_types", [])
+
         nodes.append(
             {
-                "id": conn.get("entity_id", conn.get("name")),
-                "label": conn.get("name"),
-                "type": conn.get("type"),
-                "jurisdiction": conn.get("jurisdiction"),
-                "distance": conn.get("distance"),
+                "id": entity_id,
+                "label": entity.get("name"),
+                "type": entity.get("type"),
+                "jurisdiction": entity.get("jurisdiction"),
+                "distance": distance,
             }
         )
 
         edges.append(
             {
-                "from": customer_id if conn.get("distance") == 1 else None,
-                "to": conn.get("entity_id", conn.get("name")),
-                "relationship": conn.get("relationship"),
+                "from": customer_id if distance == 1 else None,
+                "to": entity_id,
+                "relationship": rel_types[0] if rel_types else "CONNECTED_TO",
             }
         )
 
@@ -162,17 +226,49 @@ async def get_customer_network(
         "depth": depth,
         "nodes": nodes,
         "edges": edges,
-        "total_connections": connections.get("connections_found", 0),
+        "total_connections": len(conn_data.get("connections", [])),
     }
 
 
 @router.get("/{customer_id}/verify")
-async def verify_customer(customer_id: str) -> dict[str, Any]:
+async def verify_customer(request: Request, customer_id: str) -> dict[str, Any]:
     """Verify customer identity."""
-    if customer_id not in SAMPLE_CUSTOMERS:
+    neo4j_service = _get_neo4j_service(request)
+
+    cust = await neo4j_service.get_customer(customer_id)
+    if not cust:
         raise HTTPException(status_code=404, detail=f"Customer {customer_id} not found")
 
-    return verify_identity(customer_id)
+    # Inline verification logic (same as kyc_tools.verify_identity)
+    documents = cust.get("documents", []) or []
+    verified_docs = sum(1 for d in documents if d.get("status") == "verified")
+    total_docs = len(documents)
+
+    if cust.get("type") == "individual":
+        required_docs = ["passport", "utility_bill"]
+    else:
+        required_docs = [
+            "certificate_of_incorporation",
+            "register_of_directors",
+            "proof_of_address",
+        ]
+
+    doc_types_verified = {d["type"] for d in documents if d.get("status") == "verified"}
+    missing_docs = [doc for doc in required_docs if doc not in doc_types_verified]
+
+    status = "VERIFIED" if not missing_docs else "PENDING"
+
+    return {
+        "customer_id": customer_id,
+        "customer_name": cust.get("name"),
+        "customer_type": cust.get("type"),
+        "status": status,
+        "verified": status == "VERIFIED",
+        "documents_verified": f"{verified_docs}/{total_docs}",
+        "missing_documents": missing_docs,
+        "risk_factors": cust.get("risk_factors", []),
+        "kyc_status": cust.get("kyc_status"),
+    }
 
 
 @router.post("", response_model=Customer)

@@ -6,7 +6,9 @@ identity verification, document checking, and risk assessment.
 
 from __future__ import annotations
 
+import inspect
 import logging
+from functools import wraps
 from typing import TYPE_CHECKING
 
 from google.adk.agents import LlmAgent
@@ -22,29 +24,59 @@ from .prompts import KYC_AGENT_INSTRUCTION
 
 if TYPE_CHECKING:
     from ..services.memory_service import FinancialMemoryService
+    from ..services.neo4j_service import Neo4jDomainService
 
 logger = logging.getLogger(__name__)
+
+
+def _bind_tool(func, neo4j_service):
+    """Create a wrapper that binds neo4j_service to a tool function.
+
+    ADK FunctionTool inspects the function signature to determine which
+    parameters the LLM should provide. We create a wrapper with a
+    modified signature that hides neo4j_service entirely.
+    """
+    sig = inspect.signature(func)
+    new_params = [p for name, p in sig.parameters.items() if name != "neo4j_service"]
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        kwargs["neo4j_service"] = neo4j_service
+        return await func(*args, **kwargs)
+
+    wrapper.__signature__ = sig.replace(parameters=new_params)
+    return wrapper
 
 
 def create_kyc_agent(
     memory_service: FinancialMemoryService | None = None,
     model: str = "gemini-2.5-flash",
+    neo4j_service: Neo4jDomainService | None = None,
 ) -> LlmAgent:
     """Create the KYC Agent.
 
     Args:
         memory_service: Optional memory service for context graph access.
         model: The Gemini model to use.
+        neo4j_service: Domain data service for Neo4j queries.
 
     Returns:
         Configured KYC Agent.
     """
-    tools = [
-        FunctionTool(verify_identity),
-        FunctionTool(check_documents),
-        FunctionTool(assess_customer_risk),
-        FunctionTool(check_adverse_media),
-    ]
+    if neo4j_service:
+        tools = [
+            FunctionTool(_bind_tool(verify_identity, neo4j_service)),
+            FunctionTool(_bind_tool(check_documents, neo4j_service)),
+            FunctionTool(_bind_tool(assess_customer_risk, neo4j_service)),
+            FunctionTool(_bind_tool(check_adverse_media, neo4j_service)),
+        ]
+    else:
+        tools = [
+            FunctionTool(verify_identity),
+            FunctionTool(check_documents),
+            FunctionTool(assess_customer_risk),
+            FunctionTool(check_adverse_media),
+        ]
 
     # Add memory tools if service provided
     if memory_service:

@@ -21,17 +21,20 @@ from .relationship_agent import create_relationship_agent
 
 if TYPE_CHECKING:
     from ..services.memory_service import FinancialMemoryService
+    from ..services.neo4j_service import Neo4jDomainService
 
 logger = logging.getLogger(__name__)
 
 # Global supervisor instance
 _supervisor_agent: LlmAgent | None = None
 _memory_service: FinancialMemoryService | None = None
+_neo4j_service: Neo4jDomainService | None = None
 
 
 def create_supervisor_agent(
     memory_service: FinancialMemoryService | None = None,
     model: str = "gemini-2.5-flash",
+    neo4j_service: Neo4jDomainService | None = None,
 ) -> LlmAgent:
     """Create the Supervisor Agent that orchestrates investigations.
 
@@ -42,15 +45,19 @@ def create_supervisor_agent(
     Args:
         memory_service: Memory service for context graph access.
         model: The Gemini model to use.
+        neo4j_service: Domain data service for Neo4j queries.
 
     Returns:
         Configured Supervisor Agent with sub-agents.
     """
-    # Create specialized sub-agents
-    kyc_agent = create_kyc_agent(memory_service, model)
-    aml_agent = create_aml_agent(memory_service, model)
-    relationship_agent = create_relationship_agent(memory_service, model)
-    compliance_agent = create_compliance_agent(memory_service, model)
+    # Create specialized sub-agents, passing neo4j_service so their
+    # tools can query domain data from Neo4j
+    kyc_agent = create_kyc_agent(memory_service, model, neo4j_service=neo4j_service)
+    aml_agent = create_aml_agent(memory_service, model, neo4j_service=neo4j_service)
+    relationship_agent = create_relationship_agent(
+        memory_service, model, neo4j_service=neo4j_service
+    )
+    compliance_agent = create_compliance_agent(memory_service, model, neo4j_service=neo4j_service)
 
     # Memory tools for the supervisor
     tools = []
@@ -147,23 +154,28 @@ def create_supervisor_agent(
 
 def get_supervisor_agent(
     memory_service: FinancialMemoryService | None = None,
+    neo4j_service: Neo4jDomainService | None = None,
 ) -> LlmAgent:
     """Get or create the global Supervisor Agent instance.
 
     Args:
         memory_service: Memory service for context graph access.
             Required on first call.
+        neo4j_service: Domain data service for Neo4j queries.
 
     Returns:
         Supervisor Agent instance.
     """
-    global _supervisor_agent, _memory_service
+    global _supervisor_agent, _memory_service, _neo4j_service
 
-    if _supervisor_agent is None or (
-        memory_service and memory_service != _memory_service
+    if (
+        _supervisor_agent is None
+        or (memory_service and memory_service != _memory_service)
+        or (neo4j_service and neo4j_service != _neo4j_service)
     ):
-        _memory_service = memory_service
-        _supervisor_agent = create_supervisor_agent(memory_service)
+        _memory_service = memory_service or _memory_service
+        _neo4j_service = neo4j_service or _neo4j_service
+        _supervisor_agent = create_supervisor_agent(_memory_service, neo4j_service=_neo4j_service)
 
     return _supervisor_agent
 
@@ -173,6 +185,7 @@ def reset_supervisor_agent() -> None:
 
     Useful for testing or when memory service changes.
     """
-    global _supervisor_agent, _memory_service
+    global _supervisor_agent, _memory_service, _neo4j_service
     _supervisor_agent = None
     _memory_service = None
+    _neo4j_service = None

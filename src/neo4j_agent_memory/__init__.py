@@ -451,6 +451,35 @@ class MemoryClient:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
         return self._schema_manager
 
+    @property
+    def graph(self) -> "Neo4jClient":
+        """
+        Access the underlying Neo4j graph client for custom Cypher queries.
+
+        This allows applications to query domain-specific data stored in the
+        same Neo4j database alongside agent memory operations, without creating
+        a separate database connection.
+
+        The returned client provides ``execute_read()``, ``execute_write()``,
+        ``execute_batch()``, ``vector_search()``, and other query methods.
+
+        Example::
+
+            async with MemoryClient(settings) as client:
+                results = await client.graph.execute_read(
+                    "MATCH (c:Customer) RETURN c.name AS name LIMIT 10"
+                )
+
+        Returns:
+            Neo4jClient instance
+
+        Raises:
+            NotConnectedError: If client is not connected
+        """
+        if self._client is None:
+            raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
+        return self._client
+
     async def get_context(
         self,
         query: str,
