@@ -1914,6 +1914,43 @@ A supervisor agent orchestrates 4 specialist agents:
 | **Relationship Agent** | `map_network`, `trace_ownership`, `analyze_connections` | Network analysis, beneficial ownership |
 | **Compliance Agent** | `screen_sanctions`, `check_pep`, `generate_sar_report` | Sanctions/PEP screening, SAR generation |
 
+### Neo4j Domain Data Integration
+
+All domain data (customers, transactions, organizations, alerts, sanctions, PEPs) is stored in Neo4j and queried via `Neo4jDomainService`. Agent memory (conversations, findings) uses the neo4j-agent-memory APIs.
+
+**Architecture: Hybrid data access**
+- **Domain data**: `Neo4jDomainService` queries Neo4j directly via `MemoryClient.graph` (the `Neo4jClient`)
+- **Agent memory**: `FinancialMemoryService` wraps `Neo4jMemoryService` for ADK integration
+- **Single connection**: Both share the same Neo4j driver via `MemoryClient.graph`
+
+**`MemoryClient.graph` property** (added to the package):
+```python
+# Exposes the underlying Neo4jClient for custom Cypher queries
+async with MemoryClient(settings) as client:
+    results = await client.graph.execute_read(
+        "MATCH (c:Customer) RETURN c.name LIMIT 10"
+    )
+```
+
+**`Neo4jDomainService`** (`backend/src/services/neo4j_service.py`):
+- Initialized in `main.py` lifespan: `Neo4jDomainService(memory_service.client.graph)`
+- Stored on `app.state.neo4j_service`, accessed in routes via `request.app.state`
+- Provides async methods: `list_customers`, `get_customer`, `get_transactions`, `detect_structuring`, `detect_rapid_movement`, `detect_layering`, `find_connections`, `detect_shell_companies`, `trace_ownership`, `get_network_risk`, `list_alerts`, `create_alert`, `check_sanctions`, `check_pep`, etc.
+
+**Tool function binding** (`_bind_tool` pattern):
+- Tool functions accept `neo4j_service` as a keyword-only arg
+- ADK `FunctionTool` inspects signatures to determine LLM-visible params
+- `_bind_tool()` uses `inspect.signature` + `@wraps` to create wrappers that hide `neo4j_service`
+- `functools.partial` does NOT work — it sets defaults but doesn't remove params from the signature
+
+**Neo4j DateTime conversion**:
+- Neo4j returns `neo4j.time.DateTime` objects, not Python `datetime`
+- Use `.to_native()` to convert: `_to_python_datetime()` helper in `alerts.py`
+
+**Cypher gotchas** (Neo4j 5+):
+- Implicit grouping: mixing aggregation with non-aggregated expressions requires `WITH` clause
+- `CASE WHEN ... AND x NOT IN [...]` — extract into variables first: `WITH a.status AS stat ... NOT stat IN [...]`
+
 ### Key Implementation Details
 
 - **ADK Runner**: `Runner.run_async()` returns `AsyncGenerator` — use `async for`, not `await`
@@ -1946,26 +1983,39 @@ make dev
 ### Key Files
 
 **Backend:**
-- `backend/src/main.py` - FastAPI app with `load_dotenv()` for ADK env vars
+- `backend/src/main.py` - FastAPI app, initializes `Neo4jDomainService` in lifespan
 - `backend/src/config.py` - Pydantic settings with nested VertexAI/Neo4j/GCS configs
-- `backend/src/agents/supervisor.py` - Google ADK supervisor with sub-agents
-- `backend/src/agents/kyc_agent.py` - KYC specialist agent
+- `backend/src/services/neo4j_service.py` - `Neo4jDomainService` — all domain Cypher queries
+- `backend/src/services/memory_service.py` - MemoryClient wrapper (uses `connect()`, not `initialize()`)
+- `backend/src/agents/supervisor.py` - Google ADK supervisor with sub-agents, passes `neo4j_service`
+- `backend/src/agents/kyc_agent.py` - KYC specialist agent with `_bind_tool()` pattern
 - `backend/src/agents/aml_agent.py` - AML specialist agent
 - `backend/src/agents/relationship_agent.py` - Relationship/network analyst
 - `backend/src/agents/compliance_agent.py` - Compliance/regulatory agent
+- `backend/src/tools/kyc_tools.py` - KYC tools querying Neo4j via `neo4j_service` kwarg
+- `backend/src/tools/aml_tools.py` - AML tools (structuring, velocity, pattern detection)
+- `backend/src/tools/relationship_tools.py` - Network analysis tools
+- `backend/src/tools/compliance_tools.py` - Sanctions/PEP screening, SAR generation
+- `backend/src/api/routes/customers.py` - Customer endpoints via `Neo4jDomainService`
+- `backend/src/api/routes/alerts.py` - Alert endpoints via `Neo4jDomainService`
 - `backend/src/api/routes/chat.py` - Chat endpoint with `async for` on ADK runner
 - `backend/src/api/routes/investigations.py` - Investigation endpoint
-- `backend/src/services/memory_service.py` - MemoryClient wrapper (uses `connect()`, not `initialize()`)
 
 **Frontend:**
 - `frontend/src/components/Chat/ChatInterface.tsx` - Chat UI with suggested prompt cards (SimpleGrid + Card.Root)
 - `frontend/src/components/Dashboard/` - Customer overview, risk indicators
 
 **Data:**
-- `data/customers.json` - 3 sample customers (Alice Johnson low-risk, Maria Garcia medium-risk, Global Holdings Ltd high-risk)
-- `data/organizations.json` - Shell companies and related entities
+- `data/customers.json` - 3 sample customers with full KYC properties (dob, nationality, docs)
+- `data/organizations.json` - Shell companies and related entities with shell indicators
 - `data/transactions.json` - 16 transactions including structuring patterns
-- `data/load_sample_data.py` - Loads JSON data into Neo4j, reads credentials from `.env`
+- `data/sanctions.json` - Sanctioned entities with aliases
+- `data/pep.json` - Politically Exposed Persons with relatives
+- `data/alerts.json` - Pre-built compliance alerts
+- `data/load_sample_data.py` - Loads all JSON data into Neo4j (customers, orgs, txns, sanctions, PEPs, alerts)
+
+**Tests:**
+- `tests/examples/test_financial_advisor_neo4j_integration.py` - 82 tests: Neo4jDomainService, tool functions, route helpers, _bind_tool, structure validation
 
 See `examples/google-cloud-financial-advisor/README.md` for the full getting started tutorial.
 
