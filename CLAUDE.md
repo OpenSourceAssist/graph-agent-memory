@@ -1891,6 +1891,84 @@ make run-frontend   # Next.js on :3000
 
 See `examples/lennys-memory/README.md` for a full deep dive.
 
+## Google Cloud Financial Advisor Example
+
+Located in `examples/google-cloud-financial-advisor/`, this demonstrates the Google Cloud ecosystem integration with a multi-agent compliance investigation app.
+
+### Tech Stack
+- **Backend**: FastAPI + Google ADK (Agent Development Kit) + neo4j-agent-memory
+- **Frontend**: React + Vite + Chakra UI v3 + TypeScript
+- **Database**: Neo4j 5.x
+- **LLM**: Gemini 2.5 Flash (via Google AI Studio)
+- **Embeddings**: Vertex AI text-embedding-004
+
+### Multi-Agent Architecture
+
+A supervisor agent orchestrates 4 specialist agents:
+
+| Agent | Tools | Responsibility |
+|-------|-------|---------------|
+| **Supervisor** | — | Routes queries, synthesizes findings |
+| **KYC Agent** | `verify_identity`, `check_documents`, `assess_risk` | Identity verification, document checking |
+| **AML Agent** | `scan_transactions`, `detect_patterns`, `analyze_velocity` | Transaction monitoring, pattern detection |
+| **Relationship Agent** | `map_network`, `trace_ownership`, `analyze_connections` | Network analysis, beneficial ownership |
+| **Compliance Agent** | `screen_sanctions`, `check_pep`, `generate_sar_report` | Sanctions/PEP screening, SAR generation |
+
+### Key Implementation Details
+
+- **ADK Runner**: `Runner.run_async()` returns `AsyncGenerator` — use `async for`, not `await`
+- **ADK SessionService**: `get_session()` and `create_session()` are async — need `await`
+- **GOOGLE_API_KEY**: ADK reads from `os.environ`, not `.env` — `main.py` calls `load_dotenv()` early
+- **Nested BaseSettings**: Each nested Pydantic settings class needs its own `env_file=("../.env", ".env")` config
+- **Event null guards**: ADK events can have `content` set but `content.parts` as `None` — always guard with `and event.content.parts`
+- **Local dev deps**: Uses `[tool.uv.sources]` with editable local path: `neo4j-agent-memory = { path = "../../..", editable = true }`
+
+### Running
+
+```bash
+cd examples/google-cloud-financial-advisor
+
+# Configure environment
+cp .env.example .env
+# Edit .env: set GOOGLE_API_KEY, NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
+
+# Install dependencies
+make install
+
+# Load sample data (reads credentials from .env)
+make load-data
+
+# Start backend + frontend
+make dev
+# Backend: http://localhost:8000  Frontend: http://localhost:5173
+```
+
+### Key Files
+
+**Backend:**
+- `backend/src/main.py` - FastAPI app with `load_dotenv()` for ADK env vars
+- `backend/src/config.py` - Pydantic settings with nested VertexAI/Neo4j/GCS configs
+- `backend/src/agents/supervisor.py` - Google ADK supervisor with sub-agents
+- `backend/src/agents/kyc_agent.py` - KYC specialist agent
+- `backend/src/agents/aml_agent.py` - AML specialist agent
+- `backend/src/agents/relationship_agent.py` - Relationship/network analyst
+- `backend/src/agents/compliance_agent.py` - Compliance/regulatory agent
+- `backend/src/api/routes/chat.py` - Chat endpoint with `async for` on ADK runner
+- `backend/src/api/routes/investigations.py` - Investigation endpoint
+- `backend/src/services/memory_service.py` - MemoryClient wrapper (uses `connect()`, not `initialize()`)
+
+**Frontend:**
+- `frontend/src/components/Chat/ChatInterface.tsx` - Chat UI with suggested prompt cards (SimpleGrid + Card.Root)
+- `frontend/src/components/Dashboard/` - Customer overview, risk indicators
+
+**Data:**
+- `data/customers.json` - 3 sample customers (Alice Johnson low-risk, Maria Garcia medium-risk, Global Holdings Ltd high-risk)
+- `data/organizations.json` - Shell companies and related entities
+- `data/transactions.json` - 16 transactions including structuring patterns
+- `data/load_sample_data.py` - Loads JSON data into Neo4j, reads credentials from `.env`
+
+See `examples/google-cloud-financial-advisor/README.md` for the full getting started tutorial.
+
 ## Documentation
 
 The documentation is located in `docs/` and follows the [Diataxis framework](https://diataxis.fr/) for organizing technical documentation into four distinct types.

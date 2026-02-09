@@ -20,27 +20,16 @@ This example application showcases the Google Cloud-Neo4j integration through a 
 
 ## Sample Prompts
 
-> Run a full compliance investigation on CUST-003 Global Holdings Ltd — check KYC documents, scan for structuring patterns, trace the shell company network, and screen against sanctions lists"
+The chat interface includes suggested prompt cards. Here are the built-in examples and what they demonstrate:
 
-> I see four cash deposits of $9,500 each from CUST-003 in late January. Analyze whether this is a structuring pattern and identify where the funds went"
-
-> Compare the risk profiles of all three customers and flag which ones need enhanced due diligence"
-
-> Trace the beneficial ownership chain from Global Holdings Ltd through Shell Corp Cayman and Anonymous Trust Seychelles — who ultimately controls these entities?"
-
-> Maria Garcia (CUST-002) has rapid wire transfers totaling over $280K. Investigate whether her import/export business justifies this transaction volume"
-
-> Generate a Suspicious Activity Report for the $250,000 wire from an unknown offshore entity to CUST-003 that was moved to Shell Corp Cayman the next day"
-
-
-Here's what each prompt demonstrates:
-
-1. **Full multi-agent orchestration** — explicitly requests all 4 specialist agents (KYC, AML, Relationship, Compliance) to work together on one investigation
-2. **AML pattern detection** — highlights the structuring pattern ($9,500 deposits just under the $10K reporting threshold) and fund tracing
-3. **Cross-customer comparison** — engages KYC across all 3 risk profiles (low/medium/high), showing the range of the demo data
-4. **Relationship/shell company analysis** — deep network tracing through the BVI → Cayman → Seychelles corporate layers
-5. **Transaction velocity analysis** — focuses on CUST-002 (Maria Garcia), who's underutilized in the current prompts, and triggers the AML agent's velocity analysis
-6. **SAR generation** — triggers the Compliance agent's `generate_sar_report` tool on a specific suspicious transaction
+| Prompt | Agents | What It Demonstrates |
+|--------|--------|---------------------|
+| **Full Compliance Investigation** — Run a full compliance investigation on CUST-003 Global Holdings Ltd — check KYC documents, scan for structuring patterns, trace the shell company network, and screen against sanctions lists | KYC, AML, Relationship, Compliance | Full multi-agent orchestration with all 4 specialist agents |
+| **Detect Structuring Pattern** — I see four cash deposits of $9,500 each from CUST-003 in late January. Analyze whether this is a structuring pattern and identify where the funds went | AML | Pattern detection for transactions just under the $10K reporting threshold |
+| **Compare Customer Risk Profiles** — Compare the risk profiles of all three customers and flag which ones need enhanced due diligence | KYC, Compliance | Cross-customer comparison across low/medium/high risk profiles |
+| **Trace Beneficial Ownership** — Trace the beneficial ownership chain from Global Holdings Ltd through Shell Corp Cayman and Anonymous Trust Seychelles — who ultimately controls these entities? | Relationship | Network tracing through BVI, Cayman, and Seychelles corporate layers |
+| **Investigate Wire Transfers** — Maria Garcia (CUST-002) has rapid wire transfers totaling over $280K. Investigate whether her import/export business justifies this transaction volume | AML, KYC | Transaction velocity analysis on medium-risk customer |
+| **Generate SAR Report** — Generate a Suspicious Activity Report for the $250,000 wire from an unknown offshore entity to CUST-003 that was moved to Shell Corp Cayman the next day | Compliance, AML | Triggers the Compliance agent's `generate_sar_report` tool |
 
 ## Getting Started Tutorial
 
@@ -53,8 +42,8 @@ Before you begin, ensure you have the following installed:
 - **Python 3.11+** - [Download Python](https://www.python.org/downloads/)
 - **uv** - Fast Python package manager: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 - **Node.js 18+** - [Download Node.js](https://nodejs.org/)
-- **Docker Desktop** - [Download Docker](https://www.docker.com/products/docker-desktop/)
 - **Google Cloud CLI** - [Install gcloud](https://cloud.google.com/sdk/docs/install)
+- **Docker Desktop** (optional, only if running Neo4j locally via Docker) - [Download Docker](https://www.docker.com/products/docker-desktop/)
 
 ---
 
@@ -173,8 +162,12 @@ Open `.env` in your editor and fill in your values:
 # Google Cloud Configuration
 GOOGLE_CLOUD_PROJECT=my-financial-advisor          # Your GCP project ID
 VERTEX_AI_LOCATION=us-central1                     # Or your preferred region
-VERTEX_AI_MODEL_ID=gemini-2.0-flash               # Gemini model for agents
+VERTEX_AI_MODEL_ID=gemini-2.5-flash               # Gemini model for agents
 VERTEX_AI_EMBEDDING_MODEL=text-embedding-004       # Embedding model
+
+# Google AI API Key (required for Gemini via Google AI Studio)
+# Get your key at https://aistudio.google.com/apikey
+GOOGLE_API_KEY=your-google-api-key
 
 # Neo4j Configuration
 # For Aura:
@@ -182,7 +175,7 @@ NEO4J_URI=neo4j+s://xxxxxxxx.databases.neo4j.io
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your-aura-password
 
-# For Local Docker:
+# For Local Neo4j:
 # NEO4J_URI=bolt://localhost:7687
 # NEO4J_USER=neo4j
 # NEO4J_PASSWORD=password123
@@ -230,7 +223,7 @@ cd ..
 
 ### Step 5: Load Sample Data
 
-Load example customers, organizations, and transactions into Neo4j:
+Load example customers, organizations, and transactions into Neo4j. The script reads Neo4j credentials from your `.env` file:
 
 ```bash
 make load-data
@@ -239,8 +232,7 @@ make load-data
 Or manually:
 
 ```bash
-cd backend
-uv run python -m src.data.load_sample_data
+cd backend && uv run python ../data/load_sample_data.py
 ```
 
 You should see output like:
@@ -251,7 +243,8 @@ INFO:__main__:Clearing existing data...
 INFO:__main__:Creating constraints...
 INFO:__main__:Loading customers...
 INFO:__main__:  Created customer: Alice Johnson
-INFO:__main__:  Created customer: Bob Smith
+INFO:__main__:  Created customer: Maria Garcia
+INFO:__main__:  Created customer: Global Holdings Ltd
 ...
 INFO:__main__:Done!
 ```
@@ -281,9 +274,10 @@ make dev
 ```
 
 This starts:
-- **Neo4j** (Docker) - if using local Neo4j
 - **Backend** (FastAPI) - http://localhost:8000
 - **Frontend** (Vite) - http://localhost:5173
+
+> **Note:** Ensure your Neo4j instance is already running (either Aura or local Docker) before starting the application.
 
 #### 6.2 Or Start Services Separately
 
@@ -513,7 +507,7 @@ google-cloud-financial-advisor/
 │   │   └── lib/           # API client
 │   └── package.json
 ├── infrastructure/        # Cloud Run deployment configs
-├── data/                  # Sample data and loader
+├── data/                  # Sample data (JSON) and load_sample_data.py
 ├── docs/                  # Documentation
 ├── Makefile              # Development commands
 └── docker-compose.yml    # Local development setup
@@ -545,9 +539,10 @@ Full API documentation available at http://localhost:8000/docs when running loca
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `GOOGLE_CLOUD_PROJECT` | GCP project ID | Yes |
+| `GOOGLE_API_KEY` | Google AI API key ([get one here](https://aistudio.google.com/apikey)) | Yes |
 | `VERTEX_AI_LOCATION` | Vertex AI region (e.g., `us-central1`) | Yes |
-| `VERTEX_AI_MODEL_ID` | Gemini model ID | Yes |
-| `VERTEX_AI_EMBEDDING_MODEL` | Embedding model ID | Yes |
+| `VERTEX_AI_MODEL_ID` | Gemini model ID (default: `gemini-2.5-flash`) | Yes |
+| `VERTEX_AI_EMBEDDING_MODEL` | Embedding model ID (default: `text-embedding-004`) | Yes |
 | `NEO4J_URI` | Neo4j connection URI | Yes |
 | `NEO4J_USER` | Neo4j username | Yes |
 | `NEO4J_PASSWORD` | Neo4j password | Yes |
