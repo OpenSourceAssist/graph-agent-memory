@@ -103,11 +103,11 @@ async def chat(
                 parts=[types.Part(text=user_message)],
             ),
         ):
-            if hasattr(event, "content") and event.content:
+            if hasattr(event, "content") and event.content and event.content.parts:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:
                         response_text += part.text
-            if hasattr(event, "tool_calls"):
+            if hasattr(event, "tool_calls") and event.tool_calls:
                 for tc in event.tool_calls:
                     tool_calls.append(
                         ToolCall(

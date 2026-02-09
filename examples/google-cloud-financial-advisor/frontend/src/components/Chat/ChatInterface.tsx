@@ -11,8 +11,19 @@ import {
   Button,
   Badge,
   Spinner,
+  SimpleGrid,
 } from "@chakra-ui/react";
-import { FiSend, FiUser, FiCpu } from "react-icons/fi";
+import {
+  FiSend,
+  FiUser,
+  FiCpu,
+  FiShield,
+  FiSearch,
+  FiUsers,
+  FiAlertTriangle,
+  FiFileText,
+  FiActivity,
+} from "react-icons/fi";
 import {
   sendChatMessage,
   ChatMessage as ChatMessageType,
@@ -142,12 +153,54 @@ export default function ChatInterface() {
   };
 
   const suggestedPrompts = [
-    "Run a full compliance investigation on CUST-003 Global Holdings Ltd — check KYC documents, scan for structuring patterns, trace the shell company network, and screen against sanctions lists",
-    "I see four cash deposits of $9,500 each from CUST-003 in late January. Analyze whether this is a structuring pattern and identify where the funds went",
-    "Compare the risk profiles of all three customers and flag which ones need enhanced due diligence",
-    "Trace the beneficial ownership chain from Global Holdings Ltd through Shell Corp Cayman and Anonymous Trust Seychelles — who ultimately controls these entities?",
-    "Maria Garcia (CUST-002) has rapid wire transfers totaling over $280K. Investigate whether her import/export business justifies this transaction volume",
-    "Generate a Suspicious Activity Report for the $250,000 wire from an unknown offshore entity to CUST-003 that was moved to Shell Corp Cayman the next day",
+    {
+      title: "Full Compliance Investigation",
+      agents: ["KYC", "AML", "Relationship", "Compliance"],
+      icon: FiShield,
+      color: "red",
+      prompt:
+        "Run a full compliance investigation on CUST-003 Global Holdings Ltd — check KYC documents, scan for structuring patterns, trace the shell company network, and screen against sanctions lists",
+    },
+    {
+      title: "Detect Structuring Pattern",
+      agents: ["AML"],
+      icon: FiAlertTriangle,
+      color: "orange",
+      prompt:
+        "I see four cash deposits of $9,500 each from CUST-003 in late January. Analyze whether this is a structuring pattern and identify where the funds went",
+    },
+    {
+      title: "Compare Customer Risk Profiles",
+      agents: ["KYC", "Compliance"],
+      icon: FiActivity,
+      color: "blue",
+      prompt:
+        "Compare the risk profiles of all three customers and flag which ones need enhanced due diligence",
+    },
+    {
+      title: "Trace Beneficial Ownership",
+      agents: ["Relationship"],
+      icon: FiUsers,
+      color: "purple",
+      prompt:
+        "Trace the beneficial ownership chain from Global Holdings Ltd through Shell Corp Cayman and Anonymous Trust Seychelles — who ultimately controls these entities?",
+    },
+    {
+      title: "Investigate Wire Transfers",
+      agents: ["AML", "KYC"],
+      icon: FiSearch,
+      color: "teal",
+      prompt:
+        "Maria Garcia (CUST-002) has rapid wire transfers totaling over $280K. Investigate whether her import/export business justifies this transaction volume",
+    },
+    {
+      title: "Generate SAR Report",
+      agents: ["Compliance", "AML"],
+      icon: FiFileText,
+      color: "yellow",
+      prompt:
+        "Generate a Suspicious Activity Report for the $250,000 wire from an unknown offshore entity to CUST-003 that was moved to Shell Corp Cayman the next day",
+    },
   ];
 
   return (
@@ -163,30 +216,67 @@ export default function ChatInterface() {
       <Card.Root flex="1" mb={4} overflow="hidden">
         <Card.Body overflowY="auto" display="flex" flexDirection="column" p={4}>
           {messages.length === 0 ? (
-            <VStack justify="center" flex="1" gap={4}>
-              <Text color="gray.500" textAlign="center">
-                Start a conversation with the AI Financial Advisor.
-                <br />
-                Ask about customer investigations, risk assessments, or
-                compliance checks.
-              </Text>
-              <VStack gap={2}>
-                <Text fontSize="sm" color="gray.400">
-                  Try asking:
+            <VStack justify="center" flex="1" gap={6} py={4}>
+              <VStack gap={1}>
+                <Heading size="md" color="gray.600">
+                  AI Financial Advisor
+                </Heading>
+                <Text color="gray.500" textAlign="center" fontSize="sm">
+                  Multi-agent compliance investigations powered by Google ADK
+                  and Neo4j
                 </Text>
-                {suggestedPrompts.map((prompt, i) => (
-                  <Button
-                    key={i}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setInput(prompt);
-                    }}
-                  >
-                    {prompt}
-                  </Button>
-                ))}
               </VStack>
+              <SimpleGrid
+                columns={{ base: 1, md: 2, lg: 3 }}
+                gap={3}
+                w="full"
+                px={2}
+              >
+                {suggestedPrompts.map((item, i) => {
+                  const Icon = item.icon;
+                  return (
+                    <Card.Root
+                      key={i}
+                      variant="outline"
+                      size="sm"
+                      cursor="pointer"
+                      _hover={{
+                        shadow: "md",
+                        borderColor: `${item.color}.300`,
+                        bg: `${item.color}.50`,
+                      }}
+                      transition="all 0.2s"
+                      onClick={() => setInput(item.prompt)}
+                    >
+                      <Card.Body gap={2}>
+                        <HStack gap={2}>
+                          <Box color={`${item.color}.500`}>
+                            <Icon size={16} />
+                          </Box>
+                          <Text fontWeight="semibold" fontSize="sm">
+                            {item.title}
+                          </Text>
+                        </HStack>
+                        <Text fontSize="xs" color="gray.500" lineClamp={2}>
+                          {item.prompt}
+                        </Text>
+                        <HStack gap={1} flexWrap="wrap" mt={1}>
+                          {item.agents.map((agent) => (
+                            <Badge
+                              key={agent}
+                              size="sm"
+                              variant="subtle"
+                              colorPalette={item.color}
+                            >
+                              {agent}
+                            </Badge>
+                          ))}
+                        </HStack>
+                      </Card.Body>
+                    </Card.Root>
+                  );
+                })}
+              </SimpleGrid>
             </VStack>
           ) : (
             <VStack align="stretch" gap={0}>
