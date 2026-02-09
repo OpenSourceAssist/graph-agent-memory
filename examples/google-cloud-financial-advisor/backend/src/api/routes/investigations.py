@@ -154,7 +154,7 @@ async def start_investigation(
         supervisor = get_supervisor_agent(memory_service)
 
         # Create session
-        session = session_service.create_session(
+        session = await session_service.create_session(
             app_name="financial_advisor",
             user_id="investigator",
             session_id=investigation.session_id,
@@ -182,22 +182,19 @@ Begin the investigation now."""
             session_service=session_service,
         )
 
-        # Run the investigation
-        result = await runner.run_async(
+        # Run the investigation (run_async returns an async generator of events)
+        response_text = ""
+        agents_consulted = set()
+        tool_calls = []
+
+        async for event in runner.run_async(
             user_id="investigator",
             session_id=investigation.session_id,
             new_message=types.Content(
                 role="user",
                 parts=[types.Part(text=prompt)],
             ),
-        )
-
-        # Extract results
-        response_text = ""
-        agents_consulted = set()
-        tool_calls = []
-
-        for event in result.events:
+        ):
             if hasattr(event, "content") and event.content:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:
