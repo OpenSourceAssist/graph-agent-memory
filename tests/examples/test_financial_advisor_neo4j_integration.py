@@ -1136,7 +1136,7 @@ class TestSSEHelpers:
     def test_truncate_result_list(self):
         result = self._truncate_result([1, 2, 3])
         assert isinstance(result, str)
-        assert "[1, 2, 3]" == result
+        assert result == "[1, 2, 3]"
 
     def test_truncate_result_long_string(self):
         long_str = "x" * 600
