@@ -31,6 +31,10 @@ Neo4j Agent Memory provides official integrations for five popular agent framewo
 | xref:how-to/integrations/openai-agents.adoc[OpenAI Agents SDK]
 | OpenAI function calling with persistent memory
 | ✅ Production Ready
+
+| xref:google-cloud.adoc[Google Cloud]
+| Vertex AI embeddings, ADK agents, MCP server
+| ✅ Production Ready
 |===
 
 == Quick Start
@@ -53,6 +57,9 @@ pip install neo4j-agent-memory[crewai]
 
 # OpenAI Agents SDK
 pip install neo4j-agent-memory[openai-agents]
+
+# Google Cloud (Vertex AI + ADK + MCP)
+pip install neo4j-agent-memory[google,mcp]
 
 # All frameworks
 pip install neo4j-agent-memory[all]
@@ -109,6 +116,17 @@ from neo4j_agent_memory.integrations.openai_agents import Neo4jOpenAIMemory
 
 memory = Neo4jOpenAIMemory(memory_client=client, session_id="user-123")
 messages = await memory.get_conversation()
+----
+
+=== Google ADK
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+memory_service = Neo4jMemoryService(memory_client=client, user_id="user-123")
+await memory_service.add_session_to_memory(session)
+results = await memory_service.search_memories("query")
 ----
 
 == Choosing a Framework

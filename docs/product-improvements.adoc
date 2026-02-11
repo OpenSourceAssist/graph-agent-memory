@@ -1,0 +1,1313 @@
+= Product Improvement Suggestions
+:toc: left
+:toclevels: 2
+:sectanchors:
+:sectlinks:
+:icons: font
+:source-highlighter: highlight.js
+
+This document tracks product improvement suggestions identified during the development and testing of neo4j-agent-memory features.
+
+== Summary
+
+=== Not Yet Implemented
+
+.Demo Application Improvements
+* <<entity-explorer-ui,Entity Explorer UI>>
+* <<reasoning-trace-viewer,Reasoning Trace Viewer>>
+* <<preference-dashboard,Preference Dashboard>>
+* <<cross-memory-query-builder,Cross-Memory Query Builder>>
+
+.Extraction Improvements
+* <<schema-auto-detection,Schema Auto-Detection>>
+* <<confidence-calibration,Entity Confidence Calibration>>
+* <<result-caching,Extraction Result Caching>>
+
+.API & Developer Experience
+* <<pipeline-dsl,Extraction Pipeline Builder DSL>>
+* <<schema-validation,Schema Validation and Testing>>
+* <<temporal-versioning,Temporal Entity Versioning>>
+* <<websocket-streaming,WebSocket Streaming>>
+* <<interactive-explorer,Interactive Schema Explorer>>
+
+.Future Product Ideas
+* <<multi-agent-coordination,Multi-Agent Memory Coordination>>
+* <<memory-compression,Memory Compression and Summarization>>
+* <<memory-export,Memory Export/Import>>
+* <<vector-index-management,Vector Index Management>>
+
+.Google Cloud Enhancements
+* <<mcp-resources,MCP Resources and Prompts>>
+* <<adk-session-service,ADK SessionService Implementation>>
+* <<vertex-ai-reranking,Vertex AI Reranking>>
+* <<cloud-functions-trigger,Cloud Functions Memory Triggers>>
+* <<bigquery-analytics,BigQuery Memory Analytics Export>>
+
+.Additional Embedding Providers
+* <<bedrock-embeddings,AWS Bedrock Embeddings>>
+* <<azure-openai-embeddings,Azure OpenAI Embeddings>>
+* <<cohere-embeddings,Cohere Embeddings>>
+* <<ollama-embeddings,Ollama Local Embeddings>>
+
+.MCP Ecosystem
+* <<mcp-resource-templates,MCP Resource Templates>>
+* <<mcp-prompt-library,MCP Prompt Library>>
+* <<mcp-sampling,MCP Sampling Integration>>
+* <<mcp-auth,MCP Authentication Middleware>>
+
+.Documentation Quality
+* <<doctest-integration,Doctest-Style Assertions>>
+* <<api-docs-generation,Automated API Reference Generation>>
+* <<version-matrix-testing,Documentation Version Matrix Testing>>
+
+=== Implemented (v0.0.4)
+
+.Domain Data Access & Financial Advisor
+* <<memoryclient-graph-property,MemoryClient.graph Property>> ✅
+* <<neo4j-domain-service,Neo4jDomainService Pattern>> ✅
+* <<bind-tool-pattern,_bind_tool ADK Function Signature Pattern>> ✅
+* <<financial-advisor-neo4j-wiring,Financial Advisor Neo4j Wiring>> ✅
+* <<domain-data-loading,Domain Data Loading (Sanctions, PEP, Alerts)>> ✅
+* <<neo4j-integration-tests,Neo4j Integration Test Suite>> ✅
+
+=== Implemented (v0.0.3)
+
+.Google Cloud Integration
+* <<vertex-ai-embeddings,Vertex AI Embeddings>> ✅
+* <<google-adk-integration,Google ADK MemoryService>> ✅
+* <<mcp-server,MCP Server for Cloud API Registry>> ✅
+* <<cloudrun-template,Cloud Run Deployment Template>> ✅
+
+=== Implemented (v0.0.2)
+
+All items below have been implemented AND documented:
+
+* <<batch-extraction,Batch Extraction API>> ✅
+* <<entity-deduplication,Entity Deduplication on Ingest>> ✅
+* <<gliner-relations,GLiREL Relation Extraction>> ✅
+* <<custom-schema-persistence,Custom Schema Persistence>> ✅
+* <<streaming-extraction,Streaming Extraction for Long Documents>> ✅
+* <<provenance-tracking,Provenance Tracking>> ✅
+* <<cli-extraction,CLI for Entity Extraction>> ✅
+* <<opentelemetry,OpenTelemetry and Opik Tracing>> ✅
+* <<benchmarks,Extraction Quality Benchmarks>> ✅
+* <<agent-tool-templates,Agent Tool Templates>> ✅
+* <<preference-aware-prompts,Preference-Aware Agent Prompts>> ✅
+* <<chat-to-map-integration,Chat-to-Map Integration>> ✅
+* <<docs-testing,Documentation Testing Framework>> ✅
+* <<diataxis-restructuring,Documentation Restructuring (Diataxis)>> ✅
+* <<agent-framework-adapters,Agent Framework Adapters>> ✅
+
+
+== Not Yet Implemented
+
+=== Demo Application Improvements
+
+[[entity-explorer-ui]]
+==== Entity Explorer UI
+
+[horizontal]
+Priority:: Medium
+Current State:: Entities displayed in a simple list.
+
+**Suggestion**: Create an interactive entity explorer component for browsing and relationship exploration.
+
+.Features to Add
+* Entity type filtering with tabs (Person, Organization, Concept)
+* Click to expand entity details with Wikipedia data
+* Show co-occurring entities with click-to-navigate
+* Link to episodes where entity is mentioned
+* Entity search with autocomplete
+
+'''
+
+[[reasoning-trace-viewer]]
+==== Reasoning Trace Viewer
+
+[horizontal]
+Priority:: Medium
+Current State:: Traces visible in reasoning memory view.
+
+**Suggestion**: Enhance trace viewer with interactive debugging capabilities.
+
+.Features to Add
+* Step-by-step trace playback
+* Tool call visualization with arguments and results
+* Decision tree visualization
+* Compare similar traces side-by-side
+
+'''
+
+[[preference-dashboard]]
+==== Preference Dashboard
+
+[horizontal]
+Priority:: Low
+Current State:: Preferences shown in memory panel.
+
+**Suggestion**: Create a dedicated preference management dashboard.
+
+.Features to Add
+* Group preferences by category
+* Edit and delete preferences
+* Import/export preferences
+* Preference suggestion based on conversation history
+
+'''
+
+[[cross-memory-query-builder]]
+==== Cross-Memory Query Builder
+
+[horizontal]
+Priority:: Medium
+Current State:: Different memory types queried separately.
+
+**Suggestion**: Create a unified query interface that searches across short-term, long-term, and reasoning memory.
+
+.Implementation Ideas
+* Single API endpoint for cross-memory search
+* Result ranking across memory types
+* Query expansion using entities and preferences
+* Timeline view combining all memory sources
+
+'''
+
+=== Extraction Improvements
+
+[[schema-auto-detection]]
+==== Schema Auto-Detection
+
+[horizontal]
+Priority:: Low
+Current State:: Users must manually select a domain schema for entity extraction.
+
+**Suggestion**: Add automatic schema detection that analyzes input text and selects the most appropriate domain schema.
+
+.Implementation Ideas
+* Use text classification to identify document type
+* Support confidence scores and fallback to generic POLEO schema
+* Allow schema blending for mixed-domain content
+
+'''
+
+[[confidence-calibration]]
+==== Entity Confidence Calibration
+
+[horizontal]
+Priority:: Low
+Current State:: Confidence scores from different extractors are not calibrated against each other.
+
+**Suggestion**: Implement confidence score calibration so that scores from spaCy, GLiNER, and LLM extractors are comparable.
+
+.Implementation Ideas
+* Use a calibration dataset with ground truth
+* Apply Platt scaling or isotonic regression
+* Normalize scores to a common scale
+
+'''
+
+[[result-caching]]
+==== Extraction Result Caching
+
+[horizontal]
+Priority:: Low
+Current State:: No caching of extraction results.
+
+**Suggestion**: Add optional caching layer for extraction results keyed by content hash.
+
+.Benefits
+* Avoid reprocessing identical content
+* Speed up re-runs and testing
+* Reduce API costs for LLM extraction
+
+'''
+
+=== API & Developer Experience
+
+[[pipeline-dsl]]
+==== Extraction Pipeline Builder DSL
+
+[horizontal]
+Priority:: Low
+Current State:: `ExtractorBuilder` provides a fluent API but is somewhat verbose.
+
+**Suggestion**: Create a more declarative DSL for pipeline configuration.
+
+.Example
+[source,python]
+----
+pipeline = Pipeline.from_config("""
+stages:
+  - spacy:
+      model: en_core_web_sm
+  - gliner:
+      schema: podcast
+      threshold: 0.5
+  - llm:
+      model: gpt-4o-mini
+      extract_relations: true
+merge: confidence
+""")
+----
+
+'''
+
+[[schema-validation]]
+==== Schema Validation and Testing
+
+[horizontal]
+Priority:: Low
+Current State:: No tooling for validating custom schemas.
+
+**Suggestion**: Add a schema validation tool that tests extraction against sample documents.
+
+.Implementation Ideas
+* Define test cases with expected entities
+* Calculate precision/recall
+* Suggest threshold adjustments
+
+'''
+
+[[temporal-versioning]]
+==== Temporal Entity Versioning
+
+[horizontal]
+Priority:: Low
+Current State:: Entities are updated in place; no history is maintained.
+
+**Suggestion**: Add temporal versioning for entities to track changes over time.
+
+.Implementation Ideas
+* Add `valid_from` and `valid_to` timestamps
+* Create new entity versions on update
+* Support point-in-time queries
+
+'''
+
+[[websocket-streaming]]
+==== WebSocket Streaming for Real-Time Extraction
+
+[horizontal]
+Priority:: Low
+Current State:: Extraction is request/response only.
+
+**Suggestion**: Add WebSocket support for streaming extraction results in real-time, useful for interactive applications.
+
+'''
+
+[[interactive-explorer]]
+==== Interactive Schema Explorer
+
+[horizontal]
+Priority:: Low
+Current State:: Schema documentation is static text.
+
+**Suggestion**: Create an interactive web-based schema explorer that shows entity types, descriptions, and sample extractions.
+
+'''
+
+=== Future Product Ideas
+
+[[multi-agent-coordination]]
+==== Multi-Agent Memory Coordination
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Enable multiple agents to share and coordinate memory access with conflict resolution.
+
+.Implementation Ideas
+* Agent-scoped memory namespaces
+* Memory locking for concurrent writes
+* Cross-agent memory subscriptions
+* Shared vs private memory partitioning
+
+'''
+
+[[memory-compression]]
+==== Memory Compression and Summarization
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Automatically compress old messages and entities to reduce storage while preserving key information.
+
+.Implementation Ideas
+* LLM-based conversation summarization
+* Entity importance scoring
+* Tiered storage (hot/warm/cold)
+* Time-based summarization triggers
+
+'''
+
+[[memory-export]]
+==== Memory Export/Import
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Export memory state for backup, migration, or sharing between environments.
+
+.Implementation Ideas
+* JSON/YAML export format
+* Selective export (by session, entity type, date range)
+* Import with conflict resolution
+* Memory snapshots for testing
+
+'''
+
+[[vector-index-management]]
+==== Vector Index Management
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Utilities for managing and optimizing Neo4j vector indexes.
+
+.Implementation Ideas
+* Index health monitoring
+* Automatic re-indexing on embedding model changes
+* Index statistics and performance metrics
+* Migration utilities between embedding models
+
+'''
+
+=== Google Cloud Enhancements
+
+[[mcp-resources]]
+==== MCP Resources and Prompts
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Extend the MCP server beyond tools to include Resources and Prompts capabilities.
+
+.Implementation Ideas
+* Resources: Expose memory entities, sessions, and graph schemas as browsable resources
+* Resource templates: `memory://entities/{type}`, `memory://sessions/{id}`
+* Prompts: Pre-built prompt templates for common memory operations
+* Dynamic resource discovery for entity types and relationship patterns
+
+'''
+
+[[adk-session-service]]
+==== ADK SessionService Implementation
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Implement the ADK `SessionService` interface for full session management.
+
+.Implementation Ideas
+* `create_session()`, `get_session()`, `update_session()`, `delete_session()`
+* Session state persistence in Neo4j
+* Session expiration and cleanup
+* Multi-turn conversation state management
+
+'''
+
+[[vertex-ai-reranking]]
+==== Vertex AI Reranking
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Add support for Vertex AI's semantic reranking models to improve search quality.
+
+.Implementation Ideas
+* `VertexAIReranker` class implementing reranking interface
+* Integration with memory search results
+* Configurable reranking for different memory types
+* Batch reranking for efficiency
+
+'''
+
+[[cloud-functions-trigger]]
+==== Cloud Functions Memory Triggers
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Create Cloud Functions templates that trigger on memory events.
+
+.Implementation Ideas
+* Pub/Sub integration for memory change notifications
+* Trigger on entity creation, preference updates, session completion
+* Example functions: entity enrichment, notification dispatch, analytics
+* Eventarc integration for Cloud Run
+
+'''
+
+[[bigquery-analytics]]
+==== BigQuery Memory Analytics Export
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Export memory data to BigQuery for analytics and reporting.
+
+.Implementation Ideas
+* Scheduled export of entities, sessions, and usage metrics
+* BigQuery ML integration for memory pattern analysis
+* Looker Studio dashboard templates
+* Data retention and archival policies
+
+'''
+
+=== Additional Embedding Providers
+
+[[bedrock-embeddings]]
+==== AWS Bedrock Embeddings
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add support for AWS Bedrock embedding models (Titan, Cohere via Bedrock).
+
+.Implementation Ideas
+* `BedrockEmbedder` class following existing embedder pattern
+* Support for Titan Embeddings G1 and Cohere Embed via Bedrock
+* AWS credential management (IAM roles, profiles)
+* Region configuration and fallback
+
+'''
+
+[[azure-openai-embeddings]]
+==== Azure OpenAI Embeddings
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add support for Azure OpenAI Service embeddings.
+
+.Implementation Ideas
+* `AzureOpenAIEmbedder` class with Azure-specific configuration
+* Deployment name and endpoint configuration
+* Azure AD authentication support
+* Managed identity integration
+
+'''
+
+[[cohere-embeddings]]
+==== Cohere Embeddings
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Add support for Cohere's embedding models.
+
+.Implementation Ideas
+* `CohereEmbedder` class supporting embed-english-v3.0 and multilingual models
+* Input type configuration (search_document, search_query)
+* Compression options for reduced dimensionality
+* Batch processing with Cohere's native batching
+
+'''
+
+[[ollama-embeddings]]
+==== Ollama Local Embeddings
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add support for Ollama-hosted local embedding models.
+
+.Implementation Ideas
+* `OllamaEmbedder` class for local model inference
+* Support for nomic-embed-text, mxbai-embed-large, all-minilm
+* No API costs, full offline support
+* GPU acceleration when available
+
+'''
+
+=== MCP Ecosystem
+
+[[mcp-resource-templates]]
+==== MCP Resource Templates
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Implement MCP resource templates for dynamic memory access.
+
+.Resource Templates
+* `memory://sessions/{session_id}` - Session details and messages
+* `memory://entities/{type}/{name}` - Entity with relationships
+* `memory://graphs/{query}` - Cypher query results
+* `memory://preferences/{user_id}` - User preferences
+
+'''
+
+[[mcp-prompt-library]]
+==== MCP Prompt Library
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Pre-built MCP prompts for common memory operations.
+
+.Prompt Templates
+* `summarize_session` - Summarize a conversation session
+* `extract_entities` - Extract entities from text
+* `find_related` - Find related entities and context
+* `preference_analysis` - Analyze user preferences
+* `memory_qa` - Question answering over memory
+
+'''
+
+[[mcp-sampling]]
+==== MCP Sampling Integration
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Implement MCP sampling for server-initiated LLM calls.
+
+.Implementation Ideas
+* Entity extraction via sampling
+* Memory summarization requests
+* Preference inference from conversations
+* Automatic memory consolidation
+
+'''
+
+[[mcp-auth]]
+==== MCP Authentication Middleware
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add authentication and authorization to the MCP server.
+
+.Implementation Ideas
+* API key authentication
+* OAuth2/OIDC integration
+* Per-tool authorization
+* Rate limiting and quotas
+* Audit logging
+
+'''
+
+=== Documentation Quality Improvements
+
+[[doctest-integration]]
+==== Doctest-Style Assertions
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Add doctest-style output validation to documentation examples.
+
+.Implementation Ideas
+* Add `# doctest: +ELLIPSIS` markers to AsciiDoc
+* Compare actual output to documented expected output
+* Support for async doctests
+* Integration with pytest doctest plugin
+
+'''
+
+[[api-docs-generation]]
+==== Automated API Reference Generation
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+
+Auto-generate API reference documentation from code docstrings.
+
+.Implementation Ideas
+* Sphinx-style docstring parsing
+* Generate AsciiDoc from Python docstrings
+* Include type hints in documentation
+* Cross-reference between docs and source
+
+'''
+
+[[version-matrix-testing]]
+==== Documentation Version Matrix Testing
+
+[horizontal]
+Priority:: Low
+Status:: Concept
+
+Test documentation examples against multiple Python/Neo4j version combinations.
+
+.Implementation Ideas
+* CI matrix for Python 3.10-3.13
+* Neo4j 5.x version compatibility testing
+* Dependency version matrix
+* Automated compatibility notes in docs
+
+
+== v0.0.2 Roadmap (Implemented & Documented)
+
+The following features were implemented and documented as part of the v0.0.2 release cycle.
+
+=== Entity Extraction
+
+[[batch-extraction]]
+==== Batch Extraction API ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `ExtractionPipeline.extract_batch()` and `GLiNEREntityExtractor.extract_batch()`
+Documentation:: xref:how-to/batch-processing.adoc[Batch Processing Guide]
+
+**Features Implemented**:
+
+* `extract_batch()` method on `ExtractionPipeline` for parallel processing of multiple texts
+* `extract_batch()` method on `GLiNEREntityExtractor` using native batch inference for GPU efficiency
+* `BatchExtractionResult` dataclass with aggregate statistics
+* Progress callback support via `on_progress: Callable[[int, int], None]`
+* Configurable concurrency and batch size
+* Error handling options: `fail_fast=True` to stop on first error
+
+'''
+
+[[streaming-extraction]]
+==== Streaming Extraction for Long Documents ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `StreamingExtractor` class in `neo4j_agent_memory.extraction.streaming`
+Documentation:: xref:how-to/batch-processing.adoc#streaming[Streaming Extraction Guide]
+
+**Features Implemented**:
+
+* `StreamingExtractor` class wrapping any `EntityExtractor` for chunked processing
+* `extract_streaming()` async generator that yields `StreamingChunkResult` for each chunk
+* Chunking strategies: character-based and token-based
+* Automatic entity deduplication across chunks
+* Progress callback support for UI integration
+
+'''
+
+[[gliner-relations]]
+==== GLiREL Relation Extraction ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `GLiRELExtractor` and `GLiNERWithRelationsExtractor`
+Documentation:: xref:reference/extractors.adoc[Extractors Reference]
+
+**Features Implemented**:
+
+* `GLiRELExtractor` class for standalone relation extraction
+* `GLiNERWithRelationsExtractor` combining GLiNER + GLiREL
+* `DEFAULT_RELATION_TYPES` with 20+ POLE+O-optimized relation types
+* Zero API costs (no LLM calls), full offline support
+
+'''
+
+=== Storage & Data Management
+
+[[entity-deduplication]]
+==== Entity Deduplication on Ingest ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `LongTermMemory.add_entity()` with `DeduplicationConfig`
+Documentation:: xref:how-to/deduplication.adoc[Deduplication Guide]
+
+**Features Implemented**:
+
+* `DeduplicationConfig` dataclass for configuring thresholds and behavior
+* Embedding-based similarity search and optional fuzzy string matching
+* Configurable auto_merge_threshold and flag_threshold
+* `SAME_AS` relationship creation for flagged duplicates
+* Methods for reviewing and managing duplicates
+
+'''
+
+[[custom-schema-persistence]]
+==== Custom Schema Persistence ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `SchemaManager` class in `neo4j_agent_memory.schema.persistence`
+Documentation:: xref:reference/schemas.adoc[Schemas Reference]
+
+**Features Implemented**:
+
+* `SchemaManager` class for storing and loading schemas from Neo4j
+* Schema versioning with active version tracking
+* Full CRUD operations for schema management
+
+'''
+
+[[provenance-tracking]]
+==== Provenance Tracking ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `LongTermMemory` provenance methods
+Documentation:: xref:how-to/batch-processing.adoc#provenance[Provenance Tracking Guide]
+
+**Features Implemented**:
+
+* `register_extractor()` - Create/update Extractor nodes
+* `link_entity_to_message()` - EXTRACTED_FROM relationships
+* `link_entity_to_extractor()` - EXTRACTED_BY relationships
+* `get_entity_provenance()` - Full provenance retrieval
+
+'''
+
+=== CLI & Observability
+
+[[cli-extraction]]
+==== CLI for Entity Extraction ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `neo4j_agent_memory.cli` module with Click and Rich
+Documentation:: xref:reference/cli.adoc[CLI Reference]
+
+**Features Implemented**:
+
+* `neo4j-memory` CLI entry point with `extract`, `schemas`, and `stats` commands
+* Multiple output formats: table, json, jsonl
+* Extractor selection and custom entity types
+* Rich table formatting for terminal output
+
+'''
+
+[[opentelemetry]]
+==== OpenTelemetry and Opik Tracing ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `neo4j_agent_memory.observability` module
+Documentation:: xref:faq.adoc#observability-setup[Observability FAQ]
+
+**Features Implemented**:
+
+* Abstract `Tracer` and `Span` interfaces
+* `OpenTelemetryTracer` with OTLP export support
+* `OpikTracer` for LLM-focused observability
+* `NoOpTracer` for zero-overhead disabled tracing
+* Auto-detection via `get_tracer()` function
+
+'''
+
+[[benchmarks]]
+==== Extraction Quality Benchmarks ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `benchmarks/` module with metrics and runner
+Documentation:: CLAUDE.md (Extraction Quality Benchmarks section)
+
+**Features Implemented**:
+
+* `BenchmarkTestCase`, `BenchmarkConfig`, `BenchmarkSuite` classes
+* Precision, recall, F1 calculation with micro/macro averaging
+* Latency and throughput measurements
+* JSON file support for benchmark suite persistence
+
+'''
+
+=== Agent Integration
+
+[[agent-tool-templates]]
+==== Agent Tool Templates ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: Lennys-Memory demo agent tools
+Documentation:: xref:tutorials/first-agent-memory.adoc[First Agent Memory Tutorial]
+
+**Features Implemented**:
+
+* 19 specialized agent tools for semantic search, entity queries, geospatial analysis
+* Entity Query Tools: `search_entities`, `get_entity_context`, `find_related_entities`
+* Location Query Tools: `search_locations`, `find_locations_near`, `get_location_clusters`
+* Preference and Reasoning Tools: `get_user_preferences`, `find_similar_past_queries`
+
+'''
+
+[[preference-aware-prompts]]
+==== Preference-Aware Agent Prompts ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: Dynamic system prompt injection in Lennys-Memory agent
+Documentation:: xref:tutorials/first-agent-memory.adoc[First Agent Memory Tutorial]
+
+**Features Implemented**:
+
+* Dynamic system prompt that injects user preferences
+* Similar trace consultation for improved reasoning
+* Memory context injection for personalized responses
+
+'''
+
+[[chat-to-map-integration]]
+==== Chat-to-Map Integration ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: Agent location tools with map view support
+Documentation:: xref:how-to/entities.adoc#geocoding[Geocoding Guide]
+
+**Features Implemented**:
+
+* Agent tools return location data with coordinates
+* Map view displays locations mentioned in conversations
+* Session-scoped location filtering
+* Backend APIs for clusters, nearby search, and path finding
+
+'''
+
+[[agent-framework-adapters]]
+==== Agent Framework Adapters ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `neo4j_agent_memory.integrations` module
+Documentation:: xref:how-to/integrations/pydantic-ai.adoc[PydanticAI], xref:how-to/integrations/langchain.adoc[LangChain], xref:how-to/integrations/llamaindex.adoc[LlamaIndex], xref:how-to/integrations/crewai.adoc[CrewAI]
+
+**Features Implemented**:
+
+* **PydanticAI**: `MemoryDependency`, `create_memory_tools()`, `record_agent_trace()`
+* **LangChain**: `Neo4jAgentMemory`, `Neo4jMemoryRetriever`
+* **LlamaIndex**: `Neo4jLlamaIndexMemory`
+* **CrewAI**: `Neo4jCrewMemory`
+
+'''
+
+=== Documentation
+
+[[docs-testing]]
+==== Documentation Testing Framework ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Implementation:: `tests/docs/` test suite
+Documentation:: CLAUDE.md (Documentation Testing section)
+
+**Features Implemented**:
+
+* Syntax validation for 500+ Python code snippets
+* Async wrapping for syntax checking
+* Build pipeline tests for npm/AsciiDoctor
+* Link validation for internal xref links
+* Makefile targets: `test-docs`, `test-docs-syntax`, `test-docs-build`, `test-docs-links`
+
+'''
+
+[[diataxis-restructuring]]
+==== Documentation Restructuring (Diataxis Framework) ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Started:: January 2026
+Completed:: January 2026
+
+**Features Implemented**:
+
+* Complete restructuring following https://diataxis.fr/[Diataxis framework]
+* Four quadrants: Tutorials, How-To Guides, Reference, Explanation
+* Visual differentiation with quadrant-specific colors
+* Pagefind search integration with Cmd+K shortcut
+
+.New Directory Structure
+[source]
+----
+docs/
+├── tutorials/           # Learning-oriented (Purple)
+├── how-to/              # Task-oriented (Green)
+│   └── integrations/    # Framework-specific guides
+├── reference/           # Information-oriented (Blue)
+│   └── api/             # API documentation
+├── explanation/         # Understanding-oriented (Orange)
+└── assets/
+    ├── css/
+    └── images/
+----
+
+.Content Created
+* 3 comprehensive tutorials
+* 14 how-to guides including 4 framework integrations
+* 10 reference pages including 4 API references
+* 5 explanation pages covering architecture and concepts
+
+
+== v0.0.3 Roadmap (Implemented)
+
+The following features were implemented as part of the v0.0.3 Google Cloud Integration release.
+
+=== Google Cloud Integration
+
+[[vertex-ai-embeddings]]
+==== Vertex AI Embeddings ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `neo4j_agent_memory.embeddings.vertex_ai.VertexAIEmbedder`
+
+**Features Implemented**:
+
+* `VertexAIEmbedder` class following existing embedder pattern
+* Support for text-embedding-004, textembedding-gecko@003, gecko-multilingual@001
+* 768-dimensional embeddings for all supported models
+* Batch processing up to 250 texts per request
+* Task type configuration (RETRIEVAL_DOCUMENT, RETRIEVAL_QUERY, etc.)
+* GCP project and location configuration
+* Application Default Credentials (ADC) support
+
+.Supported Models
+[source,python]
+----
+VERTEX_MODEL_DIMENSIONS = {
+    "text-embedding-004": 768,
+    "textembedding-gecko@003": 768,
+    "textembedding-gecko-multilingual@001": 768,
+    "text-embedding-005": 768,
+}
+----
+
+'''
+
+[[google-adk-integration]]
+==== Google ADK MemoryService ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `neo4j_agent_memory.integrations.google_adk.Neo4jMemoryService`
+
+**Features Implemented**:
+
+* `Neo4jMemoryService` implementing ADK MemoryService interface
+* `add_session_to_memory()` - Store session messages and extract entities
+* `search_memories()` - Semantic search across all memory types
+* `get_memories_for_session()` - Retrieve session-specific memories
+* `add_memory()` - Store individual memory entries
+* `clear_session()` - Clear session data
+* Type conversions between ADK and agent-memory types
+* Configurable entity and preference extraction
+
+.Usage Example
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+async with MemoryClient(settings) as client:
+    memory_service = Neo4jMemoryService(client, user_id="user-123")
+
+    # Search memories
+    results = await memory_service.search_memories(
+        query="What are the project deadlines?",
+        limit=10
+    )
+----
+
+'''
+
+[[mcp-server]]
+==== MCP Server for Cloud API Registry ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `neo4j_agent_memory.mcp` module
+
+**Features Implemented**:
+
+* `Neo4jMemoryMCPServer` class with full MCP protocol support
+* 5 MCP tools for memory operations
+* stdio transport for local usage
+* SSE transport for Cloud Run deployment
+* Read-only Cypher query validation for security
+
+.MCP Tools
+[cols="2,3"]
+|===
+| Tool | Description
+
+| `memory_search`
+| Hybrid vector + graph search across all memory types
+
+| `memory_store`
+| Store messages, facts, and preferences
+
+| `entity_lookup`
+| Get entity with relationships and context
+
+| `conversation_history`
+| Retrieve session conversation history
+
+| `graph_query`
+| Execute read-only Cypher queries
+|===
+
+.CLI Usage
+[source,bash]
+----
+# Start MCP server with stdio transport
+neo4j-memory mcp serve
+
+# Start MCP server with SSE transport for Cloud Run
+neo4j-memory mcp serve --transport sse --port 8080
+----
+
+'''
+
+[[cloudrun-template]]
+==== Cloud Run Deployment Template ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED**
+Implementation:: `deploy/cloudrun/` directory
+
+**Features Implemented**:
+
+* Production-ready Dockerfile with multi-stage build
+* Cloud Build configuration (`cloudbuild.yaml`)
+* Cloud Run service definition (`service.yaml`)
+* Secret Manager integration for credentials
+* Comprehensive deployment documentation
+
+.Deployment Files
+[source]
+----
+deploy/cloudrun/
+├── Dockerfile          # Container image definition
+├── cloudbuild.yaml     # CI/CD pipeline
+├── service.yaml        # Cloud Run service config
+└── README.md           # Deployment guide
+----
+
+.Quick Deploy
+[source,bash]
+----
+# Build and deploy to Cloud Run
+gcloud run deploy neo4j-memory-mcp \
+  --source deploy/cloudrun \
+  --region us-central1 \
+  --set-secrets NEO4J_URI=neo4j-uri:latest,NEO4J_PASSWORD=neo4j-password:latest
+----
+
+
+== v0.0.4 Roadmap (Implemented)
+
+The following features were implemented as part of the v0.0.4 Domain Data Access & Financial Advisor release.
+
+=== Package Enhancement
+
+[[memoryclient-graph-property]]
+==== MemoryClient.graph Property ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `neo4j_agent_memory.MemoryClient.graph` property exposing `Neo4jClient`
+
+**Features Implemented**:
+
+* `graph` property on `MemoryClient` that exposes the underlying `Neo4jClient` instance
+* Allows applications to run custom Cypher queries alongside memory operations without creating a separate Neo4j connection
+* `execute_read()` and `execute_write()` methods for running arbitrary Cypher with parameters
+* Raises `RuntimeError` if accessed before `connect()` is called
+* Non-breaking addition — existing code is unaffected
+
+.Usage Example
+[source,python]
+----
+async with MemoryClient(settings) as client:
+    # Use memory APIs as usual
+    await client.short_term.add_messages(session_id, messages)
+
+    # Also run custom domain queries on the same connection
+    result = await client.graph.execute_read(
+        "MATCH (c:Customer {id: $id}) RETURN c",
+        {"id": "CUST-001"}
+    )
+----
+
+'''
+
+=== Example Application Patterns
+
+[[neo4j-domain-service]]
+==== Neo4jDomainService Pattern ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: `examples/google-cloud/financial-advisor/backend/src/services/neo4j_service.py`
+
+**Features Implemented**:
+
+* `Neo4jDomainService` class that wraps `MemoryClient.graph` for domain-specific Cypher queries
+* 21 async methods organized by domain: customers, transactions, network/relationships, alerts
+* Customer queries: `list_customers()`, `get_customer()`, `get_customer_risk()`
+* Transaction queries: `get_transactions()`, `detect_structuring()`, `detect_rapid_movement()`, `detect_layering()`, `get_velocity_metrics()`
+* Network queries: `find_connections()`, `detect_shell_companies()`, `trace_ownership()`, `get_network_risk()`
+* Alert CRUD: `list_alerts()`, `get_alert()`, `create_alert()`, `update_alert()`, `get_alert_summary()`
+* Compliance queries: `check_sanctions()`, `check_pep_status()`
+* Clean separation: domain data via Cypher, agent memory via neo4j-agent-memory APIs
+
+.Architecture
+[source]
+----
+MemoryClient
+├── short_term    → Agent conversation memory
+├── long_term     → Entity extraction, preferences
+├── reasoning     → Trace storage
+└── graph         → Neo4jClient
+    └── Neo4jDomainService  → Domain-specific Cypher queries
+        ├── Customer queries
+        ├── Transaction queries
+        ├── Network queries
+        ├── Alert CRUD
+        └── Compliance checks
+----
+
+'''
+
+[[bind-tool-pattern]]
+==== _bind_tool ADK Function Signature Pattern ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED**
+Implementation:: `examples/google-cloud/financial-advisor/backend/src/agents/kyc_agent.py` (and all agent modules)
+
+**Features Implemented**:
+
+* `_bind_tool()` helper that injects `neo4j_service` into tool functions while hiding it from ADK's `FunctionTool` signature inspection
+* Uses `inspect.signature()` to build a new signature excluding the `neo4j_service` parameter
+* Uses `functools.wraps` to preserve the original function's name and docstring (which ADK uses for tool descriptions)
+* Solves the problem of ADK treating all function parameters as agent-callable — services should not be exposed to the LLM
+
+.Pattern
+[source,python]
+----
+def _bind_tool(func, neo4j_service):
+    """Bind neo4j_service to a tool function, hiding it from ADK."""
+    @wraps(func)
+    async def wrapper(**kwargs):
+        return await func(neo4j_service=neo4j_service, **kwargs)
+
+    # Remove neo4j_service from the visible signature
+    sig = inspect.signature(func)
+    params = [p for name, p in sig.parameters.items() if name != "neo4j_service"]
+    wrapper.__signature__ = sig.replace(parameters=params)
+    return wrapper
+----
+
+'''
+
+[[financial-advisor-neo4j-wiring]]
+==== Financial Advisor Neo4j Wiring ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED**
+Implementation:: 16 tool functions across 4 modules, 2 API route modules, app startup in `main.py`
+
+**Features Implemented**:
+
+* **KYC tools** (`kyc_tools.py`): `verify_identity()`, `check_documents()`, `assess_customer_risk()`, `check_adverse_media()` — all query Neo4j for customer data, documents, and risk factors
+* **AML tools** (`aml_tools.py`): `scan_transactions()`, `detect_patterns()`, `flag_suspicious_transaction()`, `analyze_velocity()` — Cypher-based transaction analysis, pattern detection (structuring, rapid movement, layering), and alert creation
+* **Relationship tools** (`relationship_tools.py`): `find_connections()`, `analyze_network_risk()`, `detect_shell_companies()`, `map_beneficial_ownership()` — variable-length path queries, shell company detection, ownership chain traversal
+* **Compliance tools** (`compliance_tools.py`): `check_sanctions()`, `verify_pep_status()`, `generate_sar_report()`, `assess_regulatory_requirements()` — sanctions/PEP screening via Neo4j nodes, SAR report generation from live data
+* **Customer API** (`customers.py`): List, detail, and risk endpoints backed by `Neo4jDomainService`
+* **Alerts API** (`alerts.py`): Full CRUD plus summary dashboard backed by `Neo4jDomainService`
+* **App startup** (`main.py`): `Neo4jDomainService` initialized in lifespan, stored on `app.state`
+
+'''
+
+[[domain-data-loading]]
+==== Domain Data Loading (Sanctions, PEP, Alerts) ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED**
+Implementation:: `data/load_sample_data.py`, `data/sanctions.json`, `data/pep.json`, `data/alerts.json`
+
+**Features Implemented**:
+
+* **Sanctions data** (`sanctions.json`): Sanctioned entities with aliases, programs, jurisdictions, and identification details; loaded as `(:SanctionedEntity)` and `(:SanctionAlias)` nodes
+* **PEP data** (`pep.json`): Politically Exposed Persons with positions, countries, risk levels, associated persons, and financial disclosures; loaded as `(:PEP)` nodes
+* **Alert data** (`alerts.json`): Pre-built compliance alerts with severity, status, descriptions, and linked customers/transactions; loaded as `(:Alert)` nodes with `(:Customer)-[:HAS_ALERT]->(:Alert)` relationships
+* **Enhanced customer data** (`customers.json`): Added `date_of_birth`, `nationality`, `address`, `occupation`, `employer`, `account_opened`, `kyc_status`, `documents` array, and `business_type`/`directors` for corporate customers
+* **Document nodes**: `(:Customer)-[:HAS_DOCUMENT]->(:Document)` relationships with `type`, `status`, `expiry_date`
+* Neo4j constraints for all new node types (`SanctionedEntity`, `PEP`, `Alert`, `Document`)
+* Idempotent loading via `MERGE` — safe to re-run
+
+'''
+
+[[neo4j-integration-tests]]
+==== Neo4j Integration Test Suite ✅
+
+[horizontal]
+Priority:: Medium
+Status:: **IMPLEMENTED**
+Implementation:: `tests/examples/test_financial_advisor_neo4j_integration.py`
+
+**Features Implemented**:
+
+* 82 unit tests covering all new Financial Advisor functionality
+* `TestNeo4jDomainService` (36 tests): Verifies all 21 service methods with mocked Neo4j driver, validates Cypher query structure and parameter passing
+* `TestToolFunctions` (23 tests): Tests all 16 tool functions with mock `Neo4jDomainService`, validates return structures and error handling
+* `TestAgentWiring` (4 tests): Verifies `_bind_tool()` pattern exists in all agent modules
+* `TestCustomerRouteHelpers` (3 tests): Tests `_compute_risk()` helper and risk level computation
+* `TestAlertRouteHelpers` (3 tests): Tests `_to_python_datetime()` Neo4j DateTime conversion
+* `TestMemoryClientGraphProperty` (2 tests): Validates `MemoryClient.graph` property exists and is documented
+* `TestNewFileStructure` (11 tests): Validates all new files exist with correct structure (JSON schemas, Python syntax)
+* Custom module loading infrastructure that handles relative imports without requiring ADK/FastAPI dependencies
+* Runs without Neo4j connection (all Neo4j calls mocked)
+
+
+== Contributing
+
+If you have additional improvement suggestions, please:
+
+. Open an issue on https://github.com/neo4j-labs/agent-memory/issues[GitHub]
+. Add to this document via PR
+. Include priority assessment and implementation ideas
+
+
+== See Also
+
+* xref:how-to/entity-extraction.adoc[Entity Extraction Guide]
+* xref:faq.adoc[FAQ]
+* https://github.com/neo4j-labs/agent-memory[GitHub Repository]

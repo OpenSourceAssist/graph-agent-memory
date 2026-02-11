@@ -1,0 +1,54 @@
+[
+  {
+    "id": "ALERT-001",
+    "customer_id": "CUST-003",
+    "type": "AML",
+    "severity": "CRITICAL",
+    "status": "NEW",
+    "title": "Structuring Pattern Detected",
+    "description": "Multiple cash deposits just under $10,000 threshold detected over 4 consecutive days.",
+    "transaction_ids": ["TXN-203", "TXN-204", "TXN-205", "TXN-206"],
+    "evidence": [
+      "TXN-203: $9,500 cash deposit on 2024-01-20",
+      "TXN-204: $9,500 cash deposit on 2024-01-21",
+      "TXN-205: $9,500 cash deposit on 2024-01-22",
+      "TXN-206: $9,500 cash deposit on 2024-01-23"
+    ],
+    "requires_sar": true,
+    "auto_generated": true
+  },
+  {
+    "id": "ALERT-002",
+    "customer_id": "CUST-003",
+    "type": "NETWORK",
+    "severity": "HIGH",
+    "status": "NEW",
+    "title": "Shell Company Indicators",
+    "description": "Customer network shows multiple connections to entities with shell company characteristics.",
+    "transaction_ids": [],
+    "evidence": [
+      "Connected to Shell Corp - Cayman (no employees, nominee directors)",
+      "Connected to Anonymous Trust - Seychelles (opaque structure)",
+      "BVI jurisdiction with nominee director services"
+    ],
+    "requires_sar": false,
+    "auto_generated": true
+  },
+  {
+    "id": "ALERT-003",
+    "customer_id": "CUST-002",
+    "type": "TRANSACTION",
+    "severity": "MEDIUM",
+    "status": "ACKNOWLEDGED",
+    "title": "Rapid Wire Movement",
+    "description": "Funds received and moved within 24-48 hours with minimal change.",
+    "transaction_ids": ["TXN-101", "TXN-102", "TXN-103", "TXN-104"],
+    "evidence": [
+      "Pattern of receive-and-send within 2 days",
+      "Consistent 2-4% reduction (possible fees/commission)",
+      "Multiple counterparties in high-risk jurisdictions"
+    ],
+    "requires_sar": false,
+    "auto_generated": true
+  }
+]

@@ -1,0 +1,75 @@
+# Cloud Run Service Definition
+#
+# Apply with:
+#   gcloud run services replace service.yaml --region=us-central1
+#
+# Note: Update PROJECT_ID and ensure secrets are created first
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: neo4j-memory-mcp
+  labels:
+    cloud.googleapis.com/location: us-central1
+  annotations:
+    run.googleapis.com/description: "Neo4j Agent Memory MCP Server"
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        # Autoscaling configuration
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/cpu-throttling: "true"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      serviceAccountName: neo4j-memory-sa@PROJECT_ID.iam.gserviceaccount.com
+      containers:
+        - image: us-central1-docker.pkg.dev/PROJECT_ID/neo4j-agent-memory/neo4j-memory-mcp:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          env:
+            - name: PORT
+              value: "8080"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            # Secrets from Secret Manager
+            - name: NEO4J_URI
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: neo4j-uri
+            - name: NEO4J_USER
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: neo4j-user
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: neo4j-password
+            - name: NEO4J_DATABASE
+              value: "neo4j"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 30
+  traffic:
+    - percent: 100
+      latestRevision: true
