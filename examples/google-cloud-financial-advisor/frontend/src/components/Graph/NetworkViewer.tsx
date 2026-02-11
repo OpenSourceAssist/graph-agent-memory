@@ -65,6 +65,16 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
     }
   }, [networkData]);
 
+  // Cleanup vis-network on unmount
+  useEffect(() => {
+    return () => {
+      if (networkRef.current) {
+        networkRef.current.destroy();
+        networkRef.current = null;
+      }
+    };
+  }, []);
+
   const loadStats = async () => {
     try {
       const data = await getGraphStats();
@@ -241,7 +251,7 @@ export function NetworkViewer({ customerId }: NetworkViewerProps) {
               placeholder="Enter customer ID..."
               value={inputCustomerId}
               onChange={(e) => setInputCustomerId(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
             <Button onClick={handleSearch} colorPalette="blue">
               Load Network

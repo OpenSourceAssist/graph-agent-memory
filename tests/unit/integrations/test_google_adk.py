@@ -221,10 +221,11 @@ class TestNeo4jMemoryService:
         mock_message = MagicMock()
         mock_memory_client.short_term.add_message = AsyncMock(return_value=mock_message)
 
-        # Create mock ADK session object
-        mock_session = MagicMock()
+        # Create mock ADK session object (spec limits attributes to avoid
+        # MagicMock auto-creating .events which would trigger the events path)
+        mock_session = MagicMock(spec=["id", "messages"])
         mock_session.id = "adk-session-1"
-        mock_msg = MagicMock()
+        mock_msg = MagicMock(spec=["role", "content"])
         mock_msg.role = "user"
         mock_msg.content = "Test message"
         mock_session.messages = [mock_msg]
@@ -420,7 +421,7 @@ class TestNeo4jMemoryService:
         mock_msg2.role = "assistant"
         mock_msg2.content = "Hi!"
 
-        mock_session = MagicMock()
+        mock_session = MagicMock(spec=["messages"])
         mock_session.messages = [mock_msg1, mock_msg2]
 
         messages = memory_service._extract_messages(mock_session)

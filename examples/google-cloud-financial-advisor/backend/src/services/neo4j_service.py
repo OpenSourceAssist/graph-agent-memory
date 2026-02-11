@@ -90,7 +90,7 @@ class Neo4jDomainService:
         transaction_type: str | None = None,
     ) -> list[dict[str, Any]]:
         """Get transactions for a customer with optional filters."""
-        filters = []
+        filters = ["t.date >= date() - duration({days: $days})"]
         params: dict[str, Any] = {"id": customer_id, "days": days}
 
         if min_amount is not None:
@@ -100,7 +100,7 @@ class Neo4jDomainService:
             filters.append("t.type = $tx_type")
             params["tx_type"] = transaction_type
 
-        where_extra = ("WHERE " + " AND ".join(filters)) if filters else ""
+        where_extra = "WHERE " + " AND ".join(filters)
 
         query = f"""
         MATCH (c:Customer {{id: $id}})-[:HAS_TRANSACTION]->(t:Transaction)

@@ -320,7 +320,7 @@ export default function ChatInterface() {
           placeholder="Ask about customer investigations, risk assessments..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyPress}
           disabled={isStreaming}
           size="lg"
         />
@@ -329,6 +329,7 @@ export default function ChatInterface() {
           onClick={handleSend}
           disabled={!input.trim() || isStreaming}
           size="lg"
+          aria-label="Send message"
         >
           <FiSend />
         </Button>

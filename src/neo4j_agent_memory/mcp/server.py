@@ -127,7 +127,7 @@ try:
                     self._server.create_initialization_options(),
                 )
 
-        async def run_sse(self, host: str = "0.0.0.0", port: int = 8080) -> None:
+        async def run_sse(self, host: str = "127.0.0.1", port: int = 8080) -> None:
             """Run the MCP server using SSE transport.
 
             Args:
@@ -190,7 +190,7 @@ try:
         neo4j_password: str,
         neo4j_database: str = "neo4j",
         transport: str = "stdio",
-        host: str = "0.0.0.0",
+        host: str = "127.0.0.1",
         port: int = 8080,
     ) -> None:
         """Run the MCP server with Neo4j connection.
@@ -277,8 +277,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--host",
-        default="0.0.0.0",
-        help="Host for SSE transport",
+        default="127.0.0.1",
+        help="Host for SSE transport (use 0.0.0.0 to expose on all interfaces)",
     )
     parser.add_argument(
         "--port",

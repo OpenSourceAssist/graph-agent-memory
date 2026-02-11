@@ -8,18 +8,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ...services.memory_service import FinancialMemoryService, get_memory_service
+from ...services.memory_service import (
+    FinancialMemoryService,
+    get_initialized_memory_service,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/traces", tags=["traces"])
-
-
-async def get_initialized_memory_service() -> FinancialMemoryService:
-    """Get the initialized memory service."""
-    service = get_memory_service()
-    if not service._initialized:
-        await service.initialize()
-    return service
 
 
 @router.get("/{session_id}")

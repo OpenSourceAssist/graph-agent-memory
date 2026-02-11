@@ -27,12 +27,15 @@ from ...models.chat import (
     SearchResult,
     ToolCall,
 )
-from ...services.memory_service import FinancialMemoryService, get_memory_service
+from ...services.memory_service import (
+    FinancialMemoryService,
+    get_initialized_memory_service,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-# Session service for ADK
+# Demo-only: in-memory session service. Use a persistent store for production.
 session_service = InMemorySessionService()
 
 
@@ -52,14 +55,6 @@ def _truncate_result(result: Any, max_len: int = 500) -> str | None:
     if len(s) > max_len:
         return s[:max_len] + "..."
     return s
-
-
-async def get_initialized_memory_service() -> FinancialMemoryService:
-    """Get the initialized memory service."""
-    service = get_memory_service()
-    if not service._initialized:
-        await service.initialize()
-    return service
 
 
 @router.post("/stream")
@@ -87,6 +82,7 @@ async def chat_stream(
     supervisor = get_supervisor_agent(memory_service, neo4j_service=neo4j_service)
 
     # Create or get session
+    # Demo-only: hardcoded user_id. Use authenticated user identity in production.
     session = await session_service.get_session(
         app_name="financial_advisor",
         user_id="user",

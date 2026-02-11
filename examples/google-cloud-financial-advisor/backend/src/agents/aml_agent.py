@@ -6,9 +6,7 @@ transaction analysis, pattern detection, and SAR preparation.
 
 from __future__ import annotations
 
-import inspect
 import logging
-from functools import wraps
 from typing import TYPE_CHECKING
 
 from google.adk.agents import LlmAgent
@@ -20,6 +18,7 @@ from ..tools.aml_tools import (
     flag_suspicious_transaction,
     scan_transactions,
 )
+from . import bind_tool
 from .prompts import AML_AGENT_INSTRUCTION
 
 if TYPE_CHECKING:
@@ -27,20 +26,6 @@ if TYPE_CHECKING:
     from ..services.neo4j_service import Neo4jDomainService
 
 logger = logging.getLogger(__name__)
-
-
-def _bind_tool(func, neo4j_service):
-    """Create a wrapper that binds neo4j_service to a tool function."""
-    sig = inspect.signature(func)
-    new_params = [p for name, p in sig.parameters.items() if name != "neo4j_service"]
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        kwargs["neo4j_service"] = neo4j_service
-        return await func(*args, **kwargs)
-
-    wrapper.__signature__ = sig.replace(parameters=new_params)
-    return wrapper
 
 
 def create_aml_agent(
@@ -60,10 +45,10 @@ def create_aml_agent(
     """
     if neo4j_service:
         tools = [
-            FunctionTool(_bind_tool(scan_transactions, neo4j_service)),
-            FunctionTool(_bind_tool(detect_patterns, neo4j_service)),
-            FunctionTool(_bind_tool(flag_suspicious_transaction, neo4j_service)),
-            FunctionTool(_bind_tool(analyze_velocity, neo4j_service)),
+            FunctionTool(bind_tool(scan_transactions, neo4j_service)),
+            FunctionTool(bind_tool(detect_patterns, neo4j_service)),
+            FunctionTool(bind_tool(flag_suspicious_transaction, neo4j_service)),
+            FunctionTool(bind_tool(analyze_velocity, neo4j_service)),
         ]
     else:
         tools = [

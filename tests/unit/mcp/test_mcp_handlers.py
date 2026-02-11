@@ -238,10 +238,10 @@ class TestMCPHandlers:
     @pytest.mark.asyncio
     async def test_handle_graph_query_read_only(self, handlers, mock_memory_client):
         """Test graph_query allows read-only queries."""
-        # Mock the _client._client.execute_read method
+        # Mock the graph.execute_read method
         mock_neo4j_client = MagicMock()
         mock_neo4j_client.execute_read = AsyncMock(return_value=[{"n.name": "Alice"}])
-        mock_memory_client._client = mock_neo4j_client
+        mock_memory_client.graph = mock_neo4j_client
 
         result = await handlers.handle_graph_query(
             query="MATCH (n:Person) RETURN n.name",

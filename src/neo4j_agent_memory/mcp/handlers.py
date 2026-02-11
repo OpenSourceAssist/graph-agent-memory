@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Patterns for detecting write operations in Cypher
+# Patterns for detecting write operations in Cypher (matched against uppercased query)
 WRITE_PATTERNS = [
     r"\bCREATE\b",
     r"\bMERGE\b",
@@ -23,9 +23,13 @@ WRITE_PATTERNS = [
     r"\bDETACH\s+DELETE\b",
     r"\bSET\b",
     r"\bREMOVE\b",
+    r"\bDROP\b",
+    r"\bLOAD\s+CSV\b",
+    r"\bFOREACH\b",
     r"\bCALL\s+\{",  # Subqueries with potential writes
-    r"\bCALL\s+db\.",  # DB procedures
-    r"\bCALL\s+apoc\.",  # APOC procedures (some are write)
+    r"\bCALL\s+DB\.",  # DB procedures
+    r"\bCALL\s+APOC\.",  # APOC procedures (some are write)
+    r"\bIN\s+TRANSACTIONS\b",  # Batched write subqueries
 ]
 
 
@@ -300,8 +304,11 @@ class MCPHandlers:
             List of neighboring entities with relationships.
         """
         # Use direct Cypher query for neighbor traversal
-        query = """
-        MATCH (e:Entity {id: $entity_id})-[r*1..$max_hops]-(neighbor:Entity)
+        # Note: Neo4j does not support parameters in variable-length paths,
+        # so we interpolate max_hops directly (safe: clamped to 1-3 integer).
+        max_hops = min(max(max_hops, 1), 3)
+        query = f"""
+        MATCH (e:Entity {{id: $entity_id}})-[r*1..{max_hops}]-(neighbor:Entity)
         WHERE neighbor.id <> $entity_id
         WITH DISTINCT neighbor, r
         RETURN neighbor.id AS id,
@@ -312,9 +319,9 @@ class MCPHandlers:
         """
 
         try:
-            records = await self._client._client.execute_read(
+            records = await self._client.graph.execute_read(
                 query,
-                {"entity_id": entity_id, "max_hops": max_hops},
+                {"entity_id": entity_id},
             )
 
             return [
@@ -401,7 +408,7 @@ class MCPHandlers:
             }
 
         try:
-            records = await self._client._client.execute_read(query, parameters or {})
+            records = await self._client.graph.execute_read(query, parameters or {})
 
             return {
                 "success": True,

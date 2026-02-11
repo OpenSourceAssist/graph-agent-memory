@@ -94,13 +94,16 @@ class VertexAIEmbedder(BaseEmbedder):
         self._batch_size = min(batch_size, DEFAULT_BATCH_SIZE)
         self._task_type = task_type
         self._embedding_model: TextEmbeddingModel | None = None
-        self._initialized = False
+        self._init_lock = asyncio.Lock()
 
         # Determine dimensions from model name
         self._dimensions = VERTEX_MODEL_DIMENSIONS.get(model, 768)
 
     def _ensure_initialized(self) -> "TextEmbeddingModel":
-        """Ensure Vertex AI is initialized and return the embedding model."""
+        """Ensure Vertex AI is initialized and return the embedding model.
+
+        Note: For thread-safe async initialization, use _ensure_initialized_async instead.
+        """
         if self._embedding_model is not None:
             return self._embedding_model
 
@@ -114,7 +117,7 @@ class VertexAIEmbedder(BaseEmbedder):
             )
 
         try:
-            # Initialize Vertex AI
+            # Initialize Vertex AI (note: sets global state in vertexai library)
             vertexai.init(
                 project=self._project_id,
                 location=self._location,
@@ -123,12 +126,21 @@ class VertexAIEmbedder(BaseEmbedder):
 
             # Load the embedding model
             self._embedding_model = TextEmbeddingModel.from_pretrained(self._model)
-            self._initialized = True
 
             return self._embedding_model
 
         except Exception as e:
             raise EmbeddingError(f"Failed to initialize Vertex AI: {e}") from e
+
+    async def _ensure_initialized_async(self) -> "TextEmbeddingModel":
+        """Thread-safe async initialization."""
+        if self._embedding_model is not None:
+            return self._embedding_model
+
+        async with self._init_lock:
+            if self._embedding_model is not None:
+                return self._embedding_model
+            return await asyncio.to_thread(self._ensure_initialized)
 
     @property
     def model(self) -> str:
@@ -157,7 +169,7 @@ class VertexAIEmbedder(BaseEmbedder):
         Raises:
             EmbeddingError: If embedding generation fails.
         """
-        model = self._ensure_initialized()
+        model = await self._ensure_initialized_async()
 
         try:
             from vertexai.language_models import TextEmbeddingInput
@@ -186,7 +198,7 @@ class VertexAIEmbedder(BaseEmbedder):
         if not texts:
             return []
 
-        model = self._ensure_initialized()
+        model = await self._ensure_initialized_async()
         all_embeddings: list[list[float]] = []
 
         try:

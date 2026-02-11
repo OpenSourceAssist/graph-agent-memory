@@ -859,13 +859,13 @@ class TestToolFunctions:
 
 
 class TestAgentWiring:
-    """Test _bind_tool function — loaded directly from kyc_agent.py."""
+    """Test bind_tool function — loaded directly from agents/__init__.py."""
 
     def _get_bind_tool(self):
-        """Extract _bind_tool from kyc_agent.py without triggering ADK imports."""
-        # Read the source and extract just the _bind_tool function
-        source = (BACKEND_SRC / "agents" / "kyc_agent.py").read_text()
-        # Build a minimal module with just _bind_tool
+        """Extract bind_tool from agents/__init__.py without triggering ADK imports."""
+        # Read the source and extract just the bind_tool function
+        source = (BACKEND_SRC / "agents" / "__init__.py").read_text()
+        # Build a minimal module with just bind_tool
         code = """
 import inspect
 from functools import wraps
@@ -876,7 +876,7 @@ from functools import wraps
         in_func = False
         func_lines = []
         for line in lines:
-            if line.startswith("def _bind_tool("):
+            if line.startswith("def bind_tool("):
                 in_func = True
             if in_func:
                 func_lines.append(line)
@@ -888,7 +888,7 @@ from functools import wraps
 
         ns: dict[str, Any] = {}
         exec(code, ns)
-        return ns["_bind_tool"]
+        return ns["bind_tool"]
 
     def test_bind_tool_removes_neo4j_service_from_signature(self):
         _bind_tool = self._get_bind_tool()
@@ -1216,6 +1216,10 @@ class TestNewFileStructure:
             )
 
     def test_agent_files_have_bind_tool(self, app_dir):
+        # bind_tool is now imported from the agents package __init__.py
+        init_content = (app_dir / "backend" / "src" / "agents" / "__init__.py").read_text()
+        assert "def bind_tool(" in init_content, "__init__.py missing bind_tool"
+
         for agent_file in [
             "kyc_agent.py",
             "aml_agent.py",
@@ -1223,7 +1227,7 @@ class TestNewFileStructure:
             "compliance_agent.py",
         ]:
             content = (app_dir / "backend" / "src" / "agents" / agent_file).read_text()
-            assert "_bind_tool" in content, f"{agent_file} missing _bind_tool"
+            assert "bind_tool" in content, f"{agent_file} missing bind_tool import"
 
     def test_main_initializes_neo4j_service(self, app_dir):
         content = (app_dir / "backend" / "src" / "main.py").read_text()
@@ -1282,8 +1286,8 @@ class TestNewFileStructure:
     def test_neo4j_service_uses_where_not_and(self, app_dir):
         """Verify get_transactions uses WHERE (not AND) for optional filters."""
         content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text()
-        # The dynamic filter should use WHERE, not AND
-        assert 'where_extra = ("WHERE "' in content, "get_transactions should use WHERE"
+        # The dynamic filter should use WHERE with AND-joined filter list
+        assert 'where_extra = "WHERE "' in content, "get_transactions should use WHERE"
 
     def test_no_hardcoded_sample_data_in_tools(self, app_dir):
         for tool_file in [

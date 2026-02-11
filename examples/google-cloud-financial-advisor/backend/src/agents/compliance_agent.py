@@ -6,9 +6,7 @@ and regulatory compliance reporting.
 
 from __future__ import annotations
 
-import inspect
 import logging
-from functools import wraps
 from typing import TYPE_CHECKING
 
 from google.adk.agents import LlmAgent
@@ -20,6 +18,7 @@ from ..tools.compliance_tools import (
     generate_sar_report,
     verify_pep_status,
 )
+from . import bind_tool
 from .prompts import COMPLIANCE_AGENT_INSTRUCTION
 
 if TYPE_CHECKING:
@@ -27,20 +26,6 @@ if TYPE_CHECKING:
     from ..services.neo4j_service import Neo4jDomainService
 
 logger = logging.getLogger(__name__)
-
-
-def _bind_tool(func, neo4j_service):
-    """Create a wrapper that binds neo4j_service to a tool function."""
-    sig = inspect.signature(func)
-    new_params = [p for name, p in sig.parameters.items() if name != "neo4j_service"]
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        kwargs["neo4j_service"] = neo4j_service
-        return await func(*args, **kwargs)
-
-    wrapper.__signature__ = sig.replace(parameters=new_params)
-    return wrapper
 
 
 def create_compliance_agent(
@@ -60,10 +45,10 @@ def create_compliance_agent(
     """
     if neo4j_service:
         tools = [
-            FunctionTool(_bind_tool(check_sanctions, neo4j_service)),
-            FunctionTool(_bind_tool(verify_pep_status, neo4j_service)),
-            FunctionTool(_bind_tool(generate_sar_report, neo4j_service)),
-            FunctionTool(_bind_tool(assess_regulatory_requirements, neo4j_service)),
+            FunctionTool(bind_tool(check_sanctions, neo4j_service)),
+            FunctionTool(bind_tool(verify_pep_status, neo4j_service)),
+            FunctionTool(bind_tool(generate_sar_report, neo4j_service)),
+            FunctionTool(bind_tool(assess_regulatory_requirements, neo4j_service)),
         ]
     else:
         tools = [

@@ -7,6 +7,8 @@ __all__ = [
     "BaseEmbedder",
     "Embedder",
     "OpenAIEmbedder",
+    "VertexAIEmbedder",
+    "SentenceTransformerEmbedder",
 ]
 
 

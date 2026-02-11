@@ -311,8 +311,37 @@ class Neo4jMemoryService:
         except Exception as e:
             logger.error(f"Error clearing session: {e}")
 
+    @staticmethod
+    def _extract_text_from_content(content: Any) -> str:
+        """Extract plain text from ADK Content/Parts objects or strings.
+
+        ADK v1.x uses google.genai.types.Content objects with a `.parts` list,
+        where each Part may have `.text`, `.function_call`, etc.
+
+        Args:
+            content: A string, Content object, or other content type.
+
+        Returns:
+            Extracted text as a string.
+        """
+        if isinstance(content, str):
+            return content
+        if hasattr(content, "parts"):
+            texts = []
+            for part in content.parts:
+                if hasattr(part, "text") and part.text:
+                    texts.append(part.text)
+            return "\n".join(texts) if texts else str(content)
+        return str(content)
+
     def _extract_messages(self, session: Any) -> list[SessionMessage]:
         """Extract messages from various session formats.
+
+        Supports:
+        - ADK v1.x Session objects (session.events with Event.content/author)
+        - ADK Session objects with session.messages
+        - Plain dicts with "messages" key
+        - Lists of message dicts
 
         Args:
             session: Session object or dict.
@@ -322,14 +351,38 @@ class Neo4jMemoryService:
         """
         messages: list[SessionMessage] = []
 
-        # Handle ADK Session object
-        if hasattr(session, "messages"):
+        # Handle ADK v1.x Session with events (Event has .content and .author)
+        if hasattr(session, "events"):
+            for event in session.events:
+                content = getattr(event, "content", None)
+                if content is None:
+                    continue
+                text = self._extract_text_from_content(content)
+                if not text:
+                    continue
+                # ADK v1.x uses .author instead of .role
+                author = getattr(event, "author", None)
+                role = str(author) if author else "user"
+                messages.append(
+                    SessionMessage(
+                        role=role,
+                        content=text,
+                        timestamp=getattr(event, "timestamp", None),
+                        metadata=getattr(event, "metadata", None),
+                    )
+                )
+
+        # Handle ADK Session objects with messages attribute
+        elif hasattr(session, "messages"):
             for msg in session.messages:
                 if hasattr(msg, "role") and hasattr(msg, "content"):
+                    text = self._extract_text_from_content(msg.content)
+                    role_val = msg.role
+                    role = str(role_val.value) if hasattr(role_val, "value") else str(role_val)
                     messages.append(
                         SessionMessage(
-                            role=str(msg.role) if hasattr(msg.role, "value") else msg.role,
-                            content=msg.content,
+                            role=role,
+                            content=text,
                             timestamp=getattr(msg, "timestamp", None),
                             metadata=getattr(msg, "metadata", None),
                         )
@@ -349,10 +402,11 @@ class Neo4jMemoryService:
                 if isinstance(msg, dict):
                     messages.append(session_message_from_dict(msg))
                 elif hasattr(msg, "role") and hasattr(msg, "content"):
+                    text = self._extract_text_from_content(msg.content)
                     messages.append(
                         SessionMessage(
                             role=str(msg.role),
-                            content=msg.content,
+                            content=text,
                         )
                     )
 

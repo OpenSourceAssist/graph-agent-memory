@@ -6,9 +6,7 @@ identity verification, document checking, and risk assessment.
 
 from __future__ import annotations
 
-import inspect
 import logging
-from functools import wraps
 from typing import TYPE_CHECKING
 
 from google.adk.agents import LlmAgent
@@ -20,6 +18,7 @@ from ..tools.kyc_tools import (
     check_documents,
     verify_identity,
 )
+from . import bind_tool
 from .prompts import KYC_AGENT_INSTRUCTION
 
 if TYPE_CHECKING:
@@ -27,25 +26,6 @@ if TYPE_CHECKING:
     from ..services.neo4j_service import Neo4jDomainService
 
 logger = logging.getLogger(__name__)
-
-
-def _bind_tool(func, neo4j_service):
-    """Create a wrapper that binds neo4j_service to a tool function.
-
-    ADK FunctionTool inspects the function signature to determine which
-    parameters the LLM should provide. We create a wrapper with a
-    modified signature that hides neo4j_service entirely.
-    """
-    sig = inspect.signature(func)
-    new_params = [p for name, p in sig.parameters.items() if name != "neo4j_service"]
-
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        kwargs["neo4j_service"] = neo4j_service
-        return await func(*args, **kwargs)
-
-    wrapper.__signature__ = sig.replace(parameters=new_params)
-    return wrapper
 
 
 def create_kyc_agent(
@@ -65,10 +45,10 @@ def create_kyc_agent(
     """
     if neo4j_service:
         tools = [
-            FunctionTool(_bind_tool(verify_identity, neo4j_service)),
-            FunctionTool(_bind_tool(check_documents, neo4j_service)),
-            FunctionTool(_bind_tool(assess_customer_risk, neo4j_service)),
-            FunctionTool(_bind_tool(check_adverse_media, neo4j_service)),
+            FunctionTool(bind_tool(verify_identity, neo4j_service)),
+            FunctionTool(bind_tool(check_documents, neo4j_service)),
+            FunctionTool(bind_tool(assess_customer_risk, neo4j_service)),
+            FunctionTool(bind_tool(check_adverse_media, neo4j_service)),
         ]
     else:
         tools = [

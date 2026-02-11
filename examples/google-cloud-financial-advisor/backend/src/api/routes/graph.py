@@ -8,7 +8,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from ...services.memory_service import FinancialMemoryService, get_memory_service
+from ...services.memory_service import (
+    FinancialMemoryService,
+    get_initialized_memory_service,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/graph", tags=["graph"])
@@ -18,9 +21,7 @@ class CypherQueryRequest(BaseModel):
     """Request model for Cypher queries."""
 
     query: str = Field(..., description="Cypher query (read-only)")
-    parameters: dict[str, Any] = Field(
-        default_factory=dict, description="Query parameters"
-    )
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Query parameters")
 
 
 class CypherQueryResponse(BaseModel):
@@ -39,14 +40,6 @@ class EntityNeighborsRequest(BaseModel):
     relationship_types: list[str] | None = None
 
 
-async def get_initialized_memory_service() -> FinancialMemoryService:
-    """Get the initialized memory service."""
-    service = get_memory_service()
-    if not service._initialized:
-        await service.initialize()
-    return service
-
-
 @router.post("/query", response_model=CypherQueryResponse)
 async def execute_cypher_query(
     request: CypherQueryRequest,
@@ -58,6 +51,8 @@ async def execute_cypher_query(
     """
     # Security check - only allow read queries
     query_upper = request.query.upper().strip()
+    # NOTE: Demo-only blocklist. For production, use an allowlist or run
+    # queries via a read-only Neo4j user/role.
     forbidden_keywords = [
         "CREATE",
         "MERGE",
@@ -68,6 +63,7 @@ async def execute_cypher_query(
         "DETACH",
         "CALL",
         "LOAD",
+        "FOREACH",
     ]
 
     for keyword in forbidden_keywords:
@@ -142,9 +138,7 @@ async def get_entity_neighbors(
                 nodes[start_id] = {
                     "id": start_id,
                     "label": record["start_name"] or start_id,
-                    "type": record["start_labels"][0]
-                    if record["start_labels"]
-                    else "Unknown",
+                    "type": record["start_labels"][0] if record["start_labels"] else "Unknown",
                     "isRoot": True,
                 }
 
@@ -222,8 +216,7 @@ async def get_graph_stats(
             "total_nodes": totals["nodes"] if totals else 0,
             "total_relationships": totals["rels"] if totals else 0,
             "nodes_by_label": {
-                r["label"][0] if r["label"] else "Unknown": r["count"]
-                for r in node_counts
+                r["label"][0] if r["label"] else "Unknown": r["count"] for r in node_counts
             },
             "relationships_by_type": {r["type"]: r["count"] for r in rel_counts},
         }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
 from datetime import datetime
@@ -22,22 +23,17 @@ from ...models.investigation import (
     InvestigationStatus,
     InvestigationType,
 )
-from ...services.memory_service import FinancialMemoryService, get_memory_service
+from ...services.memory_service import (
+    FinancialMemoryService,
+    get_initialized_memory_service,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/investigations", tags=["investigations"])
 
-# In-memory storage for demo
+# Demo-only: in-memory storage. Use a database for production.
 _investigations: dict[str, Investigation] = {}
 session_service = InMemorySessionService()
-
-
-async def get_initialized_memory_service() -> FinancialMemoryService:
-    """Get the initialized memory service."""
-    service = get_memory_service()
-    if not service._initialized:
-        await service.initialize()
-    return service
 
 
 @router.get("", response_model=list[Investigation])
@@ -224,13 +220,15 @@ Begin the investigation now."""
                         )
                     )
 
-        # Parse risk level from response
+        # Parse risk level from response (word-boundary match to avoid
+        # false positives like "FOLLOW" matching "LOW")
+        response_upper = response_text.upper()
         risk_level = "MEDIUM"
-        if "CRITICAL" in response_text.upper():
+        if re.search(r"\bCRITICAL\b", response_upper):
             risk_level = "CRITICAL"
-        elif "HIGH" in response_text.upper():
+        elif re.search(r"\bHIGH\b", response_upper):
             risk_level = "HIGH"
-        elif "LOW" in response_text.upper():
+        elif re.search(r"\bLOW\b", response_upper):
             risk_level = "LOW"
 
         # Update investigation

@@ -7,6 +7,7 @@ with Google ADK agents.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
@@ -75,28 +76,33 @@ class FinancialMemoryService:
         self._memory_service: Neo4jMemoryService | None = None
         self._user_id = user_id
         self._initialized = False
+        self._init_lock = asyncio.Lock()
 
     async def initialize(self) -> None:
         """Initialize the memory client and ADK memory service.
 
-        Must be called before using the service.
+        Must be called before using the service. Thread-safe via asyncio.Lock.
         """
         if self._initialized:
             return
 
-        self._client = MemoryClient(self._memory_settings)
-        await self._client.connect()
+        async with self._init_lock:
+            if self._initialized:
+                return
 
-        self._memory_service = Neo4jMemoryService(
-            memory_client=self._client,
-            user_id=self._user_id,
-            include_entities=True,
-            include_preferences=True,
-            extract_on_store=True,
-        )
+            self._client = MemoryClient(self._memory_settings)
+            await self._client.connect()
 
-        self._initialized = True
-        logger.info("Financial Memory Service initialized")
+            self._memory_service = Neo4jMemoryService(
+                memory_client=self._client,
+                user_id=self._user_id,
+                include_entities=True,
+                include_preferences=True,
+                extract_on_store=True,
+            )
+
+            self._initialized = True
+            logger.info("Financial Memory Service initialized")
 
     async def close(self) -> None:
         """Close all connections."""
@@ -246,8 +252,16 @@ class FinancialMemoryService:
         await self.adk_memory_service.clear_session(session_id)
 
 
-# Global singleton instance
-_memory_service: FinancialMemoryService | None = None
+async def get_initialized_memory_service() -> FinancialMemoryService:
+    """Get the initialized memory service (FastAPI dependency).
+
+    Returns:
+        Initialized FinancialMemoryService instance.
+    """
+    service = get_memory_service()
+    if not service._initialized:
+        await service.initialize()
+    return service
 
 
 @lru_cache
@@ -255,13 +269,10 @@ def get_memory_service() -> FinancialMemoryService:
     """Get the singleton memory service instance.
 
     Returns:
-        FinancialMemoryService singleton.
+        FinancialMemoryService singleton (cached by @lru_cache).
 
     Note:
         The service must be initialized by calling `initialize()` before use.
         This is typically done in the FastAPI lifespan handler.
     """
-    global _memory_service
-    if _memory_service is None:
-        _memory_service = FinancialMemoryService()
-    return _memory_service
+    return FinancialMemoryService()

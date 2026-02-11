@@ -67,23 +67,11 @@ class Neo4jSettings(BaseSettings):
         description="Neo4j username",
     )
     password: SecretStr = Field(
-        default=SecretStr("password"),
-        description="Neo4j password",
+        description="Neo4j password (set NEO4J_PASSWORD env var)",
     )
     database: str = Field(
         default="neo4j",
         description="Neo4j database name",
-    )
-
-
-class GCSSettings(BaseSettings):
-    """Cloud Storage configuration for documents."""
-
-    model_config = SettingsConfigDict(env_prefix="GCS_")
-
-    bucket_name: str = Field(
-        default="financial-advisor-documents",
-        description="GCS bucket for document storage",
     )
 
 
@@ -103,7 +91,6 @@ class Settings(BaseSettings):
     # Nested settings
     vertex_ai: Annotated[VertexAISettings, Field(default_factory=VertexAISettings)]
     neo4j: Annotated[Neo4jSettings, Field(default_factory=Neo4jSettings)]
-    gcs: Annotated[GCSSettings, Field(default_factory=GCSSettings)]
 
     # Application settings
     log_level: str = Field(
