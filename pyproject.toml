@@ -84,7 +84,7 @@ crewai = ["crewai>=0.50.0"]
 openai-agents = ["openai>=1.0.0"]
 
 # MCP server
-mcp = ["mcp>=1.0.0"]
+mcp = ["fastmcp>=2.0.0,<3"]
 
 # Google ADK
 google-adk = ["google-adk>=0.1.0"]
