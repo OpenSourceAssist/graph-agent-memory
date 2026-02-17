@@ -123,8 +123,8 @@ messages = await memory.get_conversation()
 from neo4j_agent_memory.integrations.microsoft_agent import Neo4jMicrosoftMemory
 
 memory = Neo4jMicrosoftMemory(memory_client=client, session_id="user-123")
-# Use context provider with ChatAgent
-agent = ChatAgent(context_providers=[memory.context_provider])
+# Use context provider with Agent
+agent = chat_client.as_agent(context_providers=[memory.context_provider])
 ----
 
 == Choosing a Framework

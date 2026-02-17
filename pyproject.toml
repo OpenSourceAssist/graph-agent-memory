@@ -82,7 +82,7 @@ llamaindex = ["llama-index-core>=0.10.0"]
 pydantic-ai = ["pydantic-ai>=0.1.0"]
 crewai = ["crewai>=0.50.0"]
 openai-agents = ["openai>=1.0.0"]
-microsoft-agent = ["agent-framework>=1.0.0b"]
+microsoft-agent = ["agent-framework>=1.0.0b260212"]
 
 # All optional dependencies (excluding heavy ML models by default)
 all = [

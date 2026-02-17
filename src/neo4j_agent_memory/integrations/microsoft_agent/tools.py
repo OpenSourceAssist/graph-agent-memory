@@ -48,9 +48,8 @@ try:
             memory = Neo4jMicrosoftMemory.from_memory_client(client, "session-123")
             tools = create_memory_tools(memory)
 
-            # Use with ChatAgent
-            agent = ChatAgent(
-                chat_client=chat_client,
+            # Use with Agent
+            agent = chat_client.as_agent(
                 tools=tools,
             )
         """

@@ -6,7 +6,7 @@ This guide explains how to use Neo4j Agent Memory with Microsoft Agent Framework
 
 [WARNING]
 ====
-This integration targets Microsoft Agent Framework v1.0.0b251223 (preview). APIs may change before GA release (expected Q1 2026). See <<api-compatibility>> for version requirements and migration guidance.
+This integration targets Microsoft Agent Framework v1.0.0b260212 (preview). APIs may change before GA release (expected Q1 2026). See <<api-compatibility>> for version requirements and migration guidance.
 ====
 
 == Overview
@@ -43,7 +43,7 @@ The `Neo4jContextProvider` automatically injects relevant memory context before 
 ----
 from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.integrations.microsoft_agent import Neo4jContextProvider
-from agent_framework import ChatAgent, ChatCompletionClient
+from agent_framework.azure import AzureOpenAIResponsesClient
 
 settings = MemorySettings(
     neo4j={"uri": "bolt://localhost:7687", "user": "neo4j", "password": "password"},
@@ -61,8 +61,8 @@ async with MemoryClient(settings) as client:
     )
 
     # Create agent with memory
-    agent = ChatAgent(
-        chat_client=ChatCompletionClient(...),
+    chat_client = AzureOpenAIResponsesClient(model="gpt-4")
+    agent = chat_client.as_agent(
         name="assistant",
         instructions="You are a helpful assistant.",
         context_providers=[provider],
@@ -90,8 +90,8 @@ async with MemoryClient(settings) as client:
 
     # Add messages
     await store.add_messages([
-        ChatMessage(role=MessageRole.USER, content="I love Nike running shoes"),
-        ChatMessage(role=MessageRole.ASSISTANT, content="Nike makes great running shoes!"),
+        Message("user", ["I love Nike running shoes"]),
+        Message("assistant", ["Nike makes great running shoes!"]),
     ])
 
     # List messages
@@ -125,8 +125,7 @@ async with MemoryClient(settings) as client:
     )
 
     # Use context provider with agent
-    agent = ChatAgent(
-        chat_client=chat_client,
+    agent = chat_client.as_agent(
         name="assistant",
         context_providers=[memory.context_provider],
     )
@@ -155,8 +154,7 @@ tools = create_memory_tools(
 )
 
 # Use with agent
-agent = ChatAgent(
-    chat_client=chat_client,
+agent = chat_client.as_agent(
     name="assistant",
     tools=tools,
     context_providers=[memory.context_provider],
@@ -368,8 +366,8 @@ Here's a complete shopping assistant example:
 [source,python]
 ----
 import asyncio
-from agent_framework import ChatAgent, ChatCompletionClient, UserMessage
-from openai import AsyncOpenAI
+from agent_framework import UserMessage
+from agent_framework.azure import AzureOpenAIResponsesClient
 
 from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.integrations.microsoft_agent import (
@@ -404,8 +402,7 @@ async def main():
         )
 
         # Create chat client
-        openai_client = AsyncOpenAI()
-        chat_client = ChatCompletionClient(client=openai_client, model="gpt-4")
+        chat_client = AzureOpenAIResponsesClient(model="gpt-4")
 
         # Create memory tools
         tools = create_memory_tools(
@@ -416,8 +413,7 @@ async def main():
         )
 
         # Create agent
-        agent = ChatAgent(
-            chat_client=chat_client,
+        agent = chat_client.as_agent(
             name="ShoppingAssistant",
             instructions="""You are a helpful shopping assistant.
             Use memory tools to remember preferences and provide personalized recommendations.""",
@@ -475,7 +471,7 @@ if __name__ == "__main__":
 This integration targets:
 
 * **Package**: `agent-framework`
-* **Version**: `1.0.0b251223`
+* **Version**: `1.0.0b260212`
 * **Status**: Public Preview
 * **GA Target**: Q1 2026
 
@@ -486,7 +482,7 @@ This integration targets:
 | neo4j-agent-memory | agent-framework | Status
 
 | 0.1.x
-| 1.0.0b251223
+| 1.0.0b260212
 | Current
 |===
 
@@ -496,20 +492,17 @@ This integration targets:
 |===
 | API | Import Path
 
-| `ContextProvider`
-| `agent_framework.ContextProvider`
+| `BaseContextProvider`
+| `agent_framework.BaseContextProvider`
 
 | `ChatMessageStoreProtocol`
 | `agent_framework.ChatMessageStoreProtocol`
 
-| `ChatMessage`
-| `agent_framework.ChatMessage`
+| `Message`
+| `agent_framework.Message`
 
-| `MessageRole`
-| `agent_framework.MessageRole`
-
-| `ChatAgent`
-| `agent_framework.ChatAgent`
+| `AzureOpenAIResponsesClient`
+| `agent_framework.azure.AzureOpenAIResponsesClient`
 |===
 
 === Breaking Change Detection

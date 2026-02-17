@@ -121,8 +121,8 @@ Create a file `agent.py`:
 """Shopping assistant agent."""
 
 import json
-from agent_framework import ChatAgent, ChatCompletionClient, UserMessage
-from openai import AsyncOpenAI
+from agent_framework import UserMessage
+from agent_framework.azure import AzureOpenAIResponsesClient
 
 from neo4j_agent_memory.integrations.microsoft_agent import (
     Neo4jMicrosoftMemory,
@@ -163,11 +163,10 @@ def get_product_tools() -> list[dict]:
         },
     ]
 
-async def create_agent(memory: Neo4jMicrosoftMemory) -> ChatAgent:
+async def create_agent(memory: Neo4jMicrosoftMemory):
     """Create the shopping assistant agent."""
-    # Create OpenAI client
-    openai_client = AsyncOpenAI()
-    chat_client = ChatCompletionClient(client=openai_client, model="gpt-4")
+    # Create chat client
+    chat_client = AzureOpenAIResponsesClient(model="gpt-4")
 
     # Create memory tools
     memory_tools = create_memory_tools(
@@ -181,8 +180,7 @@ async def create_agent(memory: Neo4jMicrosoftMemory) -> ChatAgent:
     all_tools = memory_tools + get_product_tools()
 
     # Create agent with context provider
-    return ChatAgent(
-        chat_client=chat_client,
+    return chat_client.as_agent(
         name="ShoppingAssistant",
         instructions=SYSTEM_PROMPT,
         tools=all_tools,

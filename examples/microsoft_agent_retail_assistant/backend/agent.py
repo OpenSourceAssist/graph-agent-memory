@@ -12,8 +12,8 @@ import json
 import logging
 from typing import TYPE_CHECKING, AsyncGenerator
 
-from agent_framework import ChatAgent, ChatMessage
-from agent_framework.azure import AzureOpenAIChatClient
+from agent_framework import Agent, Message
+from agent_framework.azure import AzureOpenAIResponsesClient
 from agent_framework.openai import OpenAIChatClient
 from memory_config import Settings
 
@@ -25,7 +25,7 @@ from neo4j_agent_memory.integrations.microsoft_agent import (
 )
 
 if TYPE_CHECKING:
-    from agent_framework import ChatClientProtocol
+    from agent_framework import BaseChatClient
 
 logger = logging.getLogger(__name__)
 
@@ -57,15 +57,14 @@ You have access to memory tools to:
 Always use the appropriate tools to provide personalized assistance."""
 
 
-def get_chat_client() -> "ChatClientProtocol":
-    """Create the chat completion client based on settings."""
+def get_chat_client() -> "BaseChatClient":
+    """Create the chat client based on settings."""
     if settings.azure_openai_api_key and settings.azure_openai_endpoint:
         # Use Azure OpenAI
-        return AzureOpenAIChatClient(
+        return AzureOpenAIResponsesClient(
             api_key=settings.azure_openai_api_key,
             endpoint=settings.azure_openai_endpoint,
             deployment_name=settings.azure_openai_deployment or "gpt-4",
-            api_version="2024-02-01",
         )
     elif settings.openai_api_key:
         # Use OpenAI directly
@@ -388,17 +387,14 @@ async def execute_product_tool(
         return json.dumps({"error": str(e)})
 
 
-async def create_agent(memory: Neo4jMicrosoftMemory) -> ChatAgent:
+async def create_agent(memory: Neo4jMicrosoftMemory) -> Agent:
     """Create a shopping assistant agent with Neo4j memory."""
     chat_client = get_chat_client()
 
     # Get memory tools
     memory_tools = create_memory_tools(
-        include_search=True,
-        include_preferences=True,
-        include_knowledge=True,
-        include_traces=False,  # Don't expose trace search to user
-        include_gds=True,  # Include graph algorithm tools
+        memory,
+        include_gds_tools=bool(memory.gds),
     )
 
     # Get product tools
@@ -408,8 +404,7 @@ async def create_agent(memory: Neo4jMicrosoftMemory) -> ChatAgent:
     all_tools = memory_tools + product_tools
 
     # Create agent with context provider
-    agent = ChatAgent(
-        chat_client=chat_client,
+    agent = chat_client.as_agent(
         name="ShoppingAssistant",
         instructions=SYSTEM_PROMPT,
         tools=all_tools,
@@ -420,7 +415,7 @@ async def create_agent(memory: Neo4jMicrosoftMemory) -> ChatAgent:
 
 
 async def run_agent_stream(
-    agent: ChatAgent,
+    agent: Agent,
     message: str,
     memory: Neo4jMicrosoftMemory,
 ) -> AsyncGenerator[dict, None]:
@@ -441,14 +436,13 @@ async def run_agent_stream(
         # Save user message first
         await memory.save_message("user", message)
 
-        # Create user message (Microsoft Agent Framework uses 'text' not 'content')
-        user_msg = ChatMessage(role="user", text=message)
+        # Create user message
+        user_msg = Message("user", [message])
 
         # Stream agent response
         full_response = ""
         async for chunk in agent.stream(user_msg):
-            # Handle content - check both .text (Microsoft Agent) and .content (generic)
-            chunk_content = getattr(chunk, "text", None) or getattr(chunk, "content", None)
+            chunk_content = getattr(chunk, "text", None)
             if chunk_content:
                 full_response += chunk_content
                 yield {

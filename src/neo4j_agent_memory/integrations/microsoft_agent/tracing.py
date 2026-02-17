@@ -17,8 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 try:
-    # Import for type checking, ChatMessage used for isinstance checks
-    from agent_framework import ChatMessage  # noqa: F401
+    from agent_framework import Message  # noqa: F401
 
     async def record_agent_trace(
         memory: Neo4jMicrosoftMemory,
@@ -37,7 +36,7 @@ try:
 
         .. note::
             Microsoft Agent Framework API - may change before GA.
-            Currently targets v1.0.0b251223.
+            Currently targets v1.0.0b260212.
 
         Args:
             memory: The Neo4jMicrosoftMemory instance.
@@ -255,8 +254,9 @@ try:
         """Extract content from a message."""
         if isinstance(msg, dict):
             return msg.get("content", "")
-        if hasattr(msg, "content"):
-            return msg.content or ""
+        # Message.text returns concatenated text from all TextContent items
+        if hasattr(msg, "text"):
+            return msg.text or ""
         return ""
 
     def _get_tool_calls(msg: Any) -> list[Any]:
