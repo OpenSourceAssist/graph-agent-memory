@@ -75,13 +75,15 @@ class TestNeo4jContextProviderInitialization:
 
 @pytest.mark.integration
 @pytest.mark.skipif(not AGENT_FRAMEWORK_AVAILABLE, reason="Microsoft Agent Framework not installed")
-class TestNeo4jContextProviderInvoking:
-    """Test Neo4jContextProvider invoking hook."""
+class TestNeo4jContextProviderBeforeRun:
+    """Test Neo4jContextProvider before_run hook."""
 
     @pytest.mark.asyncio
-    async def test_invoking_with_empty_memory(self, memory_client, session_id):
-        """Test invoking with empty memory."""
-        from agent_framework import ChatMessage, Context
+    async def test_before_run_with_empty_memory(self, memory_client, session_id):
+        """Test before_run with empty memory."""
+        from unittest.mock import MagicMock
+
+        from agent_framework import Message, SessionContext
 
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jContextProvider
 
@@ -90,15 +92,25 @@ class TestNeo4jContextProviderInvoking:
             session_id=session_id,
         )
 
-        messages = [ChatMessage(role="user", text="Hello")]
-        context = await provider.invoking(messages)
+        input_messages = [Message("user", ["Hello"])]
+        context = SessionContext(input_messages=input_messages)
 
-        assert isinstance(context, Context)
+        await provider.before_run(
+            agent=MagicMock(),
+            session=MagicMock(),
+            context=context,
+            state={},
+        )
+
+        # With empty memory, may or may not add instructions
+        assert isinstance(context.instructions, list)
 
     @pytest.mark.asyncio
-    async def test_invoking_with_conversation_history(self, memory_client, session_id):
-        """Test invoking returns context with conversation history."""
-        from agent_framework import ChatMessage
+    async def test_before_run_with_conversation_history(self, memory_client, session_id):
+        """Test before_run returns context with conversation history."""
+        from unittest.mock import MagicMock
+
+        from agent_framework import Message, SessionContext
 
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jContextProvider
 
@@ -123,18 +135,24 @@ class TestNeo4jContextProviderInvoking:
             session_id=session_id,
         )
 
-        messages = [ChatMessage(role="user", text="What about Nike shoes?")]
-        context = await provider.invoking(messages)
+        input_messages = [Message("user", ["What about Nike shoes?"])]
+        context = SessionContext(input_messages=input_messages)
 
-        # Should return a Context object - instructions may be None if no relevant context found
-        # or contain memory context as a string
-        assert context is not None
-        assert hasattr(context, "instructions")
+        await provider.before_run(
+            agent=MagicMock(),
+            session=MagicMock(),
+            context=context,
+            state={},
+        )
+
+        assert isinstance(context.instructions, list)
 
     @pytest.mark.asyncio
-    async def test_invoking_with_preferences(self, memory_client, session_id):
-        """Test invoking includes preferences in context."""
-        from agent_framework import ChatMessage
+    async def test_before_run_with_preferences(self, memory_client, session_id):
+        """Test before_run includes preferences in context."""
+        from unittest.mock import MagicMock
+
+        from agent_framework import Message, SessionContext
 
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jContextProvider
 
@@ -150,18 +168,24 @@ class TestNeo4jContextProviderInvoking:
             session_id=session_id,
         )
 
-        messages = [ChatMessage(role="user", text="Show me products")]
-        context = await provider.invoking(messages)
+        input_messages = [Message("user", ["Show me products"])]
+        context = SessionContext(input_messages=input_messages)
 
-        # Should return a Context object - instructions may be None if no relevant context found
-        # or contain memory context as a string
-        assert context is not None
-        assert hasattr(context, "instructions")
+        await provider.before_run(
+            agent=MagicMock(),
+            session=MagicMock(),
+            context=context,
+            state={},
+        )
+
+        assert isinstance(context.instructions, list)
 
     @pytest.mark.asyncio
-    async def test_invoking_with_entities(self, memory_client, session_id):
-        """Test invoking includes entities in context."""
-        from agent_framework import ChatMessage
+    async def test_before_run_with_entities(self, memory_client, session_id):
+        """Test before_run includes entities in context."""
+        from unittest.mock import MagicMock
+
+        from agent_framework import Message, SessionContext
 
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jContextProvider
         from neo4j_agent_memory.memory.long_term import EntityType
@@ -181,24 +205,30 @@ class TestNeo4jContextProviderInvoking:
             session_id=session_id,
         )
 
-        messages = [ChatMessage(role="user", text="Tell me about Nike shoes")]
-        context = await provider.invoking(messages)
+        input_messages = [Message("user", ["Tell me about Nike shoes"])]
+        context = SessionContext(input_messages=input_messages)
 
-        # Should return a Context object - instructions may be None if no relevant context found
-        # or contain memory context as a string
-        assert context is not None
-        assert hasattr(context, "instructions")
+        await provider.before_run(
+            agent=MagicMock(),
+            session=MagicMock(),
+            context=context,
+            state={},
+        )
+
+        assert isinstance(context.instructions, list)
 
 
 @pytest.mark.integration
 @pytest.mark.skipif(not AGENT_FRAMEWORK_AVAILABLE, reason="Microsoft Agent Framework not installed")
-class TestNeo4jContextProviderInvoked:
-    """Test Neo4jContextProvider invoked hook."""
+class TestNeo4jContextProviderAfterRun:
+    """Test Neo4jContextProvider after_run hook."""
 
     @pytest.mark.asyncio
-    async def test_invoked_saves_messages(self, memory_client, session_id):
-        """Test invoked saves messages to memory."""
-        from agent_framework import ChatMessage
+    async def test_after_run_saves_messages(self, memory_client, session_id):
+        """Test after_run saves messages to memory."""
+        from unittest.mock import MagicMock
+
+        from agent_framework import AgentResponse, Message, SessionContext
 
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jContextProvider
 
@@ -209,51 +239,24 @@ class TestNeo4jContextProviderInvoked:
             extract_entities_async=False,
         )
 
-        # Microsoft Agent Framework ChatMessage uses 'text' not 'content'
-        request_msgs = [ChatMessage(role="user", text="Find me blue shoes")]
-        response_msgs = [ChatMessage(role="assistant", text="Here are some blue shoes")]
+        input_messages = [Message("user", ["Find me blue shoes"])]
+        context = SessionContext(input_messages=input_messages)
 
-        # Debug: Check ChatMessage structure
-        msg = request_msgs[0]
-        assert hasattr(msg, "role"), "ChatMessage should have role attribute"
-        assert hasattr(msg, "text"), "ChatMessage should have text attribute"
-        assert msg.text == "Find me blue shoes", (
-            f"Expected text='Find me blue shoes', got {msg.text!r}"
-        )
+        # Mock the response
+        mock_response = MagicMock(spec=AgentResponse)
+        mock_response.messages = [Message("assistant", ["Here are some blue shoes"])]
+        context._response = mock_response
 
-        await provider.invoked(
-            request_messages=request_msgs,
-            response_messages=response_msgs,
+        await provider.after_run(
+            agent=MagicMock(),
+            session=MagicMock(),
+            context=context,
+            state={},
         )
 
         # Verify messages were saved
         conv = await memory_client.short_term.get_conversation(session_id)
         assert len(conv.messages) >= 2, f"Expected at least 2 messages, got {len(conv.messages)}"
-
-    @pytest.mark.asyncio
-    async def test_invoked_skips_on_exception(self, memory_client, session_id):
-        """Test invoked skips processing when exception occurred."""
-        from agent_framework import ChatMessage
-
-        from neo4j_agent_memory.integrations.microsoft_agent import Neo4jContextProvider
-
-        provider = Neo4jContextProvider(
-            memory_client=memory_client,
-            session_id=session_id,
-        )
-
-        # Clear any existing messages
-        await memory_client.short_term.clear_session(session_id)
-
-        await provider.invoked(
-            request_messages=[ChatMessage(role="user", text="Test")],
-            response_messages=None,
-            invoke_exception=ValueError("Test error"),
-        )
-
-        # Verify no messages were saved
-        conv = await memory_client.short_term.get_conversation(session_id)
-        assert len(conv.messages) == 0
 
 
 @pytest.mark.integration
@@ -296,7 +299,7 @@ class TestNeo4jChatMessageStore:
     @pytest.mark.asyncio
     async def test_add_messages(self, memory_client, session_id):
         """Test adding messages."""
-        from agent_framework import ChatMessage
+        from agent_framework import Message
 
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jChatMessageStore
 
@@ -306,8 +309,8 @@ class TestNeo4jChatMessageStore:
         )
 
         messages = [
-            ChatMessage(role="user", text="Hello"),
-            ChatMessage(role="assistant", text="Hi there!"),
+            Message("user", ["Hello"]),
+            Message("assistant", ["Hi there!"]),
         ]
 
         await store.add_messages(messages)
@@ -319,7 +322,7 @@ class TestNeo4jChatMessageStore:
     @pytest.mark.asyncio
     async def test_list_messages(self, memory_client, session_id):
         """Test listing messages."""
-        from agent_framework import ChatMessage
+        from agent_framework import Message
 
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jChatMessageStore
 
@@ -331,20 +334,20 @@ class TestNeo4jChatMessageStore:
         # Add messages
         await store.add_messages(
             [
-                ChatMessage(role="user", text="Test message 1"),
-                ChatMessage(role="assistant", text="Test response 1"),
+                Message("user", ["Test message 1"]),
+                Message("assistant", ["Test response 1"]),
             ]
         )
 
         messages = await store.list_messages()
 
         assert isinstance(messages, list)
-        assert all(isinstance(m, ChatMessage) for m in messages)
+        assert all(isinstance(m, Message) for m in messages)
 
     @pytest.mark.asyncio
     async def test_clear_messages(self, memory_client, session_id):
         """Test clearing messages."""
-        from agent_framework import ChatMessage
+        from agent_framework import Message
 
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jChatMessageStore
 
@@ -354,7 +357,7 @@ class TestNeo4jChatMessageStore:
         )
 
         # Add messages
-        await store.add_messages([ChatMessage(role="user", text="Test")])
+        await store.add_messages([Message("user", ["Test"])])
 
         # Clear
         await store.clear()
@@ -374,8 +377,8 @@ class TestNeo4jChatMessageStore:
             max_messages=100,
         )
 
-        serialized = await original.serialize()
-        restored = await Neo4jChatMessageStore.deserialize(serialized, memory_client)
+        serialized = original.serialize()
+        restored = Neo4jChatMessageStore.deserialize(serialized, memory_client)
 
         assert restored.session_id == session_id
 
@@ -686,7 +689,7 @@ class TestReasoningTraces:
     @pytest.mark.asyncio
     async def test_record_agent_trace(self, memory_client, session_id):
         """Test recording an agent trace."""
-        from agent_framework import ChatMessage
+        from agent_framework import Message
 
         from neo4j_agent_memory.integrations.microsoft_agent import (
             Neo4jMicrosoftMemory,
@@ -699,8 +702,8 @@ class TestReasoningTraces:
         )
 
         messages = [
-            ChatMessage(role="user", text="Find me running shoes"),
-            ChatMessage(role="assistant", text="Here are some running shoes..."),
+            Message("user", ["Find me running shoes"]),
+            Message("assistant", ["Here are some running shoes..."]),
         ]
 
         trace = await record_agent_trace(
@@ -718,7 +721,7 @@ class TestReasoningTraces:
     @pytest.mark.asyncio
     async def test_get_similar_traces(self, memory_client, session_id):
         """Test getting similar traces."""
-        from agent_framework import ChatMessage
+        from agent_framework import Message
 
         from neo4j_agent_memory.integrations.microsoft_agent import (
             Neo4jMicrosoftMemory,
@@ -734,7 +737,7 @@ class TestReasoningTraces:
         # Create a trace with embedding
         await record_agent_trace(
             memory=memory,
-            messages=[ChatMessage(role="user", text="Test")],
+            messages=[Message("user", ["Test"])],
             task="Find athletic shoes for running",
             generate_embedding=True,
         )
@@ -751,7 +754,7 @@ class TestReasoningTraces:
     @pytest.mark.asyncio
     async def test_format_traces_for_prompt(self, memory_client, session_id):
         """Test formatting traces for prompt."""
-        from agent_framework import ChatMessage
+        from agent_framework import Message
 
         from neo4j_agent_memory.integrations.microsoft_agent import (
             Neo4jMicrosoftMemory,
@@ -766,7 +769,7 @@ class TestReasoningTraces:
 
         trace = await record_agent_trace(
             memory=memory,
-            messages=[ChatMessage(role="user", text="Test")],
+            messages=[Message("user", ["Test"])],
             task="Test task",
             outcome="Test outcome",
             success=True,

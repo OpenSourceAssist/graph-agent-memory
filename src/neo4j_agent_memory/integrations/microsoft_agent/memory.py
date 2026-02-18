@@ -1,6 +1,6 @@
 """Microsoft Agent Framework unified memory interface.
 
-Provides a convenience class that combines ContextProvider and ChatMessageStore
+Provides a convenience class that combines BaseContextProvider and BaseHistoryProvider
 for easy integration with Microsoft Agent Framework agents.
 """
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 try:
-    from agent_framework import ChatMessage
+    from agent_framework import Message
 
     from .chat_store import Neo4jChatMessageStore
     from .context_provider import Neo4jContextProvider
@@ -31,30 +31,23 @@ try:
         """
         Unified memory interface for Microsoft Agent Framework.
 
-        Combines ContextProvider and ChatMessageStore functionality into
+        Combines BaseContextProvider and BaseHistoryProvider functionality into
         a single convenient interface. Provides direct access to all three
         memory types (short-term, long-term, reasoning) and GDS algorithms.
-
-        .. warning::
-            This class targets Microsoft Agent Framework v1.0.0b251223.
-            APIs may change before GA release.
 
         Example:
             from neo4j_agent_memory import MemoryClient, MemorySettings
             from neo4j_agent_memory.integrations.microsoft_agent import Neo4jMicrosoftMemory
-            from agent_framework import ChatAgent
+            from agent_framework.azure import AzureOpenAIResponsesClient
 
             async with MemoryClient(settings) as client:
-                # Create unified memory interface
                 memory = Neo4jMicrosoftMemory.from_memory_client(
                     memory_client=client,
                     session_id="user-123",
                 )
 
-                # Use with agent
-                agent = ChatAgent(
-                    chat_client=chat_client,
-                    name="assistant",
+                agent = chat_client.as_agent(
+                    instructions="You are a helpful assistant.",
                     context_providers=[memory.context_provider],
                 )
 
@@ -177,7 +170,7 @@ try:
 
         @property
         def context_provider(self) -> Neo4jContextProvider:
-            """Get the context provider for use with ChatAgent."""
+            """Get the context provider for use with Agent."""
             return self._context_provider
 
         @property
@@ -255,15 +248,15 @@ try:
         async def get_conversation(
             self,
             limit: int = 50,
-        ) -> list[ChatMessage]:
+        ) -> list[Message]:
             """
-            Get conversation history as ChatMessage objects.
+            Get conversation history as Message objects.
 
             Args:
                 limit: Maximum messages to retrieve.
 
             Returns:
-                List of ChatMessage objects.
+                List of Message objects.
             """
             return await self._chat_store.list_messages()
 

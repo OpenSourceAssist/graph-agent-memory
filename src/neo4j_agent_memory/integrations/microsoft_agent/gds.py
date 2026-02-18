@@ -190,16 +190,16 @@ class GDSIntegration:
         """PageRank using GDS library."""
         query = """
         CALL gds.pageRank.stream({
-            nodeQuery: 'MATCH (e:Entity) WHERE e.id IN $entity_ids RETURN id(e) AS id',
+            nodeQuery: 'MATCH (e:Entity) WHERE e.id IN $entity_ids RETURN elementId(e) AS id',
             relationshipQuery: '
                 MATCH (e1:Entity)-[r]-(e2:Entity)
                 WHERE e1.id IN $entity_ids AND e2.id IN $entity_ids
-                RETURN id(e1) AS source, id(e2) AS target
+                RETURN elementId(e1) AS source, elementId(e2) AS target
             ',
             dampingFactor: $damping_factor
         })
         YIELD nodeId, score
-        MATCH (e:Entity) WHERE id(e) = nodeId
+        MATCH (e:Entity) WHERE elementId(e) = nodeId
         RETURN e.id AS entity_id, score
         ORDER BY score DESC
         """
@@ -279,15 +279,15 @@ class GDSIntegration:
         """Community detection using GDS Louvain algorithm."""
         query = """
         CALL gds.louvain.stream({
-            nodeQuery: 'MATCH (e:Entity) WHERE e.id IN $entity_ids RETURN id(e) AS id',
+            nodeQuery: 'MATCH (e:Entity) WHERE e.id IN $entity_ids RETURN elementId(e) AS id',
             relationshipQuery: '
                 MATCH (e1:Entity)-[r]-(e2:Entity)
                 WHERE e1.id IN $entity_ids AND e2.id IN $entity_ids
-                RETURN id(e1) AS source, id(e2) AS target
+                RETURN elementId(e1) AS source, elementId(e2) AS target
             '
         })
         YIELD nodeId, communityId
-        MATCH (e:Entity) WHERE id(e) = nodeId
+        MATCH (e:Entity) WHERE elementId(e) = nodeId
         RETURN e.id AS entity_id, communityId AS community_id
         """
         try:

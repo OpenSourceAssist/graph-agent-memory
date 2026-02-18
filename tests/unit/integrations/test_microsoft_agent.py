@@ -51,6 +51,18 @@ class TestNeo4jContextProvider:
         assert provider._include_short_term is True
         assert provider._include_long_term is True
         assert provider._include_reasoning is True
+        assert provider.source_id == "neo4j-context"
+
+    def test_initialization_custom_source_id(self, mock_memory_client: MagicMock) -> None:
+        """Test provider initializes with custom source_id."""
+        from neo4j_agent_memory.integrations.microsoft_agent import Neo4jContextProvider
+
+        provider = Neo4jContextProvider(
+            memory_client=mock_memory_client,
+            session_id="test-session",
+            source_id="custom-source",
+        )
+        assert provider.source_id == "custom-source"
 
     def test_initialization_validates_session_id(self, mock_memory_client: MagicMock) -> None:
         """Test that empty session_id raises ValueError."""
@@ -63,11 +75,11 @@ class TestNeo4jContextProvider:
             )
 
     @pytest.mark.asyncio
-    async def test_invoking_returns_context(
+    async def test_before_run_returns_context(
         self, provider: Any, mock_memory_client: MagicMock
     ) -> None:
-        """Test invoking() returns context from memory."""
-        from agent_framework import ChatMessage
+        """Test before_run() injects context from memory."""
+        from agent_framework import Message, SessionContext
 
         # Mock conversation response
         mock_conv = MagicMock()
@@ -82,58 +94,63 @@ class TestNeo4jContextProvider:
         mock_memory_client.long_term.search_entities = AsyncMock(return_value=[])
         mock_memory_client.reasoning.get_similar_traces = AsyncMock(return_value=[])
 
-        messages = [ChatMessage(role="user", text="What products do you recommend?")]
-        context = await provider.invoking(messages)
+        input_messages = [Message("user", ["What products do you recommend?"])]
+        context = SessionContext(input_messages=input_messages)
+        mock_session = MagicMock()
+        mock_agent = MagicMock()
 
-        assert context is not None
+        await provider.before_run(
+            agent=mock_agent,
+            session=mock_session,
+            context=context,
+            state={},
+        )
+
         # Should have called memory methods
         mock_memory_client.short_term.get_conversation.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_invoking_empty_messages_returns_empty_context(self, provider: Any) -> None:
-        """Test invoking() with no user messages returns empty context."""
-        from agent_framework import Context
+    async def test_before_run_empty_messages_no_context(self, provider: Any) -> None:
+        """Test before_run() with no user messages adds no context."""
+        from agent_framework import SessionContext
 
-        context = await provider.invoking([])
-        assert isinstance(context, Context)
+        context = SessionContext(input_messages=[])
+
+        await provider.before_run(
+            agent=MagicMock(),
+            session=MagicMock(),
+            context=context,
+            state={},
+        )
+
+        assert len(context.instructions) == 0
 
     @pytest.mark.asyncio
-    async def test_invoked_saves_messages(
+    async def test_after_run_saves_messages(
         self, provider: Any, mock_memory_client: MagicMock
     ) -> None:
-        """Test invoked() saves messages to short-term memory."""
-        from agent_framework import ChatMessage
+        """Test after_run() saves messages to short-term memory."""
+        from agent_framework import AgentResponse, Message, SessionContext
 
         mock_memory_client.short_term.add_message = AsyncMock()
 
-        request_msgs = [ChatMessage(role="user", text="Hello")]
-        response_msgs = [ChatMessage(role="assistant", text="Hi there!")]
+        input_messages = [Message("user", ["Hello"])]
+        context = SessionContext(input_messages=input_messages)
 
-        await provider.invoked(
-            request_messages=request_msgs,
-            response_messages=response_msgs,
+        # Mock the response
+        mock_response = MagicMock(spec=AgentResponse)
+        mock_response.messages = [Message("assistant", ["Hi there!"])]
+        context._response = mock_response
+
+        await provider.after_run(
+            agent=MagicMock(),
+            session=MagicMock(),
+            context=context,
+            state={},
         )
 
         # Should have saved both messages
         assert mock_memory_client.short_term.add_message.call_count == 2
-
-    @pytest.mark.asyncio
-    async def test_invoked_skips_on_exception(
-        self, provider: Any, mock_memory_client: MagicMock
-    ) -> None:
-        """Test invoked() skips processing when exception occurred."""
-        from agent_framework import ChatMessage
-
-        mock_memory_client.short_term.add_message = AsyncMock()
-
-        await provider.invoked(
-            request_messages=[ChatMessage(role="user", text="Hello")],
-            response_messages=None,
-            invoke_exception=ValueError("Test error"),
-        )
-
-        # Should not have saved any messages
-        mock_memory_client.short_term.add_message.assert_not_called()
 
     def test_serialize_returns_json(self, provider: Any) -> None:
         """Test serialize() returns valid JSON."""
@@ -142,6 +159,7 @@ class TestNeo4jContextProvider:
 
         assert data["session_id"] == "test-session-123"
         assert data["user_id"] == "user-456"
+        assert data["source_id"] == "neo4j-context"
         assert data["include_short_term"] is True
         assert data["include_long_term"] is True
         assert data["include_reasoning"] is True
@@ -153,8 +171,8 @@ class TestNeo4jContextProvider:
         state = json.dumps(
             {
                 "session_id": "restored-session",
+                "source_id": "custom-source",
                 "user_id": "restored-user",
-                "thread_id": "thread-123",
                 "include_short_term": False,
                 "include_long_term": True,
                 "include_reasoning": False,
@@ -170,8 +188,8 @@ class TestNeo4jContextProvider:
         restored = Neo4jContextProvider.deserialize(state, mock_memory_client)
 
         assert restored.session_id == "restored-session"
+        assert restored.source_id == "custom-source"
         assert restored.user_id == "restored-user"
-        assert restored._thread_id == "thread-123"
         assert restored._include_short_term is False
         assert restored._include_reasoning is False
         assert restored._max_context_items == 15
@@ -200,17 +218,18 @@ class TestNeo4jChatMessageStore:
     def test_initialization(self, chat_store: Any) -> None:
         """Test chat store initializes correctly."""
         assert chat_store.session_id == "chat-session-123"
+        assert chat_store.source_id == "neo4j-history"
 
     @pytest.mark.asyncio
     async def test_add_messages(self, chat_store: Any, mock_memory_client: MagicMock) -> None:
         """Test add_messages() saves messages to Neo4j."""
-        from agent_framework import ChatMessage
+        from agent_framework import Message
 
         mock_memory_client.short_term.add_message = AsyncMock()
 
         messages = [
-            ChatMessage(role="user", text="Hello"),
-            ChatMessage(role="assistant", text="Hi!"),
+            Message("user", ["Hello"]),
+            Message("assistant", ["Hi!"]),
         ]
 
         await chat_store.add_messages(messages)
@@ -220,7 +239,7 @@ class TestNeo4jChatMessageStore:
     @pytest.mark.asyncio
     async def test_list_messages(self, chat_store: Any, mock_memory_client: MagicMock) -> None:
         """Test list_messages() retrieves messages from Neo4j."""
-        from agent_framework import ChatMessage
+        from agent_framework import Message
 
         mock_msg1 = MagicMock()
         mock_msg1.role = MagicMock(value="user")
@@ -239,7 +258,7 @@ class TestNeo4jChatMessageStore:
         messages = await chat_store.list_messages()
 
         assert len(messages) == 2
-        assert all(isinstance(m, ChatMessage) for m in messages)
+        assert all(isinstance(m, Message) for m in messages)
 
     @pytest.mark.asyncio
     async def test_serialize_deserialize(
@@ -248,11 +267,13 @@ class TestNeo4jChatMessageStore:
         """Test serialize/deserialize roundtrip."""
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jChatMessageStore
 
-        serialized = await chat_store.serialize()
+        serialized = chat_store.serialize()
         assert serialized["session_id"] == "chat-session-123"
+        assert serialized["source_id"] == "neo4j-history"
 
-        restored = await Neo4jChatMessageStore.deserialize(serialized, mock_memory_client)
+        restored = Neo4jChatMessageStore.deserialize(serialized, mock_memory_client)
         assert restored.session_id == "chat-session-123"
+        assert restored.source_id == "neo4j-history"
 
 
 class TestGDSIntegration:
@@ -495,7 +516,7 @@ class TestTracing:
     @pytest.mark.asyncio
     async def test_record_agent_trace(self, mock_memory: MagicMock) -> None:
         """Test record_agent_trace() creates a trace."""
-        from agent_framework import ChatMessage
+        from agent_framework import Message
 
         from neo4j_agent_memory.integrations.microsoft_agent import record_agent_trace
 
@@ -511,8 +532,8 @@ class TestTracing:
         mock_memory.memory_client.reasoning.get_trace = AsyncMock(return_value=mock_trace)
 
         messages = [
-            ChatMessage(role="user", text="Find me running shoes"),
-            ChatMessage(role="assistant", text="Here are some options..."),
+            Message("user", ["Find me running shoes"]),
+            Message("assistant", ["Here are some options..."]),
         ]
 
         trace = await record_agent_trace(

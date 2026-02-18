@@ -6,7 +6,7 @@ This guide explains how to use Neo4j Agent Memory with Microsoft Agent Framework
 
 [WARNING]
 ====
-This integration targets Microsoft Agent Framework v1.0.0b251223 (preview). APIs may change before GA release (expected Q1 2026). See <<api-compatibility>> for version requirements and migration guidance.
+This integration targets Microsoft Agent Framework v1.0.0b260212 (preview). APIs may change before GA release (expected Q1 2026). See <<api-compatibility>> for version requirements and migration guidance.
 ====
 
 == Overview
@@ -43,10 +43,10 @@ The `Neo4jContextProvider` automatically injects relevant memory context before 
 ----
 from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.integrations.microsoft_agent import Neo4jContextProvider
-from agent_framework import ChatAgent, ChatCompletionClient
+from agent_framework.azure import AzureOpenAIResponsesClient
 
 settings = MemorySettings(
-    neo4j={"uri": "bolt://localhost:7687", "user": "neo4j", "password": "password"},
+    neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"},
     embedding={"provider": "openai", "api_key": "sk-..."},
 )
 
@@ -61,8 +61,8 @@ async with MemoryClient(settings) as client:
     )
 
     # Create agent with memory
-    agent = ChatAgent(
-        chat_client=ChatCompletionClient(...),
+    chat_client = AzureOpenAIResponsesClient(model="gpt-4")
+    agent = chat_client.as_agent(
         name="assistant",
         instructions="You are a helpful assistant.",
         context_providers=[provider],
@@ -90,8 +90,8 @@ async with MemoryClient(settings) as client:
 
     # Add messages
     await store.add_messages([
-        ChatMessage(role=MessageRole.USER, content="I love Nike running shoes"),
-        ChatMessage(role=MessageRole.ASSISTANT, content="Nike makes great running shoes!"),
+        Message("user", ["I love Nike running shoes"]),
+        Message("assistant", ["Nike makes great running shoes!"]),
     ])
 
     # List messages
@@ -125,8 +125,7 @@ async with MemoryClient(settings) as client:
     )
 
     # Use context provider with agent
-    agent = ChatAgent(
-        chat_client=chat_client,
+    agent = chat_client.as_agent(
         name="assistant",
         context_providers=[memory.context_provider],
     )
@@ -139,24 +138,20 @@ async with MemoryClient(settings) as client:
 
 == Memory Tools
 
-Create function tools for agent memory operations:
+Create callable function tools for agent memory operations. The framework auto-invokes these tools during agent execution — no manual dispatch needed:
 
 [source,python]
 ----
 from neo4j_agent_memory.integrations.microsoft_agent import create_memory_tools
 
-# Create all memory tools
+# Create all memory tools bound to a memory instance
 tools = create_memory_tools(
-    include_search=True,       # search_memory
-    include_preferences=True,  # remember_preference, recall_preferences
-    include_knowledge=True,    # search_knowledge, remember_fact
-    include_traces=True,       # find_similar_tasks
-    include_gds=True,          # find_connection_path, find_similar_items
+    memory,                        # Neo4jMicrosoftMemory instance (required)
+    include_gds_tools=True,        # Include GDS algorithm tools (default: True)
 )
 
-# Use with agent
-agent = ChatAgent(
-    chat_client=chat_client,
+# Use with agent — framework auto-invokes tools
+agent = chat_client.as_agent(
     name="assistant",
     tools=tools,
     context_providers=[memory.context_provider],
@@ -197,20 +192,14 @@ agent = ChatAgent(
 | Get most important entities by PageRank (GDS)
 |===
 
-=== Execute Tools
+=== Tool Execution
 
-[source,python]
-----
-from neo4j_agent_memory.integrations.microsoft_agent import execute_memory_tool
+When using `create_memory_tools()`, tools are callable `FunctionTool` instances that the agent framework auto-invokes during `agent.run()`. No manual dispatch is needed — the framework calls the tool functions directly and feeds results back to the model.
 
-# When agent makes a tool call
-result = await execute_memory_tool(
-    tool_name="remember_preference",
-    arguments={"category": "brand", "preference": "Nike"},
-    memory_client=client,
-    session_id="user-123",
-)
-----
+[NOTE]
+====
+The legacy `execute_memory_tool()` function is deprecated. Use `create_memory_tools()` instead, which returns callable tools that the framework invokes automatically.
+====
 
 == GDS Integration
 
@@ -293,21 +282,23 @@ from neo4j_agent_memory.integrations.microsoft_agent import (
 
 # Record agent execution
 await record_agent_trace(
-    memory_client=client,
-    session_id="user-123",
+    memory=memory,
+    messages=[
+        {"role": "user", "content": "Find running shoes under $150"},
+        {"role": "assistant", "content": "Recommended Nike Pegasus 40 ($130)"},
+    ],
     task="Find running shoes under $150",
-    steps=[
-        {"tool": "search_products", "input": {"query": "running shoes"}, "output": "..."},
-        {"tool": "recall_preferences", "input": {"category": "brand"}, "output": "Nike"},
+    tool_calls=[
+        {"name": "search_products", "arguments": {"query": "running shoes"}, "result": "..."},
+        {"name": "recall_preferences", "arguments": {"category": "brand"}, "result": "Nike"},
     ],
     outcome="success",
-    result="Recommended Nike Pegasus 40 ($130)",
+    success=True,
 )
 
 # Find similar past tasks
 traces = await get_similar_traces(
-    memory_client=client,
-    session_id="user-123",
+    memory=memory,
     task="Find shoes matching preferences",
     limit=3,
 )
@@ -318,7 +309,7 @@ experience = format_traces_for_prompt(traces)
 
 == Context Composition
 
-The `invoking()` hook composes context from all memory types:
+The `before_run()` hook composes context from all memory types:
 
 [source]
 ----
@@ -363,13 +354,13 @@ store = Neo4jChatMessageStore.deserialize(store_state, memory_client=client)
 
 == Complete Example
 
-Here's a complete shopping assistant example:
+Here's a complete shopping assistant example. With callable `FunctionTool` instances, the framework auto-invokes tools during `agent.run()` — no manual dispatch needed:
 
 [source,python]
 ----
 import asyncio
-from agent_framework import ChatAgent, ChatCompletionClient, UserMessage
-from openai import AsyncOpenAI
+from agent_framework import Message
+from agent_framework.azure import AzureOpenAIResponsesClient
 
 from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.integrations.microsoft_agent import (
@@ -377,14 +368,13 @@ from neo4j_agent_memory.integrations.microsoft_agent import (
     GDSConfig,
     GDSAlgorithm,
     create_memory_tools,
-    execute_memory_tool,
     record_agent_trace,
 )
 
 
 async def main():
     settings = MemorySettings(
-        neo4j={"uri": "bolt://localhost:7687", "user": "neo4j", "password": "password"},
+        neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"},
         embedding={"provider": "openai", "api_key": "sk-..."},
     )
 
@@ -404,20 +394,13 @@ async def main():
         )
 
         # Create chat client
-        openai_client = AsyncOpenAI()
-        chat_client = ChatCompletionClient(client=openai_client, model="gpt-4")
+        chat_client = AzureOpenAIResponsesClient(model="gpt-4")
 
-        # Create memory tools
-        tools = create_memory_tools(
-            include_search=True,
-            include_preferences=True,
-            include_knowledge=True,
-            include_gds=True,
-        )
+        # Create memory tools bound to the memory instance
+        tools = create_memory_tools(memory, include_gds_tools=True)
 
-        # Create agent
-        agent = ChatAgent(
-            chat_client=chat_client,
+        # Create agent — tools are callable, framework auto-invokes them
+        agent = chat_client.as_agent(
             name="ShoppingAssistant",
             instructions="""You are a helpful shopping assistant.
             Use memory tools to remember preferences and provide personalized recommendations.""",
@@ -434,32 +417,24 @@ async def main():
             # Save user message
             await memory.save_message("user", user_input)
 
-            # Run agent
-            response = await agent.run(UserMessage(content=user_input))
+            # Run agent — framework auto-invokes tools and returns final response
+            response = await agent.run(Message("user", [user_input]))
 
-            # Handle tool calls
-            if hasattr(response, 'tool_calls') and response.tool_calls:
-                for tool_call in response.tool_calls:
-                    result = await execute_memory_tool(
-                        tool_call.function.name,
-                        json.loads(tool_call.function.arguments),
-                        client,
-                        memory.session_id,
-                    )
-                    print(f"[Tool: {tool_call.function.name}] {result[:100]}...")
+            # Display response
+            if response.text:
+                await memory.save_message("assistant", response.text)
+                print(f"Assistant: {response.text}")
 
-            # Save and display response
-            if response.content:
-                await memory.save_message("assistant", response.content)
-                print(f"Assistant: {response.content}")
-
-            # Record trace
+            # Record trace for learning
             await record_agent_trace(
-                memory_client=client,
-                session_id=memory.session_id,
+                memory=memory,
+                messages=[
+                    {"role": "user", "content": user_input},
+                    {"role": "assistant", "content": response.text[:200] if response.text else ""},
+                ],
                 task=user_input,
                 outcome="success",
-                result=response.content[:200] if response.content else "",
+                success=True,
             )
 
 
@@ -475,7 +450,7 @@ if __name__ == "__main__":
 This integration targets:
 
 * **Package**: `agent-framework`
-* **Version**: `1.0.0b251223`
+* **Version**: `1.0.0b260212`
 * **Status**: Public Preview
 * **GA Target**: Q1 2026
 
@@ -486,7 +461,7 @@ This integration targets:
 | neo4j-agent-memory | agent-framework | Status
 
 | 0.1.x
-| 1.0.0b251223
+| 1.0.0b260212
 | Current
 |===
 
@@ -496,20 +471,17 @@ This integration targets:
 |===
 | API | Import Path
 
-| `ContextProvider`
-| `agent_framework.ContextProvider`
+| `BaseContextProvider`
+| `agent_framework.BaseContextProvider`
 
-| `ChatMessageStoreProtocol`
-| `agent_framework.ChatMessageStoreProtocol`
+| `BaseHistoryProvider`
+| `agent_framework.BaseHistoryProvider`
 
-| `ChatMessage`
-| `agent_framework.ChatMessage`
+| `Message`
+| `agent_framework.Message`
 
-| `MessageRole`
-| `agent_framework.MessageRole`
-
-| `ChatAgent`
-| `agent_framework.ChatAgent`
+| `AzureOpenAIResponsesClient`
+| `agent_framework.azure.AzureOpenAIResponsesClient`
 |===
 
 === Breaking Change Detection
@@ -575,16 +547,16 @@ async with MemoryClient(settings) as client:  # Fresh client
 |===
 | Method | Description
 
-| `invoking(context)`
-| Called before agent invocation; injects memory context
+| `before_run(*, agent, session, context, state)`
+| Called before agent invocation; injects memory context into `SessionContext`
 
-| `invoked(context, response)`
+| `after_run(*, agent, session, context, state)`
 | Called after agent response; extracts and stores memories
 
 | `serialize()`
 | Serialize provider state
 
-| `deserialize(state, client)`
+| `deserialize(state, memory_client)`
 | Restore provider from state
 |===
 
@@ -606,7 +578,7 @@ async with MemoryClient(settings) as client:  # Fresh client
 | `serialize()`
 | Serialize store state
 
-| `deserialize(state, client)`
+| `deserialize(serialized_state, memory_client)`
 | Restore store from state
 |===
 
@@ -653,11 +625,11 @@ async with MemoryClient(settings) as client:  # Fresh client
 |===
 | Function | Description
 
-| `create_memory_tools(...)`
-| Create agent function tools
+| `create_memory_tools(memory, include_gds_tools=True)`
+| Create callable `FunctionTool` instances bound to a memory instance. Tools are auto-invoked by the framework.
 
-| `execute_memory_tool(name, args, client, session)`
-| Execute a memory tool
+| `execute_memory_tool(...)` _(deprecated)_
+| Legacy manual tool dispatch. Use `create_memory_tools()` instead.
 
 | `record_agent_trace(...)`
 | Record agent execution

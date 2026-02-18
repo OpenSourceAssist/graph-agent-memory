@@ -4,11 +4,6 @@ This module provides memory integration for Microsoft's Agent Framework,
 enabling persistent conversation history, entity knowledge, graph-enhanced
 context retrieval, and reasoning trace recording.
 
-.. warning::
-    This integration targets Microsoft Agent Framework v1.0.0b251223 (preview).
-    APIs may change before GA release (expected Q1 2026). See the API compatibility
-    documentation for version requirements and migration guidance.
-
 Example:
     from neo4j_agent_memory import MemoryClient, MemorySettings
     from neo4j_agent_memory.integrations.microsoft_agent import (
@@ -18,7 +13,7 @@ Example:
         create_memory_tools,
         record_agent_trace,
     )
-    from agent_framework import ChatAgent
+    from agent_framework.azure import AzureOpenAIResponsesClient
 
     async with MemoryClient(settings) as client:
         # Create context provider for memory injection
@@ -27,18 +22,16 @@ Example:
             session_id="user-123",
         )
 
-        # Create chat message store for persistent history
-        message_store = Neo4jChatMessageStore(
+        # Create chat history provider for persistent history
+        history = Neo4jChatMessageStore(
             memory_client=client,
             session_id="user-123",
         )
 
         # Create agent with Neo4j memory
-        agent = ChatAgent(
-            chat_client=chat_client,
-            name="assistant",
+        agent = chat_client.as_agent(
             instructions="You are a helpful assistant.",
-            context_providers=[provider],
+            context_providers=[provider, history],
         )
 
         # Or use the unified interface
@@ -49,8 +42,8 @@ Example:
 """
 
 # Target API version - document for compatibility tracking
-MICROSOFT_AGENT_FRAMEWORK_VERSION = "1.0.0b251223"
-MICROSOFT_AGENT_FRAMEWORK_MIN_VERSION = "1.0.0b"
+MICROSOFT_AGENT_FRAMEWORK_VERSION = "1.0.0b260212"
+MICROSOFT_AGENT_FRAMEWORK_MIN_VERSION = "1.0.0b260212"
 
 try:
     from .chat_store import Neo4jChatMessageStore

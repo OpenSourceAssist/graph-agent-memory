@@ -35,7 +35,7 @@ async def check_inventory(
            p.low_stock_threshold as low_stock_threshold
     """
 
-    result = await client.graph.execute_query(cypher, {"product_id": product_id})
+    result = await client.graph.execute_read(cypher, {"product_id": product_id})
 
     if not result:
         return {"error": "Product not found", "product_id": product_id}
@@ -93,7 +93,7 @@ async def get_stock_status(
            p.inventory as quantity
     """
 
-    result = await client.graph.execute_query(cypher, {"product_ids": product_ids})
+    result = await client.graph.execute_read(cypher, {"product_ids": product_ids})
 
     statuses = {}
     for r in result:
@@ -141,8 +141,7 @@ async def find_alternatives(
     WHERE p.id = $product_id OR elementId(p) = $product_id
 
     // Find alternatives through multiple paths
-    CALL {
-        WITH p
+    CALL (p) {
         // Same category, similar price range
         MATCH (p)-[:IN_CATEGORY]->(c)<-[:IN_CATEGORY]-(alt:Product)
         WHERE alt <> p AND alt.in_stock = true
@@ -151,7 +150,6 @@ async def find_alternatives(
 
         UNION
 
-        WITH p
         // Same brand
         MATCH (p)-[:MADE_BY]->(b)<-[:MADE_BY]-(alt:Product)
         WHERE alt <> p AND alt.in_stock = true
@@ -159,7 +157,6 @@ async def find_alternatives(
 
         UNION
 
-        WITH p
         // Direct similarity relationship
         MATCH (p)-[:SIMILAR_TO]-(alt:Product)
         WHERE alt.in_stock = true
@@ -176,7 +173,7 @@ async def find_alternatives(
     LIMIT $limit
     """
 
-    result = await client.graph.execute_query(cypher, {"product_id": product_id, "limit": limit})
+    result = await client.graph.execute_read(cypher, {"product_id": product_id, "limit": limit})
 
     return {
         "original_product_id": product_id,
@@ -227,7 +224,7 @@ async def notify_when_available(
     RETURN p.name as product_name
     """
 
-    result = await client.graph.execute_query(
+    result = await client.graph.execute_read(
         cypher,
         {"product_id": product_id, "user_id": user_id, "session_id": session_id},
     )
@@ -277,7 +274,7 @@ async def get_low_stock_products(
     if category:
         params["category"] = category
 
-    result = await client.graph.execute_query(cypher, params)
+    result = await client.graph.execute_read(cypher, params)
 
     return {
         "low_stock_products": [r["product"] for r in result],
