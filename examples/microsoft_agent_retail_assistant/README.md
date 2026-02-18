@@ -60,16 +60,27 @@ pip install -r requirements.txt
 
 ### 3. Load Sample Product Data
 
+This creates 16 products across 5 categories, with relationships, attributes, and vector embeddings:
+
 ```bash
 cd backend
 python -m data.load_products
 ```
+
+> **Note:** Embedding generation requires `OPENAI_API_KEY`. If not set, products are still created and text search will work as a fallback.
 
 ### 4. Start the Backend
 
 ```bash
 cd backend
 uvicorn main:app --reload --port 8000
+```
+
+Or run directly:
+
+```bash
+cd backend
+python main.py
 ```
 
 ### 5. Install Frontend Dependencies
@@ -87,6 +98,21 @@ npm run dev
 ```
 
 Open http://localhost:3000 in your browser.
+
+### 7. Run Smoke Tests (Optional)
+
+With the backend running, verify all endpoints are working:
+
+```bash
+cd backend
+python test_backend.py
+```
+
+You can also point at a different host:
+
+```bash
+python test_backend.py --base-url http://localhost:9000
+```
 
 ## Example Conversations
 
@@ -115,28 +141,26 @@ microsoft_agent_retail_assistant/
 │   ├── main.py              # FastAPI server with SSE streaming
 │   ├── agent.py             # Microsoft Agent Framework agent
 │   ├── memory_config.py     # Neo4j memory configuration
+│   ├── test_backend.py      # Smoke tests (run against live server)
+│   ├── requirements.txt
+│   ├── .env                 # Environment variables (not committed)
 │   ├── tools/
 │   │   ├── product_search.py    # Product catalog search
 │   │   ├── recommendations.py   # Graph-based recommendations
 │   │   ├── inventory.py         # Stock/availability checks
 │   │   └── cart.py              # Shopping cart operations
-│   ├── data/
-│   │   └── load_products.py     # Sample data loader
-│   └── requirements.txt
+│   └── data/
+│       └── load_products.py     # Sample data loader (16 products)
 ├── frontend/
 │   ├── src/
 │   │   ├── app/                 # Next.js 14 app router
 │   │   ├── components/
 │   │   │   ├── ChatInterface.tsx
-│   │   │   ├── ProductGraph.tsx
 │   │   │   ├── PreferencePanel.tsx
-│   │   │   ├── RecommendationCards.tsx
 │   │   │   └── MemoryExplorer.tsx
 │   │   └── lib/
 │   │       └── api.ts
 │   └── package.json
-├── data/
-│   └── sample_products.json
 └── README.md
 ```
 
@@ -179,13 +203,15 @@ RETURN p, score
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/chat` | POST | Send message, get streamed response |
+| `/chat` | POST | Send message, get SSE streamed response |
+| `/chat/sync` | POST | Send message, get complete response (non-streaming) |
 | `/memory/context` | GET | Get current memory context |
 | `/memory/graph` | GET | Get memory graph for visualization |
 | `/memory/preferences` | GET | Get learned user preferences |
 | `/products/search` | GET | Search product catalog |
 | `/products/{id}` | GET | Get product details |
 | `/products/{id}/related` | GET | Get related products |
+| `/health` | GET | Health check (database connectivity) |
 
 ## Microsoft Agent Framework Integration
 
@@ -195,6 +221,34 @@ This example demonstrates:
 2. **Neo4jChatMessageStore**: Persists conversation history in Neo4j graph
 3. **Memory Tools**: Search memory, save preferences, find similar past interactions
 4. **GDS Integration**: Graph algorithms for enhanced recommendations
+
+## Troubleshooting
+
+### `load_products` clears existing data
+
+`python -m data.load_products` runs `MATCH (n) DETACH DELETE n` before loading. This wipes the entire database. Run it only for initial setup or to reset to a clean state.
+
+### Vector search not working
+
+If product search returns no results, embeddings may not have been generated. Re-run the data loader with `OPENAI_API_KEY` set:
+
+```bash
+OPENAI_API_KEY=sk-... python -m data.load_products
+```
+
+The backend falls back to text search (`CONTAINS`) when vector search fails, so the app will still work without embeddings.
+
+### Backend dependencies install from local source
+
+`requirements.txt` installs `neo4j-agent-memory` from the local repo root (`../../../[openai,microsoft-agent]`). Make sure you're running `pip install -r requirements.txt` from the `backend/` directory so the relative path resolves correctly.
+
+### GDS algorithms not available
+
+GDS tools (PageRank, shortest path, node similarity) require the Neo4j GDS plugin. Without it, the app automatically falls back to Cypher-based alternatives. Set `fallback_to_basic=True` in `memory_config.py` (enabled by default).
+
+### CORS errors from the frontend
+
+The backend allows requests from `http://localhost:3000` and `http://127.0.0.1:3000`. If the frontend runs on a different port, update the `allow_origins` list in `main.py`.
 
 ## License
 

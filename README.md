@@ -968,12 +968,8 @@ memory = Neo4jMicrosoftMemory(
     gds_config=gds_config,
 )
 
-# Create memory tools for the agent
-tools = create_memory_tools(
-    include_search=True,       # search_memory
-    include_preferences=True,  # remember_preference, recall_preferences
-    include_gds=True,          # find_connection_path, find_similar_items
-)
+# Create memory tools bound to the memory instance (auto-invoked by framework)
+tools = create_memory_tools(memory, include_gds_tools=True)
 
 # Create agent with context provider (auto-injects memory context)
 chat_client = AzureOpenAIResponsesClient(...)

@@ -68,7 +68,7 @@ def get_settings() -> MemorySettings:
     return MemorySettings(
         neo4j={
             "uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
-            "user": os.getenv("NEO4J_USER", "neo4j"),
+            "username": os.getenv("NEO4J_USERNAME", "neo4j"),
             "password": SecretStr(os.getenv("NEO4J_PASSWORD", "password")),
         },
         embedding={
@@ -114,20 +114,21 @@ async def create_memory(session_id: str, user_id: str | None = None) -> Neo4jMic
 
 == Step 4: Create the Agent
 
-Create a file `agent.py`:
+Create a file `agent.py`. All tools — both memory tools and product tools — use the `@tool` decorator to create callable `FunctionTool` instances that the framework auto-invokes:
 
 [source,python]
 ----
 """Shopping assistant agent."""
 
 import json
-from agent_framework import UserMessage
+from typing import Annotated
+
+from agent_framework import Agent, FunctionTool, Message, tool
 from agent_framework.azure import AzureOpenAIResponsesClient
 
 from neo4j_agent_memory.integrations.microsoft_agent import (
     Neo4jMicrosoftMemory,
     create_memory_tools,
-    execute_memory_tool,
     record_agent_trace,
 )
 
@@ -142,100 +143,74 @@ When customers express preferences, use the remember_preference tool to save the
 When recommending products, explain why they match the customer's preferences.
 """
 
-def get_product_tools() -> list[dict]:
-    """Define product search tools."""
-    return [
-        {
-            "type": "function",
-            "function": {
-                "name": "search_products",
-                "description": "Search for products matching a query",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search query"},
-                        "category": {"type": "string", "description": "Category filter"},
-                        "max_price": {"type": "number", "description": "Maximum price"},
-                    },
-                    "required": ["query"],
-                },
-            },
-        },
-    ]
 
-async def create_agent(memory: Neo4jMicrosoftMemory):
+def get_product_tools(memory: Neo4jMicrosoftMemory) -> list[FunctionTool]:
+    """Create callable product tools bound to a memory instance."""
+    client = memory.memory_client
+
+    @tool(name="search_products", description="Search for products matching a query")
+    async def search_products(
+        query: Annotated[str, "Search query describing the product"],
+        category: Annotated[str | None, "Optional category filter"] = None,
+        max_price: Annotated[float | None, "Optional maximum price"] = None,
+    ) -> str:
+        """Search products in the catalog."""
+        conditions = []
+        params: dict = {"query": query}
+
+        if category:
+            conditions.append("p.category = $category")
+            params["category"] = category
+        if max_price:
+            conditions.append("p.price <= $max_price")
+            params["max_price"] = max_price
+
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+        cypher = f"""
+        MATCH (p:Product)
+        {where_clause}
+        {"WHERE" if not where_clause else "AND"} (toLower(p.name) CONTAINS toLower($query)
+             OR toLower(p.description) CONTAINS toLower($query))
+        RETURN p.name as name, p.price as price, p.category as category, p.brand as brand
+        LIMIT 5
+        """
+
+        result = await client.graph.execute_read(cypher, params)
+        products = [dict(r) for r in result]
+        return json.dumps({"products": products, "count": len(products)})
+
+    return [search_products]
+
+
+async def create_agent(memory: Neo4jMicrosoftMemory) -> Agent:
     """Create the shopping assistant agent."""
-    # Create chat client
     chat_client = AzureOpenAIResponsesClient(model="gpt-4")
 
-    # Create memory tools
-    memory_tools = create_memory_tools(
-        include_search=True,
-        include_preferences=True,
-        include_knowledge=True,
-        include_gds=True,
-    )
+    # Create memory tools bound to the memory instance
+    memory_tools = create_memory_tools(memory, include_gds_tools=bool(memory.gds))
 
-    # Combine all tools
-    all_tools = memory_tools + get_product_tools()
+    # Create product tools bound to the memory instance
+    product_tools = get_product_tools(memory)
 
-    # Create agent with context provider
+    # Create agent — framework auto-invokes all callable tools
     return chat_client.as_agent(
         name="ShoppingAssistant",
         instructions=SYSTEM_PROMPT,
-        tools=all_tools,
+        tools=memory_tools + product_tools,
         context_providers=[memory.context_provider],
     )
-
-async def handle_tool_calls(tool_calls, memory: Neo4jMicrosoftMemory) -> list[dict]:
-    """Execute tool calls and return results."""
-    results = []
-    for tool_call in tool_calls:
-        name = tool_call.function.name
-        args = json.loads(tool_call.function.arguments)
-
-        if name == "search_products":
-            # Implement product search (see Step 6)
-            result = await search_products(memory.memory_client, **args)
-        else:
-            # Memory tool
-            result = await execute_memory_tool(memory, name, args)
-
-        results.append({
-            "tool_call_id": tool_call.id,
-            "content": json.dumps(result) if isinstance(result, dict) else result,
-        })
-
-    return results
-
-async def search_products(client, query: str, category: str = None, max_price: float = None) -> dict:
-    """Search products in Neo4j."""
-    conditions = ["p:Product"]
-    params = {"query": query}
-
-    if category:
-        conditions.append("p.category = $category")
-        params["category"] = category
-    if max_price:
-        conditions.append("p.price <= $max_price")
-        params["max_price"] = max_price
-
-    cypher = f"""
-    MATCH (p:Product)
-    WHERE ({' AND '.join(conditions)})
-    AND (toLower(p.name) CONTAINS toLower($query)
-         OR toLower(p.description) CONTAINS toLower($query))
-    RETURN p.name as name, p.price as price, p.category as category
-    LIMIT 5
-    """
-
-    result = await client.graph.execute_query(cypher, params)
-    return {"products": [dict(r) for r in result]}
 ----
+
+Key differences from older patterns:
+
+* **`@tool` decorator** creates callable `FunctionTool` instances instead of raw dict definitions
+* **`create_memory_tools(memory)`** takes a memory instance as the first argument and returns bound tools
+* **No `handle_tool_calls` or `execute_memory_tool`** — the framework auto-invokes callable tools during `agent.run()`
 
 == Step 5: Create the Main Application
 
-Create a file `main.py`:
+Create a file `main.py`. Since tools are auto-invoked, the main loop is straightforward:
 
 [source,python]
 ----
@@ -243,14 +218,15 @@ Create a file `main.py`:
 
 import asyncio
 import json
-from agent_framework import UserMessage
+
+from agent_framework import Message
 
 from memory_config import create_memory
-from agent import create_agent, handle_tool_calls
+from agent import create_agent
 from neo4j_agent_memory.integrations.microsoft_agent import record_agent_trace
 
+
 async def main():
-    # Create session
     session_id = "demo-session-1"
     user_id = "demo-user"
 
@@ -263,7 +239,6 @@ async def main():
 
     try:
         while True:
-            # Get user input
             user_input = input("You: ").strip()
             if user_input.lower() in ("quit", "exit"):
                 break
@@ -273,40 +248,35 @@ async def main():
             # Save user message
             await memory.save_message("user", user_input)
 
-            # Run agent
-            response = await agent.run(UserMessage(content=user_input))
-
-            # Handle tool calls if present
-            tool_results = []
-            if hasattr(response, 'tool_calls') and response.tool_calls:
-                tool_results = await handle_tool_calls(response.tool_calls, memory)
-
-                # Continue conversation with tool results
-                for result in tool_results:
-                    print(f"  [Using tool: {result['tool_call_id'][:20]}...]")
+            # Run agent — framework auto-invokes tools and returns final response
+            response = await agent.run(Message("user", [user_input]))
 
             # Display response
-            if response.content:
-                print(f"Assistant: {response.content}\n")
-                await memory.save_message("assistant", response.content)
+            if response.text:
+                print(f"Assistant: {response.text}\n")
+                await memory.save_message("assistant", response.text)
 
             # Record trace for learning
             await record_agent_trace(
-                memory_client=memory.memory_client,
-                session_id=session_id,
+                memory=memory,
+                messages=[
+                    {"role": "user", "content": user_input},
+                    {"role": "assistant", "content": response.text[:200] if response.text else ""},
+                ],
                 task=user_input,
-                steps=[{"tool_calls": tool_results}] if tool_results else [],
                 outcome="success",
-                result=response.content[:200] if response.content else "",
+                success=True,
             )
 
     finally:
-        # Clean up
         await memory.memory_client.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
 ----
+
+Notice there is no `handle_tool_calls` function or manual tool dispatch. The framework calls tool functions directly and feeds results back to the model automatically.
 
 == Step 6: Load Sample Data
 
@@ -371,7 +341,7 @@ if __name__ == "__main__":
 ----
 # Set environment variables
 export NEO4J_URI=bolt://localhost:7687
-export NEO4J_USER=neo4j
+export NEO4J_USERNAME=neo4j
 export NEO4J_PASSWORD=password
 export OPENAI_API_KEY=sk-your-key
 
