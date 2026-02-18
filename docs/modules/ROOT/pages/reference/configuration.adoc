@@ -159,7 +159,7 @@ OPENAI_API_KEY=sk-...
 |`provider`
 |EmbeddingProvider
 |`OPENAI`
-|Embedding provider (OPENAI, SENTENCE_TRANSFORMERS)
+|Embedding provider (OPENAI, SENTENCE_TRANSFORMERS, VERTEX_AI, BEDROCK)
 
 |`model`
 |str
@@ -185,6 +185,31 @@ OPENAI_API_KEY=sk-...
 |str
 |`cpu`
 |Device for local models (cpu/cuda)
+
+|`project_id`
+|str
+|None
+|GCP project ID (for Vertex AI)
+
+|`location`
+|str
+|`us-central1`
+|GCP region (for Vertex AI)
+
+|`task_type`
+|str
+|`RETRIEVAL_DOCUMENT`
+|Vertex AI task type
+
+|`aws_region`
+|str
+|None
+|AWS region (for Bedrock)
+
+|`aws_profile`
+|str
+|None
+|AWS credentials profile name (for Bedrock)
 |===
 
 === Embedding Providers
@@ -200,6 +225,14 @@ OPENAI_API_KEY=sk-...
 |`SENTENCE_TRANSFORMERS`
 |`all-MiniLM-L6-v2`, `all-mpnet-base-v2`, etc.
 |Runs locally
+
+|`VERTEX_AI`
+|`text-embedding-004`, `textembedding-gecko@003`
+|Requires GCP project. Install with `pip install neo4j-agent-memory[vertex-ai]`
+
+|`BEDROCK`
+|`amazon.titan-embed-text-v2:0`, `amazon.titan-embed-text-v1`, `cohere.embed-english-v3`, `cohere.embed-multilingual-v3`
+|Requires AWS credentials. Install with `pip install neo4j-agent-memory[bedrock]`
 |===
 
 == Extraction Configuration

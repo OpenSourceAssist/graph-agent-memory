@@ -58,7 +58,7 @@ Example: `NAM_NEO4J__URI` maps to `settings.neo4j.uri`
 | `NAM_EMBEDDING__PROVIDER`
 | string
 | `openai`
-| Embedding provider (`openai`, `sentence_transformers`)
+| Embedding provider (`openai`, `sentence_transformers`, `vertex_ai`, `bedrock`)
 
 | `NAM_EMBEDDING__MODEL`
 | string
@@ -85,10 +85,59 @@ Example: `NAM_NEO4J__URI` maps to `settings.neo4j.uri`
 | `cpu`
 | Device for local models (`cpu`, `cuda`)
 
+| `NAM_EMBEDDING__PROJECT_ID`
+| string
+| _none_
+| GCP project ID (for Vertex AI)
+
+| `NAM_EMBEDDING__LOCATION`
+| string
+| `us-central1`
+| GCP region (for Vertex AI)
+
+| `NAM_EMBEDDING__AWS_REGION`
+| string
+| _none_
+| AWS region (for Bedrock)
+
+| `NAM_EMBEDDING__AWS_PROFILE`
+| string
+| _none_
+| AWS credentials profile name (for Bedrock)
+
 | `OPENAI_API_KEY`
 | string
 | _none_
 | Standard OpenAI API key (alternative to NAM_EMBEDDING__API_KEY)
+|===
+
+== AWS Configuration
+
+Standard AWS environment variables used by boto3 when using Bedrock embeddings or Strands agents.
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `AWS_REGION`
+| string
+| _none_
+| Default AWS region for Bedrock API calls
+
+| `AWS_PROFILE`
+| string
+| _none_
+| AWS credentials profile name
+
+| `AWS_ACCESS_KEY_ID`
+| string
+| _none_
+| AWS access key (alternative to profile-based auth)
+
+| `AWS_SECRET_ACCESS_KEY`
+| string
+| _none_
+| AWS secret key (alternative to profile-based auth)
 |===
 
 == Extraction Configuration

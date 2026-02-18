@@ -49,7 +49,14 @@ openai = ["openai>=1.0.0"]
 anthropic = ["anthropic>=0.20.0"]
 sentence-transformers = ["sentence-transformers>=2.2.0"]
 vertex-ai = ["google-cloud-aiplatform>=1.38.0"]
-google = ["google-cloud-aiplatform>=1.38.0"]  # Alias for vertex-ai
+bedrock = ["boto3>=1.26.0"]
+
+# Cloud provider bundles
+google = ["google-cloud-aiplatform>=1.38.0"]
+aws = ["boto3>=1.26.0"]
+
+# AWS Strands Agents SDK
+strands = ["strands-agents>=0.1.0", "boto3>=1.26.0"]
 
 # Entity extraction
 spacy = ["spacy>=3.7.0"]
@@ -159,6 +166,7 @@ markers = [
     "syntax: marks tests as syntax-only validation (fast)",
     "imports: marks tests as import validation (medium)",
     "slow: marks tests as slow (external link checks, full builds)",
+    "aws: marks tests as AWS integration tests (require AWS credentials)",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

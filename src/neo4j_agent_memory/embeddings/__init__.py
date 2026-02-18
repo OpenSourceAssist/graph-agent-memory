@@ -8,6 +8,7 @@ __all__ = [
     "Embedder",
     "OpenAIEmbedder",
     "VertexAIEmbedder",
+    "BedrockEmbedder",
     "SentenceTransformerEmbedder",
 ]
 
@@ -18,6 +19,10 @@ def __getattr__(name: str):
         from neo4j_agent_memory.embeddings.vertex_ai import VertexAIEmbedder
 
         return VertexAIEmbedder
+    if name == "BedrockEmbedder":
+        from neo4j_agent_memory.embeddings.bedrock import BedrockEmbedder
+
+        return BedrockEmbedder
     if name == "SentenceTransformerEmbedder":
         from neo4j_agent_memory.embeddings.sentence_transformers import (
             SentenceTransformerEmbedder,

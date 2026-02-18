@@ -348,7 +348,7 @@ class TestMCPServerIntegration:
         server = Neo4jMemoryMCPServer(memory_client)
         tools = server.get_tools()
 
-        assert len(tools) == 5
+        assert len(tools) == 6
         # Tools are Tool objects with a 'name' attribute
         tool_names = {t.name for t in tools}
         assert tool_names == {
@@ -357,6 +357,7 @@ class TestMCPServerIntegration:
             "entity_lookup",
             "conversation_history",
             "graph_query",
+            "add_reasoning_trace",
         }
 
     @pytest.mark.asyncio

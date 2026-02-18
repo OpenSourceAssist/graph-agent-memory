@@ -1,11 +1,12 @@
 """MCP tool definitions for Neo4j Agent Memory.
 
-Defines the 5 core tools:
+Defines the 6 core tools:
 - memory_search: Hybrid vector + graph search
 - memory_store: Store memories (messages, facts, preferences)
 - entity_lookup: Get entity with relationships
 - conversation_history: Get conversation for session
 - graph_query: Execute read-only Cypher queries
+- add_reasoning_trace: Store procedural memory (reasoning traces)
 """
 
 from typing import Any
@@ -189,6 +190,68 @@ MEMORY_TOOLS: list[dict[str, Any]] = [
                 },
             },
             "required": ["query"],
+        },
+    },
+    {
+        "name": "add_reasoning_trace",
+        "description": (
+            "Store a reasoning trace (procedural memory) that captures how a task was solved. "
+            "Records the task, tool calls made, their results, and the final outcome. "
+            "Useful for learning from successful problem-solving approaches."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "description": "Session ID for the reasoning trace",
+                },
+                "task": {
+                    "type": "string",
+                    "description": "Description of the task being solved",
+                },
+                "tool_calls": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "tool_name": {
+                                "type": "string",
+                                "description": "Name of the tool that was called",
+                            },
+                            "arguments": {
+                                "type": "object",
+                                "description": "Arguments passed to the tool",
+                            },
+                            "result": {
+                                "type": "string",
+                                "description": "Result or output from the tool call",
+                            },
+                            "success": {
+                                "type": "boolean",
+                                "description": "Whether the tool call succeeded",
+                                "default": True,
+                            },
+                        },
+                        "required": ["tool_name"],
+                    },
+                    "description": "List of tool calls made during reasoning",
+                },
+                "outcome": {
+                    "type": "string",
+                    "description": "Final outcome or result of the task",
+                },
+                "success": {
+                    "type": "boolean",
+                    "description": "Whether the task was completed successfully",
+                    "default": True,
+                },
+                "metadata": {
+                    "type": "object",
+                    "description": "Optional metadata (model, latency, etc.)",
+                },
+            },
+            "required": ["session_id", "task"],
         },
     },
 ]

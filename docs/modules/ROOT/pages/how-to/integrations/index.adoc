@@ -32,8 +32,20 @@ Neo4j Agent Memory provides official integrations for five popular agent framewo
 | OpenAI function calling with persistent memory
 | ✅ Production Ready
 
-| xref:google-cloud.adoc[Google Cloud]
+| xref:how-to/integrations/google-cloud.adoc[Google Cloud]
 | Vertex AI embeddings, ADK agents, MCP server
+| ✅ Production Ready
+
+| xref:how-to/integrations/aws-strands.adoc[AWS Strands Agents]
+| AWS Strands SDK with Bedrock and Context Graph tools
+| ✅ Production Ready
+
+| xref:how-to/integrations/aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
+| Titan and Cohere embeddings via Bedrock
+| ✅ Production Ready
+
+| xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory]
+| AgentCore + Context Graphs combined
 | ✅ Production Ready
 |===
 
@@ -60,6 +72,9 @@ pip install neo4j-agent-memory[openai-agents]
 
 # Google Cloud (Vertex AI + ADK + MCP)
 pip install neo4j-agent-memory[google,mcp]
+
+# AWS Strands Agents
+pip install neo4j-agent-memory[aws,strands]
 
 # All frameworks
 pip install neo4j-agent-memory[all]
@@ -129,6 +144,22 @@ await memory_service.add_session_to_memory(session)
 results = await memory_service.search_memories("query")
 ----
 
+=== AWS Strands Agents
+
+[source,python]
+----
+from strands import Agent
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+
+tools = context_graph_tools(
+    neo4j_uri="neo4j+s://...",
+    neo4j_password="...",
+    embedding_provider="bedrock",
+)
+
+agent = Agent(model="anthropic.claude-sonnet-4-20250514-v1:0", tools=tools)
+----
+
 == Choosing a Framework
 
 Not sure which integration to use? See the xref:explanation/framework-comparison.adoc[Framework Comparison Guide] for a detailed comparison of features, performance, and use cases.
@@ -166,3 +197,7 @@ Automatically extract entities from conversations:
 * xref:how-to/integrations/llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
 * xref:how-to/integrations/crewai.adoc[CrewAI Integration] - Multi-agent shared memory
 * xref:how-to/integrations/openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
+* xref:how-to/integrations/google-cloud.adoc[Google Cloud Integration] - Vertex AI, ADK, MCP server
+* xref:how-to/integrations/aws-strands.adoc[AWS Strands Integration] - Bedrock-powered agents with Context Graph
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[AWS Bedrock Embeddings] - Titan embedding configuration
+* xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory] - Combined memory providers

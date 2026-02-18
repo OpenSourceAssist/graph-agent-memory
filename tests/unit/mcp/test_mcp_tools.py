@@ -6,12 +6,12 @@ import pytest
 class TestMCPToolDefinitions:
     """Tests for MCP tool definitions."""
 
-    def test_get_tool_definitions_returns_5_tools(self):
-        """Test that exactly 5 tools are defined."""
+    def test_get_tool_definitions_returns_6_tools(self):
+        """Test that exactly 6 tools are defined."""
         from neo4j_agent_memory.mcp.tools import get_tool_definitions
 
         tools = get_tool_definitions()
-        assert len(tools) == 5
+        assert len(tools) == 6
 
     def test_all_tools_have_required_fields(self):
         """Test that all tools have name, description, and inputSchema."""
@@ -36,6 +36,7 @@ class TestMCPToolDefinitions:
             "entity_lookup",
             "conversation_history",
             "graph_query",
+            "add_reasoning_trace",
         }
         assert tool_names == expected_names
 

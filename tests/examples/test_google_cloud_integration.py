@@ -139,10 +139,10 @@ class TestMCPToolDefinitions:
     """Test that MCP tool definitions are complete and valid."""
 
     def test_expected_tool_count(self):
-        """Verify there are exactly 5 MCP tools defined."""
+        """Verify there are exactly 6 MCP tools defined."""
         from neo4j_agent_memory.mcp.tools import MEMORY_TOOLS
 
-        assert len(MEMORY_TOOLS) == 5, f"Expected 5 MCP tools, found {len(MEMORY_TOOLS)}"
+        assert len(MEMORY_TOOLS) == 6, f"Expected 6 MCP tools, found {len(MEMORY_TOOLS)}"
 
     def test_tools_have_required_fields(self):
         """Verify each tool has name, description, and inputSchema."""
@@ -164,5 +164,6 @@ class TestMCPToolDefinitions:
             "entity_lookup",
             "conversation_history",
             "graph_query",
+            "add_reasoning_trace",
         }
         assert tool_names == expected_names, f"Expected tools {expected_names}, found {tool_names}"
