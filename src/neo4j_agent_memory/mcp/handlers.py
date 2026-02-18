@@ -420,6 +420,74 @@ class MCPHandlers:
             logger.error(f"Error in graph_query: {e}")
             return {"error": str(e)}
 
+    async def handle_add_reasoning_trace(
+        self,
+        session_id: str,
+        task: str,
+        tool_calls: list[dict[str, Any]] | None = None,
+        outcome: str | None = None,
+        success: bool = True,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Handle add_reasoning_trace tool execution.
+
+        Creates a reasoning trace with optional tool call steps.
+
+        Args:
+            session_id: Session identifier.
+            task: Task description.
+            tool_calls: List of tool calls made during reasoning.
+            outcome: Final outcome of the task.
+            success: Whether the task was successful.
+            metadata: Optional metadata.
+
+        Returns:
+            Dict with trace details.
+        """
+        try:
+            # Start the trace
+            trace = await self._client.reasoning.start_trace(
+                session_id=session_id,
+                task=task,
+                metadata=metadata or {},
+            )
+
+            # Add tool calls as steps
+            if tool_calls:
+                for tc in tool_calls:
+                    step = await self._client.reasoning.add_step(
+                        trace_id=trace.id,
+                        thought=f"Calling {tc.get('tool_name', 'unknown')}",
+                        action=tc.get("tool_name", "unknown"),
+                        observation=tc.get("result"),
+                    )
+                    await self._client.reasoning.record_tool_call(
+                        step_id=step.id,
+                        tool_name=tc.get("tool_name", "unknown"),
+                        arguments=tc.get("arguments", {}),
+                        result=tc.get("result"),
+                    )
+
+            # Complete the trace
+            await self._client.reasoning.complete_trace(
+                trace_id=trace.id,
+                outcome=outcome,
+                success=success,
+            )
+
+            return {
+                "success": True,
+                "stored": True,
+                "trace_id": str(trace.id),
+                "session_id": session_id,
+                "task": task,
+                "tool_call_count": len(tool_calls) if tool_calls else 0,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in add_reasoning_trace: {e}")
+            raise
+
     def _is_read_only_query(self, query: str) -> bool:
         """Check if a Cypher query is read-only.
 
@@ -453,6 +521,7 @@ class MCPHandlers:
             "entity_lookup": self.handle_entity_lookup,
             "conversation_history": self.handle_conversation_history,
             "graph_query": self.handle_graph_query,
+            "add_reasoning_trace": self.handle_add_reasoning_trace,
         }
 
         handler = handlers.get(tool_name)
