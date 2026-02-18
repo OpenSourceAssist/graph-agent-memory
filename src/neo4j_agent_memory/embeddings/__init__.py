@@ -8,8 +8,6 @@ __all__ = [
     "Embedder",
     "OpenAIEmbedder",
     "VertexAIEmbedder",
-    "SentenceTransformerEmbedder",
-    "OpenAIEmbedder",
     "BedrockEmbedder",
     "SentenceTransformerEmbedder",
 ]
@@ -21,17 +19,6 @@ def __getattr__(name: str):
         from neo4j_agent_memory.embeddings.vertex_ai import VertexAIEmbedder
 
         return VertexAIEmbedder
-    if name == "SentenceTransformerEmbedder":
-        from neo4j_agent_memory.embeddings.sentence_transformers import (
-            SentenceTransformerEmbedder,
-        )
-
-        return SentenceTransformerEmbedder
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-# Lazy imports for optional providers
-def __getattr__(name: str):
     if name == "BedrockEmbedder":
         from neo4j_agent_memory.embeddings.bedrock import BedrockEmbedder
 

@@ -49,8 +49,6 @@ openai = ["openai>=1.0.0"]
 anthropic = ["anthropic>=0.20.0"]
 sentence-transformers = ["sentence-transformers>=2.2.0"]
 vertex-ai = ["google-cloud-aiplatform>=1.38.0"]
-google = ["google-cloud-aiplatform>=1.38.0"]  # Alias for vertex-ai
-vertex-ai = ["google-cloud-aiplatform>=1.38.0"]
 bedrock = ["boto3>=1.26.0"]
 
 # Cloud provider bundles
