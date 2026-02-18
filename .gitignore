@@ -65,3 +65,4 @@ docs/node_modules/
 
 # Local plans and research
 plans/
+.mcp.json
