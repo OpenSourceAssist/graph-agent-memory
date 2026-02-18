@@ -228,6 +228,7 @@ class TestSnippetImports:
             # Functions
             "record_agent_trace",
             # AWS/Strands integration classes (imported from submodules)
+            "BedrockEmbedder",
             "context_graph_tools",
             "HybridMemoryProvider",
             "StrandsConfig",
