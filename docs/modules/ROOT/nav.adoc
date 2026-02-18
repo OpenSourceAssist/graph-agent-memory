@@ -6,6 +6,7 @@
 *** xref:tutorials/first-agent-memory.adoc[First Agent Memory]
 *** xref:tutorials/conversation-memory.adoc[Conversation Memory]
 *** xref:tutorials/knowledge-graph.adoc[Knowledge Graphs]
+*** xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Quickstart]
 
 ** How-To Guides
 *** xref:how-to/index.adoc[Overview]
@@ -23,6 +24,9 @@
 **** xref:how-to/integrations/pydantic-ai.adoc[PydanticAI]
 **** xref:how-to/integrations/crewai.adoc[CrewAI]
 **** xref:how-to/integrations/openai-agents.adoc[OpenAI Agents]
+**** xref:how-to/integrations/aws-strands.adoc[AWS Strands Agents]
+**** xref:how-to/integrations/aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
+**** xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory]
 
 ** Reference
 *** xref:reference/index.adoc[Overview]

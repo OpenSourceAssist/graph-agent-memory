@@ -93,7 +93,6 @@ config = StrandsConfig(
     embedding_provider="bedrock",
     embedding_model="amazon.titan-embed-text-v2:0",
     aws_region="us-east-1",
-    default_user_id="user-123",
 )
 
 tools = context_graph_tools(**config.to_dict())
@@ -241,24 +240,6 @@ Always include user_id="{user_id}" in your memory tool calls.""",
 # Inject user context
 response = agent(
     f"[User: user-123] What do you remember about me?",
-)
-----
-
-== Custom Entity Extraction
-
-Configure entity extraction for `add_memory`:
-
-[source,python]
-----
-from neo4j_agent_memory.integrations.strands import context_graph_tools
-
-tools = context_graph_tools(
-    neo4j_uri="...",
-    neo4j_password="...",
-
-    # Entity extraction configuration
-    extraction_model="anthropic.claude-haiku-3-20240307-v1:0",
-    entity_types=["Person", "Organization", "Project", "Product"],
 )
 ----
 

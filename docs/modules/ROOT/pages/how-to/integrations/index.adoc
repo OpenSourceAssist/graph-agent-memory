@@ -174,11 +174,6 @@ Automatically extract entities from conversations:
 
 == Integration Guides
 
-* xref:how-to/integrations/langchain.adoc[LangChain Integration] - Memory and retriever for chains
-* xref:how-to/integrations/pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
-* xref:how-to/integrations/llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
-* xref:how-to/integrations/crewai.adoc[CrewAI Integration] - Multi-agent shared memory
-* xref:how-to/integrations/openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
 * xref:langchain.adoc[LangChain Integration] - Memory and retriever for chains
 * xref:pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
 * xref:llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support

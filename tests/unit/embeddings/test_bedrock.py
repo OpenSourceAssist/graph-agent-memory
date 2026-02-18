@@ -231,30 +231,28 @@ class TestBedrockEmbedderErrors:
 
     def test_import_error_without_boto3(self):
         """Test EmbeddingError raised when boto3 not installed."""
-        import sys
+        from neo4j_agent_memory.core.exceptions import EmbeddingError
+        from neo4j_agent_memory.embeddings.bedrock import BedrockEmbedder
 
-        # Temporarily remove boto3 from modules
-        boto3_module = sys.modules.get("boto3")
-        if "boto3" in sys.modules:
-            del sys.modules["boto3"]
+        embedder = BedrockEmbedder()
+        embedder._client = None
+        embedder._boto3 = None
 
-        try:
-            # Reload the module to trigger import check
-            from neo4j_agent_memory.core.exceptions import EmbeddingError
-            from neo4j_agent_memory.embeddings.bedrock import BedrockEmbedder
+        # Mock import to simulate boto3 not being installed
+        import builtins
 
-            embedder = BedrockEmbedder()
-            embedder._client = None
-            embedder._boto3 = None
+        real_import = builtins.__import__
 
+        def mock_import(name, *args, **kwargs):
+            if name == "boto3":
+                raise ImportError("No module named 'boto3'")
+            return real_import(name, *args, **kwargs)
+
+        with patch.object(builtins, "__import__", side_effect=mock_import):
             with pytest.raises(EmbeddingError) as exc_info:
                 embedder._ensure_client()
 
-            assert "boto3 package not installed" in str(exc_info.value)
-        finally:
-            # Restore boto3 if it was there
-            if boto3_module:
-                sys.modules["boto3"] = boto3_module
+        assert "boto3 package not installed" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_embed_error_handling(self):

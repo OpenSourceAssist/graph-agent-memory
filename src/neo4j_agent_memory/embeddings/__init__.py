@@ -1,14 +1,27 @@
 """Embedding providers for vector representations."""
 
-from neo4j_agent_memory.embeddings.base import Embedder
-
-# Conditionally import providers to avoid requiring all dependencies
-try:
-    from neo4j_agent_memory.embeddings.bedrock import BedrockEmbedder
-except ImportError:
-    BedrockEmbedder = None  # type: ignore[misc, assignment]
+from neo4j_agent_memory.embeddings.base import BaseEmbedder, Embedder
+from neo4j_agent_memory.embeddings.openai import OpenAIEmbedder
 
 __all__ = [
+    "BaseEmbedder",
     "Embedder",
+    "OpenAIEmbedder",
     "BedrockEmbedder",
+    "SentenceTransformerEmbedder",
 ]
+
+
+# Lazy imports for optional providers
+def __getattr__(name: str):
+    if name == "BedrockEmbedder":
+        from neo4j_agent_memory.embeddings.bedrock import BedrockEmbedder
+
+        return BedrockEmbedder
+    if name == "SentenceTransformerEmbedder":
+        from neo4j_agent_memory.embeddings.sentence_transformers import (
+            SentenceTransformerEmbedder,
+        )
+
+        return SentenceTransformerEmbedder
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
