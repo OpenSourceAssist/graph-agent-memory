@@ -68,6 +68,22 @@ Choose the extras that match your needs:
 |Opik LLM-focused observability
 |`pip install neo4j-agent-memory[opik]`
 
+|`vertex-ai`
+|Google Vertex AI embeddings
+|`pip install neo4j-agent-memory[vertex-ai]`
+
+|`bedrock`
+|Amazon Bedrock embeddings (Titan, Cohere)
+|`pip install neo4j-agent-memory[bedrock]`
+
+|`aws`
+|AWS cloud provider bundle (Bedrock)
+|`pip install neo4j-agent-memory[aws]`
+
+|`strands`
+|AWS Strands Agents SDK integration
+|`pip install neo4j-agent-memory[strands]`
+
 |`all`
 |All features including local models
 |`pip install neo4j-agent-memory[all]`

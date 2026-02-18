@@ -47,6 +47,53 @@ However, you can use the **entity extraction features independently** without Ne
 Neo4j 5.x is supported, with **5.11+ recommended** for vector index support (used for semantic search).
 
 
+[[aws-support]]
+=== Does neo4j-agent-memory work with AWS?
+
+Yes. The package provides full AWS support including:
+
+[horizontal]
+Amazon Bedrock Embeddings:: Use Bedrock embedding models (Titan, Cohere) instead of OpenAI. Install with `pip install neo4j-agent-memory[bedrock]`.
+Strands Agents SDK:: Pre-built tools for context graph operations with the AWS Strands Agents framework. Install with `pip install neo4j-agent-memory[strands]`.
+AgentCore Memory:: `HybridMemoryProvider` for routing between short-term and long-term memory stores.
+
+See xref:how-to/integrations/aws-strands.adoc[Strands Integration] and xref:how-to/integrations/aws-bedrock-embeddings.adoc[Bedrock Embeddings] for details.
+
+[[bedrock-credentials]]
+=== How do I configure AWS credentials for Bedrock embeddings?
+
+The Bedrock embedder uses standard AWS credential resolution (environment variables, `~/.aws/credentials`, IAM roles). You can configure the region and profile:
+
+[source,bash]
+----
+# Via environment variables
+export NAM_EMBEDDING__PROVIDER=bedrock
+export NAM_EMBEDDING__AWS_REGION=us-east-1
+export NAM_EMBEDDING__AWS_PROFILE=my-profile
+----
+
+Or in Python:
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings
+
+settings = MemorySettings(
+    embedding={"provider": "bedrock", "aws_region": "us-east-1"}
+)
+----
+
+No API keys are needed if you're running on an AWS resource with an appropriate IAM role.
+
+[[strands-vs-direct]]
+=== Should I use Strands tools or the MemoryClient directly?
+
+Use **Strands tools** (`context_graph_tools()`) when building agents with the AWS Strands Agents SDK -- the tools are designed to be called by the agent autonomously.
+
+Use the **MemoryClient directly** when you need programmatic control over memory operations outside of an agent loop, or when using a non-Strands framework.
+
+You can combine both: use Strands tools for agent-facing operations and the MemoryClient for background tasks like batch processing.
+
 == Entity Extraction Pipeline
 
 [[how-pipeline-works]]
@@ -1007,6 +1054,8 @@ else:
 * xref:explanation/memory-types.adoc[Memory Types] -- Short-term, long-term, and reasoning memory
 * xref:explanation/poleo-model.adoc[POLE+O Data Model] -- Entity type classification
 * xref:reference/configuration.adoc[Configuration Reference] -- All configuration options
-* xref:how-to/integrations/index.adoc[Framework Integrations] -- PydanticAI, LangChain, LlamaIndex, CrewAI
+* xref:how-to/integrations/index.adoc[Framework Integrations] -- PydanticAI, LangChain, LlamaIndex, CrewAI, Strands
+* xref:how-to/integrations/aws-strands.adoc[Strands Integration] -- AWS Strands Agents
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[Bedrock Embeddings] -- Amazon Bedrock embedding models
 * link:../examples/domain-schemas/[Domain Schema Examples] -- Working code examples
 * https://github.com/neo4j-labs/agent-memory/issues[GitHub Issues] -- Report bugs or request features

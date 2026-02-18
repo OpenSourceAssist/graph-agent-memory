@@ -286,19 +286,22 @@ provider = HybridMemoryProvider(
     # Routing strategy
     routing_strategy="auto",
 
-    # Embedding configuration
-    embedding_provider="bedrock",
-    embedding_model="amazon.titan-embed-text-v2:0",
+    # Sync entities between short-term and long-term stores
+    sync_entities=True,
 
-    # Entity extraction
-    extraction_model="anthropic.claude-haiku-3-20240307-v1:0",
-    extract_entities_by_default=True,
+    # Max depth for relationship traversal
+    relationship_depth=2,
 
-    # Search defaults
-    default_top_k=10,
-    default_min_score=0.5,
+    # Extract entities when storing memories
+    extract_entities=True,
+
+    # Generate embeddings for semantic search
+    generate_embeddings=True,
 )
 ----
+
+NOTE: Embedding and LLM model configuration is set on the `MemoryClient` via `MemorySettings`, not on the `HybridMemoryProvider` directly.
+See xref:reference/configuration.adoc[Configuration Reference] for embedding settings.
 
 == Use with Strands Agents
 
