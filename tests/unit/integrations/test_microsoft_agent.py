@@ -267,11 +267,11 @@ class TestNeo4jChatMessageStore:
         """Test serialize/deserialize roundtrip."""
         from neo4j_agent_memory.integrations.microsoft_agent import Neo4jChatMessageStore
 
-        serialized = await chat_store.serialize()
+        serialized = chat_store.serialize()
         assert serialized["session_id"] == "chat-session-123"
         assert serialized["source_id"] == "neo4j-history"
 
-        restored = await Neo4jChatMessageStore.deserialize(serialized, mock_memory_client)
+        restored = Neo4jChatMessageStore.deserialize(serialized, mock_memory_client)
         assert restored.session_id == "chat-session-123"
         assert restored.source_id == "neo4j-history"
 

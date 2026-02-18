@@ -377,8 +377,8 @@ class TestNeo4jChatMessageStore:
             max_messages=100,
         )
 
-        serialized = await original.serialize()
-        restored = await Neo4jChatMessageStore.deserialize(serialized, memory_client)
+        serialized = original.serialize()
+        restored = Neo4jChatMessageStore.deserialize(serialized, memory_client)
 
         assert restored.session_id == session_id
 

@@ -216,7 +216,7 @@ try:
             """
             await self._client.short_term.clear_session(self._session_id)
 
-        async def serialize(self) -> MutableMapping[str, Any]:
+        def serialize(self) -> MutableMapping[str, Any]:
             """
             Serialize store state for persistence.
 
@@ -232,7 +232,7 @@ try:
             }
 
         @classmethod
-        async def deserialize(
+        def deserialize(
             cls,
             serialized_state: MutableMapping[str, Any],
             memory_client: MemoryClient,

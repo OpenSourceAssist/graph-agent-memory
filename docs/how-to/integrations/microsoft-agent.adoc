@@ -474,8 +474,8 @@ This integration targets:
 | `BaseContextProvider`
 | `agent_framework.BaseContextProvider`
 
-| `ChatMessageStoreProtocol`
-| `agent_framework.ChatMessageStoreProtocol`
+| `BaseHistoryProvider`
+| `agent_framework.BaseHistoryProvider`
 
 | `Message`
 | `agent_framework.Message`
@@ -578,7 +578,7 @@ async with MemoryClient(settings) as client:  # Fresh client
 | `serialize()`
 | Serialize store state
 
-| `deserialize(state, client)`
+| `deserialize(serialized_state, memory_client)`
 | Restore store from state
 |===
 
