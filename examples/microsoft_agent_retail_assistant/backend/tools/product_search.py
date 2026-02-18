@@ -83,7 +83,7 @@ async def search_products(
         LIMIT $limit
         """
 
-        result = await client.graph.execute_query(cypher, params)
+        result = await client.graph.execute_read(cypher, params)
 
     except Exception as e:
         logger.warning(f"Vector search failed, falling back to text search: {e}")
@@ -102,11 +102,11 @@ async def search_products(
             category: coalesce(c.name, p.category),
             brand: coalesce(b.name, p.brand)
         }} as product, 1.0 as score
-        ORDER BY p.popularity DESC
+        ORDER BY p.popularity DESC NULLS LAST
         LIMIT $limit
         """
 
-        result = await client.graph.execute_query(cypher, params)
+        result = await client.graph.execute_read(cypher, params)
 
     products = [{**record["product"], "relevance_score": record["score"]} for record in result]
 
@@ -148,7 +148,7 @@ async def get_product_details(
     } as product
     """
 
-    result = await client.graph.execute_query(cypher, {"product_id": product_id})
+    result = await client.graph.execute_read(cypher, {"product_id": product_id})
 
     if result:
         return result[0]["product"]
@@ -174,11 +174,11 @@ async def get_products_by_category(
         Dict with products list.
     """
     order_clause = {
-        "popularity": "p.popularity DESC",
-        "price_asc": "p.price ASC",
-        "price_desc": "p.price DESC",
-        "newest": "p.created_at DESC",
-    }.get(sort_by, "p.popularity DESC")
+        "popularity": "p.popularity DESC NULLS LAST",
+        "price_asc": "p.price ASC NULLS LAST",
+        "price_desc": "p.price DESC NULLS LAST",
+        "newest": "p.created_at DESC NULLS LAST",
+    }.get(sort_by, "p.popularity DESC NULLS LAST")
 
     cypher = f"""
     MATCH (p:Product)-[:IN_CATEGORY]->(c:Category)
@@ -194,7 +194,7 @@ async def get_products_by_category(
     LIMIT $limit
     """
 
-    result = await client.graph.execute_query(cypher, {"category": category, "limit": limit})
+    result = await client.graph.execute_read(cypher, {"category": category, "limit": limit})
 
     return {"products": [r["product"] for r in result], "category": category}
 
@@ -218,7 +218,7 @@ async def get_brands(client: "MemoryClient", category: str | None = None) -> lis
         """
         params = {}
 
-    result = await client.graph.execute_query(cypher, params)
+    result = await client.graph.execute_read(cypher, params)
     return [r["brand"] for r in result]
 
 
@@ -230,5 +230,5 @@ async def get_categories(client: "MemoryClient") -> list[dict]:
     ORDER BY product_count DESC
     """
 
-    result = await client.graph.execute_query(cypher, {})
+    result = await client.graph.execute_read(cypher, {})
     return [dict(r) for r in result]

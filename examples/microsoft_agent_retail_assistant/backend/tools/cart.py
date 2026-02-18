@@ -36,7 +36,7 @@ async def get_cart(
     ORDER BY contains.added_at DESC
     """
 
-    result = await client.graph.execute_query(cypher, {"session_id": session_id})
+    result = await client.graph.execute_read(cypher, {"session_id": session_id})
 
     items = []
     subtotal = 0
@@ -85,7 +85,7 @@ async def add_to_cart(
     RETURN p.name as name, p.in_stock as in_stock, p.inventory as inventory, p.price as price
     """
 
-    check_result = await client.graph.execute_query(check_cypher, {"product_id": product_id})
+    check_result = await client.graph.execute_read(check_cypher, {"product_id": product_id})
 
     if not check_result:
         return {"success": False, "error": "Product not found"}
@@ -123,7 +123,7 @@ async def add_to_cart(
     RETURN p.name as product_name, contains.quantity as new_quantity, p.price as price
     """
 
-    result = await client.graph.execute_query(
+    result = await client.graph.execute_write(
         cypher,
         {"session_id": session_id, "product_id": product_id, "quantity": quantity},
     )
@@ -169,7 +169,7 @@ async def update_cart_item(
     RETURN p.inventory as inventory, p.name as name
     """
 
-    check_result = await client.graph.execute_query(check_cypher, {"product_id": product_id})
+    check_result = await client.graph.execute_read(check_cypher, {"product_id": product_id})
 
     if not check_result:
         return {"success": False, "error": "Product not found"}
@@ -188,7 +188,7 @@ async def update_cart_item(
     RETURN p.name as product_name, contains.quantity as new_quantity, p.price as price
     """
 
-    result = await client.graph.execute_query(
+    result = await client.graph.execute_write(
         cypher,
         {"session_id": session_id, "product_id": product_id, "quantity": quantity},
     )
@@ -230,7 +230,7 @@ async def remove_from_cart(
     RETURN product_name
     """
 
-    result = await client.graph.execute_query(
+    result = await client.graph.execute_write(
         cypher, {"session_id": session_id, "product_id": product_id}
     )
 
@@ -264,7 +264,7 @@ async def clear_cart(
     RETURN count(*) as items_removed
     """
 
-    result = await client.graph.execute_query(cypher, {"session_id": session_id})
+    result = await client.graph.execute_write(cypher, {"session_id": session_id})
 
     items_removed = result[0]["items_removed"] if result else 0
 
@@ -302,7 +302,7 @@ async def apply_coupon(
            coupon.description as description
     """
 
-    result = await client.graph.execute_query(check_cypher, {"code": coupon_code.upper()})
+    result = await client.graph.execute_read(check_cypher, {"code": coupon_code.upper()})
 
     if not result:
         return {"success": False, "error": "Invalid or expired coupon code"}
@@ -332,7 +332,7 @@ async def apply_coupon(
     RETURN c.coupon_code as code
     """
 
-    await client.graph.execute_query(
+    await client.graph.execute_write(
         apply_cypher,
         {"session_id": session_id, "code": coupon_code.upper(), "discount": discount},
     )
@@ -375,7 +375,7 @@ async def save_cart_for_later(
     RETURN count(p) as items_saved
     """
 
-    result = await client.graph.execute_query(
+    result = await client.graph.execute_write(
         cypher, {"session_id": session_id, "user_id": user_id}
     )
 

@@ -43,7 +43,7 @@ async def get_recommendations(
     # 1. Get user preferences
     preferences = []
     try:
-        prefs = await client.long_term.get_preferences(limit=10)
+        prefs = await client.long_term.search_preferences(query="shopping preferences", limit=10)
         preferences = [{"category": p.category, "value": p.preference} for p in prefs]
     except Exception as e:
         logger.debug(f"Could not get preferences: {e}")
@@ -58,7 +58,7 @@ async def get_recommendations(
             RETURN DISTINCT e.name as product_name
             LIMIT 10
             """
-            result = await client.graph.execute_query(cypher, {"session_id": session_id})
+            result = await client.graph.execute_read(cypher, {"session_id": session_id})
             session_products = [r["product_name"] for r in result]
         except Exception as e:
             logger.debug(f"Could not get session products: {e}")
@@ -99,7 +99,7 @@ async def get_recommendations(
         } as product,
         preference_score,
         'Based on your preferences' as reason
-        ORDER BY preference_score DESC, p.popularity DESC
+        ORDER BY preference_score DESC, p.popularity DESC NULLS LAST
         LIMIT $limit
         """
 
@@ -112,7 +112,7 @@ async def get_recommendations(
         }
 
         try:
-            result = await client.graph.execute_query(cypher, params)
+            result = await client.graph.execute_read(cypher, params)
             for r in result:
                 recommendations.append(r["product"])
                 reasons.append(r["reason"])
@@ -124,26 +124,28 @@ async def get_recommendations(
         remaining = limit - len(recommendations)
         existing_ids = [p.get("id") for p in recommendations]
 
-        # Try GDS PageRank for importance
+        # Try degree-based importance ranking (GDS-free fallback)
         try:
             cypher = """
-            CALL gds.pageRank.stream({
-                nodeProjection: 'Product',
-                relationshipProjection: {
-                    SIMILAR_TO: {type: 'SIMILAR_TO', orientation: 'UNDIRECTED'},
-                    BOUGHT_TOGETHER: {type: 'BOUGHT_TOGETHER', orientation: 'UNDIRECTED'}
-                }
-            })
-            YIELD nodeId, score
-            WITH gds.util.asNode(nodeId) as p, score
+            MATCH (p:Product)
             WHERE p.in_stock = true AND NOT p.id IN $existing
+            OPTIONAL MATCH (p)-[r:SIMILAR_TO|BOUGHT_TOGETHER]-()
+            WITH p, count(r) AS degree
+            WITH collect({product: p, degree: degree}) AS products,
+                 max(degree) AS max_degree
+            UNWIND products AS item
+            WITH item.product AS p,
+                 CASE WHEN max_degree > 0
+                      THEN toFloat(item.degree) / max_degree
+                      ELSE 0.1
+                 END AS score
             RETURN p {
                 .id, .name, .description, .price, .category, .brand, .image_url
             } as product, score, 'Popular product' as reason
             ORDER BY score DESC
             LIMIT $limit
             """
-            result = await client.graph.execute_query(
+            result = await client.graph.execute_read(
                 cypher, {"existing": existing_ids, "limit": remaining}
             )
             for r in result:
@@ -151,7 +153,7 @@ async def get_recommendations(
                 reasons.append(r["reason"])
 
         except Exception as e:
-            logger.debug(f"GDS PageRank not available, using popularity: {e}")
+            logger.debug(f"Degree-based ranking not available, using popularity: {e}")
 
             # Fallback to simple popularity
             category_filter = "AND p.category = $category" if category else ""
@@ -162,14 +164,14 @@ async def get_recommendations(
             RETURN p {{
                 .id, .name, .description, .price, .category, .brand, .image_url
             }} as product, 'Popular product' as reason
-            ORDER BY p.popularity DESC
+            ORDER BY p.popularity DESC NULLS LAST
             LIMIT $limit
             """
             params = {"existing": existing_ids, "limit": remaining}
             if category:
                 params["category"] = category
 
-            result = await client.graph.execute_query(cypher, params)
+            result = await client.graph.execute_read(cypher, params)
             for r in result:
                 recommendations.append(r["product"])
                 reasons.append(r["reason"])
@@ -210,36 +212,31 @@ async def get_related_products(
     WHERE source.id = $product_id OR elementId(source) = $product_id
 
     // Find related through various paths
-    CALL {{
-        WITH source
+    CALL (source) {{
         MATCH (source)-[:IN_CATEGORY]->(c)<-[:IN_CATEGORY]-(related:Product)
         WHERE related <> source AND related.in_stock = true
         RETURN related, 'Same category: ' + c.name as relationship, 2 as weight
 
         UNION
 
-        WITH source
         MATCH (source)-[:MADE_BY]->(b)<-[:MADE_BY]-(related:Product)
         WHERE related <> source AND related.in_stock = true
         RETURN related, 'Same brand: ' + b.name as relationship, 2 as weight
 
         UNION
 
-        WITH source
         MATCH (source)-[:SIMILAR_TO]-(related:Product)
         WHERE related.in_stock = true
         RETURN related, 'Similar product' as relationship, 3 as weight
 
         UNION
 
-        WITH source
         MATCH (source)-[:BOUGHT_TOGETHER]-(related:Product)
         WHERE related.in_stock = true
         RETURN related, 'Frequently bought together' as relationship, 4 as weight
 
         UNION
 
-        WITH source
         MATCH (source)-[:HAS_ATTRIBUTE]->(a)<-[:HAS_ATTRIBUTE]-(related:Product)
         WHERE related <> source AND related.in_stock = true
         RETURN related, 'Shared attribute: ' + a.name as relationship, 1 as weight
@@ -257,7 +254,7 @@ async def get_related_products(
     LIMIT $limit
     """
 
-    result = await client.graph.execute_query(cypher, {"product_id": product_id, "limit": limit})
+    result = await client.graph.execute_read(cypher, {"product_id": product_id, "limit": limit})
 
     return {
         "source_product_id": product_id,
@@ -301,7 +298,7 @@ async def get_bought_together(
     LIMIT $limit
     """
 
-    result = await client.graph.execute_query(cypher, {"product_id": product_id, "limit": limit})
+    result = await client.graph.execute_read(cypher, {"product_id": product_id, "limit": limit})
 
     return {
         "source_product_id": product_id,
@@ -366,7 +363,7 @@ async def explain_product_connection(
     """
 
     try:
-        result = await client.graph.execute_query(
+        result = await client.graph.execute_read(
             cypher,
             {"id1": product_id_1, "id2": product_id_2, "max_hops": max_hops},
         )
@@ -407,7 +404,7 @@ async def explain_product_connection(
            collect(DISTINCT b.name) as shared_brands
     """
 
-    result = await client.graph.execute_query(cypher, {"id1": product_id_1, "id2": product_id_2})
+    result = await client.graph.execute_read(cypher, {"id1": product_id_1, "id2": product_id_2})
 
     if result:
         r = result[0]

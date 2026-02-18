@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 from uuid import uuid4
 
 from agent import create_agent, run_agent_stream
@@ -114,7 +114,6 @@ class ProductResponse(BaseModel):
     category: str
     brand: str
     in_stock: bool
-    attributes: dict
 
 
 # --- Session Management ---
@@ -211,20 +210,24 @@ async def get_memory_context(
 
     try:
         # Get short-term (conversation)
-        messages = await memory_client.short_term.get_messages(session_id, limit=20)
+        conversation = await memory_client.short_term.get_conversation(session_id, limit=20)
         short_term = [
             {
                 "id": str(m.id),
                 "role": m.role.value if hasattr(m.role, "value") else str(m.role),
                 "content": m.content[:200] + "..." if len(m.content) > 200 else m.content,
-                "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+                "timestamp": m.created_at.isoformat() if m.created_at else None,
             }
-            for m in messages
+            for m in conversation.messages
         ]
 
         # Get long-term (entities and preferences)
-        entities = await memory_client.long_term.get_entities(limit=20)
-        preferences = await memory_client.long_term.get_preferences(limit=10)
+        entities = await memory_client.long_term.search_entities(
+            query=query or "all", limit=20
+        )
+        preferences = await memory_client.long_term.search_preferences(
+            query=query or "all", limit=10
+        )
         long_term = {
             "entities": [
                 {
@@ -286,20 +289,26 @@ async def get_memory_graph(
         if center_entity:
             query = """
             MATCH (center:Entity {name: $center})
-            CALL {
-                WITH center
+            CALL (center) {
                 MATCH path = (center)-[*1..$max_hops]-(related)
-                RETURN nodes(path) as pathNodes, relationships(path) as pathRels
+                UNWIND nodes(path) AS n
+                UNWIND relationships(path) AS r
+                RETURN collect(DISTINCT {
+                    id: elementId(n),
+                    label: coalesce(n.name, 'Unknown'),
+                    type: labels(n)[0],
+                    properties: properties(n)
+                }) AS nodes,
+                collect(DISTINCT {
+                    id: elementId(r),
+                    source: elementId(startNode(r)),
+                    target: elementId(endNode(r)),
+                    type: type(r)
+                }) AS relationships
             }
-            WITH collect(pathNodes) as allNodes, collect(pathRels) as allRels
-            UNWIND allNodes as nodeList
-            UNWIND nodeList as node
-            WITH collect(DISTINCT node) as nodes, allRels
-            UNWIND allRels as relList
-            UNWIND relList as rel
-            RETURN nodes, collect(DISTINCT rel) as relationships
+            RETURN nodes, relationships
             """
-            result = await memory_client.graph.execute_query(
+            result = await memory_client.graph.execute_read(
                 query, {"center": center_entity, "max_hops": max_hops}
             )
         else:
@@ -310,43 +319,31 @@ async def get_memory_graph(
             ORDER BY mentions DESC
             LIMIT 20
             OPTIONAL MATCH (e)-[r]-(related:Entity)
-            RETURN collect(DISTINCT e) + collect(DISTINCT related) as nodes,
-                   collect(DISTINCT r) as relationships
+            WITH collect(DISTINCT e) + collect(DISTINCT related) AS allNodes,
+                 collect(DISTINCT r) AS allRels
+            RETURN [n IN allNodes WHERE n IS NOT NULL | {
+                id: elementId(n),
+                label: coalesce(n.name, 'Unknown'),
+                type: labels(n)[0],
+                properties: properties(n)
+            }] AS nodes,
+            [r IN allRels WHERE r IS NOT NULL | {
+                id: elementId(r),
+                source: elementId(startNode(r)),
+                target: elementId(endNode(r)),
+                type: type(r)
+            }] AS relationships
             """
-            result = await memory_client.graph.execute_query(query, {"session_id": session_id})
+            result = await memory_client.graph.execute_read(query, {"session_id": session_id})
 
         if not result:
             return {"nodes": [], "edges": []}
 
         record = result[0]
-        nodes = []
-        edges = []
-
-        # Process nodes
-        for node in record.get("nodes", []):
-            if node:
-                nodes.append(
-                    {
-                        "id": str(node.element_id),
-                        "label": node.get("name", node.get("display_name", "Unknown")),
-                        "type": list(node.labels)[0] if node.labels else "Node",
-                        "properties": dict(node),
-                    }
-                )
-
-        # Process relationships
-        for rel in record.get("relationships", []):
-            if rel:
-                edges.append(
-                    {
-                        "id": str(rel.element_id),
-                        "source": str(rel.start_node.element_id),
-                        "target": str(rel.end_node.element_id),
-                        "type": rel.type,
-                    }
-                )
-
-        return {"nodes": nodes, "edges": edges}
+        return {
+            "nodes": record.get("nodes", []),
+            "edges": record.get("relationships", []),
+        }
 
     except Exception as e:
         logger.exception("Error getting memory graph")
@@ -363,7 +360,14 @@ async def get_preferences(
         raise HTTPException(status_code=503, detail="Database not connected")
 
     try:
-        preferences = await memory_client.long_term.get_preferences(category=category, limit=50)
+        if category:
+            preferences = await memory_client.long_term.get_preferences_by_category(
+                category=category, limit=50
+            )
+        else:
+            preferences = await memory_client.long_term.search_preferences(
+                query="all", limit=50
+            )
 
         return {
             "preferences": [
@@ -399,9 +403,9 @@ async def search_products(
         raise HTTPException(status_code=503, detail="Database not connected")
 
     try:
-        # Build product search query
+        # Build product search query with projected fields
         conditions = ["p:Product"]
-        params = {"query": query, "limit": limit}
+        params: dict[str, Any] = {"query": query, "limit": limit}
 
         if category:
             conditions.append("p.category = $category")
@@ -415,37 +419,41 @@ async def search_products(
             conditions.append("p.price <= $max_price")
             params["max_price"] = max_price
 
-        # Vector search with filters
+        where_clause = " AND ".join(conditions)
+
+        # Vector search with filters — project fields in Cypher
         cypher = f"""
         CALL db.index.vector.queryNodes('product_embedding', $limit, $embedding)
         YIELD node as p, score
-        WHERE {" AND ".join(conditions)}
-        RETURN p, score
+        WHERE {where_clause}
+        RETURN elementId(p) AS id, p.name AS name,
+               coalesce(p.description, '') AS description,
+               coalesce(p.price, 0) AS price,
+               coalesce(p.category, '') AS category,
+               coalesce(p.brand, '') AS brand,
+               coalesce(p.in_stock, true) AS in_stock,
+               score
         ORDER BY score DESC
         """
 
         # Get embedding for query
-        embedding = await memory_client.embeddings.embed(query)
+        embedding = await memory_client._embedder.embed(query)
         params["embedding"] = embedding
 
-        result = await memory_client.graph.execute_query(cypher, params)
-
-        products = []
-        for record in result:
-            p = record["p"]
-            products.append(
-                {
-                    "id": str(p.element_id),
-                    "name": p.get("name"),
-                    "description": p.get("description", ""),
-                    "price": p.get("price", 0),
-                    "category": p.get("category", ""),
-                    "brand": p.get("brand", ""),
-                    "in_stock": p.get("in_stock", True),
-                    "attributes": p.get("attributes", {}),
-                    "score": record["score"],
-                }
-            )
+        result = await memory_client.graph.execute_read(cypher, params)
+        products = [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "description": r["description"],
+                "price": r["price"],
+                "category": r["category"],
+                "brand": r["brand"],
+                "in_stock": r["in_stock"],
+                "score": r["score"],
+            }
+            for r in result
+        ]
 
         return {"products": products, "total": len(products)}
 
@@ -456,29 +464,20 @@ async def search_products(
             cypher = """
             MATCH (p:Product)
             WHERE p.name CONTAINS $query OR p.description CONTAINS $query
-            RETURN p
+            RETURN elementId(p) AS id, p.name AS name,
+                   coalesce(p.description, '') AS description,
+                   coalesce(p.price, 0) AS price,
+                   coalesce(p.category, '') AS category,
+                   coalesce(p.brand, '') AS brand,
+                   coalesce(p.in_stock, true) AS in_stock
             LIMIT $limit
             """
-            result = await memory_client.graph.execute_query(
+            result = await memory_client.graph.execute_read(
                 cypher, {"query": query, "limit": limit}
             )
-
-            products = []
-            for record in result:
-                p = record["p"]
-                products.append(
-                    {
-                        "id": str(p.element_id),
-                        "name": p.get("name"),
-                        "description": p.get("description", ""),
-                        "price": p.get("price", 0),
-                        "category": p.get("category", ""),
-                        "brand": p.get("brand", ""),
-                        "in_stock": p.get("in_stock", True),
-                        "attributes": p.get("attributes", {}),
-                        "score": 1.0,
-                    }
-                )
+            products = [
+                {**r, "score": 1.0} for r in result
+            ]
 
             return {"products": products, "total": len(products)}
 
@@ -498,28 +497,21 @@ async def get_product(product_id: str):
         WHERE elementId(p) = $product_id OR p.id = $product_id
         OPTIONAL MATCH (p)-[:IN_CATEGORY]->(c:Category)
         OPTIONAL MATCH (p)-[:MADE_BY]->(b:Brand)
-        RETURN p, c.name as category_name, b.name as brand_name
+        RETURN elementId(p) AS id, p.name AS name,
+               coalesce(p.description, '') AS description,
+               coalesce(p.price, 0) AS price,
+               coalesce(c.name, p.category, '') AS category,
+               coalesce(b.name, p.brand, '') AS brand,
+               coalesce(p.in_stock, true) AS in_stock,
+               coalesce(p.inventory, 0) AS inventory,
+               p.image_url AS image_url
         """
-        result = await memory_client.graph.execute_query(cypher, {"product_id": product_id})
+        result = await memory_client.graph.execute_read(cypher, {"product_id": product_id})
 
         if not result:
             raise HTTPException(status_code=404, detail="Product not found")
 
-        record = result[0]
-        p = record["p"]
-
-        return {
-            "id": str(p.element_id),
-            "name": p.get("name"),
-            "description": p.get("description", ""),
-            "price": p.get("price", 0),
-            "category": record.get("category_name") or p.get("category", ""),
-            "brand": record.get("brand_name") or p.get("brand", ""),
-            "in_stock": p.get("in_stock", True),
-            "inventory": p.get("inventory", 0),
-            "attributes": p.get("attributes", {}),
-            "image_url": p.get("image_url"),
-        }
+        return result[0]
 
     except HTTPException:
         raise
@@ -542,9 +534,14 @@ async def get_related_products(
         if relationship_type:
             cypher = f"""
             MATCH (p:Product)-[:{relationship_type}]->(shared)<-[:{relationship_type}]-(related:Product)
-            WHERE elementId(p) = $product_id OR p.id = $product_id
+            WHERE (elementId(p) = $product_id OR p.id = $product_id)
             AND related <> p
-            RETURN DISTINCT related, count(shared) as shared_count
+            RETURN elementId(related) AS id, related.name AS name,
+                   coalesce(related.description, '')[..100] AS description,
+                   coalesce(related.price, 0) AS price,
+                   coalesce(related.category, '') AS category,
+                   coalesce(related.brand, '') AS brand,
+                   count(shared) AS shared_count
             ORDER BY shared_count DESC
             LIMIT $limit
             """
@@ -553,46 +550,35 @@ async def get_related_products(
             cypher = """
             MATCH (p:Product)
             WHERE elementId(p) = $product_id OR p.id = $product_id
-            CALL {
-                WITH p
+            CALL (p) {
                 MATCH (p)-[:IN_CATEGORY]->(c)<-[:IN_CATEGORY]-(related:Product)
                 WHERE related <> p
                 RETURN related, 'category' as relation_type, c.name as shared
                 UNION
-                WITH p
                 MATCH (p)-[:MADE_BY]->(b)<-[:MADE_BY]-(related:Product)
                 WHERE related <> p
                 RETURN related, 'brand' as relation_type, b.name as shared
                 UNION
-                WITH p
                 MATCH (p)-[:HAS_ATTRIBUTE]->(a)<-[:HAS_ATTRIBUTE]-(related:Product)
                 WHERE related <> p
                 RETURN related, 'attribute' as relation_type, a.name as shared
             }
-            RETURN related, collect(DISTINCT {type: relation_type, value: shared}) as connections
+            WITH related,
+                 collect(DISTINCT {type: relation_type, value: shared}) AS connections
+            RETURN elementId(related) AS id, related.name AS name,
+                   coalesce(related.description, '')[..100] AS description,
+                   coalesce(related.price, 0) AS price,
+                   coalesce(related.category, '') AS category,
+                   coalesce(related.brand, '') AS brand,
+                   connections
             LIMIT $limit
             """
 
-        result = await memory_client.graph.execute_query(
+        result = await memory_client.graph.execute_read(
             cypher, {"product_id": product_id, "limit": limit}
         )
 
-        related = []
-        for record in result:
-            p = record["related"]
-            related.append(
-                {
-                    "id": str(p.element_id),
-                    "name": p.get("name"),
-                    "description": p.get("description", "")[:100],
-                    "price": p.get("price", 0),
-                    "category": p.get("category", ""),
-                    "brand": p.get("brand", ""),
-                    "connections": record.get("connections", []),
-                }
-            )
-
-        return {"related_products": related}
+        return {"related_products": result}
 
     except Exception as e:
         logger.exception("Error getting related products")
@@ -605,12 +591,7 @@ async def get_related_products(
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    db_connected = memory_client is not None
-    if db_connected:
-        try:
-            await memory_client.graph.execute_query("RETURN 1")
-        except Exception:
-            db_connected = False
+    db_connected = memory_client is not None and memory_client.is_connected
 
     return {
         "status": "healthy" if db_connected else "degraded",

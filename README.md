@@ -943,10 +943,10 @@ memories = memory.recall("restaurant recommendation")
 
 ### Microsoft Agent Framework (Preview)
 
-> ⚠️ This integration targets Microsoft Agent Framework v1.0.0b (preview). APIs may change before GA release.
+> ⚠️ This integration targets Microsoft Agent Framework v1.0.0b260212 (preview). APIs may change before GA release.
 
 ```python
-from agent_framework import ChatAgent, ChatCompletionClient
+from agent_framework.azure import AzureOpenAIResponsesClient
 from neo4j_agent_memory.integrations.microsoft_agent import (
     Neo4jMicrosoftMemory,
     GDSConfig,
@@ -976,8 +976,8 @@ tools = create_memory_tools(
 )
 
 # Create agent with context provider (auto-injects memory context)
-agent = ChatAgent(
-    chat_client=ChatCompletionClient(...),
+chat_client = AzureOpenAIResponsesClient(...)
+agent = chat_client.as_agent(
     name="assistant",
     tools=tools,
     context_providers=[memory.context_provider],

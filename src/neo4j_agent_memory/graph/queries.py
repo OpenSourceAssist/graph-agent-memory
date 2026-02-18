@@ -603,7 +603,7 @@ LIMIT $limit
 RETURN
     collect(DISTINCT {id: c.id, labels: ['Conversation'], properties: properties(c)}) +
     collect(DISTINCT {id: m.id, labels: ['Message'], properties: CASE WHEN $include_embeddings THEN properties(m) ELSE apoc.map.removeKeys(properties(m), ['embedding']) END}) AS nodes,
-    collect(DISTINCT {id: id(r), type: type(r), from_node: c.id, to_node: m.id, properties: properties(r)}) AS relationships
+    collect(DISTINCT {id: elementId(r), type: type(r), from_node: c.id, to_node: m.id, properties: properties(r)}) AS relationships
 """
 
 GET_GRAPH_LONG_TERM = """
@@ -618,7 +618,7 @@ OPTIONAL MATCH (f:Fact)
 WITH e, r, e2, collect(DISTINCT p) AS prefs, collect(DISTINCT f) AS facts
 RETURN
     collect(DISTINCT {id: e.id, labels: ['Entity'], properties: CASE WHEN $include_embeddings THEN properties(e) ELSE apoc.map.removeKeys(properties(e), ['embedding']) END}) AS nodes,
-    collect(DISTINCT {id: id(r), type: type(r), from_node: e.id, to_node: e2.id, properties: properties(r)}) AS relationships
+    collect(DISTINCT {id: elementId(r), type: type(r), from_node: e.id, to_node: e2.id, properties: properties(r)}) AS relationships
 """
 
 GET_GRAPH_REASONING = """
@@ -634,8 +634,8 @@ RETURN
     collect(DISTINCT {id: rt.id, labels: ['ReasoningTrace'], properties: CASE WHEN $include_embeddings THEN properties(rt) ELSE apoc.map.removeKeys(properties(rt), ['task_embedding']) END}) +
     collect(DISTINCT {id: rs.id, labels: ['ReasoningStep'], properties: CASE WHEN $include_embeddings THEN properties(rs) ELSE apoc.map.removeKeys(properties(rs), ['embedding']) END}) +
     collect(DISTINCT {id: tc.id, labels: ['ToolCall'], properties: properties(tc)}) AS nodes,
-    collect(DISTINCT {id: id(r1), type: type(r1), from_node: rt.id, to_node: rs.id, properties: properties(r1)}) +
-    collect(DISTINCT {id: id(r2), type: type(r2), from_node: rs.id, to_node: tc.id, properties: properties(r2)}) AS relationships
+    collect(DISTINCT {id: elementId(r1), type: type(r1), from_node: rt.id, to_node: rs.id, properties: properties(r1)}) +
+    collect(DISTINCT {id: elementId(r2), type: type(r2), from_node: rs.id, to_node: tc.id, properties: properties(r2)}) AS relationships
 """
 
 GET_GRAPH_ALL = """
@@ -647,15 +647,15 @@ LIMIT $limit
 OPTIONAL MATCH (n)-[r]-(m)
 RETURN
     collect(DISTINCT {
-        id: COALESCE(n.id, toString(id(n))),
+        id: COALESCE(n.id, elementId(n)),
         labels: labels(n),
         properties: CASE WHEN $include_embeddings THEN properties(n) ELSE apoc.map.removeKeys(properties(n), ['embedding', 'task_embedding']) END
     }) AS nodes,
     collect(DISTINCT {
-        id: toString(id(r)),
+        id: elementId(r),
         type: type(r),
-        from_node: COALESCE(n.id, toString(id(n))),
-        to_node: COALESCE(m.id, toString(id(m))),
+        from_node: COALESCE(n.id, elementId(n)),
+        to_node: COALESCE(m.id, elementId(m)),
         properties: properties(r)
     }) AS relationships
 """
