@@ -46,7 +46,7 @@ class FinancialMemoryService:
     async def initialize(self) -> None:
         """Initialize the memory client and create indexes."""
         if not self._initialized:
-            await self._client.initialize()
+            await self._client.connect()
             self._initialized = True
             logger.info("Financial Memory Service initialized")
 
