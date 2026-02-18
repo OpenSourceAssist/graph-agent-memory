@@ -248,9 +248,11 @@ class TestBedrockEmbedderErrors:
                 raise ImportError("No module named 'boto3'")
             return real_import(name, *args, **kwargs)
 
-        with patch.object(builtins, "__import__", side_effect=mock_import):
-            with pytest.raises(EmbeddingError) as exc_info:
-                embedder._ensure_client()
+        with (
+            patch.object(builtins, "__import__", side_effect=mock_import),
+            pytest.raises(EmbeddingError) as exc_info,
+        ):
+            embedder._ensure_client()
 
         assert "boto3 package not installed" in str(exc_info.value)
 
