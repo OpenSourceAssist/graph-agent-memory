@@ -11,25 +11,19 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import TYPE_CHECKING
 
 from fastmcp import Context
+
+from neo4j_agent_memory.mcp._common import get_client
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 
 
-def _get_client(ctx: Context):
-    """Get MemoryClient from lifespan context.
-
-    Args:
-        ctx: FastMCP context with lifespan data.
-
-    Returns:
-        The MemoryClient instance.
-    """
-    return ctx.request_context.lifespan_context["client"]
-
-
-def register_resources(mcp) -> None:
+def register_resources(mcp: FastMCP) -> None:
     """Register all MCP resources on the server.
 
     Args:
@@ -42,7 +36,7 @@ def register_resources(mcp) -> None:
 
         Returns the full message history for the given session ID.
         """
-        client = _get_client(ctx)
+        client = get_client(ctx)
         conversation = await client.short_term.get_conversation(session_id=session_id, limit=100)
         messages = [
             {
@@ -61,7 +55,7 @@ def register_resources(mcp) -> None:
 
         Looks up an entity by name and returns its properties.
         """
-        client = _get_client(ctx)
+        client = get_client(ctx)
         entities = await client.long_term.search_entities(query=entity_name, limit=1)
         if not entities:
             return json.dumps({"found": False, "name": entity_name})
@@ -89,7 +83,7 @@ def register_resources(mcp) -> None:
 
         Returns all stored preferences matching the given category.
         """
-        client = _get_client(ctx)
+        client = get_client(ctx)
         preferences = await client.long_term.search_preferences(query=category, limit=50)
         prefs = [
             {
@@ -108,7 +102,7 @@ def register_resources(mcp) -> None:
 
         Returns node/relationship counts and entity type distribution.
         """
-        client = _get_client(ctx)
+        client = get_client(ctx)
         try:
             records = await client.graph.execute_read(
                 "MATCH (n) RETURN labels(n) AS labels, count(*) AS count",

@@ -13,13 +13,21 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastmcp import Context
 
+from neo4j_agent_memory.mcp._common import get_client
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 logger = logging.getLogger(__name__)
 
-# Patterns for detecting write operations in Cypher (matched against uppercased query)
+# Patterns for detecting write operations in Cypher (matched against uppercased query).
+# Note: CALL db.* and CALL apoc.* are allowed since many procedures are read-only
+# (e.g., db.index.vector.queryNodes, apoc.meta.data). The database itself will
+# reject writes when executed via execute_read().
 WRITE_PATTERNS = [
     r"\bCREATE\b",
     r"\bMERGE\b",
@@ -31,8 +39,6 @@ WRITE_PATTERNS = [
     r"\bLOAD\s+CSV\b",
     r"\bFOREACH\b",
     r"\bCALL\s+\{",
-    r"\bCALL\s+DB\.",
-    r"\bCALL\s+APOC\.",
     r"\bIN\s+TRANSACTIONS\b",
 ]
 
@@ -50,19 +56,7 @@ def _is_read_only_query(query: str) -> bool:
     return all(not re.search(pattern, query_upper) for pattern in WRITE_PATTERNS)
 
 
-def _get_client(ctx: Context):
-    """Get MemoryClient from lifespan context.
-
-    Args:
-        ctx: FastMCP context with lifespan data.
-
-    Returns:
-        The MemoryClient instance.
-    """
-    return ctx.request_context.lifespan_context["client"]
-
-
-def register_tools(mcp) -> None:
+def register_tools(mcp: FastMCP) -> None:
     """Register all MCP tools on the server.
 
     Args:
@@ -82,7 +76,7 @@ def register_tools(mcp) -> None:
 
         Finds relevant messages, entities, preferences, and reasoning traces.
         """
-        client = _get_client(ctx)
+        client = get_client(ctx)
 
         if memory_types is None:
             memory_types = ["messages", "entities", "preferences"]
@@ -157,7 +151,7 @@ def register_tools(mcp) -> None:
 
         except Exception as e:
             logger.error(f"Error in memory_search: {e}")
-            raise
+            return json.dumps({"error": str(e)})
 
         return json.dumps({"results": results, "query": query}, default=str)
 
@@ -190,7 +184,7 @@ def register_tools(mcp) -> None:
             object_value: Fact object (required for fact type).
             metadata: Optional metadata to attach.
         """
-        client = _get_client(ctx)
+        client = get_client(ctx)
 
         try:
             if memory_type == "message":
@@ -257,7 +251,7 @@ def register_tools(mcp) -> None:
 
         except Exception as e:
             logger.error(f"Error in memory_store: {e}")
-            raise
+            return json.dumps({"error": str(e)})
 
     @mcp.tool()
     async def entity_lookup(
@@ -272,7 +266,7 @@ def register_tools(mcp) -> None:
         Searches the knowledge graph for entities by name, with optional
         graph traversal to find related entities.
         """
-        client = _get_client(ctx)
+        client = get_client(ctx)
 
         try:
             entities = await client.long_term.search_entities(
@@ -306,7 +300,7 @@ def register_tools(mcp) -> None:
 
         except Exception as e:
             logger.error(f"Error in entity_lookup: {e}")
-            raise
+            return json.dumps({"error": str(e)})
 
     @mcp.tool()
     async def conversation_history(
@@ -320,7 +314,7 @@ def register_tools(mcp) -> None:
 
         Returns messages in chronological order with role, content, and metadata.
         """
-        client = _get_client(ctx)
+        client = get_client(ctx)
 
         try:
             conversation = await client.short_term.get_conversation(
@@ -351,7 +345,7 @@ def register_tools(mcp) -> None:
 
         except Exception as e:
             logger.error(f"Error in conversation_history: {e}")
-            raise
+            return json.dumps({"error": str(e)})
 
     @mcp.tool()
     async def graph_query(
@@ -372,7 +366,7 @@ def register_tools(mcp) -> None:
                 }
             )
 
-        client = _get_client(ctx)
+        client = get_client(ctx)
 
         try:
             records = await client.graph.execute_read(query, parameters or {})
@@ -411,7 +405,7 @@ async def _get_entity_neighbors(
     WHERE neighbor.id <> $entity_id
     WITH DISTINCT neighbor, r
     RETURN neighbor.id AS id,
-           neighbor.displayName AS name,
+           neighbor.name AS name,
            neighbor.type AS type,
            neighbor.description AS description
     LIMIT 20

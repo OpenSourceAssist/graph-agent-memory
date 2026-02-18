@@ -1,40 +1,16 @@
 """Unit tests for FastMCP tool registration and execution.
 
-Tests the new _tools.py module that replaces tools.py + handlers.py.
+Tests the _tools.py module that defines the 5 core MCP tools.
 Uses FastMCP's Client for in-memory testing.
 """
 
 import json
-from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastmcp import Client, FastMCP
+from fastmcp import Client
 
-
-def _make_mock_client():
-    """Create a mock MemoryClient with all required sub-clients."""
-    client = MagicMock()
-    client.short_term = MagicMock()
-    client.long_term = MagicMock()
-    client.reasoning = MagicMock()
-    client.graph = MagicMock()
-    return client
-
-
-def _create_server_with_mock(mock_client):
-    """Create a FastMCP server with tools registered and a mock client in lifespan."""
-
-    @asynccontextmanager
-    async def mock_lifespan(server):
-        yield {"client": mock_client}
-
-    mcp = FastMCP("test-tools", lifespan=mock_lifespan)
-
-    from neo4j_agent_memory.mcp._tools import register_tools
-
-    register_tools(mcp)
-    return mcp
+from tests.unit.mcp.conftest import create_tool_server, make_mock_client
 
 
 class TestToolRegistration:
@@ -42,7 +18,8 @@ class TestToolRegistration:
 
     @pytest.fixture
     def server(self):
-        return _create_server_with_mock(_make_mock_client())
+        """Create a tool server with a mock client."""
+        return create_tool_server(make_mock_client())
 
     @pytest.mark.asyncio
     async def test_registers_5_tools(self, server):
@@ -83,7 +60,7 @@ class TestToolRegistration:
 
     @pytest.mark.asyncio
     async def test_memory_store_has_required_params(self, server):
-        """memory_store should require 'type' and 'content' parameters."""
+        """memory_store should require 'memory_type' and 'content' parameters."""
         async with Client(server) as client:
             tools = await client.list_tools()
             store_tool = next(t for t in tools if t.name == "memory_store")
@@ -116,13 +93,76 @@ class TestToolRegistration:
             assert "query" in query_tool.inputSchema.get("required", [])
 
 
+class TestReadOnlyQueryValidation:
+    """Tests for Cypher query read-only validation."""
+
+    def test_allows_match(self):
+        """MATCH/RETURN queries should be allowed."""
+        from neo4j_agent_memory.mcp._tools import _is_read_only_query
+
+        assert _is_read_only_query("MATCH (n) RETURN n") is True
+        assert _is_read_only_query("MATCH (n:Person) RETURN n.name") is True
+
+    def test_blocks_create(self):
+        """CREATE queries should be blocked."""
+        from neo4j_agent_memory.mcp._tools import _is_read_only_query
+
+        assert _is_read_only_query("CREATE (n:Person {name: 'Alice'})") is False
+        assert _is_read_only_query("MATCH (n) CREATE (m:Copy) SET m = n") is False
+
+    def test_blocks_merge(self):
+        """MERGE queries should be blocked."""
+        from neo4j_agent_memory.mcp._tools import _is_read_only_query
+
+        assert _is_read_only_query("MERGE (n:Person {name: 'Alice'})") is False
+
+    def test_blocks_delete(self):
+        """DELETE and DETACH DELETE queries should be blocked."""
+        from neo4j_agent_memory.mcp._tools import _is_read_only_query
+
+        assert _is_read_only_query("MATCH (n) DELETE n") is False
+        assert _is_read_only_query("MATCH (n) DETACH DELETE n") is False
+
+    def test_blocks_set(self):
+        """SET queries should be blocked."""
+        from neo4j_agent_memory.mcp._tools import _is_read_only_query
+
+        assert _is_read_only_query("MATCH (n) SET n.name = 'Bob'") is False
+
+    def test_blocks_remove(self):
+        """REMOVE queries should be blocked."""
+        from neo4j_agent_memory.mcp._tools import _is_read_only_query
+
+        assert _is_read_only_query("MATCH (n) REMOVE n.name") is False
+
+    def test_case_insensitive(self):
+        """Write detection should be case-insensitive."""
+        from neo4j_agent_memory.mcp._tools import _is_read_only_query
+
+        assert _is_read_only_query("match (n) return n") is True
+        assert _is_read_only_query("create (n)") is False
+        assert _is_read_only_query("CREATE (n)") is False
+
+    def test_allows_call_procedures(self):
+        """Read-only CALL procedures should be allowed."""
+        from neo4j_agent_memory.mcp._tools import _is_read_only_query
+
+        assert (
+            _is_read_only_query(
+                "CALL db.index.vector.queryNodes('idx', 5, $vec) YIELD node RETURN node"
+            )
+            is True
+        )
+        assert _is_read_only_query("CALL apoc.meta.data() YIELD label") is True
+
+
 class TestMemorySearchTool:
     """Tests for the memory_search tool behavior."""
 
     @pytest.mark.asyncio
     async def test_search_messages(self):
         """memory_search returns message results."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
 
         mock_msg = MagicMock()
         mock_msg.id = "msg-1"
@@ -135,7 +175,7 @@ class TestMemorySearchTool:
         mock_client.long_term.search_entities = AsyncMock(return_value=[])
         mock_client.long_term.search_preferences = AsyncMock(return_value=[])
 
-        server = _create_server_with_mock(mock_client)
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "memory_search",
@@ -151,12 +191,12 @@ class TestMemorySearchTool:
     @pytest.mark.asyncio
     async def test_search_defaults_to_three_types(self):
         """memory_search defaults to messages, entities, preferences."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_client.short_term.search_messages = AsyncMock(return_value=[])
         mock_client.long_term.search_entities = AsyncMock(return_value=[])
         mock_client.long_term.search_preferences = AsyncMock(return_value=[])
 
-        server = _create_server_with_mock(mock_client)
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "memory_search",
@@ -176,12 +216,12 @@ class TestMemoryStoreTool:
     @pytest.mark.asyncio
     async def test_store_message(self):
         """memory_store stores a message successfully."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_msg = MagicMock()
         mock_msg.id = "msg-new"
         mock_client.short_term.add_message = AsyncMock(return_value=mock_msg)
 
-        server = _create_server_with_mock(mock_client)
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "memory_store",
@@ -201,8 +241,8 @@ class TestMemoryStoreTool:
     @pytest.mark.asyncio
     async def test_store_message_requires_session_id(self):
         """memory_store returns error when session_id missing for message."""
-        mock_client = _make_mock_client()
-        server = _create_server_with_mock(mock_client)
+        mock_client = make_mock_client()
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "memory_store",
@@ -216,12 +256,12 @@ class TestMemoryStoreTool:
     @pytest.mark.asyncio
     async def test_store_preference(self):
         """memory_store stores a preference successfully."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_pref = MagicMock()
         mock_pref.id = "pref-new"
         mock_client.long_term.add_preference = AsyncMock(return_value=mock_pref)
 
-        server = _create_server_with_mock(mock_client)
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "memory_store",
@@ -240,8 +280,8 @@ class TestMemoryStoreTool:
     @pytest.mark.asyncio
     async def test_store_preference_requires_category(self):
         """memory_store returns error when category missing for preference."""
-        mock_client = _make_mock_client()
-        server = _create_server_with_mock(mock_client)
+        mock_client = make_mock_client()
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "memory_store",
@@ -255,12 +295,12 @@ class TestMemoryStoreTool:
     @pytest.mark.asyncio
     async def test_store_fact(self):
         """memory_store stores a fact successfully."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_fact = MagicMock()
         mock_fact.id = "fact-new"
         mock_client.long_term.add_fact = AsyncMock(return_value=mock_fact)
 
-        server = _create_server_with_mock(mock_client)
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "memory_store",
@@ -282,8 +322,8 @@ class TestMemoryStoreTool:
     @pytest.mark.asyncio
     async def test_store_fact_requires_full_triple(self):
         """memory_store returns error when fact triple is incomplete."""
-        mock_client = _make_mock_client()
-        server = _create_server_with_mock(mock_client)
+        mock_client = make_mock_client()
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "memory_store",
@@ -304,7 +344,7 @@ class TestEntityLookupTool:
     @pytest.mark.asyncio
     async def test_entity_found(self):
         """entity_lookup returns entity data when found."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_entity = MagicMock()
         mock_entity.id = "entity-1"
         mock_entity.display_name = "Alice"
@@ -315,7 +355,7 @@ class TestEntityLookupTool:
         mock_client.graph = MagicMock()
         mock_client.graph.execute_read = AsyncMock(return_value=[])
 
-        server = _create_server_with_mock(mock_client)
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "entity_lookup",
@@ -330,10 +370,10 @@ class TestEntityLookupTool:
     @pytest.mark.asyncio
     async def test_entity_not_found(self):
         """entity_lookup returns found=False when not found."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_client.long_term.search_entities = AsyncMock(return_value=[])
 
-        server = _create_server_with_mock(mock_client)
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "entity_lookup",
@@ -351,7 +391,7 @@ class TestConversationHistoryTool:
     @pytest.mark.asyncio
     async def test_returns_messages(self):
         """conversation_history returns messages for a session."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_msg = MagicMock()
         mock_msg.id = "msg-1"
         mock_msg.role = MagicMock(value="user")
@@ -362,7 +402,7 @@ class TestConversationHistoryTool:
         mock_conversation.messages = [mock_msg]
         mock_client.short_term.get_conversation = AsyncMock(return_value=mock_conversation)
 
-        server = _create_server_with_mock(mock_client)
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "conversation_history",
@@ -381,10 +421,10 @@ class TestGraphQueryTool:
     @pytest.mark.asyncio
     async def test_read_only_query_succeeds(self):
         """graph_query executes read-only Cypher."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_client.graph.execute_read = AsyncMock(return_value=[{"n.name": "Alice"}])
 
-        server = _create_server_with_mock(mock_client)
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "graph_query",
@@ -398,8 +438,8 @@ class TestGraphQueryTool:
     @pytest.mark.asyncio
     async def test_blocks_create_query(self):
         """graph_query blocks CREATE queries."""
-        mock_client = _make_mock_client()
-        server = _create_server_with_mock(mock_client)
+        mock_client = make_mock_client()
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "graph_query",
@@ -413,8 +453,8 @@ class TestGraphQueryTool:
     @pytest.mark.asyncio
     async def test_blocks_merge_query(self):
         """graph_query blocks MERGE queries."""
-        mock_client = _make_mock_client()
-        server = _create_server_with_mock(mock_client)
+        mock_client = make_mock_client()
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "graph_query",
@@ -427,8 +467,8 @@ class TestGraphQueryTool:
     @pytest.mark.asyncio
     async def test_blocks_delete_query(self):
         """graph_query blocks DELETE queries."""
-        mock_client = _make_mock_client()
-        server = _create_server_with_mock(mock_client)
+        mock_client = make_mock_client()
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "graph_query",
@@ -441,8 +481,8 @@ class TestGraphQueryTool:
     @pytest.mark.asyncio
     async def test_blocks_set_query(self):
         """graph_query blocks SET queries."""
-        mock_client = _make_mock_client()
-        server = _create_server_with_mock(mock_client)
+        mock_client = make_mock_client()
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "graph_query",
@@ -455,8 +495,8 @@ class TestGraphQueryTool:
     @pytest.mark.asyncio
     async def test_case_insensitive_blocking(self):
         """graph_query blocks write queries regardless of case."""
-        mock_client = _make_mock_client()
-        server = _create_server_with_mock(mock_client)
+        mock_client = make_mock_client()
+        server = create_tool_server(mock_client)
         async with Client(server) as client:
             result = await client.call_tool(
                 "graph_query",

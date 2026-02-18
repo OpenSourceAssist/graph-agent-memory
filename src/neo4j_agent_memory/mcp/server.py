@@ -19,19 +19,6 @@ logger = logging.getLogger(__name__)
 try:
     from fastmcp import FastMCP
 
-    @asynccontextmanager
-    async def _memory_lifespan(server: FastMCP):
-        """Manage MemoryClient lifecycle for the MCP server.
-
-        Creates a MemoryClient from the settings stored on the server,
-        yields it in the lifespan context dict, and ensures cleanup.
-        """
-        from neo4j_agent_memory import MemoryClient as _MemoryClient
-
-        settings = server._lifespan_settings
-        async with _MemoryClient(settings) as client:
-            yield {"client": client}
-
     def create_mcp_server(
         settings: Any = None,
         *,
@@ -58,13 +45,21 @@ try:
             server = create_mcp_server(settings)
             server.run()
         """
-        lifespan = _memory_lifespan if settings is not None else None
+        lifespan = None
+        if settings is not None:
+
+            @asynccontextmanager
+            async def lifespan(server: FastMCP):  # noqa: E303
+                """Manage MemoryClient lifecycle for the MCP server."""
+                from neo4j_agent_memory import MemoryClient as _MemoryClient
+
+                async with _MemoryClient(settings) as client:
+                    yield {"client": client}
 
         mcp = FastMCP(
             server_name,
             lifespan=lifespan,
         )
-        mcp._lifespan_settings = settings
 
         from neo4j_agent_memory.mcp._prompts import register_prompts
         from neo4j_agent_memory.mcp._resources import register_resources
@@ -104,14 +99,12 @@ try:
             memory_client: MemoryClient,
             *,
             server_name: str = "neo4j-agent-memory",
-            server_version: str = "0.0.3",
         ):
             """Initialize the MCP server with a pre-connected client.
 
             Args:
                 memory_client: Connected MemoryClient instance.
                 server_name: Server name for MCP registration.
-                server_version: Server version string.
             """
             self._client = memory_client
 

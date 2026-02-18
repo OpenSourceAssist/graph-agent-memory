@@ -5,36 +5,12 @@ Uses FastMCP's Client for in-memory testing.
 """
 
 import json
-from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastmcp import Client, FastMCP
+from fastmcp import Client
 
-
-def _make_mock_client():
-    """Create a mock MemoryClient with all required sub-clients."""
-    client = MagicMock()
-    client.short_term = MagicMock()
-    client.long_term = MagicMock()
-    client.reasoning = MagicMock()
-    client.graph = MagicMock()
-    return client
-
-
-def _create_server_with_mock(mock_client):
-    """Create a FastMCP server with resources registered and a mock client in lifespan."""
-
-    @asynccontextmanager
-    async def mock_lifespan(server):
-        yield {"client": mock_client}
-
-    mcp = FastMCP("test-resources", lifespan=mock_lifespan)
-
-    from neo4j_agent_memory.mcp._resources import register_resources
-
-    register_resources(mcp)
-    return mcp
+from tests.unit.mcp.conftest import create_resource_server, make_mock_client
 
 
 class TestResourceRegistration:
@@ -42,7 +18,8 @@ class TestResourceRegistration:
 
     @pytest.fixture
     def server(self):
-        return _create_server_with_mock(_make_mock_client())
+        """Create a resource server with a mock client."""
+        return create_resource_server(make_mock_client())
 
     @pytest.mark.asyncio
     async def test_registers_3_resource_templates(self, server):
@@ -97,7 +74,7 @@ class TestConversationResource:
     @pytest.mark.asyncio
     async def test_returns_conversation_messages(self):
         """Conversation resource returns messages for a session."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_msg = MagicMock()
         mock_msg.id = "msg-1"
         mock_msg.role = MagicMock(value="user")
@@ -108,7 +85,7 @@ class TestConversationResource:
         mock_conversation.messages = [mock_msg]
         mock_client.short_term.get_conversation = AsyncMock(return_value=mock_conversation)
 
-        server = _create_server_with_mock(mock_client)
+        server = create_resource_server(mock_client)
         async with Client(server) as client:
             result = await client.read_resource("memory://conversations/session-123")
 
@@ -120,12 +97,12 @@ class TestConversationResource:
     @pytest.mark.asyncio
     async def test_empty_conversation(self):
         """Conversation resource handles empty session."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_conversation = MagicMock()
         mock_conversation.messages = []
         mock_client.short_term.get_conversation = AsyncMock(return_value=mock_conversation)
 
-        server = _create_server_with_mock(mock_client)
+        server = create_resource_server(mock_client)
         async with Client(server) as client:
             result = await client.read_resource("memory://conversations/empty-session")
 
@@ -140,7 +117,7 @@ class TestEntityResource:
     @pytest.mark.asyncio
     async def test_returns_entity_data(self):
         """Entity resource returns entity details when found."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_entity = MagicMock()
         mock_entity.id = "entity-1"
         mock_entity.display_name = "Alice"
@@ -149,7 +126,7 @@ class TestEntityResource:
         mock_entity.aliases = ["Al"]
         mock_client.long_term.search_entities = AsyncMock(return_value=[mock_entity])
 
-        server = _create_server_with_mock(mock_client)
+        server = create_resource_server(mock_client)
         async with Client(server) as client:
             result = await client.read_resource("memory://entities/Alice")
 
@@ -161,10 +138,10 @@ class TestEntityResource:
     @pytest.mark.asyncio
     async def test_entity_not_found(self):
         """Entity resource returns found=False when not found."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_client.long_term.search_entities = AsyncMock(return_value=[])
 
-        server = _create_server_with_mock(mock_client)
+        server = create_resource_server(mock_client)
         async with Client(server) as client:
             result = await client.read_resource("memory://entities/Unknown")
 
@@ -179,7 +156,7 @@ class TestPreferencesResource:
     @pytest.mark.asyncio
     async def test_returns_preferences(self):
         """Preferences resource returns preferences for a category."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_pref = MagicMock()
         mock_pref.id = "pref-1"
         mock_pref.category = "ui"
@@ -187,7 +164,7 @@ class TestPreferencesResource:
         mock_pref.context = "Always"
         mock_client.long_term.search_preferences = AsyncMock(return_value=[mock_pref])
 
-        server = _create_server_with_mock(mock_client)
+        server = create_resource_server(mock_client)
         async with Client(server) as client:
             result = await client.read_resource("memory://preferences/ui")
 
@@ -199,10 +176,10 @@ class TestPreferencesResource:
     @pytest.mark.asyncio
     async def test_empty_preferences(self):
         """Preferences resource handles empty results."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_client.long_term.search_preferences = AsyncMock(return_value=[])
 
-        server = _create_server_with_mock(mock_client)
+        server = create_resource_server(mock_client)
         async with Client(server) as client:
             result = await client.read_resource("memory://preferences/unknown")
 
@@ -217,7 +194,7 @@ class TestGraphStatsResource:
     @pytest.mark.asyncio
     async def test_returns_stats(self):
         """Graph stats resource returns node counts."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_client.graph.execute_read = AsyncMock(
             return_value=[
                 {"labels": ["Entity"], "count": 42},
@@ -225,7 +202,7 @@ class TestGraphStatsResource:
             ]
         )
 
-        server = _create_server_with_mock(mock_client)
+        server = create_resource_server(mock_client)
         async with Client(server) as client:
             result = await client.read_resource("memory://graph/stats")
 
@@ -236,10 +213,10 @@ class TestGraphStatsResource:
     @pytest.mark.asyncio
     async def test_handles_error_gracefully(self):
         """Graph stats resource handles errors without crashing."""
-        mock_client = _make_mock_client()
+        mock_client = make_mock_client()
         mock_client.graph.execute_read = AsyncMock(side_effect=Exception("Connection lost"))
 
-        server = _create_server_with_mock(mock_client)
+        server = create_resource_server(mock_client)
         async with Client(server) as client:
             result = await client.read_resource("memory://graph/stats")
 

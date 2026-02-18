@@ -8,10 +8,15 @@ Defines 3 prompts that provide guided workflows:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastmcp.prompts import Message
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
-def register_prompts(mcp) -> None:
+
+def register_prompts(mcp: FastMCP) -> None:
     """Register all MCP prompts on the server.
 
     Args:

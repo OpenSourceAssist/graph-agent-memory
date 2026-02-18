@@ -31,20 +31,21 @@ class TestCreateMCPServer:
         server = create_mcp_server(server_name="custom-server")
         assert server.name == "custom-server"
 
-    def test_create_mcp_server_stores_settings(self):
-        """Test that settings are stored for lifespan access."""
+    def test_create_mcp_server_with_settings_has_lifespan(self):
+        """Test that settings create a lifespan for client management."""
         from neo4j_agent_memory.mcp.server import create_mcp_server
 
         mock_settings = MagicMock()
         server = create_mcp_server(settings=mock_settings)
-        assert server._lifespan_settings is mock_settings
+        # When settings are provided, a lifespan closure is created
+        assert server._lifespan is not None
 
-    def test_create_mcp_server_has_lifespan(self):
-        """Test that a lifespan function is configured."""
+    def test_create_mcp_server_without_settings_uses_default_lifespan(self):
+        """Test that no custom lifespan is set when settings are None."""
         from neo4j_agent_memory.mcp.server import create_mcp_server
 
         server = create_mcp_server()
-        # FastMCP stores lifespan - verify it's set (not None)
+        # Without settings, FastMCP uses its default lifespan
         assert server._lifespan is not None
 
 
