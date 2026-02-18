@@ -66,6 +66,14 @@ try:
         )
         mcp._lifespan_settings = settings
 
+        from neo4j_agent_memory.mcp._prompts import register_prompts
+        from neo4j_agent_memory.mcp._resources import register_resources
+        from neo4j_agent_memory.mcp._tools import register_tools
+
+        register_tools(mcp)
+        register_resources(mcp)
+        register_prompts(mcp)
+
         return mcp
 
     class Neo4jMemoryMCPServer:
@@ -115,6 +123,14 @@ try:
                 server_name,
                 lifespan=_preconnected_lifespan,
             )
+
+            from neo4j_agent_memory.mcp._prompts import register_prompts
+            from neo4j_agent_memory.mcp._resources import register_resources
+            from neo4j_agent_memory.mcp._tools import register_tools
+
+            register_tools(self._mcp)
+            register_resources(self._mcp)
+            register_prompts(self._mcp)
 
         async def run(self) -> None:
             """Run the MCP server using stdio transport."""
