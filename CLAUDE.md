@@ -93,11 +93,12 @@ src/neo4j_agent_memory/
 ├── embeddings/
 │   ├── base.py              # Embedder protocol
 │   ├── openai.py            # OpenAI embeddings
-│   └── vertex_ai.py         # Vertex AI embeddings (Google Cloud)
+│   ├── vertex_ai.py         # Vertex AI embeddings (Google Cloud)
+│   └── bedrock.py           # Amazon Bedrock embeddings (AWS)
 ├── mcp/
 │   ├── __init__.py          # MCP package exports
 │   ├── server.py            # MCP server (stdio/SSE transports)
-│   ├── tools.py             # 5 MCP tool definitions
+│   ├── tools.py             # 6 MCP tool definitions
 │   └── handlers.py          # Tool execution handlers
 ├── services/
 │   ├── __init__.py          # Service exports
@@ -127,7 +128,9 @@ src/neo4j_agent_memory/
     ├── pydantic_ai/         # Pydantic AI dependency + tools
     ├── llamaindex/          # LlamaIndex memory
     ├── crewai/              # CrewAI memory
-    └── google_adk/          # Google ADK MemoryService
+    ├── google_adk/          # Google ADK MemoryService
+    ├── strands/             # AWS Strands Agents tools
+    └── agentcore/           # AWS AgentCore HybridMemoryProvider
 
 benchmarks/                   # Extraction quality benchmarks (separate module)
 ├── __init__.py              # Benchmark exports
@@ -1329,6 +1332,14 @@ deps = MemoryDependency(client=client, session_id="user-123")
 # Google ADK
 from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 memory_service = Neo4jMemoryService(client, user_id="user-123")
+
+# Strands Agents (AWS)
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+tools = context_graph_tools(neo4j_uri="bolt://localhost:7687", neo4j_password="password", embedding_provider="bedrock")
+
+# AgentCore Hybrid Memory (AWS)
+from neo4j_agent_memory.integrations.agentcore import HybridMemoryProvider
+provider = HybridMemoryProvider(memory_client=client, routing_strategy="auto")
 ```
 
 ### Google Cloud Integration (v0.0.3)
@@ -1414,7 +1425,7 @@ async with MemoryClient(settings) as client:
 
 #### MCP Server
 
-The MCP server exposes 5 tools for memory operations:
+The MCP server exposes 6 tools for memory operations:
 
 | Tool | Description |
 |------|-------------|
@@ -1423,6 +1434,7 @@ The MCP server exposes 5 tools for memory operations:
 | `entity_lookup` | Get entity with relationships and context |
 | `conversation_history` | Retrieve session conversation history |
 | `graph_query` | Execute read-only Cypher queries |
+| `add_reasoning_trace` | Record agent reasoning traces |
 
 **Starting the Server:**
 
@@ -1650,6 +1662,8 @@ See `deploy/cloudrun/README.md` for full deployment instructions.
 - `OPENAI_API_KEY` - Required for OpenAI embeddings and LLM extraction
 - `GOOGLE_CLOUD_PROJECT` - GCP project ID for Vertex AI embeddings
 - `VERTEX_AI_LOCATION` - GCP region for Vertex AI (default: `us-central1`)
+- `NAM_EMBEDDING__AWS_REGION` - AWS region for Bedrock embeddings (e.g., `us-east-1`)
+- `NAM_EMBEDDING__AWS_PROFILE` - AWS credentials profile name (optional)
 - `GOOGLE_GEOCODING_API_KEY` - API key for Google Geocoding (optional, for geocoding Location entities)
 - `DIFFBOT_API_KEY` - API key for Diffbot Knowledge Graph enrichment (optional)
 - `NAM_ENRICHMENT__ENABLED` - Enable background entity enrichment (default: `false`)

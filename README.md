@@ -30,7 +30,9 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 - **Temporal Relationships**: Track when facts become valid or invalid
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Observability**: OpenTelemetry and Opik tracing for monitoring extraction pipelines
-- **Agent Framework Integrations**: LangChain, Pydantic AI, LlamaIndex, CrewAI
+- **Agent Framework Integrations**: LangChain, Pydantic AI, LlamaIndex, CrewAI, OpenAI Agents, Strands Agents (AWS)
+- **Amazon Bedrock Embeddings**: Use Titan or Cohere embedding models via AWS Bedrock
+- **AWS Hybrid Memory**: HybridMemoryProvider with intelligent routing between short-term and long-term memory
 
 ## Installation
 
@@ -43,6 +45,15 @@ pip install neo4j-agent-memory[openai]
 
 # With Google Cloud (Vertex AI embeddings)
 pip install neo4j-agent-memory[vertex-ai]
+
+# With Amazon Bedrock embeddings
+pip install neo4j-agent-memory[bedrock]
+
+# With AWS Strands Agents
+pip install neo4j-agent-memory[strands]
+
+# With all AWS integrations (Bedrock + Strands + AgentCore)
+pip install neo4j-agent-memory[aws]
 
 # With Google ADK integration
 pip install neo4j-agent-memory[google-adk]
@@ -1001,6 +1012,26 @@ await memory_service.add_session_to_memory(session)
 results = await memory_service.search_memories("project deadline")
 ```
 
+### Strands Agents (AWS)
+
+```python
+from strands import Agent
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+
+# Create pre-built memory tools
+tools = context_graph_tools(
+    neo4j_uri="bolt://localhost:7687",
+    neo4j_password="password",
+    embedding_provider="bedrock",
+)
+
+# Tools: search_context, get_entity_graph, add_memory, get_user_preferences
+agent = Agent(
+    model="anthropic.claude-sonnet-4-20250514-v1:0",
+    tools=tools,
+)
+```
+
 ### MCP Server
 
 Expose memory capabilities via Model Context Protocol for AI platforms:
@@ -1022,6 +1053,7 @@ Available MCP tools:
 - `entity_lookup` - Get entity with relationships
 - `conversation_history` - Get session history
 - `graph_query` - Execute read-only Cypher queries
+- `add_reasoning_trace` - Record agent reasoning traces
 
 See `deploy/cloudrun/` for Cloud Run deployment templates.
 
@@ -1036,7 +1068,7 @@ NAM_NEO4J__USERNAME=neo4j
 NAM_NEO4J__PASSWORD=your-password
 
 # Embedding provider
-NAM_EMBEDDING__PROVIDER=openai  # or vertex_ai
+NAM_EMBEDDING__PROVIDER=openai  # or vertex_ai, bedrock
 NAM_EMBEDDING__MODEL=text-embedding-3-small
 
 # OpenAI API key (if using OpenAI embeddings/extraction)
@@ -1045,6 +1077,10 @@ OPENAI_API_KEY=your-api-key
 # Google Cloud (for Vertex AI embeddings)
 GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 VERTEX_AI_LOCATION=us-central1
+
+# AWS (for Bedrock embeddings)
+NAM_EMBEDDING__AWS_REGION=us-east-1
+NAM_EMBEDDING__AWS_PROFILE=default  # optional
 ```
 
 ### Programmatic Configuration
@@ -1067,7 +1103,7 @@ settings = MemorySettings(
         password=SecretStr("password"),
     ),
     embedding=EmbeddingConfig(
-        provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,  # or OPENAI, VERTEX_AI
+        provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,  # or OPENAI, VERTEX_AI, BEDROCK
         model="all-MiniLM-L6-v2",
         dimensions=384,
         # For Vertex AI:
@@ -1075,6 +1111,10 @@ settings = MemorySettings(
         # model="text-embedding-004",
         # project_id="your-gcp-project",
         # location="us-central1",
+        # For Amazon Bedrock:
+        # provider=EmbeddingProvider.BEDROCK,
+        # model="amazon.titan-embed-text-v2:0",
+        # aws_region="us-east-1",
     ),
     extraction=ExtractionConfig(
         # Use the multi-stage pipeline (default)
