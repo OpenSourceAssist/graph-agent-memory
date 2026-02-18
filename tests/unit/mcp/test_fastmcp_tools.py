@@ -1,6 +1,6 @@
 """Unit tests for FastMCP tool registration and execution.
 
-Tests the _tools.py module that defines the 5 core MCP tools.
+Tests the _tools.py module that defines the 6 core MCP tools.
 Uses FastMCP's Client for in-memory testing.
 """
 
@@ -14,7 +14,7 @@ from tests.unit.mcp.conftest import create_tool_server, make_mock_client
 
 
 class TestToolRegistration:
-    """Tests that all 5 tools register correctly on a FastMCP server."""
+    """Tests that all 6 tools register correctly on a FastMCP server."""
 
     @pytest.fixture
     def server(self):
@@ -22,11 +22,11 @@ class TestToolRegistration:
         return create_tool_server(make_mock_client())
 
     @pytest.mark.asyncio
-    async def test_registers_5_tools(self, server):
-        """All 5 memory tools should be registered."""
+    async def test_registers_6_tools(self, server):
+        """All 6 memory tools should be registered."""
         async with Client(server) as client:
             tools = await client.list_tools()
-            assert len(tools) == 5
+            assert len(tools) == 6
 
     @pytest.mark.asyncio
     async def test_tool_names(self, server):
@@ -40,6 +40,7 @@ class TestToolRegistration:
                 "entity_lookup",
                 "conversation_history",
                 "graph_query",
+                "add_reasoning_trace",
             }
 
     @pytest.mark.asyncio
@@ -505,3 +506,73 @@ class TestGraphQueryTool:
 
         data = json.loads(result.content[0].text)
         assert "error" in data
+
+
+class TestAddReasoningTraceTool:
+    """Tests for the add_reasoning_trace tool behavior."""
+
+    @pytest.mark.asyncio
+    async def test_store_trace(self):
+        """add_reasoning_trace stores a trace successfully."""
+        mock_client = make_mock_client()
+        mock_trace = MagicMock()
+        mock_trace.id = "trace-1"
+        mock_client.reasoning.start_trace = AsyncMock(return_value=mock_trace)
+        mock_client.reasoning.complete_trace = AsyncMock()
+
+        server = create_tool_server(mock_client)
+        async with Client(server) as client:
+            result = await client.call_tool(
+                "add_reasoning_trace",
+                {
+                    "session_id": "session-123",
+                    "task": "Find restaurants",
+                    "outcome": "Found 3 restaurants",
+                    "success": True,
+                },
+            )
+
+        data = json.loads(result.content[0].text)
+        assert data["success"] is True
+        assert data["stored"] is True
+        assert data["trace_id"] == "trace-1"
+        assert data["session_id"] == "session-123"
+        assert data["task"] == "Find restaurants"
+        assert data["tool_call_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_store_trace_with_tool_calls(self):
+        """add_reasoning_trace stores a trace with tool call steps."""
+        mock_client = make_mock_client()
+        mock_trace = MagicMock()
+        mock_trace.id = "trace-2"
+        mock_step = MagicMock()
+        mock_step.id = "step-1"
+        mock_client.reasoning.start_trace = AsyncMock(return_value=mock_trace)
+        mock_client.reasoning.add_step = AsyncMock(return_value=mock_step)
+        mock_client.reasoning.record_tool_call = AsyncMock()
+        mock_client.reasoning.complete_trace = AsyncMock()
+
+        server = create_tool_server(mock_client)
+        async with Client(server) as client:
+            result = await client.call_tool(
+                "add_reasoning_trace",
+                {
+                    "session_id": "session-456",
+                    "task": "Search memory",
+                    "tool_calls": [
+                        {
+                            "tool_name": "memory_search",
+                            "arguments": {"query": "test"},
+                            "result": "found 2 results",
+                        }
+                    ],
+                    "outcome": "Completed search",
+                },
+            )
+
+        data = json.loads(result.content[0].text)
+        assert data["success"] is True
+        assert data["tool_call_count"] == 1
+        mock_client.reasoning.add_step.assert_called_once()
+        mock_client.reasoning.record_tool_call.assert_called_once()

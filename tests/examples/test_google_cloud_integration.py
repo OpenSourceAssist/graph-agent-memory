@@ -141,7 +141,7 @@ class TestMCPToolDefinitions:
     """Test that MCP tool definitions are complete and valid via FastMCP."""
 
     def test_expected_tool_count(self):
-        """Verify there are exactly 5 MCP tools defined."""
+        """Verify there are exactly 6 MCP tools defined."""
         from fastmcp import FastMCP
 
         from neo4j_agent_memory.mcp._tools import register_tools
@@ -149,7 +149,7 @@ class TestMCPToolDefinitions:
         mcp = FastMCP("test")
         register_tools(mcp)
         # FastMCP stores tools internally; check via _tool_manager
-        assert len(mcp._tool_manager._tools) == 5
+        assert len(mcp._tool_manager._tools) == 6
 
     def test_expected_tool_names(self):
         """Verify the expected tool names are present."""
@@ -160,11 +160,11 @@ class TestMCPToolDefinitions:
         mcp = FastMCP("test")
         register_tools(mcp)
         tool_names = set(mcp._tool_manager._tools.keys())
-        expected_names = {
+        assert tool_names == {
             "memory_search",
             "memory_store",
             "entity_lookup",
             "conversation_history",
             "graph_query",
+            "add_reasoning_trace",
         }
-        assert tool_names == expected_names

@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all test-docker test-ci test-no-docker test-quick test-file test-match coverage coverage-all coverage-ci test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws coverage coverage-all coverage-ci test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
 
 # Default target
 help:
@@ -22,6 +22,7 @@ help:
 	@echo "  make test-all         Run all tests (uses testcontainers)"
 	@echo "  make test-docker      Run all tests with docker-compose Neo4j"
 	@echo "  make test-ci          Run tests as they would run in CI"
+	@echo "  make test-aws         Run AWS integration tests (Bedrock, Strands, AgentCore)"
 	@echo "  make coverage         Run tests with coverage report"
 	@echo ""
 	@echo "Example Testing:"
@@ -162,6 +163,12 @@ test-file:
 # Usage: make test-match PATTERN="test_add_message"
 test-match:
 	uv run pytest tests -v -k "$(PATTERN)" --timeout=300
+
+# Run AWS integration tests (Bedrock, Strands, AgentCore)
+# Includes unit tests for AWS modules + integration tests marked with @pytest.mark.aws
+test-aws:
+	@echo "Running AWS tests (unit + integration)..."
+	uv run pytest tests/unit/embeddings/test_bedrock.py tests/unit/integrations/test_strands.py tests/unit/integrations/test_agentcore.py tests/unit/integrations/test_hybrid.py tests/integration/test_aws_integration.py -v --timeout=300
 
 coverage:
 	uv run pytest tests/unit --cov=src/neo4j_agent_memory --cov-report=term-missing --cov-report=html

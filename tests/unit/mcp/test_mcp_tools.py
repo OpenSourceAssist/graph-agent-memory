@@ -21,13 +21,13 @@ class TestFastMCPToolRegistration:
         return mcp
 
     @pytest.mark.asyncio
-    async def test_all_5_tools_registered(self, mcp_server):
-        """Test that exactly 5 tools are registered."""
+    async def test_all_6_tools_registered(self, mcp_server):
+        """Test that exactly 6 tools are registered."""
         from fastmcp import Client
 
         async with Client(mcp_server) as client:
             tools = await client.list_tools()
-            assert len(tools) == 5
+            assert len(tools) == 6
 
     @pytest.mark.asyncio
     async def test_tool_names(self, mcp_server):
@@ -43,6 +43,7 @@ class TestFastMCPToolRegistration:
                 "entity_lookup",
                 "conversation_history",
                 "graph_query",
+                "add_reasoning_trace",
             }
 
     @pytest.mark.asyncio

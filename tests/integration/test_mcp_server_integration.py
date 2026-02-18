@@ -329,11 +329,11 @@ class TestMCPServerIntegration:
 
     @pytest.mark.asyncio
     async def test_server_has_tools(self, memory_client):
-        """Test server exposes all 5 tools via FastMCP Client."""
+        """Test server exposes all 6 tools via FastMCP Client."""
         server = _create_server_with_client(memory_client)
         async with Client(server) as client:
             tools = await client.list_tools()
-            assert len(tools) == 5
+            assert len(tools) == 6
             tool_names = {t.name for t in tools}
             assert tool_names == {
                 "memory_search",
@@ -341,6 +341,7 @@ class TestMCPServerIntegration:
                 "entity_lookup",
                 "conversation_history",
                 "graph_query",
+                "add_reasoning_trace",
             }
 
     @pytest.mark.asyncio

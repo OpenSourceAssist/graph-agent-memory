@@ -14,6 +14,7 @@ class EmbeddingProvider(str, Enum):
     ANTHROPIC = "anthropic"
     SENTENCE_TRANSFORMERS = "sentence_transformers"
     VERTEX_AI = "vertex_ai"
+    BEDROCK = "bedrock"
     CUSTOM = "custom"
 
 
@@ -99,6 +100,9 @@ class EmbeddingConfig(BaseModel):
         default="RETRIEVAL_DOCUMENT",
         description="Vertex AI task type (RETRIEVAL_QUERY, RETRIEVAL_DOCUMENT, etc.)",
     )
+    # AWS Bedrock specific
+    aws_region: str | None = Field(default=None, description="AWS region for Bedrock")
+    aws_profile: str | None = Field(default=None, description="AWS credentials profile name")
 
 
 class LLMConfig(BaseModel):

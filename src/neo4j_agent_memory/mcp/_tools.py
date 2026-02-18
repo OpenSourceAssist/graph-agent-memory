@@ -1,11 +1,12 @@
 """MCP tool implementations for Neo4j Agent Memory.
 
-Defines the 5 core tools as FastMCP @mcp.tool decorated functions:
+Defines the 6 core tools as FastMCP @mcp.tool decorated functions:
 - memory_search: Hybrid vector + graph search
 - memory_store: Store memories (messages, facts, preferences)
 - entity_lookup: Get entity with relationships
 - conversation_history: Get conversation for session
 - graph_query: Execute read-only Cypher queries
+- add_reasoning_trace: Store procedural memory (reasoning traces)
 """
 
 from __future__ import annotations
@@ -381,6 +382,76 @@ def register_tools(mcp: FastMCP) -> None:
 
         except Exception as e:
             logger.error(f"Error in graph_query: {e}")
+            return json.dumps({"error": str(e)})
+
+    @mcp.tool()
+    async def add_reasoning_trace(
+        ctx: Context,
+        session_id: str,
+        task: str,
+        tool_calls: list[dict[str, Any]] | None = None,
+        outcome: str | None = None,
+        success: bool = True,
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """Store a reasoning trace (procedural memory) that captures how a task was solved.
+
+        Records the task, tool calls made, their results, and the final outcome.
+        Useful for learning from successful problem-solving approaches.
+
+        Args:
+            session_id: Session ID for the reasoning trace.
+            task: Description of the task being solved.
+            tool_calls: List of tool calls made during reasoning.
+                Each item should have 'tool_name' (required), plus optional
+                'arguments', 'result', and 'success' fields.
+            outcome: Final outcome or result of the task.
+            success: Whether the task was completed successfully.
+            metadata: Optional metadata (model, latency, etc.).
+        """
+        client = get_client(ctx)
+
+        try:
+            trace = await client.reasoning.start_trace(
+                session_id=session_id,
+                task=task,
+                metadata=metadata or {},
+            )
+
+            if tool_calls:
+                for tc in tool_calls:
+                    step = await client.reasoning.add_step(
+                        trace_id=trace.id,
+                        thought=f"Calling {tc.get('tool_name', 'unknown')}",
+                        action=tc.get("tool_name", "unknown"),
+                        observation=tc.get("result"),
+                    )
+                    await client.reasoning.record_tool_call(
+                        step_id=step.id,
+                        tool_name=tc.get("tool_name", "unknown"),
+                        arguments=tc.get("arguments", {}),
+                        result=tc.get("result"),
+                    )
+
+            await client.reasoning.complete_trace(
+                trace_id=trace.id,
+                outcome=outcome,
+                success=success,
+            )
+
+            return json.dumps(
+                {
+                    "success": True,
+                    "stored": True,
+                    "trace_id": str(trace.id),
+                    "session_id": session_id,
+                    "task": task,
+                    "tool_call_count": len(tool_calls) if tool_calls else 0,
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Error in add_reasoning_trace: {e}")
             return json.dumps({"error": str(e)})
 
 

@@ -1,0 +1,257 @@
+= Build a Strands Agent with Context Graph Memory
+:description: Build your first AI agent with Neo4j Context Graphs and AWS Strands Agents SDK
+:keywords: strands, aws, bedrock, neo4j, agent, memory, tutorial
+:toc:
+
+This tutorial walks you through building your first AI agent with persistent memory using Neo4j Agent Memory and the AWS Strands Agents SDK.
+
+== What You'll Build
+
+A conversational AI agent that:
+
+* Remembers conversations across sessions
+* Extracts and stores entities (people, organizations, projects)
+* Builds a knowledge graph of relationships
+* Uses Amazon Bedrock for LLM and embeddings
+
+== Prerequisites
+
+* Python 3.10+
+* AWS account with Bedrock access
+* Neo4j Aura account (or local Neo4j instance)
+* Basic Python knowledge
+
+== Time Required
+
+Approximately 30 minutes.
+
+== Step 1: Set Up Your Environment
+
+Create a new project directory and virtual environment:
+
+[source,bash]
+----
+mkdir strands-memory-agent
+cd strands-memory-agent
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+----
+
+Install the required packages:
+
+[source,bash]
+----
+pip install neo4j-agent-memory[aws,strands] python-dotenv
+----
+
+This installs:
+
+* `neo4j-agent-memory` - The core memory library
+* `boto3` - AWS SDK for Bedrock access
+* `strands-agents` - AWS Strands Agents SDK
+
+== Step 2: Configure Credentials
+
+Create a `.env` file with your credentials:
+
+[source,bash]
+----
+# Neo4j Configuration
+NEO4J_URI=neo4j+s://xxxx.databases.neo4j.io
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your-password
+
+# AWS Configuration (uses default credentials if not set)
+AWS_REGION=us-east-1
+----
+
+[TIP]
+====
+For Neo4j Aura:
+
+1. Sign up at https://neo4j.com/cloud/aura-free/
+2. Create a new database
+3. Copy the connection URI and password
+====
+
+== Step 3: Create the Agent
+
+Create a file called `agent.py`:
+
+[source,python]
+----
+"""Strands Agent with Neo4j Context Graph memory."""
+
+import os
+from dotenv import load_dotenv
+from strands import Agent
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+
+# Load environment variables
+load_dotenv()
+
+# Create Context Graph tools for the agent
+tools = context_graph_tools(
+    neo4j_uri=os.environ["NEO4J_URI"],
+    neo4j_user=os.environ.get("NEO4J_USER", "neo4j"),
+    neo4j_password=os.environ["NEO4J_PASSWORD"],
+    embedding_provider="bedrock",
+    aws_region=os.environ.get("AWS_REGION", "us-east-1"),
+)
+
+# Create the agent with memory tools
+agent = Agent(
+    model="anthropic.claude-sonnet-4-20250514-v1:0",
+    tools=tools,
+    system_prompt="""You are a helpful assistant with persistent memory.
+
+You have access to a knowledge graph that stores:
+- Conversation history
+- Entities (people, organizations, projects)
+- Relationships between entities
+- User preferences
+
+Use your memory tools to:
+1. Search for relevant context before answering questions
+2. Store important facts the user shares
+3. Remember user preferences
+4. Track relationships between entities
+
+Be conversational and reference memories when relevant.""",
+)
+
+
+def main():
+    """Run an interactive chat session."""
+    print("Neo4j Memory Agent")
+    print("=" * 40)
+    print("Chat with an AI that remembers!")
+    print("Type 'quit' to exit.\n")
+
+    while True:
+        user_input = input("You: ").strip()
+
+        if user_input.lower() in ("quit", "exit", "q"):
+            print("Goodbye!")
+            break
+
+        if not user_input:
+            continue
+
+        # Get response from agent
+        response = agent(user_input)
+        print(f"\nAssistant: {response}\n")
+
+
+if __name__ == "__main__":
+    main()
+----
+
+== Step 4: Run the Agent
+
+[source,bash]
+----
+python agent.py
+----
+
+Try these example conversations:
+
+----
+You: Hi, I'm Alex and I work at Acme Corp as a software engineer.
+Assistant: Nice to meet you, Alex! I've stored that you work at Acme Corp
+as a software engineer. How can I help you today?
+
+You: What company do I work for?
+Assistant: Based on my memory, you work at Acme Corp as a software engineer!
+----
+
+== Step 5: Explore the Knowledge Graph
+
+Open Neo4j Browser or Bloom to see the entities and relationships:
+
+[source,cypher]
+----
+// See all entities
+MATCH (e:Entity) RETURN e LIMIT 25
+
+// See relationships
+MATCH (e1:Entity)-[r]->(e2:Entity) RETURN e1, r, e2 LIMIT 25
+
+// Find Person entities
+MATCH (p:Entity:Person) RETURN p.name, p.created_at
+----
+
+== Available Tools
+
+The agent has access to these Context Graph tools:
+
+[cols="1,3"]
+|===
+| Tool | Description
+
+| `search_context`
+| Search for relevant memories and entities using semantic search
+
+| `get_entity_graph`
+| Explore relationships around an entity with configurable depth
+
+| `add_memory`
+| Store important information with automatic entity extraction
+
+| `get_user_preferences`
+| Retrieve user preferences by category
+|===
+
+== Understanding the Context Graph
+
+As you chat, the agent builds a **context graph** in Neo4j:
+
+* **Messages** are stored with embeddings for semantic search
+* **Entities** (Person, Organization, Project) are extracted automatically
+* **Relationships** connect entities to messages and to each other
+* **Preferences** capture user likes, dislikes, and settings
+
+== Next Steps
+
+Now that you've built your first Strands agent:
+
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[Configure Bedrock Embeddings] - Optimize embedding model selection
+* xref:how-to/integrations/aws-strands.adoc[Advanced Strands Integration] - Custom tools and configuration
+* xref:how-to/integrations/aws-hybrid-memory.adoc[Use Hybrid Memory] - Combine short-term and long-term memory
+
+== Troubleshooting
+
+=== Bedrock Access Denied
+
+Ensure your AWS account has model access:
+
+1. Go to AWS Console -> Bedrock -> Model access
+2. Enable Claude and Titan models
+3. Wait for access to be granted (may take a few minutes)
+
+=== Neo4j Connection Failed
+
+Check your connection string format:
+
+* Aura: `neo4j+s://xxxx.databases.neo4j.io`
+* Local: `bolt://localhost:7687`
+
+=== Import Error for strands
+
+Ensure you've installed the strands extras:
+
+[source,bash]
+----
+pip install neo4j-agent-memory[aws,strands]
+----
+
+== Summary
+
+You've built an AI agent with persistent memory that:
+
+* Stores conversations in Neo4j
+* Extracts entities automatically
+* Remembers context across sessions
+* Uses AWS Bedrock for AI capabilities
+
+The context graph grows with each conversation, making the agent increasingly knowledgeable about you and your work.

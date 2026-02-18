@@ -1,0 +1,293 @@
+= AWS Strands Agents Integration
+:description: Integrate Neo4j Agent Memory with AWS Strands Agents SDK
+:keywords: strands, aws, bedrock, neo4j, agent, tools
+:toc:
+
+This guide shows how to add Neo4j Context Graph memory to AWS Strands agents using the `@tool` decorated functions.
+
+== Overview
+
+The Strands integration provides four memory tools that agents can use:
+
+[cols="1,2"]
+|===
+| Tool | Purpose
+
+| `search_context`
+| Semantic search across memories and entities
+
+| `get_entity_graph`
+| Explore relationships around an entity
+
+| `add_memory`
+| Store information with entity extraction
+
+| `get_user_preferences`
+| Retrieve user preferences by category
+|===
+
+== Installation
+
+[source,bash]
+----
+pip install neo4j-agent-memory[aws,strands]
+----
+
+== Quick Start
+
+[source,python]
+----
+from strands import Agent
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+
+# Get all Context Graph tools
+tools = context_graph_tools(
+    neo4j_uri="neo4j+s://xxx.databases.neo4j.io",
+    neo4j_password="your-password",
+    embedding_provider="bedrock",
+)
+
+# Create agent with memory tools
+agent = Agent(
+    model="anthropic.claude-sonnet-4-20250514-v1:0",
+    tools=tools,
+)
+
+# Agent can now use memory
+response = agent("Remember that I prefer Python over JavaScript")
+----
+
+== Configuration
+
+=== Basic Configuration
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+
+tools = context_graph_tools(
+    # Neo4j connection
+    neo4j_uri="neo4j+s://xxx.databases.neo4j.io",
+    neo4j_user="neo4j",
+    neo4j_password="your-password",
+    neo4j_database="neo4j",
+
+    # Embedding configuration
+    embedding_provider="bedrock",  # or "openai", "vertex_ai"
+    embedding_model="amazon.titan-embed-text-v2:0",
+
+    # AWS configuration (for Bedrock)
+    aws_region="us-east-1",
+)
+----
+
+=== Using StrandsConfig
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.strands import StrandsConfig, context_graph_tools
+
+config = StrandsConfig(
+    neo4j_uri="neo4j+s://xxx.databases.neo4j.io",
+    neo4j_password="your-password",
+    embedding_provider="bedrock",
+    embedding_model="amazon.titan-embed-text-v2:0",
+    aws_region="us-east-1",
+)
+
+tools = context_graph_tools(**config.to_dict())
+----
+
+=== From Environment Variables
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.strands import StrandsConfig, context_graph_tools
+
+# Reads from environment variables
+config = StrandsConfig.from_env()
+tools = context_graph_tools(**config.to_dict())
+----
+
+Required environment variables:
+
+[source,bash]
+----
+export NEO4J_URI=neo4j+s://xxx.databases.neo4j.io
+export NEO4J_PASSWORD=your-password
+export AWS_REGION=us-east-1
+----
+
+== Tool Details
+
+=== search_context
+
+Search for relevant memories and entities:
+
+[source,python]
+----
+# Agent calls this tool automatically
+result = search_context(
+    query="What do I know about the Acme project?",
+    user_id="user-123",
+    top_k=10,           # Max results
+    min_score=0.5,      # Similarity threshold
+    include_relationships=True,
+)
+----
+
+Returns:
+
+* Matching messages with similarity scores
+* Related entities
+* Entity relationships (if enabled)
+
+=== get_entity_graph
+
+Explore relationships around an entity:
+
+[source,python]
+----
+result = get_entity_graph(
+    entity_name="Acme Corp",
+    user_id="user-123",
+    depth=2,                    # Relationship depth
+    relationship_types=None,    # All types, or filter
+)
+----
+
+Returns:
+
+* Entity details
+* Connected entities
+* Relationship types and properties
+
+=== add_memory
+
+Store information with automatic entity extraction:
+
+[source,python]
+----
+result = add_memory(
+    content="John Smith from Acme Corp called about the Q4 project",
+    user_id="user-123",
+    session_id="session-456",
+    extract_entities=True,  # Auto-extract entities
+)
+----
+
+Returns:
+
+* Memory ID
+* Extracted entities (if enabled)
+* Entity relationships created
+
+=== get_user_preferences
+
+Retrieve user preferences:
+
+[source,python]
+----
+result = get_user_preferences(
+    user_id="user-123",
+    category="communication",  # Optional filter
+)
+----
+
+Returns:
+
+* List of preferences
+* Categories and values
+* Confidence scores
+
+== Agent System Prompts
+
+Guide your agent to use memory effectively:
+
+[source,python]
+----
+agent = Agent(
+    model="anthropic.claude-sonnet-4-20250514-v1:0",
+    tools=tools,
+    system_prompt="""You are an assistant with persistent memory.
+
+MEMORY USAGE:
+1. At the start of a conversation, use search_context to find relevant history
+2. When the user mentions entities (people, companies), use get_entity_graph
+3. Store important facts with add_memory
+4. Check get_user_preferences for personalization
+
+Always reference your memory when it's relevant to the conversation.""",
+)
+----
+
+== Multi-User Support
+
+Handle multiple users in the same application:
+
+[source,python]
+----
+# Tools are configured per-invocation
+# The agent passes user_id with each tool call
+
+agent = Agent(
+    model="anthropic.claude-sonnet-4-20250514-v1:0",
+    tools=tools,
+    system_prompt="""The current user is {user_id}.
+Always include user_id="{user_id}" in your memory tool calls.""",
+)
+
+# Inject user context
+response = agent(
+    f"[User: user-123] What do you remember about me?",
+)
+----
+
+== Error Handling
+
+Tools return error information in results:
+
+[source,python]
+----
+# If Neo4j is unavailable
+{
+    "error": "ConnectionError",
+    "message": "Failed to connect to Neo4j",
+    "memories": [],
+    "entities": []
+}
+----
+
+Configure the agent to handle errors gracefully:
+
+[source,python]
+----
+agent = Agent(
+    tools=tools,
+    system_prompt="""...
+
+If a memory tool returns an error, acknowledge it and continue
+without that context. Don't expose internal errors to users.""",
+)
+----
+
+== Performance Tips
+
+=== Reduce Latency
+
+1. **Use Bedrock in the same region** as your application
+2. **Limit `top_k`** to reduce result processing
+3. **Set `include_relationships=False`** when you don't need graph traversal
+
+=== Reduce Costs
+
+1. **Use Claude Haiku** for entity extraction (cheaper than Sonnet)
+2. **Batch memory additions** rather than storing every message
+3. **Filter by category** in `get_user_preferences`
+
+== See Also
+
+* xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Tutorial]
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[Configure Bedrock Embeddings]
+* xref:how-to/integrations/aws-hybrid-memory.adoc[Hybrid Memory Provider]
+* https://strandsagents.com/docs[Strands Agents Documentation]
