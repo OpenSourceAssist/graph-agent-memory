@@ -32,19 +32,19 @@ Neo4j Agent Memory provides official integrations for five popular agent framewo
 | OpenAI function calling with persistent memory
 | ✅ Production Ready
 
-| xref:google-cloud.adoc[Google Cloud]
+| xref:how-to/integrations/google-cloud.adoc[Google Cloud]
 | Vertex AI embeddings, ADK agents, MCP server
 | ✅ Production Ready
 
-| xref:aws-strands.adoc[AWS Strands Agents]
+| xref:how-to/integrations/aws-strands.adoc[AWS Strands Agents]
 | AWS Strands SDK with Bedrock and Context Graph tools
 | ✅ Production Ready
 
-| xref:aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
+| xref:how-to/integrations/aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
 | Titan and Cohere embeddings via Bedrock
 | ✅ Production Ready
 
-| xref:aws-hybrid-memory.adoc[AWS Hybrid Memory]
+| xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory]
 | AgentCore + Context Graphs combined
 | ✅ Production Ready
 |===
@@ -197,11 +197,7 @@ Automatically extract entities from conversations:
 * xref:how-to/integrations/llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
 * xref:how-to/integrations/crewai.adoc[CrewAI Integration] - Multi-agent shared memory
 * xref:how-to/integrations/openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
-* xref:langchain.adoc[LangChain Integration] - Memory and retriever for chains
-* xref:pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
-* xref:llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
-* xref:crewai.adoc[CrewAI Integration] - Multi-agent shared memory
-* xref:openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
-* xref:aws-strands.adoc[AWS Strands Integration] - Bedrock-powered agents with Context Graph
-* xref:aws-bedrock-embeddings.adoc[AWS Bedrock Embeddings] - Titan embedding configuration
-* xref:aws-hybrid-memory.adoc[AWS Hybrid Memory] - Combined memory providers
+* xref:how-to/integrations/google-cloud.adoc[Google Cloud Integration] - Vertex AI, ADK, MCP server
+* xref:how-to/integrations/aws-strands.adoc[AWS Strands Integration] - Bedrock-powered agents with Context Graph
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[AWS Bedrock Embeddings] - Titan embedding configuration
+* xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory] - Combined memory providers

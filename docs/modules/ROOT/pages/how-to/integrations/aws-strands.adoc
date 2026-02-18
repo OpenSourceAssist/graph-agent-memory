@@ -287,7 +287,7 @@ without that context. Don't expose internal errors to users.""",
 
 == See Also
 
-* xref:../../tutorials/strands-agent-quickstart.adoc[Strands Agent Tutorial]
-* xref:aws-bedrock-embeddings.adoc[Configure Bedrock Embeddings]
-* xref:aws-hybrid-memory.adoc[Hybrid Memory Provider]
+* xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Tutorial]
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[Configure Bedrock Embeddings]
+* xref:how-to/integrations/aws-hybrid-memory.adoc[Hybrid Memory Provider]
 * https://strandsagents.com/docs[Strands Agents Documentation]

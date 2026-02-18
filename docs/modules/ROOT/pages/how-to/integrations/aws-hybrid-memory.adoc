@@ -360,6 +360,6 @@ memory = await provider.store_memory(
 
 == See Also
 
-* xref:aws-strands.adoc[Strands Agents Integration]
-* xref:aws-bedrock-embeddings.adoc[Configure Bedrock Embeddings]
-* xref:../../explanation/memory-types.adoc[Understanding Memory Types]
+* xref:how-to/integrations/aws-strands.adoc[Strands Agents Integration]
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[Configure Bedrock Embeddings]
+* xref:explanation/memory-types.adoc[Understanding Memory Types]

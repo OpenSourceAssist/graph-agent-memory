@@ -206,8 +206,6 @@ The agent has access to these Context Graph tools:
 
 As you chat, the agent builds a **context graph** in Neo4j:
 
-image::../assets/images/diagrams/strands-tool-integration.png[Strands Tool Integration]
-
 * **Messages** are stored with embeddings for semantic search
 * **Entities** (Person, Organization, Project) are extracted automatically
 * **Relationships** connect entities to messages and to each other
@@ -217,9 +215,9 @@ image::../assets/images/diagrams/strands-tool-integration.png[Strands Tool Integ
 
 Now that you've built your first Strands agent:
 
-* xref:../how-to/integrations/aws-bedrock-embeddings.adoc[Configure Bedrock Embeddings] - Optimize embedding model selection
-* xref:../how-to/integrations/aws-strands.adoc[Advanced Strands Integration] - Custom tools and configuration
-* xref:../how-to/integrations/aws-hybrid-memory.adoc[Use Hybrid Memory] - Combine short-term and long-term memory
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[Configure Bedrock Embeddings] - Optimize embedding model selection
+* xref:how-to/integrations/aws-strands.adoc[Advanced Strands Integration] - Custom tools and configuration
+* xref:how-to/integrations/aws-hybrid-memory.adoc[Use Hybrid Memory] - Combine short-term and long-term memory
 
 == Troubleshooting
 

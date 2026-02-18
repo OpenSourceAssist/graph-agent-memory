@@ -272,7 +272,7 @@ For high-volume embedding:
 
 == See Also
 
-* xref:aws-strands.adoc[Strands Agents Integration]
-* xref:aws-hybrid-memory.adoc[Hybrid Memory Provider]
-* xref:../../tutorials/strands-agent-quickstart.adoc[Strands Agent Tutorial]
+* xref:how-to/integrations/aws-strands.adoc[Strands Agents Integration]
+* xref:how-to/integrations/aws-hybrid-memory.adoc[Hybrid Memory Provider]
+* xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Tutorial]
 * https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html[AWS Bedrock Embeddings Documentation]
