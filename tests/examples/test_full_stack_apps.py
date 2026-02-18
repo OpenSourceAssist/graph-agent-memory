@@ -287,6 +287,7 @@ class TestExampleConsistency:
         full_stack_apps = [
             EXAMPLES_DIR / "full-stack-chat-agent",
             EXAMPLES_DIR / "lennys-memory",
+            EXAMPLES_DIR / "google-cloud-financial-advisor",
         ]
 
         for app_dir in full_stack_apps:

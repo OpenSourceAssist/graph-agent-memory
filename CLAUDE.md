@@ -92,7 +92,13 @@ src/neo4j_agent_memory/
 │   └── composite.py         # Chained strategy resolver (type-aware)
 ├── embeddings/
 │   ├── base.py              # Embedder protocol
-│   └── openai.py            # OpenAI embeddings
+│   ├── openai.py            # OpenAI embeddings
+│   └── vertex_ai.py         # Vertex AI embeddings (Google Cloud)
+├── mcp/
+│   ├── __init__.py          # MCP package exports
+│   ├── server.py            # MCP server (stdio/SSE transports)
+│   ├── tools.py             # 5 MCP tool definitions
+│   └── handlers.py          # Tool execution handlers
 ├── services/
 │   ├── __init__.py          # Service exports
 │   └── geocoder.py          # Geocoding services (Nominatim, Google, cached)
@@ -120,7 +126,8 @@ src/neo4j_agent_memory/
     ├── langchain/           # LangChain memory + retriever
     ├── pydantic_ai/         # Pydantic AI dependency + tools
     ├── llamaindex/          # LlamaIndex memory
-    └── crewai/              # CrewAI memory
+    ├── crewai/              # CrewAI memory
+    └── google_adk/          # Google ADK MemoryService
 
 benchmarks/                   # Extraction quality benchmarks (separate module)
 ├── __init__.py              # Benchmark exports
@@ -1318,7 +1325,164 @@ memory = Neo4jAgentMemory(memory_client=client, session_id="user-123")
 # Pydantic AI
 from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency
 deps = MemoryDependency(client=client, session_id="user-123")
+
+# Google ADK
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+memory_service = Neo4jMemoryService(client, user_id="user-123")
 ```
+
+### Google Cloud Integration (v0.0.3)
+
+The library provides comprehensive Google Cloud support including Vertex AI embeddings, Google ADK integration, and an MCP server for Cloud API Registry.
+
+#### Vertex AI Embeddings
+
+```python
+from neo4j_agent_memory.embeddings.vertex_ai import VertexAIEmbedder
+
+# Create embedder with Vertex AI
+embedder = VertexAIEmbedder(
+    model="text-embedding-004",     # or gecko@003, gecko-multilingual
+    project_id="your-gcp-project",  # or from GOOGLE_CLOUD_PROJECT env
+    location="us-central1",
+    task_type="RETRIEVAL_DOCUMENT", # or RETRIEVAL_QUERY, SEMANTIC_SIMILARITY
+)
+
+# Single embedding
+embedding = await embedder.embed("Hello world")
+
+# Batch embedding (up to 250 texts per batch)
+embeddings = await embedder.embed_batch(["Text 1", "Text 2", "Text 3"])
+
+# Use with MemoryClient via config
+from neo4j_agent_memory import MemorySettings
+from neo4j_agent_memory.config.settings import EmbeddingConfig, EmbeddingProvider
+
+settings = MemorySettings(
+    embedding=EmbeddingConfig(
+        provider=EmbeddingProvider.VERTEX_AI,
+        model="text-embedding-004",
+        project_id="your-project",
+        location="us-central1",
+    ),
+)
+```
+
+**Supported Models:**
+- `text-embedding-004` - Recommended, 768 dimensions
+- `textembedding-gecko@003` - Legacy, 768 dimensions
+- `textembedding-gecko-multilingual@001` - Multilingual, 768 dimensions
+
+#### Google ADK MemoryService
+
+```python
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+async with MemoryClient(settings) as client:
+    # Create memory service for ADK agents
+    memory_service = Neo4jMemoryService(
+        memory_client=client,
+        user_id="user-123",
+        include_entities=True,      # Extract entities from sessions
+        include_preferences=True,   # Learn preferences from conversations
+    )
+    
+    # Store a conversation session
+    session = {
+        "id": "session-1",
+        "messages": [
+            {"role": "user", "content": "I prefer dark mode"},
+            {"role": "assistant", "content": "Noted!"},
+        ]
+    }
+    await memory_service.add_session_to_memory(session)
+    
+    # Search across all memory types
+    results = await memory_service.search_memories("user preferences", limit=10)
+    
+    # Get session history
+    history = await memory_service.get_memories_for_session("session-1")
+    
+    # Add individual memory
+    await memory_service.add_memory(
+        content="Prefers Python over JavaScript",
+        memory_type="preference",
+        category="programming",
+    )
+```
+
+#### MCP Server
+
+The MCP server exposes 5 tools for memory operations:
+
+| Tool | Description |
+|------|-------------|
+| `memory_search` | Hybrid vector + graph search across all memory types |
+| `memory_store` | Store messages, facts, and preferences |
+| `entity_lookup` | Get entity with relationships and context |
+| `conversation_history` | Retrieve session conversation history |
+| `graph_query` | Execute read-only Cypher queries |
+
+**Starting the Server:**
+
+```bash
+# stdio transport (for local MCP clients like Claude Desktop)
+neo4j-memory mcp serve
+
+# SSE transport (for Cloud Run/HTTP deployment)
+neo4j-memory mcp serve --transport sse --port 8080
+
+# With custom Neo4j connection
+neo4j-memory mcp serve --neo4j-uri bolt://localhost:7687 --neo4j-password secret
+```
+
+**Claude Desktop Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "neo4j-memory": {
+      "command": "neo4j-memory",
+      "args": ["mcp", "serve"],
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+**Programmatic Usage:**
+
+```python
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.mcp.server import Neo4jMemoryMCPServer
+
+async with MemoryClient(settings) as client:
+    server = Neo4jMemoryMCPServer(client)
+    
+    # stdio transport
+    await server.run()
+    
+    # Or SSE for HTTP
+    await server.run_sse(host="0.0.0.0", port=8080)
+```
+
+#### Cloud Run Deployment
+
+Production deployment templates are in `deploy/cloudrun/`:
+
+```bash
+# Build and deploy
+gcloud run deploy neo4j-memory-mcp \
+  --source deploy/cloudrun \
+  --region us-central1 \
+  --set-secrets NEO4J_URI=neo4j-uri:latest,NEO4J_PASSWORD=neo4j-password:latest
+```
+
+See `deploy/cloudrun/README.md` for full deployment instructions.
 
 ## Important Implementation Details
 
@@ -1484,6 +1648,8 @@ deps = MemoryDependency(client=client, session_id="user-123")
 - `NEO4J_USERNAME` - Neo4j username (default: `neo4j`)
 - `NEO4J_PASSWORD` - Neo4j password (default for tests: `test-password`)
 - `OPENAI_API_KEY` - Required for OpenAI embeddings and LLM extraction
+- `GOOGLE_CLOUD_PROJECT` - GCP project ID for Vertex AI embeddings
+- `VERTEX_AI_LOCATION` - GCP region for Vertex AI (default: `us-central1`)
 - `GOOGLE_GEOCODING_API_KEY` - API key for Google Geocoding (optional, for geocoding Location entities)
 - `DIFFBOT_API_KEY` - API key for Diffbot Knowledge Graph enrichment (optional)
 - `NAM_ENRICHMENT__ENABLED` - Enable background entity enrichment (default: `false`)
@@ -1725,86 +1891,201 @@ make run-frontend   # Next.js on :3000
 
 See `examples/lennys-memory/README.md` for a full deep dive.
 
-## Financial Services Advisor Example (AWS Strands Demo)
+## Google Cloud Financial Advisor Example
 
-Located in `examples/financial-services-advisor/`, this example demonstrates AWS Strands Agents with Neo4j Agent Memory for financial services use cases including KYC/AML compliance, fraud detection, and relationship intelligence.
+Located in `examples/google-cloud-financial-advisor/`, this demonstrates the Google Cloud ecosystem integration with a multi-agent compliance investigation app.
 
 ### Tech Stack
-- **Backend**: FastAPI + AWS Strands Agents SDK + neo4j-agent-memory
-- **Frontend**: React + Vite + Chakra UI v3 + TypeScript
-- **Infrastructure**: AWS CDK (Lambda, API Gateway, CloudFront, Cognito)
-- **LLM**: Amazon Bedrock (Claude Sonnet)
-- **Database**: Neo4j Aura
+- **Backend**: FastAPI + Google ADK (Agent Development Kit) + neo4j-agent-memory
+- **Frontend**: React + Vite + Chakra UI v3 + Framer Motion + TypeScript
+- **Database**: Neo4j 5.x
+- **LLM**: Gemini 2.5 Flash (via Google AI Studio)
+- **Embeddings**: Vertex AI text-embedding-004
 
-### Key Features
+### Multi-Agent Architecture
 
-- **5 specialized Strands agents**: Supervisor, KYC, AML, Relationship, Compliance
-- **Multi-agent orchestration**: Supervisor pattern delegating to domain-specific agents
-- **Graph-based risk analysis**: Network risk scoring, shell company detection, PEP connections
-- **Complete AWS deployment**: One-click CDK deployment to AWS
+A supervisor agent orchestrates 4 specialist agents:
 
-### Agents and Tools
+| Agent | Tools | Responsibility |
+|-------|-------|---------------|
+| **Supervisor** | — | Routes queries, synthesizes findings |
+| **KYC Agent** | `verify_identity`, `check_documents`, `assess_risk` | Identity verification, document checking |
+| **AML Agent** | `scan_transactions`, `detect_patterns`, `analyze_velocity` | Transaction monitoring, pattern detection |
+| **Relationship Agent** | `map_network`, `trace_ownership`, `analyze_connections` | Network analysis, beneficial ownership |
+| **Compliance Agent** | `screen_sanctions`, `check_pep`, `generate_sar_report` | Sanctions/PEP screening, SAR generation |
 
-**Supervisor Agent:**
-- `delegate_to_kyc_agent` - Customer identity verification
-- `delegate_to_aml_agent` - Transaction monitoring
-- `delegate_to_relationship_agent` - Network analysis
-- `delegate_to_compliance_agent` - Regulatory compliance
-- `summarize_investigation` - Aggregate findings
+### Real-Time SSE Streaming & Agent Visualization
 
-**KYC Agent:**
-- `verify_identity` - Document verification
-- `check_documents` - Completeness check
-- `assess_customer_risk` - Risk scoring
-- `check_adverse_media` - Media screening
+The chat system supports two modes:
+- **`POST /api/chat`** — Original synchronous endpoint, returns final response JSON
+- **`POST /api/chat/stream`** — SSE streaming endpoint, emits real-time agent events
 
-**AML Agent:**
-- `scan_transactions` - Transaction analysis
-- `detect_patterns` - Structuring/layering detection
-- `flag_suspicious` - Alert generation
-- `analyze_velocity` - Transaction velocity
+**SSE Event Types:**
+- `agent_start` / `agent_complete` — Agent lifecycle events
+- `agent_delegate` — Supervisor delegating to a sub-agent (from/to)
+- `tool_call` / `tool_result` — Tool invocations with args and truncated results
+- `memory_access` — Neo4j memory search/store operations detected by tool name patterns
+- `thinking` — Intermediate agent reasoning text (non-final responses)
+- `response` — Final consolidated response text
+- `trace_saved` — Reasoning trace persisted to Neo4j (trace_id, step_count, tool_call_count)
+- `done` — Stream complete with summary (agents_consulted, total_duration_ms)
+- `error` — Error during stream processing
 
-**Relationship Agent:**
-- `find_connections` - Entity network discovery
-- `analyze_network_risk` - Network risk scoring
-- `detect_shell_companies` - Shell company identification
-- `map_beneficial_ownership` - Ownership structure mapping
+**Internal ADK function filtering**: `transfer_to_agent` and `transfer` are ADK-internal functions for agent delegation — these are excluded from `tool_call`/`tool_result` events to avoid noise. Delegation is instead surfaced via `agent_delegate` events detected from `event.actions.transfer_to_agent` and author transitions.
 
-**Compliance Agent:**
-- `check_sanctions` - Sanctions list screening
-- `verify_pep` - PEP status verification
-- `generate_report` - Compliance report generation
-- `assess_regulatory_requirements` - Regulatory gap analysis
+**`_truncate_result()` helper**: Always returns a string — uses `json.dumps()` for dicts/lists to prevent `[object Object]` display on the frontend.
 
-### API Endpoints
+### Reasoning Trace Persistence
 
-**Chat:** `POST /api/chat` - Agent interaction
-**Customers:** `GET/POST /api/customers`, `GET/PUT /api/customers/{id}`, `GET /api/customers/{id}/risk`, `GET /api/customers/{id}/network`
-**Investigations:** `GET/POST /api/investigations`, `GET /api/investigations/{id}`, `PUT /api/investigations/{id}/status`
-**Alerts:** `GET /api/alerts`, `POST /api/alerts/{id}/acknowledge`, `POST /api/alerts/{id}/escalate`
-**Graph:** `GET /api/graph/entity/{name}`, `POST /api/graph/search`
-**Reports:** `POST /api/reports/sar`, `POST /api/reports/risk-assessment`
+After each streaming chat completes, reasoning traces are saved to Neo4j via the `MemoryClient.reasoning` layer:
+1. `start_trace(session_id, task)` — Creates trace node
+2. `add_step(trace_id, thought, action)` — One step per agent activation
+3. `record_tool_call(step_id, tool_name, arguments, result, status)` — Tool calls nested under steps
+4. `complete_trace(trace_id, outcome, success)` — Finalizes with outcome text
+
+**Trace retrieval API:**
+- `GET /api/traces/{session_id}` — Lists traces for a session (with steps and tool calls)
+- `GET /api/traces/detail/{trace_id}` — Single trace by ID
+
+Entity extraction is triggered via `memory_service.add_session()` which calls `adk_memory_service.add_session_to_memory(session)` with `extract_on_store=True`. Optional extractors (spaCy, GLiNER, LLM) warn but don't fail if not installed.
+
+### Neo4j Domain Data Integration
+
+All domain data (customers, transactions, organizations, alerts, sanctions, PEPs) is stored in Neo4j and queried via `Neo4jDomainService`. Agent memory (conversations, findings) uses the neo4j-agent-memory APIs.
+
+**Architecture: Hybrid data access**
+- **Domain data**: `Neo4jDomainService` queries Neo4j directly via `MemoryClient.graph` (the `Neo4jClient`)
+- **Agent memory**: `FinancialMemoryService` wraps `Neo4jMemoryService` for ADK integration
+- **Single connection**: Both share the same Neo4j driver via `MemoryClient.graph`
+
+**`MemoryClient.graph` property** (added to the package):
+```python
+# Exposes the underlying Neo4jClient for custom Cypher queries
+async with MemoryClient(settings) as client:
+    results = await client.graph.execute_read(
+        "MATCH (c:Customer) RETURN c.name LIMIT 10"
+    )
+```
+
+**`Neo4jDomainService`** (`backend/src/services/neo4j_service.py`):
+- Initialized in `main.py` lifespan: `Neo4jDomainService(memory_service.client.graph)`
+- Stored on `app.state.neo4j_service`, accessed in routes via `request.app.state`
+- Provides async methods: `list_customers`, `get_customer`, `get_transactions`, `detect_structuring`, `detect_rapid_movement`, `detect_layering`, `find_connections`, `detect_shell_companies`, `trace_ownership`, `get_network_risk`, `list_alerts`, `create_alert`, `check_sanctions`, `check_pep`, etc.
+- Alert creation uses `MERGE...ON CREATE SET` (not `CREATE`) to avoid uniqueness constraint violations
+- Alert fallback IDs use UUID: `ALERT-{uuid.uuid4().hex[:8].upper()}`
+
+**Tool function binding** (`_bind_tool` pattern):
+- Tool functions accept `neo4j_service` as a keyword-only arg
+- ADK `FunctionTool` inspects signatures to determine LLM-visible params
+- `_bind_tool()` uses `inspect.signature` + `@wraps` to create wrappers that hide `neo4j_service`
+- `functools.partial` does NOT work — it sets defaults but doesn't remove params from the signature
+
+**Neo4j DateTime conversion**:
+- Neo4j returns `neo4j.time.DateTime` objects, not Python `datetime`
+- Use `.to_native()` to convert: `_to_python_datetime()` helper in `alerts.py`
+
+**Cypher gotchas** (Neo4j 5+):
+- Implicit grouping: mixing aggregation with non-aggregated expressions requires `WITH` clause
+- `CASE WHEN ... AND x NOT IN [...]` — extract into variables first: `WITH a.status AS stat ... NOT stat IN [...]`
+- Dynamic WHERE: When adding optional filters after a MATCH pattern, use `WHERE` (not `AND`) — `AND` is only valid inside an existing `WHERE` clause
+
+### Key Implementation Details
+
+- **ADK Runner**: `Runner.run_async()` returns `AsyncGenerator` — use `async for`, not `await`
+- **ADK SessionService**: `get_session()` and `create_session()` are async — need `await`
+- **GOOGLE_API_KEY**: ADK reads from `os.environ`, not `.env` — `main.py` calls `load_dotenv()` early
+- **Nested BaseSettings**: Each nested Pydantic settings class needs its own `env_file=("../.env", ".env")` config
+- **Event null guards**: ADK events can have `content` set but `content.parts` as `None` — always guard with `and event.content.parts`
+- **Local dev deps**: Uses `[tool.uv.sources]` with editable local path: `neo4j-agent-memory = { path = "../../..", editable = true }`
+
+### Frontend Architecture
+
+**Real-time agent visualization** with Framer Motion + Chakra UI v3:
+- `useAgentStream` hook manages SSE connection, parses events, tracks per-agent state
+- `AgentOrchestrationView` — Animated panel showing live agent activity during processing (slide-in cards, pulsing active dots, staggered tool call animations)
+- `AgentActivityTimeline` — Post-completion Chakra UI `Timeline` showing reasoning trace per message
+- `ToolCallCard` — Animated tool call display with spinning loader → checkmark transition
+- `MemoryAccessIndicator` — Neo4j memory read/write flash animation
+
+**UI/UX patterns (Chakra UI v3)**:
+- Semantic tokens throughout: `bg.panel`, `bg.subtle`, `fg`, `fg.muted`, `border.subtle`
+- `colorPalette` for agent color coding (blue=supervisor, teal=KYC, orange=AML, purple=relationship, red=compliance)
+- Chakra `Stat`, `Skeleton`, `EmptyState`, `Collapsible`, `Timeline` compound components
+- `framer-motion` `AnimatePresence` + `motion.div` for orchestrated animations
+
+**react-icons/lu v5.5.0 naming**: Uses newer names — `LuTriangleAlert` (not `LuAlertTriangle`), `LuCircleAlert` (not `LuAlertCircle`), `LuCircleCheck` (not `LuCheckCircle`)
 
 ### Running
 
 ```bash
-cd examples/financial-services-advisor
-make install        # Install dependencies
-cp .env.example .env  # Configure environment
-make dev            # Run locally
+cd examples/google-cloud-financial-advisor
 
-# Deploy to AWS
-make deploy
+# Configure environment
+cp .env.example .env
+# Edit .env: set GOOGLE_API_KEY, NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
+
+# Install dependencies
+make install
+
+# Load sample data (reads credentials from .env)
+make load-data
+
+# Start backend + frontend
+make dev
+# Backend: http://localhost:8000  Frontend: http://localhost:5173
 ```
 
-### Architecture Diagrams
+### Key Files
 
-Located in `docs/diagrams/excalidraw/`:
-- `financial-services-architecture.excalidraw` - Full AWS architecture
-- `multi-agent-workflow.excalidraw` - Agent orchestration flow
-- `financial-graph-schema.excalidraw` - Neo4j graph schema
+**Backend:**
+- `backend/src/main.py` - FastAPI app, initializes `Neo4jDomainService` in lifespan, registers all routers
+- `backend/src/config.py` - Pydantic settings with nested VertexAI/Neo4j/GCS configs
+- `backend/src/services/neo4j_service.py` - `Neo4jDomainService` — all domain Cypher queries
+- `backend/src/services/memory_service.py` - MemoryClient wrapper (uses `connect()`, not `initialize()`)
+- `backend/src/agents/supervisor.py` - Google ADK supervisor with sub-agents, passes `neo4j_service`
+- `backend/src/agents/kyc_agent.py` - KYC specialist agent with `_bind_tool()` pattern
+- `backend/src/agents/aml_agent.py` - AML specialist agent
+- `backend/src/agents/relationship_agent.py` - Relationship/network analyst
+- `backend/src/agents/compliance_agent.py` - Compliance/regulatory agent
+- `backend/src/tools/kyc_tools.py` - KYC tools querying Neo4j via `neo4j_service` kwarg
+- `backend/src/tools/aml_tools.py` - AML tools (structuring, velocity, pattern detection)
+- `backend/src/tools/relationship_tools.py` - Network analysis tools
+- `backend/src/tools/compliance_tools.py` - Sanctions/PEP screening, SAR generation
+- `backend/src/api/routes/chat.py` - `POST /api/chat` (sync) and `POST /api/chat/stream` (SSE) with reasoning trace recording
+- `backend/src/api/routes/traces.py` - `GET /api/traces/{session_id}` and `GET /api/traces/detail/{trace_id}`
+- `backend/src/api/routes/customers.py` - Customer endpoints via `Neo4jDomainService`
+- `backend/src/api/routes/alerts.py` - Alert endpoints via `Neo4jDomainService`
+- `backend/src/api/routes/investigations.py` - Investigation endpoint
 
-See `examples/financial-services-advisor/README.md` for detailed documentation.
+**Frontend:**
+- `frontend/src/hooks/useAgentStream.ts` - SSE connection hook, per-agent state management
+- `frontend/src/lib/api.ts` - API client with `streamChatMessage()`, `getSessionTraces()`, SSE parsing
+- `frontend/src/components/Chat/ChatInterface.tsx` - Chat UI with streaming + orchestration panel
+- `frontend/src/components/Chat/AgentOrchestrationView.tsx` - Real-time animated multi-agent visualization
+- `frontend/src/components/Chat/AgentActivityTimeline.tsx` - Post-completion reasoning trace timeline
+- `frontend/src/components/Chat/ToolCallCard.tsx` - Animated tool call display with `formatValue()` helper
+- `frontend/src/components/Chat/MemoryAccessIndicator.tsx` - Neo4j memory operation indicator
+- `frontend/src/components/Dashboard/Sidebar.tsx` - Grouped nav, active route indicator, alert badge count
+- `frontend/src/components/Dashboard/CustomerDashboard.tsx` - Stat components, Skeleton loading, semantic tokens
+- `frontend/src/components/Dashboard/AlertsPanel.tsx` - EmptyState, Skeleton loading, semantic tokens
+- `frontend/src/components/Investigation/InvestigationPanel.tsx` - Timeline audit trail, Collapsible sections
+- `frontend/src/components/Investigation/AgentWorkflow.tsx` - Agent workflow visualization
+- `frontend/src/components/Graph/NetworkViewer.tsx` - vis-network graph visualization
+
+**Data:**
+- `data/customers.json` - 3 sample customers with full KYC properties (dob, nationality, docs)
+- `data/organizations.json` - Shell companies and related entities with shell indicators
+- `data/transactions.json` - 16 transactions including structuring patterns
+- `data/sanctions.json` - Sanctioned entities with aliases
+- `data/pep.json` - Politically Exposed Persons with relatives
+- `data/alerts.json` - Pre-built compliance alerts
+- `data/load_sample_data.py` - Loads all JSON data into Neo4j (customers, orgs, txns, sanctions, PEPs, alerts)
+
+**Tests:**
+- `tests/examples/test_google_cloud_financial_advisor.py` - Structure validation tests (directory structure, file existence, dependencies)
+- `tests/examples/test_financial_advisor_neo4j_integration.py` - Unit tests: Neo4jDomainService, tool functions, route helpers, _bind_tool, SSE helpers, traces route, structure validation
+
+See `examples/google-cloud-financial-advisor/README.md` for the full getting started tutorial.
 
 ## Documentation
 

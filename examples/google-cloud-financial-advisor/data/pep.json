@@ -1,0 +1,29 @@
+{
+  "peps": [
+    {
+      "name": "Carlos Rodriguez",
+      "position": "Minister of Finance",
+      "country": "MX",
+      "tier": 1
+    },
+    {
+      "name": "Elena Volkov",
+      "position": "Former Deputy Prime Minister",
+      "country": "RU",
+      "tier": 1
+    },
+    {
+      "name": "James Wilson",
+      "position": "State Senator",
+      "country": "US",
+      "tier": 2
+    }
+  ],
+  "pep_relatives": [
+    {
+      "name": "Maria Rodriguez",
+      "relation": "spouse",
+      "pep": "Carlos Rodriguez"
+    }
+  ]
+}

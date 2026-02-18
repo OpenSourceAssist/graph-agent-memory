@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.3] - 2026-02-06
+
+### Added
+
+- **Google Cloud Integration**: Comprehensive Google Cloud ecosystem support
+  - Vertex AI embeddings (`text-embedding-004`, gecko models) with async non-blocking I/O
+  - Google ADK `MemoryService` for native ADK agent memory persistence
+  - MCP server with 5 tools (memory search, store, entity lookup, conversation history, graph query)
+  - MCP server supports stdio and SSE transports, CLI command: `neo4j-memory mcp serve`
+- **Cloud Run Deployment**: Production-ready Dockerfile, Cloud Build config, and Terraform templates
+- **Google Cloud Financial Advisor Example**: Full-stack multi-agent demo with AML, compliance, KYC, and relationship agents (FastAPI + React/TypeScript)
+- **Google Cloud Documentation**: Integration guide with Vertex AI, ADK, and MCP setup instructions
+
+### Changed
+
+- Optional dependency stubs now raise `ImportError` with install instructions instead of returning `None`
+
 ## [0.0.2] - 2026-01-29
 
 ### Added
@@ -68,5 +85,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Schema Persistence**: Store and version custom entity schemas in Neo4j
 
+[0.0.3]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.3
 [0.0.2]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.2
 [0.0.1]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.1

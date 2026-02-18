@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Patterns for detecting write operations in Cypher
+# Patterns for detecting write operations in Cypher (matched against uppercased query)
 WRITE_PATTERNS = [
     r"\bCREATE\b",
     r"\bMERGE\b",
@@ -23,9 +23,13 @@ WRITE_PATTERNS = [
     r"\bDETACH\s+DELETE\b",
     r"\bSET\b",
     r"\bREMOVE\b",
+    r"\bDROP\b",
+    r"\bLOAD\s+CSV\b",
+    r"\bFOREACH\b",
     r"\bCALL\s+\{",  # Subqueries with potential writes
-    r"\bCALL\s+db\.",  # DB procedures
-    r"\bCALL\s+apoc\.",  # APOC procedures (some are write)
+    r"\bCALL\s+DB\.",  # DB procedures
+    r"\bCALL\s+APOC\.",  # APOC procedures (some are write)
+    r"\bIN\s+TRANSACTIONS\b",  # Batched write subqueries
 ]
 
 
@@ -300,8 +304,11 @@ class MCPHandlers:
             List of neighboring entities with relationships.
         """
         # Use direct Cypher query for neighbor traversal
-        query = """
-        MATCH (e:Entity {id: $entity_id})-[r*1..$max_hops]-(neighbor:Entity)
+        # Note: Neo4j does not support parameters in variable-length paths,
+        # so we interpolate max_hops directly (safe: clamped to 1-3 integer).
+        max_hops = min(max(max_hops, 1), 3)
+        query = f"""
+        MATCH (e:Entity {{id: $entity_id}})-[r*1..{max_hops}]-(neighbor:Entity)
         WHERE neighbor.id <> $entity_id
         WITH DISTINCT neighbor, r
         RETURN neighbor.id AS id,
@@ -312,9 +319,9 @@ class MCPHandlers:
         """
 
         try:
-            records = await self._client._client.execute_read(
+            records = await self._client.graph.execute_read(
                 query,
-                {"entity_id": entity_id, "max_hops": max_hops},
+                {"entity_id": entity_id},
             )
 
             return [
@@ -401,7 +408,7 @@ class MCPHandlers:
             }
 
         try:
-            records = await self._client._client.execute_read(query, parameters or {})
+            records = await self._client.graph.execute_read(query, parameters or {})
 
             return {
                 "success": True,
@@ -426,89 +433,6 @@ class MCPHandlers:
 
         return all(not re.search(pattern, query_upper) for pattern in WRITE_PATTERNS)
 
-    async def handle_add_reasoning_trace(
-        self,
-        session_id: str,
-        task: str,
-        tool_calls: list[dict[str, Any]] | None = None,
-        outcome: str | None = None,
-        success: bool = True,
-        metadata: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Handle add_reasoning_trace tool execution.
-
-        Stores a reasoning trace (procedural memory) that captures how a task
-        was solved, including tool calls made and their results.
-
-        Args:
-            session_id: Session ID for the trace.
-            task: Description of the task being solved.
-            tool_calls: List of tool calls made during reasoning.
-            outcome: Final outcome or result.
-            success: Whether the task succeeded.
-            metadata: Optional metadata.
-
-        Returns:
-            Stored trace confirmation.
-        """
-        try:
-            from neo4j_agent_memory.memory.reasoning import ToolCallStatus
-
-            # Start the trace
-            trace = await self._client.reasoning.start_trace(
-                session_id=session_id,
-                task=task,
-                metadata=metadata or {},
-            )
-
-            # Add steps for each tool call
-            if tool_calls:
-                for i, call in enumerate(tool_calls):
-                    tool_name = call.get("tool_name", "unknown")
-                    arguments = call.get("arguments", {})
-                    result = call.get("result")
-                    call_success = call.get("success", True)
-
-                    # Create a step for this tool call
-                    step = await self._client.reasoning.add_step(
-                        trace_id=trace.id,
-                        thought=f"Using {tool_name} tool",
-                        action=f"Call {tool_name}",
-                        observation=str(result)[:500] if result else None,
-                        metadata={"step_number": i + 1},
-                    )
-
-                    # Record the tool call
-                    await self._client.reasoning.record_tool_call(
-                        step_id=step.id,
-                        tool_name=tool_name,
-                        arguments=arguments,
-                        result=result,
-                        status=ToolCallStatus.SUCCESS if call_success else ToolCallStatus.ERROR,
-                        error=str(result) if not call_success else None,
-                    )
-
-            # Complete the trace
-            completed_trace = await self._client.reasoning.complete_trace(
-                trace_id=trace.id,
-                outcome=outcome or "Completed",
-                success=success,
-            )
-
-            return {
-                "stored": True,
-                "type": "reasoning_trace",
-                "id": str(completed_trace.id),
-                "session_id": session_id,
-                "task": task,
-                "step_count": len(tool_calls) if tool_calls else 0,
-                "success": success,
-            }
-
-        except Exception as e:
-            logger.error(f"Error in add_reasoning_trace: {e}")
-            raise
-
     async def execute_tool(
         self,
         tool_name: str,
@@ -529,7 +453,6 @@ class MCPHandlers:
             "entity_lookup": self.handle_entity_lookup,
             "conversation_history": self.handle_conversation_history,
             "graph_query": self.handle_graph_query,
-            "add_reasoning_trace": self.handle_add_reasoning_trace,
         }
 
         handler = handlers.get(tool_name)

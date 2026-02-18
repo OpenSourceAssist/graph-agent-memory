@@ -1,6 +1,6 @@
 [project]
 name = "neo4j-agent-memory"
-version = "0.0.3.alpha1"
+version = "0.0.3"
 description = "A comprehensive memory system for AI agents using Neo4j"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -49,6 +49,8 @@ openai = ["openai>=1.0.0"]
 anthropic = ["anthropic>=0.20.0"]
 sentence-transformers = ["sentence-transformers>=2.2.0"]
 vertex-ai = ["google-cloud-aiplatform>=1.38.0"]
+google = ["google-cloud-aiplatform>=1.38.0"]  # Alias for vertex-ai
+vertex-ai = ["google-cloud-aiplatform>=1.38.0"]
 bedrock = ["boto3>=1.26.0"]
 
 # Cloud provider bundles
@@ -89,6 +91,12 @@ llamaindex = ["llama-index-core>=0.10.0"]
 pydantic-ai = ["pydantic-ai>=0.1.0"]
 crewai = ["crewai>=0.50.0"]
 openai-agents = ["openai>=1.0.0"]
+
+# MCP server
+mcp = ["mcp>=1.0.0"]
+
+# Google ADK
+google-adk = ["google-adk>=0.1.0"]
 
 # All optional dependencies (excluding heavy ML models by default)
 all = [

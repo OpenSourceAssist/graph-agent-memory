@@ -174,7 +174,7 @@ MEMORY_TOOLS: list[dict[str, Any]] = [
         "name": "graph_query",
         "description": (
             "Execute a read-only Cypher query against the knowledge graph. "
-            "Only SELECT/MATCH queries are allowed for safety."
+            "Only read-only queries (MATCH/RETURN) are allowed for safety."
         ),
         "inputSchema": {
             "type": "object",

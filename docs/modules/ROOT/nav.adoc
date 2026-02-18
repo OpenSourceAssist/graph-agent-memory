@@ -24,6 +24,7 @@
 **** xref:how-to/integrations/pydantic-ai.adoc[PydanticAI]
 **** xref:how-to/integrations/crewai.adoc[CrewAI]
 **** xref:how-to/integrations/openai-agents.adoc[OpenAI Agents]
+**** xref:how-to/integrations/google-cloud.adoc[Google Cloud]
 **** xref:how-to/integrations/aws-strands.adoc[AWS Strands Agents]
 **** xref:how-to/integrations/aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
 **** xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory]

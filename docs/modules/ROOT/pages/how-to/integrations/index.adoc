@@ -32,6 +32,10 @@ Neo4j Agent Memory provides official integrations for five popular agent framewo
 | OpenAI function calling with persistent memory
 | ✅ Production Ready
 
+| xref:google-cloud.adoc[Google Cloud]
+| Vertex AI embeddings, ADK agents, MCP server
+| ✅ Production Ready
+
 | xref:aws-strands.adoc[AWS Strands Agents]
 | AWS Strands SDK with Bedrock and Context Graph tools
 | ✅ Production Ready
@@ -65,6 +69,9 @@ pip install neo4j-agent-memory[crewai]
 
 # OpenAI Agents SDK
 pip install neo4j-agent-memory[openai-agents]
+
+# Google Cloud (Vertex AI + ADK + MCP)
+pip install neo4j-agent-memory[google,mcp]
 
 # AWS Strands Agents
 pip install neo4j-agent-memory[aws,strands]
@@ -126,6 +133,17 @@ memory = Neo4jOpenAIMemory(memory_client=client, session_id="user-123")
 messages = await memory.get_conversation()
 ----
 
+=== Google ADK
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+memory_service = Neo4jMemoryService(memory_client=client, user_id="user-123")
+await memory_service.add_session_to_memory(session)
+results = await memory_service.search_memories("query")
+----
+
 === AWS Strands Agents
 
 [source,python]
@@ -174,6 +192,11 @@ Automatically extract entities from conversations:
 
 == Integration Guides
 
+* xref:how-to/integrations/langchain.adoc[LangChain Integration] - Memory and retriever for chains
+* xref:how-to/integrations/pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
+* xref:how-to/integrations/llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
+* xref:how-to/integrations/crewai.adoc[CrewAI Integration] - Multi-agent shared memory
+* xref:how-to/integrations/openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
 * xref:langchain.adoc[LangChain Integration] - Memory and retriever for chains
 * xref:pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
 * xref:llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support

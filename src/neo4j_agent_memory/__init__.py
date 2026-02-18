@@ -107,28 +107,51 @@ class MemoryGraph(BaseModel):
 from neo4j_agent_memory.graph.client import Neo4jClient
 from neo4j_agent_memory.graph.schema import SchemaManager
 
-# Cloud provider integrations (conditionally imported to avoid requiring dependencies)
-# Google Cloud (v0.3.0+)
+# Google Cloud integrations (v0.0.3+)
+# These are imported conditionally to avoid requiring google dependencies.
+# Stub classes provide actionable error messages when optional deps are missing.
 try:
     from neo4j_agent_memory.embeddings.vertex_ai import VertexAIEmbedder
 except ImportError:
-    VertexAIEmbedder = None  # type: ignore[misc, assignment]
+
+    class VertexAIEmbedder:  # type: ignore[no-redef]
+        """Stub for VertexAIEmbedder when google-cloud-aiplatform is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "VertexAIEmbedder requires google-cloud-aiplatform. "
+                "Install with: pip install neo4j-agent-memory[vertex-ai]"
+            )
+
 
 try:
     from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 except ImportError:
-    Neo4jMemoryService = None  # type: ignore[misc, assignment]
+
+    class Neo4jMemoryService:  # type: ignore[no-redef]
+        """Stub for Neo4jMemoryService when google-adk is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Neo4jMemoryService requires google-adk. "
+                "Install with: pip install neo4j-agent-memory[google-adk]"
+            )
+
 
 try:
     from neo4j_agent_memory.mcp.server import Neo4jMemoryMCPServer
 except ImportError:
-    Neo4jMemoryMCPServer = None  # type: ignore[misc, assignment]
 
-# AWS (v0.4.0+)
-try:
-    from neo4j_agent_memory.embeddings.bedrock import BedrockEmbedder
-except ImportError:
-    BedrockEmbedder = None  # type: ignore[misc, assignment]
+    class Neo4jMemoryMCPServer:  # type: ignore[no-redef]
+        """Stub for Neo4jMemoryMCPServer when mcp is not installed."""
+
+        def __init__(self, *args, **kwargs):
+            raise ImportError(
+                "Neo4jMemoryMCPServer requires the mcp package. "
+                "Install with: pip install neo4j-agent-memory[mcp]"
+            )
+
+
 from neo4j_agent_memory.memory.long_term import (
     Entity,
     EntityType,
@@ -157,7 +180,7 @@ from neo4j_agent_memory.memory.short_term import (
     ShortTermMemory,
 )
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 __all__ = [
     # Main client
@@ -215,12 +238,10 @@ __all__ = [
     "GraphNode",
     "GraphRelationship",
     "MemoryGraph",
-    # Cloud integrations - Google (v0.3.0+)
+    # Google Cloud integrations (v0.0.3+)
     "VertexAIEmbedder",
     "Neo4jMemoryService",
     "Neo4jMemoryMCPServer",
-    # Cloud integrations - AWS (v0.4.0+)
-    "BedrockEmbedder",
     # Exceptions
     "MemoryError",
     "ConnectionError",
@@ -429,6 +450,35 @@ class MemoryClient:
         if self._schema_manager is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
         return self._schema_manager
+
+    @property
+    def graph(self) -> "Neo4jClient":
+        """
+        Access the underlying Neo4j graph client for custom Cypher queries.
+
+        This allows applications to query domain-specific data stored in the
+        same Neo4j database alongside agent memory operations, without creating
+        a separate database connection.
+
+        The returned client provides ``execute_read()``, ``execute_write()``,
+        ``execute_batch()``, ``vector_search()``, and other query methods.
+
+        Example::
+
+            async with MemoryClient(settings) as client:
+                results = await client.graph.execute_read(
+                    "MATCH (c:Customer) RETURN c.name AS name LIMIT 10"
+                )
+
+        Returns:
+            Neo4jClient instance
+
+        Raises:
+            NotConnectedError: If client is not connected
+        """
+        if self._client is None:
+            raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
+        return self._client
 
     async def get_context(
         self,
