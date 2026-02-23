@@ -13,14 +13,26 @@ A full-stack example application demonstrating Neo4j Agent Memory integration wi
 
 ## Architecture
 
+![Architecture Diagram](architecture.png)
+
 ```
 Frontend (Next.js 14 + Chakra UI)
          ↓ SSE/REST
-Backend (FastAPI + Microsoft Agent Framework)
+Backend (FastAPI)
          ↓
-Neo4j Agent Memory
+Microsoft Agent Framework (Agent + FunctionTools)
+         ↓ context_providers=[memory.context_provider]
+Neo4jContextProvider
+  ┌──────┼──────────────┐
+  │ before_run()        │ after_run()
+  │ (inject context)    │ (persist + extract)
+  ↓                     ↓
+Neo4j Agent Memory (MemoryClient)
+  ├── short_term  → conversation history + semantic search
+  ├── long_term   → entities, preferences, knowledge graph
+  └── reasoning   → past task traces for learning
          ↓
-Neo4j Database
+Neo4j Database (Cypher + Vector Index + GDS)
 ```
 
 ## Prerequisites
@@ -215,12 +227,52 @@ RETURN p, score
 
 ## Microsoft Agent Framework Integration
 
-This example demonstrates:
+This example is built on `neo4j_agent_memory.integrations.microsoft_agent`, which provides drop-in components for the Microsoft Agent Framework.
 
-1. **Neo4jContextProvider**: Injects relevant memory context before each agent response
-2. **Neo4jChatMessageStore**: Persists conversation history in Neo4j graph
-3. **Memory Tools**: Search memory, save preferences, find similar past interactions
-4. **GDS Integration**: Graph algorithms for enhanced recommendations
+### Neo4jContextProvider — Automatic Memory Injection
+
+The core integration point is `Neo4jContextProvider`, a `BaseContextProvider` subclass that hooks into the agent lifecycle:
+
+- **`before_run()`** — Called automatically before each model invocation. Extracts the latest user message, then queries all three memory layers in parallel and injects the results as extended instructions:
+  - **Short-term**: Recent conversation history + semantically similar past messages (vector search with configurable similarity threshold)
+  - **Long-term**: Matching user preferences and knowledge-graph entities
+  - **Reasoning**: Similar past task traces (task descriptions, outcomes, success/failure)
+
+- **`after_run()`** — Called after the model responds. Persists both the user and assistant messages to short-term memory with embeddings, and triggers background entity extraction so the knowledge graph stays current without blocking the response stream.
+
+The provider is wired into the agent in `agent.py`:
+
+```python
+agent = chat_client.as_agent(
+    name="ShoppingAssistant",
+    instructions=SYSTEM_PROMPT,
+    tools=all_tools,
+    context_providers=[memory.context_provider],
+)
+```
+
+Configuration lives in `memory_config.py`, where `Neo4jMicrosoftMemory` bundles the context provider, chat message store, and optional GDS integration into a single object:
+
+```python
+memory = Neo4jMicrosoftMemory(
+    memory_client=client,
+    session_id=session_id,
+    include_short_term=True,   # conversation history
+    include_long_term=True,    # entities & preferences
+    include_reasoning=True,    # past task traces
+    max_context_items=15,
+    extract_entities=True,
+    extract_entities_async=True,  # non-blocking extraction
+    gds_config=gds_config,
+)
+```
+
+### Other Integration Components
+
+- **Neo4jChatMessageStore**: `BaseChatMessageStore` implementation that persists conversation history in the Neo4j graph with embeddings
+- **`create_memory_tools()`**: Generates callable `FunctionTool` instances (search memory, save preferences, find similar entities) that the agent can invoke during a conversation
+- **`record_agent_trace()`**: Records each completed interaction (user message, assistant response, tool calls, outcome) as a reasoning trace so the agent can learn from past interactions
+- **GDS Integration**: Graph algorithms (PageRank, community detection, shortest path) for enhanced recommendations, with automatic fallback to Cypher when GDS is not installed
 
 ## Troubleshooting
 

@@ -77,6 +77,23 @@ class Neo4jConfig(BaseModel):
     max_transaction_retry_time: float = Field(
         default=30.0, gt=0, description="Maximum transaction retry time in seconds"
     )
+    max_connection_lifetime: int = Field(
+        default=300,
+        gt=0,
+        description="Maximum lifetime of a pooled connection in seconds. "
+        "Connections older than this are proactively closed and replaced. "
+        "Should be shorter than the server's idle timeout (e.g., Neo4j Aura).",
+    )
+    liveness_check_timeout: int = Field(
+        default=60,
+        gt=0,
+        description="Seconds a connection can be idle before the driver checks "
+        "if it is still alive. Prevents use of stale connections.",
+    )
+    keep_alive: bool = Field(
+        default=True,
+        description="Enable TCP keep-alive on connections to prevent idle drops.",
+    )
 
 
 class EmbeddingConfig(BaseModel):
