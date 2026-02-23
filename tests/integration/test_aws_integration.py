@@ -395,13 +395,16 @@ class TestHybridMemoryProviderIntegration:
 
 
 class TestMCPReasoningTraceIntegration:
-    """Integration tests for MCP reasoning trace tool."""
+    """Integration tests for MCP reasoning trace tool via FastMCP Client."""
 
     @pytest.fixture
     def mock_memory_client(self):
         """Create a mock MemoryClient with proper async mocks."""
         client = MagicMock()
+        client.short_term = MagicMock()
+        client.long_term = MagicMock()
         client.reasoning = MagicMock()
+        client.graph = MagicMock()
 
         # Mock trace object
         mock_trace = MagicMock()
@@ -422,27 +425,42 @@ class TestMCPReasoningTraceIntegration:
 
     @pytest.mark.asyncio
     async def test_add_reasoning_trace(self, mock_memory_client) -> None:
-        """Test adding a reasoning trace via MCP handler."""
-        from neo4j_agent_memory.mcp.handlers import MCPHandlers
+        """Test adding a reasoning trace via FastMCP tool."""
+        import json
+        from contextlib import asynccontextmanager
 
-        handler = MCPHandlers(memory_client=mock_memory_client)
+        from fastmcp import Client, FastMCP
 
-        result = await handler.handle_add_reasoning_trace(
-            session_id="session-1",
-            task="Find restaurants nearby",
-            tool_calls=[
+        from neo4j_agent_memory.mcp._tools import register_tools
+
+        @asynccontextmanager
+        async def mock_lifespan(server):
+            yield {"client": mock_memory_client}
+
+        mcp = FastMCP("test-reasoning", lifespan=mock_lifespan)
+        register_tools(mcp)
+
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "add_reasoning_trace",
                 {
-                    "tool_name": "search_locations",
-                    "arguments": {"query": "restaurants"},
-                    "result": "Found 5",
-                }
-            ],
-            outcome="Found 5 restaurants",
-            success=True,
-        )
+                    "session_id": "session-1",
+                    "task": "Find restaurants nearby",
+                    "tool_calls": [
+                        {
+                            "tool_name": "search_locations",
+                            "arguments": {"query": "restaurants"},
+                            "result": "Found 5",
+                        }
+                    ],
+                    "outcome": "Found 5 restaurants",
+                    "success": True,
+                },
+            )
 
-        assert result["success"] is True
-        assert result["stored"] is True
+        data = json.loads(result.content[0].text)
+        assert data["success"] is True
+        assert data["stored"] is True
         mock_memory_client.reasoning.start_trace.assert_called_once()
         mock_memory_client.reasoning.complete_trace.assert_called_once()
 
