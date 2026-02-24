@@ -31,22 +31,33 @@ class TestCreateMCPServer:
         server = create_mcp_server(server_name="custom-server")
         assert server.name == "custom-server"
 
-    def test_create_mcp_server_with_settings_has_lifespan(self):
-        """Test that settings create a lifespan for client management."""
+    def test_create_mcp_server_with_settings_is_configured(self):
+        """Test that a server created with settings is a valid FastMCP instance."""
+        from fastmcp import FastMCP
+
         from neo4j_agent_memory.mcp.server import create_mcp_server
 
         mock_settings = MagicMock()
         server = create_mcp_server(settings=mock_settings)
-        # When settings are provided, a lifespan closure is created
-        assert server._lifespan is not None
+        assert isinstance(server, FastMCP)
+        assert server.name == "neo4j-agent-memory"
 
-    def test_create_mcp_server_without_settings_uses_default_lifespan(self):
-        """Test that no custom lifespan is set when settings are None."""
+    def test_create_mcp_server_without_settings_registers_tools(self):
+        """Test that a server without settings has tools registered and accessible."""
+        import asyncio
+
+        from fastmcp import Client
+
         from neo4j_agent_memory.mcp.server import create_mcp_server
 
         server = create_mcp_server()
-        # Without settings, FastMCP uses its default lifespan
-        assert server._lifespan is not None
+
+        async def _check():
+            async with Client(server) as client:
+                tools = await client.list_tools()
+                assert len(tools) == 6
+
+        asyncio.run(_check())
 
 
 class TestNeo4jMemoryMCPServerBackwardCompat:

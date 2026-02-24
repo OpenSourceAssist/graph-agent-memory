@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MCP Server Demo.
 
-Demonstrates the Neo4j Agent Memory MCP server and its 5 tools.
+Demonstrates the Neo4j Agent Memory MCP server and its 6 tools.
 
 Features demonstrated:
 - Starting the MCP server programmatically
@@ -34,7 +34,7 @@ async def demo_server_tools():
     print("=" * 60)
     print()
 
-    print("The Neo4j Memory MCP server exposes 5 tools:")
+    print("The Neo4j Memory MCP server exposes 6 tools:")
     print()
 
     async with Client(server) as client:

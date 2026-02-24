@@ -49,7 +49,7 @@ try:
         if settings is not None:
 
             @asynccontextmanager
-            async def lifespan(server: FastMCP):  # noqa: E303
+            async def lifespan(server: FastMCP):
                 """Manage MemoryClient lifecycle for the MCP server."""
                 from neo4j_agent_memory import MemoryClient as _MemoryClient
 
@@ -92,6 +92,7 @@ try:
             - entity_lookup: Get entity with relationships
             - conversation_history: Get conversation for session
             - graph_query: Execute read-only Cypher queries
+            - add_reasoning_trace: Store agent reasoning traces
         """
 
         def __init__(
@@ -194,6 +195,11 @@ except ImportError:
             )
 
     def create_mcp_server(*args: Any, **kwargs: Any) -> Neo4jMemoryMCPServer:  # type: ignore[misc]
+        raise ImportError(
+            "FastMCP not installed. Install with: pip install neo4j-agent-memory[mcp]"
+        )
+
+    async def run_server(*args: Any, **kwargs: Any) -> None:
         raise ImportError(
             "FastMCP not installed. Install with: pip install neo4j-agent-memory[mcp]"
         )

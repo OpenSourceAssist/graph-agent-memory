@@ -356,8 +356,9 @@ def register_tools(mcp: FastMCP) -> None:
     ) -> str:
         """Execute a read-only Cypher query against the knowledge graph.
 
-        Only MATCH/RETURN queries are allowed. Write operations
-        (CREATE, MERGE, DELETE, SET, REMOVE) are blocked for safety.
+        MATCH/RETURN queries and read-only CALL procedures (e.g., CALL db.*,
+        CALL apoc.*) are allowed. Write operations (CREATE, MERGE, DELETE,
+        SET, REMOVE) are blocked for safety.
         """
         if not _is_read_only_query(query):
             return json.dumps(

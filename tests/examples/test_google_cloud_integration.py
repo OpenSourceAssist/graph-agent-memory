@@ -142,29 +142,44 @@ class TestMCPToolDefinitions:
 
     def test_expected_tool_count(self):
         """Verify there are exactly 6 MCP tools defined."""
-        from fastmcp import FastMCP
+        import asyncio
+
+        from fastmcp import Client, FastMCP
 
         from neo4j_agent_memory.mcp._tools import register_tools
 
         mcp = FastMCP("test")
         register_tools(mcp)
-        # FastMCP stores tools internally; check via _tool_manager
-        assert len(mcp._tool_manager._tools) == 6
+
+        async def _check():
+            async with Client(mcp) as client:
+                tools = await client.list_tools()
+                assert len(tools) == 6
+
+        asyncio.run(_check())
 
     def test_expected_tool_names(self):
         """Verify the expected tool names are present."""
-        from fastmcp import FastMCP
+        import asyncio
+
+        from fastmcp import Client, FastMCP
 
         from neo4j_agent_memory.mcp._tools import register_tools
 
         mcp = FastMCP("test")
         register_tools(mcp)
-        tool_names = set(mcp._tool_manager._tools.keys())
-        assert tool_names == {
-            "memory_search",
-            "memory_store",
-            "entity_lookup",
-            "conversation_history",
-            "graph_query",
-            "add_reasoning_trace",
-        }
+
+        async def _check():
+            async with Client(mcp) as client:
+                tools = await client.list_tools()
+                tool_names = {t.name for t in tools}
+                assert tool_names == {
+                    "memory_search",
+                    "memory_store",
+                    "entity_lookup",
+                    "conversation_history",
+                    "graph_query",
+                    "add_reasoning_trace",
+                }
+
+        asyncio.run(_check())
