@@ -5,22 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.3] - 2026-02-06
+## [0.0.3] - 2026-02-18
 
 ### Added
 
+- **AWS Integration**: Comprehensive Amazon Web Services ecosystem support
+  - AWS Strands Agents integration with 4 context graph tools (search, entity graph, add memory, user preferences)
+  - Amazon Bedrock embeddings (Titan Embed v2/v1, Cohere English/Multilingual v3) with batch support
+  - AWS Bedrock AgentCore `MemoryProvider` for native AgentCore memory persistence
+  - `HybridMemoryProvider` with intelligent routing strategies (auto, explicit, short-term-first, long-term-first)
 - **Google Cloud Integration**: Comprehensive Google Cloud ecosystem support
   - Vertex AI embeddings (`text-embedding-004`, gecko models) with async non-blocking I/O
   - Google ADK `MemoryService` for native ADK agent memory persistence
-  - MCP server with 5 tools (memory search, store, entity lookup, conversation history, graph query)
-  - MCP server supports stdio and SSE transports, CLI command: `neo4j-memory mcp serve`
+- **MCP Server**: Model Context Protocol server with 6 tools (memory search, store, entity lookup, conversation history, graph query, reasoning traces)
+  - Supports stdio and SSE transports, CLI command: `neo4j-memory mcp serve`
 - **Cloud Run Deployment**: Production-ready Dockerfile, Cloud Build config, and Terraform templates
-- **Google Cloud Financial Advisor Example**: Full-stack multi-agent demo with AML, compliance, KYC, and relationship agents (FastAPI + React/TypeScript)
-- **Google Cloud Documentation**: Integration guide with Vertex AI, ADK, and MCP setup instructions
+- **New Example Applications**:
+  - Google Cloud Financial Advisor: Full-stack multi-agent compliance demo with AML, KYC, relationship, and compliance agents (FastAPI + React/TypeScript)
+  - AWS Financial Services Advisor: Strands Agents multi-agent demo with Bedrock LLM and embeddings
+  - Google ADK demo: Session storage with entity extraction and memory search
+- **Documentation**: Antora-based docs restructuring, Strands Agent quickstart tutorial, Google Cloud and AWS integration guides
 
 ### Changed
 
+- Centralized all Cypher queries into `graph/queries.py` module for maintainability
+- Short-term memory now auto-links messages sequentially (`FIRST_MESSAGE`/`NEXT_MESSAGE` relationships)
 - Optional dependency stubs now raise `ImportError` with install instructions instead of returning `None`
+
+### Fixed
+
+- MCP handler event dispatch fixes
+- Entity type parameter error and APOC fallback handling
+- Cypher query fixes for entity search, tool calls, and relationship extraction
+- Lenny's Memory demo: improved initial loading speed, graph view, tool call result cards, mobile responsiveness, and entity enrichment
 
 ## [0.0.2] - 2026-01-29
 
