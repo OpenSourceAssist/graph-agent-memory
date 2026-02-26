@@ -14,6 +14,7 @@
     "@neo4j-nvl/base": "^1.0.0",
     "@neo4j-nvl/react": "^1.0.0",
     "@turf/turf": "^7.0.0",
+    "@vercel/analytics": "^1.6.1",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
     "leaflet.heat": "^0.2.0",

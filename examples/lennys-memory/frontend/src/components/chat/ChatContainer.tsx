@@ -8,61 +8,72 @@ import {
   SimpleGrid,
   Spinner,
   useBreakpointValue,
+  Alert,
+  CloseButton,
 } from "@chakra-ui/react";
 import { useRef, useEffect } from "react";
-import { LuMessageSquare, LuBot } from "react-icons/lu";
+import { LuBot, LuBrain, LuSparkles } from "react-icons/lu";
 import { MessageList } from "./MessageList";
 import { PromptInput } from "./PromptInput";
 import type { Message } from "@/lib/types";
 
-// Suggested prompts for the empty state
+// Suggested prompts for the empty state - designed to showcase different features
 const SUGGESTED_PROMPTS = [
   {
-    title: "Product Management",
+    title: "Explore a Topic",
     prompt:
-      "What did Brian Chesky say about building products that users love?",
+      "Use memory graph search to explore what guests say about scaling engineering teams",
+    // Showcases: MemoryGraphCard (vector search + graph traversal)
   },
   {
-    title: "Growth Strategies",
-    prompt: "What are the best growth strategies discussed by podcast guests?",
+    title: "Who is Brian Chesky?",
+    prompt: "Tell me about Brian Chesky",
+    // Showcases: EntityCard with Wikipedia enrichment, image, description
   },
   {
-    title: "Career Advice",
-    prompt: "What advice did guests give about career transitions and growth?",
+    title: "Top Companies",
+    prompt: "What are the most mentioned companies in the podcast?",
+    // Showcases: StatsCard with bar visualization
   },
   {
-    title: "Leadership",
-    prompt: "What do successful leaders say about managing teams effectively?",
+    title: "Related Entities",
+    prompt: "What entities are related to Airbnb?",
+    // Showcases: GraphCard with NVL visualization
   },
   {
-    title: "Startup Lessons",
-    prompt: "What are the most important lessons for early-stage startups?",
-  },
-  {
-    title: "Hiring & Culture",
+    title: "Speaker Quotes",
     prompt:
-      "What did guests say about hiring great people and building culture?",
+      "What did Brian Chesky say about micromanagement and being in the details?",
+    // Showcases: DataCard with podcast transcript results
+  },
+  {
+    title: "Map View",
+    prompt: "Show me locations mentioned in the Brian Chesky episode",
+    // Showcases: MapCard with geographic visualization
   },
 ];
 
 interface ChatContainerProps {
   messages: Message[];
   isStreaming: boolean;
+  error: string | null;
   onSendMessage: (content: string) => void;
-  threadId: string | null;
+  onClearError?: () => void;
 }
 
 export function ChatContainer({
   messages,
   isStreaming,
+  error,
   onSendMessage,
-  threadId,
+  onClearError,
 }: ChatContainerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Responsive values
-  const isMobile = useBreakpointValue({ base: true, sm: false });
-  const promptColumns = useBreakpointValue({ base: 1, sm: 2, lg: 3 });
+  // Responsive values - 2x2 grid on mobile for better use of space
+  // Default to false/2 during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, sm: false }) ?? false;
+  const promptColumns = useBreakpointValue({ base: 2, sm: 2, lg: 3 }) ?? 2;
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -71,20 +82,30 @@ export function ChatContainer({
     }
   }, [messages]);
 
-  if (!threadId) {
-    return (
-      <Flex h="full" alignItems="center" justifyContent="center">
-        <Stack textAlign="center" gap="4">
-          <Text fontSize="lg" color="fg.muted">
-            Select a conversation or create a new one
-          </Text>
-        </Stack>
-      </Flex>
-    );
-  }
-
   return (
     <Flex direction="column" h="full" overflow="hidden" flex="1">
+      {/* Error display */}
+      {error && (
+        <Box px={{ base: 2, md: 4 }} pt={{ base: 2, md: 4 }}>
+          <Alert.Root status="error">
+            <Alert.Indicator />
+            <Alert.Content>
+              <Alert.Title>Error</Alert.Title>
+              <Alert.Description>{error}</Alert.Description>
+            </Alert.Content>
+            {onClearError && (
+              <CloseButton
+                size="sm"
+                onClick={onClearError}
+                pos="relative"
+                top="-2"
+                insetEnd="-2"
+              />
+            )}
+          </Alert.Root>
+        </Box>
+      )}
+
       {/* Messages area */}
       <Box ref={scrollRef} flex="1" overflowY="auto" p={{ base: 2, md: 4 }}>
         {messages.length === 0 ? (
@@ -100,13 +121,31 @@ export function ChatContainer({
               maxW="3xl"
               w="full"
             >
-              <Stack gap="2">
-                <Text fontSize={{ base: "lg", md: "xl" }} fontWeight="semibold">
+              <Stack gap="2" align="center">
+                <Box
+                  color="brand.500"
+                  mb={2}
+                  p={{ base: 3, md: 4 }}
+                  bg="brand.subtle"
+                  borderRadius="full"
+                >
+                  <LuBrain size={isMobile ? 32 : 40} />
+                </Box>
+                <Text
+                  fontSize={{ base: "lg", md: "xl" }}
+                  fontWeight="semibold"
+                  fontFamily="heading"
+                >
                   Ask about Lenny's Podcast
                 </Text>
-                <Text color="fg.muted" fontSize={{ base: "xs", md: "sm" }}>
-                  Explore insights from 299 podcast episodes. Click a topic
-                  below or type your own question.
+                <Text
+                  color="fg.muted"
+                  fontSize={{ base: "xs", md: "sm" }}
+                  maxW="md"
+                  px={2}
+                >
+                  Explore insights from 299 podcast episodes with AI-powered
+                  graph memory. Click a topic or type your own question.
                 </Text>
               </Stack>
 
@@ -115,7 +154,7 @@ export function ChatContainer({
                   <Box
                     key={item.title}
                     as="button"
-                    p={{ base: 3, md: 4 }}
+                    p={{ base: 2.5, md: 4 }}
                     borderRadius="lg"
                     border="1px solid"
                     borderColor="border.subtle"
@@ -124,27 +163,33 @@ export function ChatContainer({
                     cursor="pointer"
                     transition="all 0.2s"
                     _hover={{
-                      borderColor: "blue.500",
-                      bg: "blue.50",
+                      borderColor: "brand.500",
+                      bg: "brand.subtle",
                       transform: "translateY(-1px)",
                       boxShadow: "sm",
                     }}
                     _active={{
                       transform: "scale(0.98)",
                     }}
+                    _focusVisible={{
+                      outline: "2px solid",
+                      outlineColor: "brand.500",
+                      outlineOffset: "2px",
+                    }}
                     onClick={() => !isStreaming && onSendMessage(item.prompt)}
                     opacity={isStreaming ? 0.5 : 1}
                     pointerEvents={isStreaming ? "none" : "auto"}
-                    minH={{ base: "80px", md: "auto" }}
+                    minH={{ base: "auto", md: "auto" }}
                   >
-                    <Flex align="center" gap={2} mb={{ base: 1, md: 2 }}>
-                      <Box color="blue.500">
-                        <LuMessageSquare size={16} />
+                    <Flex align="center" gap={1.5} mb={{ base: 0.5, md: 2 }}>
+                      <Box color="brand.500" flexShrink={0}>
+                        <LuSparkles size={isMobile ? 14 : 16} />
                       </Box>
                       <Text
                         fontSize={{ base: "xs", md: "sm" }}
                         fontWeight="medium"
                         color="fg.default"
+                        lineClamp={1}
                       >
                         {item.title}
                       </Text>
@@ -154,6 +199,7 @@ export function ChatContainer({
                       color="fg.muted"
                       lineHeight="tall"
                       lineClamp={{ base: 2, md: 3 }}
+                      hideBelow="sm"
                     >
                       {item.prompt}
                     </Text>
@@ -173,7 +219,7 @@ export function ChatContainer({
                   w="8"
                   h="8"
                   borderRadius="full"
-                  bg="green.subtle"
+                  bg="brand.subtle"
                   alignItems="center"
                   justifyContent="center"
                   flexShrink={0}
@@ -185,13 +231,13 @@ export function ChatContainer({
                   gap="3"
                   px="4"
                   py="3"
-                  bg="blue.subtle"
+                  bg="brand.subtle"
                   borderRadius="lg"
                   border="1px solid"
-                  borderColor="blue.200"
+                  borderColor="brand.muted"
                 >
-                  <Spinner size="sm" color="blue.500" borderWidth="2px" />
-                  <Text fontSize="sm" color="blue.700" fontWeight="medium">
+                  <Spinner size="sm" color="brand.500" borderWidth="2px" />
+                  <Text fontSize="sm" color="brand.fg" fontWeight="medium">
                     Thinking and searching podcasts...
                   </Text>
                 </Flex>

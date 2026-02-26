@@ -12,29 +12,25 @@ import {
   Drawer,
   Portal,
   IconButton,
-  Image,
-  Link,
   useBreakpointValue,
+  SimpleGrid,
 } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
 import {
   LuBrain,
-  LuHeart,
-  LuUser,
-  LuBuilding,
-  LuMapPin,
-  LuMessageSquare,
   LuWrench,
   LuBot,
   LuSearch,
   LuGlobe,
   LuSettings,
   LuX,
-  LuExternalLink,
-  LuSparkles,
+  LuLayoutGrid,
+  LuMapPin,
+  LuTable,
+  LuChartBar,
+  LuUser,
+  LuNetwork,
+  LuCode,
 } from "react-icons/lu";
-import { api } from "@/lib/api";
-import type { MemoryContext as MemoryContextType, Entity } from "@/lib/types";
 
 // Agent tools configuration - matches the backend tools
 const AGENT_TOOLS = {
@@ -89,6 +85,10 @@ const AGENT_TOOLS = {
   ],
   memory: [
     {
+      name: "memory_graph_search",
+      description: "Vector search + graph traversal visualization",
+    },
+    {
       name: "get_user_preferences",
       description: "Get stored user preferences",
     },
@@ -96,425 +96,302 @@ const AGENT_TOOLS = {
       name: "find_similar_queries",
       description: "Find similar past interactions",
     },
+    {
+      name: "learn_from_similar_task",
+      description: "Learn from past reasoning traces",
+    },
+    {
+      name: "get_tool_patterns",
+      description: "Analyze tool usage patterns",
+    },
   ],
 };
 
+// Tool call cards configuration
+const TOOL_CALL_CARDS = [
+  {
+    name: "MapCard",
+    icon: LuMapPin,
+    colorPalette: "teal",
+    description:
+      "Interactive map showing locations mentioned in podcasts. Supports markers with subtype-based colors, path visualization between locations, and auto-calculated bounds.",
+    triggeredBy: [
+      "search_locations",
+      "find_locations_near",
+      "find_location_path",
+      "get_location_clusters",
+    ],
+  },
+  {
+    name: "DataCard",
+    icon: LuTable,
+    colorPalette: "green",
+    description:
+      "Tabular display for search results with auto-detected columns. Shows podcast matches, episode lists, speaker info, and entity data with horizontal scroll and expandable rows.",
+    triggeredBy: [
+      "search_podcast",
+      "search_by_speaker",
+      "list_episodes",
+      "list_speakers",
+      "search_entities",
+    ],
+  },
+  {
+    name: "StatsCard",
+    icon: LuChartBar,
+    colorPalette: "amber",
+    description:
+      "Key metrics displayed in a colored grid layout. Shows podcast statistics, top entities, and memory stats with numeric formatting and color-coded categories.",
+    triggeredBy: ["get_stats", "get_top_entities", "memory_stats"],
+  },
+  {
+    name: "EntityCard",
+    icon: LuUser,
+    colorPalette: "pink",
+    description:
+      "Wikipedia-style knowledge panel for entities. Shows entity image, enriched description, type/subtype badges, podcast mentions, and related entities.",
+    triggeredBy: ["get_entity_context"],
+  },
+  {
+    name: "GraphCard",
+    icon: LuNetwork,
+    colorPalette: "purple",
+    description:
+      "Neo4j NVL graph visualization showing entity relationships. Displays nodes with type-specific colors, relationship labels, and interactive navigation.",
+    triggeredBy: ["find_related_entities"],
+  },
+  {
+    name: "MemoryGraphCard",
+    icon: LuBrain,
+    colorPalette: "purple",
+    description:
+      "Combined vector search and graph traversal visualization. Shows relevant messages and connected entities from the knowledge graph with similarity scores.",
+    triggeredBy: ["memory_graph_search"],
+  },
+  {
+    name: "RawJsonCard",
+    icon: LuCode,
+    colorPalette: "gray",
+    description:
+      "Fallback JSON display for unrecognized tool results. Shows raw data in a formatted, expandable code view for debugging and inspection.",
+    triggeredBy: ["Any unmatched tool"],
+  },
+];
+
 interface MemoryContextPanelProps {
-  threadId: string | null;
   isVisible: boolean;
   onClose?: () => void;
 }
 
-const entityTypeIcons: Record<string, React.ReactNode> = {
-  PERSON: <LuUser size={12} />,
-  ORGANIZATION: <LuBuilding size={12} />,
-  LOCATION: <LuMapPin size={12} />,
-};
-
-// Entity type color mapping
-const entityTypeColors: Record<string, string> = {
-  PERSON: "blue",
-  ORGANIZATION: "purple",
-  LOCATION: "green",
-  EVENT: "orange",
-  CONCEPT: "cyan",
-  TOPIC: "teal",
-};
-
-function EntityCard({ entity }: { entity: Entity }) {
-  const hasEnrichment =
-    entity.enriched_description || entity.wikipedia_url || entity.image_url;
-  const colorPalette = entityTypeColors[entity.type] || "gray";
-
-  return (
-    <Box
-      p="2"
-      bg="bg.muted"
-      borderRadius="md"
-      borderWidth={hasEnrichment ? "1px" : "0"}
-      borderColor={hasEnrichment ? "purple.subtle" : "transparent"}
-    >
-      <Flex gap="2" alignItems="flex-start">
-        {/* Entity image or icon */}
-        {hasEnrichment && (
-          <Box flexShrink={0}>
-            {entity.image_url ? (
-              <Image
-                src={entity.image_url}
-                alt={entity.name}
-                boxSize="40px"
-                borderRadius="md"
-                objectFit="cover"
-              />
-            ) : (
-              <Flex
-                w="40px"
-                h="40px"
-                bg={`${colorPalette}.subtle`}
-                borderRadius="md"
-                alignItems="center"
-                justifyContent="center"
-              >
-                {entityTypeIcons[entity.type] || <LuGlobe size={16} />}
-              </Flex>
-            )}
-          </Box>
-        )}
-
-        <Stack gap="0.5" flex="1" minW="0">
-          {/* Name and type */}
-          <Flex alignItems="center" gap="1" flexWrap="wrap">
-            {!hasEnrichment && (
-              <Box flexShrink={0}>{entityTypeIcons[entity.type] || null}</Box>
-            )}
-            <Text fontSize="xs" fontWeight="semibold" truncate>
-              {entity.name}
-            </Text>
-            <Badge size="sm" colorPalette={colorPalette} variant="subtle">
-              {entity.type}
-            </Badge>
-          </Flex>
-
-          {/* Enriched description from Wikipedia */}
-          {entity.enriched_description && (
-            <Text fontSize="xs" color="fg.muted" lineClamp={2}>
-              {entity.enriched_description}
-            </Text>
-          )}
-
-          {/* Wikipedia link */}
-          {entity.wikipedia_url && (
-            <Link
-              href={entity.wikipedia_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              fontSize="xs"
-              color="blue.500"
-              display="inline-flex"
-              alignItems="center"
-              gap="1"
-              _hover={{ textDecoration: "underline" }}
-            >
-              Wikipedia <LuExternalLink size={10} />
-            </Link>
-          )}
-        </Stack>
-      </Flex>
-    </Box>
-  );
-}
-
 export function MemoryContextPanel({
-  threadId,
   isVisible,
   onClose,
 }: MemoryContextPanelProps) {
-  const [context, setContext] = useState<MemoryContextType | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Detect mobile viewport
-  const isMobile = useBreakpointValue({ base: true, lg: false });
-
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const fetchContext = async () => {
-      setIsLoading(true);
-      try {
-        const data = await api.memory.getContext(threadId || undefined);
-        setContext(data);
-      } catch {
-        // Ignore errors, just don't show context
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchContext();
-  }, [threadId, isVisible]);
+  // Detect mobile viewport - default to false during SSR to avoid hydration mismatch
+  const isMobile = useBreakpointValue({ base: true, lg: false }) ?? false;
 
   if (!isVisible) return null;
 
   // Content to render (shared between mobile and desktop)
   const renderContent = () => (
-    <Stack gap="6">
-      {isLoading ? (
-        <Text fontSize="sm" color="fg.muted">
-          Loading...
-        </Text>
-      ) : !context ? (
-        <Text fontSize="sm" color="fg.muted">
-          No memory context available
-        </Text>
-      ) : (
-        <>
-          {/* Preferences */}
-          {context.preferences.length > 0 && (
-            <Stack gap="2">
-              <Flex alignItems="center" gap="2">
-                <LuHeart size={14} />
-                <Text fontSize="sm" fontWeight="medium">
-                  Preferences
-                </Text>
-              </Flex>
-              <Stack gap="1">
-                {context.preferences.slice(0, 5).map((pref) => (
-                  <Box
-                    key={pref.id}
-                    p="2"
-                    bg="bg.muted"
-                    borderRadius="md"
-                    fontSize="xs"
-                  >
-                    <Badge size="sm" mb="1">
-                      {pref.category}
-                    </Badge>
-                    <Text>{pref.preference}</Text>
-                  </Box>
-                ))}
-              </Stack>
-            </Stack>
-          )}
-
-          {/* Entities */}
-          {context.entities.length > 0 && (
-            <Stack gap="2">
-              <Flex alignItems="center" gap="2">
-                <LuGlobe size={14} />
-                <Text fontSize="sm" fontWeight="medium">
-                  Known Entities
-                </Text>
-                {context.entities.some(
-                  (e) => e.enriched_description || e.wikipedia_url,
-                ) && (
-                  <Badge
-                    size="sm"
-                    colorPalette="purple"
-                    variant="subtle"
-                    display="flex"
-                    alignItems="center"
-                    gap="1"
-                  >
-                    <LuSparkles size={10} />
-                    Enriched
-                  </Badge>
-                )}
-              </Flex>
-              <Stack gap="2">
-                {context.entities.slice(0, 10).map((entity) => (
-                  <EntityCard key={entity.id} entity={entity} />
-                ))}
-              </Stack>
-            </Stack>
-          )}
-
-          {/* Recent Messages (Episodic Memory) */}
-          {context.recent_messages && context.recent_messages.length > 0 && (
-            <Stack gap="2">
-              <Flex alignItems="center" gap="2">
-                <LuMessageSquare size={14} />
-                <Text fontSize="sm" fontWeight="medium">
-                  Recent Messages
-                </Text>
-              </Flex>
-              <Stack gap="1">
-                {context.recent_messages.slice(0, 5).map((msg) => (
-                  <Box
-                    key={msg.id}
-                    p="2"
-                    bg="bg.muted"
-                    borderRadius="md"
-                    fontSize="xs"
-                  >
-                    <Badge
-                      size="sm"
-                      mb="1"
-                      colorPalette={msg.role === "user" ? "blue" : "green"}
-                    >
-                      {msg.role}
-                    </Badge>
-                    <Text>{msg.content}</Text>
-                  </Box>
-                ))}
-              </Stack>
-            </Stack>
-          )}
-
-          {/* Empty state */}
-          {context.preferences.length === 0 &&
-            context.entities.length === 0 &&
-            (!context.recent_messages ||
-              context.recent_messages.length === 0) && (
-              <Text fontSize="sm" color="fg.muted" textAlign="center">
-                No memories stored yet. Start chatting to build context!
-              </Text>
-            )}
-        </>
-      )}
-
+    <Stack gap="4">
       {/* Agent Context Accordion */}
-      <Stack gap="2">
-        <Flex alignItems="center" gap="2">
-          <LuBot size={14} />
-          <Text fontSize="sm" fontWeight="medium">
-            Agent Configuration
-          </Text>
-        </Flex>
+      <Accordion.Root collapsible size="sm" defaultValue={["capabilities"]}>
+        {/* Agent Capabilities */}
+        <Accordion.Item value="capabilities">
+          <Accordion.ItemTrigger>
+            <Flex flex="1" alignItems="center" gap="2">
+              <LuSettings size={12} />
+              <Span fontSize="xs">Agent Capabilities</Span>
+            </Flex>
+            <Accordion.ItemIndicator />
+          </Accordion.ItemTrigger>
+          <Accordion.ItemContent>
+            <Stack gap="2" py="2">
+              <Box p="2" bg="green.subtle" borderRadius="md">
+                <Text fontSize="xs" fontWeight="medium" color="green.700">
+                  Multi-step Reasoning
+                </Text>
+                <Text fontSize="xs" color="green.600">
+                  Plans and executes complex queries step by step
+                </Text>
+              </Box>
+              <Box p="2" bg="blue.subtle" borderRadius="md">
+                <Text fontSize="xs" fontWeight="medium" color="blue.700">
+                  Conversation Memory
+                </Text>
+                <Text fontSize="xs" color="blue.600">
+                  Maintains context across messages in the thread
+                </Text>
+              </Box>
+              <Box p="2" bg="purple.subtle" borderRadius="md">
+                <Text fontSize="xs" fontWeight="medium" color="purple.700">
+                  Preference Learning
+                </Text>
+                <Text fontSize="xs" color="purple.600">
+                  Adapts responses based on your stored preferences
+                </Text>
+              </Box>
+              <Box p="2" bg="orange.subtle" borderRadius="md">
+                <Text fontSize="xs" fontWeight="medium" color="orange.700">
+                  Knowledge Graph
+                </Text>
+                <Text fontSize="xs" color="orange.600">
+                  Queries entities and relationships in Neo4j
+                </Text>
+              </Box>
+            </Stack>
+          </Accordion.ItemContent>
+        </Accordion.Item>
 
-        <Accordion.Root collapsible size="sm">
-          {/* Available Tools */}
-          <Accordion.Item value="tools">
-            <Accordion.ItemTrigger>
-              <Flex flex="1" alignItems="center" gap="2">
-                <LuWrench size={12} />
-                <Span fontSize="xs">Available Tools</Span>
-                <Badge size="sm" ml="auto">
-                  {Object.values(AGENT_TOOLS).flat().length}
-                </Badge>
-              </Flex>
-              <Accordion.ItemIndicator />
-            </Accordion.ItemTrigger>
-            <Accordion.ItemContent>
-              <Stack gap="3" py="2">
-                {/* Podcast Tools */}
-                <Box>
-                  <Flex alignItems="center" gap="1" mb="1">
-                    <LuSearch size={10} />
-                    <Text fontSize="xs" fontWeight="medium" color="fg.muted">
-                      Podcast Search
+        {/* Available Tools */}
+        <Accordion.Item value="tools">
+          <Accordion.ItemTrigger>
+            <Flex flex="1" alignItems="center" gap="2">
+              <LuWrench size={12} />
+              <Span fontSize="xs">Available Tools</Span>
+              <Badge size="sm" ml="auto">
+                {Object.values(AGENT_TOOLS).flat().length}
+              </Badge>
+            </Flex>
+            <Accordion.ItemIndicator />
+          </Accordion.ItemTrigger>
+          <Accordion.ItemContent>
+            <Stack gap="3" py="2">
+              {/* Podcast Tools */}
+              <Box>
+                <Flex alignItems="center" gap="1" mb="1">
+                  <LuSearch size={10} />
+                  <Text fontSize="xs" fontWeight="medium" color="fg.muted">
+                    Podcast Search
+                  </Text>
+                </Flex>
+                <Stack gap="0.5">
+                  {AGENT_TOOLS.podcast.map((tool) => (
+                    <Text key={tool.name} fontSize="xs" color="fg.muted" pl="3">
+                      • {tool.description}
                     </Text>
-                  </Flex>
-                  <Stack gap="0.5">
-                    {AGENT_TOOLS.podcast.map((tool) => (
-                      <Text
-                        key={tool.name}
-                        fontSize="xs"
-                        color="fg.muted"
-                        pl="3"
-                      >
-                        • {tool.description}
-                      </Text>
-                    ))}
-                  </Stack>
-                </Box>
+                  ))}
+                </Stack>
+              </Box>
 
-                {/* Entity Tools */}
-                <Box>
-                  <Flex alignItems="center" gap="1" mb="1">
-                    <LuUser size={10} />
-                    <Text fontSize="xs" fontWeight="medium" color="fg.muted">
-                      Entity Queries
+              {/* Entity Tools */}
+              <Box>
+                <Flex alignItems="center" gap="1" mb="1">
+                  <LuUser size={10} />
+                  <Text fontSize="xs" fontWeight="medium" color="fg.muted">
+                    Entity Queries
+                  </Text>
+                </Flex>
+                <Stack gap="0.5">
+                  {AGENT_TOOLS.entities.map((tool) => (
+                    <Text key={tool.name} fontSize="xs" color="fg.muted" pl="3">
+                      • {tool.description}
                     </Text>
-                  </Flex>
-                  <Stack gap="0.5">
-                    {AGENT_TOOLS.entities.map((tool) => (
-                      <Text
-                        key={tool.name}
-                        fontSize="xs"
-                        color="fg.muted"
-                        pl="3"
-                      >
-                        • {tool.description}
-                      </Text>
-                    ))}
-                  </Stack>
-                </Box>
+                  ))}
+                </Stack>
+              </Box>
 
-                {/* Location Tools */}
-                <Box>
-                  <Flex alignItems="center" gap="1" mb="1">
-                    <LuGlobe size={10} />
-                    <Text fontSize="xs" fontWeight="medium" color="fg.muted">
-                      Location Analysis
+              {/* Location Tools */}
+              <Box>
+                <Flex alignItems="center" gap="1" mb="1">
+                  <LuGlobe size={10} />
+                  <Text fontSize="xs" fontWeight="medium" color="fg.muted">
+                    Location Analysis
+                  </Text>
+                </Flex>
+                <Stack gap="0.5">
+                  {AGENT_TOOLS.locations.map((tool) => (
+                    <Text key={tool.name} fontSize="xs" color="fg.muted" pl="3">
+                      • {tool.description}
                     </Text>
-                  </Flex>
-                  <Stack gap="0.5">
-                    {AGENT_TOOLS.locations.map((tool) => (
-                      <Text
-                        key={tool.name}
-                        fontSize="xs"
-                        color="fg.muted"
-                        pl="3"
-                      >
-                        • {tool.description}
-                      </Text>
-                    ))}
-                  </Stack>
-                </Box>
+                  ))}
+                </Stack>
+              </Box>
 
-                {/* Memory Tools */}
-                <Box>
-                  <Flex alignItems="center" gap="1" mb="1">
-                    <LuBrain size={10} />
-                    <Text fontSize="xs" fontWeight="medium" color="fg.muted">
-                      Memory & Preferences
+              {/* Memory Tools */}
+              <Box>
+                <Flex alignItems="center" gap="1" mb="1">
+                  <LuBrain size={10} />
+                  <Text fontSize="xs" fontWeight="medium" color="fg.muted">
+                    Memory & Preferences
+                  </Text>
+                </Flex>
+                <Stack gap="0.5">
+                  {AGENT_TOOLS.memory.map((tool) => (
+                    <Text key={tool.name} fontSize="xs" color="fg.muted" pl="3">
+                      • {tool.description}
                     </Text>
-                  </Flex>
-                  <Stack gap="0.5">
-                    {AGENT_TOOLS.memory.map((tool) => (
-                      <Text
-                        key={tool.name}
-                        fontSize="xs"
-                        color="fg.muted"
-                        pl="3"
-                      >
-                        • {tool.description}
-                      </Text>
-                    ))}
-                  </Stack>
-                </Box>
-              </Stack>
-            </Accordion.ItemContent>
-          </Accordion.Item>
+                  ))}
+                </Stack>
+              </Box>
+            </Stack>
+          </Accordion.ItemContent>
+        </Accordion.Item>
 
-          {/* Agent Capabilities */}
-          <Accordion.Item value="capabilities">
-            <Accordion.ItemTrigger>
-              <Flex flex="1" alignItems="center" gap="2">
-                <LuSettings size={12} />
-                <Span fontSize="xs">Agent Capabilities</Span>
-              </Flex>
-              <Accordion.ItemIndicator />
-            </Accordion.ItemTrigger>
-            <Accordion.ItemContent>
-              <Stack gap="2" py="2">
-                <Box p="2" bg="green.subtle" borderRadius="md">
-                  <Text fontSize="xs" fontWeight="medium" color="green.700">
-                    Multi-step Reasoning
-                  </Text>
-                  <Text fontSize="xs" color="green.600">
-                    Plans and executes complex queries step by step
-                  </Text>
-                </Box>
-                <Box p="2" bg="blue.subtle" borderRadius="md">
-                  <Text fontSize="xs" fontWeight="medium" color="blue.700">
-                    Conversation Memory
-                  </Text>
-                  <Text fontSize="xs" color="blue.600">
-                    Maintains context across messages in the thread
-                  </Text>
-                </Box>
-                <Box p="2" bg="purple.subtle" borderRadius="md">
-                  <Text fontSize="xs" fontWeight="medium" color="purple.700">
-                    Preference Learning
-                  </Text>
-                  <Text fontSize="xs" color="purple.600">
-                    Adapts responses based on your stored preferences
-                  </Text>
-                </Box>
-                <Box p="2" bg="orange.subtle" borderRadius="md">
-                  <Text fontSize="xs" fontWeight="medium" color="orange.700">
-                    Knowledge Graph
-                  </Text>
-                  <Text fontSize="xs" color="orange.600">
-                    Queries entities and relationships in Neo4j
-                  </Text>
-                </Box>
-              </Stack>
-            </Accordion.ItemContent>
-          </Accordion.Item>
-        </Accordion.Root>
-      </Stack>
+        {/* Tool Call Cards */}
+        <Accordion.Item value="cards">
+          <Accordion.ItemTrigger>
+            <Flex flex="1" alignItems="center" gap="2">
+              <LuLayoutGrid size={12} />
+              <Span fontSize="xs">Tool Call Cards</Span>
+              <Badge size="sm" ml="auto">
+                {TOOL_CALL_CARDS.length}
+              </Badge>
+            </Flex>
+            <Accordion.ItemIndicator />
+          </Accordion.ItemTrigger>
+          <Accordion.ItemContent>
+            <Stack gap="3" py="2">
+              <Text fontSize="xs" color="fg.muted">
+                Custom visualization cards for tool results
+              </Text>
+
+              {TOOL_CALL_CARDS.map((card) => {
+                const IconComponent = card.icon;
+                return (
+                  <Box
+                    key={card.name}
+                    p="3"
+                    bg={`${card.colorPalette}.subtle`}
+                    borderRadius="md"
+                    borderWidth="1px"
+                    borderColor={`${card.colorPalette}.muted`}
+                  >
+                    <Flex alignItems="center" gap="2" mb="1">
+                      <Box color={`${card.colorPalette}.fg`}>
+                        <IconComponent size={14} />
+                      </Box>
+                      <Text
+                        fontSize="xs"
+                        fontWeight="semibold"
+                        color={`${card.colorPalette}.fg`}
+                      >
+                        {card.name}
+                      </Text>
+                    </Flex>
+                    <Text fontSize="xs" color="fg.muted" mb="2">
+                      {card.description}
+                    </Text>
+                    <Flex gap="1" flexWrap="wrap">
+                      {card.triggeredBy.map((tool) => (
+                        <Badge
+                          key={tool}
+                          size="xs"
+                          variant="subtle"
+                          colorPalette={card.colorPalette}
+                        >
+                          {tool}
+                        </Badge>
+                      ))}
+                    </Flex>
+                  </Box>
+                );
+              })}
+            </Stack>
+          </Accordion.ItemContent>
+        </Accordion.Item>
+      </Accordion.Root>
     </Stack>
   );
 
@@ -537,8 +414,8 @@ export function MemoryContextPanel({
                   w="full"
                 >
                   <Flex alignItems="center" gap="2">
-                    <LuBrain size={20} />
-                    <Heading size="sm">Memory Context</Heading>
+                    <LuBot size={20} />
+                    <Heading size="sm">Agent Configuration</Heading>
                   </Flex>
                   <IconButton
                     aria-label="Close"
@@ -563,7 +440,7 @@ export function MemoryContextPanel({
   // Desktop: Side panel
   return (
     <Box
-      w="280px"
+      w="300px"
       borderLeftWidth="1px"
       borderColor="border.subtle"
       bg="bg.panel"
@@ -572,9 +449,9 @@ export function MemoryContextPanel({
       hideBelow="lg"
     >
       {/* Header */}
-      <Flex alignItems="center" gap="2" mb="6">
-        <LuBrain size={20} />
-        <Heading size="sm">Memory Context</Heading>
+      <Flex alignItems="center" gap="2" mb="4">
+        <LuBot size={20} />
+        <Heading size="sm">Agent Configuration</Heading>
       </Flex>
       {renderContent()}
     </Box>

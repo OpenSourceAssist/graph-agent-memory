@@ -246,7 +246,7 @@ RETURN e
 
 GET_ENTITY_BY_NAME = """
 MATCH (e:Entity)
-WHERE e.name = $name OR e.canonical_name = $name OR $name IN e.aliases
+WHERE e.name = $name OR e.canonical_name = $name OR $name IN COALESCE(e.aliases, [])
 RETURN e
 LIMIT 1
 """
@@ -264,6 +264,27 @@ MATCH (e:Entity {type: $type})
 RETURN e
 ORDER BY e.created_at DESC
 LIMIT $limit
+"""
+
+UPDATE_ENTITY_EMBEDDING = """
+MATCH (e:Entity {id: $id})
+SET e.embedding = $embedding
+RETURN e
+"""
+
+GET_ENTITIES_WITHOUT_EMBEDDINGS = """
+MATCH (e:Entity)
+WHERE e.embedding IS NULL
+RETURN e.id AS id, e.name AS name, e.type AS type, e.description AS description
+ORDER BY e.created_at
+SKIP $skip
+LIMIT $limit
+"""
+
+COUNT_ENTITIES_WITHOUT_EMBEDDINGS = """
+MATCH (e:Entity)
+WHERE e.embedding IS NULL
+RETURN count(e) AS count
 """
 
 CREATE_PREFERENCE = """
@@ -354,6 +375,43 @@ ON CREATE SET
     r.confidence = $confidence,
     r.start_pos = $start_pos,
     r.end_pos = $end_pos
+RETURN r
+"""
+
+# Create RELATED_TO relationship between entities by name (for extraction)
+# This query looks up entities by name to support cross-message relations
+CREATE_ENTITY_RELATION_BY_NAME = """
+MATCH (source:Entity)
+WHERE toLower(source.name) = toLower($source_name)
+   OR toLower(source.canonical_name) = toLower($source_name)
+WITH source LIMIT 1
+MATCH (target:Entity)
+WHERE toLower(target.name) = toLower($target_name)
+   OR toLower(target.canonical_name) = toLower($target_name)
+WITH source, target LIMIT 1
+MERGE (source)-[r:RELATED_TO]->(target)
+ON CREATE SET
+    r.relation_type = $relation_type,
+    r.confidence = $confidence,
+    r.created_at = datetime()
+ON MATCH SET
+    r.confidence = CASE WHEN $confidence > r.confidence THEN $confidence ELSE r.confidence END,
+    r.updated_at = datetime()
+RETURN r, source.id AS source_id, target.id AS target_id
+"""
+
+# Create RELATED_TO relationship between entities by ID
+CREATE_ENTITY_RELATION_BY_ID = """
+MATCH (source:Entity {id: $source_id})
+MATCH (target:Entity {id: $target_id})
+MERGE (source)-[r:RELATED_TO]->(target)
+ON CREATE SET
+    r.relation_type = $relation_type,
+    r.confidence = $confidence,
+    r.created_at = datetime()
+ON MATCH SET
+    r.confidence = CASE WHEN $confidence > r.confidence THEN $confidence ELSE r.confidence END,
+    r.updated_at = datetime()
 RETURN r
 """
 
@@ -861,26 +919,28 @@ ORDER BY distance
 """
 
 # Merge two entities (mark source as merged into target)
+# Note: This query uses CALL subqueries which require Neo4j 4.1+
 MERGE_ENTITIES = """
 MATCH (source:Entity {id: $source_id})
 MATCH (target:Entity {id: $target_id})
-// Transfer relationships from source to target
-OPTIONAL MATCH (source)<-[r:MENTIONS]-(m:Message)
-WITH source, target, collect({msg: m, rel: r}) AS mentions
-FOREACH (item IN mentions |
-    MERGE (item.msg)-[:MENTIONS]->(target)
-)
-// Update SAME_AS to point to target
-OPTIONAL MATCH (source)-[r:SAME_AS]-(other:Entity)
-WHERE other <> target
-WITH source, target, collect({other: other, rel: r}) AS sameAs
-FOREACH (item IN sameAs |
+// Transfer MENTIONS relationships from source to target using CALL subquery
+CALL (source, target) {
+    MATCH (source)<-[:MENTIONS]-(m:Message)
+    WHERE NOT (m)-[:MENTIONS]->(target)
+    MERGE (m)-[:MENTIONS]->(target)
+    RETURN count(*) AS mentionsTransferred
+}
+// Transfer SAME_AS relationships to target using CALL subquery
+CALL (source, target) {
+    MATCH (source)-[r:SAME_AS]-(other:Entity)
+    WHERE other <> target AND NOT (target)-[:SAME_AS]-(other)
     MERGE (target)-[:SAME_AS {
-        confidence: item.rel.confidence,
+        confidence: r.confidence,
         match_type: 'merged',
         created_at: datetime()
-    }]-(item.other)
-)
+    }]-(other)
+    RETURN count(*) AS sameAsTransferred
+}
 // Mark source as merged
 SET source.merged_into = target.id,
     source.merged_at = datetime()
@@ -920,3 +980,268 @@ OPTIONAL MATCH ()-[pending:SAME_AS {status: 'pending'}]-()
 WITH total_entities, merged_entities, same_as_relationships, count(DISTINCT pending) AS pending_reviews
 RETURN total_entities, merged_entities, same_as_relationships, pending_reviews
 """
+
+# =============================================================================
+# SCHEMA PERSISTENCE QUERIES
+# =============================================================================
+
+CREATE_SCHEMA = """
+CREATE (s:Schema {
+    id: $id,
+    name: $name,
+    version: $version,
+    description: $description,
+    config: $config,
+    is_active: $is_active,
+    created_at: datetime(),
+    created_by: $created_by
+})
+RETURN s
+"""
+
+GET_SCHEMA_BY_NAME = """
+MATCH (s:Schema {name: $name})
+WHERE s.is_active = true
+RETURN s
+ORDER BY s.created_at DESC
+LIMIT 1
+"""
+
+GET_SCHEMA_BY_NAME_VERSION = """
+MATCH (s:Schema {name: $name, version: $version})
+RETURN s
+LIMIT 1
+"""
+
+GET_SCHEMA_BY_ID = """
+MATCH (s:Schema {id: $id})
+RETURN s
+"""
+
+LIST_SCHEMAS = """
+MATCH (s:Schema)
+WHERE $name IS NULL OR s.name = $name
+WITH s
+ORDER BY s.name, s.created_at DESC
+WITH s.name AS name, collect(s) AS versions
+RETURN name, head(versions) AS latest, size(versions) AS version_count
+"""
+
+LIST_SCHEMA_VERSIONS = """
+MATCH (s:Schema {name: $name})
+RETURN s
+ORDER BY s.created_at DESC
+"""
+
+UPDATE_SCHEMA_ACTIVE = """
+MATCH (s:Schema {name: $name})
+SET s.is_active = false
+WITH s
+MATCH (active:Schema {id: $id})
+SET active.is_active = true
+RETURN active
+"""
+
+DELETE_SCHEMA = """
+MATCH (s:Schema {id: $id})
+DELETE s
+RETURN count(s) > 0 AS deleted
+"""
+
+DELETE_SCHEMA_BY_NAME = """
+MATCH (s:Schema {name: $name})
+DELETE s
+RETURN count(s) AS deleted_count
+"""
+
+DEACTIVATE_SCHEMA_VERSIONS = """
+MATCH (s:Schema {name: $name})
+SET s.is_active = false
+RETURN count(s) AS updated
+"""
+
+# Schema index creation queries
+CREATE_SCHEMA_NAME_INDEX = """
+CREATE INDEX schema_name_idx IF NOT EXISTS
+FOR (s:Schema)
+ON (s.name)
+"""
+
+CREATE_SCHEMA_ID_INDEX = """
+CREATE INDEX schema_id_idx IF NOT EXISTS
+FOR (s:Schema)
+ON (s.id)
+"""
+
+# =============================================================================
+# SCHEMA MANAGEMENT QUERY BUILDERS
+# =============================================================================
+# These functions generate DDL queries for schema operations.
+# They are functions rather than constants because schema element names
+# (constraints, indexes) cannot be parameterized in Cypher.
+
+
+def create_constraint_query(constraint_name: str, label: str, property_name: str) -> str:
+    """Generate CREATE CONSTRAINT query for unique property constraint.
+
+    Args:
+        constraint_name: Name of the constraint
+        label: Node label to apply constraint to
+        property_name: Property that must be unique
+
+    Returns:
+        Cypher query string
+    """
+    return f"""
+    CREATE CONSTRAINT {constraint_name} IF NOT EXISTS
+    FOR (n:{label})
+    REQUIRE n.{property_name} IS UNIQUE
+    """
+
+
+def create_index_query(index_name: str, label: str, property_name: str) -> str:
+    """Generate CREATE INDEX query for regular property index.
+
+    Args:
+        index_name: Name of the index
+        label: Node label to index
+        property_name: Property to index
+
+    Returns:
+        Cypher query string
+    """
+    return f"""
+    CREATE INDEX {index_name} IF NOT EXISTS
+    FOR (n:{label})
+    ON (n.{property_name})
+    """
+
+
+def create_vector_index_query(
+    index_name: str, label: str, property_name: str, dimensions: int
+) -> str:
+    """Generate CREATE VECTOR INDEX query for vector similarity search.
+
+    Args:
+        index_name: Name of the vector index
+        label: Node label to index
+        property_name: Property containing the vector embedding
+        dimensions: Number of dimensions in the vector
+
+    Returns:
+        Cypher query string
+    """
+    return f"""
+    CREATE VECTOR INDEX {index_name} IF NOT EXISTS
+    FOR (n:{label})
+    ON (n.{property_name})
+    OPTIONS {{
+        indexConfig: {{
+            `vector.dimensions`: {dimensions},
+            `vector.similarity_function`: 'cosine'
+        }}
+    }}
+    """
+
+
+def create_point_index_query(index_name: str, label: str, property_name: str) -> str:
+    """Generate CREATE POINT INDEX query for geospatial queries.
+
+    Args:
+        index_name: Name of the point index
+        label: Node label to index
+        property_name: Property containing the point
+
+    Returns:
+        Cypher query string
+    """
+    return f"""
+    CREATE POINT INDEX {index_name} IF NOT EXISTS
+    FOR (n:{label})
+    ON (n.{property_name})
+    """
+
+
+def drop_constraint_query(name: str) -> str:
+    """Generate DROP CONSTRAINT query.
+
+    Args:
+        name: Name of the constraint to drop
+
+    Returns:
+        Cypher query string
+    """
+    return f"DROP CONSTRAINT {name} IF EXISTS"
+
+
+def drop_index_query(name: str) -> str:
+    """Generate DROP INDEX query.
+
+    Args:
+        name: Name of the index to drop
+
+    Returns:
+        Cypher query string
+    """
+    return f"DROP INDEX {name} IF EXISTS"
+
+
+# Schema introspection queries
+SHOW_CONSTRAINTS = "SHOW CONSTRAINTS YIELD name RETURN name"
+SHOW_INDEXES = "SHOW INDEXES YIELD name RETURN name"
+SHOW_CONSTRAINTS_DETAIL = "SHOW CONSTRAINTS YIELD name, type, labelsOrTypes, properties RETURN *"
+SHOW_INDEXES_DETAIL = "SHOW INDEXES YIELD name, type, labelsOrTypes, properties RETURN *"
+
+# =============================================================================
+# SHORT-TERM MEMORY ENTITY EXTRACTION QUERIES
+# =============================================================================
+
+# Get messages without entity links for extraction
+GET_MESSAGES_FOR_ENTITY_EXTRACTION = """
+MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)
+WHERE NOT (m)-[:MENTIONS]->(:Entity)
+RETURN m.id AS id, m.content AS content
+ORDER BY m.timestamp ASC
+"""
+
+# Get all messages for a session (for re-extraction)
+GET_ALL_MESSAGES_FOR_SESSION = """
+MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)
+RETURN m.id AS id, m.content AS content
+ORDER BY m.timestamp ASC
+"""
+
+# Get key entities mentioned in a session (for summaries)
+GET_SUMMARY_ENTITIES = """
+MATCH (c:Conversation {session_id: $session_id})-[:HAS_MESSAGE]->(m:Message)-[:MENTIONS]->(e:Entity)
+WITH e.name AS name, e.type AS type, count(*) AS mention_count
+ORDER BY mention_count DESC
+LIMIT 10
+RETURN name, type, mention_count
+"""
+
+# Template for vector search with metadata filtering
+# Use build_metadata_search_query() to generate the full query
+SEARCH_MESSAGES_WITH_METADATA_TEMPLATE = """
+CALL db.index.vector.queryNodes('message_embedding_idx', $limit * 2, $embedding)
+YIELD node, score
+WHERE score >= $threshold
+WITH node AS m, score
+WHERE m.metadata IS NOT NULL AND {metadata_clause}
+RETURN m, score
+ORDER BY score DESC
+LIMIT $limit
+"""
+
+
+def build_metadata_search_query(metadata_clause: str) -> str:
+    """Build vector search query with metadata filtering.
+
+    Args:
+        metadata_clause: The WHERE clause for metadata filtering
+                        (e.g., "m.metadata CONTAINS 'speaker'")
+
+    Returns:
+        Complete Cypher query string for vector search with metadata filter
+    """
+    return SEARCH_MESSAGES_WITH_METADATA_TEMPLATE.format(metadata_clause=metadata_clause)

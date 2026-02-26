@@ -24,6 +24,9 @@ class TestXrefLinks:
             content = adoc_file.read_text()
             file_dir = adoc_file.parent
 
+            # For nav.adoc (in modules/ROOT), xrefs are relative to pages dir
+            is_nav_file = adoc_file.name == "nav.adoc"
+
             for match in xref_pattern.finditer(content):
                 target = match.group(1)
 
@@ -31,20 +34,34 @@ class TestXrefLinks:
                 if "#" in target:
                     target = target.split("#")[0]
 
-                # Handle relative paths
+                # Handle different path formats
                 if target.startswith("../"):
+                    # Relative path going up - resolve from file's directory
                     target_path = (file_dir / target).resolve()
                 elif target.startswith("/"):
+                    # Absolute path from docs root
                     target_path = docs_dir / target.lstrip("/")
+                elif "/" in target or is_nav_file:
+                    # Antora page ID (e.g., "explanation/memory-types.adoc")
+                    # or nav.adoc xrefs - resolve from pages directory root
+                    target_path = docs_dir / target
                 else:
+                    # Simple filename - try same directory first, then docs root
+                    # (Antora resolves simple names from pages root)
                     target_path = file_dir / target
+                    if not target_path.exists():
+                        target_path = docs_dir / target
 
                 # Normalize the path
                 target_path = target_path.resolve()
 
                 # Check if file exists
                 if not target_path.exists():
-                    relative_source = adoc_file.relative_to(docs_dir)
+                    try:
+                        relative_source = adoc_file.relative_to(docs_dir)
+                    except ValueError:
+                        # nav.adoc is outside docs_dir
+                        relative_source = adoc_file.parent.name + "/" + adoc_file.name
                     broken_links.append(f"{relative_source} -> {target}")
 
         if broken_links:
@@ -209,16 +226,24 @@ class TestOrphanedFiles:
 
         referenced_files: set[str] = set()
 
+        # For nav.adoc, xrefs are relative to pages directory
         for adoc_file in all_adoc_files:
             content = adoc_file.read_text()
             file_dir = adoc_file.parent
+            is_nav_file = adoc_file.name == "nav.adoc"
 
             for pattern in [xref_pattern, include_pattern]:
                 for match in pattern.finditer(content):
                     target = match.group(1)
+                    # Strip anchor references
+                    if "#" in target:
+                        target = target.split("#")[0]
                     # Resolve the path
                     if target.startswith("../"):
                         target_path = (file_dir / target).resolve()
+                    elif "/" in target or is_nav_file:
+                        # Antora page ID or nav.adoc xrefs - resolve from pages directory
+                        target_path = docs_dir / target
                     else:
                         target_path = file_dir / target
 
@@ -231,7 +256,15 @@ class TestOrphanedFiles:
         # Find orphaned files (not referenced by any other file)
         orphaned = []
         for adoc_file in all_adoc_files:
-            relative = str(adoc_file.relative_to(docs_dir))
+            # Skip nav.adoc as it's outside pages directory
+            if adoc_file.name == "nav.adoc":
+                continue
+
+            try:
+                relative = str(adoc_file.relative_to(docs_dir))
+            except ValueError:
+                # File is outside docs_dir (like nav.adoc)
+                continue
 
             # Index files and main landing pages are not orphaned
             if adoc_file.name == "index.adoc":

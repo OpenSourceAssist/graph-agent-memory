@@ -1,6 +1,6 @@
 [project]
 name = "neo4j-agent-memory"
-version = "0.0.1"
+version = "0.0.3"
 description = "A comprehensive memory system for AI agents using Neo4j"
 readme = "README.md"
 license = { text = "Apache-2.0" }
@@ -50,6 +50,15 @@ dependencies = [
 openai = ["openai>=1.0.0"]
 anthropic = ["anthropic>=0.20.0"]
 sentence-transformers = ["sentence-transformers>=2.2.0"]
+vertex-ai = ["google-cloud-aiplatform>=1.38.0"]
+bedrock = ["boto3>=1.26.0"]
+
+# Cloud provider bundles
+google = ["google-cloud-aiplatform>=1.38.0"]
+aws = ["boto3>=1.26.0"]
+
+# AWS Strands Agents SDK
+strands = ["strands-agents>=0.1.0", "boto3>=1.26.0"]
 
 # Entity extraction
 spacy = ["spacy>=3.7.0"]
@@ -83,6 +92,12 @@ pydantic-ai = ["pydantic-ai>=0.1.0"]
 crewai = ["crewai>=0.50.0"]
 openai-agents = ["openai>=1.0.0"]
 microsoft-agent = ["agent-framework>=1.0.0b260212"]
+
+# MCP server
+mcp = ["mcp>=1.0.0"]
+
+# Google ADK
+google-adk = ["google-adk>=0.1.0"]
 
 # All optional dependencies (excluding heavy ML models by default)
 all = [
@@ -154,6 +169,7 @@ markers = [
     "syntax: marks tests as syntax-only validation (fast)",
     "imports: marks tests as import validation (medium)",
     "slow: marks tests as slow (external link checks, full builds)",
+    "aws: marks tests as AWS integration tests (require AWS credentials)",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

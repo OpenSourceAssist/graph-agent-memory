@@ -1,0 +1,368 @@
+= AWS Hybrid Memory Provider
+:description: Combine AgentCore Memory with Neo4j Context Graphs for optimal memory management
+:keywords: agentcore, hybrid, memory, aws, neo4j, routing
+:toc:
+
+This guide shows how to use the HybridMemoryProvider to intelligently route queries between short-term session memory and long-term context graphs.
+
+== Overview
+
+The Hybrid Memory Provider combines two memory systems:
+
+* **Short-Term Memory**: Recent conversation context, working facts
+* **Long-Term Memory**: Entity relationships, persistent knowledge
+
+Queries are automatically routed to the appropriate backend based on content analysis.
+
+== Installation
+
+[source,bash]
+----
+pip install neo4j-agent-memory[aws]
+----
+
+== Quick Start
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.agentcore import HybridMemoryProvider
+
+async with MemoryClient(settings) as client:
+    provider = HybridMemoryProvider(
+        memory_client=client,
+        namespace="my-app",
+        routing_strategy="auto",  # Intelligent routing
+    )
+
+    # Store a memory
+    await provider.store_memory(
+        session_id="session-123",
+        content="John mentioned he prefers morning meetings",
+    )
+
+    # Search - automatically routed
+    results = await provider.search_memory(
+        query="What time does John prefer meetings?",
+    )
+----
+
+== Routing Strategies
+
+=== AUTO (Recommended)
+
+Analyzes query content to determine the best backend:
+
+[source,python]
+----
+provider = HybridMemoryProvider(
+    memory_client=client,
+    routing_strategy="auto",
+)
+
+# Recent context → Short-term
+results = await provider.search_memory("What did I just say?")
+
+# Relationships → Long-term
+results = await provider.search_memory("How is John related to Acme Corp?")
+----
+
+Query patterns routed to **short-term**:
+
+* "What did I say..."
+* "Recently mentioned..."
+* "In this conversation..."
+* "Last message..."
+
+Query patterns routed to **long-term**:
+
+* "How is X related to Y..."
+* "What do I know about..."
+* "Entity relationships..."
+* "Tell me about [Person/Company]..."
+
+=== EXPLICIT
+
+Caller specifies which backend to use:
+
+[source,python]
+----
+provider = HybridMemoryProvider(
+    memory_client=client,
+    routing_strategy="explicit",
+)
+
+# Explicitly search short-term
+results = await provider.search_memory(
+    query="recent context",
+    memory_types=["short_term"],
+)
+
+# Explicitly search long-term
+results = await provider.search_memory(
+    query="entity info",
+    memory_types=["long_term"],
+)
+----
+
+=== ALL
+
+Search both backends and merge results:
+
+[source,python]
+----
+provider = HybridMemoryProvider(
+    memory_client=client,
+    routing_strategy="all",
+)
+
+# Searches both, merges by score
+results = await provider.search_memory(query="John's preferences")
+----
+
+=== SHORT_TERM_FIRST
+
+Try short-term first, fall back to long-term if no results:
+
+[source,python]
+----
+provider = HybridMemoryProvider(
+    memory_client=client,
+    routing_strategy="short_term_first",
+)
+----
+
+=== LONG_TERM_FIRST
+
+Try long-term first, fall back to short-term if no results:
+
+[source,python]
+----
+provider = HybridMemoryProvider(
+    memory_client=client,
+    routing_strategy="long_term_first",
+)
+----
+
+== Memory Types
+
+The provider supports four memory types:
+
+[cols="1,2,2"]
+|===
+| Type | Use Case | Storage
+
+| `SHORT_TERM`
+| Current session context
+| Session-scoped messages
+
+| `LONG_TERM`
+| Persistent facts and entities
+| Context Graph (Entity nodes)
+
+| `PROCEDURAL`
+| Task execution patterns
+| Reasoning traces
+
+| `EPISODIC`
+| Specific events and episodes
+| Episode nodes with timestamps
+|===
+
+== Storing Memories
+
+=== Basic Storage
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.agentcore import MemoryType
+
+memory = await provider.store_memory(
+    session_id="session-123",
+    content="The user prefers Python for backend development",
+    memory_type=MemoryType.LONG_TERM,  # Optional, auto-detected
+    metadata={"source": "user_statement"},
+)
+----
+
+=== With Entity Extraction
+
+[source,python]
+----
+memory = await provider.store_memory(
+    session_id="session-123",
+    content="John Smith from Acme Corp discussed the Q4 roadmap",
+    extract_entities=True,  # Auto-extract entities
+)
+
+# Entities extracted: John Smith (Person), Acme Corp (Organization)
+----
+
+== Searching Memories
+
+=== Basic Search
+
+[source,python]
+----
+result = await provider.search_memory(
+    query="What are John's preferences?",
+    top_k=10,
+)
+
+for memory in result.memories:
+    print(f"[{memory.score:.2f}] {memory.content}")
+----
+
+=== Session-Scoped Search
+
+[source,python]
+----
+result = await provider.search_memory(
+    query="recent discussion",
+    session_id="session-123",  # Only this session
+)
+----
+
+=== User-Scoped Search
+
+[source,python]
+----
+result = await provider.search_memory(
+    query="preferences",
+    user_id="user-456",  # All sessions for this user
+)
+----
+
+== Entity Relationships
+
+Query entity relationships directly:
+
+[source,python]
+----
+relationships = await provider.get_entity_relationships(
+    entity_name="John Smith",
+    depth=2,  # Traverse 2 hops
+    relationship_types=["WORKS_AT", "KNOWS"],  # Filter types
+)
+
+print(f"Entity: {relationships['entity']['name']}")
+for rel in relationships['relationships']:
+    print(f"  -{rel['type']}-> {rel['target']['name']}")
+----
+
+== Session Management
+
+=== Get Session History
+
+[source,python]
+----
+memories = await provider.get_session_memories(
+    session_id="session-123",
+    memory_types=[MemoryType.SHORT_TERM],
+    limit=50,
+)
+----
+
+=== Clear Session
+
+[source,python]
+----
+deleted_count = await provider.clear_session(
+    session_id="session-123",
+)
+print(f"Deleted {deleted_count} memories")
+----
+
+== Configuration Options
+
+[source,python]
+----
+provider = HybridMemoryProvider(
+    memory_client=client,
+
+    # Namespace for multi-tenant apps
+    namespace="my-app",
+
+    # Routing strategy
+    routing_strategy="auto",
+
+    # Sync entities between short-term and long-term stores
+    sync_entities=True,
+
+    # Max depth for relationship traversal
+    relationship_depth=2,
+
+    # Extract entities when storing memories
+    extract_entities=True,
+
+    # Generate embeddings for semantic search
+    generate_embeddings=True,
+)
+----
+
+NOTE: Embedding and LLM model configuration is set on the `MemoryClient` via `MemorySettings`, not on the `HybridMemoryProvider` directly.
+See xref:reference/configuration.adoc[Configuration Reference] for embedding settings.
+
+== Use with Strands Agents
+
+Combine with Strands tools for full agent memory:
+
+[source,python]
+----
+from strands import Agent
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+from neo4j_agent_memory.integrations.agentcore import HybridMemoryProvider
+
+# Create hybrid provider for backend logic
+provider = HybridMemoryProvider(
+    memory_client=client,
+    routing_strategy="auto",
+)
+
+# Create tools for agent interface
+tools = context_graph_tools(
+    neo4j_uri=settings.neo4j.uri,
+    neo4j_password=settings.neo4j.password,
+    embedding_provider="bedrock",
+)
+
+agent = Agent(
+    model="anthropic.claude-sonnet-4-20250514-v1:0",
+    tools=tools,
+)
+----
+
+== Performance Optimization
+
+=== Reduce Latency
+
+[source,python]
+----
+# Use explicit routing when you know the target
+provider = HybridMemoryProvider(
+    routing_strategy="explicit",
+)
+
+# Specify memory types directly
+results = await provider.search_memory(
+    query="entity info",
+    memory_types=["long_term"],  # Skip analysis
+)
+----
+
+=== Reduce API Calls
+
+[source,python]
+----
+# Disable entity extraction when not needed
+memory = await provider.store_memory(
+    content="Simple fact",
+    extract_entities=False,
+)
+----
+
+== See Also
+
+* xref:how-to/integrations/aws-strands.adoc[Strands Agents Integration]
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[Configure Bedrock Embeddings]
+* xref:explanation/memory-types.adoc[Understanding Memory Types]

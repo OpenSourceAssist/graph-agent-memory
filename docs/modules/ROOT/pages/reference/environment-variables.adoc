@@ -1,0 +1,386 @@
+= Environment Variables Reference
+:page-product: agent-memory
+:page-pagination:
+:toc: left
+:toclevels: 2
+
+Complete reference for all environment variables supported by neo4j-agent-memory.
+
+== Overview
+
+Environment variables use the `NAM_` prefix (Neo4j Agent Memory) and follow a nested structure with double underscores (`__`) for sub-keys.
+
+Example: `NAM_NEO4J__URI` maps to `settings.neo4j.uri`
+
+== Neo4j Connection
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `NAM_NEO4J__URI`
+| string
+| `bolt://localhost:7687`
+| Neo4j connection URI
+
+| `NAM_NEO4J__USERNAME`
+| string
+| `neo4j`
+| Authentication username
+
+| `NAM_NEO4J__PASSWORD`
+| string
+| _required_
+| Authentication password
+
+| `NAM_NEO4J__DATABASE`
+| string
+| `neo4j`
+| Database name
+
+| `NAM_NEO4J__MAX_CONNECTION_POOL_SIZE`
+| int
+| `50`
+| Connection pool size
+
+| `NAM_NEO4J__CONNECTION_TIMEOUT`
+| float
+| `30.0`
+| Connection timeout in seconds
+|===
+
+== Embedding Configuration
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `NAM_EMBEDDING__PROVIDER`
+| string
+| `openai`
+| Embedding provider (`openai`, `sentence_transformers`, `vertex_ai`, `bedrock`)
+
+| `NAM_EMBEDDING__MODEL`
+| string
+| `text-embedding-3-small`
+| Embedding model name
+
+| `NAM_EMBEDDING__API_KEY`
+| string
+| _none_
+| API key for provider
+
+| `NAM_EMBEDDING__DIMENSIONS`
+| int
+| `1536`
+| Embedding vector dimensions
+
+| `NAM_EMBEDDING__BATCH_SIZE`
+| int
+| `100`
+| Batch size for bulk operations
+
+| `NAM_EMBEDDING__DEVICE`
+| string
+| `cpu`
+| Device for local models (`cpu`, `cuda`)
+
+| `NAM_EMBEDDING__PROJECT_ID`
+| string
+| _none_
+| GCP project ID (for Vertex AI)
+
+| `NAM_EMBEDDING__LOCATION`
+| string
+| `us-central1`
+| GCP region (for Vertex AI)
+
+| `NAM_EMBEDDING__AWS_REGION`
+| string
+| _none_
+| AWS region (for Bedrock)
+
+| `NAM_EMBEDDING__AWS_PROFILE`
+| string
+| _none_
+| AWS credentials profile name (for Bedrock)
+
+| `OPENAI_API_KEY`
+| string
+| _none_
+| Standard OpenAI API key (alternative to NAM_EMBEDDING__API_KEY)
+|===
+
+== AWS Configuration
+
+Standard AWS environment variables used by boto3 when using Bedrock embeddings or Strands agents.
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `AWS_REGION`
+| string
+| _none_
+| Default AWS region for Bedrock API calls
+
+| `AWS_PROFILE`
+| string
+| _none_
+| AWS credentials profile name
+
+| `AWS_ACCESS_KEY_ID`
+| string
+| _none_
+| AWS access key (alternative to profile-based auth)
+
+| `AWS_SECRET_ACCESS_KEY`
+| string
+| _none_
+| AWS secret key (alternative to profile-based auth)
+|===
+
+== Extraction Configuration
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `NAM_EXTRACTION__ENABLE_SPACY`
+| bool
+| `true`
+| Enable spaCy extractor
+
+| `NAM_EXTRACTION__ENABLE_GLINER`
+| bool
+| `true`
+| Enable GLiNER extractor
+
+| `NAM_EXTRACTION__ENABLE_LLM_FALLBACK`
+| bool
+| `false`
+| Enable LLM extractor as fallback
+
+| `NAM_EXTRACTION__GLINER_MODEL`
+| string
+| `gliner-community/gliner_medium-v2.5`
+| GLiNER model name
+
+| `NAM_EXTRACTION__GLINER_SCHEMA`
+| string
+| `poleo`
+| Domain schema for GLiNER
+
+| `NAM_EXTRACTION__GLINER_THRESHOLD`
+| float
+| `0.5`
+| Confidence threshold (0.0-1.0)
+
+| `NAM_EXTRACTION__SPACY_MODEL`
+| string
+| `en_core_web_sm`
+| spaCy model name
+
+| `NAM_EXTRACTION__LLM_MODEL`
+| string
+| `gpt-4o-mini`
+| LLM model for extraction
+
+| `NAM_EXTRACTION__MERGE_STRATEGY`
+| string
+| `confidence`
+| Merge strategy for multi-stage extraction
+|===
+
+== Enrichment Configuration
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `NAM_ENRICHMENT__ENABLED`
+| bool
+| `false`
+| Enable background enrichment
+
+| `NAM_ENRICHMENT__PROVIDERS`
+| JSON array
+| `["wikimedia"]`
+| List of enrichment providers
+
+| `NAM_ENRICHMENT__DIFFBOT_API_KEY`
+| string
+| _none_
+| Diffbot API key
+
+| `NAM_ENRICHMENT__CACHE_RESULTS`
+| bool
+| `true`
+| Cache enrichment results
+
+| `NAM_ENRICHMENT__BACKGROUND_ENABLED`
+| bool
+| `true`
+| Process enrichment asynchronously
+
+| `NAM_ENRICHMENT__ENTITY_TYPES`
+| JSON array
+| `["PERSON", "ORGANIZATION", "LOCATION", "EVENT"]`
+| Entity types to enrich
+
+| `NAM_ENRICHMENT__MIN_CONFIDENCE`
+| float
+| `0.7`
+| Minimum confidence to trigger enrichment
+|===
+
+== Geocoding Configuration
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `NAM_GEOCODING__ENABLED`
+| bool
+| `false`
+| Enable location geocoding
+
+| `NAM_GEOCODING__PROVIDER`
+| string
+| `nominatim`
+| Geocoding provider (`nominatim`, `google`)
+
+| `GOOGLE_GEOCODING_API_KEY`
+| string
+| _none_
+| Google Geocoding API key
+|===
+
+== Resolution Configuration
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `NAM_RESOLUTION__EMBEDDING_THRESHOLD`
+| float
+| `0.85`
+| Embedding similarity threshold
+
+| `NAM_RESOLUTION__FUZZY_THRESHOLD`
+| float
+| `0.9`
+| Fuzzy string matching threshold
+
+| `NAM_RESOLUTION__MATCH_SAME_TYPE_ONLY`
+| bool
+| `true`
+| Only match entities of same type
+|===
+
+== Deduplication Configuration
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `NAM_DEDUPLICATION__ENABLED`
+| bool
+| `true`
+| Enable entity deduplication
+
+| `NAM_DEDUPLICATION__AUTO_MERGE_THRESHOLD`
+| float
+| `0.95`
+| Auto-merge if similarity >= threshold
+
+| `NAM_DEDUPLICATION__FLAG_THRESHOLD`
+| float
+| `0.85`
+| Flag for review if >= threshold
+
+| `NAM_DEDUPLICATION__USE_FUZZY_MATCHING`
+| bool
+| `true`
+| Use fuzzy string matching
+
+| `NAM_DEDUPLICATION__MAX_CANDIDATES`
+| int
+| `10`
+| Maximum candidates to check
+|===
+
+== Observability
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `OPIK_API_KEY`
+| string
+| _none_
+| Opik API key for LLM observability
+
+| `OTEL_EXPORTER_OTLP_ENDPOINT`
+| string
+| _none_
+| OpenTelemetry OTLP endpoint
+|===
+
+== Testing
+
+[cols="2,1,1,3", options="header"]
+|===
+| Variable | Type | Default | Description
+
+| `RUN_INTEGRATION_TESTS`
+| bool
+| `0`
+| Enable integration tests
+
+| `SKIP_INTEGRATION_TESTS`
+| bool
+| `0`
+| Skip integration tests
+
+| `AUTO_START_DOCKER`
+| bool
+| `true`
+| Auto-start Docker Neo4j for tests
+
+| `AUTO_STOP_DOCKER`
+| bool
+| `0`
+| Stop Docker after tests
+|===
+
+== Example Configuration
+
+[source,bash]
+----
+# Neo4j connection
+export NAM_NEO4J__URI=bolt://localhost:7687
+export NAM_NEO4J__USERNAME=neo4j
+export NAM_NEO4J__PASSWORD=my-secure-password
+
+# Embedding (OpenAI)
+export OPENAI_API_KEY=sk-...
+
+# Extraction pipeline
+export NAM_EXTRACTION__ENABLE_SPACY=true
+export NAM_EXTRACTION__ENABLE_GLINER=true
+export NAM_EXTRACTION__GLINER_SCHEMA=podcast
+
+# Background enrichment
+export NAM_ENRICHMENT__ENABLED=true
+export NAM_ENRICHMENT__PROVIDERS='["wikimedia"]'
+
+# Geocoding
+export NAM_GEOCODING__ENABLED=true
+export NAM_GEOCODING__PROVIDER=nominatim
+----
+
+== See Also
+
+* xref:reference/configuration.adoc[Configuration Reference] - Full Python configuration API
+* xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Extraction pipeline setup

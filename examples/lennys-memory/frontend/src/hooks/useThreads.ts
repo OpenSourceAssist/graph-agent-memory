@@ -7,28 +7,39 @@ import { api } from "@/lib/api";
 export function useThreads() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Start with loading true since we fetch on mount
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch threads on mount
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchThreads = async () => {
       setIsLoading(true);
       try {
         const data = await api.threads.list();
-        setThreads(data);
-        // Select most recent thread if none selected
-        if (!activeThreadId && data.length > 0) {
-          setActiveThreadId(data[0].id);
+        if (!controller.signal.aborted) {
+          setThreads(data);
+          // Don't auto-select thread - let user start fresh or pick one
+          // This avoids a second API call to fetch messages on initial load
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch threads");
+        if (!controller.signal.aborted) {
+          setError(
+            err instanceof Error ? err.message : "Failed to fetch threads",
+          );
+        }
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchThreads();
+
+    return () => controller.abort();
   }, []);
 
   const createThread = useCallback(async (title?: string) => {
@@ -53,11 +64,13 @@ export function useThreads() {
           setActiveThreadId(remaining.length > 0 ? remaining[0].id : null);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to delete thread");
+        setError(
+          err instanceof Error ? err.message : "Failed to delete thread",
+        );
         throw err;
       }
     },
-    [activeThreadId, threads]
+    [activeThreadId, threads],
   );
 
   const selectThread = useCallback((id: string) => {
@@ -68,7 +81,7 @@ export function useThreads() {
     try {
       const updated = await api.threads.update(id, title);
       setThreads((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, title: updated.title } : t))
+        prev.map((t) => (t.id === id ? { ...t, title: updated.title } : t)),
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update thread");

@@ -24,13 +24,15 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 - **Entity Deduplication on Ingest**: Automatic duplicate detection with configurable auto-merge and flagging
 - **Provenance Tracking**: Track where entities were extracted from and which extractor produced them
 - **Background Entity Enrichment**: Automatically enrich entities with Wikipedia and Diffbot data
-- **GLiREL Relation Extraction**: Extract relationships without LLM calls using GLiREL
+- **Relationship Extraction & Storage**: Extract relationships using GLiREL (no LLM) and automatically store as graph relationships
 - **Vector + Graph Search**: Semantic similarity search and graph traversal in a single database
 - **Geospatial Queries**: Spatial indexes on Location entities for radius and bounding box search
 - **Temporal Relationships**: Track when facts become valid or invalid
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Observability**: OpenTelemetry and Opik tracing for monitoring extraction pipelines
-- **Agent Framework Integrations**: LangChain, Pydantic AI, LlamaIndex, CrewAI, OpenAI Agents, Microsoft Agent Framework
+- **Agent Framework Integrations**: LangChain, Pydantic AI, LlamaIndex, CrewAI, OpenAI Agents, Strands Agents (AWS)
+- **Amazon Bedrock Embeddings**: Use Titan or Cohere embedding models via AWS Bedrock
+- **AWS Hybrid Memory**: HybridMemoryProvider with intelligent routing between short-term and long-term memory
 
 ## Installation
 
@@ -40,6 +42,24 @@ pip install neo4j-agent-memory
 
 # With OpenAI embeddings
 pip install neo4j-agent-memory[openai]
+
+# With Google Cloud (Vertex AI embeddings)
+pip install neo4j-agent-memory[vertex-ai]
+
+# With Amazon Bedrock embeddings
+pip install neo4j-agent-memory[bedrock]
+
+# With AWS Strands Agents
+pip install neo4j-agent-memory[strands]
+
+# With all AWS integrations (Bedrock + Strands + AgentCore)
+pip install neo4j-agent-memory[aws]
+
+# With Google ADK integration
+pip install neo4j-agent-memory[google-adk]
+
+# With MCP server
+pip install neo4j-agent-memory[mcp]
 
 # With spaCy for fast entity extraction
 pip install neo4j-agent-memory[spacy]
@@ -731,7 +751,7 @@ async for chunk_result in streamer.extract_streaming(long_document):
 result = await streamer.extract(long_document, deduplicate=True)
 ```
 
-### GLiREL Relation Extraction
+### GLiREL Relationship Extraction
 
 Extract relationships between entities without LLM calls:
 
@@ -743,6 +763,41 @@ if is_glirel_available():
     result = await extractor.extract("John works at Acme Corp in NYC.")
     print(result.entities)   # John, Acme Corp, NYC
     print(result.relations)  # John -[WORKS_AT]-> Acme Corp
+```
+
+### Automatic Relationship Storage
+
+When adding messages with entity extraction enabled, extracted relationships are automatically stored as `RELATED_TO` relationships in Neo4j:
+
+```python
+# Relationships are stored automatically when adding messages
+await memory.short_term.add_message(
+    "session-1",
+    "user",
+    "Brian Chesky founded Airbnb in San Francisco.",
+    extract_entities=True,
+    extract_relations=True,  # Default: True
+)
+
+# This creates:
+# - Entity nodes: Brian Chesky (PERSON), Airbnb (ORGANIZATION), San Francisco (LOCATION)
+# - MENTIONS relationships: Message -> Entity
+# - RELATED_TO relationships: (Brian Chesky)-[:RELATED_TO {relation_type: "FOUNDED"}]->(Airbnb)
+
+# Batch operations also support relationship extraction
+await memory.short_term.add_messages_batch(
+    "session-1",
+    messages,
+    extract_entities=True,
+    extract_relations=True,  # Default: True (only applies when extract_entities=True)
+)
+
+# Or extract from existing session
+result = await memory.short_term.extract_entities_from_session(
+    "session-1",
+    extract_relations=True,  # Default: True
+)
+print(f"Extracted {result['relations_extracted']} relationships")
 ```
 
 ## Entity Deduplication
@@ -941,51 +996,69 @@ memory = Neo4jCrewMemory(
 memories = memory.recall("restaurant recommendation")
 ```
 
-### Microsoft Agent Framework (Preview)
-
-> ⚠️ This integration targets Microsoft Agent Framework v1.0.0b260212 (preview). APIs may change before GA release.
+### Google ADK
 
 ```python
-from agent_framework.azure import AzureOpenAIResponsesClient
-from neo4j_agent_memory.integrations.microsoft_agent import (
-    Neo4jMicrosoftMemory,
-    GDSConfig,
-    GDSAlgorithm,
-    create_memory_tools,
-)
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 
-# Configure with GDS algorithms
-gds_config = GDSConfig(
-    enabled=True,
-    expose_as_tools=[GDSAlgorithm.SHORTEST_PATH, GDSAlgorithm.NODE_SIMILARITY],
-    fallback_to_basic=True,  # Use Cypher if GDS not installed
-)
-
-# Create unified memory interface
-memory = Neo4jMicrosoftMemory(
+# Create memory service for Google ADK
+memory_service = Neo4jMemoryService(
     memory_client=client,
-    session_id="user-123",
-    gds_config=gds_config,
+    user_id="user-123",
 )
 
-# Create memory tools bound to the memory instance (auto-invoked by framework)
-tools = create_memory_tools(memory, include_gds_tools=True)
+# Store a session
+session = {"id": "session-1", "messages": [...]}
+await memory_service.add_session_to_memory(session)
 
-# Create agent with context provider (auto-injects memory context)
-chat_client = AzureOpenAIResponsesClient(...)
-agent = chat_client.as_agent(
-    name="assistant",
-    tools=tools,
-    context_providers=[memory.context_provider],
-)
-
-# GDS algorithms for graph intelligence
-if memory.gds:
-    path = await memory.gds.find_shortest_path("Entity A", "Entity B")
-    similar = await memory.gds.find_similar_entities("Nike Air Max", limit=5)
+# Search memories
+results = await memory_service.search_memories("project deadline")
 ```
 
-See the [Microsoft Agent Framework Integration Guide](docs/how-to/integrations/microsoft-agent.adoc) for full documentation and the [Retail Shopping Assistant example](examples/microsoft_agent_retail_assistant/) for a complete application.
+### Strands Agents (AWS)
+
+```python
+from strands import Agent
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+
+# Create pre-built memory tools
+tools = context_graph_tools(
+    neo4j_uri="bolt://localhost:7687",
+    neo4j_password="password",
+    embedding_provider="bedrock",
+)
+
+# Tools: search_context, get_entity_graph, add_memory, get_user_preferences
+agent = Agent(
+    model="anthropic.claude-sonnet-4-20250514-v1:0",
+    tools=tools,
+)
+```
+
+### MCP Server
+
+Expose memory capabilities via Model Context Protocol for AI platforms:
+
+```bash
+# Run the MCP server
+python -m neo4j_agent_memory.mcp.server \
+    --neo4j-uri bolt://localhost:7687 \
+    --neo4j-user neo4j \
+    --neo4j-password password
+
+# Or with SSE transport for Cloud Run
+python -m neo4j_agent_memory.mcp.server --transport sse --port 8080
+```
+
+Available MCP tools:
+- `memory_search` - Hybrid vector + graph search
+- `memory_store` - Store messages, facts, preferences
+- `entity_lookup` - Get entity with relationships
+- `conversation_history` - Get session history
+- `graph_query` - Execute read-only Cypher queries
+- `add_reasoning_trace` - Record agent reasoning traces
+
+See `deploy/cloudrun/` for Cloud Run deployment templates.
 
 ## Configuration
 
@@ -998,11 +1071,19 @@ NAM_NEO4J__USERNAME=neo4j
 NAM_NEO4J__PASSWORD=your-password
 
 # Embedding provider
-NAM_EMBEDDING__PROVIDER=openai
+NAM_EMBEDDING__PROVIDER=openai  # or vertex_ai, bedrock
 NAM_EMBEDDING__MODEL=text-embedding-3-small
 
 # OpenAI API key (if using OpenAI embeddings/extraction)
 OPENAI_API_KEY=your-api-key
+
+# Google Cloud (for Vertex AI embeddings)
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+VERTEX_AI_LOCATION=us-central1
+
+# AWS (for Bedrock embeddings)
+NAM_EMBEDDING__AWS_REGION=us-east-1
+NAM_EMBEDDING__AWS_PROFILE=default  # optional
 ```
 
 ### Programmatic Configuration
@@ -1025,9 +1106,18 @@ settings = MemorySettings(
         password=SecretStr("password"),
     ),
     embedding=EmbeddingConfig(
-        provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
+        provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,  # or OPENAI, VERTEX_AI, BEDROCK
         model="all-MiniLM-L6-v2",
         dimensions=384,
+        # For Vertex AI:
+        # provider=EmbeddingProvider.VERTEX_AI,
+        # model="text-embedding-004",
+        # project_id="your-gcp-project",
+        # location="us-central1",
+        # For Amazon Bedrock:
+        # provider=EmbeddingProvider.BEDROCK,
+        # model="amazon.titan-embed-text-v2:0",
+        # aws_region="us-east-1",
     ),
     extraction=ExtractionConfig(
         # Use the multi-stage pipeline (default)
@@ -1107,6 +1197,11 @@ The package automatically creates the following schema:
 - `(Conversation)-[:HAS_MESSAGE]->(Message)` - Membership
 - `(Conversation)-[:FIRST_MESSAGE]->(Message)` - First message in conversation
 - `(Message)-[:NEXT_MESSAGE]->(Message)` - Sequential message chain
+- `(Message)-[:MENTIONS]->(Entity)` - Entity mentions in message
+
+**Long-term memory:**
+- `(Entity)-[:RELATED_TO {relation_type, confidence}]->(Entity)` - Extracted relationships
+- `(Entity)-[:SAME_AS]->(Entity)` - Entity deduplication
 
 **Cross-memory linking:**
 - `(ReasoningTrace)-[:INITIATED_BY]->(Message)` - Trace triggered by message
@@ -1211,6 +1306,7 @@ Examples are located in `examples/` and demonstrate various features:
 | Example | Description | Requirements |
 |---------|-------------|--------------|
 | [`lennys-memory/`](examples/lennys-memory/) | **Flagship demo**: Podcast knowledge graph with AI chat, graph visualization, map view, entity enrichment | Neo4j, OpenAI, Node.js |
+| [`financial-services-advisor/`](examples/financial-services-advisor/) | **AWS Strands demo**: Multi-agent KYC/AML compliance with 5 specialized agents, CDK deployment | Neo4j Aura, AWS Bedrock, Node.js |
 | `full-stack-chat-agent/` | Full-stack web app with FastAPI backend and Next.js frontend | Neo4j, OpenAI, Node.js |
 | `basic_usage.py` | Core memory operations (short-term, long-term, reasoning) | Neo4j, OpenAI API key |
 | `entity_resolution.py` | Entity matching strategies | None |

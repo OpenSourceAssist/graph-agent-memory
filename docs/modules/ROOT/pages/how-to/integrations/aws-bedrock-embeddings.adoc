@@ -1,0 +1,278 @@
+= Configure Amazon Bedrock Embeddings
+:description: How to use Amazon Titan embeddings with Neo4j Agent Memory
+:keywords: bedrock, titan, embeddings, aws, neo4j
+:toc:
+
+This guide shows how to configure Amazon Bedrock embeddings for semantic search in Neo4j Agent Memory.
+
+== Supported Models
+
+Neo4j Agent Memory supports these Bedrock embedding models:
+
+[cols="2,1,2"]
+|===
+| Model | Dimensions | Notes
+
+| `amazon.titan-embed-text-v2:0`
+| 1024
+| **Recommended** - Best quality/performance balance
+
+| `amazon.titan-embed-text-v1`
+| 1536
+| Legacy model, higher dimensionality
+
+| `cohere.embed-english-v3`
+| 1024
+| Optimized for English text
+
+| `cohere.embed-multilingual-v3`
+| 1024
+| Multilingual support (100+ languages)
+|===
+
+== Prerequisites
+
+* AWS account with Bedrock access
+* Model access enabled in AWS Console (Bedrock → Model access)
+* `boto3` installed: `pip install neo4j-agent-memory[bedrock]`
+
+== Basic Configuration
+
+=== Using BedrockEmbedder Directly
+
+[source,python]
+----
+from neo4j_agent_memory.embeddings import BedrockEmbedder
+
+embedder = BedrockEmbedder(
+    model="amazon.titan-embed-text-v2:0",
+    region_name="us-east-1",
+)
+
+# Generate a single embedding
+embedding = await embedder.embed("Hello, world!")
+print(f"Dimensions: {len(embedding)}")  # 1024
+
+# Check model dimensions
+print(f"Model dimensions: {embedder.dimensions}")
+----
+
+=== Using with MemoryClient
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.config.settings import (
+    Neo4jConfig,
+    EmbeddingConfig,
+    EmbeddingProvider,
+)
+
+settings = MemorySettings(
+    neo4j=Neo4jConfig(
+        uri="neo4j+s://xxx.databases.neo4j.io",
+        password="your-password",
+    ),
+    embedding=EmbeddingConfig(
+        provider=EmbeddingProvider.BEDROCK,
+        model="amazon.titan-embed-text-v2:0",
+        aws_region="us-east-1",
+    ),
+)
+
+async with MemoryClient(settings) as client:
+    # Embeddings are generated automatically
+    await client.short_term.add_message(
+        session_id="session-1",
+        role="user",
+        content="Hello!",
+        generate_embedding=True,
+    )
+----
+
+=== Using with Environment Variables
+
+[source,bash]
+----
+export EMBEDDING_PROVIDER=bedrock
+export EMBEDDING_MODEL=amazon.titan-embed-text-v2:0
+export AWS_REGION=us-east-1
+----
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+# Settings automatically read from environment
+settings = MemorySettings.from_env()
+----
+
+== Authentication
+
+BedrockEmbedder uses the standard AWS credential chain:
+
+1. **Environment variables** (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+2. **Shared credentials file** (`~/.aws/credentials`)
+3. **IAM role** (for EC2, Lambda, ECS)
+
+=== Using a Named Profile
+
+[source,python]
+----
+embedder = BedrockEmbedder(
+    model="amazon.titan-embed-text-v2:0",
+    profile_name="my-profile",
+)
+----
+
+=== Using Explicit Credentials
+
+[source,python]
+----
+embedder = BedrockEmbedder(
+    model="amazon.titan-embed-text-v2:0",
+    aws_access_key_id="AKIA...",
+    aws_secret_access_key="...",
+    region_name="us-east-1",
+)
+----
+
+== Batch Processing
+
+BedrockEmbedder supports efficient batch embedding with automatic chunking:
+
+[source,python]
+----
+texts = [
+    "First document about machine learning",
+    "Second document about databases",
+    "Third document about cloud computing",
+]
+
+# Automatically batches in groups of 25
+embeddings = await embedder.embed_batch(texts)
+print(f"Generated {len(embeddings)} embeddings")
+----
+
+[NOTE]
+====
+Bedrock limits batch size to 25 texts per request. The embedder automatically splits larger batches and processes them sequentially.
+====
+
+== Configuration Options
+
+[cols="2,1,3"]
+|===
+| Option | Default | Description
+
+| `model`
+| `amazon.titan-embed-text-v2:0`
+| Bedrock model ID
+
+| `region_name`
+| From env/config
+| AWS region for Bedrock API
+
+| `profile_name`
+| None
+| AWS credentials profile name
+
+| `batch_size`
+| 25
+| Max texts per batch request
+|===
+
+== IAM Permissions
+
+Required IAM policy for Bedrock embedding access:
+
+[source,json]
+----
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "bedrock:InvokeModel"
+            ],
+            "Resource": [
+                "arn:aws:bedrock:*::foundation-model/amazon.titan-embed-*",
+                "arn:aws:bedrock:*::foundation-model/cohere.embed-*"
+            ]
+        }
+    ]
+}
+----
+
+For Lambda functions, attach this policy to the execution role.
+
+== Choosing a Model
+
+=== Titan Text V2 (Recommended)
+
+Best for most use cases:
+
+* 1024 dimensions - efficient storage in Neo4j
+* Strong semantic understanding
+* Good performance/cost balance
+
+[source,python]
+----
+embedder = BedrockEmbedder(model="amazon.titan-embed-text-v2:0")
+----
+
+=== Cohere Multilingual
+
+Best for international content:
+
+* Supports 100+ languages
+* Same 1024 dimensions as Titan V2
+* Better cross-lingual search
+
+[source,python]
+----
+embedder = BedrockEmbedder(model="cohere.embed-multilingual-v3")
+----
+
+== Troubleshooting
+
+=== AccessDeniedException
+
+Ensure model access is enabled:
+
+1. Go to AWS Console → Bedrock → Model access
+2. Click "Manage model access"
+3. Enable the embedding models you need
+4. Wait for access to be granted (may take a few minutes)
+
+=== ValidationException
+
+Check your model ID format:
+
+* ✅ Correct: `amazon.titan-embed-text-v2:0`
+* ❌ Incorrect: `titan-embed-text-v2` (missing prefix)
+
+=== Region Not Available
+
+Bedrock is not available in all regions. Supported regions:
+
+* `us-east-1` (N. Virginia) - Most models
+* `us-west-2` (Oregon)
+* `eu-west-1` (Ireland)
+* `ap-northeast-1` (Tokyo)
+
+=== Slow Performance
+
+For high-volume embedding:
+
+1. Use `embed_batch()` instead of multiple `embed()` calls
+2. Consider running in the same AWS region as your Neo4j database
+3. For Lambda, increase memory allocation (embedding is CPU-bound)
+
+== See Also
+
+* xref:how-to/integrations/aws-strands.adoc[Strands Agents Integration]
+* xref:how-to/integrations/aws-hybrid-memory.adoc[Hybrid Memory Provider]
+* xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Tutorial]
+* https://docs.aws.amazon.com/bedrock/latest/userguide/embeddings.html[AWS Bedrock Embeddings Documentation]

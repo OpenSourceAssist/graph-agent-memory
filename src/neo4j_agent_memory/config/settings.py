@@ -13,6 +13,8 @@ class EmbeddingProvider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     SENTENCE_TRANSFORMERS = "sentence_transformers"
+    VERTEX_AI = "vertex_ai"
+    BEDROCK = "bedrock"
     CUSTOM = "custom"
 
 
@@ -108,6 +110,16 @@ class EmbeddingConfig(BaseModel):
     batch_size: int = Field(default=100, ge=1, description="Batch size for embeddings")
     # Sentence Transformers specific
     device: str = Field(default="cpu", description="Device for sentence transformers (cpu/cuda)")
+    # Vertex AI specific
+    project_id: str | None = Field(default=None, description="GCP project ID for Vertex AI")
+    location: str = Field(default="us-central1", description="GCP region for Vertex AI")
+    task_type: str = Field(
+        default="RETRIEVAL_DOCUMENT",
+        description="Vertex AI task type (RETRIEVAL_QUERY, RETRIEVAL_DOCUMENT, etc.)",
+    )
+    # AWS Bedrock specific
+    aws_region: str | None = Field(default=None, description="AWS region for Bedrock")
+    aws_profile: str | None = Field(default=None, description="AWS credentials profile name")
 
 
 class LLMConfig(BaseModel):

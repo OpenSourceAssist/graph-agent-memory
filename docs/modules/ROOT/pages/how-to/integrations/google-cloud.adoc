@@ -1,0 +1,600 @@
+= Google Cloud Integration
+:description: Integrate Neo4j Agent Memory with Google Cloud services including Vertex AI embeddings, Google ADK, and MCP server.
+:keywords: google cloud, vertex ai, adk, mcp, embeddings, gcp, cloud run
+
+Neo4j Agent Memory provides comprehensive Google Cloud integration, including Vertex AI embeddings, Google Agent Development Kit (ADK) support, and an MCP server for Cloud API Registry.
+
+== Overview
+
+[cols="1,2,1", options="header"]
+|===
+| Feature | Description | Status
+
+| Vertex AI Embeddings
+| Generate embeddings using Google's text-embedding-004 model
+| Production Ready
+
+| Google ADK
+| Native MemoryService implementation for ADK agents
+| Production Ready
+
+| MCP Server
+| Model Context Protocol server with 5 memory tools
+| Production Ready
+
+| Cloud Run
+| Production deployment templates
+| Production Ready
+|===
+
+== Installation
+
+[source,bash]
+----
+# Vertex AI embeddings
+pip install neo4j-agent-memory[vertex-ai]
+
+# Google ADK integration
+pip install neo4j-agent-memory[google-adk]
+
+# MCP server
+pip install neo4j-agent-memory[mcp]
+
+# All Google Cloud features
+pip install neo4j-agent-memory[google,mcp]
+----
+
+== Prerequisites
+
+=== Google Cloud Authentication
+
+[source,bash]
+----
+# Authenticate with Application Default Credentials
+gcloud auth application-default login
+
+# Set your project
+export GOOGLE_CLOUD_PROJECT=your-project-id
+----
+
+=== Neo4j Database
+
+You need a running Neo4j instance. Options:
+
+* **Neo4j Aura**: Managed cloud service (recommended for production)
+* **Docker**: Local development
+* **Self-hosted**: On-premises or cloud VM
+
+[source,bash]
+----
+# Local Docker for development
+docker run -d \
+  --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  neo4j:5-enterprise
+----
+
+== Vertex AI Embeddings
+
+Generate high-quality text embeddings using Google's Vertex AI models.
+
+=== Basic Usage
+
+[source,python]
+----
+from neo4j_agent_memory.embeddings.vertex_ai import VertexAIEmbedder
+
+# Create embedder
+embedder = VertexAIEmbedder(
+    model="text-embedding-004",
+    project_id="your-gcp-project",  # or set GOOGLE_CLOUD_PROJECT
+    location="us-central1",
+)
+
+# Generate embeddings
+embedding = await embedder.embed("Hello, world!")
+print(f"Dimensions: {len(embedding)}")  # 768
+
+# Batch embedding (up to 250 texts per batch)
+embeddings = await embedder.embed_batch([
+    "First text",
+    "Second text",
+    "Third text",
+])
+----
+
+=== Supported Models
+
+[cols="2,1,2", options="header"]
+|===
+| Model | Dimensions | Notes
+
+| `text-embedding-004`
+| 768
+| Recommended for most use cases
+
+| `textembedding-gecko@003`
+| 768
+| Legacy model
+
+| `textembedding-gecko-multilingual@001`
+| 768
+| Multilingual support
+|===
+
+=== Task Types
+
+Vertex AI supports different task types for optimized embeddings:
+
+[source,python]
+----
+# For indexing documents
+doc_embedder = VertexAIEmbedder(
+    model="text-embedding-004",
+    task_type="RETRIEVAL_DOCUMENT",
+)
+
+# For search queries
+query_embedder = VertexAIEmbedder(
+    model="text-embedding-004",
+    task_type="RETRIEVAL_QUERY",
+)
+----
+
+Available task types:
+
+* `RETRIEVAL_DOCUMENT` - For indexing documents to be searched
+* `RETRIEVAL_QUERY` - For search queries
+* `SEMANTIC_SIMILARITY` - For comparing text similarity
+* `CLASSIFICATION` - For text classification tasks
+* `CLUSTERING` - For clustering similar texts
+
+=== With MemoryClient
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.config.settings import (
+    EmbeddingConfig,
+    EmbeddingProvider,
+    Neo4jConfig,
+)
+from pydantic import SecretStr
+
+settings = MemorySettings(
+    neo4j=Neo4jConfig(
+        uri="bolt://localhost:7687",
+        password=SecretStr("password"),
+    ),
+    embedding=EmbeddingConfig(
+        provider=EmbeddingProvider.VERTEX_AI,
+        model="text-embedding-004",
+        project_id="your-gcp-project",
+        location="us-central1",
+    ),
+)
+
+async with MemoryClient(settings) as client:
+    # All memory operations now use Vertex AI embeddings
+    await client.short_term.add_message(
+        session_id="user-123",
+        role="user",
+        content="Hello!",
+    )
+----
+
+== Google ADK Integration
+
+The `Neo4jMemoryService` implements the Google ADK MemoryService interface for seamless integration with ADK agents.
+
+=== Basic Usage
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+async with MemoryClient(settings) as client:
+    # Create memory service
+    memory_service = Neo4jMemoryService(
+        memory_client=client,
+        user_id="user-123",
+        include_entities=True,
+        include_preferences=True,
+    )
+
+    # Store a conversation session
+    session = {
+        "id": "session-1",
+        "messages": [
+            {"role": "user", "content": "I prefer dark mode"},
+            {"role": "assistant", "content": "Noted!"},
+        ]
+    }
+    await memory_service.add_session_to_memory(session)
+
+    # Search across all memory types
+    results = await memory_service.search_memories(
+        query="user preferences",
+        limit=10,
+    )
+
+    for entry in results:
+        print(f"[{entry.memory_type}] {entry.content}")
+----
+
+=== API Reference
+
+==== add_session_to_memory
+
+Store a conversation session with automatic entity and preference extraction.
+
+[source,python]
+----
+await memory_service.add_session_to_memory(
+    session={
+        "id": "session-id",
+        "messages": [
+            {"role": "user", "content": "..."},
+            {"role": "assistant", "content": "..."},
+        ]
+    }
+)
+----
+
+==== search_memories
+
+Semantic search across all memory types.
+
+[source,python]
+----
+results = await memory_service.search_memories(
+    query="search query",
+    app_name="my-app",      # Optional app filter
+    user_id="user-id",      # Optional user filter
+    limit=10,
+)
+----
+
+==== get_memories_for_session
+
+Retrieve all memories for a specific session.
+
+[source,python]
+----
+memories = await memory_service.get_memories_for_session(
+    session_id="session-id",
+    limit=100,
+)
+----
+
+==== add_memory
+
+Add an individual memory entry.
+
+[source,python]
+----
+entry = await memory_service.add_memory(
+    content="Prefers Python over JavaScript",
+    memory_type="preference",  # or "message"
+    category="programming",    # For preferences
+    session_id="session-id",   # For messages
+    role="user",               # For messages
+)
+----
+
+==== clear_session
+
+Clear all data for a session.
+
+[source,python]
+----
+await memory_service.clear_session(session_id="session-id")
+----
+
+=== Integration with ADK Agents
+
+[source,python]
+----
+from google.adk import Agent
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+# Initialize memory
+settings = MemorySettings(...)
+memory_client = MemoryClient(settings)
+await memory_client.connect()
+
+# Create memory service
+memory_service = Neo4jMemoryService(
+    memory_client=memory_client,
+    user_id="user-123",
+)
+
+# Use with ADK Agent
+agent = Agent(
+    name="my-agent",
+    memory=memory_service,
+)
+
+# Create custom tools using memory
+@agent.tool
+async def remember_fact(fact: str) -> str:
+    """Store a fact for later recall."""
+    await memory_service.add_memory(content=fact, memory_type="message")
+    return f"Remembered: {fact}"
+
+@agent.tool
+async def recall_memories(query: str) -> list[str]:
+    """Search memories for relevant information."""
+    results = await memory_service.search_memories(query, limit=5)
+    return [entry.content for entry in results]
+----
+
+=== Domain Data Access via MemoryClient.graph
+
+For applications that store domain-specific data (customers, transactions, products) in the same Neo4j database, use `MemoryClient.graph` to run custom Cypher queries alongside memory operations — sharing a single database connection.
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+async with MemoryClient(settings) as client:
+    # Memory operations use the built-in APIs
+    await client.short_term.add_message(
+        session_id="user-123",
+        role="user",
+        content="Show me high-risk customers",
+    )
+
+    # Domain queries use the graph client directly
+    customers = await client.graph.execute_read(
+        """
+        MATCH (c:Customer)
+        WHERE c.risk_level = 'HIGH'
+        RETURN c {.*} AS customer
+        ORDER BY c.name
+        """,
+    )
+----
+
+This pattern is used in the **Financial Advisor example** (`examples/google-cloud-financial-advisor/`), where a `Neo4jDomainService` wraps `client.graph` to provide typed query methods for customers, transactions, alerts, sanctions screening, and network analysis.
+
+See xref:../../reference/api/memory-client.adoc#graph[MemoryClient.graph reference] for details.
+
+== MCP Server
+
+The Model Context Protocol (MCP) server exposes memory capabilities as tools for AI platforms like Claude Desktop.
+
+=== Available Tools
+
+[cols="2,3", options="header"]
+|===
+| Tool | Description
+
+| `memory_search`
+| Hybrid vector + graph search across all memory types
+
+| `memory_store`
+| Store messages, facts, and preferences
+
+| `entity_lookup`
+| Get entity with relationships and neighbors
+
+| `conversation_history`
+| Retrieve session conversation history
+
+| `graph_query`
+| Execute read-only Cypher queries
+|===
+
+=== Starting the Server
+
+[source,bash]
+----
+# stdio transport (for local MCP clients like Claude Desktop)
+neo4j-memory mcp serve
+
+# SSE transport (for Cloud Run/HTTP deployment)
+neo4j-memory mcp serve --transport sse --port 8080
+
+# With custom Neo4j connection
+neo4j-memory mcp serve \
+  --neo4j-uri bolt://localhost:7687 \
+  --neo4j-password secret
+----
+
+=== Claude Desktop Configuration
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+[source,json]
+----
+{
+  "mcpServers": {
+    "neo4j-memory": {
+      "command": "neo4j-memory",
+      "args": ["mcp", "serve"],
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+----
+
+=== Programmatic Usage
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.mcp.server import Neo4jMemoryMCPServer
+
+async with MemoryClient(settings) as client:
+    server = Neo4jMemoryMCPServer(client)
+
+    # stdio transport
+    await server.run()
+
+    # Or SSE for HTTP
+    await server.run_sse(host="0.0.0.0", port=8080)
+----
+
+=== Tool Schemas
+
+Each tool has a defined JSON schema. Example for `memory_search`:
+
+[source,json]
+----
+{
+  "name": "memory_search",
+  "description": "Search across all memory types using hybrid vector + graph search",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Search query"
+      },
+      "limit": {
+        "type": "integer",
+        "default": 10,
+        "description": "Maximum results"
+      },
+      "memory_types": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Filter by memory types: message, entity, preference"
+      }
+    },
+    "required": ["query"]
+  }
+}
+----
+
+== Cloud Run Deployment
+
+Deploy the MCP server to Google Cloud Run for production use.
+
+=== Quick Deploy
+
+[source,bash]
+----
+cd deploy/cloudrun
+
+# Deploy with gcloud
+gcloud run deploy neo4j-memory-mcp \
+  --source . \
+  --region us-central1 \
+  --set-secrets NEO4J_URI=neo4j-uri:latest \
+  --set-secrets NEO4J_PASSWORD=neo4j-password:latest
+----
+
+=== Dockerfile
+
+The deployment includes a production-ready Dockerfile:
+
+[source,dockerfile]
+----
+FROM python:3.11-slim
+WORKDIR /app
+COPY . .
+RUN pip install neo4j-agent-memory[google,mcp]
+EXPOSE 8080
+CMD ["neo4j-memory", "mcp", "serve", "--transport", "sse", "--port", "8080"]
+----
+
+=== Secret Manager Integration
+
+Store sensitive credentials in Secret Manager:
+
+[source,bash]
+----
+# Create secrets
+echo -n "neo4j+s://xxx.databases.neo4j.io" | \
+  gcloud secrets create neo4j-uri --data-file=-
+
+echo -n "your-password" | \
+  gcloud secrets create neo4j-password --data-file=-
+
+# Grant access to Cloud Run service account
+gcloud secrets add-iam-policy-binding neo4j-uri \
+  --member="serviceAccount:xxx@xxx.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+----
+
+=== Service Configuration
+
+See `deploy/cloudrun/service.yaml` for the full Cloud Run service configuration including:
+
+* Memory and CPU allocation
+* Autoscaling settings
+* Secret references
+* Health checks
+
+== Environment Variables
+
+[cols="2,3,1", options="header"]
+|===
+| Variable | Description | Default
+
+| `GOOGLE_CLOUD_PROJECT`
+| GCP project ID for Vertex AI
+| Required for Vertex AI
+
+| `VERTEX_AI_LOCATION`
+| GCP region for Vertex AI
+| `us-central1`
+
+| `NEO4J_URI`
+| Neo4j connection URI
+| `bolt://localhost:7687`
+
+| `NEO4J_PASSWORD`
+| Neo4j password
+| Required
+|===
+
+== Examples
+
+=== Quick Start Scripts
+
+Comprehensive examples are available in `examples/google_cloud_integration/`:
+
+* `vertex_ai_embeddings.py` - Vertex AI embedding generation
+* `adk_memory_service.py` - Google ADK integration patterns
+* `mcp_server_demo.py` - MCP server tools demonstration
+* `full_pipeline.py` - End-to-end demo combining all features
+
+[source,bash]
+----
+cd examples/google_cloud_integration
+python full_pipeline.py
+----
+
+=== Financial Advisor (Full Application)
+
+A complete multi-agent compliance investigation app in `examples/google-cloud-financial-advisor/`:
+
+* **Multi-agent architecture**: Supervisor + 4 specialist agents (KYC, AML, Relationship, Compliance)
+* **Neo4j domain data**: All customer, transaction, organization, sanctions, and PEP data stored and queried from Neo4j via `MemoryClient.graph`
+* **Agent memory**: Conversation history and investigation findings via neo4j-agent-memory ADK integration
+* **Full-stack**: FastAPI backend + React/TypeScript frontend
+
+[source,bash]
+----
+cd examples/google-cloud-financial-advisor
+cp .env.example .env  # Set GOOGLE_API_KEY, NEO4J_URI, NEO4J_PASSWORD
+make install && make load-data && make dev
+----
+
+See the example's `README.md` for the full getting started guide.
+
+== See Also
+
+* xref:../../reference/configuration.adoc[Configuration Reference]
+* xref:../../explanation/graph-architecture.adoc[Graph Architecture Overview]
+* https://cloud.google.com/vertex-ai/docs/generative-ai/embeddings/get-text-embeddings[Vertex AI Embeddings Documentation]
+* https://modelcontextprotocol.io/[Model Context Protocol]

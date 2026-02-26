@@ -1,25 +1,24 @@
 """Tests for the documentation build pipeline.
 
-These tests verify that the Node.js/AsciiDoctor build system works correctly.
+These tests verify that the Antora build system works correctly.
 """
 
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
 
 @pytest.fixture(scope="module")
-def npm_installed(docs_dir: Path) -> bool:
+def npm_installed(docs_root: Path) -> bool:
     """Ensure npm dependencies are installed."""
-    node_modules = docs_dir / "node_modules"
+    node_modules = docs_root / "node_modules"
     if not node_modules.exists():
         result = subprocess.run(
             ["npm", "install"],
-            cwd=docs_dir,
+            cwd=docs_root,
             capture_output=True,
             text=True,
         )
@@ -28,89 +27,68 @@ def npm_installed(docs_dir: Path) -> bool:
     return True
 
 
+@pytest.fixture(scope="module")
+def antora_site_dir(docs_root: Path) -> Path:
+    """Get the Antora build output directory."""
+    return docs_root / "build" / "site"
+
+
+@pytest.fixture(scope="module")
+def antora_component_dir(antora_site_dir: Path) -> Path:
+    """Get the Antora component output directory (agent-memory)."""
+    return antora_site_dir / "agent-memory"
+
+
 @pytest.mark.docs
 class TestBuildScriptExists:
     """Test that required build files exist."""
 
-    def test_build_script_exists(self, docs_dir: Path):
-        """Verify build.js exists."""
-        build_script = docs_dir / "build.js"
-        assert build_script.exists(), "build.js not found in docs directory"
+    def test_antora_playbook_exists(self, docs_root: Path):
+        """Verify antora-playbook.yml exists."""
+        playbook = docs_root / "antora-playbook.yml"
+        assert playbook.exists(), "antora-playbook.yml not found in docs directory"
 
-    def test_package_json_exists(self, docs_dir: Path):
+    def test_antora_component_exists(self, docs_root: Path):
+        """Verify antora.yml component descriptor exists."""
+        antora_yml = docs_root / "antora.yml"
+        assert antora_yml.exists(), "antora.yml not found in docs directory"
+
+    def test_package_json_exists(self, docs_root: Path):
         """Verify package.json exists."""
-        package_json = docs_dir / "package.json"
+        package_json = docs_root / "package.json"
         assert package_json.exists(), "package.json not found in docs directory"
 
-    def test_style_css_exists(self, docs_dir: Path):
-        """Verify style.css exists."""
-        style_css = docs_dir / "assets" / "style.css"
-        assert style_css.exists(), "assets/style.css not found"
-
-    def test_favicon_exists(self, docs_dir: Path):
-        """Verify favicon exists."""
-        favicon = docs_dir / "assets" / "favicon.svg"
-        assert favicon.exists(), "assets/favicon.svg not found"
+    def test_favicon_exists(self, docs_root: Path):
+        """Verify favicon exists in Antora images directory."""
+        favicon = docs_root / "modules" / "ROOT" / "images" / "assets" / "favicon.svg"
+        assert favicon.exists(), "modules/ROOT/images/assets/favicon.svg not found"
 
 
 @pytest.mark.docs
 class TestNpmCommands:
     """Test npm commands work correctly."""
 
-    def test_npm_install_succeeds(self, docs_dir: Path):
+    def test_npm_install_succeeds(self, docs_root: Path):
         """Verify npm install works."""
         result = subprocess.run(
             ["npm", "install"],
-            cwd=docs_dir,
+            cwd=docs_root,
             capture_output=True,
             text=True,
             timeout=120,
         )
         assert result.returncode == 0, f"npm install failed: {result.stderr}"
 
-    def test_npm_build_succeeds(self, docs_dir: Path, npm_installed: bool):
+    def test_npm_build_succeeds(self, docs_root: Path, npm_installed: bool):
         """Verify npm run build works."""
         result = subprocess.run(
             ["npm", "run", "build"],
-            cwd=docs_dir,
+            cwd=docs_root,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=120,
         )
         assert result.returncode == 0, f"npm run build failed: {result.stderr}"
-
-    def test_npm_lint_succeeds(self, docs_dir: Path, npm_installed: bool):
-        """Verify npm run lint (link validation) works."""
-        # First build
-        subprocess.run(
-            ["npm", "run", "build"],
-            cwd=docs_dir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-
-        # Then lint
-        result = subprocess.run(
-            ["npm", "run", "lint"],
-            cwd=docs_dir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-
-        # Note: lint may find broken links in old files, so we check for specific patterns
-        # rather than requiring returncode == 0
-        if "broken links" in result.stdout:
-            # Parse number of broken links
-            import re
-
-            match = re.search(r"Found (\d+) broken links", result.stdout)
-            if match:
-                broken_count = int(match.group(1))
-                # Allow some broken links in legacy files, but fail if too many
-                if broken_count > 20:
-                    pytest.fail(f"Too many broken links: {broken_count}\n{result.stdout}")
 
 
 @pytest.mark.docs
@@ -118,55 +96,57 @@ class TestBuildOutput:
     """Test that build produces expected output."""
 
     @pytest.fixture(autouse=True)
-    def ensure_built(self, docs_dir: Path, npm_installed: bool):
+    def ensure_built(self, docs_root: Path, npm_installed: bool):
         """Ensure docs are built before these tests."""
         subprocess.run(
             ["npm", "run", "build"],
-            cwd=docs_dir,
+            cwd=docs_root,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=120,
         )
 
-    def test_site_directory_created(self, site_dir: Path):
-        """Verify _site directory is created."""
-        assert site_dir.exists(), "_site directory not created"
-        assert site_dir.is_dir(), "_site is not a directory"
+    def test_site_directory_created(self, antora_site_dir: Path):
+        """Verify build/site directory is created."""
+        assert antora_site_dir.exists(), "build/site directory not created"
+        assert antora_site_dir.is_dir(), "build/site is not a directory"
 
-    def test_index_html_created(self, site_dir: Path):
+    def test_component_directory_created(self, antora_component_dir: Path):
+        """Verify agent-memory component directory is created."""
+        assert antora_component_dir.exists(), "agent-memory component directory not created"
+
+    def test_index_html_created(self, antora_component_dir: Path):
         """Verify index.html is created."""
-        index_html = site_dir / "index.html"
-        assert index_html.exists(), "index.html not created"
+        index_html = antora_component_dir / "index.html"
+        assert index_html.exists(), "index.html not created in agent-memory/"
 
-    def test_style_css_copied(self, site_dir: Path):
-        """Verify style.css is copied to _site."""
-        style_css = site_dir / "style.css"
-        assert style_css.exists(), "style.css not copied to _site"
-
-    def test_favicon_copied(self, site_dir: Path):
-        """Verify favicon is copied to _site."""
-        favicon = site_dir / "favicon.svg"
-        assert favicon.exists(), "favicon.svg not copied to _site"
-
-    def test_quadrant_directories_created(self, site_dir: Path):
+    def test_quadrant_directories_created(self, antora_component_dir: Path):
         """Verify Diataxis quadrant directories are created."""
         quadrants = ["tutorials", "how-to", "reference", "explanation"]
         for quadrant in quadrants:
-            quadrant_dir = site_dir / quadrant
+            quadrant_dir = antora_component_dir / quadrant
             assert quadrant_dir.exists(), f"{quadrant}/ directory not created"
             index_html = quadrant_dir / "index.html"
             assert index_html.exists(), f"{quadrant}/index.html not created"
 
     def test_all_adoc_files_converted(
-        self, docs_dir: Path, site_dir: Path, all_adoc_files: list[Path]
+        self, docs_dir: Path, antora_component_dir: Path, all_adoc_files: list[Path]
     ):
         """Verify each .adoc file has a corresponding .html file."""
         missing = []
         for adoc_file in all_adoc_files:
-            relative = adoc_file.relative_to(docs_dir)
-            html_file = site_dir / relative.with_suffix(".html")
-            if not html_file.exists():
-                missing.append(str(relative))
+            # Skip nav.adoc as it's not converted to HTML
+            if adoc_file.name == "nav.adoc":
+                continue
+            try:
+                relative = adoc_file.relative_to(docs_dir)
+                # HTML files are in component directory
+                html_file = antora_component_dir / relative.with_suffix(".html")
+                if not html_file.exists():
+                    missing.append(str(relative))
+            except ValueError:
+                # File is outside docs_dir
+                continue
 
         assert not missing, f"Missing HTML files for: {missing}"
 
@@ -176,114 +156,80 @@ class TestHtmlContent:
     """Test that generated HTML has expected content."""
 
     @pytest.fixture(autouse=True)
-    def ensure_built(self, docs_dir: Path, npm_installed: bool):
+    def ensure_built(self, docs_root: Path, npm_installed: bool):
         """Ensure docs are built before these tests."""
         subprocess.run(
             ["npm", "run", "build"],
-            cwd=docs_dir,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-
-    def test_index_has_navigation(self, site_dir: Path):
-        """Verify index.html has navigation elements."""
-        index_html = site_dir / "index.html"
-        content = index_html.read_text()
-
-        assert "docs-nav" in content, "Navigation not found in index.html"
-        assert "Tutorials" in content, "Tutorials link not found"
-        assert "How-To" in content or "How-to" in content, "How-To link not found"
-        assert "Reference" in content, "Reference link not found"
-        assert "Explanation" in content, "Explanation link not found"
-
-    def test_pages_have_breadcrumbs(self, site_dir: Path):
-        """Verify nested pages have breadcrumb navigation."""
-        tutorial_index = site_dir / "tutorials" / "index.html"
-        if tutorial_index.exists():
-            content = tutorial_index.read_text()
-            assert "breadcrumb" in content, "Breadcrumbs not found in tutorials/index.html"
-
-    def test_code_blocks_have_highlighting(self, site_dir: Path):
-        """Verify code blocks have syntax highlighting classes."""
-        # Check a file known to have code blocks
-        tutorial = site_dir / "tutorials" / "first-agent-memory.html"
-        if tutorial.exists():
-            content = tutorial.read_text()
-            # highlight.js adds hljs classes
-            assert "hljs" in content or "highlight" in content, "Syntax highlighting not found"
-
-    def test_pages_have_theme_toggle(self, site_dir: Path):
-        """Verify pages have theme toggle button."""
-        index_html = site_dir / "index.html"
-        content = index_html.read_text()
-        assert "theme-toggle" in content, "Theme toggle not found"
-
-    def test_pages_have_search(self, site_dir: Path):
-        """Verify pages have search functionality."""
-        index_html = site_dir / "index.html"
-        content = index_html.read_text()
-        # Search is loaded from Pagefind
-        assert "search" in content.lower(), "Search not found in index.html"
-
-
-@pytest.mark.docs
-class TestSearchIndex:
-    """Test Pagefind search index generation."""
-
-    def test_pagefind_index_generated(self, docs_dir: Path, site_dir: Path, npm_installed: bool):
-        """Verify Pagefind search index is generated."""
-        # Run build with search
-        result = subprocess.run(
-            ["npm", "run", "build:search"],
-            cwd=docs_dir,
+            cwd=docs_root,
             capture_output=True,
             text=True,
             timeout=120,
         )
 
-        if result.returncode != 0:
-            pytest.skip(f"build:search failed (Pagefind may not be installed): {result.stderr}")
+    def test_index_has_navigation(self, antora_component_dir: Path):
+        """Verify index.html has navigation elements."""
+        index_html = antora_component_dir / "index.html"
+        content = index_html.read_text()
 
-        pagefind_dir = site_dir / "pagefind"
-        assert pagefind_dir.exists(), "pagefind/ directory not created"
+        # Antora UI bundle includes navigation
+        assert "nav" in content.lower(), "Navigation not found in index.html"
 
-        # Check for index files
-        assert any(pagefind_dir.glob("*.js")), "No JavaScript files in pagefind/"
-        assert any(pagefind_dir.glob("*.css")), "No CSS files in pagefind/"
+    def test_pages_have_breadcrumbs(self, antora_component_dir: Path):
+        """Verify nested pages have breadcrumb navigation."""
+        tutorial_index = antora_component_dir / "tutorials" / "index.html"
+        if tutorial_index.exists():
+            content = tutorial_index.read_text()
+            assert "breadcrumb" in content.lower(), "Breadcrumbs not found in tutorials/index.html"
+
+    def test_code_blocks_have_highlighting(self, antora_component_dir: Path):
+        """Verify code blocks have syntax highlighting classes."""
+        # Check a file known to have code blocks
+        tutorial = antora_component_dir / "tutorials" / "first-agent-memory.html"
+        if tutorial.exists():
+            content = tutorial.read_text()
+            # Antora/highlight.js adds highlight classes
+            assert "highlight" in content or "code" in content, "Syntax highlighting not found"
+
+    def test_pages_have_search(self, antora_component_dir: Path):
+        """Verify pages reference search functionality."""
+        index_html = antora_component_dir / "index.html"
+        content = index_html.read_text()
+        # Neo4j UI bundle includes search
+        assert "search" in content.lower(), "Search not found in index.html"
 
 
 @pytest.mark.docs
 class TestBuildPerformance:
     """Test build performance characteristics."""
 
-    def test_build_completes_in_reasonable_time(self, docs_dir: Path, npm_installed: bool):
+    def test_build_completes_in_reasonable_time(self, docs_root: Path, npm_installed: bool):
         """Verify build completes within timeout."""
         import time
 
         start = time.time()
         result = subprocess.run(
             ["npm", "run", "build"],
-            cwd=docs_dir,
+            cwd=docs_root,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=120,
         )
         elapsed = time.time() - start
 
         assert result.returncode == 0, f"Build failed: {result.stderr}"
-        assert elapsed < 30, f"Build took too long: {elapsed:.1f}s (expected < 30s)"
+        # Antora builds are typically fast but allow more time for CI
+        assert elapsed < 60, f"Build took too long: {elapsed:.1f}s (expected < 60s)"
 
-    def test_build_reports_file_count(self, docs_dir: Path, npm_installed: bool):
-        """Verify build reports number of files processed."""
+    def test_build_completes_successfully(self, docs_root: Path, npm_installed: bool):
+        """Verify build completes without fatal errors."""
         result = subprocess.run(
             ["npm", "run", "build"],
-            cwd=docs_dir,
+            cwd=docs_root,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=120,
         )
 
-        assert "Files processed" in result.stdout or "files" in result.stdout.lower(), (
-            "Build output doesn't report file count"
-        )
+        assert result.returncode == 0, f"Build failed with return code {result.returncode}"
+        # Check stderr for FATAL errors (warnings are OK)
+        assert "FATAL" not in result.stderr, f"Build had fatal errors: {result.stderr}"
