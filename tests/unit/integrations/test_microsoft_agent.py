@@ -388,21 +388,17 @@ class TestMemoryTools:
         assert isinstance(tools, list)
         assert len(tools) >= 6  # At least 6 basic tools
 
-        # Check tool structure
+        # Check tool structure — FunctionTool objects have name/description attrs
         for tool in tools:
-            assert "type" in tool
-            assert tool["type"] == "function"
-            assert "function" in tool
-            assert "name" in tool["function"]
-            assert "description" in tool["function"]
-            assert "parameters" in tool["function"]
+            assert hasattr(tool, "name")
+            assert hasattr(tool, "description")
 
     def test_create_memory_tools_includes_search_memory(self, mock_memory: MagicMock) -> None:
         """Test tools include search_memory."""
         from neo4j_agent_memory.integrations.microsoft_agent import create_memory_tools
 
         tools = create_memory_tools(mock_memory)
-        tool_names = [t["function"]["name"] for t in tools]
+        tool_names = [t.name for t in tools]
 
         assert "search_memory" in tool_names
         assert "remember_preference" in tool_names

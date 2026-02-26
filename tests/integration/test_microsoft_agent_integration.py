@@ -524,7 +524,7 @@ class TestMemoryTools:
         assert isinstance(tools, list)
         assert len(tools) >= 6
 
-        tool_names = [t["function"]["name"] for t in tools]
+        tool_names = [t.name for t in tools]
         assert "search_memory" in tool_names
         assert "remember_preference" in tool_names
         assert "recall_preferences" in tool_names
