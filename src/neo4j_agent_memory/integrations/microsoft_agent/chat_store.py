@@ -168,11 +168,13 @@ try:
                 # Check for function call/result content
                 for c in msg.contents:
                     if c.type == "function_call" and c.name:
-                        metadata.setdefault("tool_calls", []).append({
-                            "id": c.call_id,
-                            "name": c.name,
-                            "arguments": c.arguments,
-                        })
+                        metadata.setdefault("tool_calls", []).append(
+                            {
+                                "id": c.call_id,
+                                "name": c.name,
+                                "arguments": c.arguments,
+                            }
+                        )
                     elif c.type == "function_result" and c.call_id:
                         metadata["tool_call_id"] = c.call_id
 
@@ -259,7 +261,6 @@ try:
                 extract_entities=serialized_state.get("extract_entities", False),
                 generate_embeddings=serialized_state.get("generate_embeddings", True),
             )
-
 
 
 except ImportError:

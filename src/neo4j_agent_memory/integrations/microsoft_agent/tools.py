@@ -60,14 +60,20 @@ try:
             )
         """
 
-        @tool(name="search_memory", description=(
-            "Search the user's memory for relevant information including "
-            "past conversations, known facts, preferences, and entities. "
-            "Use this to recall information about the user or past interactions."
-        ))
+        @tool(
+            name="search_memory",
+            description=(
+                "Search the user's memory for relevant information including "
+                "past conversations, known facts, preferences, and entities. "
+                "Use this to recall information about the user or past interactions."
+            ),
+        )
         async def search_memory(
             query: Annotated[str, "Search query describing what information to find"],
-            memory_types: Annotated[list[str] | None, "Which memory types to search: messages, entities, preferences (default: all)"] = None,
+            memory_types: Annotated[
+                list[str] | None,
+                "Which memory types to search: messages, entities, preferences (default: all)",
+            ] = None,
             limit: Annotated[int, "Maximum results per memory type"] = 5,
         ) -> str:
             """Search across all memory types."""
@@ -84,15 +90,23 @@ try:
             )
             return json.dumps({"results": results})
 
-        @tool(name="remember_preference", description=(
-            "Save a user preference for future reference. "
-            "Use this when the user explicitly states a preference or "
-            "when you infer a strong preference from the conversation."
-        ))
+        @tool(
+            name="remember_preference",
+            description=(
+                "Save a user preference for future reference. "
+                "Use this when the user explicitly states a preference or "
+                "when you infer a strong preference from the conversation."
+            ),
+        )
         async def remember_preference(
-            category: Annotated[str, "Category of preference (e.g., 'shopping', 'style', 'brand', 'budget', 'size', 'color')"],
+            category: Annotated[
+                str,
+                "Category of preference (e.g., 'shopping', 'style', 'brand', 'budget', 'size', 'color')",
+            ],
             preference: Annotated[str, "The preference statement to remember"],
-            context: Annotated[str | None, "Optional context for when this preference applies"] = None,
+            context: Annotated[
+                str | None, "Optional context for when this preference applies"
+            ] = None,
         ) -> str:
             """Save a user preference to memory."""
             await memory.add_preference(
@@ -100,16 +114,21 @@ try:
                 preference=preference,
                 context=context,
             )
-            return json.dumps({
-                "status": "saved",
-                "category": category,
-                "preference": preference,
-            })
+            return json.dumps(
+                {
+                    "status": "saved",
+                    "category": category,
+                    "preference": preference,
+                }
+            )
 
-        @tool(name="recall_preferences", description=(
-            "Recall user preferences related to a topic or category. "
-            "Use this before making recommendations or suggestions."
-        ))
+        @tool(
+            name="recall_preferences",
+            description=(
+                "Recall user preferences related to a topic or category. "
+                "Use this before making recommendations or suggestions."
+            ),
+        )
         async def recall_preferences(
             topic: Annotated[str, "Topic to find preferences for"],
             category: Annotated[str | None, "Optional category filter"] = None,
@@ -120,25 +139,33 @@ try:
                 category=category,
                 limit=10,
             )
-            return json.dumps({
-                "preferences": [
-                    {
-                        "category": p.category,
-                        "preference": p.preference,
-                        "context": p.context,
-                    }
-                    for p in prefs
-                ]
-            })
+            return json.dumps(
+                {
+                    "preferences": [
+                        {
+                            "category": p.category,
+                            "preference": p.preference,
+                            "context": p.context,
+                        }
+                        for p in prefs
+                    ]
+                }
+            )
 
-        @tool(name="search_knowledge", description=(
-            "Search the knowledge graph for entities (products, brands, "
-            "categories, people, places) and their relationships. "
-            "Use this to find factual information."
-        ))
+        @tool(
+            name="search_knowledge",
+            description=(
+                "Search the knowledge graph for entities (products, brands, "
+                "categories, people, places) and their relationships. "
+                "Use this to find factual information."
+            ),
+        )
         async def search_knowledge(
             query: Annotated[str, "Search query for entities"],
-            entity_type: Annotated[str | None, "Optional filter by entity type: PERSON, LOCATION, ORGANIZATION, EVENT, OBJECT"] = None,
+            entity_type: Annotated[
+                str | None,
+                "Optional filter by entity type: PERSON, LOCATION, ORGANIZATION, EVENT, OBJECT",
+            ] = None,
             limit: Annotated[int, "Maximum entities to return"] = 5,
         ) -> str:
             """Search the knowledge graph for entities."""
@@ -148,21 +175,26 @@ try:
                 entity_types=entity_types,
                 limit=limit,
             )
-            return json.dumps({
-                "entities": [
-                    {
-                        "name": e.display_name,
-                        "type": e.type.value if hasattr(e.type, "value") else str(e.type),
-                        "description": e.description,
-                    }
-                    for e in entities
-                ]
-            })
+            return json.dumps(
+                {
+                    "entities": [
+                        {
+                            "name": e.display_name,
+                            "type": e.type.value if hasattr(e.type, "value") else str(e.type),
+                            "description": e.description,
+                        }
+                        for e in entities
+                    ]
+                }
+            )
 
-        @tool(name="remember_fact", description=(
-            "Save a factual statement for future reference. "
-            "Use this for important facts that should be remembered long-term."
-        ))
+        @tool(
+            name="remember_fact",
+            description=(
+                "Save a factual statement for future reference. "
+                "Use this for important facts that should be remembered long-term."
+            ),
+        )
         async def remember_fact(
             subject: Annotated[str, "Subject of the fact (e.g., 'user', 'John')"],
             predicate: Annotated[str, "Relationship (e.g., 'prefers', 'bought', 'lives in')"],
@@ -174,15 +206,20 @@ try:
                 predicate=predicate,
                 obj=object,
             )
-            return json.dumps({
-                "status": "saved",
-                "fact": f"{subject} {predicate} {object}",
-            })
+            return json.dumps(
+                {
+                    "status": "saved",
+                    "fact": f"{subject} {predicate} {object}",
+                }
+            )
 
-        @tool(name="find_similar_tasks", description=(
-            "Find similar tasks from past interactions to learn from "
-            "previous successes or failures. Useful for complex multi-step tasks."
-        ))
+        @tool(
+            name="find_similar_tasks",
+            description=(
+                "Find similar tasks from past interactions to learn from "
+                "previous successes or failures. Useful for complex multi-step tasks."
+            ),
+        )
         async def find_similar_tasks(
             task_description: Annotated[str, "Description of the current task"],
             limit: Annotated[int, "Maximum traces to return"] = 3,
@@ -192,16 +229,18 @@ try:
                 task=task_description,
                 limit=limit,
             )
-            return json.dumps({
-                "similar_tasks": [
-                    {
-                        "task": t.task,
-                        "outcome": t.outcome,
-                        "success": t.success,
-                    }
-                    for t in traces
-                ]
-            })
+            return json.dumps(
+                {
+                    "similar_tasks": [
+                        {
+                            "task": t.task,
+                            "outcome": t.outcome,
+                            "success": t.success,
+                        }
+                        for t in traces
+                    ]
+                }
+            )
 
         tools: list[FunctionTool] = [
             search_memory,
@@ -219,11 +258,14 @@ try:
 
             if GDSAlgorithm.SHORTEST_PATH in tools_to_expose or not tools_to_expose:
 
-                @tool(name="find_connection_path", description=(
-                    "Find how two entities are connected in the knowledge graph. "
-                    "Useful for understanding relationships between products, "
-                    "brands, or concepts."
-                ))
+                @tool(
+                    name="find_connection_path",
+                    description=(
+                        "Find how two entities are connected in the knowledge graph. "
+                        "Useful for understanding relationships between products, "
+                        "brands, or concepts."
+                    ),
+                )
                 async def find_connection_path(
                     source: Annotated[str, "Name of the starting entity"],
                     target: Annotated[str, "Name of the destination entity"],
@@ -242,10 +284,13 @@ try:
 
             if GDSAlgorithm.NODE_SIMILARITY in tools_to_expose or not tools_to_expose:
 
-                @tool(name="find_similar_items", description=(
-                    "Find items similar to a given entity based on their "
-                    "relationships. Useful for product recommendations."
-                ))
+                @tool(
+                    name="find_similar_items",
+                    description=(
+                        "Find items similar to a given entity based on their "
+                        "relationships. Useful for product recommendations."
+                    ),
+                )
                 async def find_similar_items(
                     entity_name: Annotated[str, "Name of the entity to find similar items for"],
                     limit: Annotated[int, "Maximum similar items to return"] = 5,
@@ -261,10 +306,13 @@ try:
 
             if GDSAlgorithm.PAGERANK in tools_to_expose:
 
-                @tool(name="find_important_entities", description=(
-                    "Find the most important/popular entities in a topic area. "
-                    "Uses graph algorithms to identify key items."
-                ))
+                @tool(
+                    name="find_important_entities",
+                    description=(
+                        "Find the most important/popular entities in a topic area. "
+                        "Uses graph algorithms to identify key items."
+                    ),
+                )
                 async def find_important_entities(
                     topic: Annotated[str, "Topic to find important entities for"],
                     limit: Annotated[int, "Maximum entities to return"] = 10,
@@ -282,16 +330,20 @@ try:
                         )
                         return json.dumps({"important_entities": important})
                     else:
-                        return json.dumps({
-                            "important_entities": [
-                                {
-                                    "name": e.display_name,
-                                    "type": e.type.value if hasattr(e.type, "value") else str(e.type),
-                                    "description": e.description,
-                                }
-                                for e in entities[:limit]
-                            ]
-                        })
+                        return json.dumps(
+                            {
+                                "important_entities": [
+                                    {
+                                        "name": e.display_name,
+                                        "type": e.type.value
+                                        if hasattr(e.type, "value")
+                                        else str(e.type),
+                                        "description": e.description,
+                                    }
+                                    for e in entities[:limit]
+                                ]
+                            }
+                        )
 
                 tools.append(find_important_entities)
 
