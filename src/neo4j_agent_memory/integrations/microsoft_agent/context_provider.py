@@ -26,7 +26,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 try:
-    from agent_framework import AgentSession, BaseContextProvider, Message, SessionContext, SupportsAgentRun
+    from agent_framework import (
+        AgentSession,
+        BaseContextProvider,
+        Message,
+        SessionContext,
+        SupportsAgentRun,
+    )
 
     class Neo4jContextProvider(BaseContextProvider):
         """
