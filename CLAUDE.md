@@ -1343,6 +1343,11 @@ tools = context_graph_tools(neo4j_uri="bolt://localhost:7687", neo4j_password="p
 # AgentCore Hybrid Memory (AWS)
 from neo4j_agent_memory.integrations.agentcore import HybridMemoryProvider
 provider = HybridMemoryProvider(memory_client=client, routing_strategy="auto")
+
+# Microsoft Agent Framework (Preview)
+from neo4j_agent_memory.integrations.microsoft_agent import Neo4jMicrosoftMemory, create_memory_tools
+memory = Neo4jMicrosoftMemory(memory_client=client, session_id="user-123")
+tools = create_memory_tools(memory)
 ```
 
 ### Google Cloud Integration (v0.0.3)
@@ -1499,7 +1504,9 @@ gcloud run deploy neo4j-memory-mcp \
 
 See `deploy/cloudrun/README.md` for full deployment instructions.
 
-# Microsoft Agent Framework (Preview)
+### Microsoft Agent Framework (Preview)
+
+```python
 from neo4j_agent_memory.integrations.microsoft_agent import (
     Neo4jMicrosoftMemory,
     GDSConfig,
@@ -1519,11 +1526,14 @@ memory = Neo4jMicrosoftMemory(
     gds_config=gds_config,
 )
 
+# Create callable tools bound to the memory instance
+tools = create_memory_tools(memory)
+
 # Use context provider with ChatAgent
 from agent_framework import ChatAgent
 agent = ChatAgent(
     context_providers=[memory.context_provider],
-    tools=create_memory_tools(include_gds=True),
+    tools=tools,
 )
 ```
 

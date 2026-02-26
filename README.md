@@ -1035,6 +1035,31 @@ agent = Agent(
 )
 ```
 
+### Microsoft Agent Framework (Preview)
+
+```python
+from neo4j_agent_memory.integrations.microsoft_agent import (
+    Neo4jMicrosoftMemory,
+    create_memory_tools,
+)
+
+# Unified memory interface (context provider + chat history)
+memory = Neo4jMicrosoftMemory(
+    memory_client=client,
+    session_id="user-123",
+)
+
+# Create callable tools for the agent
+tools = create_memory_tools(memory)
+
+# Use with ChatAgent — tools are auto-invoked by the framework
+from agent_framework import ChatAgent
+agent = ChatAgent(
+    context_providers=[memory.context_provider],
+    tools=tools,
+)
+```
+
 ### MCP Server
 
 Expose memory capabilities via Model Context Protocol for AI platforms:

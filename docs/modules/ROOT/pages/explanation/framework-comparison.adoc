@@ -1,16 +1,16 @@
 = Choosing an Agent Framework Integration
 :page-product: agent-memory
 :page-pagination:
-:description: Compare Neo4j Agent Memory integrations for LangChain, PydanticAI, LlamaIndex, CrewAI, OpenAI Agents SDK, and AWS Strands Agents.
-:keywords: agent, framework, comparison, langchain, pydantic-ai, llamaindex, crewai, openai, strands, aws
+:description: Compare Neo4j Agent Memory integrations for LangChain, PydanticAI, LlamaIndex, CrewAI, OpenAI Agents SDK, AWS Strands Agents, and Microsoft Agent Framework.
+:keywords: agent, framework, comparison, langchain, pydantic-ai, llamaindex, crewai, openai, strands, aws, microsoft
 
-Neo4j Agent Memory provides integrations for six popular agent frameworks. This guide helps you choose the right integration for your use case.
+Neo4j Agent Memory provides integrations for seven popular agent frameworks. This guide helps you choose the right integration for your use case.
 
 == Feature Comparison Matrix
 
-[cols="2,1,1,1,1,1,1", options="header"]
+[cols="2,1,1,1,1,1,1,1", options="header"]
 |===
-| Feature | LangChain | PydanticAI | LlamaIndex | CrewAI | OpenAI Agents | Strands
+| Feature | LangChain | PydanticAI | LlamaIndex | CrewAI | OpenAI Agents | Strands | Microsoft ⚠️
 
 | *Memory Class*
 | `Neo4jAgentMemory`
@@ -19,11 +19,13 @@ Neo4j Agent Memory provides integrations for six popular agent frameworks. This 
 | `Neo4jCrewMemory`
 | `Neo4jOpenAIMemory`
 | `context_graph_tools()`
+| `Neo4jMicrosoftMemory`
 
 | *Retriever Support*
 | ✅ `Neo4jMemoryRetriever`
 | ❌
 | ✅ Native `TextNode`
+| ❌
 | ❌
 | ❌
 | ❌
@@ -35,6 +37,25 @@ Neo4j Agent Memory provides integrations for six popular agent frameworks. This 
 | ❌ Custom required
 | ✅ `create_memory_tools()`
 | ✅ `context_graph_tools()`
+| ✅ `create_memory_tools()`
+
+| *Context Provider*
+| ❌
+| ❌
+| ❌
+| ❌
+| ❌
+| ❌
+| ✅ `Neo4jContextProvider`
+
+| *GDS Integration*
+| ❌
+| ❌
+| ❌
+| ❌
+| ❌
+| ❌
+| ✅ PageRank, paths, similarity
 
 | *Trace Recording*
 | ❌ Manual
@@ -43,12 +64,14 @@ Neo4j Agent Memory provides integrations for six popular agent frameworks. This 
 | ❌ Manual
 | ✅ `record_agent_trace()`
 | ❌ Manual
+| ✅ `record_agent_trace()`
 
 | *Multi-Agent*
 | ⚠️ Limited
 | ⚠️ Limited
 | ⚠️ Limited
 | ✅ Native
+| ⚠️ Limited
 | ⚠️ Limited
 | ⚠️ Limited
 
@@ -59,6 +82,7 @@ Neo4j Agent Memory provides integrations for six popular agent frameworks. This 
 | ✅ Via wrapper
 | ✅ Native
 | ✅ Sync (async internal)
+| ✅ Native
 
 | *Test Coverage*
 | ✅ 39 tests
@@ -67,7 +91,10 @@ Neo4j Agent Memory provides integrations for six popular agent frameworks. This 
 | ✅ 30 tests
 | ✅ 35 tests
 | ✅ 95 tests
+| ✅ 55+ tests
 |===
+
+NOTE: The Microsoft Agent Framework column is marked with ⚠️ because it targets `agent-framework>=1.0.0b260212` (preview). APIs may change before GA release.
 
 == Quick Decision Guide
 
@@ -173,6 +200,32 @@ agent = Agent(
 )
 ----
 
+=== Use Microsoft Agent Framework if:
+
+* Building with Azure OpenAI or Microsoft's agent platform
+* You want automatic context injection via ContextProvider hooks
+* You need Graph Data Science (GDS) algorithms for recommendations
+* You want auto-invoked tools with no manual dispatch
+
+WARNING: This integration targets Microsoft Agent Framework v1.0.0b260212 (preview). APIs may change before GA.
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.microsoft_agent import (
+    Neo4jMicrosoftMemory,
+    create_memory_tools,
+)
+
+memory = Neo4jMicrosoftMemory(memory_client=client, session_id="user-123")
+tools = create_memory_tools(memory)
+
+# Framework auto-invokes tools during agent.run()
+agent = chat_client.as_agent(
+    context_providers=[memory.context_provider],
+    tools=tools,
+)
+----
+
 == Memory Types Support
 
 All integrations support the three-layer memory architecture:
@@ -221,6 +274,9 @@ pip install neo4j-agent-memory[openai-agents]
 # Strands Agents (AWS)
 pip install neo4j-agent-memory[strands]
 
+# Microsoft Agent Framework (Preview)
+pip install neo4j-agent-memory[microsoft-agent]
+
 # All frameworks
 pip install neo4j-agent-memory[all]
 ----
@@ -252,6 +308,9 @@ All integrations provide a way to get combined context for LLM prompts:
 
 | Strands
 | Via `search_context` tool (auto-called by agent)
+
+| Microsoft
+| `await memory.get_context(query)`
 |===
 
 === Message Storage
@@ -277,6 +336,9 @@ All integrations provide a way to get combined context for LLM prompts:
 
 | Strands
 | Via `add_memory` tool (auto-called by agent)
+
+| Microsoft
+| `await memory.save_message(role, content)`
 |===
 
 === Search Operations
@@ -302,6 +364,9 @@ All integrations provide a way to get combined context for LLM prompts:
 
 | Strands
 | Via `search_context` and `get_entity_graph` tools
+
+| Microsoft
+| `await memory.search_memory(query)`
 |===
 
 == Performance Considerations
@@ -335,6 +400,10 @@ All integrations provide a way to get combined context for LLM prompts:
 | Strands
 | Sync (async internal)
 | Tools are sync; async MemoryClient runs in thread pool
+
+| Microsoft
+| Async native
+| ContextProvider hooks and tools are async
 |===
 
 === Embedding Generation
@@ -380,6 +449,7 @@ If you already use a framework, choose that integration:
 * CrewAI project → CrewAI integration
 * OpenAI-native → OpenAI Agents integration
 * AWS/Strands project → Strands integration
+* Azure/Microsoft project → Microsoft Agent Framework integration
 
 === For New Projects
 
@@ -440,6 +510,9 @@ pip install openai
 
 # If you get "ImportError: No module named 'strands'"
 pip install strands-agents
+
+# If you get "ImportError: No module named 'agent_framework'"
+pip install agent-framework>=1.0.0b260212
 ----
 
 === Async/Sync Issues
@@ -447,7 +520,7 @@ pip install strands-agents
 If you encounter event loop issues:
 
 * LangChain, LlamaIndex, CrewAI: Use sync methods directly
-* PydanticAI, OpenAI Agents: Use `asyncio.run()` or async context
+* PydanticAI, OpenAI Agents, Microsoft: Use `asyncio.run()` or async context
 
 === Empty Results
 
@@ -467,4 +540,6 @@ If searches return empty:
 | Multi-agent systems | CrewAI |
 | OpenAI function calling | OpenAI Agents |
 | AWS / Bedrock ecosystem | Strands |
+| Azure / Microsoft ecosystem | Microsoft Agent Framework |
+| GDS graph algorithms | Microsoft Agent Framework |
 | Maximum flexibility | Direct MemoryClient |

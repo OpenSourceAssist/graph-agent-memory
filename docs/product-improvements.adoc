@@ -30,6 +30,21 @@ This document tracks product improvement suggestions identified during the devel
 * <<websocket-streaming,WebSocket Streaming>>
 * <<interactive-explorer,Interactive Schema Explorer>>
 
+.Library API Improvements
+* <<entity-dedup-management-api,Entity Deduplication Management API>>
+* <<session-listing-api,Session Listing API>>
+* <<conversation-summarization-api,Conversation Summarization API>>
+* <<tool-statistics-enhancements,Tool Statistics Enhancements>>
+* <<enrichment-api,Enrichment API>>
+* <<message-context-windows,Message Context Windows>>
+* <<batch-memory-operations,Batch Memory Operations>>
+* <<type-safety-improvements,Type Safety Improvements>>
+
+.Bug Fixes & Technical Debt
+* <<store-extracted-relations,Store Extracted Relations in Short-Term Memory>>
+* <<apoc-free-queries,APOC-Free Queries>>
+* <<graceful-missing-relationship-types,Graceful Handling of Missing Relationship Types>>
+
 .Future Product Ideas
 * <<multi-agent-coordination,Multi-Agent Memory Coordination>>
 * <<memory-compression,Memory Compression and Summarization>>
@@ -309,6 +324,173 @@ Priority:: Low
 Current State:: Schema documentation is static text.
 
 **Suggestion**: Create an interactive web-based schema explorer that shows entity types, descriptions, and sample extractions.
+
+'''
+
+=== Library API Improvements
+
+NOTE: These suggestions were identified while implementing enhanced tools for demo applications (e.g., Lenny's Memory). In each case the workaround is raw Cypher, but native library methods would be more efficient and easier to maintain.
+
+[[entity-dedup-management-api]]
+==== Entity Deduplication Management API
+
+[horizontal]
+Priority:: High
+Current State:: The library creates `SAME_AS` relationships and supports deduplication on ingest, but there is no public API to find, review, or merge duplicate entities after the fact.
+
+**Suggestion**: Add management methods to `LongTermMemory` for human-in-the-loop entity resolution.
+
+.Proposed Methods
+* `find_potential_duplicates(entity_type, status, limit)` -- list entity pairs flagged as potential duplicates
+* `merge_duplicate_entities(source_id, target_id)` -- merge source into target, transferring all relationships
+* `review_duplicate(entity1_id, entity2_id, decision)` -- confirm or reject a duplicate pair
+* `get_deduplication_stats()` -- aggregate stats on pending/confirmed/rejected duplicates
+
+'''
+
+[[session-listing-api]]
+==== Session Listing API
+
+[horizontal]
+Priority:: High
+Current State:: `ShortTermMemory.list_sessions()` exists but lacks prefix filtering, rich metadata, and pagination.
+
+**Suggestion**: Enhance `list_sessions()` with filtering and metadata.
+
+.Proposed Enhancements
+* Prefix filtering for namespaced sessions (e.g., `lenny-podcast-*`)
+* Return `SessionInfo` with `message_count`, `created_at`, `updated_at`, `preview`
+* Pagination via `limit` and `offset`
+* Ordering by `created_at`, `updated_at`, or `message_count`
+
+'''
+
+[[conversation-summarization-api]]
+==== Conversation Summarization API
+
+[horizontal]
+Priority:: Medium
+Current State:: `get_conversation_summary()` exists but requires external LLM configuration, has no caching of generated summaries, and no incremental updates.
+
+**Suggestion**: Add cached, incremental conversation summarization.
+
+.Proposed Enhancements
+* Cache summaries and track staleness (`is_stale` when new messages arrive)
+* Support `regenerate` flag to force re-generation
+* Incremental summary updates that incorporate only new messages
+* Return structured `ConversationSummary` with `key_topics`, `key_entities`, and generation metadata
+
+'''
+
+[[tool-statistics-enhancements]]
+==== Tool Statistics Enhancements
+
+[horizontal]
+Priority:: Medium
+Current State:: `ReasoningMemory.get_tool_stats()` provides basic counts but lacks time filtering, session scoping, and tool sequence analysis.
+
+**Suggestion**: Extend tool statistics with richer analytics.
+
+.Proposed Enhancements
+* Time-range and session filtering on `get_tool_stats()`
+* `get_tool_sequences()` for discovering common tool call patterns (tools used together)
+* Duration percentiles (p50, p95) alongside averages
+* Consistent non-null computed fields (e.g., `success_rate` defaults to 0.0)
+
+'''
+
+[[enrichment-api]]
+==== Enrichment API
+
+[horizontal]
+Priority:: Low
+Current State:: Entity enrichment is handled by external scripts. No in-library API to trigger, queue, or check enrichment status.
+
+**Suggestion**: Add on-demand enrichment methods to `LongTermMemory` or `MemoryClient`.
+
+.Proposed Methods
+* `enrich_entity(entity_name, provider, force)` -- enrich a single entity immediately
+* `queue_enrichment(entity_names, provider)` -- queue entities for background enrichment
+* `get_enrichment_status(entity_name)` -- check enrichment status for one or all entities
+
+'''
+
+[[message-context-windows]]
+==== Message Context Windows
+
+[horizontal]
+Priority:: Low
+Current State:: `search_messages()` returns isolated messages with no built-in way to retrieve surrounding context via `NEXT_MESSAGE` relationships.
+
+**Suggestion**: Add `context_before` and `context_after` parameters to `search_messages()` that follow `NEXT_MESSAGE` relationships to return surrounding messages alongside each result.
+
+'''
+
+[[batch-memory-operations]]
+==== Batch Memory Operations
+
+[horizontal]
+Priority:: Low
+Current State:: `add_messages_batch()` exists but lacks progress callbacks. No batch entity operations or transaction batching control.
+
+**Suggestion**: Add progress callbacks and batch entity operations.
+
+.Proposed Enhancements
+* `on_progress` callback `(processed, total)` for `add_messages_batch()`
+* `add_entities_batch()` with deduplication and progress tracking
+* Structured `BatchResult` return with `created`, `updated`, `skipped`, `errors`, `duration_ms`
+
+'''
+
+[[type-safety-improvements]]
+==== Type Safety Improvements
+
+[horizontal]
+Priority:: Low
+Current State:: Some methods return inconsistent structures -- similarity scores are not always present in search metadata, and computed fields like `success_rate` may be None.
+
+**Suggestion**:
+
+* Always include `similarity` in search result metadata
+* Ensure computed fields are never None (default to 0.0)
+* Add clear docstrings on which fields may be None
+
+'''
+
+=== Bug Fixes & Technical Debt
+
+[[store-extracted-relations]]
+==== Store Extracted Relations in Short-Term Memory
+
+[horizontal]
+Priority:: High
+Current State:: The entity extraction pipeline extracts both entities and relations, but only entities are stored. Relations in `ExtractionResult.relations` are silently discarded.
+
+**Problem**: In `ShortTermMemory._extract_and_link_entities()` and `extract_entities_from_session()`, only `result.entities` is processed. `result.relations` is never used, so `RELATED_TO` relationships are never created between entities. Entity-to-entity relationships like "Brian Chesky FOUNDED Airbnb" are lost.
+
+**Suggested Fix**: After creating entity nodes, iterate over `result.relations`, resolve source/target entity IDs, and call `LongTermMemory.add_relationship()` to create the inter-entity relationships.
+
+'''
+
+[[apoc-free-queries]]
+==== APOC-Free Queries
+
+[horizontal]
+Priority:: High
+Current State:: `_build_metadata_filter_clause()` uses `apoc.convert.fromJsonMap()` which requires the APOC plugin and fails on Neo4j Aura.
+
+**Suggestion**: Audit all Cypher queries for APOC usage and provide pure-Cypher fallbacks or use JSON string operations. Document any remaining APOC requirements clearly.
+
+'''
+
+[[graceful-missing-relationship-types]]
+==== Graceful Handling of Missing Relationship Types
+
+[horizontal]
+Priority:: Low
+Current State:: `get_graph()` queries for `RELATED_TO` relationships between entities, generating Neo4j warnings when the relationship type does not exist in the database.
+
+**Suggestion**: Either query `db.relationshipTypes()` first and only include existing types, use a `WHERE type(r) IN [...]` pattern that avoids warnings, or add a configurable `entity_relationship_types` parameter to `get_graph()`.
 
 '''
 
