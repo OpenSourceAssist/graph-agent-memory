@@ -30,6 +30,21 @@ This document tracks product improvement suggestions identified during the devel
 * <<websocket-streaming,WebSocket Streaming>>
 * <<interactive-explorer,Interactive Schema Explorer>>
 
+.Library API Improvements
+* <<entity-dedup-management-api,Entity Deduplication Management API>>
+* <<session-listing-api,Session Listing API>>
+* <<conversation-summarization-api,Conversation Summarization API>>
+* <<tool-statistics-enhancements,Tool Statistics Enhancements>>
+* <<enrichment-api,Enrichment API>>
+* <<message-context-windows,Message Context Windows>>
+* <<batch-memory-operations,Batch Memory Operations>>
+* <<type-safety-improvements,Type Safety Improvements>>
+
+.Bug Fixes & Technical Debt
+* <<store-extracted-relations,Store Extracted Relations in Short-Term Memory>>
+* <<apoc-free-queries,APOC-Free Queries>>
+* <<graceful-missing-relationship-types,Graceful Handling of Missing Relationship Types>>
+
 .Future Product Ideas
 * <<multi-agent-coordination,Multi-Agent Memory Coordination>>
 * <<memory-compression,Memory Compression and Summarization>>
@@ -54,6 +69,11 @@ This document tracks product improvement suggestions identified during the devel
 * <<mcp-prompt-library,MCP Prompt Library>>
 * <<mcp-sampling,MCP Sampling Integration>>
 * <<mcp-auth,MCP Authentication Middleware>>
+
+.Framework API Stability
+* <<api-version-detection,Framework API Version Detection>>
+* <<message-format-abstraction,Message Format Abstraction Layer>>
+* <<framework-adapter-testing,Framework Adapter Compatibility Testing>>
 
 .Documentation Quality
 * <<doctest-integration,Doctest-Style Assertions>>
@@ -97,6 +117,7 @@ All items below have been implemented AND documented:
 * <<docs-testing,Documentation Testing Framework>> ✅
 * <<diataxis-restructuring,Documentation Restructuring (Diataxis)>> ✅
 * <<agent-framework-adapters,Agent Framework Adapters>> ✅
+* <<microsoft-agent-framework,Microsoft Agent Framework Integration>> ✅
 
 
 == Not Yet Implemented
@@ -303,6 +324,173 @@ Priority:: Low
 Current State:: Schema documentation is static text.
 
 **Suggestion**: Create an interactive web-based schema explorer that shows entity types, descriptions, and sample extractions.
+
+'''
+
+=== Library API Improvements
+
+NOTE: These suggestions were identified while implementing enhanced tools for demo applications (e.g., Lenny's Memory). In each case the workaround is raw Cypher, but native library methods would be more efficient and easier to maintain.
+
+[[entity-dedup-management-api]]
+==== Entity Deduplication Management API
+
+[horizontal]
+Priority:: High
+Current State:: The library creates `SAME_AS` relationships and supports deduplication on ingest, but there is no public API to find, review, or merge duplicate entities after the fact.
+
+**Suggestion**: Add management methods to `LongTermMemory` for human-in-the-loop entity resolution.
+
+.Proposed Methods
+* `find_potential_duplicates(entity_type, status, limit)` -- list entity pairs flagged as potential duplicates
+* `merge_duplicate_entities(source_id, target_id)` -- merge source into target, transferring all relationships
+* `review_duplicate(entity1_id, entity2_id, decision)` -- confirm or reject a duplicate pair
+* `get_deduplication_stats()` -- aggregate stats on pending/confirmed/rejected duplicates
+
+'''
+
+[[session-listing-api]]
+==== Session Listing API
+
+[horizontal]
+Priority:: High
+Current State:: `ShortTermMemory.list_sessions()` exists but lacks prefix filtering, rich metadata, and pagination.
+
+**Suggestion**: Enhance `list_sessions()` with filtering and metadata.
+
+.Proposed Enhancements
+* Prefix filtering for namespaced sessions (e.g., `lenny-podcast-*`)
+* Return `SessionInfo` with `message_count`, `created_at`, `updated_at`, `preview`
+* Pagination via `limit` and `offset`
+* Ordering by `created_at`, `updated_at`, or `message_count`
+
+'''
+
+[[conversation-summarization-api]]
+==== Conversation Summarization API
+
+[horizontal]
+Priority:: Medium
+Current State:: `get_conversation_summary()` exists but requires external LLM configuration, has no caching of generated summaries, and no incremental updates.
+
+**Suggestion**: Add cached, incremental conversation summarization.
+
+.Proposed Enhancements
+* Cache summaries and track staleness (`is_stale` when new messages arrive)
+* Support `regenerate` flag to force re-generation
+* Incremental summary updates that incorporate only new messages
+* Return structured `ConversationSummary` with `key_topics`, `key_entities`, and generation metadata
+
+'''
+
+[[tool-statistics-enhancements]]
+==== Tool Statistics Enhancements
+
+[horizontal]
+Priority:: Medium
+Current State:: `ReasoningMemory.get_tool_stats()` provides basic counts but lacks time filtering, session scoping, and tool sequence analysis.
+
+**Suggestion**: Extend tool statistics with richer analytics.
+
+.Proposed Enhancements
+* Time-range and session filtering on `get_tool_stats()`
+* `get_tool_sequences()` for discovering common tool call patterns (tools used together)
+* Duration percentiles (p50, p95) alongside averages
+* Consistent non-null computed fields (e.g., `success_rate` defaults to 0.0)
+
+'''
+
+[[enrichment-api]]
+==== Enrichment API
+
+[horizontal]
+Priority:: Low
+Current State:: Entity enrichment is handled by external scripts. No in-library API to trigger, queue, or check enrichment status.
+
+**Suggestion**: Add on-demand enrichment methods to `LongTermMemory` or `MemoryClient`.
+
+.Proposed Methods
+* `enrich_entity(entity_name, provider, force)` -- enrich a single entity immediately
+* `queue_enrichment(entity_names, provider)` -- queue entities for background enrichment
+* `get_enrichment_status(entity_name)` -- check enrichment status for one or all entities
+
+'''
+
+[[message-context-windows]]
+==== Message Context Windows
+
+[horizontal]
+Priority:: Low
+Current State:: `search_messages()` returns isolated messages with no built-in way to retrieve surrounding context via `NEXT_MESSAGE` relationships.
+
+**Suggestion**: Add `context_before` and `context_after` parameters to `search_messages()` that follow `NEXT_MESSAGE` relationships to return surrounding messages alongside each result.
+
+'''
+
+[[batch-memory-operations]]
+==== Batch Memory Operations
+
+[horizontal]
+Priority:: Low
+Current State:: `add_messages_batch()` exists but lacks progress callbacks. No batch entity operations or transaction batching control.
+
+**Suggestion**: Add progress callbacks and batch entity operations.
+
+.Proposed Enhancements
+* `on_progress` callback `(processed, total)` for `add_messages_batch()`
+* `add_entities_batch()` with deduplication and progress tracking
+* Structured `BatchResult` return with `created`, `updated`, `skipped`, `errors`, `duration_ms`
+
+'''
+
+[[type-safety-improvements]]
+==== Type Safety Improvements
+
+[horizontal]
+Priority:: Low
+Current State:: Some methods return inconsistent structures -- similarity scores are not always present in search metadata, and computed fields like `success_rate` may be None.
+
+**Suggestion**:
+
+* Always include `similarity` in search result metadata
+* Ensure computed fields are never None (default to 0.0)
+* Add clear docstrings on which fields may be None
+
+'''
+
+=== Bug Fixes & Technical Debt
+
+[[store-extracted-relations]]
+==== Store Extracted Relations in Short-Term Memory
+
+[horizontal]
+Priority:: High
+Current State:: The entity extraction pipeline extracts both entities and relations, but only entities are stored. Relations in `ExtractionResult.relations` are silently discarded.
+
+**Problem**: In `ShortTermMemory._extract_and_link_entities()` and `extract_entities_from_session()`, only `result.entities` is processed. `result.relations` is never used, so `RELATED_TO` relationships are never created between entities. Entity-to-entity relationships like "Brian Chesky FOUNDED Airbnb" are lost.
+
+**Suggested Fix**: After creating entity nodes, iterate over `result.relations`, resolve source/target entity IDs, and call `LongTermMemory.add_relationship()` to create the inter-entity relationships.
+
+'''
+
+[[apoc-free-queries]]
+==== APOC-Free Queries
+
+[horizontal]
+Priority:: High
+Current State:: `_build_metadata_filter_clause()` uses `apoc.convert.fromJsonMap()` which requires the APOC plugin and fails on Neo4j Aura.
+
+**Suggestion**: Audit all Cypher queries for APOC usage and provide pure-Cypher fallbacks or use JSON string operations. Document any remaining APOC requirements clearly.
+
+'''
+
+[[graceful-missing-relationship-types]]
+==== Graceful Handling of Missing Relationship Types
+
+[horizontal]
+Priority:: Low
+Current State:: `get_graph()` queries for `RELATED_TO` relationships between entities, generating Neo4j warnings when the relationship type does not exist in the database.
+
+**Suggestion**: Either query `db.relationshipTypes()` first and only include existing types, use a `WHERE type(r) IN [...]` pattern that avoids warnings, or add a configurable `entity_relationship_types` parameter to `get_graph()`.
 
 '''
 
@@ -602,6 +790,151 @@ Add authentication and authorization to the MCP server.
 * Per-tool authorization
 * Rate limiting and quotas
 * Audit logging
+
+'''
+
+=== Framework API Stability
+
+These improvements address challenges discovered during the Microsoft Agent Framework integration, where the ChatMessage API used `text` instead of the expected `content` property.
+
+[[api-version-detection]]
+==== Framework API Version Detection
+
+[horizontal]
+Priority:: High
+Status:: Concept
+Discovered:: During Microsoft Agent Framework integration (January 2026)
+
+Automatically detect framework API versions and adapt behavior accordingly.
+
+.Problem Observed
+The Microsoft Agent Framework's `ChatMessage` class uses `.text` property for message content instead of the more common `.content` property. This caused integration failures when the code assumed `.content` was available.
+
+.Implementation Ideas
+* Introspect framework classes at import time to detect available properties
+* Maintain version compatibility matrices in code
+* Runtime warnings when using deprecated or changed APIs
+* Automatic property mapping based on detected version
+
+.Example Implementation
+[source,python]
+----
+def _get_message_content(self, msg: Any) -> str | None:
+    """Extract content with automatic API detection."""
+    # Detect which property the message type uses
+    if hasattr(msg, "text") and msg.text:  # Microsoft Agent Framework
+        return msg.text
+    if hasattr(msg, "content"):  # OpenAI, LangChain, etc.
+        return msg.content
+    if isinstance(msg, dict):
+        return msg.get("content") or msg.get("text")
+    return None
+----
+
+'''
+
+[[message-format-abstraction]]
+==== Message Format Abstraction Layer
+
+[horizontal]
+Priority:: Medium
+Status:: Concept
+Discovered:: During Microsoft Agent Framework integration (January 2026)
+
+Create a unified message abstraction that normalizes different framework message formats.
+
+.Problem Observed
+Each AI framework has its own message format:
+
+* OpenAI: `{"role": "user", "content": "..."}`
+* Microsoft Agent Framework: `ChatMessage(role="user", text="...")`
+* LangChain: `HumanMessage(content="...")`
+* Anthropic: `{"role": "user", "content": [{"type": "text", "text": "..."}]}`
+
+.Implementation Ideas
+* Define a `UnifiedMessage` protocol/interface
+* Create adapter functions for each framework
+* Support round-trip conversion (unified -> framework-specific)
+* Handle multimodal content (text, images, tool calls)
+
+.Proposed Interface
+[source,python]
+----
+from typing import Protocol
+
+class UnifiedMessage(Protocol):
+    @property
+    def role(self) -> str: ...
+
+    @property
+    def content(self) -> str: ...
+
+    @property
+    def tool_calls(self) -> list[dict] | None: ...
+
+    @classmethod
+    def from_openai(cls, msg: dict) -> "UnifiedMessage": ...
+
+    @classmethod
+    def from_microsoft(cls, msg: "ChatMessage") -> "UnifiedMessage": ...
+
+    def to_openai(self) -> dict: ...
+
+    def to_microsoft(self) -> "ChatMessage": ...
+----
+
+'''
+
+[[framework-adapter-testing]]
+==== Framework Adapter Compatibility Testing
+
+[horizontal]
+Priority:: High
+Status:: Concept
+Discovered:: During Microsoft Agent Framework integration (January 2026)
+
+Automated testing infrastructure to detect breaking API changes in dependent frameworks.
+
+.Problem Observed
+Framework APIs can change between versions (especially in beta releases like Microsoft Agent Framework). Tests that mock the framework classes may pass even when the actual framework API has changed.
+
+.Implementation Ideas
+* Dedicated CI job that installs actual framework packages (not mocks)
+* API surface tests that verify expected methods/properties exist
+* Canary tests that run against framework nightly builds
+* Automated alerts when framework releases new versions
+
+.Test Categories
+[source,python]
+----
+# API existence tests (should run with real framework installed)
+def test_chat_message_has_expected_properties():
+    """Verify ChatMessage API matches our expectations."""
+    from agent_framework import ChatMessage
+
+    msg = ChatMessage(role="user", text="Hello")
+
+    # Verify expected properties exist
+    assert hasattr(msg, "role"), "ChatMessage missing 'role' property"
+    assert hasattr(msg, "text"), "ChatMessage missing 'text' property"
+
+    # Verify deprecated properties are NOT used in our code
+    # assert not hasattr(msg, "content"), "ChatMessage has 'content' - update our code"
+
+# Version compatibility tests
+def test_framework_version_supported():
+    """Verify installed framework version is in supported range."""
+    import agent_framework
+    from packaging import version
+
+    installed = version.parse(agent_framework.__version__)
+    min_supported = version.parse("1.0.0b251001")
+    max_tested = version.parse("1.0.0b251223")
+
+    assert installed >= min_supported, f"Framework {installed} < minimum {min_supported}"
+    if installed > max_tested:
+        warnings.warn(f"Framework {installed} > tested {max_tested}, may have API changes")
+----
 
 '''
 
@@ -963,6 +1296,86 @@ docs/
 * 14 how-to guides including 4 framework integrations
 * 10 reference pages including 4 API references
 * 5 explanation pages covering architecture and concepts
+
+'''
+
+[[microsoft-agent-framework]]
+==== Microsoft Agent Framework Integration ✅
+
+[horizontal]
+Priority:: High
+Status:: **IMPLEMENTED & DOCUMENTED**
+Started:: January 2026
+Completed:: January 2026
+Target Version:: `agent-framework==1.0.0b251223`
+
+**Features Implemented**:
+
+* **`Neo4jContextProvider`**: ContextProvider implementation with `invoking()`/`invoked()` hooks
+* **`Neo4jChatMessageStore`**: ChatMessageStoreProtocol implementation for persistent chat history
+* **`Neo4jMicrosoftMemory`**: Unified interface combining ContextProvider + ChatMessageStore
+* **`GDSIntegration`**: Graph Data Science algorithm support with graceful fallback
+* **Memory Tools**: 6 agent tools (`search_memory`, `remember_preference`, `recall_preferences`, `search_knowledge`, `remember_fact`, `find_similar_tasks`)
+* **Reasoning Traces**: `record_agent_trace()` and `get_similar_traces()` for learning from past interactions
+
+.Key Learnings
+* Microsoft Agent Framework `ChatMessage` uses `.text` property, not `.content`
+* Framework is in beta (v1.0.0b+); APIs may change before GA (targeted Q1 2026)
+* Need defensive property detection (`hasattr(msg, "text")`) for API compatibility
+* `ContextProvider.invoking()` returns `Context` object; instructions may be None
+* `add_entity()` returns tuple `(Entity, DeduplicationResult)`, not just Entity
+
+.Architecture
+[source]
+----
+┌─────────────────────────────────────────────────────┐
+│              Microsoft Agent Framework               │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │
+│  │  ChatAgent  │ │ AgentThread │ │ ContextProv.│   │
+│  └─────────────┘ └─────────────┘ └──────┬──────┘   │
+└─────────────────────────────────────────┼───────────┘
+                                          │
+┌─────────────────────────────────────────┼───────────┐
+│         neo4j-agent-memory integration  │           │
+│  ┌──────────────────────────────────────▼────────┐  │
+│  │          Neo4jContextProvider                 │  │
+│  │  • invoking(): Inject memory context          │  │
+│  │  • invoked(): Extract and store memories      │  │
+│  │  • serialize/deserialize: Thread persistence  │  │
+│  └───────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────┐  │
+│  │          Neo4jChatMessageStore                │  │
+│  │  • add_messages(): Store chat history         │  │
+│  │  • list_messages(): Retrieve chat history     │  │
+│  └───────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────┐  │
+│  │          GDSIntegration                       │  │
+│  │  • PageRank, shortest path, community detect  │  │
+│  │  • Graceful fallback when GDS not installed   │  │
+│  └───────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────┐
+│                    MemoryClient                      │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐   │
+│  │ Short-Term  │ │  Long-Term  │ │  Reasoning  │   │
+│  │   Memory    │ │   Memory    │ │   Memory    │   │
+│  └─────────────┘ └─────────────┘ └─────────────┘   │
+└─────────────────────────────────────────────────────┘
+----
+
+.Files Created
+* `src/neo4j_agent_memory/integrations/microsoft_agent/__init__.py`
+* `src/neo4j_agent_memory/integrations/microsoft_agent/memory.py`
+* `src/neo4j_agent_memory/integrations/microsoft_agent/context_provider.py`
+* `src/neo4j_agent_memory/integrations/microsoft_agent/chat_store.py`
+* `src/neo4j_agent_memory/integrations/microsoft_agent/tools.py`
+* `src/neo4j_agent_memory/integrations/microsoft_agent/gds.py`
+* `src/neo4j_agent_memory/integrations/microsoft_agent/tracing.py`
+* `tests/unit/integrations/test_microsoft_agent.py` (25 tests)
+* `tests/integration/test_microsoft_agent_integration.py` (36 tests)
+* 6 Excalidraw diagrams for documentation
 
 
 == v0.0.3 Roadmap (Implemented)

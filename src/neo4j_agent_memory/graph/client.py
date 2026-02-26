@@ -45,6 +45,9 @@ class Neo4jClient:
                 max_connection_pool_size=self._config.max_connection_pool_size,
                 connection_timeout=self._config.connection_timeout,
                 max_transaction_retry_time=self._config.max_transaction_retry_time,
+                max_connection_lifetime=self._config.max_connection_lifetime,
+                liveness_check_timeout=self._config.liveness_check_timeout,
+                keep_alive=self._config.keep_alive,
             )
             # Verify connectivity
             await self._driver.verify_connectivity()

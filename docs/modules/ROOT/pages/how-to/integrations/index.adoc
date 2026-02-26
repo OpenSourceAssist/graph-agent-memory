@@ -47,6 +47,10 @@ Neo4j Agent Memory provides official integrations for five popular agent framewo
 | xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory]
 | AgentCore + Context Graphs combined
 | ✅ Production Ready
+
+| xref:microsoft-agent.adoc[Microsoft Agent Framework]
+| Context providers, GDS algorithms, and graph-enhanced memory
+| ⚠️ Preview (API may change)
 |===
 
 == Quick Start
@@ -160,6 +164,17 @@ tools = context_graph_tools(
 agent = Agent(model="anthropic.claude-sonnet-4-20250514-v1:0", tools=tools)
 ----
 
+=== Microsoft Agent Framework
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.microsoft_agent import Neo4jMicrosoftMemory
+
+memory = Neo4jMicrosoftMemory(memory_client=client, session_id="user-123")
+# Use context provider with Agent
+agent = chat_client.as_agent(context_providers=[memory.context_provider])
+----
+
 == Choosing a Framework
 
 Not sure which integration to use? See the xref:explanation/framework-comparison.adoc[Framework Comparison Guide] for a detailed comparison of features, performance, and use cases.
@@ -201,3 +216,9 @@ Automatically extract entities from conversations:
 * xref:how-to/integrations/aws-strands.adoc[AWS Strands Integration] - Bedrock-powered agents with Context Graph
 * xref:how-to/integrations/aws-bedrock-embeddings.adoc[AWS Bedrock Embeddings] - Titan embedding configuration
 * xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory] - Combined memory providers
+* xref:langchain.adoc[LangChain Integration] - Memory and retriever for chains
+* xref:pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
+* xref:llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
+* xref:crewai.adoc[CrewAI Integration] - Multi-agent shared memory
+* xref:openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
+* xref:microsoft-agent.adoc[Microsoft Agent Framework] - Context providers with GDS

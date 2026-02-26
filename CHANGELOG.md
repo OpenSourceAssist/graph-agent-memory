@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2026-02-25
+
+### Added
+
+- **Microsoft Agent Framework Integration** (Preview): Complete integration with Microsoft's Agent Framework (`agent-framework>=1.0.0b260212`)
+  - `Neo4jMicrosoftMemory` main memory class with context retrieval, message storage, and search
+  - `Neo4jContextProvider` for automatic context injection via Agent Framework hooks
+  - `Neo4jChatMessageStore` implementing the `ChatMessageStore` protocol for persistent conversation history
+  - `create_memory_tools()` generating `FunctionTool` instances for memory search, store, entity lookup, and preferences
+  - `record_agent_trace()` for recording reasoning traces from Agent Framework runs
+  - `GDSIntegration` with Graph Data Science algorithms (PageRank, shortest path, node similarity) and Cypher fallbacks
+  - `GDSConfig` for configuring GDS algorithm parameters
+- **MemoryClient.graph Property**: Exposes underlying `Neo4jClient` for custom Cypher queries and domain-specific services
+- **Location Query Enhancements**: `get_locations()`, `search_locations_near()`, and `search_locations_in_bounding_box()` methods on long-term memory
+- **Graph Export Improvements**: Filtering by memory types, session_id, and date ranges
+- **New Example Application**: Google Cloud Financial Advisor — multi-agent compliance demo with AML, KYC, relationship, and compliance specialist agents using Google ADK, Vertex AI, and Neo4j
+  - `Neo4jDomainService` pattern wrapping `MemoryClient.graph` for custom domain queries
+  - Domain data loading for sanctions, PEP, and alerts data
+- **Documentation**: Framework comparison guide updated for all 7 integrations, Microsoft Agent Framework how-to and tutorial guides
+- **Test Coverage**: 55+ Microsoft Agent Framework tests, 82 financial advisor tests, 26 example validation tests
+
+### Changed
+
+- Framework comparison documentation expanded from 6 to 7 integrations
+- README.md updated with Microsoft Agent Framework integration example
+
+### Fixed
+
+- Microsoft Agent Framework `FunctionTool` assertions in tests updated for object-based API (`.name` instead of dict subscript)
+- Ruff linting fixes for import sorting and duplicate set items
+
 ## [0.0.3] - 2026-02-18
 
 ### Added
@@ -102,6 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Schema Persistence**: Store and version custom entity schemas in Neo4j
 
+[0.0.4]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.4
 [0.0.3]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.3
 [0.0.2]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.2
 [0.0.1]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.1

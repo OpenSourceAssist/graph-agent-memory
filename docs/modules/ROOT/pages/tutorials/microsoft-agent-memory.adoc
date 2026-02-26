@@ -1,0 +1,453 @@
+= Building a Shopping Assistant with Microsoft Agent Framework
+:description: Step-by-step tutorial for creating a retail shopping assistant with Neo4j memory and Microsoft Agent Framework.
+:keywords: microsoft, agent-framework, tutorial, shopping, retail, memory, neo4j
+
+This tutorial guides you through building a shopping assistant that remembers customer preferences, provides personalized recommendations, and uses graph algorithms for product discovery.
+
+[WARNING]
+====
+This tutorial uses Microsoft Agent Framework v1.0.0b (preview). APIs may change before GA release.
+====
+
+== What You'll Build
+
+A retail shopping assistant that:
+
+* Remembers brand preferences, budget constraints, and style choices
+* Provides personalized product recommendations using graph traversals
+* Explains product relationships through knowledge graph queries
+* Learns from past successful interactions
+
+== Prerequisites
+
+* Python 3.10+
+* Neo4j 5.x (local or AuraDB)
+* OpenAI API key (or Azure OpenAI)
+* Basic familiarity with async Python
+
+== Step 1: Install Dependencies
+
+[source,bash]
+----
+pip install neo4j-agent-memory[microsoft-agent,openai]
+----
+
+== Step 2: Set Up Neo4j
+
+Start a local Neo4j instance or use AuraDB:
+
+[source,bash]
+----
+docker run -d \
+  --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  neo4j:5
+----
+
+== Step 3: Create the Memory Configuration
+
+Create a file `memory_config.py`:
+
+[source,python]
+----
+"""Memory configuration for the shopping assistant."""
+
+import os
+from pydantic import SecretStr
+
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.microsoft_agent import (
+    GDSConfig,
+    GDSAlgorithm,
+    Neo4jMicrosoftMemory,
+)
+
+def get_settings() -> MemorySettings:
+    """Create memory settings from environment variables."""
+    return MemorySettings(
+        neo4j={
+            "uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+            "username": os.getenv("NEO4J_USERNAME", "neo4j"),
+            "password": SecretStr(os.getenv("NEO4J_PASSWORD", "password")),
+        },
+        embedding={
+            "provider": "openai",
+            "model": "text-embedding-3-small",
+            "api_key": SecretStr(os.getenv("OPENAI_API_KEY", "")),
+        },
+    )
+
+def get_gds_config() -> GDSConfig:
+    """Configure GDS algorithms with fallback."""
+    return GDSConfig(
+        enabled=True,
+        use_pagerank_for_ranking=True,
+        expose_as_tools=[
+            GDSAlgorithm.SHORTEST_PATH,
+            GDSAlgorithm.NODE_SIMILARITY,
+        ],
+        fallback_to_basic=True,  # Use Cypher if GDS not installed
+        warn_on_fallback=True,
+    )
+
+async def create_memory(session_id: str, user_id: str | None = None) -> Neo4jMicrosoftMemory:
+    """Create a memory instance for a session."""
+    settings = get_settings()
+    gds_config = get_gds_config()
+
+    client = MemoryClient(settings)
+    await client.connect()
+
+    return Neo4jMicrosoftMemory(
+        memory_client=client,
+        session_id=session_id,
+        user_id=user_id,
+        include_short_term=True,
+        include_long_term=True,
+        include_reasoning=True,
+        max_context_items=15,
+        extract_entities=True,
+        gds_config=gds_config,
+    )
+----
+
+== Step 4: Create the Agent
+
+Create a file `agent.py`. All tools — both memory tools and product tools — use the `@tool` decorator to create callable `FunctionTool` instances that the framework auto-invokes:
+
+[source,python]
+----
+"""Shopping assistant agent."""
+
+import json
+from typing import Annotated
+
+from agent_framework import Agent, FunctionTool, Message, tool
+from agent_framework.azure import AzureOpenAIResponsesClient
+
+from neo4j_agent_memory.integrations.microsoft_agent import (
+    Neo4jMicrosoftMemory,
+    create_memory_tools,
+    record_agent_trace,
+)
+
+SYSTEM_PROMPT = """You are a helpful shopping assistant. Your role is to:
+
+1. Help customers find products that match their needs
+2. Learn and remember their preferences (brands, styles, budget)
+3. Provide personalized recommendations based on their history
+4. Explain how products relate to each other
+
+When customers express preferences, use the remember_preference tool to save them.
+When recommending products, explain why they match the customer's preferences.
+"""
+
+
+def get_product_tools(memory: Neo4jMicrosoftMemory) -> list[FunctionTool]:
+    """Create callable product tools bound to a memory instance."""
+    client = memory.memory_client
+
+    @tool(name="search_products", description="Search for products matching a query")
+    async def search_products(
+        query: Annotated[str, "Search query describing the product"],
+        category: Annotated[str | None, "Optional category filter"] = None,
+        max_price: Annotated[float | None, "Optional maximum price"] = None,
+    ) -> str:
+        """Search products in the catalog."""
+        conditions = []
+        params: dict = {"query": query}
+
+        if category:
+            conditions.append("p.category = $category")
+            params["category"] = category
+        if max_price:
+            conditions.append("p.price <= $max_price")
+            params["max_price"] = max_price
+
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+        cypher = f"""
+        MATCH (p:Product)
+        {where_clause}
+        {"WHERE" if not where_clause else "AND"} (toLower(p.name) CONTAINS toLower($query)
+             OR toLower(p.description) CONTAINS toLower($query))
+        RETURN p.name as name, p.price as price, p.category as category, p.brand as brand
+        LIMIT 5
+        """
+
+        result = await client.graph.execute_read(cypher, params)
+        products = [dict(r) for r in result]
+        return json.dumps({"products": products, "count": len(products)})
+
+    return [search_products]
+
+
+async def create_agent(memory: Neo4jMicrosoftMemory) -> Agent:
+    """Create the shopping assistant agent."""
+    chat_client = AzureOpenAIResponsesClient(model="gpt-4")
+
+    # Create memory tools bound to the memory instance
+    memory_tools = create_memory_tools(memory, include_gds_tools=bool(memory.gds))
+
+    # Create product tools bound to the memory instance
+    product_tools = get_product_tools(memory)
+
+    # Create agent — framework auto-invokes all callable tools
+    return chat_client.as_agent(
+        name="ShoppingAssistant",
+        instructions=SYSTEM_PROMPT,
+        tools=memory_tools + product_tools,
+        context_providers=[memory.context_provider],
+    )
+----
+
+Key differences from older patterns:
+
+* **`@tool` decorator** creates callable `FunctionTool` instances instead of raw dict definitions
+* **`create_memory_tools(memory)`** takes a memory instance as the first argument and returns bound tools
+* **No `handle_tool_calls` or `execute_memory_tool`** — the framework auto-invokes callable tools during `agent.run()`
+
+== Step 5: Create the Main Application
+
+Create a file `main.py`. Since tools are auto-invoked, the main loop is straightforward:
+
+[source,python]
+----
+"""Main application entry point."""
+
+import asyncio
+import json
+
+from agent_framework import Message
+
+from memory_config import create_memory
+from agent import create_agent
+from neo4j_agent_memory.integrations.microsoft_agent import record_agent_trace
+
+
+async def main():
+    session_id = "demo-session-1"
+    user_id = "demo-user"
+
+    print("Shopping Assistant")
+    print("Type 'quit' to exit\n")
+
+    # Create memory and agent
+    memory = await create_memory(session_id, user_id)
+    agent = await create_agent(memory)
+
+    try:
+        while True:
+            user_input = input("You: ").strip()
+            if user_input.lower() in ("quit", "exit"):
+                break
+            if not user_input:
+                continue
+
+            # Save user message
+            await memory.save_message("user", user_input)
+
+            # Run agent — framework auto-invokes tools and returns final response
+            response = await agent.run(Message("user", [user_input]))
+
+            # Display response
+            if response.text:
+                print(f"Assistant: {response.text}\n")
+                await memory.save_message("assistant", response.text)
+
+            # Record trace for learning
+            await record_agent_trace(
+                memory=memory,
+                messages=[
+                    {"role": "user", "content": user_input},
+                    {"role": "assistant", "content": response.text[:200] if response.text else ""},
+                ],
+                task=user_input,
+                outcome="success",
+                success=True,
+            )
+
+    finally:
+        await memory.memory_client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+----
+
+Notice there is no `handle_tool_calls` function or manual tool dispatch. The framework calls tool functions directly and feeds results back to the model automatically.
+
+== Step 6: Load Sample Data
+
+Create a file `load_data.py` to populate your database with sample products:
+
+[source,python]
+----
+"""Load sample product data."""
+
+import asyncio
+from neo4j import AsyncGraphDatabase
+
+async def load_sample_data():
+    driver = AsyncGraphDatabase.driver(
+        "bolt://localhost:7687",
+        auth=("neo4j", "password"),
+    )
+
+    async with driver.session() as session:
+        # Create sample products
+        await session.run("""
+            UNWIND [
+                {id: 'nike-pegasus', name: 'Nike Pegasus 40', price: 130,
+                 category: 'Running Shoes', brand: 'Nike'},
+                {id: 'adidas-ultraboost', name: 'Adidas Ultraboost 24', price: 190,
+                 category: 'Running Shoes', brand: 'Adidas'},
+                {id: 'nike-air-max', name: 'Nike Air Max 90', price: 130,
+                 category: 'Casual Shoes', brand: 'Nike'},
+                {id: 'nb-990', name: 'New Balance 990v6', price: 200,
+                 category: 'Running Shoes', brand: 'New Balance'}
+            ] AS product
+            MERGE (p:Product {id: product.id})
+            SET p += product
+        """)
+
+        # Create categories and relationships
+        await session.run("""
+            MATCH (p:Product)
+            MERGE (c:Category {name: p.category})
+            MERGE (b:Brand {name: p.brand})
+            MERGE (p)-[:IN_CATEGORY]->(c)
+            MERGE (p)-[:MADE_BY]->(b)
+        """)
+
+        # Create similarity relationships
+        await session.run("""
+            MATCH (p1:Product)-[:IN_CATEGORY]->(c)<-[:IN_CATEGORY]-(p2:Product)
+            WHERE p1 <> p2
+            MERGE (p1)-[:SIMILAR_TO]-(p2)
+        """)
+
+    await driver.close()
+    print("Sample data loaded!")
+
+if __name__ == "__main__":
+    asyncio.run(load_sample_data())
+----
+
+== Step 7: Run the Application
+
+[source,bash]
+----
+# Set environment variables
+export NEO4J_URI=bolt://localhost:7687
+export NEO4J_USERNAME=neo4j
+export NEO4J_PASSWORD=password
+export OPENAI_API_KEY=sk-your-key
+
+# Load sample data
+python load_data.py
+
+# Run the assistant
+python main.py
+----
+
+== Example Conversation
+
+[source]
+----
+Shopping Assistant
+Type 'quit' to exit
+
+You: I'm looking for running shoes
+  [Using tool: call_abc123...]
+Assistant: I found several running shoes for you:
+- Nike Pegasus 40 ($130) - Great for everyday running
+- Adidas Ultraboost 24 ($190) - Premium cushioning
+- New Balance 990v6 ($200) - Made in USA, premium build
+
+Would you like more details on any of these?
+
+You: I prefer Nike brand
+  [Using tool: call_def456...]
+Assistant: I've noted your preference for Nike. Based on that, I'd recommend
+the Nike Pegasus 40 at $130. It's a versatile running shoe that works great
+for daily training. Would you like to know more about it?
+
+You: My budget is under $150
+  [Using tool: call_ghi789...]
+Assistant: Perfect! With your Nike preference and $150 budget, the Nike
+Pegasus 40 at $130 is an excellent choice. It leaves room in your budget
+for accessories like socks or insoles. Would you like me to search for
+Nike accessories as well?
+
+You: What do you know about my preferences?
+  [Using tool: call_jkl012...]
+Assistant: Based on our conversation, I've learned:
+- **Brand**: You prefer Nike
+- **Budget**: Under $150
+- **Category**: Running shoes
+
+These preferences help me provide personalized recommendations. Is there
+anything else you'd like me to remember?
+----
+
+== Understanding Memory in Action
+
+=== Context Provider
+
+The `Neo4jContextProvider` automatically injects context before each agent invocation:
+
+[source]
+----
+## Recent Conversation
+- User asked about running shoes
+- Assistant provided 3 options
+
+## Known Preferences
+- Brand: Nike
+- Budget: Under $150
+
+## Relevant Products
+- Nike Pegasus 40 (Running Shoes): $130
+----
+
+=== Preference Storage
+
+When you use `remember_preference`, preferences are stored in Neo4j:
+
+[source,cypher]
+----
+(:User {id: "demo-user"})-[:HAS_PREFERENCE]->(:Preference {
+    category: "brand",
+    preference: "Nike",
+    context: "Mentioned while shopping for running shoes"
+})
+----
+
+=== Reasoning Traces
+
+The `record_agent_trace` captures successful interactions for future learning:
+
+[source,cypher]
+----
+(:ReasoningTrace {
+    task: "Find running shoes under $150",
+    steps: [...tool calls...],
+    outcome: "success",
+    result: "Recommended Nike Pegasus 40"
+})-[:FOR_SESSION]->(:Session {id: "demo-session-1"})
+----
+
+== Next Steps
+
+* Add more product tools (inventory check, related products)
+* Implement vector search for semantic product matching
+* Add GDS algorithms for advanced recommendations
+* Create a web interface with the full-stack example
+
+== See Also
+
+* xref:../how-to/integrations/microsoft-agent.adoc[Microsoft Agent Framework Integration Guide]
+* xref:../how-to/preferences.adoc[Working with Preferences]
+* xref:../how-to/reasoning-traces.adoc[Recording Reasoning Traces]

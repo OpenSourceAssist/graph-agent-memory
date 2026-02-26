@@ -68,6 +68,9 @@ python -m spacy download en_core_web_sm
 # With LangChain integration
 pip install neo4j-agent-memory[langchain]
 
+# With Microsoft Agent Framework integration
+pip install neo4j-agent-memory[microsoft-agent]
+
 # With CLI tools
 pip install neo4j-agent-memory[cli]
 
@@ -1028,6 +1031,31 @@ tools = context_graph_tools(
 # Tools: search_context, get_entity_graph, add_memory, get_user_preferences
 agent = Agent(
     model="anthropic.claude-sonnet-4-20250514-v1:0",
+    tools=tools,
+)
+```
+
+### Microsoft Agent Framework (Preview)
+
+```python
+from neo4j_agent_memory.integrations.microsoft_agent import (
+    Neo4jMicrosoftMemory,
+    create_memory_tools,
+)
+
+# Unified memory interface (context provider + chat history)
+memory = Neo4jMicrosoftMemory(
+    memory_client=client,
+    session_id="user-123",
+)
+
+# Create callable tools for the agent
+tools = create_memory_tools(memory)
+
+# Use with ChatAgent — tools are auto-invoked by the framework
+from agent_framework import ChatAgent
+agent = ChatAgent(
+    context_providers=[memory.context_provider],
     tools=tools,
 )
 ```
