@@ -1,9 +1,15 @@
 """Async Neo4j client wrapper."""
 
-from collections.abc import AsyncIterator
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
-from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncSession
+from neo4j import (
+    AsyncDriver,
+    AsyncGraphDatabase,
+    AsyncManagedTransaction,
+    AsyncSession,
+    unit_of_work,
+)
 from neo4j.exceptions import AuthError, ServiceUnavailable
 
 from neo4j_agent_memory.config.settings import Neo4jConfig
@@ -27,6 +33,10 @@ class Neo4jClient:
         """
         self._config = config
         self._driver: AsyncDriver | None = None
+        try:
+            self._package_version = version("neo4j-agent-memory")
+        except PackageNotFoundError:
+            self._package_version = "0.0.0"
 
     async def connect(self) -> None:
         """
@@ -105,8 +115,14 @@ class Neo4jClient:
             List of result records as dictionaries
         """
         async with self._get_session() as session:
-            result = await session.run(query, parameters or {})
-            records = await result.data()
+
+            @unit_of_work(metadata={"app": f"neo4j-agent-memory_v{self._package_version}"})
+            async def execute_read_tx(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
+                result = await tx.run(query, parameters or {})
+                data = await result.data()
+                return data
+
+            records = await session.execute_read(execute_read_tx)
             return records
 
     async def execute_write(
@@ -125,74 +141,15 @@ class Neo4jClient:
             List of result records as dictionaries
         """
         async with self._get_session() as session:
-            result = await session.run(query, parameters or {})
-            records = await result.data()
+
+            @unit_of_work(metadata={"app": f"neo4j-agent-memory_v{self._package_version}"})
+            async def execute_write_tx(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
+                result = await tx.run(query, parameters or {})
+                data = await result.data()
+                return data
+
+            records = await session.execute_write(execute_write_tx)
             return records
-
-    async def execute_many(
-        self,
-        query: str,
-        parameters_list: list[dict[str, Any]],
-    ) -> None:
-        """
-        Execute a query multiple times with different parameters.
-
-        Uses UNWIND for efficiency when possible.
-
-        Args:
-            query: Cypher query string
-            parameters_list: List of parameter dictionaries
-        """
-        if not parameters_list:
-            return
-
-        async with self._get_session() as session:
-            for params in parameters_list:
-                await session.run(query, params)
-
-    async def execute_batch(
-        self,
-        query: str,
-        items: list[dict[str, Any]],
-        batch_param: str = "items",
-    ) -> list[dict[str, Any]]:
-        """
-        Execute a batch query using UNWIND.
-
-        Args:
-            query: Cypher query with UNWIND
-            items: List of items to process
-            batch_param: Parameter name for the items list
-
-        Returns:
-            List of result records
-        """
-        if not items:
-            return []
-
-        async with self._get_session() as session:
-            result = await session.run(query, {batch_param: items})
-            return await result.data()
-
-    async def stream_read(
-        self,
-        query: str,
-        parameters: dict[str, Any] | None = None,
-    ) -> AsyncIterator[dict[str, Any]]:
-        """
-        Stream results from a read query.
-
-        Args:
-            query: Cypher query string
-            parameters: Query parameters
-
-        Yields:
-            Result records as dictionaries
-        """
-        async with self._get_session() as session:
-            result = await session.run(query, parameters or {})
-            async for record in result:
-                yield dict(record)
 
     async def vector_search(
         self,
