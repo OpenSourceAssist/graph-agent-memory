@@ -128,42 +128,58 @@ class TestGoogleCloudIntegrationImports:
 
         assert Neo4jMemoryMCPServer is not None
 
-    def test_mcp_tools_importable(self):
-        """Verify MCP tool definitions can be imported."""
-        from neo4j_agent_memory.mcp.tools import MEMORY_TOOLS
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="mcp not installed")
+    def test_mcp_tools_registrable(self):
+        """Verify MCP tool registration function can be imported."""
+        from neo4j_agent_memory.mcp._tools import register_tools
 
-        assert MEMORY_TOOLS is not None
+        assert register_tools is not None
 
 
+@pytest.mark.skipif(not MCP_AVAILABLE, reason="mcp not installed")
 class TestMCPToolDefinitions:
-    """Test that MCP tool definitions are complete and valid."""
+    """Test that MCP tool definitions are complete and valid via FastMCP."""
 
     def test_expected_tool_count(self):
         """Verify there are exactly 6 MCP tools defined."""
-        from neo4j_agent_memory.mcp.tools import MEMORY_TOOLS
+        import asyncio
 
-        assert len(MEMORY_TOOLS) == 6, f"Expected 6 MCP tools, found {len(MEMORY_TOOLS)}"
+        from fastmcp import Client, FastMCP
 
-    def test_tools_have_required_fields(self):
-        """Verify each tool has name, description, and inputSchema."""
-        from neo4j_agent_memory.mcp.tools import MEMORY_TOOLS
+        from neo4j_agent_memory.mcp._tools import register_tools
 
-        for tool in MEMORY_TOOLS:
-            assert "name" in tool, f"Tool missing 'name': {tool}"
-            assert "description" in tool, f"Tool {tool.get('name')} missing 'description'"
-            assert "inputSchema" in tool, f"Tool {tool.get('name')} missing 'inputSchema'"
+        mcp = FastMCP("test")
+        register_tools(mcp)
+
+        async def _check():
+            async with Client(mcp) as client:
+                tools = await client.list_tools()
+                assert len(tools) == 6
+
+        asyncio.run(_check())
 
     def test_expected_tool_names(self):
         """Verify the expected tool names are present."""
-        from neo4j_agent_memory.mcp.tools import MEMORY_TOOLS
+        import asyncio
 
-        tool_names = {tool["name"] for tool in MEMORY_TOOLS}
-        expected_names = {
-            "memory_search",
-            "memory_store",
-            "entity_lookup",
-            "conversation_history",
-            "graph_query",
-            "add_reasoning_trace",
-        }
-        assert tool_names == expected_names, f"Expected tools {expected_names}, found {tool_names}"
+        from fastmcp import Client, FastMCP
+
+        from neo4j_agent_memory.mcp._tools import register_tools
+
+        mcp = FastMCP("test")
+        register_tools(mcp)
+
+        async def _check():
+            async with Client(mcp) as client:
+                tools = await client.list_tools()
+                tool_names = {t.name for t in tools}
+                assert tool_names == {
+                    "memory_search",
+                    "memory_store",
+                    "entity_lookup",
+                    "conversation_history",
+                    "graph_query",
+                    "add_reasoning_trace",
+                }
+
+        asyncio.run(_check())

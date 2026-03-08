@@ -1,17 +1,15 @@
 """MCP Server implementation for Neo4j Agent Memory.
 
-Provides a Model Context Protocol server that exposes memory capabilities
-as tools for AI platforms and Cloud API Registry integration.
+Provides a Model Context Protocol server using FastMCP that exposes
+memory capabilities as tools, resources, and prompts for AI platforms.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
-
-from neo4j_agent_memory.mcp.handlers import MCPHandlers
-from neo4j_agent_memory.mcp.tools import get_tool_definitions
 
 if TYPE_CHECKING:
     from neo4j_agent_memory import MemoryClient
@@ -19,15 +17,65 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 try:
-    from mcp.server import Server
-    from mcp.server.stdio import stdio_server
-    from mcp.types import TextContent, Tool
+    from fastmcp import FastMCP
+
+    def create_mcp_server(
+        settings: Any = None,
+        *,
+        server_name: str = "neo4j-agent-memory",
+    ) -> FastMCP:
+        """Create a configured FastMCP server.
+
+        The server uses a lifespan to manage the async MemoryClient lifecycle.
+        Tools, resources, and prompts are registered on the returned server.
+
+        Args:
+            settings: MemorySettings for Neo4j connection. If None, the server
+                is created without a lifespan (useful for testing).
+            server_name: Server name for MCP registration.
+
+        Returns:
+            Configured FastMCP server instance.
+
+        Example:
+            from neo4j_agent_memory import MemorySettings
+            from neo4j_agent_memory.mcp import create_mcp_server
+
+            settings = MemorySettings(...)
+            server = create_mcp_server(settings)
+            server.run()
+        """
+        lifespan = None
+        if settings is not None:
+
+            @asynccontextmanager
+            async def lifespan(server: FastMCP):
+                """Manage MemoryClient lifecycle for the MCP server."""
+                from neo4j_agent_memory import MemoryClient as _MemoryClient
+
+                async with _MemoryClient(settings) as client:
+                    yield {"client": client}
+
+        mcp = FastMCP(
+            server_name,
+            lifespan=lifespan,
+        )
+
+        from neo4j_agent_memory.mcp._prompts import register_prompts
+        from neo4j_agent_memory.mcp._resources import register_resources
+        from neo4j_agent_memory.mcp._tools import register_tools
+
+        register_tools(mcp)
+        register_resources(mcp)
+        register_prompts(mcp)
+
+        return mcp
 
     class Neo4jMemoryMCPServer:
         """MCP server exposing Neo4j Agent Memory capabilities.
 
-        Designed for registration with Google Cloud API Registry and integration
-        with AI platforms supporting the Model Context Protocol.
+        Backward-compatible wrapper that accepts a pre-connected MemoryClient.
+        For new code, prefer ``create_mcp_server(settings)`` instead.
 
         Example:
             from neo4j_agent_memory import MemoryClient, MemorySettings
@@ -44,6 +92,7 @@ try:
             - entity_lookup: Get entity with relationships
             - conversation_history: Get conversation for session
             - graph_query: Execute read-only Cypher queries
+            - add_reasoning_trace: Store agent reasoning traces
         """
 
         def __init__(
@@ -51,81 +100,35 @@ try:
             memory_client: MemoryClient,
             *,
             server_name: str = "neo4j-agent-memory",
-            server_version: str = "0.0.3",
         ):
-            """Initialize the MCP server.
+            """Initialize the MCP server with a pre-connected client.
 
             Args:
                 memory_client: Connected MemoryClient instance.
                 server_name: Server name for MCP registration.
-                server_version: Server version string.
             """
             self._client = memory_client
-            self._handlers = MCPHandlers(memory_client)
-            self._server_name = server_name
-            self._server_version = server_version
-            self._server: Server | None = None
 
-        def get_tools(self) -> list[Tool]:
-            """Get the list of MCP tools.
+            @asynccontextmanager
+            async def _preconnected_lifespan(server: FastMCP):
+                yield {"client": memory_client}
 
-            Returns:
-                List of Tool objects in MCP format.
-            """
-            tool_defs = get_tool_definitions()
-            return [
-                Tool(
-                    name=t["name"],
-                    description=t["description"],
-                    inputSchema=t["inputSchema"],
-                )
-                for t in tool_defs
-            ]
+            self._mcp = FastMCP(
+                server_name,
+                lifespan=_preconnected_lifespan,
+            )
 
-        async def handle_tool_call(
-            self,
-            name: str,
-            arguments: dict[str, Any],
-        ) -> list[TextContent]:
-            """Handle a tool call from MCP client.
+            from neo4j_agent_memory.mcp._prompts import register_prompts
+            from neo4j_agent_memory.mcp._resources import register_resources
+            from neo4j_agent_memory.mcp._tools import register_tools
 
-            Args:
-                name: Tool name.
-                arguments: Tool arguments.
-
-            Returns:
-                List of TextContent with results.
-            """
-            result = await self._handlers.execute_tool(name, arguments)
-            return [TextContent(type="text", text=result)]
-
-        def _create_server(self) -> Server:
-            """Create and configure the MCP server."""
-            server = Server(self._server_name)
-
-            @server.list_tools()
-            async def list_tools() -> list[Tool]:
-                return self.get_tools()
-
-            @server.call_tool()
-            async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-                return await self.handle_tool_call(name, arguments or {})
-
-            return server
+            register_tools(self._mcp)
+            register_resources(self._mcp)
+            register_prompts(self._mcp)
 
         async def run(self) -> None:
-            """Run the MCP server using stdio transport.
-
-            This starts the server and listens for MCP requests via stdin/stdout.
-            """
-            self._server = self._create_server()
-
-            async with stdio_server() as (read_stream, write_stream):
-                await self._server.run(
-                    read_stream,
-                    write_stream,
-                    self._server.create_initialization_options(),
-                )
+            """Run the MCP server using stdio transport."""
+            await self._mcp.run_async(transport="stdio")
 
         async def run_sse(self, host: str = "127.0.0.1", port: int = 8080) -> None:
             """Run the MCP server using SSE transport.
@@ -134,55 +137,7 @@ try:
                 host: Host to bind to.
                 port: Port to listen on.
             """
-            try:
-                import uvicorn
-                from mcp.server.sse import SseServerTransport
-                from starlette.applications import Starlette
-                from starlette.routing import Route
-            except ImportError:
-                raise ImportError(
-                    "SSE transport requires additional dependencies. "
-                    "Install with: pip install mcp[sse] uvicorn starlette"
-                )
-
-            self._server = self._create_server()
-            sse = SseServerTransport("/messages")
-
-            async def handle_sse(request):
-                async with sse.connect_sse(
-                    request.scope, request.receive, request._send
-                ) as streams:
-                    await self._server.run(
-                        streams[0],
-                        streams[1],
-                        self._server.create_initialization_options(),
-                    )
-
-            app = Starlette(
-                routes=[
-                    Route("/sse", endpoint=handle_sse),
-                    Route("/messages", endpoint=sse.handle_post_message, methods=["POST"]),
-                ]
-            )
-
-            config = uvicorn.Config(app, host=host, port=port, log_level="info")
-            server = uvicorn.Server(config)
-            await server.serve()
-
-    def create_mcp_server(
-        memory_client: MemoryClient,
-        **kwargs: Any,
-    ) -> Neo4jMemoryMCPServer:
-        """Factory function to create an MCP server.
-
-        Args:
-            memory_client: Connected MemoryClient instance.
-            **kwargs: Additional server configuration.
-
-        Returns:
-            Configured Neo4jMemoryMCPServer instance.
-        """
-        return Neo4jMemoryMCPServer(memory_client, **kwargs)
+            await self._mcp.run_async(transport="sse", host=host, port=port)
 
     async def run_server(
         neo4j_uri: str,
@@ -202,13 +157,13 @@ try:
             neo4j_user: Neo4j username.
             neo4j_password: Neo4j password.
             neo4j_database: Neo4j database name.
-            transport: Transport type (stdio or sse).
-            host: Host for SSE transport.
-            port: Port for SSE transport.
+            transport: Transport type (stdio, sse, or http).
+            host: Host for network transports.
+            port: Port for network transports.
         """
         from pydantic import SecretStr
 
-        from neo4j_agent_memory import MemoryClient, MemorySettings
+        from neo4j_agent_memory import MemorySettings
         from neo4j_agent_memory.config.settings import Neo4jConfig
 
         settings = MemorySettings(
@@ -220,26 +175,33 @@ try:
             )
         )
 
-        async with MemoryClient(settings) as client:
-            server = Neo4jMemoryMCPServer(client)
-            if transport == "sse":
-                await server.run_sse(host=host, port=port)
-            else:
-                await server.run()
+        server = create_mcp_server(settings, server_name="neo4j-agent-memory")
+
+        if transport == "sse":
+            await server.run_async(transport="sse", host=host, port=port)
+        elif transport == "http":
+            await server.run_async(transport="http", host=host, port=port)
+        else:
+            await server.run_async(transport="stdio")
 
 except ImportError:
-    # MCP not installed
+    # FastMCP not installed
     class Neo4jMemoryMCPServer:  # type: ignore[no-redef]
-        """Placeholder when MCP is not installed."""
+        """Placeholder when FastMCP is not installed."""
 
         def __init__(self, *args: Any, **kwargs: Any):
             raise ImportError(
-                "MCP package not installed. Install with: pip install neo4j-agent-memory[mcp]"
+                "FastMCP not installed. Install with: pip install neo4j-agent-memory[mcp]"
             )
 
-    def create_mcp_server(*args: Any, **kwargs: Any) -> Neo4jMemoryMCPServer:
+    def create_mcp_server(*args: Any, **kwargs: Any) -> Neo4jMemoryMCPServer:  # type: ignore[misc]
         raise ImportError(
-            "MCP package not installed. Install with: pip install neo4j-agent-memory[mcp]"
+            "FastMCP not installed. Install with: pip install neo4j-agent-memory[mcp]"
+        )
+
+    async def run_server(*args: Any, **kwargs: Any) -> None:
+        raise ImportError(
+            "FastMCP not installed. Install with: pip install neo4j-agent-memory[mcp]"
         )
 
 
@@ -271,20 +233,20 @@ def main() -> None:
     )
     parser.add_argument(
         "--transport",
-        choices=["stdio", "sse"],
+        choices=["stdio", "sse", "http"],
         default="stdio",
         help="MCP transport type",
     )
     parser.add_argument(
         "--host",
         default="127.0.0.1",
-        help="Host for SSE transport (use 0.0.0.0 to expose on all interfaces)",
+        help="Host for network transports (use 0.0.0.0 to expose on all interfaces)",
     )
     parser.add_argument(
         "--port",
         type=int,
         default=8080,
-        help="Port for SSE transport",
+        help="Port for network transports",
     )
 
     args = parser.parse_args()

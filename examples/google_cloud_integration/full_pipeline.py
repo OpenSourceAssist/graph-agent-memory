@@ -133,8 +133,8 @@ async def demo_adk_memory_service(client):
 
     print("Neo4jMemoryService configured:")
     print(f"  User ID: {memory_service.user_id}")
-    print(f"  Entity extraction: enabled")
-    print(f"  Preference learning: enabled")
+    print("  Entity extraction: enabled")
+    print("  Preference learning: enabled")
 
     print_subheader("Storing Conversation Sessions")
 
@@ -201,68 +201,93 @@ async def demo_adk_memory_service(client):
 
 async def demo_mcp_server(client):
     """Demonstrate MCP server tools."""
+    from contextlib import asynccontextmanager
+
+    from fastmcp import Client, FastMCP
+
     print_header("Phase 3: MCP Server Tools")
 
-    from neo4j_agent_memory.mcp.handlers import MCPHandlers
-    from neo4j_agent_memory.mcp.tools import MEMORY_TOOLS
+    from neo4j_agent_memory.mcp._prompts import register_prompts
+    from neo4j_agent_memory.mcp._resources import register_resources
+    from neo4j_agent_memory.mcp._tools import register_tools
 
-    print(f"MCP Server exposes {len(MEMORY_TOOLS)} tools:")
-    for tool in MEMORY_TOOLS:
-        print(f"  • {tool['name']}: {tool['description'][:50]}...")
-    print()
+    @asynccontextmanager
+    async def _lifespan(server):
+        yield {"client": client}
 
-    handlers = MCPHandlers(client)
+    mcp = FastMCP("demo", lifespan=_lifespan)
+    register_tools(mcp)
+    register_resources(mcp)
+    register_prompts(mcp)
 
-    print_subheader("Tool Demonstrations")
+    async with Client(mcp) as mcp_client:
+        tools = await mcp_client.list_tools()
+        print(f"MCP Server exposes {len(tools)} tools:")
+        for tool in tools:
+            print(f"  • {tool.name}: {tool.description[:50]}...")
+        print()
 
-    # 1. memory_store
-    print("1. memory_store")
-    result = await handlers.handle_memory_store(
-        type="message",
-        content="Remember to review the MCP protocol documentation.",
-        session_id="mcp-demo",
-        role="user",
-    )
-    print(f"   Stored: {result['content'][:50]}...")
+        print_subheader("Tool Demonstrations")
 
-    # 2. memory_search
-    print()
-    print("2. memory_search")
-    result = await handlers.handle_memory_search(
-        query="MCP protocol",
-        limit=3,
-    )
-    print(f"   Found {len(result.get('results', []))} results")
+        # 1. memory_store
+        print("1. memory_store")
+        result = await mcp_client.call_tool(
+            "memory_store",
+            {
+                "memory_type": "message",
+                "content": "Remember to review the MCP protocol documentation.",
+                "session_id": "mcp-demo",
+                "role": "user",
+            },
+        )
+        data = json.loads(result.content[0].text)
+        print(f"   Stored: id={data.get('id', 'N/A')}")
 
-    # 3. conversation_history
-    print()
-    print("3. conversation_history")
-    result = await handlers.handle_conversation_history(
-        session_id="mcp-demo",
-        limit=5,
-    )
-    print(f"   Retrieved {len(result.get('messages', []))} messages")
+        # 2. memory_search
+        print()
+        print("2. memory_search")
+        result = await mcp_client.call_tool(
+            "memory_search",
+            {"query": "MCP protocol", "limit": 3},
+        )
+        data = json.loads(result.content[0].text)
+        total = sum(len(v) for v in data.get("results", {}).values())
+        print(f"   Found {total} results")
 
-    # 4. graph_query
-    print()
-    print("4. graph_query")
-    result = await handlers.handle_graph_query(
-        query="MATCH (n) RETURN labels(n) as type, count(*) as count ORDER BY count DESC LIMIT 5",
-    )
-    print(f"   Node types: {json.dumps(result.get('results', []), indent=6)}")
+        # 3. conversation_history
+        print()
+        print("3. conversation_history")
+        result = await mcp_client.call_tool(
+            "conversation_history",
+            {"session_id": "mcp-demo", "limit": 5},
+        )
+        data = json.loads(result.content[0].text)
+        print(f"   Retrieved {data.get('message_count', 0)} messages")
 
-    # 5. entity_lookup
-    print()
-    print("5. entity_lookup")
-    result = await handlers.handle_entity_lookup(
-        name="Neo4j",
-        include_neighbors=True,
-        max_hops=1,
-    )
-    if result.get("entity"):
-        print(f"   Found entity: {result['entity'].get('name', 'N/A')}")
-    else:
-        print("   No entity found (try after storing more data)")
+        # 4. graph_query
+        print()
+        print("4. graph_query")
+        result = await mcp_client.call_tool(
+            "graph_query",
+            {
+                "query": "MATCH (n) RETURN labels(n) as type, count(*) as count ORDER BY count DESC LIMIT 5"
+            },
+        )
+        data = json.loads(result.content[0].text)
+        print(f"   Node types: {json.dumps(data.get('rows', []), indent=6)}")
+
+        # 5. entity_lookup
+        print()
+        print("5. entity_lookup")
+        result = await mcp_client.call_tool(
+            "entity_lookup",
+            {"name": "Neo4j", "include_neighbors": True, "max_hops": 1},
+        )
+        data = json.loads(result.content[0].text)
+        if data.get("found"):
+            print(f"   Found entity: {data['entity'].get('name', 'N/A')}")
+        else:
+            print("   No entity found (try after storing more data)")
 
 
 async def demo_production_config():

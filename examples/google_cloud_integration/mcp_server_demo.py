@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """MCP Server Demo.
 
-Demonstrates the Neo4j Agent Memory MCP server and its 5 tools.
+Demonstrates the Neo4j Agent Memory MCP server and its 6 tools.
 
 Features demonstrated:
 - Starting the MCP server programmatically
@@ -23,40 +23,46 @@ from pydantic import SecretStr
 
 async def demo_server_tools():
     """Demonstrate MCP server tools and their schemas."""
-    from neo4j_agent_memory.mcp.tools import MEMORY_TOOLS
+    from fastmcp import Client
+
+    from neo4j_agent_memory.mcp.server import create_mcp_server
+
+    server = create_mcp_server()  # No settings → testing mode
 
     print("=" * 60)
     print("MCP Server - Available Tools")
     print("=" * 60)
     print()
 
-    print("The Neo4j Memory MCP server exposes 5 tools:")
+    print("The Neo4j Memory MCP server exposes 6 tools:")
     print()
 
-    for i, tool in enumerate(MEMORY_TOOLS, 1):
-        print(f"{i}. {tool['name']}")
-        print(f"   Description: {tool['description'][:70]}...")
-        print()
+    async with Client(server) as client:
+        tools = await client.list_tools()
+        for i, tool in enumerate(tools, 1):
+            print(f"{i}. {tool.name}")
+            print(f"   Description: {tool.description[:70]}...")
+            print()
 
-        # Show input schema
-        schema = tool["inputSchema"]
-        required = schema.get("required", [])
-        properties = schema.get("properties", {})
+            # Show input schema
+            schema = tool.inputSchema
+            required = schema.get("required", [])
+            properties = schema.get("properties", {})
 
-        print("   Parameters:")
-        for prop_name, prop_def in properties.items():
-            req_marker = "*" if prop_name in required else " "
-            prop_type = prop_def.get("type", "any")
-            prop_desc = prop_def.get("description", "")[:40]
-            print(f"     {req_marker} {prop_name}: {prop_type} - {prop_desc}...")
-        print()
+            print("   Parameters:")
+            for prop_name, prop_def in properties.items():
+                req_marker = "*" if prop_name in required else " "
+                prop_type = prop_def.get("type", "any")
+                prop_desc = prop_def.get("description", "")[:40]
+                print(f"     {req_marker} {prop_name}: {prop_type} - {prop_desc}...")
+            print()
 
 
 async def demo_tool_usage():
-    """Demonstrate how tools are used."""
-    from neo4j_agent_memory import MemoryClient, MemorySettings
+    """Demonstrate how tools are used via FastMCP Client."""
+    from neo4j_agent_memory import MemorySettings
     from neo4j_agent_memory.config.settings import Neo4jConfig
-    from neo4j_agent_memory.mcp.handlers import MCPHandlers
+    from neo4j_agent_memory.mcp.server import create_mcp_server
 
     print("=" * 60)
     print("MCP Server - Tool Usage Examples")
@@ -71,83 +77,95 @@ async def demo_tool_usage():
         )
     )
 
-    async with MemoryClient(settings) as client:
-        handlers = MCPHandlers(client)
+    server = create_mcp_server(settings)
 
+    from fastmcp import Client
+
+    async with Client(server) as client:
         # 1. memory_store - Store a message
         print("1. memory_store - Storing a message")
         print("-" * 40)
 
         session_id = f"mcp-demo-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        result = await handlers.handle_memory_store(
-            type="message",
-            content="I'm working on the Q1 report with the finance team.",
-            session_id=session_id,
-            role="user",
+        result = await client.call_tool(
+            "memory_store",
+            {
+                "memory_type": "message",
+                "content": "I'm working on the Q1 report with the finance team.",
+                "session_id": session_id,
+                "role": "user",
+            },
         )
-        print(f"   Stored message: {result['content'][:50]}...")
-        print(f"   Memory ID: {result.get('id', 'N/A')}")
+        data = json.loads(result.content[0].text)
+        print(f"   Stored message ID: {data.get('id', 'N/A')}")
         print()
 
         # Store another for search
-        await handlers.handle_memory_store(
-            type="message",
-            content="The deadline for the Q1 report is next Friday.",
-            session_id=session_id,
-            role="assistant",
+        await client.call_tool(
+            "memory_store",
+            {
+                "memory_type": "message",
+                "content": "The deadline for the Q1 report is next Friday.",
+                "session_id": session_id,
+                "role": "assistant",
+            },
         )
 
         # 2. memory_search - Search memories
         print("2. memory_search - Searching memories")
         print("-" * 40)
 
-        result = await handlers.handle_memory_search(
-            query="Q1 report deadline",
-            limit=5,
+        result = await client.call_tool(
+            "memory_search",
+            {"query": "Q1 report deadline", "limit": 5},
         )
-        print(f"   Query: 'Q1 report deadline'")
-        print(f"   Results: {len(result.get('results', []))} found")
-        for r in result.get("results", [])[:3]:
-            print(f"     - [{r.get('type')}] {r.get('content', '')[:40]}...")
+        data = json.loads(result.content[0].text)
+        results = data.get("results", {})
+        total = sum(len(v) for v in results.values())
+        print("   Query: 'Q1 report deadline'")
+        print(f"   Results: {total} found")
         print()
 
         # 3. memory_store - Store a preference
         print("3. memory_store - Storing a preference")
         print("-" * 40)
 
-        result = await handlers.handle_memory_store(
-            type="preference",
-            content="Prefers detailed weekly status reports",
-            category="communication",
+        result = await client.call_tool(
+            "memory_store",
+            {
+                "memory_type": "preference",
+                "content": "Prefers detailed weekly status reports",
+                "category": "communication",
+            },
         )
-        print(f"   Stored preference: {result['content']}")
+        data = json.loads(result.content[0].text)
+        print(f"   Stored preference ID: {data.get('id', 'N/A')}")
         print()
 
         # 4. conversation_history - Get session history
         print("4. conversation_history - Getting session history")
         print("-" * 40)
 
-        result = await handlers.handle_conversation_history(
-            session_id=session_id,
-            limit=10,
+        result = await client.call_tool(
+            "conversation_history",
+            {"session_id": session_id, "limit": 10},
         )
+        data = json.loads(result.content[0].text)
         print(f"   Session: {session_id}")
-        print(f"   Messages: {len(result.get('messages', []))}")
-        for msg in result.get("messages", []):
-            role = msg.get("role", "?")
-            content = msg.get("content", "")[:40]
-            print(f"     [{role}] {content}...")
+        print(f"   Messages: {data.get('message_count', 0)}")
         print()
 
         # 5. graph_query - Execute Cypher query
         print("5. graph_query - Executing Cypher query")
         print("-" * 40)
 
-        result = await handlers.handle_graph_query(
-            query="MATCH (m:Message) RETURN count(m) as message_count",
+        result = await client.call_tool(
+            "graph_query",
+            {"query": "MATCH (m:Message) RETURN count(m) as message_count"},
         )
-        print(f"   Query: MATCH (m:Message) RETURN count(m)")
-        print(f"   Result: {result.get('results', [])}")
+        data = json.loads(result.content[0].text)
+        print("   Query: MATCH (m:Message) RETURN count(m)")
+        print(f"   Result: {data.get('rows', [])}")
         print()
 
         # Show read-only validation
@@ -222,7 +240,11 @@ Add to ~/Library/Application Support/Claude/claude_desktop_config.json:
 
 async def demo_tool_schemas():
     """Show the JSON schemas for MCP tool inputs."""
-    from neo4j_agent_memory.mcp.tools import MEMORY_TOOLS
+    from fastmcp import Client
+
+    from neo4j_agent_memory.mcp.server import create_mcp_server
+
+    server = create_mcp_server()
 
     print("=" * 60)
     print("MCP Server - Tool JSON Schemas")
@@ -232,12 +254,23 @@ async def demo_tool_schemas():
     print("Full JSON schemas for each tool (for MCP client integration):")
     print()
 
-    for tool in MEMORY_TOOLS:
-        print(f"### {tool['name']}")
-        print("```json")
-        print(json.dumps(tool, indent=2))
-        print("```")
-        print()
+    async with Client(server) as client:
+        tools = await client.list_tools()
+        for tool in tools:
+            print(f"### {tool.name}")
+            print("```json")
+            print(
+                json.dumps(
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "inputSchema": tool.inputSchema,
+                    },
+                    indent=2,
+                )
+            )
+            print("```")
+            print()
 
 
 async def main():

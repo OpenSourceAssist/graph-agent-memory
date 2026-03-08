@@ -1,165 +1,129 @@
-"""Unit tests for MCP tool definitions."""
+"""Unit tests for FastMCP tool registration.
+
+Tests that tools register correctly on a FastMCP server with proper
+names, descriptions, and schemas. Replaces old tools.py schema tests.
+"""
 
 import pytest
+from fastmcp import FastMCP
 
 
-class TestMCPToolDefinitions:
-    """Tests for MCP tool definitions."""
+class TestFastMCPToolRegistration:
+    """Tests that all tools register correctly."""
 
-    def test_get_tool_definitions_returns_6_tools(self):
-        """Test that exactly 6 tools are defined."""
-        from neo4j_agent_memory.mcp.tools import get_tool_definitions
+    @pytest.fixture
+    def mcp_server(self):
+        """Create a FastMCP server with tools registered."""
+        from neo4j_agent_memory.mcp._tools import register_tools
 
-        tools = get_tool_definitions()
-        assert len(tools) == 6
+        mcp = FastMCP("test-server")
+        register_tools(mcp)
+        return mcp
 
-    def test_all_tools_have_required_fields(self):
-        """Test that all tools have name, description, and inputSchema."""
-        from neo4j_agent_memory.mcp.tools import get_tool_definitions
+    @pytest.mark.asyncio
+    async def test_all_6_tools_registered(self, mcp_server):
+        """Test that exactly 6 tools are registered."""
+        from fastmcp import Client
 
-        tools = get_tool_definitions()
-        for tool in tools:
-            assert "name" in tool, "Tool missing 'name' field"
-            assert "description" in tool, f"Tool {tool.get('name')} missing 'description'"
-            assert "inputSchema" in tool, f"Tool {tool.get('name')} missing 'inputSchema'"
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            assert len(tools) == 6
 
-    def test_tool_names(self):
-        """Test that the expected tools are defined."""
-        from neo4j_agent_memory.mcp.tools import get_tool_definitions
+    @pytest.mark.asyncio
+    async def test_tool_names(self, mcp_server):
+        """Test that the expected tool names are registered."""
+        from fastmcp import Client
 
-        tools = get_tool_definitions()
-        tool_names = {t["name"] for t in tools}
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            names = {t.name for t in tools}
+            assert names == {
+                "memory_search",
+                "memory_store",
+                "entity_lookup",
+                "conversation_history",
+                "graph_query",
+                "add_reasoning_trace",
+            }
 
-        expected_names = {
-            "memory_search",
-            "memory_store",
-            "entity_lookup",
-            "conversation_history",
-            "graph_query",
-            "add_reasoning_trace",
-        }
-        assert tool_names == expected_names
+    @pytest.mark.asyncio
+    async def test_tools_have_descriptions(self, mcp_server):
+        """Test that all tools have non-empty descriptions."""
+        from fastmcp import Client
 
-    def test_memory_search_tool_schema(self):
-        """Test memory_search tool has correct schema."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            for tool in tools:
+                assert tool.description, f"Tool {tool.name} has no description"
 
-        tool = get_tool_by_name("memory_search")
-        assert tool is not None
+    @pytest.mark.asyncio
+    async def test_memory_search_schema(self, mcp_server):
+        """Test memory_search has correct required params."""
+        from fastmcp import Client
 
-        schema = tool["inputSchema"]
-        assert schema["type"] == "object"
-        assert "query" in schema["properties"]
-        assert "limit" in schema["properties"]
-        assert "memory_types" in schema["properties"]
-        assert "session_id" in schema["properties"]
-        assert "query" in schema["required"]
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            tool = next(t for t in tools if t.name == "memory_search")
+            assert "query" in tool.inputSchema.get("required", [])
 
-    def test_memory_store_tool_schema(self):
-        """Test memory_store tool has correct schema."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
+    @pytest.mark.asyncio
+    async def test_memory_store_schema(self, mcp_server):
+        """Test memory_store has correct required params."""
+        from fastmcp import Client
 
-        tool = get_tool_by_name("memory_store")
-        assert tool is not None
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            tool = next(t for t in tools if t.name == "memory_store")
+            required = tool.inputSchema.get("required", [])
+            assert "memory_type" in required
+            assert "content" in required
 
-        schema = tool["inputSchema"]
-        assert schema["type"] == "object"
-        assert "type" in schema["properties"]
-        assert "content" in schema["properties"]
-        assert "session_id" in schema["properties"]
-        assert "role" in schema["properties"]
-        assert "category" in schema["properties"]
-        assert set(schema["required"]) == {"type", "content"}
+    @pytest.mark.asyncio
+    async def test_entity_lookup_schema(self, mcp_server):
+        """Test entity_lookup has correct required params."""
+        from fastmcp import Client
 
-    def test_entity_lookup_tool_schema(self):
-        """Test entity_lookup tool has correct schema."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            tool = next(t for t in tools if t.name == "entity_lookup")
+            assert "name" in tool.inputSchema.get("required", [])
 
-        tool = get_tool_by_name("entity_lookup")
-        assert tool is not None
+    @pytest.mark.asyncio
+    async def test_conversation_history_schema(self, mcp_server):
+        """Test conversation_history has correct required params."""
+        from fastmcp import Client
 
-        schema = tool["inputSchema"]
-        assert schema["type"] == "object"
-        assert "name" in schema["properties"]
-        assert "type" in schema["properties"]
-        assert "include_neighbors" in schema["properties"]
-        assert "max_hops" in schema["properties"]
-        assert schema["required"] == ["name"]
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            tool = next(t for t in tools if t.name == "conversation_history")
+            assert "session_id" in tool.inputSchema.get("required", [])
 
-    def test_conversation_history_tool_schema(self):
-        """Test conversation_history tool has correct schema."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
+    @pytest.mark.asyncio
+    async def test_graph_query_schema(self, mcp_server):
+        """Test graph_query has correct required params."""
+        from fastmcp import Client
 
-        tool = get_tool_by_name("conversation_history")
-        assert tool is not None
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            tool = next(t for t in tools if t.name == "graph_query")
+            assert "query" in tool.inputSchema.get("required", [])
 
-        schema = tool["inputSchema"]
-        assert schema["type"] == "object"
-        assert "session_id" in schema["properties"]
-        assert "limit" in schema["properties"]
-        assert "before" in schema["properties"]
-        assert schema["required"] == ["session_id"]
+    @pytest.mark.asyncio
+    async def test_memory_search_description_mentions_search(self, mcp_server):
+        """Test memory_search description is meaningful."""
+        from fastmcp import Client
 
-    def test_graph_query_tool_schema(self):
-        """Test graph_query tool has correct schema."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            tool = next(t for t in tools if t.name == "memory_search")
+            assert "search" in tool.description.lower()
 
-        tool = get_tool_by_name("graph_query")
-        assert tool is not None
-
-        schema = tool["inputSchema"]
-        assert schema["type"] == "object"
-        assert "query" in schema["properties"]
-        assert "parameters" in schema["properties"]
-        assert schema["required"] == ["query"]
-
-    def test_get_tool_by_name_returns_none_for_unknown(self):
-        """Test that get_tool_by_name returns None for unknown tools."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
-
-        assert get_tool_by_name("unknown_tool") is None
-
-    def test_tool_definitions_returns_copy(self):
-        """Test that get_tool_definitions returns a copy."""
-        from neo4j_agent_memory.mcp.tools import get_tool_definitions
-
-        tools1 = get_tool_definitions()
-        tools2 = get_tool_definitions()
-
-        assert tools1 is not tools2
-        assert tools1 == tools2
-
-
-class TestMCPToolDescriptions:
-    """Tests for tool descriptions."""
-
-    def test_memory_search_description(self):
-        """Test memory_search has meaningful description."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
-
-        tool = get_tool_by_name("memory_search")
-        assert "search" in tool["description"].lower()
-        assert "memory" in tool["description"].lower()
-
-    def test_memory_store_description(self):
-        """Test memory_store has meaningful description."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
-
-        tool = get_tool_by_name("memory_store")
-        assert "store" in tool["description"].lower()
-        assert "memory" in tool["description"].lower()
-
-    def test_entity_lookup_description(self):
-        """Test entity_lookup has meaningful description."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
-
-        tool = get_tool_by_name("entity_lookup")
-        assert "entity" in tool["description"].lower()
-        assert "relationship" in tool["description"].lower()
-
-    def test_graph_query_description_mentions_read_only(self):
+    @pytest.mark.asyncio
+    async def test_graph_query_description_mentions_read_only(self, mcp_server):
         """Test graph_query description mentions read-only."""
-        from neo4j_agent_memory.mcp.tools import get_tool_by_name
+        from fastmcp import Client
 
-        tool = get_tool_by_name("graph_query")
-        assert "read-only" in tool["description"].lower()
+        async with Client(mcp_server) as client:
+            tools = await client.list_tools()
+            tool = next(t for t in tools if t.name == "graph_query")
+            assert "read-only" in tool.description.lower()

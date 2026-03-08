@@ -94,7 +94,7 @@ openai-agents = ["openai>=1.0.0"]
 microsoft-agent = ["agent-framework>=1.0.0b260212"]
 
 # MCP server
-mcp = ["mcp>=1.0.0"]
+mcp = ["fastmcp>=2.0.0,<3"]
 
 # Google ADK
 google-adk = ["google-adk>=0.1.0"]
@@ -130,6 +130,7 @@ dev = [
     "pre-commit>=3.6.0",
     "testcontainers[neo4j]>=4.0.0",
     "beautifulsoup4>=4.12.0",
+    "fastmcp>=2.0.0,<3",
 ]
 
 docs = [

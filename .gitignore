@@ -62,3 +62,7 @@ docs/node_modules/
 *.tmp
 *.temp
 .cache/
+
+# Local plans and research
+plans/
+.mcp.json
