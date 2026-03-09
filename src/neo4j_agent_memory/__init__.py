@@ -461,7 +461,7 @@ class MemoryClient:
         a separate database connection.
 
         The returned client provides ``execute_read()``, ``execute_write()``,
-        ``execute_batch()``, ``vector_search()``, and other query methods.
+        ``vector_search()``, and other query methods.
 
         Example::
 
