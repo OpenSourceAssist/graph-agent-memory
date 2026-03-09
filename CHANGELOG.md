@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2026-03-07
+
+### Added
+
+- **FastMCP Migration** (PR #67): Rewrote MCP server using FastMCP v2, replacing the low-level `mcp` SDK
+  - Decorator-based `@mcp.tool()` API for all 6 memory tools (search, store, entity lookup, conversation history, graph query, reasoning traces)
+  - **MCP Resources**: 4 new resource endpoints (`memory://conversations/{session_id}`, `memory://entities/{entity_name}`, `memory://preferences/{category}`, `memory://graph/stats`)
+  - **MCP Prompts**: 3 guided workflow prompts (`memory_search_guide`, `entity_analysis`, `conversation_summary`)
+  - Lifespan-based server initialization with `create_mcp_server()` factory function
+  - Shared `get_client()` context helper for accessing `MemoryClient` from tool/resource handlers
+  - Read-only query validation for `graph_query` tool to prevent write operations
+  - Backward-compatible `Neo4jMemoryMCPServer` wrapper preserved
+- **MCP Test Suite**: Comprehensive unit tests for tools, resources, prompts, and server initialization using FastMCP's native `Client`
+
+### Changed
+
+- **Managed Transactions** (PR #71): `execute_read()` and `execute_write()` in `Neo4jClient` now use Neo4j managed transactions with `@unit_of_work` decorator
+  - Automatic retry on transient failures
+  - Query metadata tagging with `neo4j-agent-memory` version for server-side tracking
+  - Better resource cleanup via driver-managed connection lifecycle
+- **MCP Dependency**: Changed from `mcp>=1.0.0` to `fastmcp>=2.0.0,<3` in optional dependencies
+
+### New Contributors
+
+- [@MuddyBootsCode](https://github.com/MuddyBootsCode) made their first contribution in PR [#67](https://github.com/neo4j-labs/agent-memory/pull/67)
+- [@darrellwarde](https://github.com/darrellwarde) made their first contribution in PR [#71](https://github.com/neo4j-labs/agent-memory/pull/71)
+
 ## [0.0.4] - 2026-02-25
 
 ### Added
@@ -133,6 +160,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Schema Persistence**: Store and version custom entity schemas in Neo4j
 
+[0.0.5]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.5
 [0.0.4]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.4
 [0.0.3]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.3
 [0.0.2]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.2
