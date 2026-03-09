@@ -180,7 +180,7 @@ from neo4j_agent_memory.memory.short_term import (
     ShortTermMemory,
 )
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 __all__ = [
     # Main client
@@ -461,7 +461,7 @@ class MemoryClient:
         a separate database connection.
 
         The returned client provides ``execute_read()``, ``execute_write()``,
-        ``execute_batch()``, ``vector_search()``, and other query methods.
+        ``vector_search()``, and other query methods.
 
         Example::
 
