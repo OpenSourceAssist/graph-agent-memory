@@ -410,8 +410,8 @@ neo4j-agent-memory mcp serve --transport sse --port 8080
 
 # With custom Neo4j connection
 neo4j-agent-memory mcp serve \
-  --neo4j-uri bolt://localhost:7687 \
-  --neo4j-password secret
+  --uri bolt://localhost:7687 \
+  --password secret
 ----
 
 === Claude Desktop Configuration
