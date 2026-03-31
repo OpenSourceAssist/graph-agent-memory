@@ -369,6 +369,10 @@ The Model Context Protocol (MCP) server exposes memory capabilities as tools for
 
 === Available Tools
 
+The MCP server supports two tool profiles: **core** (6 tools) and **extended** (16 tools, default).
+
+**Core Profile:**
+
 [cols="2,3", options="header"]
 |===
 | Tool | Description
@@ -376,18 +380,23 @@ The Model Context Protocol (MCP) server exposes memory capabilities as tools for
 | `memory_search`
 | Hybrid vector + graph search across all memory types
 
-| `memory_store`
-| Store messages, facts, and preferences
+| `memory_get_context`
+| Assembled context for a session
 
-| `entity_lookup`
-| Get entity with relationships and neighbors
+| `memory_store_message`
+| Store message with auto entity extraction
 
-| `conversation_history`
-| Retrieve session conversation history
+| `memory_add_entity`
+| Create/update entity with POLE+O typing
 
-| `graph_query`
-| Execute read-only Cypher queries
+| `memory_add_preference`
+| Record user preference
+
+| `memory_add_fact`
+| Store subject-predicate-object triple
 |===
+
+The **extended** profile adds 10 more tools for conversation history, session listing, entity details, graph export, relationship creation, reasoning traces, observations, and read-only Cypher queries. See the xref:reference/mcp-tools.adoc[MCP Tools Reference] for the complete list.
 
 === Starting the Server
 

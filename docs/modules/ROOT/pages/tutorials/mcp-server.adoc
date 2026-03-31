@@ -1,0 +1,176 @@
+= Connect Claude Desktop to Your Knowledge Graph
+:page-product: agent-memory
+:page-pagination:
+:toc: right
+:toclevels: 3
+:sectanchors:
+:sectlinks:
+:icons: font
+:source-highlighter: highlight.js
+
+A step-by-step tutorial to connect Claude Desktop to a Neo4j knowledge graph using the MCP server.
+
+[.lead]
+In this tutorial, we'll set up the neo4j-agent-memory MCP server so that Claude Desktop can store conversations, extract entities, learn preferences, and query your knowledge graph -- all automatically.
+
+== What You'll Learn
+
+* How to install and start the MCP server
+* How to configure Claude Desktop to connect to it
+* How memory is captured automatically during conversations
+* How to verify entities and preferences in Neo4j Browser
+
+== Prerequisites
+
+* Python 3.10 or higher
+* Docker (for running Neo4j locally)
+* Claude Desktop installed
+
+== Time Required
+
+Approximately 15 minutes.
+
+== Step 1: Start Neo4j
+
+Start a local Neo4j instance using Docker:
+
+[source,bash]
+----
+docker run -d \
+  --name neo4j-memory \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/test-password \
+  -e NEO4J_PLUGINS='["apoc"]' \
+  neo4j:5
+----
+
+Wait for Neo4j to start (about 30 seconds), then verify at http://localhost:7474.
+
+== Step 2: Install neo4j-agent-memory
+
+Install the package with MCP support:
+
+[source,bash]
+----
+pip install neo4j-agent-memory[mcp]
+----
+
+Verify the installation:
+
+[source,bash]
+----
+neo4j-memory mcp serve --help
+----
+
+You should see the available options for the MCP server.
+
+== Step 3: Configure Claude Desktop
+
+Open your Claude Desktop configuration file:
+
+* **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add the neo4j-agent-memory server:
+
+[source,json]
+----
+{
+  "mcpServers": {
+    "neo4j-agent-memory": {
+      "command": "neo4j-memory",
+      "args": ["mcp", "serve",
+               "--password", "test-password"],
+      "env": {}
+    }
+  }
+}
+----
+
+Restart Claude Desktop to pick up the configuration.
+
+TIP: If you installed with `uvx`, use `"command": "uvx"` and `"args": ["neo4j-agent-memory[mcp]", "mcp", "serve", "--password", "test-password"]` instead.
+
+== Step 4: Verify the Connection
+
+In Claude Desktop, start a new conversation and ask:
+
+> What do you remember about me?
+
+Claude should call the `memory_search` tool and report that no memories are stored yet. This confirms the MCP server is connected and working.
+
+== Step 5: Have a Memory-Aware Conversation
+
+Now have a natural conversation. The server automatically:
+
+1. **Stores messages** when Claude calls `memory_store_message`
+2. **Extracts entities** (people, organizations, locations) from message content
+3. **Detects preferences** from statements like "I love Italian food"
+4. **Builds a knowledge graph** linking entities with typed relationships
+
+Try a conversation like:
+
+> I'm a software engineer at Acme Corp. I work with Python and React.
+> I love Italian food, especially pasta. My favorite restaurant is Bella Italia on Main Street.
+> Next week I have a meeting with Sarah about the new authentication feature.
+
+== Step 6: Verify in Neo4j Browser
+
+Open http://localhost:7474 and run:
+
+[source,cypher]
+----
+MATCH (n) RETURN n LIMIT 50
+----
+
+You should see:
+
+* **Conversation** and **Message** nodes (your chat messages)
+* **Entity** nodes (Acme Corp, Bella Italia, Sarah, Main Street)
+* **Preference** nodes (Italian food, pasta)
+* **MENTIONS** relationships linking messages to entities
+
+To see just the entities:
+
+[source,cypher]
+----
+MATCH (e:Entity) RETURN e.name, e.type, e.description
+----
+
+== Step 7: Test Memory Recall
+
+In Claude Desktop, ask:
+
+> Where do I like to eat?
+
+Claude will call `memory_search` and find your stored preference for Italian food and Bella Italia.
+
+> Tell me about Sarah
+
+Claude will call `memory_get_entity` (if using extended profile) or `memory_search` to find the entity and any related context.
+
+== Next Steps
+
+* xref:reference/mcp-tools.adoc[MCP Tools Reference] -- Complete documentation for all 16 tools
+* xref:how-to/create-context-graph-mcp.adoc[create-context-graph MCP Integration] -- Add MCP to scaffolded projects
+* xref:explanation/memory-types.adoc[Understanding Memory Types] -- How the three memory types work together
+
+== Tool Profiles
+
+By default, the server starts with the **extended** profile (16 tools). For simpler use cases or to reduce context overhead, use the **core** profile:
+
+[source,json]
+----
+{
+  "mcpServers": {
+    "neo4j-agent-memory": {
+      "command": "neo4j-memory",
+      "args": ["mcp", "serve",
+               "--password", "test-password",
+               "--profile", "core"]
+    }
+  }
+}
+----
+
+See the xref:reference/mcp-tools.adoc[MCP Tools Reference] for the complete list of tools in each profile.

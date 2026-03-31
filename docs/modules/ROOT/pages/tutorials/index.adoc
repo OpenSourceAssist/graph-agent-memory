@@ -41,6 +41,10 @@ After completing the first tutorial, build complete applications:
 | xref:tutorials/strands-agent-quickstart.adoc[Build a Strands Agent with Context Graph]
 | Create an AI agent using AWS Strands SDK with persistent memory backed by Neo4j. Uses Amazon Bedrock for LLM and embeddings.
 | ~30 min
+
+| xref:tutorials/mcp-server.adoc[Connect Claude Desktop to Your Knowledge Graph]
+| Set up the MCP server so Claude Desktop can store conversations, extract entities, and query your knowledge graph automatically.
+| ~15 min
 |===
 
 == What You'll Learn

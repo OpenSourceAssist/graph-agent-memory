@@ -1,4 +1,4 @@
-.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend run neo4j clean geocode-locations extract-entities enrich enrich-status backfill-relationships backfill-relationships-status backfill-embeddings backfill-embeddings-status
+.PHONY: help install load-sample load-full load-fast load-resume load-dry-run run-backend run-frontend run neo4j clean geocode-locations extract-entities enrich enrich-status backfill-relationships backfill-relationships-status backfill-embeddings backfill-embeddings-status mcp-server
 
 # Default target
 help:
@@ -29,6 +29,7 @@ help:
 	@echo "  make run            Start both backend and frontend (recommended)"
 	@echo "  make run-backend    Start FastAPI backend only (port 8000)"
 	@echo "  make run-frontend   Start Next.js frontend only (port 3000)"
+	@echo "  make mcp-server     Start MCP server for Claude Desktop"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean          Remove generated files and dependencies"
@@ -140,6 +141,14 @@ run-backend:
 # Run frontend only
 run-frontend:
 	cd frontend && npm run dev
+
+# Start MCP server for Claude Desktop
+mcp-server:
+	cd backend && uv run neo4j-memory mcp serve \
+		--password $${NEO4J_PASSWORD:-password} \
+		--profile extended \
+		--session-strategy per_day \
+		--user-id lenny-desktop
 
 # Clean up
 clean:

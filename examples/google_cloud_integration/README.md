@@ -102,7 +102,8 @@ neo4j-memory mcp serve --transport stdio
 
 This demonstrates:
 - Starting the MCP server programmatically
-- Available tools: memory_search, memory_store, entity_lookup, etc.
+- Core (6 tools) and extended (16 tools) profiles
+- Tool usage: memory_store_message, memory_search, memory_get_conversation, etc.
 - Both stdio and SSE transports
 
 ### 4. Full Pipeline
@@ -175,15 +176,33 @@ gcloud run deploy neo4j-memory-mcp \
 
 ## MCP Tools Reference
 
-The MCP server exposes 5 tools:
+The MCP server supports two tool profiles:
+
+### Core Profile (6 tools)
 
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
 | `memory_search` | Semantic search across memory | `query`, `limit`, `memory_types` |
-| `memory_store` | Store messages, facts, preferences | `type`, `content`, `session_id` |
-| `entity_lookup` | Get entity with relationships | `name`, `type`, `include_neighbors` |
-| `conversation_history` | Get session messages | `session_id`, `limit` |
-| `graph_query` | Execute read-only Cypher | `query`, `parameters` |
+| `memory_get_context` | Assembled context for a session | `session_id`, `query`, `max_items` |
+| `memory_store_message` | Store a conversation message | `content`, `role`, `session_id` |
+| `memory_add_entity` | Create/update entity with POLE+O type | `name`, `entity_type`, `description` |
+| `memory_add_preference` | Record a user preference | `category`, `preference` |
+| `memory_add_fact` | Store a fact triple | `subject`, `predicate`, `object_value` |
+
+### Extended Profile (adds 10 more tools)
+
+| Tool | Description |
+|------|-------------|
+| `memory_get_conversation` | Full conversation history for a session |
+| `memory_list_sessions` | List sessions with previews |
+| `memory_get_entity` | Entity details with graph relationships |
+| `memory_export_graph` | Export subgraph as JSON |
+| `memory_create_relationship` | Create typed entity relationship |
+| `memory_start_trace` | Begin reasoning trace |
+| `memory_record_step` | Record reasoning step |
+| `memory_complete_trace` | Complete reasoning trace |
+| `memory_get_observations` | Session observations and insights |
+| `graph_query` | Execute read-only Cypher queries |
 
 ## Embedding Models
 

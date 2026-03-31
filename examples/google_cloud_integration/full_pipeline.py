@@ -207,34 +207,39 @@ async def demo_mcp_server(client):
 
     print_header("Phase 3: MCP Server Tools")
 
+    from neo4j_agent_memory.integration import MemoryIntegration
+    from neo4j_agent_memory.mcp._observer import MemoryObserver
     from neo4j_agent_memory.mcp._prompts import register_prompts
     from neo4j_agent_memory.mcp._resources import register_resources
     from neo4j_agent_memory.mcp._tools import register_tools
 
+    integration = MemoryIntegration(client)
+    observer = MemoryObserver(client)
+    integration.observer = observer
+
     @asynccontextmanager
     async def _lifespan(server):
-        yield {"client": client}
+        yield {"client": client, "integration": integration, "observer": observer}
 
     mcp = FastMCP("demo", lifespan=_lifespan)
-    register_tools(mcp)
-    register_resources(mcp)
-    register_prompts(mcp)
+    register_tools(mcp, profile="extended")
+    register_resources(mcp, profile="extended")
+    register_prompts(mcp, profile="extended")
 
     async with Client(mcp) as mcp_client:
         tools = await mcp_client.list_tools()
-        print(f"MCP Server exposes {len(tools)} tools:")
+        print(f"MCP Server exposes {len(tools)} tools (extended profile):")
         for tool in tools:
             print(f"  • {tool.name}: {tool.description[:50]}...")
         print()
 
         print_subheader("Tool Demonstrations")
 
-        # 1. memory_store
-        print("1. memory_store")
+        # 1. memory_store_message
+        print("1. memory_store_message")
         result = await mcp_client.call_tool(
-            "memory_store",
+            "memory_store_message",
             {
-                "memory_type": "message",
                 "content": "Remember to review the MCP protocol documentation.",
                 "session_id": "mcp-demo",
                 "role": "user",
@@ -254,11 +259,11 @@ async def demo_mcp_server(client):
         total = sum(len(v) for v in data.get("results", {}).values())
         print(f"   Found {total} results")
 
-        # 3. conversation_history
+        # 3. memory_get_conversation
         print()
-        print("3. conversation_history")
+        print("3. memory_get_conversation")
         result = await mcp_client.call_tool(
-            "conversation_history",
+            "memory_get_conversation",
             {"session_id": "mcp-demo", "limit": 5},
         )
         data = json.loads(result.content[0].text)
@@ -276,11 +281,11 @@ async def demo_mcp_server(client):
         data = json.loads(result.content[0].text)
         print(f"   Node types: {json.dumps(data.get('rows', []), indent=6)}")
 
-        # 5. entity_lookup
+        # 5. memory_get_entity
         print()
-        print("5. entity_lookup")
+        print("5. memory_get_entity")
         result = await mcp_client.call_tool(
-            "entity_lookup",
+            "memory_get_entity",
             {"name": "Neo4j", "include_neighbors": True, "max_hops": 1},
         )
         data = json.loads(result.content[0].text)

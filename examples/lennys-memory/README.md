@@ -204,6 +204,42 @@ make run-frontend
 
 Visit http://localhost:3000 to start exploring.
 
+### 6. (Optional) Connect Claude Desktop via MCP
+
+You can also query the Lenny's Podcast knowledge graph directly from Claude Desktop using the MCP server. This connects to the same Neo4j instance as the web app.
+
+Start the MCP server:
+```bash
+make mcp-server
+```
+
+Then add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "lennys-memory": {
+      "command": "neo4j-memory",
+      "args": ["mcp", "serve",
+               "--password", "password",
+               "--profile", "extended",
+               "--session-strategy", "per_day",
+               "--user-id", "lenny-desktop"],
+      "env": {
+        "OPENAI_API_KEY": "sk-..."
+      }
+    }
+  }
+}
+```
+
+After restarting Claude Desktop, you can ask questions like:
+- "Search for episodes about product-market fit"
+- "What entities are related to Brian Chesky?"
+- "What are my stored preferences?"
+
+The MCP server provides 16 tools (or 6 in core profile) for searching, storing, and querying the knowledge graph. See the [MCP Tools Reference](../../docs/modules/ROOT/pages/reference/mcp-tools.adoc) for details.
+
 ---
 
 ## How It Works: A Deep Dive

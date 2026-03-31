@@ -1,9 +1,11 @@
 """MCP prompt definitions for Neo4j Agent Memory.
 
-Defines 3 prompts that provide guided workflows:
-- memory_search_guide: Guide for searching across memory types
-- entity_analysis: Structured entity analysis workflow
-- conversation_summary: Conversation summarization workflow
+Prompts surface as slash commands in Claude Desktop and /mcp__ commands
+in Claude Code. They guide the LLM through structured workflows.
+
+Organized into profiles:
+- Core: memory-conversation (always available)
+- Extended: memory-reasoning, memory-review
 """
 
 from __future__ import annotations
@@ -16,87 +18,111 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 
-def register_prompts(mcp: FastMCP) -> None:
-    """Register all MCP prompts on the server.
+def register_prompts(mcp: FastMCP, *, profile: str = "extended") -> None:
+    """Register MCP prompts on the server based on profile.
 
     Args:
         mcp: FastMCP server instance.
+        profile: Tool profile - 'core' or 'extended'.
     """
+    _register_core_prompts(mcp)
+    if profile == "extended":
+        _register_extended_prompts(mcp)
 
-    @mcp.prompt()
-    def memory_search_guide(
-        topic: str,
-        memory_types: str = "messages,entities,preferences",
-    ) -> list[Message]:
-        """Guide for searching across memory types.
 
-        Helps construct effective memory searches by suggesting
-        which memory types to query and how to interpret results.
+def _register_core_prompts(mcp: FastMCP) -> None:
+    """Register the core prompt (memory-conversation)."""
+
+    @mcp.prompt(name="memory-conversation")
+    def memory_conversation(session_id: str = "") -> list[Message]:
+        """Initialize a memory-aware conversation.
+
+        Loads context from memory and instructs Claude on how to use
+        memory tools throughout the conversation. Use at the start
+        of any conversation that should leverage stored memories.
         """
-        types_list = [t.strip() for t in memory_types.split(",")]
+        session_hint = f" for session '{session_id}'" if session_id else ""
         return [
             Message(
                 role="user",
                 content=(
-                    f"Search my memory for information about: {topic}\n\n"
-                    f"Search across these memory types: {', '.join(types_list)}\n\n"
-                    "Use the memory_search tool with the query above. "
-                    "If the results are insufficient, try:\n"
-                    "1. Broadening the query terms\n"
-                    "2. Including additional memory types\n"
-                    "3. Lowering the similarity threshold\n"
-                    "4. Using entity_lookup for specific people/organizations"
+                    f"Start a memory-aware conversation{session_hint}.\n\n"
+                    "Steps:\n"
+                    "1. Call memory_get_context to load relevant memories"
+                    + (f" (session_id='{session_id}')" if session_id else "")
+                    + "\n"
+                    "2. Review the loaded context for:\n"
+                    "   - Previous conversation topics and decisions\n"
+                    "   - Known user preferences\n"
+                    "   - Relevant entities and relationships\n"
+                    "3. Greet the user, referencing relevant context if available\n"
+                    "4. Throughout the conversation:\n"
+                    "   - Call memory_store_message for important user messages\n"
+                    "   - Call memory_add_preference when preferences are expressed\n"
+                    "   - Call memory_add_entity when new people/places/orgs are mentioned\n"
+                    "   - Call memory_search if the user asks about past interactions"
                 ),
             )
         ]
 
-    @mcp.prompt()
-    def entity_analysis(entity_name: str) -> list[Message]:
-        """Analyze an entity and its relationships in the knowledge graph.
 
-        Provides a structured approach to understanding an entity's
-        connections, context, and significance.
+def _register_extended_prompts(mcp: FastMCP) -> None:
+    """Register extended prompts (memory-reasoning, memory-review)."""
+
+    @mcp.prompt(name="memory-reasoning")
+    def memory_reasoning(task: str) -> list[Message]:
+        """Record a reasoning trace for a complex task.
+
+        Guides Claude through structured reasoning with step-by-step
+        trace recording. Useful for debugging and learning from
+        successful problem-solving approaches.
         """
         return [
             Message(
                 role="user",
                 content=(
-                    f"Analyze the entity '{entity_name}' in my knowledge graph.\n\n"
+                    f"Solve this task and record your reasoning: {task}\n\n"
                     "Steps:\n"
-                    f"1. Use entity_lookup to find '{entity_name}' with include_neighbors=true\n"
-                    "2. For each related entity, note the relationship type and direction\n"
-                    "3. Use memory_search to find recent messages mentioning this entity\n"
-                    "4. Summarize:\n"
-                    "   - Entity type and description\n"
-                    "   - Key relationships (who/what is connected)\n"
-                    "   - Recent context from conversations\n"
-                    "   - Any stored preferences related to this entity"
+                    "1. Call memory_start_trace with the task description\n"
+                    "2. For each significant reasoning step:\n"
+                    "   a. Think about what to do next (thought)\n"
+                    "   b. Take an action or make a decision (action)\n"
+                    "   c. Observe the result (observation)\n"
+                    "   d. Call memory_record_step with thought, action, observation\n"
+                    "   e. If you use a tool, include tool_name, tool_args, tool_result\n"
+                    "3. When the task is complete:\n"
+                    "   - Call memory_complete_trace with the outcome\n"
+                    "   - Set success=true if completed, false if not\n"
+                    "4. Summarize the reasoning process and final outcome"
                 ),
             )
         ]
 
-    @mcp.prompt()
-    def conversation_summary(session_id: str) -> list[Message]:
-        """Summarize a conversation session.
+    @mcp.prompt(name="memory-review")
+    def memory_review() -> list[Message]:
+        """Review stored knowledge and flag contradictions.
 
-        Retrieves conversation history and guides summarization
-        of key topics, decisions, and action items.
+        Summarizes everything stored in memory: entities, preferences,
+        facts, and recent conversations. Identifies potential
+        contradictions or outdated information.
         """
         return [
             Message(
                 role="user",
                 content=(
-                    f"Summarize the conversation from session '{session_id}'.\n\n"
+                    "Review everything stored in my memory and provide a summary.\n\n"
                     "Steps:\n"
-                    f"1. Use conversation_history to retrieve messages for session '{session_id}'\n"
-                    "2. Identify the main topics discussed\n"
-                    "3. Note any decisions made or action items\n"
-                    "4. Highlight any entities or facts that were mentioned\n"
-                    "5. Provide a concise summary with:\n"
-                    "   - Key topics\n"
-                    "   - Decisions/conclusions\n"
-                    "   - Action items\n"
-                    "   - Important entities mentioned"
+                    "1. Call memory_search with a broad query to find entities\n"
+                    "2. Call memory_search with memory_types=['preferences'] to find preferences\n"
+                    "3. Call memory_list_sessions to see conversation history\n"
+                    "4. For the most relevant entities, call memory_get_entity for details\n"
+                    "5. Compile a summary organized by:\n"
+                    "   - Known entities (people, organizations, locations)\n"
+                    "   - Stored preferences by category\n"
+                    "   - Key facts and relationships\n"
+                    "   - Recent conversation topics\n"
+                    "6. Flag any potential contradictions or outdated information\n"
+                    "7. Suggest any preferences or facts that should be updated"
                 ),
             )
         ]

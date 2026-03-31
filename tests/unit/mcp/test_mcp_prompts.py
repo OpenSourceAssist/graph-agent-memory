@@ -1,202 +1,139 @@
-"""Unit tests for FastMCP prompt registration and execution.
+"""Unit tests for MCP prompt registration and execution.
 
-Tests the _prompts.py module that provides guided workflows via MCP prompts.
+Tests the _prompts.py module with profile-aware prompt registration.
 Uses FastMCP's Client for in-memory testing.
 """
 
 import pytest
-from fastmcp import Client, FastMCP
+from fastmcp import Client
 
-
-def _create_server():
-    """Create a FastMCP server with prompts registered."""
-    mcp = FastMCP("test-prompts")
-
-    from neo4j_agent_memory.mcp._prompts import register_prompts
-
-    register_prompts(mcp)
-    return mcp
+from tests.unit.mcp.conftest import create_prompt_server
 
 
 class TestPromptRegistration:
-    """Tests that all 3 prompts register correctly on a FastMCP server."""
-
-    @pytest.fixture
-    def server(self):
-        return _create_server()
+    """Tests that prompts register correctly with profiles."""
 
     @pytest.mark.asyncio
-    async def test_registers_3_prompts(self, server):
-        """All 3 memory prompts should be registered."""
+    async def test_core_profile_registers_1_prompt(self):
+        server = create_prompt_server(profile="core")
+        async with Client(server) as client:
+            prompts = await client.list_prompts()
+            assert len(prompts) == 1
+
+    @pytest.mark.asyncio
+    async def test_core_prompt_is_memory_conversation(self):
+        server = create_prompt_server(profile="core")
+        async with Client(server) as client:
+            prompts = await client.list_prompts()
+            names = {p.name for p in prompts}
+            assert "memory-conversation" in names
+
+    @pytest.mark.asyncio
+    async def test_extended_profile_registers_3_prompts(self):
+        server = create_prompt_server(profile="extended")
         async with Client(server) as client:
             prompts = await client.list_prompts()
             assert len(prompts) == 3
 
     @pytest.mark.asyncio
-    async def test_prompt_names(self, server):
-        """Prompts should have the expected names."""
+    async def test_extended_prompt_names(self):
+        server = create_prompt_server(profile="extended")
         async with Client(server) as client:
             prompts = await client.list_prompts()
             names = {p.name for p in prompts}
-            assert names == {
-                "memory_search_guide",
-                "entity_analysis",
-                "conversation_summary",
-            }
+            assert names == {"memory-conversation", "memory-reasoning", "memory-review"}
 
     @pytest.mark.asyncio
-    async def test_prompts_have_descriptions(self, server):
-        """Every prompt should have a non-empty description."""
+    async def test_prompts_have_descriptions(self):
+        server = create_prompt_server(profile="extended")
         async with Client(server) as client:
             prompts = await client.list_prompts()
             for prompt in prompts:
                 assert prompt.description, f"Prompt {prompt.name} has no description"
 
 
-class TestMemorySearchGuidePrompt:
-    """Tests for the memory_search_guide prompt."""
+class TestMemoryConversationPrompt:
+    """Tests for the memory-conversation prompt."""
 
     @pytest.mark.asyncio
     async def test_returns_messages(self):
-        """memory_search_guide returns prompt messages."""
-        server = _create_server()
+        server = create_prompt_server(profile="core")
         async with Client(server) as client:
             result = await client.get_prompt(
-                "memory_search_guide",
-                arguments={"topic": "project deadlines"},
+                "memory-conversation",
+                arguments={"session_id": "test-123"},
             )
-
-        assert len(result.messages) >= 1
-        assert result.messages[0].role == "user"
-
-    @pytest.mark.asyncio
-    async def test_includes_topic_in_content(self):
-        """memory_search_guide includes the topic in message content."""
-        server = _create_server()
-        async with Client(server) as client:
-            result = await client.get_prompt(
-                "memory_search_guide",
-                arguments={"topic": "project deadlines"},
-            )
-
-        content = result.messages[0].content.text
-        assert "project deadlines" in content
-
-    @pytest.mark.asyncio
-    async def test_includes_memory_types(self):
-        """memory_search_guide includes specified memory types."""
-        server = _create_server()
-        async with Client(server) as client:
-            result = await client.get_prompt(
-                "memory_search_guide",
-                arguments={
-                    "topic": "test",
-                    "memory_types": "messages,entities",
-                },
-            )
-
-        content = result.messages[0].content.text
-        assert "messages" in content
-        assert "entities" in content
-
-    @pytest.mark.asyncio
-    async def test_includes_search_suggestions(self):
-        """memory_search_guide includes suggestions for improving search."""
-        server = _create_server()
-        async with Client(server) as client:
-            result = await client.get_prompt(
-                "memory_search_guide",
-                arguments={"topic": "test"},
-            )
-
-        content = result.messages[0].content.text
-        assert "memory_search" in content
-        assert "threshold" in content
-
-
-class TestEntityAnalysisPrompt:
-    """Tests for the entity_analysis prompt."""
-
-    @pytest.mark.asyncio
-    async def test_returns_messages(self):
-        """entity_analysis returns prompt messages."""
-        server = _create_server()
-        async with Client(server) as client:
-            result = await client.get_prompt(
-                "entity_analysis",
-                arguments={"entity_name": "Alice"},
-            )
-
-        assert len(result.messages) >= 1
-        assert result.messages[0].role == "user"
-
-    @pytest.mark.asyncio
-    async def test_includes_entity_name(self):
-        """entity_analysis includes the entity name in content."""
-        server = _create_server()
-        async with Client(server) as client:
-            result = await client.get_prompt(
-                "entity_analysis",
-                arguments={"entity_name": "Alice"},
-            )
-
-        content = result.messages[0].content.text
-        assert "Alice" in content
-
-    @pytest.mark.asyncio
-    async def test_includes_analysis_steps(self):
-        """entity_analysis includes structured analysis steps."""
-        server = _create_server()
-        async with Client(server) as client:
-            result = await client.get_prompt(
-                "entity_analysis",
-                arguments={"entity_name": "Alice"},
-            )
-
-        content = result.messages[0].content.text
-        assert "entity_lookup" in content
-        assert "relationship" in content.lower()
-
-
-class TestConversationSummaryPrompt:
-    """Tests for the conversation_summary prompt."""
-
-    @pytest.mark.asyncio
-    async def test_returns_messages(self):
-        """conversation_summary returns prompt messages."""
-        server = _create_server()
-        async with Client(server) as client:
-            result = await client.get_prompt(
-                "conversation_summary",
-                arguments={"session_id": "session-123"},
-            )
-
         assert len(result.messages) >= 1
         assert result.messages[0].role == "user"
 
     @pytest.mark.asyncio
     async def test_includes_session_id(self):
-        """conversation_summary includes the session ID in content."""
-        server = _create_server()
+        server = create_prompt_server(profile="core")
         async with Client(server) as client:
             result = await client.get_prompt(
-                "conversation_summary",
-                arguments={"session_id": "session-123"},
+                "memory-conversation",
+                arguments={"session_id": "test-123"},
             )
-
         content = result.messages[0].content.text
-        assert "session-123" in content
+        assert "test-123" in content
 
     @pytest.mark.asyncio
-    async def test_includes_summary_steps(self):
-        """conversation_summary includes structured summary steps."""
-        server = _create_server()
+    async def test_references_memory_tools(self):
+        server = create_prompt_server(profile="core")
         async with Client(server) as client:
             result = await client.get_prompt(
-                "conversation_summary",
-                arguments={"session_id": "session-123"},
+                "memory-conversation",
+                arguments={"session_id": "s1"},
             )
-
         content = result.messages[0].content.text
-        assert "conversation_history" in content
-        assert "action items" in content.lower()
+        assert "memory_get_context" in content
+        assert "memory_store_message" in content
+
+
+class TestMemoryReasoningPrompt:
+    """Tests for the memory-reasoning prompt."""
+
+    @pytest.mark.asyncio
+    async def test_returns_messages(self):
+        server = create_prompt_server(profile="extended")
+        async with Client(server) as client:
+            result = await client.get_prompt(
+                "memory-reasoning",
+                arguments={"task": "Find restaurants"},
+            )
+        assert len(result.messages) >= 1
+        content = result.messages[0].content.text
+        assert "Find restaurants" in content
+
+    @pytest.mark.asyncio
+    async def test_references_trace_tools(self):
+        server = create_prompt_server(profile="extended")
+        async with Client(server) as client:
+            result = await client.get_prompt(
+                "memory-reasoning",
+                arguments={"task": "test"},
+            )
+        content = result.messages[0].content.text
+        assert "memory_start_trace" in content
+        assert "memory_record_step" in content
+        assert "memory_complete_trace" in content
+
+
+class TestMemoryReviewPrompt:
+    """Tests for the memory-review prompt."""
+
+    @pytest.mark.asyncio
+    async def test_returns_messages(self):
+        server = create_prompt_server(profile="extended")
+        async with Client(server) as client:
+            result = await client.get_prompt("memory-review", arguments={})
+        assert len(result.messages) >= 1
+
+    @pytest.mark.asyncio
+    async def test_references_search_tools(self):
+        server = create_prompt_server(profile="extended")
+        async with Client(server) as client:
+            result = await client.get_prompt("memory-review", arguments={})
+        content = result.messages[0].content.text
+        assert "memory_search" in content
+        assert "memory_list_sessions" in content

@@ -95,11 +95,17 @@ src/neo4j_agent_memory/
 │   ├── openai.py            # OpenAI embeddings
 │   ├── vertex_ai.py         # Vertex AI embeddings (Google Cloud)
 │   └── bedrock.py           # Amazon Bedrock embeddings (AWS)
+├── integration.py             # MemoryIntegration convenience layer
 ├── mcp/
 │   ├── __init__.py          # MCP package exports
-│   ├── server.py            # MCP server (stdio/SSE transports)
-│   ├── tools.py             # 6 MCP tool definitions
-│   └── handlers.py          # Tool execution handlers
+│   ├── server.py            # MCP server (stdio/SSE/HTTP transports)
+│   ├── _tools.py            # 16 MCP tools (core + extended profiles)
+│   ├── _resources.py        # 4 MCP resources (context, entities, preferences, stats)
+│   ├── _prompts.py          # 3 MCP prompts (conversation, reasoning, review)
+│   ├── _instructions.py     # Server instructions for LLM guidance
+│   ├── _common.py           # Shared context helpers (get_client, get_integration, get_observer)
+│   ├── _preference_detector.py  # Pattern-based preference detection
+│   └── _observer.py         # Observational memory (context compression)
 ├── services/
 │   ├── __init__.py          # Service exports
 │   └── geocoder.py          # Geocoding services (Nominatim, Google, cached)
@@ -144,12 +150,15 @@ benchmarks/                   # Extraction quality benchmarks (separate module)
 ### Key Classes
 
 - **`MemoryClient`**: Main entry point, manages connections and provides access to all memory types
+- **`MemoryIntegration`**: High-level convenience wrapper with session strategies, auto-extraction, and preference detection. Used by both MCP server and create-context-graph.
 - **`ShortTermMemory`**: Handles conversations and messages
 - **`LongTermMemory`**: Handles entities (POLE+O), preferences, and facts
 - **`ReasoningMemory`**: Handles reasoning traces and tool calls
 - **`Neo4jClient`**: Async wrapper around neo4j Python driver
 - **`ExtractionPipeline`**: Multi-stage entity extraction (spaCy → GLiNER → LLM)
 - **`CompositeResolver`**: Type-aware entity resolution
+- **`MemoryObserver`**: Observational memory - tracks context per session and generates reflections when token thresholds are exceeded
+- **`PreferenceDetector`**: Pattern-based preference detection from user messages
 
 ### Neo4j Schema
 
@@ -309,10 +318,12 @@ The diagram management script is at `scripts/manage_diagrams.py`. Excalidraw fil
 
 ## CLI (Command Line Interface)
 
-The package provides a CLI for entity extraction and schema management. Install with CLI extras:
+The package provides a CLI for entity extraction, schema management, and MCP server. Install with CLI extras:
 
 ```bash
 uv pip install neo4j-agent-memory[cli]
+# For MCP server support:
+uv pip install neo4j-agent-memory[cli,mcp]
 ```
 
 ### Commands
@@ -347,13 +358,19 @@ neo4j-memory schemas validate schema.yaml
 
 # Statistics
 neo4j-memory stats --password $NEO4J_PASSWORD --format json
+
+# MCP server (requires mcp extra)
+neo4j-memory mcp serve --password $NEO4J_PASSWORD
+neo4j-memory mcp serve --profile core --transport sse --port 8080
+neo4j-memory mcp serve --session-strategy per_day --user-id alice
 ```
 
 ### Environment Variables
 
 - `NEO4J_URI` - Neo4j connection URI (default: bolt://localhost:7687)
 - `NEO4J_USER` - Neo4j username (default: neo4j)
-- `NEO4J_PASSWORD` - Neo4j password (required for schemas/stats commands)
+- `NEO4J_PASSWORD` - Neo4j password (required for schemas/stats/mcp commands)
+- `MCP_USER_ID` - User ID for per_day/persistent session strategies (MCP server)
 
 ## Observability
 
@@ -1433,28 +1450,60 @@ async with MemoryClient(settings) as client:
 
 #### MCP Server
 
-The MCP server exposes 6 tools for memory operations:
+The MCP server exposes tools organized into two profiles:
+
+**Core Profile (6 tools):**
 
 | Tool | Description |
 |------|-------------|
 | `memory_search` | Hybrid vector + graph search across all memory types |
-| `memory_store` | Store messages, facts, and preferences |
-| `entity_lookup` | Get entity with relationships and context |
-| `conversation_history` | Retrieve session conversation history |
-| `graph_query` | Execute read-only Cypher queries |
-| `add_reasoning_trace` | Record agent reasoning traces |
+| `memory_get_context` | Assembled context for a session (conversation + entities + preferences) |
+| `memory_store_message` | Store message with auto entity extraction and preference detection |
+| `memory_add_entity` | Create/update entity with POLE+O typing and resolution |
+| `memory_add_preference` | Record user preference with category |
+| `memory_add_fact` | Store subject-predicate-object triple |
+
+**Extended Profile (16 tools, default) adds:**
+
+| Tool | Description |
+|------|-------------|
+| `memory_get_conversation` | Full conversation history for a session |
+| `memory_list_sessions` | List sessions with message counts and previews |
+| `memory_get_entity` | Entity details with graph relationship traversal |
+| `memory_export_graph` | Subgraph export as JSON for visualization |
+| `memory_create_relationship` | Typed relationship between entities |
+| `memory_start_trace` | Begin reasoning trace recording |
+| `memory_record_step` | Record reasoning step with optional tool call |
+| `memory_complete_trace` | Complete trace with outcome |
+| `memory_get_observations` | Session observations from observational memory |
+| `graph_query` | Read-only Cypher queries |
+
+**Server Instructions:** Sent during MCP initialization to guide the LLM on memory tool usage (defined in `_instructions.py`).
+
+**Resources:** `memory://context/{session_id}` (core), `memory://entities`, `memory://preferences`, `memory://graph/stats` (extended).
+
+**Prompts:** `memory-conversation` (core), `memory-reasoning`, `memory-review` (extended).
 
 **Starting the Server:**
 
 ```bash
-# stdio transport (for local MCP clients like Claude Desktop)
-neo4j-memory mcp serve
+# stdio transport (for Claude Desktop)
+neo4j-memory mcp serve --password secret
 
 # SSE transport (for Cloud Run/HTTP deployment)
-neo4j-memory mcp serve --transport sse --port 8080
+neo4j-memory mcp serve --transport sse --port 8080 --password secret
 
-# With custom Neo4j connection
-neo4j-memory mcp serve --neo4j-uri bolt://localhost:7687 --neo4j-password secret
+# Core profile (fewer tools, less context overhead)
+neo4j-memory mcp serve --profile core --password secret
+
+# With session strategy and auto-preference detection
+neo4j-memory mcp serve --session-strategy per_day --user-id alice --password secret
+
+# Disable automatic preference detection
+neo4j-memory mcp serve --no-auto-preferences --password secret
+
+# Custom observation threshold (default: 30000 tokens)
+neo4j-memory mcp serve --observation-threshold 50000 --password secret
 ```
 
 **Claude Desktop Configuration:**
@@ -1462,12 +1511,12 @@ neo4j-memory mcp serve --neo4j-uri bolt://localhost:7687 --neo4j-password secret
 ```json
 {
   "mcpServers": {
-    "neo4j-memory": {
+    "neo4j-agent-memory": {
       "command": "neo4j-memory",
-      "args": ["mcp", "serve"],
+      "args": ["mcp", "serve", "--password", "your-password"],
       "env": {
         "NEO4J_URI": "bolt://localhost:7687",
-        "NEO4J_PASSWORD": "your-password"
+        "OPENAI_API_KEY": "sk-..."
       }
     }
   }
@@ -1478,17 +1527,46 @@ neo4j-memory mcp serve --neo4j-uri bolt://localhost:7687 --neo4j-password secret
 
 ```python
 from neo4j_agent_memory import MemoryClient, MemorySettings
-from neo4j_agent_memory.mcp.server import Neo4jMemoryMCPServer
+from neo4j_agent_memory.mcp.server import create_mcp_server, Neo4jMemoryMCPServer
 
+# Recommended: factory function with settings
+settings = MemorySettings(...)
+server = create_mcp_server(settings, profile="extended")
+await server.run_async(transport="stdio")
+
+# Backward-compatible: pre-connected client
 async with MemoryClient(settings) as client:
-    server = Neo4jMemoryMCPServer(client)
-    
-    # stdio transport
+    server = Neo4jMemoryMCPServer(client, profile="extended")
     await server.run()
-    
-    # Or SSE for HTTP
-    await server.run_sse(host="0.0.0.0", port=8080)
 ```
+
+**MemoryIntegration Layer:**
+
+The `MemoryIntegration` class provides a high-level interface shared by MCP tools and create-context-graph:
+
+```python
+from neo4j_agent_memory import MemoryIntegration, SessionStrategy
+
+async with MemoryIntegration(
+    neo4j_uri="bolt://localhost:7687",
+    neo4j_password="password",
+    session_strategy=SessionStrategy.PER_DAY,
+    user_id="alice",
+    auto_extract=True,       # entity extraction on store
+    auto_preferences=True,   # preference detection on store
+) as memory:
+    await memory.store_message("user", "I love Italian food")
+    context = await memory.get_context()
+    results = await memory.search("food preferences")
+    await memory.add_entity("Bella Italia", "ORGANIZATION", subtype="RESTAURANT")
+```
+
+Session strategies:
+- `PER_CONVERSATION` (default): New UUID per MemoryIntegration instance
+- `PER_DAY`: `"{user_id}-YYYY-MM-DD"` for daily continuity
+- `PERSISTENT`: Fixed `user_id` for maximum continuity
+
+**Desktop Extension:** The `deploy/mcpb/` directory contains a `.mcpb` manifest for Claude Desktop's extension directory.
 
 #### Cloud Run Deployment
 
@@ -1695,6 +1773,18 @@ agent = ChatAgent(
         props = {}
     ```
 
+28. **MCP Tool Profiles**: The MCP server supports two profiles: `core` (6 tools) and `extended` (16 tools, default). Tools are registered via `register_tools(mcp, profile="extended")` which calls `_register_core_tools()` and optionally `_register_extended_tools()`. Resources and prompts follow the same pattern. The profile is set at server startup via `--profile` CLI flag or `profile` parameter on `create_mcp_server()`.
+
+29. **MCP Server Instructions**: Server instructions are sent during MCP initialization via FastMCP's `instructions` parameter. They guide the LLM to call `memory_get_context` at conversation start, `memory_store_message` for important messages, and `memory_search` when asked about past interactions. Instructions vary by profile (core vs extended).
+
+30. **MemoryIntegration Session Strategies**: The `MemoryIntegration` class resolves session IDs via three strategies: `per_conversation` (new UUID per instance), `per_day` (`"{user_id}-YYYY-MM-DD"`), `persistent` (fixed user_id). The strategy is configured at construction time and applied transparently in all operations. The `resolve_session_id(hint)` method always returns the hint if provided, falling back to the strategy.
+
+31. **Automatic Preference Detection**: When `auto_preferences=True` on `MemoryIntegration`, `store_message()` fires a background `asyncio.create_task()` that runs `PreferenceDetector.detect()` on user messages. Detected preferences are stored via `client.long_term.add_preference()`. The detector uses regex patterns (not LLM calls) for zero-latency, zero-cost detection. It favors precision over recall.
+
+32. **Observational Memory**: The `MemoryObserver` tracks accumulated context per session (character count, message count) and extracts inline observations (decisions, facts) from user messages. When the token count exceeds `threshold_tokens` (default 30000), it generates keyword-based reflections from older messages. The observer is created in the MCP server lifespan and wired to `MemoryIntegration` via the `observer` property. The `memory_get_observations` tool returns the three-tier hierarchy: reflections, observations, and session stats.
+
+33. **MCP Tool Annotations**: All MCP tools include FastMCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`). Read tools are marked `readOnlyHint=True, idempotentHint=True`. Write tools are marked `readOnlyHint=False, idempotentHint=False`. No tools are marked destructive.
+
 ## Environment Variables
 
 - `NEO4J_URI` - Neo4j connection URI (default: `bolt://localhost:7687`)
@@ -1709,6 +1799,7 @@ agent = ChatAgent(
 - `DIFFBOT_API_KEY` - API key for Diffbot Knowledge Graph enrichment (optional)
 - `NAM_ENRICHMENT__ENABLED` - Enable background entity enrichment (default: `false`)
 - `NAM_ENRICHMENT__PROVIDERS` - JSON array of enrichment providers (default: `["wikimedia"]`)
+- `MCP_USER_ID` - User ID for per_day/persistent MCP session strategies (optional)
 - `RUN_INTEGRATION_TESTS` - Set to `1` to enable integration tests
 - `AUTO_START_DOCKER` - Set to `true` to auto-start Neo4j Docker (default)
 

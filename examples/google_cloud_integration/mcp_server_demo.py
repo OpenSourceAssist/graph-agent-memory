@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """MCP Server Demo.
 
-Demonstrates the Neo4j Agent Memory MCP server and its 6 tools.
+Demonstrates the Neo4j Agent Memory MCP server with 16 tools
+organized into core (6) and extended (16) profiles.
 
 Features demonstrated:
 - Starting the MCP server programmatically
-- Available tools and their schemas
+- Core and extended tool profiles
 - Tool invocation examples
 - Both stdio and SSE transport modes
+- Session strategies and server instructions
 
 Requirements:
     pip install neo4j-agent-memory[mcp]
@@ -27,35 +29,30 @@ async def demo_server_tools():
 
     from neo4j_agent_memory.mcp.server import create_mcp_server
 
-    server = create_mcp_server()  # No settings → testing mode
-
     print("=" * 60)
-    print("MCP Server - Available Tools")
+    print("MCP Server - Tool Profiles")
     print("=" * 60)
     print()
 
-    print("The Neo4j Memory MCP server exposes 6 tools:")
-    print()
-
-    async with Client(server) as client:
+    # Show core profile
+    print("Core Profile (6 tools):")
+    print("-" * 40)
+    core_server = create_mcp_server(profile="core")  # No settings → testing mode
+    async with Client(core_server) as client:
         tools = await client.list_tools()
         for i, tool in enumerate(tools, 1):
-            print(f"{i}. {tool.name}")
-            print(f"   Description: {tool.description[:70]}...")
-            print()
+            print(f"  {i}. {tool.name} - {tool.description[:60]}...")
+    print()
 
-            # Show input schema
-            schema = tool.inputSchema
-            required = schema.get("required", [])
-            properties = schema.get("properties", {})
-
-            print("   Parameters:")
-            for prop_name, prop_def in properties.items():
-                req_marker = "*" if prop_name in required else " "
-                prop_type = prop_def.get("type", "any")
-                prop_desc = prop_def.get("description", "")[:40]
-                print(f"     {req_marker} {prop_name}: {prop_type} - {prop_desc}...")
-            print()
+    # Show extended profile
+    print("Extended Profile (16 tools, default):")
+    print("-" * 40)
+    extended_server = create_mcp_server(profile="extended")
+    async with Client(extended_server) as client:
+        tools = await client.list_tools()
+        for i, tool in enumerate(tools, 1):
+            print(f"  {i:2d}. {tool.name}")
+    print()
 
 
 async def demo_tool_usage():
@@ -77,20 +74,20 @@ async def demo_tool_usage():
         )
     )
 
-    server = create_mcp_server(settings)
+    server = create_mcp_server(settings, profile="extended")
 
     from fastmcp import Client
 
     async with Client(server) as client:
-        # 1. memory_store - Store a message
-        print("1. memory_store - Storing a message")
+        session_id = f"mcp-demo-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+        # 1. memory_store_message - Store a message
+        print("1. memory_store_message - Storing a message")
         print("-" * 40)
 
-        session_id = f"mcp-demo-{datetime.now().strftime('%Y%m%d%H%M%S')}"
         result = await client.call_tool(
-            "memory_store",
+            "memory_store_message",
             {
-                "memory_type": "message",
                 "content": "I'm working on the Q1 report with the finance team.",
                 "session_id": session_id,
                 "role": "user",
@@ -102,17 +99,29 @@ async def demo_tool_usage():
 
         # Store another for search
         await client.call_tool(
-            "memory_store",
+            "memory_store_message",
             {
-                "memory_type": "message",
                 "content": "The deadline for the Q1 report is next Friday.",
                 "session_id": session_id,
                 "role": "assistant",
             },
         )
 
-        # 2. memory_search - Search memories
-        print("2. memory_search - Searching memories")
+        # 2. memory_get_context - Get assembled context
+        print("2. memory_get_context - Getting session context")
+        print("-" * 40)
+
+        result = await client.call_tool(
+            "memory_get_context",
+            {"session_id": session_id},
+        )
+        data = json.loads(result.content[0].text)
+        print(f"   Session: {data.get('session_id')}")
+        print(f"   Has context: {data.get('has_context')}")
+        print()
+
+        # 3. memory_search - Search memories
+        print("3. memory_search - Searching memories")
         print("-" * 40)
 
         result = await client.call_tool(
@@ -126,28 +135,27 @@ async def demo_tool_usage():
         print(f"   Results: {total} found")
         print()
 
-        # 3. memory_store - Store a preference
-        print("3. memory_store - Storing a preference")
+        # 4. memory_add_preference - Store a preference
+        print("4. memory_add_preference - Storing a preference")
         print("-" * 40)
 
         result = await client.call_tool(
-            "memory_store",
+            "memory_add_preference",
             {
-                "memory_type": "preference",
-                "content": "Prefers detailed weekly status reports",
                 "category": "communication",
+                "preference": "Prefers detailed weekly status reports",
             },
         )
         data = json.loads(result.content[0].text)
         print(f"   Stored preference ID: {data.get('id', 'N/A')}")
         print()
 
-        # 4. conversation_history - Get session history
-        print("4. conversation_history - Getting session history")
+        # 5. memory_get_conversation - Get session history
+        print("5. memory_get_conversation - Getting session history")
         print("-" * 40)
 
         result = await client.call_tool(
-            "conversation_history",
+            "memory_get_conversation",
             {"session_id": session_id, "limit": 10},
         )
         data = json.loads(result.content[0].text)
@@ -155,8 +163,8 @@ async def demo_tool_usage():
         print(f"   Messages: {data.get('message_count', 0)}")
         print()
 
-        # 5. graph_query - Execute Cypher query
-        print("5. graph_query - Executing Cypher query")
+        # 6. graph_query - Execute Cypher query
+        print("6. graph_query - Executing Cypher query")
         print("-" * 40)
 
         result = await client.call_tool(
@@ -168,7 +176,6 @@ async def demo_tool_usage():
         print(f"   Result: {data.get('rows', [])}")
         print()
 
-        # Show read-only validation
         print("   Note: graph_query only allows read-only queries.")
         print("   Write operations (CREATE, MERGE, DELETE) are blocked.")
         print()
@@ -184,38 +191,34 @@ async def demo_server_startup():
     print("Option 1: Using the CLI (recommended)")
     print("-" * 40)
     print("""
-# Start with stdio transport (for local MCP clients)
-neo4j-memory mcp serve
+# Start with stdio transport (for Claude Desktop)
+neo4j-memory mcp serve --password secret
 
 # Start with SSE transport (for Cloud Run/HTTP)
-neo4j-memory mcp serve --transport sse --port 8080
+neo4j-memory mcp serve --transport sse --port 8080 --password secret
 
-# With custom Neo4j connection
-neo4j-memory mcp serve \\
-  --neo4j-uri bolt://localhost:7687 \\
-  --neo4j-user neo4j \\
-  --neo4j-password secret
+# Core profile (fewer tools, less context overhead)
+neo4j-memory mcp serve --profile core --password secret
+
+# With session strategy
+neo4j-memory mcp serve --session-strategy per_day --user-id alice --password secret
 """)
 
     print("Option 2: Programmatically")
     print("-" * 40)
     print("""
 import asyncio
-from neo4j_agent_memory import MemoryClient, MemorySettings
-from neo4j_agent_memory.mcp.server import Neo4jMemoryMCPServer
+from neo4j_agent_memory import MemorySettings
+from neo4j_agent_memory.mcp.server import create_mcp_server
 
-async def main():
-    settings = MemorySettings(...)
-    async with MemoryClient(settings) as client:
-        server = Neo4jMemoryMCPServer(client)
+settings = MemorySettings(...)
+server = create_mcp_server(settings, profile="extended")
 
-        # stdio transport
-        await server.run()
+# stdio transport
+await server.run_async(transport="stdio")
 
-        # Or SSE transport for HTTP
-        await server.run_sse(host="0.0.0.0", port=8080)
-
-asyncio.run(main())
+# Or SSE transport for HTTP
+await server.run_async(transport="sse", host="0.0.0.0", port=8080)
 """)
 
     print("Option 3: Claude Desktop Configuration")
@@ -225,12 +228,11 @@ Add to ~/Library/Application Support/Claude/claude_desktop_config.json:
 
 {
   "mcpServers": {
-    "neo4j-memory": {
+    "neo4j-agent-memory": {
       "command": "neo4j-memory",
-      "args": ["mcp", "serve"],
+      "args": ["mcp", "serve", "--password", "your-password"],
       "env": {
-        "NEO4J_URI": "bolt://localhost:7687",
-        "NEO4J_PASSWORD": "your-password"
+        "OPENAI_API_KEY": "sk-..."
       }
     }
   }
@@ -244,14 +246,11 @@ async def demo_tool_schemas():
 
     from neo4j_agent_memory.mcp.server import create_mcp_server
 
-    server = create_mcp_server()
+    server = create_mcp_server(profile="extended")
 
     print("=" * 60)
-    print("MCP Server - Tool JSON Schemas")
+    print("MCP Server - Tool JSON Schemas (Extended Profile)")
     print("=" * 60)
-    print()
-
-    print("Full JSON schemas for each tool (for MCP client integration):")
     print()
 
     async with Client(server) as client:
@@ -296,7 +295,7 @@ async def main():
     print("Demo complete!")
     print("=" * 60 + "\n")
     print("To start the server, run:")
-    print("  neo4j-memory mcp serve")
+    print("  neo4j-memory mcp serve --password <your-password>")
     print()
 
 

@@ -55,6 +55,24 @@ class TestCreateMCPServer:
         async def _check():
             async with Client(server) as client:
                 tools = await client.list_tools()
+                # Extended profile (default) registers 16 tools
+                assert len(tools) == 16
+
+        asyncio.run(_check())
+
+    def test_create_mcp_server_core_profile(self):
+        """Test that core profile registers 6 tools."""
+        import asyncio
+
+        from fastmcp import Client
+
+        from neo4j_agent_memory.mcp.server import create_mcp_server
+
+        server = create_mcp_server(profile="core")
+
+        async def _check():
+            async with Client(server) as client:
+                tools = await client.list_tools()
                 assert len(tools) == 6
 
         asyncio.run(_check())

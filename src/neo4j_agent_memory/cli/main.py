@@ -677,6 +677,153 @@ def stats(format: str, uri: str, user: str, password: str | None):
             console.print(table)
 
 
+@cli.group()
+def mcp():
+    """MCP (Model Context Protocol) server commands.
+
+    Start an MCP server that exposes memory tools, resources, and prompts
+    for Claude Desktop, Claude Code, Cursor, and other MCP-compatible hosts.
+    """
+    pass
+
+
+@mcp.command("serve")
+@click.option(
+    "--uri",
+    envvar="NEO4J_URI",
+    default="bolt://localhost:7687",
+    help="Neo4j connection URI.",
+)
+@click.option(
+    "--user",
+    envvar="NEO4J_USER",
+    default="neo4j",
+    help="Neo4j username.",
+)
+@click.option(
+    "--password",
+    envvar="NEO4J_PASSWORD",
+    help="Neo4j password (or NEO4J_PASSWORD env var).",
+)
+@click.option(
+    "--database",
+    envvar="NEO4J_DATABASE",
+    default="neo4j",
+    help="Neo4j database name.",
+)
+@click.option(
+    "--transport",
+    type=click.Choice(["stdio", "sse", "http"]),
+    default="stdio",
+    help="MCP transport type (default: stdio).",
+)
+@click.option(
+    "--host",
+    default="127.0.0.1",
+    help="Host for network transports.",
+)
+@click.option(
+    "--port",
+    type=int,
+    default=8080,
+    help="Port for network transports.",
+)
+@click.option(
+    "--profile",
+    type=click.Choice(["core", "extended"]),
+    default="extended",
+    help="Tool profile: core (6 tools) or extended (16 tools).",
+)
+@click.option(
+    "--session-strategy",
+    type=click.Choice(["per_conversation", "per_day", "persistent"]),
+    default="per_conversation",
+    help="Session identity strategy.",
+)
+@click.option(
+    "--user-id",
+    envvar="MCP_USER_ID",
+    default=None,
+    help="User ID for per_day/persistent session strategies.",
+)
+@click.option(
+    "--observation-threshold",
+    type=int,
+    default=30000,
+    help="Token threshold for observational memory compression.",
+)
+@click.option(
+    "--no-auto-preferences",
+    is_flag=True,
+    default=False,
+    help="Disable automatic preference detection.",
+)
+def mcp_serve(
+    uri: str,
+    user: str,
+    password: str | None,
+    database: str,
+    transport: str,
+    host: str,
+    port: int,
+    profile: str,
+    session_strategy: str,
+    user_id: str | None,
+    observation_threshold: int,
+    no_auto_preferences: bool,
+):
+    """Start the MCP server for Claude Desktop and other MCP hosts.
+
+    The server exposes memory tools, resources, and prompts via the
+    Model Context Protocol. Use stdio transport for Claude Desktop
+    or SSE/HTTP for network deployments.
+
+    \b
+    Examples:
+        # Start with stdio transport (for Claude Desktop)
+        neo4j-memory mcp serve --password mypassword
+
+    \b
+        # Start with SSE transport on port 8080
+        neo4j-memory mcp serve --transport sse --port 8080
+
+    \b
+        # Start with core profile (fewer tools, less context overhead)
+        neo4j-memory mcp serve --profile core
+    """
+    if not password:
+        error_console.print(
+            "[red]Error:[/red] Neo4j password required. Set NEO4J_PASSWORD or use --password."
+        )
+        sys.exit(1)
+
+    try:
+        from neo4j_agent_memory.mcp.server import run_server
+    except ImportError:
+        error_console.print(
+            "[red]Error:[/red] MCP dependencies not installed. "
+            "Install with: pip install neo4j-agent-memory[mcp]"
+        )
+        sys.exit(1)
+
+    asyncio.run(
+        run_server(
+            neo4j_uri=uri,
+            neo4j_user=user,
+            neo4j_password=password,
+            neo4j_database=database,
+            transport=transport,
+            host=host,
+            port=port,
+            profile=profile,
+            session_strategy=session_strategy,
+            user_id=user_id,
+            observation_threshold=observation_threshold,
+            auto_preferences=not no_auto_preferences,
+        )
+    )
+
+
 def main():
     """Entry point for the CLI."""
     cli()

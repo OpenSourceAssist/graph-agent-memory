@@ -1,0 +1,480 @@
+= MCP Tools Reference
+:page-product: agent-memory
+:page-pagination:
+:toc: left
+:toclevels: 2
+
+Complete reference for the neo4j-agent-memory MCP server tools, resources, and prompts.
+
+== Overview
+
+The MCP server exposes memory capabilities via the Model Context Protocol for Claude Desktop, Claude Code, Cursor, and other MCP-compatible hosts.
+
+Tools are organized into two profiles:
+
+* **Core** (6 tools): Essential read/write cycle for memory operations
+* **Extended** (16 tools): Full surface including reasoning traces, entity management, graph export, and Cypher queries
+
+Start the server with a specific profile:
+
+[source,bash]
+----
+neo4j-memory mcp serve --profile core      # 6 tools
+neo4j-memory mcp serve --profile extended   # 16 tools (default)
+----
+
+== Core Profile Tools
+
+=== memory_search
+
+Hybrid vector + graph search across all memory types.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `query` (required)
+| Natural language search query.
+
+| `limit`
+| Maximum results per memory type (default: 10).
+
+| `memory_types`
+| Types to search: `messages`, `entities`, `preferences`, `traces`. Defaults to messages, entities, preferences.
+
+| `session_id`
+| Filter message search to a specific session.
+
+| `threshold`
+| Similarity threshold 0.0-1.0 (default: 0.7).
+|===
+
+=== memory_get_context
+
+Assembled context from all memory types for the current session.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `session_id`
+| Session to get context for (uses current session if not set).
+
+| `query`
+| Optional search query to focus context retrieval.
+
+| `max_items`
+| Maximum items per memory type (default: 10).
+
+| `include_short_term`
+| Include conversation history (default: true).
+
+| `include_long_term`
+| Include entities and preferences (default: true).
+
+| `include_reasoning`
+| Include similar reasoning traces (default: true).
+|===
+
+=== memory_store_message
+
+Store a message with automatic entity extraction and preference detection.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `content` (required)
+| The message text content.
+
+| `role`
+| Message role: `user`, `assistant`, or `system` (default: `user`).
+
+| `session_id`
+| Session ID (uses current session if not set).
+
+| `metadata`
+| Optional metadata dict to attach.
+|===
+
+=== memory_add_entity
+
+Create or update an entity in the knowledge graph with POLE+O typing.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `name` (required)
+| Entity name (e.g., "John Smith", "Acme Corp").
+
+| `entity_type` (required)
+| POLE+O type: `PERSON`, `OBJECT`, `LOCATION`, `EVENT`, `ORGANIZATION`.
+
+| `subtype`
+| Optional subtype (e.g., `VEHICLE`, `COMPANY`, `ADDRESS`).
+
+| `description`
+| Entity description.
+
+| `aliases`
+| Alternative names for the entity.
+
+| `metadata`
+| Additional metadata.
+|===
+
+=== memory_add_preference
+
+Record a user preference for personalization.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `category` (required)
+| Preference category (e.g., `food`, `music`, `communication_style`).
+
+| `preference` (required)
+| The preference text (e.g., "Prefers dark mode").
+
+| `context`
+| Optional context about when/why the preference was expressed.
+
+| `confidence`
+| Confidence score 0.0-1.0 (default: 1.0).
+|===
+
+=== memory_add_fact
+
+Store a subject-predicate-object fact triple.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `subject` (required)
+| The subject of the fact.
+
+| `predicate` (required)
+| The relationship.
+
+| `object_value` (required)
+| The object/value.
+
+| `confidence`
+| Confidence score 0.0-1.0 (default: 1.0).
+
+| `valid_from`
+| ISO date for when this fact becomes valid.
+
+| `valid_until`
+| ISO date for when this fact expires.
+|===
+
+== Extended Profile Additional Tools
+
+=== memory_get_conversation
+
+Retrieve full conversation history for a session.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `session_id` (required)
+| The session ID to retrieve.
+
+| `limit`
+| Maximum messages to return (default: 50).
+
+| `include_metadata`
+| Include message metadata (default: true).
+|===
+
+=== memory_list_sessions
+
+List available conversation sessions with previews.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `limit`
+| Maximum sessions to return (default: 20).
+
+| `offset`
+| Offset for pagination (default: 0).
+|===
+
+=== memory_get_entity
+
+Get detailed entity information with graph relationships.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `name` (required)
+| Entity name to look up.
+
+| `entity_type`
+| Filter by POLE+O type (optional).
+
+| `include_neighbors`
+| Traverse graph for related entities (default: true).
+
+| `max_hops`
+| Relationship traversal depth, 1-3 (default: 1).
+|===
+
+=== memory_export_graph
+
+Export a subgraph as JSON for visualization or debugging.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `session_id`
+| Filter to a specific session (optional).
+
+| `memory_types`
+| Types to include: `short_term`, `long_term`, `reasoning`. Defaults to all.
+
+| `limit`
+| Maximum nodes per memory type (default: 500).
+|===
+
+=== memory_create_relationship
+
+Create a typed relationship between two entities.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `source_name` (required)
+| Name of the source entity.
+
+| `target_name` (required)
+| Name of the target entity.
+
+| `relationship_type` (required)
+| Relationship type in `UPPER_SNAKE_CASE` (e.g., `WORKS_AT`, `FOUNDED`).
+
+| `description`
+| Optional description of the relationship.
+
+| `confidence`
+| Confidence score 0.0-1.0 (default: 1.0).
+|===
+
+=== memory_start_trace
+
+Begin recording a reasoning trace for a complex task.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `session_id` (required)
+| Session ID for the trace.
+
+| `task` (required)
+| Description of the task being solved.
+
+| `metadata`
+| Optional metadata (e.g., model name).
+|===
+
+=== memory_record_step
+
+Record a reasoning step within a trace.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `trace_id` (required)
+| ID of the trace to add the step to.
+
+| `thought`
+| The reasoning for this step.
+
+| `action`
+| The action taken.
+
+| `observation`
+| The result or observation.
+
+| `tool_name`
+| Name of tool called in this step (optional).
+
+| `tool_args`
+| Arguments passed to the tool (optional).
+
+| `tool_result`
+| Result from the tool call (optional).
+|===
+
+=== memory_complete_trace
+
+Complete a reasoning trace with the final outcome.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `trace_id` (required)
+| ID of the trace to complete.
+
+| `outcome`
+| Final outcome or result description.
+
+| `success`
+| Whether the task completed successfully (default: true).
+|===
+
+=== memory_get_observations
+
+Get observations and extracted insights for a session.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `session_id` (required)
+| Session ID to get observations for.
+|===
+
+Returns the three-tier context hierarchy: reflections (session summaries), observations (facts, decisions), and session statistics.
+
+=== graph_query
+
+Execute a read-only Cypher query against the knowledge graph.
+
+[cols="1,3", options="header"]
+|===
+| Parameter | Description
+
+| `query` (required)
+| Cypher query string (read-only only).
+
+| `parameters`
+| Query parameters as key-value pairs.
+|===
+
+Write operations (`CREATE`, `MERGE`, `DELETE`, `SET`, `REMOVE`) are blocked for safety.
+
+== Resources
+
+[cols="1,1,3", options="header"]
+|===
+| URI | Profile | Description
+
+| `memory://context/\{session_id}`
+| Core
+| Assembled context for a session (conversation + entities + preferences).
+
+| `memory://entities`
+| Extended
+| Catalog of all entities with names, types, and descriptions.
+
+| `memory://preferences`
+| Extended
+| All stored user preferences.
+
+| `memory://graph/stats`
+| Extended
+| Knowledge graph node/relationship counts.
+|===
+
+== Prompts
+
+[cols="1,1,3", options="header"]
+|===
+| Name | Profile | Description
+
+| `memory-conversation`
+| Core
+| Initialize a memory-aware conversation. Loads context and guides memory tool usage.
+
+| `memory-reasoning`
+| Extended
+| Record a reasoning trace for a complex task with step-by-step guidance.
+
+| `memory-review`
+| Extended
+| Review stored knowledge and flag contradictions or outdated information.
+|===
+
+== Server Instructions
+
+The server sends behavioral instructions during MCP initialization that teach Claude:
+
+* To call `memory_get_context` at conversation start
+* To call `memory_store_message` for important user messages
+* To call `memory_search` when asked about past interactions
+* To use POLE+O entity types and `UPPER_SNAKE_CASE` relationship types
+* (Extended) To record reasoning traces for complex tasks
+
+== CLI Reference
+
+[source,bash]
+----
+neo4j-memory mcp serve [OPTIONS]
+----
+
+[cols="1,1,3", options="header"]
+|===
+| Option | Default | Description
+
+| `--uri`
+| `bolt://localhost:7687`
+| Neo4j connection URI. Env: `NEO4J_URI`.
+
+| `--user`
+| `neo4j`
+| Neo4j username. Env: `NEO4J_USER`.
+
+| `--password`
+| (required)
+| Neo4j password. Env: `NEO4J_PASSWORD`.
+
+| `--database`
+| `neo4j`
+| Neo4j database name.
+
+| `--transport`
+| `stdio`
+| Transport: `stdio`, `sse`, or `http`.
+
+| `--host`
+| `127.0.0.1`
+| Host for SSE/HTTP transports.
+
+| `--port`
+| `8080`
+| Port for SSE/HTTP transports.
+
+| `--profile`
+| `extended`
+| Tool profile: `core` (6) or `extended` (16).
+
+| `--session-strategy`
+| `per_conversation`
+| Session ID strategy: `per_conversation`, `per_day`, `persistent`.
+
+| `--user-id`
+| (none)
+| User ID for `per_day`/`persistent` strategies. Env: `MCP_USER_ID`.
+
+| `--observation-threshold`
+| `30000`
+| Token threshold for observational memory compression.
+
+| `--no-auto-preferences`
+| `false`
+| Disable automatic preference detection.
+|===

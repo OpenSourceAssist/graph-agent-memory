@@ -1,0 +1,133 @@
+= Add MCP Server to create-context-graph Projects
+:page-product: agent-memory
+:page-pagination:
+:toc: right
+:toclevels: 2
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+How to add an MCP server to projects scaffolded with create-context-graph, enabling Claude Desktop to query your domain-specific knowledge graph.
+
+== Overview
+
+link:https://create-context-graph.dev[create-context-graph] scaffolds full-stack AI applications with neo4j-agent-memory for conversation memory. By adding an MCP server endpoint, users can connect Claude Desktop directly to the same Neo4j knowledge graph that powers the web application.
+
+This creates a compelling workflow: seed your domain data, chat via the web UI, and also query the graph through Claude Desktop with full memory continuity.
+
+== Prerequisites
+
+* A project scaffolded with `create-context-graph` (v0.8.0+)
+* neo4j-agent-memory v0.0.5+ installed in the project
+* Claude Desktop installed
+
+== Step 1: Add MCP Dependency
+
+In your project's `pyproject.toml`, add the MCP extra:
+
+[source,toml]
+----
+[project.optional-dependencies]
+mcp = ["neo4j-agent-memory[mcp]"]
+----
+
+Then install:
+
+[source,bash]
+----
+uv sync --extra mcp
+----
+
+== Step 2: Add Makefile Target
+
+Add a convenient target to your project's `Makefile`:
+
+[source,makefile]
+----
+.PHONY: mcp-server
+mcp-server:  ## Start MCP server for Claude Desktop
+	neo4j-memory mcp serve \
+		--uri $(NEO4J_URI) \
+		--user $(NEO4J_USER) \
+		--password $(NEO4J_PASSWORD) \
+		--profile extended
+----
+
+== Step 3: Generate Claude Desktop Configuration
+
+Create a `claude_desktop_config.json` snippet in your project:
+
+[source,json]
+----
+{
+  "mcpServers": {
+    "my-context-graph": {
+      "command": "neo4j-memory",
+      "args": [
+        "mcp", "serve",
+        "--uri", "bolt://localhost:7687",
+        "--password", "your-password",
+        "--profile", "extended"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "sk-..."
+      }
+    }
+  }
+}
+----
+
+Copy the relevant section into your Claude Desktop config file:
+
+* **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+== Step 4: Verify the Connection
+
+Restart Claude Desktop, then ask:
+
+> Search my knowledge graph for recent entities
+
+Claude should call `memory_search` and return entities from your scaffolded project's Neo4j database.
+
+== Using the MemoryIntegration Layer
+
+Both your web application and the MCP server can share the same `MemoryIntegration` class for consistent behavior:
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryIntegration
+
+# In your FastAPI backend
+memory = MemoryIntegration(
+    neo4j_uri="bolt://localhost:7687",
+    neo4j_password="password",
+    session_strategy="per_day",
+    auto_extract=True,
+    auto_preferences=True,
+)
+
+# Store a message (same extraction/resolution logic as MCP)
+await memory.store_message("user", "I prefer dark mode")
+
+# Get context (same assembly logic as MCP)
+context = await memory.get_context(query="user preferences")
+----
+
+This ensures that whether a user interacts via Claude Desktop (MCP) or the web app (FastAPI), the same memory operations execute with the same extraction and resolution logic.
+
+== Session Strategy Considerations
+
+When running both a web app and MCP server against the same Neo4j instance, session strategy matters:
+
+* **`per_conversation`** (default): Each MCP session and web session gets a unique ID. No cross-session bleed, but no continuity either.
+* **`per_day`**: Good for daily assistant use. Both MCP and web sessions on the same day share context.
+* **`persistent`**: Maximum continuity. Use `--user-id` to scope sessions per user.
+
+For multi-user web apps, `per_conversation` or `per_day` with user-scoped IDs is recommended.
+
+== Next Steps
+
+* xref:../tutorials/mcp-server.adoc[MCP Server Tutorial] -- Step-by-step setup guide
+* xref:../reference/mcp-tools.adoc[MCP Tools Reference] -- Complete tool documentation
+* link:https://create-context-graph.dev[create-context-graph Documentation] -- Scaffolding tool docs

@@ -30,6 +30,8 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 - **Temporal Relationships**: Track when facts become valid or invalid
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Observability**: OpenTelemetry and Opik tracing for monitoring extraction pipelines
+- **MCP Server**: 16-tool Model Context Protocol server for Claude Desktop, Claude Code, Cursor, and VS Code Copilot with server instructions, prompts, and resources
+- **MemoryIntegration Layer**: High-level convenience wrapper with session strategies, automatic preference detection, and observational memory
 - **Agent Framework Integrations**: LangChain, Pydantic AI, LlamaIndex, CrewAI, OpenAI Agents, Strands Agents (AWS)
 - **Amazon Bedrock Embeddings**: Use Titan or Cohere embedding models via AWS Bedrock
 - **AWS Hybrid Memory**: HybridMemoryProvider with intelligent routing between short-term and long-term memory
@@ -1062,28 +1064,72 @@ agent = ChatAgent(
 
 ### MCP Server
 
-Expose memory capabilities via Model Context Protocol for AI platforms:
+Expose memory capabilities via Model Context Protocol for Claude Desktop, Claude Code, Cursor, and other MCP-compatible hosts:
 
 ```bash
-# Run the MCP server
-python -m neo4j_agent_memory.mcp.server \
-    --neo4j-uri bolt://localhost:7687 \
-    --neo4j-user neo4j \
-    --neo4j-password password
+# Start with stdio transport (for Claude Desktop)
+neo4j-memory mcp serve --password mypassword
 
-# Or with SSE transport for Cloud Run
-python -m neo4j_agent_memory.mcp.server --transport sse --port 8080
+# Start with SSE transport for network deployment
+neo4j-memory mcp serve --transport sse --port 8080
+
+# Use core profile (6 tools, less context overhead)
+neo4j-memory mcp serve --password mypassword --profile core
 ```
 
-Available MCP tools:
-- `memory_search` - Hybrid vector + graph search
-- `memory_store` - Store messages, facts, preferences
-- `entity_lookup` - Get entity with relationships
-- `conversation_history` - Get session history
-- `graph_query` - Execute read-only Cypher queries
-- `add_reasoning_trace` - Record agent reasoning traces
+**Claude Desktop Configuration** (`claude_desktop_config.json`):
 
-See `deploy/cloudrun/` for Cloud Run deployment templates.
+```json
+{
+  "mcpServers": {
+    "neo4j-agent-memory": {
+      "command": "neo4j-memory",
+      "args": ["mcp", "serve", "--password", "your-password"],
+      "env": {
+        "OPENAI_API_KEY": "sk-..."
+      }
+    }
+  }
+}
+```
+
+**Tool Profiles:**
+
+The server supports two profiles controlled by `--profile`:
+
+| Profile | Tools | Description |
+|---------|-------|-------------|
+| **core** | 6 | Essential read/write: `memory_search`, `memory_get_context`, `memory_store_message`, `memory_add_entity`, `memory_add_preference`, `memory_add_fact` |
+| **extended** (default) | 16 | Full surface adding: `memory_get_conversation`, `memory_list_sessions`, `memory_get_entity`, `memory_export_graph`, `memory_create_relationship`, `memory_start_trace`, `memory_record_step`, `memory_complete_trace`, `memory_get_observations`, `graph_query` |
+
+**Features:**
+- **Server instructions** guide the LLM on when and how to use memory tools
+- **Automatic preference detection** from user messages (e.g., "I love Italian food")
+- **Observational memory** compresses context when token thresholds are exceeded
+- **Session strategies**: `per_conversation` (default), `per_day`, `persistent`
+- **3 MCP prompts**: `memory-conversation`, `memory-reasoning`, `memory-review`
+- **4 MCP resources**: `memory://context/{session_id}`, `memory://entities`, `memory://preferences`, `memory://graph/stats`
+
+### MemoryIntegration
+
+High-level convenience layer used by both the MCP server and create-context-graph:
+
+```python
+from neo4j_agent_memory import MemoryIntegration
+
+async with MemoryIntegration(
+    neo4j_uri="bolt://localhost:7687",
+    neo4j_password="password",
+    session_strategy="per_day",
+    auto_extract=True,
+    auto_preferences=True,
+) as memory:
+    await memory.store_message("user", "I love Italian food")
+    context = await memory.get_context()
+    results = await memory.search("food preferences")
+```
+
+See `deploy/cloudrun/` for Cloud Run deployment templates and `deploy/mcpb/` for the Claude Desktop extension package.
 
 ## Configuration
 

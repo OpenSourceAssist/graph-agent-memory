@@ -106,6 +106,7 @@ class MemoryGraph(BaseModel):
 
 from neo4j_agent_memory.graph.client import Neo4jClient
 from neo4j_agent_memory.graph.schema import SchemaManager
+from neo4j_agent_memory.integration import MemoryIntegration, SessionStrategy
 
 # Google Cloud integrations (v0.0.3+)
 # These are imported conditionally to avoid requiring google dependencies.
@@ -185,6 +186,9 @@ __version__ = "0.0.5"
 __all__ = [
     # Main client
     "MemoryClient",
+    # Integration layer
+    "MemoryIntegration",
+    "SessionStrategy",
     # Settings
     "MemorySettings",
     "Neo4jConfig",
