@@ -424,45 +424,57 @@ class TestMCPReasoningTraceIntegration:
         return client
 
     @pytest.mark.asyncio
-    async def test_add_reasoning_trace(self, mock_memory_client) -> None:
-        """Test adding a reasoning trace via FastMCP tool."""
+    async def test_reasoning_trace_lifecycle(self, mock_memory_client) -> None:
+        """Test reasoning trace lifecycle via FastMCP tools (start -> step -> complete)."""
         import json
         from contextlib import asynccontextmanager
+        from unittest.mock import MagicMock
 
         from fastmcp import Client, FastMCP
 
+        from neo4j_agent_memory.integration import MemoryIntegration
+        from neo4j_agent_memory.mcp._observer import MemoryObserver
         from neo4j_agent_memory.mcp._tools import register_tools
+
+        integration = MagicMock(spec=MemoryIntegration)
+        observer = MagicMock(spec=MemoryObserver)
 
         @asynccontextmanager
         async def mock_lifespan(server):
-            yield {"client": mock_memory_client}
+            yield {
+                "client": mock_memory_client,
+                "integration": integration,
+                "observer": observer,
+            }
 
         mcp = FastMCP("test-reasoning", lifespan=mock_lifespan)
-        register_tools(mcp)
+        register_tools(mcp, profile="extended")
 
         async with Client(mcp) as client:
+            # Start trace
             result = await client.call_tool(
-                "add_reasoning_trace",
+                "memory_start_trace",
                 {
                     "session_id": "session-1",
                     "task": "Find restaurants nearby",
-                    "tool_calls": [
-                        {
-                            "tool_name": "search_locations",
-                            "arguments": {"query": "restaurants"},
-                            "result": "Found 5",
-                        }
-                    ],
+                },
+            )
+            data = json.loads(result.content[0].text)
+            assert data["started"] is True
+            mock_memory_client.reasoning.start_trace.assert_called_once()
+
+            # Complete trace
+            result = await client.call_tool(
+                "memory_complete_trace",
+                {
+                    "trace_id": str(mock_memory_client.reasoning.start_trace.return_value.id),
                     "outcome": "Found 5 restaurants",
                     "success": True,
                 },
             )
-
-        data = json.loads(result.content[0].text)
-        assert data["success"] is True
-        assert data["stored"] is True
-        mock_memory_client.reasoning.start_trace.assert_called_once()
-        mock_memory_client.reasoning.complete_trace.assert_called_once()
+            data = json.loads(result.content[0].text)
+            assert data["completed"] is True
+            mock_memory_client.reasoning.complete_trace.assert_called_once()
 
 
 class TestEndToEndWorkflow:

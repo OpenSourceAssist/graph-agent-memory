@@ -1,6 +1,7 @@
 """Integration tests for MCP server with Neo4j.
 
 Uses FastMCP's in-memory Client for testing tools against real Neo4j.
+Tests cover both core and extended tool profiles.
 """
 
 import json
@@ -9,22 +10,27 @@ from contextlib import asynccontextmanager
 import pytest
 from fastmcp import Client, FastMCP
 
+from neo4j_agent_memory.integration import MemoryIntegration
+from neo4j_agent_memory.mcp._observer import MemoryObserver
 from neo4j_agent_memory.mcp._resources import register_resources
 from neo4j_agent_memory.mcp._tools import register_tools
 from neo4j_agent_memory.memory.long_term import EntityType
 from neo4j_agent_memory.memory.short_term import MessageRole
 
 
-def _create_server_with_client(memory_client):
+def _create_server_with_client(memory_client, *, profile="extended"):
     """Create a FastMCP server with a real memory client in lifespan."""
+    integration = MemoryIntegration(memory_client)
+    observer = MemoryObserver(memory_client)
+    integration.observer = observer
 
     @asynccontextmanager
     async def real_lifespan(server):
-        yield {"client": memory_client}
+        yield {"client": memory_client, "integration": integration, "observer": observer}
 
     mcp = FastMCP("integration-test", lifespan=real_lifespan)
-    register_tools(mcp)
-    register_resources(mcp)
+    register_tools(mcp, profile=profile)
+    register_resources(mcp, profile=profile)
     return mcp
 
 
@@ -121,12 +127,11 @@ class TestMCPToolsIntegration:
 
     @pytest.mark.asyncio
     async def test_memory_store_message(self, mcp_server, memory_client, session_id):
-        """Test memory_store tool stores messages."""
+        """Test memory_store_message tool stores messages."""
         async with Client(mcp_server) as client:
             result = await client.call_tool(
-                "memory_store",
+                "memory_store_message",
                 {
-                    "memory_type": "message",
                     "content": "This is a test message from MCP",
                     "session_id": session_id,
                     "role": "user",
@@ -144,15 +149,14 @@ class TestMCPToolsIntegration:
         assert "test message from MCP" in conversation.messages[0].content
 
     @pytest.mark.asyncio
-    async def test_memory_store_preference(self, mcp_server, memory_client, session_id):
-        """Test memory_store tool stores preferences."""
+    async def test_memory_add_preference(self, mcp_server, memory_client, session_id):
+        """Test memory_add_preference tool stores preferences."""
         async with Client(mcp_server) as client:
             result = await client.call_tool(
-                "memory_store",
+                "memory_add_preference",
                 {
-                    "memory_type": "preference",
-                    "content": "Prefers dark mode interfaces",
                     "category": "ui",
+                    "preference": "Prefers dark mode interfaces",
                 },
             )
 
@@ -162,14 +166,12 @@ class TestMCPToolsIntegration:
         assert data["category"] == "ui"
 
     @pytest.mark.asyncio
-    async def test_memory_store_fact(self, mcp_server, memory_client, session_id):
-        """Test memory_store tool stores facts."""
+    async def test_memory_add_fact(self, mcp_server, memory_client, session_id):
+        """Test memory_add_fact tool stores facts."""
         async with Client(mcp_server) as client:
             result = await client.call_tool(
-                "memory_store",
+                "memory_add_fact",
                 {
-                    "memory_type": "fact",
-                    "content": "",
                     "subject": "Alice",
                     "predicate": "WORKS_AT",
                     "object_value": "TechCorp",
@@ -184,8 +186,8 @@ class TestMCPToolsIntegration:
         assert "TechCorp" in data["triple"]
 
     @pytest.mark.asyncio
-    async def test_entity_lookup_found(self, mcp_server, memory_client, session_id):
-        """Test entity_lookup tool finds existing entity."""
+    async def test_memory_get_entity_found(self, mcp_server, memory_client, session_id):
+        """Test memory_get_entity tool finds existing entity."""
         await memory_client.long_term.add_entity(
             name="Anthropic",
             entity_type=EntityType.ORGANIZATION,
@@ -196,7 +198,7 @@ class TestMCPToolsIntegration:
 
         async with Client(mcp_server) as client:
             result = await client.call_tool(
-                "entity_lookup",
+                "memory_get_entity",
                 {"name": "Anthropic", "include_neighbors": False},
             )
 
@@ -206,11 +208,11 @@ class TestMCPToolsIntegration:
         assert data["entity"]["type"] == "ORGANIZATION"
 
     @pytest.mark.asyncio
-    async def test_entity_lookup_not_found(self, mcp_server, memory_client, session_id):
-        """Test entity_lookup tool handles missing entity."""
+    async def test_memory_get_entity_not_found(self, mcp_server, memory_client, session_id):
+        """Test memory_get_entity tool handles missing entity."""
         async with Client(mcp_server) as client:
             result = await client.call_tool(
-                "entity_lookup",
+                "memory_get_entity",
                 {"name": "NonExistentEntity12345", "include_neighbors": False},
             )
 
@@ -219,8 +221,8 @@ class TestMCPToolsIntegration:
         assert data["name"] == "NonExistentEntity12345"
 
     @pytest.mark.asyncio
-    async def test_conversation_history(self, mcp_server, memory_client, session_id):
-        """Test conversation_history tool retrieves messages."""
+    async def test_memory_get_conversation(self, mcp_server, memory_client, session_id):
+        """Test memory_get_conversation tool retrieves messages."""
         await memory_client.short_term.add_message(
             session_id,
             MessageRole.USER,
@@ -245,7 +247,7 @@ class TestMCPToolsIntegration:
 
         async with Client(mcp_server) as client:
             result = await client.call_tool(
-                "conversation_history",
+                "memory_get_conversation",
                 {"session_id": session_id, "limit": 50},
             )
 
@@ -313,6 +315,43 @@ class TestMCPToolsIntegration:
         assert data["success"] is True
         assert data["row_count"] == 1
 
+    @pytest.mark.asyncio
+    async def test_memory_start_and_complete_trace(self, mcp_server, memory_client, session_id):
+        """Test reasoning trace lifecycle: start -> record step -> complete."""
+        async with Client(mcp_server) as client:
+            # Start trace
+            result = await client.call_tool(
+                "memory_start_trace",
+                {"session_id": session_id, "task": "Test reasoning task"},
+            )
+            data = json.loads(result.content[0].text)
+            assert data["started"] is True
+            trace_id = data["trace_id"]
+
+            # Record a step
+            result = await client.call_tool(
+                "memory_record_step",
+                {
+                    "trace_id": trace_id,
+                    "thought": "I should search for relevant info",
+                    "action": "search",
+                },
+            )
+            data = json.loads(result.content[0].text)
+            assert data["recorded"] is True
+
+            # Complete trace
+            result = await client.call_tool(
+                "memory_complete_trace",
+                {
+                    "trace_id": trace_id,
+                    "outcome": "Task completed successfully",
+                    "success": True,
+                },
+            )
+            data = json.loads(result.content[0].text)
+            assert data["completed"] is True
+
 
 @pytest.mark.integration
 class TestMCPServerIntegration:
@@ -328,28 +367,55 @@ class TestMCPServerIntegration:
         assert server._client is memory_client
 
     @pytest.mark.asyncio
-    async def test_server_has_tools(self, memory_client):
-        """Test server exposes all 6 tools via FastMCP Client."""
-        server = _create_server_with_client(memory_client)
+    async def test_server_has_extended_tools(self, memory_client):
+        """Test server exposes all 16 tools via FastMCP Client (extended profile)."""
+        server = _create_server_with_client(memory_client, profile="extended")
+        async with Client(server) as client:
+            tools = await client.list_tools()
+            assert len(tools) == 16
+            tool_names = {t.name for t in tools}
+            assert tool_names == {
+                "memory_search",
+                "memory_get_context",
+                "memory_store_message",
+                "memory_add_entity",
+                "memory_add_preference",
+                "memory_add_fact",
+                "memory_get_conversation",
+                "memory_list_sessions",
+                "memory_get_entity",
+                "memory_export_graph",
+                "memory_create_relationship",
+                "memory_start_trace",
+                "memory_record_step",
+                "memory_complete_trace",
+                "memory_get_observations",
+                "graph_query",
+            }
+
+    @pytest.mark.asyncio
+    async def test_server_has_core_tools(self, memory_client):
+        """Test server exposes 6 tools with core profile."""
+        server = _create_server_with_client(memory_client, profile="core")
         async with Client(server) as client:
             tools = await client.list_tools()
             assert len(tools) == 6
             tool_names = {t.name for t in tools}
             assert tool_names == {
                 "memory_search",
-                "memory_store",
-                "entity_lookup",
-                "conversation_history",
-                "graph_query",
-                "add_reasoning_trace",
+                "memory_get_context",
+                "memory_store_message",
+                "memory_add_entity",
+                "memory_add_preference",
+                "memory_add_fact",
             }
 
     @pytest.mark.asyncio
     async def test_server_has_resources(self, memory_client):
         """Test server exposes resources via FastMCP Client."""
-        server = _create_server_with_client(memory_client)
+        server = _create_server_with_client(memory_client, profile="extended")
         async with Client(server) as client:
             resources = await client.list_resources()
             templates = await client.list_resource_templates()
-            assert len(resources) == 1  # graph/stats
-            assert len(templates) == 3  # conversations, entities, preferences
+            assert len(resources) == 3  # entities, preferences, graph/stats
+            assert len(templates) == 1  # context/{session_id}
