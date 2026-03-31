@@ -144,7 +144,7 @@ run-frontend:
 
 # Start MCP server for Claude Desktop
 mcp-server:
-	cd backend && uv run neo4j-memory mcp serve \
+	cd backend && uv run neo4j-agent-memory mcp serve \
 		--password $${NEO4J_PASSWORD:-password} \
 		--profile extended \
 		--session-strategy per_day \

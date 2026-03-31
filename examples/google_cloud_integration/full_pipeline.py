@@ -309,7 +309,7 @@ WORKDIR /app
 COPY . .
 RUN pip install neo4j-agent-memory[google,mcp]
 EXPOSE 8080
-CMD ["neo4j-memory", "mcp", "serve", "--transport", "sse", "--port", "8080"]
+CMD ["neo4j-agent-memory", "mcp", "serve", "--transport", "sse", "--port", "8080"]
 """
     print("Dockerfile:")
     print("-" * 40)
@@ -389,7 +389,7 @@ async def main():
     print()
     print("Next steps:")
     print("  • Explore Neo4j Browser to see the knowledge graph")
-    print("  • Start the MCP server: neo4j-memory mcp serve")
+    print("  • Start the MCP server: neo4j-agent-memory mcp serve")
     print("  • Deploy to Cloud Run: see deploy/cloudrun/README.md")
     print()
 

@@ -19,8 +19,8 @@ Start the server with a specific profile:
 
 [source,bash]
 ----
-neo4j-memory mcp serve --profile core      # 6 tools
-neo4j-memory mcp serve --profile extended   # 16 tools (default)
+neo4j-agent-memory mcp serve --profile core      # 6 tools
+neo4j-agent-memory mcp serve --profile extended   # 16 tools (default)
 ----
 
 == Core Profile Tools
@@ -423,7 +423,7 @@ The server sends behavioral instructions during MCP initialization that teach Cl
 
 [source,bash]
 ----
-neo4j-memory mcp serve [OPTIONS]
+neo4j-agent-memory mcp serve [OPTIONS]
 ----
 
 [cols="1,1,3", options="header"]

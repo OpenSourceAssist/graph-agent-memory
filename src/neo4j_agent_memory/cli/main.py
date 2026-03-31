@@ -1,11 +1,11 @@
 """CLI commands for Neo4j Agent Memory entity extraction.
 
 Usage:
-    neo4j-memory extract "John works at Acme Corp"
-    echo "John works at Acme Corp" | neo4j-memory extract -
-    neo4j-memory extract --file document.txt --format json
-    neo4j-memory schemas list
-    neo4j-memory stats
+    neo4j-agent-memory extract "John works at Acme Corp"
+    echo "John works at Acme Corp" | neo4j-agent-memory extract -
+    neo4j-agent-memory extract --file document.txt --format json
+    neo4j-agent-memory schemas list
+    neo4j-agent-memory stats
 """
 
 from __future__ import annotations
@@ -234,13 +234,13 @@ def extract(
 
     Examples:
 
-        neo4j-memory extract "John works at Acme Corp"
+        neo4j-agent-memory extract "John works at Acme Corp"
 
-        echo "John works at Acme Corp" | neo4j-memory extract -
+        echo "John works at Acme Corp" | neo4j-agent-memory extract -
 
-        neo4j-memory extract --file document.txt --format json
+        neo4j-agent-memory extract --file document.txt --format json
 
-        neo4j-memory extract "..." --entity-types Person --entity-types Organization
+        neo4j-agent-memory extract "..." --entity-types Person --entity-types Organization
     """
     # Get text from argument, file, or stdin
     if text == "-" or (text is None and file is None and not sys.stdin.isatty()):
@@ -781,15 +781,15 @@ def mcp_serve(
     \b
     Examples:
         # Start with stdio transport (for Claude Desktop)
-        neo4j-memory mcp serve --password mypassword
+        neo4j-agent-memory mcp serve --password mypassword
 
     \b
         # Start with SSE transport on port 8080
-        neo4j-memory mcp serve --transport sse --port 8080
+        neo4j-agent-memory mcp serve --transport sse --port 8080
 
     \b
         # Start with core profile (fewer tools, less context overhead)
-        neo4j-memory mcp serve --profile core
+        neo4j-agent-memory mcp serve --profile core
     """
     if not password:
         error_console.print(

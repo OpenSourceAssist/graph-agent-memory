@@ -403,13 +403,13 @@ The **extended** profile adds 10 more tools for conversation history, session li
 [source,bash]
 ----
 # stdio transport (for local MCP clients like Claude Desktop)
-neo4j-memory mcp serve
+neo4j-agent-memory mcp serve
 
 # SSE transport (for Cloud Run/HTTP deployment)
-neo4j-memory mcp serve --transport sse --port 8080
+neo4j-agent-memory mcp serve --transport sse --port 8080
 
 # With custom Neo4j connection
-neo4j-memory mcp serve \
+neo4j-agent-memory mcp serve \
   --neo4j-uri bolt://localhost:7687 \
   --neo4j-password secret
 ----
@@ -422,8 +422,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ----
 {
   "mcpServers": {
-    "neo4j-memory": {
-      "command": "neo4j-memory",
+    "neo4j-agent-memory": {
+      "command": "neo4j-agent-memory",
       "args": ["mcp", "serve"],
       "env": {
         "NEO4J_URI": "bolt://localhost:7687",
@@ -512,7 +512,7 @@ WORKDIR /app
 COPY . .
 RUN pip install neo4j-agent-memory[google,mcp]
 EXPOSE 8080
-CMD ["neo4j-memory", "mcp", "serve", "--transport", "sse", "--port", "8080"]
+CMD ["neo4j-agent-memory", "mcp", "serve", "--transport", "sse", "--port", "8080"]
 ----
 
 === Secret Manager Integration

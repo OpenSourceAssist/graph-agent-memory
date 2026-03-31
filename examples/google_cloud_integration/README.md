@@ -97,7 +97,7 @@ This demonstrates:
 python mcp_server_demo.py
 
 # Or use the CLI
-neo4j-memory mcp serve --transport stdio
+neo4j-agent-memory mcp serve --transport stdio
 ```
 
 This demonstrates:
@@ -237,7 +237,7 @@ cypher-shell -a bolt://localhost:7687 -u neo4j -p password "RETURN 1"
 
 ```bash
 # Check server logs
-neo4j-memory mcp serve --transport stdio 2>&1 | tee mcp.log
+neo4j-agent-memory mcp serve --transport stdio 2>&1 | tee mcp.log
 ```
 
 ## See Also

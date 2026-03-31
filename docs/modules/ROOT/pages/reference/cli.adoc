@@ -23,7 +23,7 @@ Extract entities from text or files.
 
 [source,bash]
 ----
-neo4j-memory extract [OPTIONS] TEXT
+neo4j-agent-memory extract [OPTIONS] TEXT
 ----
 
 ==== Arguments
@@ -76,25 +76,25 @@ neo4j-memory extract [OPTIONS] TEXT
 [source,bash]
 ----
 # Extract from text
-neo4j-memory extract "John Smith works at Acme Corp in New York"
+neo4j-agent-memory extract "John Smith works at Acme Corp in New York"
 
 # Extract from file
-neo4j-memory extract --file document.txt
+neo4j-agent-memory extract --file document.txt
 
 # Pipe from stdin
-echo "Sarah lives in London" | neo4j-memory extract -
+echo "Sarah lives in London" | neo4j-agent-memory extract -
 
 # Use specific extractor
-neo4j-memory extract --extractor llm "..."
+neo4j-agent-memory extract --extractor llm "..."
 
 # Filter entity types
-neo4j-memory extract -t Person -t Organization "..."
+neo4j-agent-memory extract -t Person -t Organization "..."
 
 # JSON output
-neo4j-memory extract --format json "..."
+neo4j-agent-memory extract --format json "..."
 
 # Use domain schema
-neo4j-memory extract --schema podcast "..."
+neo4j-agent-memory extract --schema podcast "..."
 ----
 
 ==== Output Formats
@@ -147,7 +147,7 @@ List all schemas in the database.
 
 [source,bash]
 ----
-neo4j-memory schemas list [OPTIONS]
+neo4j-agent-memory schemas list [OPTIONS]
 ----
 
 [cols="2,1,3", options="header"]
@@ -177,7 +177,7 @@ Show details of a specific schema.
 
 [source,bash]
 ----
-neo4j-memory schemas show SCHEMA_NAME [OPTIONS]
+neo4j-agent-memory schemas show SCHEMA_NAME [OPTIONS]
 ----
 
 [cols="2,1,3", options="header"]
@@ -199,7 +199,7 @@ Validate a schema file.
 
 [source,bash]
 ----
-neo4j-memory schemas validate SCHEMA_FILE
+neo4j-agent-memory schemas validate SCHEMA_FILE
 ----
 
 ==== Examples
@@ -207,13 +207,13 @@ neo4j-memory schemas validate SCHEMA_FILE
 [source,bash]
 ----
 # List schemas
-neo4j-memory schemas list --password $NEO4J_PASSWORD
+neo4j-agent-memory schemas list --password $NEO4J_PASSWORD
 
 # Show schema details
-neo4j-memory schemas show medical --format yaml
+neo4j-agent-memory schemas show medical --format yaml
 
 # Validate schema file
-neo4j-memory schemas validate custom_schema.yaml
+neo4j-agent-memory schemas validate custom_schema.yaml
 ----
 
 === stats
@@ -222,7 +222,7 @@ Show memory statistics from Neo4j.
 
 [source,bash]
 ----
-neo4j-memory stats [OPTIONS]
+neo4j-agent-memory stats [OPTIONS]
 ----
 
 [cols="2,1,3", options="header"]
@@ -250,7 +250,7 @@ neo4j-memory stats [OPTIONS]
 
 [source,bash]
 ----
-neo4j-memory stats --password $NEO4J_PASSWORD
+neo4j-agent-memory stats --password $NEO4J_PASSWORD
 ----
 
 Output:

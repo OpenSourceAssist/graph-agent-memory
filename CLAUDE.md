@@ -330,39 +330,39 @@ uv pip install neo4j-agent-memory[cli,mcp]
 
 ```bash
 # Extract entities from text
-neo4j-memory extract "John Smith works at Acme Corp in New York"
+neo4j-agent-memory extract "John Smith works at Acme Corp in New York"
 
 # Extract from a file
-neo4j-memory extract --file document.txt
+neo4j-agent-memory extract --file document.txt
 
 # Extract with specific entity types
-neo4j-memory extract "..." -e Person -e Organization
+neo4j-agent-memory extract "..." -e Person -e Organization
 
 # Extract with different output formats
-neo4j-memory extract "..." --format json    # JSON output
-neo4j-memory extract "..." --format jsonl   # JSON Lines (streaming)
-neo4j-memory extract "..." --format table   # Rich table (default)
+neo4j-agent-memory extract "..." --format json    # JSON output
+neo4j-agent-memory extract "..." --format jsonl   # JSON Lines (streaming)
+neo4j-agent-memory extract "..." --format table   # Rich table (default)
 
 # Use different extractors
-neo4j-memory extract "..." --extractor gliner  # GLiNER (default)
-neo4j-memory extract "..." --extractor llm     # LLM-based
-neo4j-memory extract "..." --extractor hybrid  # GLiNER + LLM
+neo4j-agent-memory extract "..." --extractor gliner  # GLiNER (default)
+neo4j-agent-memory extract "..." --extractor llm     # LLM-based
+neo4j-agent-memory extract "..." --extractor hybrid  # GLiNER + LLM
 
 # Pipe from stdin
-echo "John works at Acme" | neo4j-memory extract -
+echo "John works at Acme" | neo4j-agent-memory extract -
 
 # Schema management (requires Neo4j connection)
-neo4j-memory schemas list --password $NEO4J_PASSWORD
-neo4j-memory schemas show my_schema --format yaml
-neo4j-memory schemas validate schema.yaml
+neo4j-agent-memory schemas list --password $NEO4J_PASSWORD
+neo4j-agent-memory schemas show my_schema --format yaml
+neo4j-agent-memory schemas validate schema.yaml
 
 # Statistics
-neo4j-memory stats --password $NEO4J_PASSWORD --format json
+neo4j-agent-memory stats --password $NEO4J_PASSWORD --format json
 
 # MCP server (requires mcp extra)
-neo4j-memory mcp serve --password $NEO4J_PASSWORD
-neo4j-memory mcp serve --profile core --transport sse --port 8080
-neo4j-memory mcp serve --session-strategy per_day --user-id alice
+neo4j-agent-memory mcp serve --password $NEO4J_PASSWORD
+neo4j-agent-memory mcp serve --profile core --transport sse --port 8080
+neo4j-agent-memory mcp serve --session-strategy per_day --user-id alice
 ```
 
 ### Environment Variables
@@ -1488,22 +1488,22 @@ The MCP server exposes tools organized into two profiles:
 
 ```bash
 # stdio transport (for Claude Desktop)
-neo4j-memory mcp serve --password secret
+neo4j-agent-memory mcp serve --password secret
 
 # SSE transport (for Cloud Run/HTTP deployment)
-neo4j-memory mcp serve --transport sse --port 8080 --password secret
+neo4j-agent-memory mcp serve --transport sse --port 8080 --password secret
 
 # Core profile (fewer tools, less context overhead)
-neo4j-memory mcp serve --profile core --password secret
+neo4j-agent-memory mcp serve --profile core --password secret
 
 # With session strategy and auto-preference detection
-neo4j-memory mcp serve --session-strategy per_day --user-id alice --password secret
+neo4j-agent-memory mcp serve --session-strategy per_day --user-id alice --password secret
 
 # Disable automatic preference detection
-neo4j-memory mcp serve --no-auto-preferences --password secret
+neo4j-agent-memory mcp serve --no-auto-preferences --password secret
 
 # Custom observation threshold (default: 30000 tokens)
-neo4j-memory mcp serve --observation-threshold 50000 --password secret
+neo4j-agent-memory mcp serve --observation-threshold 50000 --password secret
 ```
 
 **Claude Desktop Configuration:**
@@ -1512,7 +1512,7 @@ neo4j-memory mcp serve --observation-threshold 50000 --password secret
 {
   "mcpServers": {
     "neo4j-agent-memory": {
-      "command": "neo4j-memory",
+      "command": "neo4j-agent-memory",
       "args": ["mcp", "serve", "--password", "your-password"],
       "env": {
         "NEO4J_URI": "bolt://localhost:7687",

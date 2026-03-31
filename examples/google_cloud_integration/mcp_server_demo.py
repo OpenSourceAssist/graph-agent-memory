@@ -192,16 +192,16 @@ async def demo_server_startup():
     print("-" * 40)
     print("""
 # Start with stdio transport (for Claude Desktop)
-neo4j-memory mcp serve --password secret
+neo4j-agent-memory mcp serve --password secret
 
 # Start with SSE transport (for Cloud Run/HTTP)
-neo4j-memory mcp serve --transport sse --port 8080 --password secret
+neo4j-agent-memory mcp serve --transport sse --port 8080 --password secret
 
 # Core profile (fewer tools, less context overhead)
-neo4j-memory mcp serve --profile core --password secret
+neo4j-agent-memory mcp serve --profile core --password secret
 
 # With session strategy
-neo4j-memory mcp serve --session-strategy per_day --user-id alice --password secret
+neo4j-agent-memory mcp serve --session-strategy per_day --user-id alice --password secret
 """)
 
     print("Option 2: Programmatically")
@@ -229,7 +229,7 @@ Add to ~/Library/Application Support/Claude/claude_desktop_config.json:
 {
   "mcpServers": {
     "neo4j-agent-memory": {
-      "command": "neo4j-memory",
+      "command": "neo4j-agent-memory",
       "args": ["mcp", "serve", "--password", "your-password"],
       "env": {
         "OPENAI_API_KEY": "sk-..."
@@ -295,7 +295,7 @@ async def main():
     print("Demo complete!")
     print("=" * 60 + "\n")
     print("To start the server, run:")
-    print("  neo4j-memory mcp serve --password <your-password>")
+    print("  neo4j-agent-memory mcp serve --password <your-password>")
     print()
 
 

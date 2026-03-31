@@ -1,6 +1,6 @@
 """Unit tests for the MCP CLI subcommand.
 
-Tests the `neo4j-memory mcp serve` subcommand added to cli/main.py.
+Tests the `neo4j-agent-memory mcp serve` subcommand added to cli/main.py.
 """
 
 from unittest.mock import AsyncMock, patch

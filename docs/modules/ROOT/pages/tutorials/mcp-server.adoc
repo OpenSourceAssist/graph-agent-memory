@@ -59,7 +59,7 @@ Verify the installation:
 
 [source,bash]
 ----
-neo4j-memory mcp serve --help
+neo4j-agent-memory mcp serve --help
 ----
 
 You should see the available options for the MCP server.
@@ -78,7 +78,7 @@ Add the neo4j-agent-memory server:
 {
   "mcpServers": {
     "neo4j-agent-memory": {
-      "command": "neo4j-memory",
+      "command": "neo4j-agent-memory",
       "args": ["mcp", "serve",
                "--password", "test-password"],
       "env": {}
@@ -186,7 +186,7 @@ By default, the server starts with the **extended** profile (16 tools). For simp
 {
   "mcpServers": {
     "neo4j-agent-memory": {
-      "command": "neo4j-memory",
+      "command": "neo4j-agent-memory",
       "args": ["mcp", "serve",
                "--password", "test-password",
                "--profile", "core"]

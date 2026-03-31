@@ -1122,7 +1122,7 @@ Documentation:: xref:reference/cli.adoc[CLI Reference]
 
 **Features Implemented**:
 
-* `neo4j-memory` CLI entry point with `extract`, `schemas`, and `stats` commands
+* `neo4j-agent-memory` CLI entry point with `extract`, `schemas`, and `stats` commands
 * Multiple output formats: table, json, jsonl
 * Extractor selection and custom entity types
 * Rich table formatting for terminal output
@@ -1493,10 +1493,10 @@ Implementation:: `neo4j_agent_memory.mcp` module
 [source,bash]
 ----
 # Start MCP server with stdio transport
-neo4j-memory mcp serve
+neo4j-agent-memory mcp serve
 
 # Start MCP server with SSE transport for Cloud Run
-neo4j-memory mcp serve --transport sse --port 8080
+neo4j-agent-memory mcp serve --transport sse --port 8080
 ----
 
 '''

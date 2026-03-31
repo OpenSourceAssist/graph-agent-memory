@@ -46,7 +46,7 @@ Add a convenient target to your project's `Makefile`:
 ----
 .PHONY: mcp-server
 mcp-server:  ## Start MCP server for Claude Desktop
-	neo4j-memory mcp serve \
+	neo4j-agent-memory mcp serve \
 		--uri $(NEO4J_URI) \
 		--user $(NEO4J_USER) \
 		--password $(NEO4J_PASSWORD) \
@@ -62,7 +62,7 @@ Create a `claude_desktop_config.json` snippet in your project:
 {
   "mcpServers": {
     "my-context-graph": {
-      "command": "neo4j-memory",
+      "command": "neo4j-agent-memory",
       "args": [
         "mcp", "serve",
         "--uri", "bolt://localhost:7687",

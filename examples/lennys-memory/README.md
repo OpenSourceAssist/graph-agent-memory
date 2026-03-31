@@ -219,7 +219,7 @@ Then add to your Claude Desktop config (`~/Library/Application Support/Claude/cl
 {
   "mcpServers": {
     "lennys-memory": {
-      "command": "neo4j-memory",
+      "command": "neo4j-agent-memory",
       "args": ["mcp", "serve",
                "--password", "password",
                "--profile", "extended",
