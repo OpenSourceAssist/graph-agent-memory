@@ -1,0 +1,28 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 55%
+        threshold: 3%
+    patch:
+      default:
+        target: 65%
+
+flags:
+  unit:
+    paths:
+      - src/neo4j_agent_memory/
+    carryforward: true
+  integration:
+    paths:
+      - src/neo4j_agent_memory/
+    carryforward: true
+  merged:
+    paths:
+      - src/neo4j_agent_memory/
+    carryforward: true
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: false

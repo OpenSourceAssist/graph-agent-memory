@@ -160,6 +160,70 @@ class TestEdgeCases:
         assert len(results) <= 1
 
 
+class TestAdditionalEdgeCases:
+    """Additional edge case tests for improved coverage."""
+
+    def test_multiline_text_with_preferences(self, detector):
+        text = (
+            "Let me tell you about my tastes.\nI love sushi.\nThe weather is nice.\nI hate waiting."
+        )
+        results = detector.detect(text)
+        assert len(results) == 2
+
+    def test_unicode_preferences(self, detector):
+        results = detector.detect("I love café au lait and crème brûlée")
+        assert len(results) == 1
+        assert results[0].sentiment == "positive"
+
+    def test_very_long_subject_truncation(self, detector):
+        long_thing = "really interesting " * 30  # > 200 chars
+        results = detector.detect(f"I love {long_thing}")
+        assert len(results) == 1
+        assert len(results[0].preference) <= 200
+
+    def test_preference_in_question_not_detected(self, detector):
+        # "Do you" doesn't match "I like/love" patterns
+        results = detector.detect("Do you like pizza?")
+        assert len(results) == 0
+
+    def test_all_category_keywords_trigger(self, detector):
+        """Each category should be inferable from its keywords."""
+        test_cases = [
+            ("I love eating pizza for dinner", "food"),
+            ("I enjoy listening to jazz music", "music"),
+            ("I prefer programming in Python", "technology"),
+            ("I love watching movies on Netflix", "entertainment"),
+            ("I enjoy hiking in the mountains during vacation", "travel"),
+        ]
+        for text, expected_category in test_cases:
+            results = detector.detect(text)
+            assert len(results) >= 1, f"No preference detected for: {text}"
+            assert results[0].category == expected_category, (
+                f"Expected {expected_category} for '{text}', got {results[0].category}"
+            )
+
+    def test_confidence_ranges(self, detector):
+        """All detected preferences should have confidence between 0 and 1."""
+        texts = [
+            "I love chocolate",
+            "My favorite book is Dune",
+            "I hate bugs",
+            "I'm not a fan of loud music",
+        ]
+        for text in texts:
+            results = detector.detect(text)
+            for pref in results:
+                assert 0.0 < pref.confidence <= 1.0, (
+                    f"Confidence {pref.confidence} out of range for '{text}'"
+                )
+
+    def test_source_text_preserved(self, detector):
+        text = "I really enjoy reading science fiction novels"
+        results = detector.detect(text)
+        assert len(results) == 1
+        assert results[0].source_text == text
+
+
 class TestDetectedPreferenceModel:
     """Tests for the DetectedPreference dataclass."""
 

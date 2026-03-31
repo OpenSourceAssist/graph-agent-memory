@@ -187,3 +187,45 @@ class TestGraphStatsResource:
 
         data = json.loads(result[0].text)
         assert "error" in data
+
+
+class TestResourceErrorPaths:
+    """Tests that all resources handle errors gracefully."""
+
+    @pytest.mark.asyncio
+    async def test_context_resource_handles_error(self):
+        mock_client = make_mock_client()
+        mock_client.get_context = AsyncMock(side_effect=Exception("context error"))
+
+        server = create_resource_server(mock_client, profile="core")
+        async with Client(server) as client:
+            result = await client.read_resource("memory://context/test-session")
+
+        data = json.loads(result[0].text)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_entities_catalog_handles_error(self):
+        mock_client = make_mock_client()
+        mock_client.long_term.search_entities = AsyncMock(side_effect=Exception("entities error"))
+
+        server = create_resource_server(mock_client, profile="extended")
+        async with Client(server) as client:
+            result = await client.read_resource("memory://entities")
+
+        data = json.loads(result[0].text)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_preferences_resource_handles_error(self):
+        mock_client = make_mock_client()
+        mock_client.long_term.search_preferences = AsyncMock(
+            side_effect=Exception("preferences error")
+        )
+
+        server = create_resource_server(mock_client, profile="extended")
+        async with Client(server) as client:
+            result = await client.read_resource("memory://preferences")
+
+        data = json.loads(result[0].text)
+        assert "error" in data

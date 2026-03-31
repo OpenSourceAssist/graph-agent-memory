@@ -192,6 +192,75 @@ class TestResetSession:
         observer.reset_session("nonexistent")  # Should not raise
 
 
+class TestGetObservationsAllTiers:
+    """Tests for the three-tier context hierarchy in get_observations."""
+
+    @pytest.mark.asyncio
+    async def test_observations_have_timestamps(self, observer):
+        await observer.on_message_stored("s1", "I decided to switch to TypeScript.", role="user")
+        result = await observer.get_observations("s1")
+        for obs in result["observations"]:
+            assert obs["timestamp"] is not None
+            assert "T" in obs["timestamp"]  # ISO format
+
+    @pytest.mark.asyncio
+    async def test_observations_have_confidence(self, observer):
+        await observer.on_message_stored(
+            "s1", "It turns out the bug was in the parser.", role="user"
+        )
+        result = await observer.get_observations("s1")
+        for obs in result["observations"]:
+            assert 0.0 < obs["confidence"] <= 1.0
+
+    @pytest.mark.asyncio
+    async def test_multiple_decisions_in_one_message(self, observer):
+        """Only first decision marker per message should be captured."""
+        await observer.on_message_stored(
+            "s1",
+            "I decided to use React. I also decided to use TypeScript.",
+            role="user",
+        )
+        ctx = observer._get_session("s1")
+        decisions = [o for o in ctx.observations if o.type == "decision"]
+        # Only one decision per message (first match wins)
+        assert len(decisions) == 1
+
+    @pytest.mark.asyncio
+    async def test_response_includes_entity_names_and_topics(self, observer):
+        result = await observer.get_observations("s1")
+        assert "entity_names" in result
+        assert "topics" in result
+        assert isinstance(result["entity_names"], list)
+        assert isinstance(result["topics"], list)
+
+    @pytest.mark.asyncio
+    async def test_reflection_after_threshold(self, mock_client):
+        """When threshold is exceeded and enough messages accumulated, reflections are generated."""
+        observer = MemoryObserver(mock_client, threshold_tokens=5, recent_message_window=2)
+
+        mock_msgs = []
+        for i in range(5):
+            msg = MagicMock()
+            msg.content = f"Message {i} about Some Important Topic and Other Things"
+            mock_msgs.append(msg)
+
+        mock_conv = MagicMock()
+        mock_conv.messages = mock_msgs
+        mock_client.short_term.get_conversation = AsyncMock(return_value=mock_conv)
+
+        for i in range(5):
+            await observer.on_message_stored(
+                "s1",
+                f"Message {i} about Some Important Topic and Other Things",
+                role="user",
+            )
+
+        result = await observer.get_observations("s1")
+        # Should have at least attempted reflection generation
+        ctx = observer._get_session("s1")
+        assert ctx.last_compression_at > 0
+
+
 class TestObservationModel:
     """Tests for the Observation dataclass."""
 

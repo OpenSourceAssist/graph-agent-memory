@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws coverage coverage-all coverage-ci test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
 
 # Default target
 help:
@@ -19,11 +19,15 @@ help:
 	@echo "  make test             Run unit tests"
 	@echo "  make test-unit        Run unit tests only"
 	@echo "  make test-integration Run integration tests (uses testcontainers)"
+	@echo "  make test-integration-mcp  Run MCP integration + E2E tests (uses testcontainers)"
+	@echo "  make test-e2e         Run end-to-end MCP flow tests (uses testcontainers)"
 	@echo "  make test-all         Run all tests (uses testcontainers)"
 	@echo "  make test-docker      Run all tests with docker-compose Neo4j"
 	@echo "  make test-ci          Run tests as they would run in CI"
 	@echo "  make test-aws         Run AWS integration tests (Bedrock, Strands, AgentCore)"
-	@echo "  make coverage         Run tests with coverage report"
+	@echo "  make coverage         Run unit tests with coverage report"
+	@echo "  make coverage-all     Run all tests with coverage (uses testcontainers)"
+	@echo "  make coverage-mcp     Run MCP unit tests with coverage report"
 	@echo ""
 	@echo "Example Testing:"
 	@echo "  make test-examples         Run all example smoke tests (uses testcontainers)"
@@ -126,9 +130,19 @@ test-integration:
 	@echo "(Docker must be running - testcontainers will manage the Neo4j container)"
 	uv run pytest tests/integration -v --timeout=300
 
+# MCP-specific integration and E2E tests
+test-integration-mcp:
+	@echo "Running MCP integration and E2E tests with testcontainers..."
+	uv run pytest tests/integration/test_mcp_server_integration.py tests/integration/test_mcp_e2e.py tests/integration/test_integration_layer.py -v --timeout=300
+
+# End-to-end MCP flow tests (simulates Claude Desktop usage)
+test-e2e:
+	@echo "Running end-to-end MCP flow tests with testcontainers..."
+	uv run pytest tests/integration/test_mcp_e2e.py -v --timeout=300
+
 # Run all tests using testcontainers
 test-all:
-	@echo "Running all tests with testcontainers..."
+	@echo "Running all tests (unit + integration + examples) with testcontainers..."
 	@echo "(Docker must be running - testcontainers will manage the Neo4j container)"
 	uv run pytest tests -v --timeout=300
 
@@ -172,6 +186,10 @@ test-aws:
 
 coverage:
 	uv run pytest tests/unit --cov=src/neo4j_agent_memory --cov-report=term-missing --cov-report=html
+
+# MCP module coverage (unit tests only, fast)
+coverage-mcp:
+	uv run pytest tests/unit/mcp tests/unit/test_integration.py --cov=src/neo4j_agent_memory/mcp --cov=src/neo4j_agent_memory/integration.py --cov-report=term-missing --cov-report=html
 
 coverage-all:
 	@echo "Running all tests with coverage using testcontainers..."

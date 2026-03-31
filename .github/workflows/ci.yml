@@ -63,13 +63,22 @@ jobs:
         run: uv sync --group dev
 
       - name: Run unit tests
-        run: uv run pytest tests/unit -v --cov=neo4j_agent_memory --cov-report=xml
+        run: uv run pytest tests/unit -v --cov=neo4j_agent_memory --cov-report=xml --cov-report=term-missing
 
-      - name: Upload coverage
+      - name: Upload unit test coverage artifact
+        uses: actions/upload-artifact@v4
+        if: matrix.python-version == '3.12'
+        with:
+          name: coverage-unit
+          path: .coverage
+          include-hidden-files: true
+
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         if: matrix.python-version == '3.12'
         with:
           files: ./coverage.xml
+          flags: unit
           fail_ci_if_error: false
 
   integration-test:
@@ -120,16 +129,35 @@ jobs:
             sleep 2
           done
 
-      - name: Run integration tests
+      - name: Run integration tests with coverage
         run: |
           uv run pytest tests/integration -v \
             --tb=short \
             --timeout=300 \
-            -x  # Stop on first failure for faster feedback
+            -x \
+            --cov=neo4j_agent_memory \
+            --cov-report=xml:coverage-integration.xml \
+            --cov-report=term-missing
         env:
           NEO4J_URI: bolt://localhost:7687
           NEO4J_USERNAME: neo4j
           NEO4J_PASSWORD: test-password
+
+      - name: Upload integration coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-integration
+          path: .coverage
+          include-hidden-files: true
+
+      - name: Upload integration coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./coverage-integration.xml
+          flags: integration
+          fail_ci_if_error: false
 
   integration-test-matrix:
     runs-on: ubuntu-latest
@@ -288,7 +316,15 @@ jobs:
 
       - name: Run quick example validation
         run: |
-          uv run pytest tests/examples/test_entity_resolution.py tests/examples/test_full_stack_apps.py tests/examples/test_google_cloud_financial_advisor.py tests/examples/test_google_cloud_integration.py tests/examples/test_google_adk_demo.py \
+          uv run pytest \
+            tests/examples/test_entity_resolution.py \
+            tests/examples/test_full_stack_apps.py \
+            tests/examples/test_google_cloud_financial_advisor.py \
+            tests/examples/test_google_cloud_integration.py \
+            tests/examples/test_google_adk_demo.py \
+            tests/examples/test_microsoft_agent_example.py \
+            tests/examples/test_crewai_example.py \
+            tests/examples/test_llamaindex_example.py \
             -v \
             --tb=short \
             --timeout=60
@@ -336,6 +372,57 @@ jobs:
             -v \
             --tb=short \
             --timeout=180
+
+  # Merge coverage from unit and integration tests, check threshold
+  coverage-report:
+    runs-on: ubuntu-latest
+    needs: [test, integration-test]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Download unit coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage-unit/
+        continue-on-error: true
+
+      - name: Download integration coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-integration
+          path: coverage-integration/
+        continue-on-error: true
+
+      - name: Merge coverage reports
+        run: |
+          # Combine coverage data from both test jobs
+          uv run coverage combine coverage-unit/.coverage coverage-integration/.coverage || true
+          uv run coverage xml -o coverage-merged.xml
+          uv run coverage report --show-missing
+        continue-on-error: true
+
+      - name: Upload merged coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage-merged.xml
+          flags: merged
+          fail_ci_if_error: false
+
+      - name: Check coverage threshold
+        run: |
+          uv run coverage report --fail-under=55 || echo "::warning::Coverage below 55% threshold"
+        continue-on-error: true
 
   build:
     runs-on: ubuntu-latest

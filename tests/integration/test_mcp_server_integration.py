@@ -352,6 +352,173 @@ class TestMCPToolsIntegration:
             data = json.loads(result.content[0].text)
             assert data["completed"] is True
 
+    @pytest.mark.asyncio
+    async def test_memory_get_context(self, mcp_server, memory_client, session_id):
+        """Test memory_get_context returns assembled context."""
+        await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "I like Italian restaurants",
+            extract_entities=False,
+            generate_embedding=True,
+        )
+        await memory_client.long_term.add_preference(
+            category="food",
+            preference="Loves Italian cuisine",
+            generate_embedding=True,
+        )
+
+        async with Client(mcp_server) as client:
+            result = await client.call_tool(
+                "memory_get_context",
+                {"session_id": session_id},
+            )
+
+        data = json.loads(result.content[0].text)
+        assert data["session_id"] == session_id
+        assert "has_context" in data
+
+    @pytest.mark.asyncio
+    async def test_memory_list_sessions(self, mcp_server, memory_client, session_id):
+        """Test memory_list_sessions returns available sessions."""
+        # Create messages in the test session
+        await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Hello from session listing test",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        async with Client(mcp_server) as client:
+            result = await client.call_tool(
+                "memory_list_sessions",
+                {"limit": 20},
+            )
+
+        data = json.loads(result.content[0].text)
+        assert "sessions" in data
+        assert data["session_count"] >= 1
+
+    @pytest.mark.asyncio
+    async def test_memory_export_graph(self, mcp_server, memory_client, session_id):
+        """Test memory_export_graph returns graph data."""
+        await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "Test export message",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+        await memory_client.long_term.add_entity(
+            name="ExportTestEntity",
+            entity_type=EntityType.PERSON,
+            resolve=False,
+            generate_embedding=False,
+        )
+
+        async with Client(mcp_server) as client:
+            result = await client.call_tool(
+                "memory_export_graph",
+                {"session_id": session_id, "limit": 100},
+            )
+
+        data = json.loads(result.content[0].text)
+        assert "node_count" in data
+        assert "relationship_count" in data
+        assert "nodes" in data
+        assert data["node_count"] >= 1
+
+    @pytest.mark.asyncio
+    async def test_memory_create_relationship(self, mcp_server, memory_client, session_id):
+        """Test memory_create_relationship links two entities."""
+        await memory_client.long_term.add_entity(
+            name="Alice Smith",
+            entity_type=EntityType.PERSON,
+            resolve=False,
+            generate_embedding=True,
+        )
+        await memory_client.long_term.add_entity(
+            name="TechCorp Inc",
+            entity_type=EntityType.ORGANIZATION,
+            resolve=False,
+            generate_embedding=True,
+        )
+
+        async with Client(mcp_server) as client:
+            result = await client.call_tool(
+                "memory_create_relationship",
+                {
+                    "source_name": "Alice Smith",
+                    "target_name": "TechCorp Inc",
+                    "relationship_type": "WORKS_AT",
+                },
+            )
+
+        data = json.loads(result.content[0].text)
+        assert data["stored"] is True
+        assert data["relationship_type"] == "WORKS_AT"
+
+    @pytest.mark.asyncio
+    async def test_memory_create_relationship_not_found(
+        self, mcp_server, memory_client, session_id
+    ):
+        """Test memory_create_relationship returns error for missing entities."""
+        async with Client(mcp_server) as client:
+            result = await client.call_tool(
+                "memory_create_relationship",
+                {
+                    "source_name": "NonexistentPerson",
+                    "target_name": "NonexistentOrg",
+                    "relationship_type": "WORKS_AT",
+                },
+            )
+
+        data = json.loads(result.content[0].text)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_memory_add_entity(self, mcp_server, memory_client, session_id):
+        """Test memory_add_entity creates entity in graph."""
+        async with Client(mcp_server) as client:
+            result = await client.call_tool(
+                "memory_add_entity",
+                {
+                    "name": "Neo4j Inc",
+                    "entity_type": "ORGANIZATION",
+                    "subtype": "COMPANY",
+                    "description": "Graph database company",
+                },
+            )
+
+        data = json.loads(result.content[0].text)
+        assert data["stored"] is True
+        assert data["name"] == "Neo4j Inc"
+        assert data["entity_type"] == "ORGANIZATION"
+
+    @pytest.mark.asyncio
+    async def test_memory_get_observations(self, mcp_server, memory_client, session_id):
+        """Test memory_get_observations returns session data."""
+        # Store a message with a decision statement
+        await memory_client.short_term.add_message(
+            session_id,
+            MessageRole.USER,
+            "I decided to use Neo4j for the database layer.",
+            extract_entities=False,
+            generate_embedding=False,
+        )
+
+        async with Client(mcp_server) as client:
+            result = await client.call_tool(
+                "memory_get_observations",
+                {"session_id": session_id},
+            )
+
+        data = json.loads(result.content[0].text)
+        assert data["session_id"] == session_id
+        assert "observations" in data
+        assert "reflections" in data
+
 
 @pytest.mark.integration
 class TestMCPServerIntegration:
