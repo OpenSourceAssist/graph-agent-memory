@@ -149,6 +149,28 @@ Claude will call `memory_search` and find your stored preference for Italian foo
 
 Claude will call `memory_get_entity` (if using extended profile) or `memory_search` to find the entity and any related context.
 
+== Programmatic Server Usage
+
+You can also start the MCP server from Python code:
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "test-password"}
+)
+
+# Use MemoryIntegration for simplified memory operations
+from neo4j_agent_memory import MemoryIntegration
+
+memory = MemoryIntegration(
+    neo4j_uri="bolt://localhost:7687",
+    neo4j_password="test-password",
+    session_strategy="per_day",
+)
+----
+
 == Next Steps
 
 * xref:reference/mcp-tools.adoc[MCP Tools Reference] -- Complete documentation for all 16 tools

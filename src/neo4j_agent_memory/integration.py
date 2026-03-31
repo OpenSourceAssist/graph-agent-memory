@@ -463,7 +463,7 @@ class MemoryIntegration:
                 result["deduplication"] = {
                     "action": dedup_result.action,
                     "matched_entity_name": dedup_result.matched_entity_name,
-                    "confidence": dedup_result.confidence,
+                    "similarity_score": dedup_result.similarity_score,
                 }
             return result
         except Exception as e:

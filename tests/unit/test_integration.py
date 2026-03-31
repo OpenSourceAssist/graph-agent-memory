@@ -198,7 +198,7 @@ class TestAddEntity:
         mock_dedup = MagicMock()
         mock_dedup.action = "created"
         mock_dedup.matched_entity_name = None
-        mock_dedup.confidence = None
+        mock_dedup.similarity_score = 0.0
 
         mock_client.long_term.add_entity = AsyncMock(
             return_value=(mock_entity, mock_dedup)
