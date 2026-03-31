@@ -36,8 +36,8 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`):
         "neo4j-agent-memory[mcp]",
         "mcp",
         "serve",
-        "--neo4j-uri", "bolt://localhost:7687",
-        "--neo4j-password", "your-password"
+        "--uri", "bolt://localhost:7687",
+        "--password", "your-password"
       ],
       "env": {
         "OPENAI_API_KEY": "sk-..."
