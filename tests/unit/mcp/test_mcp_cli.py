@@ -78,7 +78,7 @@ class TestMCPServeExecution:
     @patch("neo4j_agent_memory.mcp.server.run_server", new_callable=AsyncMock)
     def test_serve_calls_run_server(self, mock_run_server, mock_asyncio, runner):
         # Make asyncio.run just call the coroutine
-        mock_asyncio.run = lambda coro: None
+        mock_asyncio.run = lambda _coro: None
 
         result = runner.invoke(
             cli,
@@ -89,7 +89,7 @@ class TestMCPServeExecution:
     @patch("neo4j_agent_memory.cli.main.asyncio")
     @patch("neo4j_agent_memory.mcp.server.run_server", new_callable=AsyncMock)
     def test_serve_passes_profile(self, mock_run_server, mock_asyncio, runner):
-        mock_asyncio.run = lambda coro: None
+        mock_asyncio.run = lambda _coro: None
 
         result = runner.invoke(
             cli,
@@ -100,7 +100,7 @@ class TestMCPServeExecution:
     @patch("neo4j_agent_memory.cli.main.asyncio")
     @patch("neo4j_agent_memory.mcp.server.run_server", new_callable=AsyncMock)
     def test_serve_passes_session_strategy(self, mock_run_server, mock_asyncio, runner):
-        mock_asyncio.run = lambda coro: None
+        mock_asyncio.run = lambda _coro: None
 
         result = runner.invoke(
             cli,
