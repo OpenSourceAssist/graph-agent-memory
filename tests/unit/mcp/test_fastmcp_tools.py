@@ -169,9 +169,7 @@ class TestCoreToolExecution:
 
     @pytest.fixture
     def server(self, mock_client, mock_integration):
-        return create_tool_server(
-            mock_client, profile="core", mock_integration=mock_integration
-        )
+        return create_tool_server(mock_client, profile="core", mock_integration=mock_integration)
 
     @pytest.mark.asyncio
     async def test_memory_search_calls_integration(self, server, mock_integration):
@@ -304,9 +302,7 @@ class TestExtendedToolExecution:
         mock_client.graph.execute_read = AsyncMock(return_value=[])
 
         async with Client(server) as client:
-            result = await client.call_tool(
-                "memory_get_entity", {"name": "John"}
-            )
+            result = await client.call_tool("memory_get_entity", {"name": "John"})
             data = json.loads(result.content[0].text)
             assert data["found"] is True
             assert data["entity"]["name"] == "John"
@@ -316,9 +312,7 @@ class TestExtendedToolExecution:
         mock_client.long_term.search_entities = AsyncMock(return_value=[])
 
         async with Client(server) as client:
-            result = await client.call_tool(
-                "memory_get_entity", {"name": "Unknown"}
-            )
+            result = await client.call_tool("memory_get_entity", {"name": "Unknown"})
             data = json.loads(result.content[0].text)
             assert data["found"] is False
 
@@ -388,9 +382,7 @@ class TestExtendedToolExecution:
 
     @pytest.mark.asyncio
     async def test_graph_query_read_only(self, server, mock_client):
-        mock_client.graph.execute_read = AsyncMock(
-            return_value=[{"name": "test"}]
-        )
+        mock_client.graph.execute_read = AsyncMock(return_value=[{"name": "test"}])
 
         async with Client(server) as client:
             result = await client.call_tool(
@@ -419,9 +411,7 @@ class TestExtendedToolExecution:
         mock_client.short_term.get_conversation = AsyncMock(return_value=mock_conv)
 
         async with Client(server) as client:
-            result = await client.call_tool(
-                "memory_get_observations", {"session_id": "s1"}
-            )
+            result = await client.call_tool("memory_get_observations", {"session_id": "s1"})
             data = json.loads(result.content[0].text)
             assert data["session_id"] == "s1"
 

@@ -58,9 +58,7 @@ class TestSessionStrategy:
         assert sid == f"alice-{today}"
 
     def test_per_day_default_user(self, mock_client):
-        integration = MemoryIntegration(
-            mock_client, session_strategy=SessionStrategy.PER_DAY
-        )
+        integration = MemoryIntegration(mock_client, session_strategy=SessionStrategy.PER_DAY)
         sid = integration.resolve_session_id()
         assert sid.startswith("default-")
 
@@ -74,9 +72,7 @@ class TestSessionStrategy:
         assert sid == "bob"
 
     def test_persistent_default_user(self, mock_client):
-        integration = MemoryIntegration(
-            mock_client, session_strategy=SessionStrategy.PERSISTENT
-        )
+        integration = MemoryIntegration(mock_client, session_strategy=SessionStrategy.PERSISTENT)
         sid = integration.resolve_session_id()
         assert sid == "default"
 
@@ -88,9 +84,7 @@ class TestSessionStrategy:
         assert sid == "explicit-session"
 
     def test_string_strategy_accepted(self, mock_client):
-        integration = MemoryIntegration(
-            mock_client, session_strategy="per_conversation"
-        )
+        integration = MemoryIntegration(mock_client, session_strategy="per_conversation")
         assert integration._strategy == SessionStrategy.PER_CONVERSATION
 
 
@@ -115,16 +109,12 @@ class TestStoreMessage:
         mock_msg.id = "msg-456"
         mock_client.short_term.add_message = AsyncMock(return_value=mock_msg)
 
-        result = await integration.store_message(
-            "user", "Hello", session_id="my-session"
-        )
+        result = await integration.store_message("user", "Hello", session_id="my-session")
         assert result["session_id"] == "my-session"
 
     @pytest.mark.asyncio
     async def test_store_message_error(self, integration, mock_client):
-        mock_client.short_term.add_message = AsyncMock(
-            side_effect=Exception("DB error")
-        )
+        mock_client.short_term.add_message = AsyncMock(side_effect=Exception("DB error"))
         result = await integration.store_message("user", "Hello")
         assert "error" in result
         assert "DB error" in result["error"]
@@ -179,9 +169,7 @@ class TestSearch:
     async def test_search_specific_types(self, integration, mock_client):
         mock_client.long_term.search_entities = AsyncMock(return_value=[])
 
-        result = await integration.search(
-            "test", memory_types=["entities"]
-        )
+        result = await integration.search("test", memory_types=["entities"])
         assert "entities" in result["results"]
         assert "messages" not in result["results"]
 
@@ -200,9 +188,7 @@ class TestAddEntity:
         mock_dedup.matched_entity_name = None
         mock_dedup.similarity_score = 0.0
 
-        mock_client.long_term.add_entity = AsyncMock(
-            return_value=(mock_entity, mock_dedup)
-        )
+        mock_client.long_term.add_entity = AsyncMock(return_value=(mock_entity, mock_dedup))
 
         result = await integration.add_entity("John Smith", "PERSON")
         assert result["stored"] is True
@@ -211,9 +197,7 @@ class TestAddEntity:
 
     @pytest.mark.asyncio
     async def test_add_entity_error(self, integration, mock_client):
-        mock_client.long_term.add_entity = AsyncMock(
-            side_effect=Exception("duplicate")
-        )
+        mock_client.long_term.add_entity = AsyncMock(side_effect=Exception("duplicate"))
         result = await integration.add_entity("Test", "PERSON")
         assert "error" in result
 
