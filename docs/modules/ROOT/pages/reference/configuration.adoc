@@ -1160,25 +1160,25 @@ cli:
 [source,bash]
 ----
 # Extract entities from text
-neo4j-memory extract "John works at Acme Corp in New York"
+neo4j-agent-memory extract "John works at Acme Corp in New York"
 
 # Extract with specific schema
-neo4j-memory extract --schema poleo "..."
+neo4j-agent-memory extract --schema poleo "..."
 
 # Extract from file
-neo4j-memory extract --input document.txt
+neo4j-agent-memory extract --input document.txt
 
 # List available schemas
-neo4j-memory schemas list
+neo4j-agent-memory schemas list
 
 # Show schema details
-neo4j-memory schemas show poleo
+neo4j-agent-memory schemas show poleo
 
 # Get extraction statistics
-neo4j-memory stats
+neo4j-agent-memory stats
 
 # Output as table
-neo4j-memory extract --format table "..."
+neo4j-agent-memory extract --format table "..."
 ----
 
 == Complete Example

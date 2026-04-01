@@ -7,6 +7,7 @@
 *** xref:tutorials/conversation-memory.adoc[Conversation Memory]
 *** xref:tutorials/knowledge-graph.adoc[Knowledge Graphs]
 *** xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Quickstart]
+*** xref:tutorials/mcp-server.adoc[MCP Server for Claude Desktop]
 
 ** How-To Guides
 *** xref:how-to/index.adoc[Overview]
@@ -28,12 +29,14 @@
 **** xref:how-to/integrations/aws-strands.adoc[AWS Strands Agents]
 **** xref:how-to/integrations/aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
 **** xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory]
+*** xref:how-to/create-context-graph-mcp.adoc[MCP + create-context-graph]
 
 ** Reference
 *** xref:reference/index.adoc[Overview]
 *** xref:reference/configuration.adoc[Configuration]
 *** xref:reference/environment-variables.adoc[Environment Variables]
 *** xref:reference/cli.adoc[CLI]
+*** xref:reference/mcp-tools.adoc[MCP Tools]
 *** xref:reference/deployment.adoc[Deployment]
 *** xref:reference/extractors.adoc[Extractors]
 *** xref:reference/schemas.adoc[Schemas]

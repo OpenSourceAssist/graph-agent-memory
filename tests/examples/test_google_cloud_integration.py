@@ -135,13 +135,23 @@ class TestGoogleCloudIntegrationImports:
 
         assert register_tools is not None
 
+    @pytest.mark.skipif(not MCP_AVAILABLE, reason="mcp not installed")
+    def test_mcp_tools_registrable_with_profile(self):
+        """Verify MCP tool registration accepts profile kwarg."""
+        from fastmcp import FastMCP
+
+        from neo4j_agent_memory.mcp._tools import register_tools
+
+        mcp = FastMCP("test")
+        register_tools(mcp, profile="core")  # Should not raise
+
 
 @pytest.mark.skipif(not MCP_AVAILABLE, reason="mcp not installed")
 class TestMCPToolDefinitions:
     """Test that MCP tool definitions are complete and valid via FastMCP."""
 
-    def test_expected_tool_count(self):
-        """Verify there are exactly 6 MCP tools defined."""
+    def test_extended_profile_tool_count(self):
+        """Verify extended profile registers 16 MCP tools."""
         import asyncio
 
         from fastmcp import Client, FastMCP
@@ -149,7 +159,61 @@ class TestMCPToolDefinitions:
         from neo4j_agent_memory.mcp._tools import register_tools
 
         mcp = FastMCP("test")
-        register_tools(mcp)
+        register_tools(mcp, profile="extended")
+
+        async def _check():
+            async with Client(mcp) as client:
+                tools = await client.list_tools()
+                assert len(tools) == 16
+
+        asyncio.run(_check())
+
+    def test_extended_profile_tool_names(self):
+        """Verify the expected tool names for extended profile."""
+        import asyncio
+
+        from fastmcp import Client, FastMCP
+
+        from neo4j_agent_memory.mcp._tools import register_tools
+
+        mcp = FastMCP("test")
+        register_tools(mcp, profile="extended")
+
+        async def _check():
+            async with Client(mcp) as client:
+                tools = await client.list_tools()
+                tool_names = {t.name for t in tools}
+                assert tool_names == {
+                    "memory_search",
+                    "memory_get_context",
+                    "memory_store_message",
+                    "memory_add_entity",
+                    "memory_add_preference",
+                    "memory_add_fact",
+                    "memory_get_conversation",
+                    "memory_list_sessions",
+                    "memory_get_entity",
+                    "memory_export_graph",
+                    "memory_create_relationship",
+                    "memory_start_trace",
+                    "memory_record_step",
+                    "memory_complete_trace",
+                    "memory_get_observations",
+                    "graph_query",
+                }
+
+        asyncio.run(_check())
+
+    def test_core_profile_tool_count(self):
+        """Verify core profile registers 6 MCP tools."""
+        import asyncio
+
+        from fastmcp import Client, FastMCP
+
+        from neo4j_agent_memory.mcp._tools import register_tools
+
+        mcp = FastMCP("test")
+        register_tools(mcp, profile="core")
 
         async def _check():
             async with Client(mcp) as client:
@@ -158,8 +222,8 @@ class TestMCPToolDefinitions:
 
         asyncio.run(_check())
 
-    def test_expected_tool_names(self):
-        """Verify the expected tool names are present."""
+    def test_core_profile_tool_names(self):
+        """Verify the expected tool names for core profile."""
         import asyncio
 
         from fastmcp import Client, FastMCP
@@ -167,7 +231,7 @@ class TestMCPToolDefinitions:
         from neo4j_agent_memory.mcp._tools import register_tools
 
         mcp = FastMCP("test")
-        register_tools(mcp)
+        register_tools(mcp, profile="core")
 
         async def _check():
             async with Client(mcp) as client:
@@ -175,11 +239,11 @@ class TestMCPToolDefinitions:
                 tool_names = {t.name for t in tools}
                 assert tool_names == {
                     "memory_search",
-                    "memory_store",
-                    "entity_lookup",
-                    "conversation_history",
-                    "graph_query",
-                    "add_reasoning_trace",
+                    "memory_get_context",
+                    "memory_store_message",
+                    "memory_add_entity",
+                    "memory_add_preference",
+                    "memory_add_fact",
                 }
 
         asyncio.run(_check())

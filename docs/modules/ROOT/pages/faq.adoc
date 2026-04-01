@@ -665,22 +665,22 @@ pip install neo4j-agent-memory[cli]
 [source,bash]
 ----
 # Extract entities from text
-neo4j-memory extract "John works at Acme Corp in New York"
+neo4j-agent-memory extract "John works at Acme Corp in New York"
 
 # Extract with specific schema
-neo4j-memory extract --schema podcast "..."
+neo4j-agent-memory extract --schema podcast "..."
 
 # Extract from file
-neo4j-memory extract --input document.txt
+neo4j-agent-memory extract --input document.txt
 
 # Output as table
-neo4j-memory extract --format table "..."
+neo4j-agent-memory extract --format table "..."
 
 # List available schemas
-neo4j-memory schemas list
+neo4j-agent-memory schemas list
 
 # Get statistics
-neo4j-memory stats
+neo4j-agent-memory stats
 ----
 
 [[cli-configuration]]

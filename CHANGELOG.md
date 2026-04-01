@@ -76,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Vertex AI embeddings (`text-embedding-004`, gecko models) with async non-blocking I/O
   - Google ADK `MemoryService` for native ADK agent memory persistence
 - **MCP Server**: Model Context Protocol server with 6 tools (memory search, store, entity lookup, conversation history, graph query, reasoning traces)
-  - Supports stdio and SSE transports, CLI command: `neo4j-memory mcp serve`
+  - Supports stdio and SSE transports, CLI command: `neo4j-agent-memory mcp serve`
 - **Cloud Run Deployment**: Production-ready Dockerfile, Cloud Build config, and Terraform templates
 - **New Example Applications**:
   - Google Cloud Financial Advisor: Full-stack multi-agent compliance demo with AML, KYC, relationship, and compliance agents (FastAPI + React/TypeScript)

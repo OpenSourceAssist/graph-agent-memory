@@ -2,6 +2,10 @@
 
 Provides a Model Context Protocol server using FastMCP that exposes
 memory capabilities as tools, resources, and prompts for AI platforms.
+
+Supports two tool profiles:
+- Core (6 tools): Essential read/write cycle
+- Extended (16 tools): Full surface with reasoning, entities, graph export
 """
 
 from __future__ import annotations
@@ -23,41 +27,68 @@ try:
         settings: Any = None,
         *,
         server_name: str = "neo4j-agent-memory",
+        profile: str = "extended",
+        session_strategy: str = "per_conversation",
+        user_id: str | None = None,
+        observation_threshold: int = 30000,
+        auto_preferences: bool = True,
     ) -> FastMCP:
         """Create a configured FastMCP server.
 
-        The server uses a lifespan to manage the async MemoryClient lifecycle.
-        Tools, resources, and prompts are registered on the returned server.
+        The server uses a lifespan to manage the async MemoryClient and
+        MemoryIntegration lifecycle. Tools, resources, and prompts are
+        registered based on the selected profile.
 
         Args:
             settings: MemorySettings for Neo4j connection. If None, the server
                 is created without a lifespan (useful for testing).
             server_name: Server name for MCP registration.
+            profile: Tool profile - 'core' (6 tools) or 'extended' (16 tools).
+            session_strategy: Session ID strategy - 'per_conversation',
+                'per_day', or 'persistent'.
+            user_id: User identifier for per_day and persistent strategies.
+            observation_threshold: Token count threshold for triggering
+                observational memory compression (default: 30000).
+            auto_preferences: Whether to auto-detect preferences from
+                user messages (default: True).
 
         Returns:
             Configured FastMCP server instance.
-
-        Example:
-            from neo4j_agent_memory import MemorySettings
-            from neo4j_agent_memory.mcp import create_mcp_server
-
-            settings = MemorySettings(...)
-            server = create_mcp_server(settings)
-            server.run()
         """
+        from neo4j_agent_memory.mcp._instructions import get_instructions
+
         lifespan = None
         if settings is not None:
 
             @asynccontextmanager
             async def lifespan(server: FastMCP):
-                """Manage MemoryClient lifecycle for the MCP server."""
+                """Manage MemoryClient, MemoryIntegration, and Observer lifecycle."""
                 from neo4j_agent_memory import MemoryClient as _MemoryClient
+                from neo4j_agent_memory.integration import MemoryIntegration
+                from neo4j_agent_memory.mcp._observer import MemoryObserver
 
                 async with _MemoryClient(settings) as client:
-                    yield {"client": client}
+                    observer = MemoryObserver(
+                        client,
+                        threshold_tokens=observation_threshold,
+                    )
+                    integration = MemoryIntegration(
+                        client,
+                        session_strategy=session_strategy,
+                        user_id=user_id,
+                        auto_extract=True,
+                        auto_preferences=auto_preferences,
+                    )
+                    integration.observer = observer
+                    yield {
+                        "client": client,
+                        "integration": integration,
+                        "observer": observer,
+                    }
 
         mcp = FastMCP(
             server_name,
+            instructions=get_instructions(profile),
             lifespan=lifespan,
         )
 
@@ -65,9 +96,9 @@ try:
         from neo4j_agent_memory.mcp._resources import register_resources
         from neo4j_agent_memory.mcp._tools import register_tools
 
-        register_tools(mcp)
-        register_resources(mcp)
-        register_prompts(mcp)
+        register_tools(mcp, profile=profile)
+        register_resources(mcp, profile=profile)
+        register_prompts(mcp, profile=profile)
 
         return mcp
 
@@ -86,13 +117,14 @@ try:
                 server = Neo4jMemoryMCPServer(client)
                 await server.run()
 
-        Tools:
-            - memory_search: Hybrid vector + graph search
-            - memory_store: Store messages, facts, preferences
-            - entity_lookup: Get entity with relationships
-            - conversation_history: Get conversation for session
-            - graph_query: Execute read-only Cypher queries
-            - add_reasoning_trace: Store agent reasoning traces
+        Tools (extended profile):
+            Core: memory_search, memory_get_context, memory_store_message,
+                  memory_add_entity, memory_add_preference, memory_add_fact
+            Extended: memory_get_conversation, memory_list_sessions,
+                  memory_get_entity, memory_export_graph,
+                  memory_create_relationship, memory_start_trace,
+                  memory_record_step, memory_complete_trace,
+                  memory_get_observations, graph_query
         """
 
         def __init__(
@@ -100,21 +132,52 @@ try:
             memory_client: MemoryClient,
             *,
             server_name: str = "neo4j-agent-memory",
+            profile: str = "extended",
+            session_strategy: str = "per_conversation",
+            user_id: str | None = None,
+            observation_threshold: int = 30000,
+            auto_preferences: bool = True,
         ):
             """Initialize the MCP server with a pre-connected client.
 
             Args:
                 memory_client: Connected MemoryClient instance.
                 server_name: Server name for MCP registration.
+                profile: Tool profile - 'core' or 'extended'.
+                session_strategy: Session ID strategy.
+                user_id: User identifier for session strategies.
+                observation_threshold: Token threshold for observer compression.
+                auto_preferences: Whether to auto-detect preferences.
             """
             self._client = memory_client
 
+            from neo4j_agent_memory.integration import MemoryIntegration
+            from neo4j_agent_memory.mcp._instructions import get_instructions
+            from neo4j_agent_memory.mcp._observer import MemoryObserver
+
+            observer = MemoryObserver(
+                memory_client,
+                threshold_tokens=observation_threshold,
+            )
+            integration = MemoryIntegration(
+                memory_client,
+                session_strategy=session_strategy,
+                user_id=user_id,
+                auto_preferences=auto_preferences,
+            )
+            integration.observer = observer
+
             @asynccontextmanager
             async def _preconnected_lifespan(server: FastMCP):
-                yield {"client": memory_client}
+                yield {
+                    "client": memory_client,
+                    "integration": integration,
+                    "observer": observer,
+                }
 
             self._mcp = FastMCP(
                 server_name,
+                instructions=get_instructions(profile),
                 lifespan=_preconnected_lifespan,
             )
 
@@ -122,9 +185,9 @@ try:
             from neo4j_agent_memory.mcp._resources import register_resources
             from neo4j_agent_memory.mcp._tools import register_tools
 
-            register_tools(self._mcp)
-            register_resources(self._mcp)
-            register_prompts(self._mcp)
+            register_tools(self._mcp, profile=profile)
+            register_resources(self._mcp, profile=profile)
+            register_prompts(self._mcp, profile=profile)
 
         async def run(self) -> None:
             """Run the MCP server using stdio transport."""
@@ -147,6 +210,11 @@ try:
         transport: str = "stdio",
         host: str = "127.0.0.1",
         port: int = 8080,
+        profile: str = "extended",
+        session_strategy: str = "per_conversation",
+        user_id: str | None = None,
+        observation_threshold: int = 30000,
+        auto_preferences: bool = True,
     ) -> None:
         """Run the MCP server with Neo4j connection.
 
@@ -160,6 +228,11 @@ try:
             transport: Transport type (stdio, sse, or http).
             host: Host for network transports.
             port: Port for network transports.
+            profile: Tool profile ('core' or 'extended').
+            session_strategy: Session ID strategy.
+            user_id: User identifier for session strategies.
+            observation_threshold: Token threshold for observer compression.
+            auto_preferences: Whether to auto-detect preferences.
         """
         from pydantic import SecretStr
 
@@ -175,7 +248,15 @@ try:
             )
         )
 
-        server = create_mcp_server(settings, server_name="neo4j-agent-memory")
+        server = create_mcp_server(
+            settings,
+            server_name="neo4j-agent-memory",
+            profile=profile,
+            session_strategy=session_strategy,
+            user_id=user_id,
+            observation_threshold=observation_threshold,
+            auto_preferences=auto_preferences,
+        )
 
         if transport == "sse":
             await server.run_async(transport="sse", host=host, port=port)
@@ -248,6 +329,35 @@ def main() -> None:
         default=8080,
         help="Port for network transports",
     )
+    parser.add_argument(
+        "--profile",
+        choices=["core", "extended"],
+        default="extended",
+        help="Tool profile: core (6 tools) or extended (16 tools, default)",
+    )
+    parser.add_argument(
+        "--session-strategy",
+        choices=["per_conversation", "per_day", "persistent"],
+        default="per_conversation",
+        help="Session identity strategy (default: per_conversation)",
+    )
+    parser.add_argument(
+        "--user-id",
+        default=os.environ.get("MCP_USER_ID"),
+        help="User ID for per_day/persistent session strategies",
+    )
+    parser.add_argument(
+        "--observation-threshold",
+        type=int,
+        default=30000,
+        help="Token threshold for observational memory compression (default: 30000)",
+    )
+    parser.add_argument(
+        "--no-auto-preferences",
+        action="store_true",
+        default=False,
+        help="Disable automatic preference detection from user messages",
+    )
 
     args = parser.parse_args()
 
@@ -260,6 +370,11 @@ def main() -> None:
             transport=args.transport,
             host=args.host,
             port=args.port,
+            profile=args.profile,
+            session_strategy=args.session_strategy,
+            user_id=args.user_id,
+            observation_threshold=args.observation_threshold,
+            auto_preferences=not args.no_auto_preferences,
         )
     )
 

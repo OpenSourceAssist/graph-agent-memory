@@ -73,6 +73,9 @@ Connect neo4j-agent-memory to popular agent frameworks for persistent, shared co
 
 | xref:how-to/integrations/crewai.adoc[Use with CrewAI]
 | Share context graphs across multiple agents. Build collaborative multi-agent systems with persistent shared memory.
+
+| xref:how-to/create-context-graph-mcp.adoc[Add MCP Server to create-context-graph Projects]
+| Connect Claude Desktop to scaffolded projects. Query domain-specific knowledge graphs through natural conversation.
 |===
 
 == Enterprise Use Cases

@@ -1,0 +1,43 @@
+{
+  "name": "neo4j-agent-memory",
+  "display_name": "Neo4j Agent Memory",
+  "description": "Persistent graph memory for Claude with three memory types (short-term, long-term, reasoning), POLE+O entity extraction, and knowledge graph backed by Neo4j.",
+  "version": "0.1.0",
+  "author": "Neo4j Labs",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/neo4j-labs/agent-memory",
+  "keywords": ["memory", "neo4j", "knowledge-graph", "entity-extraction", "agent"],
+  "server": {
+    "command": "uvx",
+    "args": [
+      "neo4j-agent-memory[mcp]",
+      "mcp",
+      "serve"
+    ],
+    "env_required": [
+      "NEO4J_PASSWORD"
+    ],
+    "env_optional": [
+      "NEO4J_URI",
+      "NEO4J_USER",
+      "NEO4J_DATABASE",
+      "OPENAI_API_KEY",
+      "MCP_USER_ID"
+    ]
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tool_profiles": {
+    "core": {
+      "tool_count": 6,
+      "description": "Essential read/write cycle: search, context, store message, add entity/preference/fact"
+    },
+    "extended": {
+      "tool_count": 16,
+      "description": "Full surface including reasoning traces, entity management, graph export, and Cypher queries"
+    }
+  }
+}

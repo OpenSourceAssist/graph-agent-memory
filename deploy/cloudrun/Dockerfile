@@ -40,4 +40,4 @@ ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
 
 # Run the MCP server via the installed CLI entry point
-CMD ["neo4j-memory", "mcp", "serve", "--transport", "sse", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["neo4j-agent-memory", "mcp", "serve", "--transport", "sse", "--host", "0.0.0.0", "--port", "8080"]

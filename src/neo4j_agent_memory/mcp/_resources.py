@@ -1,10 +1,9 @@
 """MCP resource definitions for Neo4j Agent Memory.
 
-Defines 4 resources that expose memory data via URI templates:
-- memory://conversations/{session_id}: Conversation history
-- memory://entities/{entity_name}: Entity details
-- memory://preferences/{category}: User preferences
-- memory://graph/stats: Knowledge graph statistics
+Resources provide auto-injected context to the LLM. They are organized
+into profiles:
+- Core: memory://context/{session_id} (assembled context for a session)
+- Extended: memory://entities, memory://preferences, memory://graph/stats
 """
 
 from __future__ import annotations
@@ -23,84 +22,113 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def register_resources(mcp: FastMCP) -> None:
-    """Register all MCP resources on the server.
+def register_resources(mcp: FastMCP, *, profile: str = "extended") -> None:
+    """Register MCP resources on the server based on profile.
 
     Args:
         mcp: FastMCP server instance.
+        profile: Tool profile - 'core' or 'extended'.
     """
+    _register_core_resources(mcp)
+    if profile == "extended":
+        _register_extended_resources(mcp)
 
-    @mcp.resource("memory://conversations/{session_id}")
-    async def get_conversation(session_id: str, ctx: Context) -> str:
-        """Get conversation history for a session.
 
-        Returns the full message history for the given session ID.
+def _register_core_resources(mcp: FastMCP) -> None:
+    """Register the core resource (context template)."""
+
+    @mcp.resource("memory://context/{session_id}")
+    async def get_context(session_id: str, ctx: Context) -> str:
+        """Assembled context for a session.
+
+        Returns conversation history, relevant entities, preferences,
+        and similar reasoning traces for the given session. Suitable
+        for embedding in the system prompt at conversation start.
         """
         client = get_client(ctx)
-        conversation = await client.short_term.get_conversation(session_id=session_id, limit=100)
-        messages = [
-            {
-                "id": str(msg.id),
-                "role": msg.role.value if hasattr(msg.role, "value") else str(msg.role),
-                "content": msg.content,
-                "timestamp": msg.created_at.isoformat() if msg.created_at else None,
-            }
-            for msg in conversation.messages
-        ]
-        return json.dumps({"session_id": session_id, "messages": messages}, default=str)
-
-    @mcp.resource("memory://entities/{entity_name}")
-    async def get_entity(entity_name: str, ctx: Context) -> str:
-        """Get entity details and relationships from the knowledge graph.
-
-        Looks up an entity by name and returns its properties.
-        """
-        client = get_client(ctx)
-        entities = await client.long_term.search_entities(query=entity_name, limit=1)
-        if not entities:
-            return json.dumps({"found": False, "name": entity_name})
-
-        entity = entities[0]
-        return json.dumps(
-            {
-                "found": True,
-                "entity": {
-                    "id": str(entity.id),
-                    "name": entity.display_name,
-                    "type": (
-                        entity.type.value if hasattr(entity.type, "value") else str(entity.type)
-                    ),
-                    "description": entity.description,
-                    "aliases": entity.aliases if hasattr(entity, "aliases") else [],
+        try:
+            context = await client.get_context(
+                query="",
+                session_id=session_id,
+            )
+            return json.dumps(
+                {
+                    "session_id": session_id,
+                    "context": context,
+                    "has_context": bool(context),
                 },
-            },
-            default=str,
-        )
+                default=str,
+            )
+        except Exception as e:
+            logger.error(f"Error getting context: {e}")
+            return json.dumps({"error": str(e)})
 
-    @mcp.resource("memory://preferences/{category}")
-    async def get_preferences(category: str, ctx: Context) -> str:
-        """Get user preferences for a category.
 
-        Returns all stored preferences matching the given category.
+def _register_extended_resources(mcp: FastMCP) -> None:
+    """Register extended resources (entities catalog, preferences, stats)."""
+
+    @mcp.resource("memory://entities")
+    async def get_entities_catalog(ctx: Context) -> str:
+        """Catalog of all entities in the knowledge graph.
+
+        Returns entity names, types, descriptions, and relationship counts.
+        Useful for understanding what the memory system knows about.
         """
         client = get_client(ctx)
-        preferences = await client.long_term.search_preferences(query=category, limit=50)
-        prefs = [
-            {
-                "id": str(p.id),
-                "category": p.category,
-                "preference": p.preference,
-                "context": p.context,
-            }
-            for p in preferences
-        ]
-        return json.dumps({"category": category, "preferences": prefs}, default=str)
+        try:
+            entities = await client.long_term.search_entities(query="", limit=100)
+            entity_list = [
+                {
+                    "id": str(e.id),
+                    "name": e.display_name,
+                    "type": e.type.value if hasattr(e.type, "value") else str(e.type),
+                    "subtype": e.subtype if hasattr(e, "subtype") else None,
+                    "description": e.description,
+                }
+                for e in entities
+            ]
+            return json.dumps(
+                {"entity_count": len(entity_list), "entities": entity_list},
+                default=str,
+            )
+        except Exception as e:
+            logger.error(f"Error getting entities catalog: {e}")
+            return json.dumps({"error": str(e)})
+
+    @mcp.resource("memory://preferences")
+    async def get_all_preferences(ctx: Context) -> str:
+        """All stored user preferences organized by category.
+
+        Returns preferences for personalization. Auto-included
+        when the LLM needs to personalize responses.
+        """
+        client = get_client(ctx)
+        try:
+            preferences = await client.long_term.search_preferences(query="", limit=100)
+            pref_list = [
+                {
+                    "id": str(p.id),
+                    "category": p.category,
+                    "preference": p.preference,
+                    "context": p.context,
+                    "confidence": p.confidence if hasattr(p, "confidence") else None,
+                }
+                for p in preferences
+            ]
+            return json.dumps(
+                {"preference_count": len(pref_list), "preferences": pref_list},
+                default=str,
+            )
+        except Exception as e:
+            logger.error(f"Error getting preferences: {e}")
+            return json.dumps({"error": str(e)})
 
     @mcp.resource("memory://graph/stats")
     async def get_graph_stats(ctx: Context) -> str:
-        """Get knowledge graph statistics.
+        """Knowledge graph statistics.
 
         Returns node/relationship counts and entity type distribution.
+        Useful for understanding the size and composition of the memory graph.
         """
         client = get_client(ctx)
         try:

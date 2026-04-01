@@ -63,6 +63,9 @@ Reference guides are *information-oriented*. They describe the machinery and how
 | xref:reference/cli.adoc[CLI Reference]
 | Command-line interface for extraction and schema management.
 
+| xref:reference/mcp-tools.adoc[MCP Tools Reference]
+| Complete reference for MCP server tools, resources, prompts, and CLI options.
+
 | xref:reference/deployment.adoc[Deployment Guide]
 | Deploy documentation and applications to Vercel, Netlify, etc.
 |===

@@ -110,7 +110,7 @@ full = [
 ]
 
 [project.scripts]
-neo4j-memory = "neo4j_agent_memory.cli:main"
+neo4j-agent-memory = "neo4j_agent_memory.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/neo4j-labs/agent-memory"
