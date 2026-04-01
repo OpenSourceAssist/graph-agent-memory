@@ -207,7 +207,7 @@ class MemoryIntegration:
                 await self.client.long_term.add_preference(
                     category=pref.category,
                     preference=f"{sentiment_prefix}{pref.preference}",
-                    context=f"Auto-detected from: {pref.source_text[:200]}",
+                    context=f"Auto-detected from session {session_id}: {pref.source_text[:200]}",
                     confidence=pref.confidence,
                     generate_embedding=True,
                 )
