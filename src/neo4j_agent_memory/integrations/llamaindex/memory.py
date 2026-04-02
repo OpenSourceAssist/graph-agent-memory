@@ -157,9 +157,7 @@ try:
         # Async interface
         # ------------------------------------------------------------------
 
-        async def aget(
-            self, input: str | None = None, **kwargs: Any
-        ) -> list[ChatMessage]:
+        async def aget(self, input: str | None = None, **kwargs: Any) -> list[ChatMessage]:
             """
             Async: get memory messages relevant to the input.
 
@@ -174,13 +172,9 @@ try:
 
             if input:
                 # Semantic search across short-term memories
-                short_term_results = await self._client.short_term.search_messages(
-                    input, limit=5
-                )
+                short_term_results = await self._client.short_term.search_messages(input, limit=5)
                 for msg in short_term_results:
-                    role_str = (
-                        msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-                    )
+                    role_str = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
                     messages.append(
                         ChatMessage(
                             role=self._parse_role(role_str),
@@ -193,17 +187,13 @@ try:
                     )
 
                 # Semantic search across long-term entities
-                entities = await self._client.long_term.search_entities(
-                    input, limit=5
-                )
+                entities = await self._client.long_term.search_entities(input, limit=5)
                 for entity in entities:
                     text = entity.display_name
                     if entity.description:
                         text += f": {entity.description}"
                     entity_type = (
-                        entity.type.value
-                        if hasattr(entity.type, "value")
-                        else str(entity.type)
+                        entity.type.value if hasattr(entity.type, "value") else str(entity.type)
                     )
                     # Inject entity knowledge as system messages
                     messages.append(
@@ -219,13 +209,9 @@ try:
                     )
             else:
                 # Return recent conversation history
-                conv = await self._client.short_term.get_conversation(
-                    self._session_id, limit=10
-                )
+                conv = await self._client.short_term.get_conversation(self._session_id, limit=10)
                 for msg in conv.messages:
-                    role_str = (
-                        msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-                    )
+                    role_str = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
                     messages.append(
                         ChatMessage(
                             role=self._parse_role(role_str),
@@ -246,14 +232,8 @@ try:
             Args:
                 message: ChatMessage to store.
             """
-            role_str = (
-                message.role.value
-                if hasattr(message.role, "value")
-                else str(message.role)
-            )
-            await self._client.short_term.add_message(
-                self._session_id, role_str, message.content
-            )
+            role_str = message.role.value if hasattr(message.role, "value") else str(message.role)
+            await self._client.short_term.add_message(self._session_id, role_str, message.content)
 
         async def aget_all(self) -> list[ChatMessage]:
             """
