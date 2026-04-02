@@ -264,7 +264,6 @@ try:
             cls,
             memory_client: "MemoryClient",
             session_id: str,
-            **kwargs: Any,
         ) -> "Neo4jLlamaIndexMemory":
             """
             Create a Neo4jLlamaIndexMemory instance with default settings.
