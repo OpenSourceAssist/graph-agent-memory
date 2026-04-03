@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-04-02
+
+### Added
+
+- **MCP Server Enhancements** (PR #80): Major expansion of the MCP server with tool profiles, observational memory, and preference detection
+  - **Tool Profiles**: `core` (6 tools) and `extended` (16 tools) profiles to control context overhead
+  - **MemoryIntegration Layer**: High-level convenience wrapper with session strategies (`per_conversation`, `per_day`, `persistent`), auto-extraction, and preference detection — shared by MCP server and applications
+  - **Observational Memory**: `MemoryObserver` tracks accumulated context per session and generates keyword-based reflections when token thresholds are exceeded
+  - **Automatic Preference Detection**: Pattern-based `PreferenceDetector` identifies user preferences from messages with zero-latency, zero-cost regex patterns
+  - **Server Instructions**: LLM guidance sent during MCP initialization to direct tool usage patterns
+  - **Extended MCP Tools**: 10 additional tools including conversation history, session listing, entity details, graph export, relationship creation, reasoning traces, observations, and read-only Cypher queries
+  - **MCP Tool Annotations**: All tools annotated with `readOnlyHint`, `destructiveHint`, `idempotentHint` for client introspection
+  - **CLI MCP Command**: `neo4j-agent-memory mcp serve` with `--profile`, `--session-strategy`, `--user-id`, `--observation-threshold`, and `--no-auto-preferences` flags
+  - **MCPB Manifest**: `.mcpb` manifest for Claude Desktop extension directory (`deploy/mcpb/`)
+- **Documentation**: MCP server tutorial, MCP tools reference, create-context-graph how-to guide
+
+### Fixed
+
+- Fixed `session_id` parameter usage in `_detect_and_store_preferences` context field
+- Corrected CLI flag names in Google Cloud documentation (`--uri`/`--password` not `--neo4j-uri`/`--neo4j-password`)
+
 ## [0.0.5] - 2026-03-07
 
 ### Added
@@ -160,6 +181,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Schema Persistence**: Store and version custom entity schemas in Neo4j
 
+[0.1.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.1.0
 [0.0.5]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.5
 [0.0.4]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.4
 [0.0.3]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.3
