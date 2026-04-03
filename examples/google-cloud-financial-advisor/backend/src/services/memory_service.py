@@ -12,12 +12,13 @@ import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
-from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings
 from neo4j_agent_memory.config.settings import (
     EmbeddingConfig,
     EmbeddingProvider,
     Neo4jConfig,
 )
+from neo4j_agent_memory.memory.long_term import DeduplicationConfig
 from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 
 from ..config import get_settings
@@ -70,7 +71,11 @@ class FinancialMemoryService:
                 project_id=settings.vertex_ai.get_project_id(),
                 location=settings.vertex_ai.location,
             ),
+            extraction=ExtractionConfig(),
         )
+        # DeduplicationConfig is available for preventing duplicate customer entities.
+        # Configure via LongTermMemory(deduplication=DeduplicationConfig(...))
+        # to auto-merge or flag similar entities during add_entity() calls.
 
         self._client: MemoryClient | None = None
         self._memory_service: Neo4jMemoryService | None = None

@@ -19,6 +19,7 @@ async def main():
     """Run the Google ADK memory demo."""
     from neo4j_agent_memory import MemoryClient, MemorySettings
     from neo4j_agent_memory.config.settings import Neo4jConfig
+    from neo4j_agent_memory.integration import MemoryIntegration, SessionStrategy
     from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 
     # Configuration
@@ -166,6 +167,21 @@ async def main():
         print("- Query them via Cypher in Neo4j Browser")
         print("- Use the MCP server for tool-based access")
         print("- Build your own ADK agent with this memory backend")
+
+    # Alternative: Use MemoryIntegration for high-level operations
+    # MemoryIntegration provides session strategies, auto-extraction,
+    # and preference detection in a single convenience layer.
+    #
+    # integration = MemoryIntegration(
+    #     neo4j_uri=os.environ.get("NEO4J_URI", "bolt://localhost:7687"),
+    #     neo4j_password=os.environ.get("NEO4J_PASSWORD", "password"),
+    #     session_strategy=SessionStrategy.PER_DAY,
+    #     auto_preferences=True,
+    # )
+    # async with integration:
+    #     await integration.store_message("user", "I prefer dark mode")
+    #     context = await integration.get_context()
+    #     results = await integration.search("user preferences")
 
 
 if __name__ == "__main__":

@@ -2,9 +2,7 @@
 agent-framework>=1.0.0b260212
 
 # Neo4j Agent Memory
-# Install from local source (includes microsoft-agent extra)
-# neo4j-agent-memory[openai,microsoft-agent]
-../../../[openai,microsoft-agent]
+neo4j-agent-memory[openai,microsoft-agent]>=0.1.0
 
 # Web framework
 fastapi>=0.100.0

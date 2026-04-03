@@ -2,8 +2,15 @@
 
 import logging
 
-from neo4j_agent_memory import EmbeddingConfig, MemoryClient, MemorySettings, Neo4jConfig
+from neo4j_agent_memory import (
+    EmbeddingConfig,
+    ExtractionConfig,
+    MemoryClient,
+    MemorySettings,
+    Neo4jConfig,
+)
 from neo4j_agent_memory.config.settings import EnrichmentConfig, EnrichmentProvider
+from neo4j_agent_memory.memory.long_term import DeduplicationConfig
 from src.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -51,6 +58,11 @@ async def init_memory_client() -> MemoryClient | None:
     if settings.enrichment_enabled:
         logger.info(f"Entity enrichment enabled with providers: {[p.value for p in providers]}")
 
+    # Configure extraction with podcast-optimized GLiNER schema
+    extraction_config = ExtractionConfig(
+        gliner_schema="podcast",
+    )
+
     memory_settings = MemorySettings(
         neo4j=Neo4jConfig(
             uri=settings.neo4j_uri,
@@ -61,6 +73,7 @@ async def init_memory_client() -> MemoryClient | None:
             api_key=settings.openai_api_key,
         ),
         enrichment=enrichment_config,
+        extraction=extraction_config,
     )
 
     _memory_client = MemoryClient(memory_settings)
@@ -68,7 +81,20 @@ async def init_memory_client() -> MemoryClient | None:
     try:
         await _memory_client.connect()
         _memory_connected = True
-        logger.info("Successfully connected to Neo4j memory graph")
+
+        # Configure entity deduplication on the long-term memory layer.
+        # Auto-merge near-exact duplicates (>=0.95 similarity), flag potential
+        # duplicates (>=0.85) for review, and use fuzzy string matching to
+        # catch typos and name variations across podcast episodes.
+        _memory_client.long_term._deduplication = DeduplicationConfig(
+            auto_merge_threshold=0.95,
+            flag_threshold=0.85,
+            use_fuzzy_matching=True,
+        )
+        logger.info(
+            "Successfully connected to Neo4j memory graph "
+            "(deduplication enabled, podcast extraction schema)"
+        )
     except Exception as e:
         logger.warning(f"Failed to connect to Neo4j memory graph: {e}")
         logger.warning("Memory features will be disabled. Check your Neo4j configuration.")

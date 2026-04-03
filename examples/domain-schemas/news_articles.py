@@ -20,8 +20,13 @@ from pydantic import SecretStr
 # Load environment from examples/.env
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
-from neo4j_agent_memory.extraction import GLiNEREntityExtractor, is_gliner_available
+from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings, Neo4jConfig
+from neo4j_agent_memory.extraction import (
+    create_gliner_extractor,
+    is_gliner_available,
+    is_glirel_available,
+    GLiNERWithRelationsExtractor,
+)
 
 # Sample news articles - fictional current events
 NEWS_ARTICLES = [
@@ -132,9 +137,13 @@ async def main():
         print("    # or: pip install gliner")
         return
 
-    # Create GLiNER extractor with news schema
-    print("Initializing GLiNER2 extractor with news schema...")
-    extractor = GLiNEREntityExtractor.for_schema("news", threshold=0.4)
+    # Create GLiNER extractor with news schema using factory pattern
+    print("Initializing GLiNER2 extractor with news schema (via factory)...")
+    extraction_config = ExtractionConfig(
+        gliner_schema="news",
+        gliner_threshold=0.4,
+    )
+    extractor = create_gliner_extractor(extraction_config)
     print(f"  Model: {extractor._model_name}")
     print(f"  Entity types: {list(extractor.entity_labels.keys())}")
     print()
@@ -229,6 +238,35 @@ async def main():
        - Organization-Event participation
        - Geographic event clustering
     """)
+
+    # Demonstrate GLiREL relation extraction (no LLM required)
+    if is_glirel_available():
+        print("=" * 70)
+        print("RELATION EXTRACTION (GLiREL - No LLM Required)")
+        print("=" * 70)
+        print()
+
+        # Use combined entity + relation extractor
+        relation_extractor = GLiNERWithRelationsExtractor.for_schema("news")
+
+        # Extract from first article as demo
+        article = NEWS_ARTICLES[0]
+        print(f"Extracting relations from: {article['headline']}")
+        rel_result = await relation_extractor.extract(article["content"])
+        filtered_rel = rel_result.filter_invalid_entities()
+
+        if filtered_rel.relations:
+            print(f"\n  Relationships found: {len(filtered_rel.relations)}")
+            for rel in filtered_rel.relations:
+                conf = f" ({rel.confidence:.0%})" if rel.confidence else ""
+                print(f"    {rel.source} -[{rel.relation_type}]-> {rel.target}{conf}")
+        else:
+            print("  No relationships extracted (may need lower threshold)")
+        print()
+    else:
+        print("\nGLiREL not installed. Install with: pip install glirel")
+        print("GLiREL enables relationship extraction without LLM calls.")
+        print()
 
     # Demonstrate Neo4j storage if configured
     neo4j_uri = os.getenv("NEO4J_URI")

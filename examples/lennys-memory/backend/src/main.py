@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -9,6 +10,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import chat, memory, threads
 from src.config import get_settings
 from src.memory.client import close_memory_client, init_memory_client, is_memory_connected
+
+# Optional observability support -- tracing is available when the
+# opentelemetry or opik extras are installed, but the app runs fine without.
+try:
+    from neo4j_agent_memory.observability import get_tracer
+
+    _tracer_available = True
+except ImportError:
+    _tracer_available = False
+
+logger = logging.getLogger(__name__)
 
 # Set OpenAI API key from settings early, before any agent initialization
 _settings = get_settings()
@@ -21,6 +33,16 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler for startup and shutdown."""
     # Startup
     await init_memory_client()
+
+    # Initialize observability tracer if available (auto-detects provider)
+    if _tracer_available:
+        tracer = get_tracer(service_name="lennys-memory")
+        app.state.tracer = tracer
+        logger.info("Observability tracer initialized: %s", type(tracer).__name__)
+    else:
+        app.state.tracer = None
+        logger.info("Observability extras not installed -- tracing disabled")
+
     yield
     # Shutdown
     await close_memory_client()

@@ -21,6 +21,11 @@ from datetime import datetime
 
 from pydantic import SecretStr
 
+# SessionStrategy can be used to configure how session IDs are resolved
+# when using MemoryIntegration with Google ADK agents.
+# Available strategies: PER_CONVERSATION, PER_DAY, PERSISTENT
+from neo4j_agent_memory.integration import SessionStrategy
+
 
 async def demo_basic_usage():
     """Demonstrate basic ADK memory service operations."""
@@ -313,6 +318,7 @@ async def demo_adk_agent_pattern():
 from google.adk import Agent
 from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+from neo4j_agent_memory.integration import MemoryIntegration, SessionStrategy
 
 # Initialize memory
 settings = MemorySettings(...)
@@ -337,6 +343,20 @@ agent = Agent(
 # - Store conversation sessions
 # - Extract entities and preferences
 # - Search memories for context
+
+# SessionStrategy configuration for session ID resolution:
+# - SessionStrategy.PER_CONVERSATION: New UUID per instance (default)
+# - SessionStrategy.PER_DAY: Daily continuity ("user-123-2026-04-02")
+# - SessionStrategy.PERSISTENT: Fixed user_id for maximum continuity
+#
+# Example with MemoryIntegration:
+# async with MemoryIntegration(
+#     neo4j_uri="bolt://localhost:7687",
+#     neo4j_password="password",
+#     session_strategy=SessionStrategy.PER_DAY,
+#     user_id="user-123",
+# ) as memory:
+#     await memory.store_message("user", "Hello!")
 
 # For custom memory operations in tools:
 @agent.tool

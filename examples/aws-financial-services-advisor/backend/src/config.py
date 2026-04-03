@@ -73,6 +73,25 @@ class S3Settings(BaseSettings):
     region: str = Field(default="us-east-1", description="S3 bucket region")
 
 
+class MemoryFeatureSettings(BaseSettings):
+    """Neo4j Agent Memory feature configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="MEMORY_")
+
+    enable_extraction: bool = Field(
+        default=True, description="Enable entity extraction from conversations"
+    )
+    enable_deduplication: bool = Field(
+        default=True, description="Enable entity deduplication on ingest"
+    )
+    dedup_auto_merge_threshold: float = Field(
+        default=0.95, description="Similarity threshold for automatic entity merge"
+    )
+    dedup_flag_threshold: float = Field(
+        default=0.85, description="Similarity threshold for flagging potential duplicates"
+    )
+
+
 class AppSettings(BaseSettings):
     """Application-level settings."""
 
@@ -113,6 +132,9 @@ class Settings(BaseSettings):
     cognito: CognitoSettings = Field(default_factory=CognitoSettings)
     s3: S3Settings = Field(default_factory=S3Settings)
     app: AppSettings = Field(default_factory=AppSettings)
+    memory_features: MemoryFeatureSettings = Field(
+        default_factory=MemoryFeatureSettings
+    )
 
     def to_strands_config_dict(self) -> dict[str, Any]:
         """Convert settings to Strands integration config format."""

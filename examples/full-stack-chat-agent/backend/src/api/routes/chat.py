@@ -21,7 +21,7 @@ from src.agent.agent import get_news_agent
 from src.agent.dependencies import AgentDeps
 from src.api.schemas import ChatRequest
 from src.config import get_settings
-from src.memory.client import get_memory_client
+from src.memory.client import get_memory_client, get_memory_integration
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -60,76 +60,11 @@ async def create_news_driver():
     return driver
 
 
-# Keywords that indicate preference statements
-PREFERENCE_INDICATORS = [
-    "i prefer",
-    "i like",
-    "i want",
-    "i love",
-    "i enjoy",
-    "i'd rather",
-    "i would rather",
-    "please use",
-    "please give me",
-    "please provide",
-    "i'm interested in",
-    "i am interested in",
-    "my preference is",
-    "my favorite",
-    "i hate",
-    "i don't like",
-    "i dislike",
-    "avoid",
-    "don't give me",
-]
 
-
-async def extract_and_store_preferences(
-    memory: MemoryClient,
-    message: str,
-    session_id: str,
-) -> None:
-    """Extract preferences from user message and store in long-term memory.
-
-    This uses simple keyword matching to identify preference statements.
-    For production, an LLM-based extractor would be more accurate.
-    """
-    message_lower = message.lower()
-
-    # Check if the message contains preference indicators
-    has_preference = any(indicator in message_lower for indicator in PREFERENCE_INDICATORS)
-
-    if not has_preference:
-        return
-
-    # Categorize the preference
-    category = "general"
-    if any(
-        word in message_lower
-        for word in ["format", "summary", "summaries", "bullet", "concise", "brief", "detailed"]
-    ):
-        category = "format"
-    elif any(word in message_lower for word in ["topic", "subject", "news", "articles", "stories"]):
-        category = "content"
-    elif any(
-        word in message_lower
-        for word in ["business", "technology", "tech", "sports", "politics", "entertainment"]
-    ):
-        category = "topics"
-    elif any(word in message_lower for word in ["location", "city", "country", "region", "local"]):
-        category = "location"
-
-    try:
-        # Store the preference
-        await memory.long_term.add_preference(
-            category=category,
-            preference=message,
-            context=f"Extracted from conversation in session {session_id}",
-            confidence=0.8,  # Slightly lower confidence for auto-extracted
-        )
-        logger.info(f"Stored preference: [{category}] {message[:50]}...")
-    except Exception as e:
-        logger.warning(f"Failed to store preference: {e}")
+# NOTE: Automatic preference detection is now handled by MemoryIntegration
+# with auto_preferences=True. The PreferenceDetector uses regex patterns for
+# zero-latency, zero-cost detection and runs as a background task on
+# store_message(). See src/memory/client.py for configuration.
 
 
 async def stream_chat_response(
@@ -167,12 +102,8 @@ async def stream_chat_response(
                 )
                 user_message_id = user_message.id
 
-                # Extract and store any preferences from the user message
-                await extract_and_store_preferences(
-                    memory=memory,
-                    message=request.message,
-                    session_id=request.thread_id,
-                )
+                # Preference detection is handled automatically by MemoryIntegration
+                # via auto_preferences=True (see src/memory/client.py)
 
             # Start reasoning trace if memory enabled, linked to user message
             if memory_enabled and memory:

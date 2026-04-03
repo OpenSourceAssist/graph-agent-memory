@@ -20,8 +20,13 @@ from pydantic import SecretStr
 # Load environment from examples/.env
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
-from neo4j_agent_memory.extraction import GLiNEREntityExtractor, is_gliner_available
+from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings, Neo4jConfig
+from neo4j_agent_memory.extraction import (
+    create_gliner_extractor,
+    is_gliner_available,
+    is_glirel_available,
+    GLiNERWithRelationsExtractor,
+)
 
 # Sample investigation data - fictional fraud case
 INVESTIGATION_DATA = [
@@ -106,9 +111,13 @@ async def main():
         print("    # or: pip install gliner")
         return
 
-    # Create GLiNER extractor with POLE+O schema
-    print("Initializing GLiNER2 extractor with POLE+O schema...")
-    extractor = GLiNEREntityExtractor.for_schema("poleo", threshold=0.4)
+    # Create GLiNER extractor with POLE+O schema using factory pattern
+    print("Initializing GLiNER2 extractor with POLE+O schema (via factory)...")
+    extraction_config = ExtractionConfig(
+        gliner_schema="poleo",
+        gliner_threshold=0.4,
+    )
+    extractor = create_gliner_extractor(extraction_config)
     print(f"  Model: {extractor._model_name}")
     print(f"  Entity types: {list(extractor.entity_labels.keys())}")
     print()
@@ -184,6 +193,34 @@ async def main():
     for obj in sorted(objects, key=lambda x: x.confidence or 0, reverse=True)[:5]:
         subtype = f" [{obj.subtype}]" if obj.subtype else ""
         print(f"  - {obj.name}{subtype}")
+
+    # Demonstrate GLiREL relation extraction for investigations
+    if is_glirel_available():
+        print()
+        print("=" * 70)
+        print("RELATION EXTRACTION (GLiREL - No LLM Required)")
+        print("=" * 70)
+        print()
+
+        # Use combined entity + relation extractor for POLE+O
+        relation_extractor = GLiNERWithRelationsExtractor.for_poleo()
+
+        # Extract from first document (financial intelligence report)
+        doc = INVESTIGATION_DATA[0]
+        print(f"Extracting relations from: {doc['source']}")
+        rel_result = await relation_extractor.extract(doc["content"])
+        filtered_rel = rel_result.filter_invalid_entities()
+
+        if filtered_rel.relations:
+            print(f"\n  Relationships found: {len(filtered_rel.relations)}")
+            for rel in filtered_rel.relations:
+                conf = f" ({rel.confidence:.0%})" if rel.confidence else ""
+                print(f"    {rel.source} -[{rel.relation_type}]-> {rel.target}{conf}")
+        else:
+            print("  No relationships extracted (may need lower threshold)")
+    else:
+        print("\n  GLiREL not installed. Install with: pip install glirel")
+        print("  GLiREL enables relationship extraction without LLM calls.")
 
     print()
     print("=" * 70)

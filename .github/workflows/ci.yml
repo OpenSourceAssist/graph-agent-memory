@@ -325,6 +325,8 @@ jobs:
             tests/examples/test_microsoft_agent_example.py \
             tests/examples/test_crewai_example.py \
             tests/examples/test_llamaindex_example.py \
+            tests/examples/test_aws_financial_advisor.py \
+            tests/examples/test_domain_schemas.py \
             -v \
             --tb=short \
             --timeout=60

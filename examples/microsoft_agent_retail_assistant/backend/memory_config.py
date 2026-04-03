@@ -8,12 +8,14 @@ from pydantic import SecretStr
 from pydantic_settings import BaseSettings
 
 from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.config.settings import ExtractionConfig
 from neo4j_agent_memory.integrations.microsoft_agent import (
     GDSAlgorithm,
     GDSConfig,
     Neo4jContextProvider,
     Neo4jMicrosoftMemory,
 )
+from neo4j_agent_memory.memory.long_term import DeduplicationConfig
 
 load_dotenv()
 
@@ -42,6 +44,38 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
+def get_deduplication_config() -> DeduplicationConfig:
+    """Create DeduplicationConfig for product entity deduplication.
+
+    This ensures that product entities with similar names (e.g.,
+    "Nike Air Max" vs "Nike Air Max 90") are properly deduplicated
+    in the knowledge graph.
+    """
+    return DeduplicationConfig(
+        enabled=True,
+        auto_merge_threshold=0.95,
+        flag_threshold=0.85,
+        use_fuzzy_matching=True,
+        fuzzy_threshold=0.9,
+        max_candidates=10,
+        match_same_type_only=True,
+    )
+
+
+def get_extraction_config() -> ExtractionConfig:
+    """Create ExtractionConfig for retail entity extraction.
+
+    Configures the extraction pipeline to identify product names,
+    brands, categories, and other retail-relevant entities from
+    customer conversations.
+    """
+    return ExtractionConfig(
+        enable_spacy=True,
+        enable_gliner=True,
+        enable_llm_fallback=False,
+    )
+
+
 def get_memory_settings() -> MemorySettings:
     """Create MemorySettings from environment."""
     return MemorySettings(
@@ -55,6 +89,7 @@ def get_memory_settings() -> MemorySettings:
             "model": "text-embedding-3-small",
             "api_key": SecretStr(settings.openai_api_key) if settings.openai_api_key else None,
         },
+        extraction=get_extraction_config(),
     )
 
 
