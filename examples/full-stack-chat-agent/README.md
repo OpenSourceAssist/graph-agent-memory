@@ -7,10 +7,12 @@ A complete example demonstrating **neo4j-agent-memory** integration with a Pydan
 ## Features
 
 - **PydanticAI Agent**: News research assistant with memory-enhanced system prompts
-- **Three Memory Types**: 
+- **Three Memory Types**:
   - Short-term: Conversation history stored in Neo4j
   - Long-term: User preferences and extracted entities
   - Reasoning: Reasoning traces for learning from past interactions
+- **MemoryIntegration**: High-level convenience wrapper with session strategies and automatic preference detection
+- **Automatic Preference Detection**: Uses `PreferenceDetector` (pattern-based, zero-latency) instead of manual keyword matching
 - **News Graph Tools**: Search, filter, and analyze news articles
 - **SSE Streaming**: Real-time response streaming with tool call visibility
 - **Next.js Frontend**: Modern React UI with Chakra UI v3 components
@@ -23,38 +25,10 @@ A complete example demonstrating **neo4j-agent-memory** integration with a Pydan
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Frontend                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │   Sidebar   │  │    Chat     │  │   Memory Context    │ │
-│  │  (Threads)  │  │  Container  │  │      Panel          │ │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
-└────────────────────────┬────────────────────────────────────┘
-                         │ SSE Streaming
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Backend (FastAPI)                      │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │                   PydanticAI Agent                   │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │   │
-│  │  │ News Tools  │  │Memory Deps  │  │System Prompt│  │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘  │   │
-│  └─────────────────────────────────────────────────────┘   │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-         ┌───────────────┴───────────────┐
-         ▼                               ▼
-┌─────────────────┐             ┌─────────────────┐
-│  Memory Graph   │             │   News Graph    │
-│   (Neo4j)       │             │    (Neo4j)      │
-│                 │             │                 │
-│ - Episodes      │             │ - Articles      │
-│ - Entities      │             │ - Topics        │
-│ - Preferences   │             │ - People        │
-│ - Traces        │             │ - Organizations │
-└─────────────────┘             └─────────────────┘
-```
+<!-- Export the Excalidraw diagram to PNG and replace this placeholder -->
+![Full-Stack Chat Agent Architecture](img/architecture.png)
+
+> *Diagram source: [img/architecture.excalidraw](img/architecture.excalidraw) -- open in [Excalidraw](https://excalidraw.com) to edit*
 
 ## Prerequisites
 
@@ -170,6 +144,24 @@ The agent has access to the following tools:
 
 ## Memory Integration
 
+### MemoryIntegration (High-Level API)
+
+This example uses `MemoryIntegration` for simplified memory operations with automatic session management and preference detection:
+
+```python
+from neo4j_agent_memory import MemoryIntegration, SessionStrategy
+
+integration = MemoryIntegration(
+    neo4j_uri=settings.neo4j_uri,
+    neo4j_password=settings.neo4j_password.get_secret_value(),
+    session_strategy=SessionStrategy.PER_CONVERSATION,
+    auto_extract=True,
+    auto_preferences=True,  # Automatic preference detection from user messages
+)
+```
+
+When `auto_preferences=True`, the `PreferenceDetector` runs as a background task on each `store_message()` call, detecting preference statements using regex patterns (zero-latency, no LLM calls).
+
 ### Short-Term Memory
 
 Conversations are automatically stored:
@@ -184,10 +176,10 @@ await memory.short_term.add_message(
 
 ### Long-Term Memory
 
-Preferences and entities are extracted from conversations:
+Preferences are automatically extracted from conversations via `MemoryIntegration`. You can also add them explicitly:
 
 ```python
-# Add preference
+# Explicit preference
 await memory.long_term.add_preference(
     category="news",
     preference="Interested in AI startups",

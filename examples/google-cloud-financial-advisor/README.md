@@ -2,7 +2,12 @@
 
 An intelligent compliance assistant powered by **Google ADK** (Agent Development Kit) and **Neo4j Agent Memory Context Graphs**, demonstrating multi-agent AI for KYC/AML compliance, fraud detection, and relationship intelligence.
 
-<!-- ![Financial Advisor Dashboard](docs/screenshots/dashboard-overview.png) -->
+## Architecture
+
+<!-- Export the Excalidraw diagram to PNG and replace this placeholder -->
+![Google Cloud Financial Advisor Architecture](img/architecture.png)
+
+> *Diagram source: [img/architecture.excalidraw](img/architecture.excalidraw) -- open in [Excalidraw](https://excalidraw.com) to edit*
 
 ## Overview
 
@@ -17,6 +22,8 @@ This example application showcases the Google Cloud-Neo4j integration through a 
 - **Explainable AI**: Full audit trails for regulatory compliance (EU AI Act ready)
 - **Real-time Monitoring**: Transaction and behavior pattern detection
 - **Graph-based RAG**: Reduces hallucinations through grounded, relationship-aware retrieval
+- **Entity Deduplication**: `DeduplicationConfig` available for preventing duplicate customer entities
+- **Explicit Extraction Config**: `ExtractionConfig` for configuring entity extraction pipelines
 
 ---
 

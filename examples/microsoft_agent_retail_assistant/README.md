@@ -5,6 +5,8 @@ A full-stack example application demonstrating Neo4j Agent Memory integration wi
 ## Features
 
 - **Preference Learning**: Automatically extracts and stores shopping preferences from conversation
+- **Entity Deduplication**: `DeduplicationConfig` prevents duplicate product entities (e.g., "Nike Air Max" vs "Nike Air Max 90") with configurable auto-merge and flag thresholds
+- **Explicit Extraction Config**: `ExtractionConfig` with spaCy + GLiNER for retail entity identification
 - **Graph-Based Recommendations**: "Customers who bought X also bought Y" via graph traversals
 - **Product Relationship Discovery**: Find related products through shared attributes, categories, brands
 - **Inventory-Aware Suggestions**: Filter recommendations by real-time availability
@@ -13,27 +15,10 @@ A full-stack example application demonstrating Neo4j Agent Memory integration wi
 
 ## Architecture
 
-![Architecture Diagram](architecture.png)
+<!-- Export the Excalidraw diagram to PNG and replace this placeholder -->
+![Microsoft Agent Retail Assistant Architecture](img/architecture.png)
 
-```
-Frontend (Next.js 14 + Chakra UI)
-         ↓ SSE/REST
-Backend (FastAPI)
-         ↓
-Microsoft Agent Framework (Agent + FunctionTools)
-         ↓ context_providers=[memory.context_provider]
-Neo4jContextProvider
-  ┌──────┼──────────────┐
-  │ before_run()        │ after_run()
-  │ (inject context)    │ (persist + extract)
-  ↓                     ↓
-Neo4j Agent Memory (MemoryClient)
-  ├── short_term  → conversation history + semantic search
-  ├── long_term   → entities, preferences, knowledge graph
-  └── reasoning   → past task traces for learning
-         ↓
-Neo4j Database (Cypher + Vector Index + GDS)
-```
+> *Diagram source: [img/architecture.excalidraw](img/architecture.excalidraw) -- open in [Excalidraw](https://excalidraw.com) to edit*
 
 ## Prerequisites
 

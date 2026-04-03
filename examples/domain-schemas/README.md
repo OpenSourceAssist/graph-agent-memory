@@ -8,18 +8,25 @@ This directory contains example applications demonstrating GLiNER2 domain schema
 
 GLiNER2 supports **domain schemas** - predefined sets of entity types with natural language descriptions that help the model understand what to extract. Using domain-specific schemas significantly improves extraction accuracy compared to generic entity types.
 
+## Architecture
+
+<!-- Export the Excalidraw diagram to PNG and replace this placeholder -->
+![Domain Schemas Architecture](img/architecture.png)
+
+> *Diagram source: [img/architecture.excalidraw](img/architecture.excalidraw) -- open in [Excalidraw](https://excalidraw.com) to edit*
+
 ## Available Examples
 
-| Example | Schema | Description |
-|---------|--------|-------------|
-| `poleo_investigations.py` | `poleo` | Investigation/intelligence analysis (POLE+O model) |
-| `podcast_transcripts.py` | `podcast` | Podcast and interview transcripts |
-| `news_articles.py` | `news` | News articles and journalism |
-| `scientific_papers.py` | `scientific` | Research papers and academic content |
-| `business_reports.py` | `business` | Business documents and earnings reports |
-| `entertainment_content.py` | `entertainment` | Movies, TV shows, and celebrity content |
-| `medical_records.py` | `medical` | Clinical documents and healthcare content |
-| `legal_documents.py` | `legal` | Legal cases, contracts, and regulatory filings |
+| Example | Schema | Description | New Features |
+|---------|--------|-------------|--------------|
+| `poleo_investigations.py` | `poleo` | Investigation/intelligence analysis (POLE+O model) | Factory pattern, GLiREL relations |
+| `podcast_transcripts.py` | `podcast` | Podcast and interview transcripts | Factory pattern, batch extraction |
+| `news_articles.py` | `news` | News articles and journalism | Factory pattern, GLiREL relations |
+| `scientific_papers.py` | `scientific` | Research papers and academic content | Factory pattern, streaming extraction |
+| `business_reports.py` | `business` | Business documents and earnings reports | |
+| `entertainment_content.py` | `entertainment` | Movies, TV shows, and celebrity content | |
+| `medical_records.py` | `medical` | Clinical documents and healthcare content | |
+| `legal_documents.py` | `legal` | Legal cases, contracts, and regulatory filings | |
 
 ## Running the Examples
 
@@ -149,12 +156,70 @@ Entity types optimized for legal documents:
 - **date**: Legal dates and deadlines
 - **monetary_amount**: Settlements and fines
 
+## New Features Demonstrated
+
+These examples showcase several features introduced in neo4j-agent-memory v0.1.0:
+
+### Factory Pattern (`ExtractionConfig` + `create_gliner_extractor`)
+
+Instead of constructing extractors directly, the examples use the factory pattern for configuration-driven extractor creation:
+
+```python
+from neo4j_agent_memory import ExtractionConfig
+from neo4j_agent_memory.extraction import create_gliner_extractor
+
+config = ExtractionConfig(gliner_schema="podcast", gliner_threshold=0.45)
+extractor = create_gliner_extractor(config)
+```
+
+This pattern is the recommended approach -- it centralizes configuration and makes it easy to swap extractor types without changing application code.
+
+### GLiREL Relation Extraction (`news_articles.py`, `poleo_investigations.py`)
+
+GLiREL extracts relationships between entities **without requiring LLM calls**:
+
+```python
+from neo4j_agent_memory.extraction import GLiNERWithRelationsExtractor, is_glirel_available
+
+if is_glirel_available():
+    extractor = GLiNERWithRelationsExtractor.for_schema("news")
+    result = await extractor.extract(text)
+    for rel in result.relations:
+        print(f"{rel.source} -[{rel.relation_type}]-> {rel.target}")
+```
+
+Install GLiREL with: `pip install glirel`
+
+### Batch Extraction (`podcast_transcripts.py`)
+
+Process multiple documents in parallel with progress tracking:
+
+```python
+batch_result = await extractor.extract_batch(
+    texts, batch_size=10,
+    on_progress=lambda done, total: print(f"{done}/{total}"),
+)
+print(f"Total entities: {batch_result.total_entities}")
+```
+
+### Streaming Extraction (`scientific_papers.py`)
+
+Process long documents chunk by chunk for memory efficiency:
+
+```python
+from neo4j_agent_memory.extraction import create_streaming_extractor
+
+streamer = create_streaming_extractor(extractor, chunk_size=2000, overlap=200)
+async for chunk_result in streamer.extract_streaming(long_document):
+    print(f"Chunk {chunk_result.chunk.index + 1}: {chunk_result.entity_count} entities")
+```
+
 ## Creating Custom Schemas
 
 You can create custom schemas for your specific domain:
 
 ```python
-from neo4j_agent_memory.extraction.gliner_extractor import DomainSchema, GLiNEREntityExtractor
+from neo4j_agent_memory.extraction import DomainSchema, GLiNEREntityExtractor
 
 # Define a custom schema
 real_estate_schema = DomainSchema(
@@ -183,9 +248,13 @@ result = await extractor.extract(property_listing_text)
 
 2. **Use GPU acceleration**: Set `device="cuda"` or `device="mps"` for faster inference.
 
-3. **Batch processing**: Process multiple documents in parallel using asyncio.
+3. **Batch processing**: Use `extract_batch()` to process multiple documents in parallel with progress callbacks. See `podcast_transcripts.py` for an example.
 
-4. **Filter results**: Always call `result.filter_invalid_entities()` to remove noise.
+4. **Streaming for long documents**: Use `StreamingExtractor` for documents over 100K tokens to avoid memory issues. See `scientific_papers.py` for an example.
+
+5. **Filter results**: Always call `result.filter_invalid_entities()` to remove noise.
+
+6. **Use the factory pattern**: Use `ExtractionConfig` + `create_gliner_extractor()` for configuration-driven setup rather than constructing extractors directly.
 
 ## Sample Output
 
