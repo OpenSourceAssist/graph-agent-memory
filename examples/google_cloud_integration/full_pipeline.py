@@ -2,7 +2,7 @@
 """Full Google Cloud Integration Pipeline Demo.
 
 This comprehensive example demonstrates all Google Cloud features
-introduced in neo4j-agent-memory v0.0.3:
+introduced in neo4j-agent-memory v0.1.0:
 
 1. Vertex AI Embeddings - Generate embeddings using Google's models
 2. Google ADK Integration - Use Neo4jMemoryService with ADK agents
@@ -46,6 +46,7 @@ async def setup_client():
         EmbeddingProvider,
         Neo4jConfig,
     )
+    from neo4j_agent_memory.integration import MemoryIntegration, SessionStrategy
 
     # Determine embedding provider
     use_vertex = os.environ.get("GOOGLE_CLOUD_PROJECT") and os.environ.get(
@@ -343,11 +344,60 @@ gcloud run deploy neo4j-memory-mcp \\
     print(deploy_cmd)
 
 
+async def demo_memory_integration():
+    """Demonstrate MemoryIntegration with SessionStrategy."""
+    print_header("Phase 5: MemoryIntegration with Session Strategies")
+
+    from neo4j_agent_memory.integration import MemoryIntegration, SessionStrategy
+
+    print("MemoryIntegration provides a high-level convenience layer")
+    print("with automatic session management, entity extraction, and")
+    print("preference detection.")
+    print()
+
+    print("Session Strategies:")
+    print(f"  - PER_CONVERSATION: New UUID per instance (default)")
+    print(f"  - PER_DAY: Daily continuity (user_id-YYYY-MM-DD)")
+    print(f"  - PERSISTENT: Fixed user_id for maximum continuity")
+    print()
+
+    print_subheader("Using PER_DAY Strategy")
+
+    async with MemoryIntegration(
+        neo4j_uri=os.environ.get("NEO4J_URI", "bolt://localhost:7687"),
+        neo4j_password=os.environ.get("NEO4J_PASSWORD", "password"),
+        session_strategy=SessionStrategy.PER_DAY,
+        user_id="pipeline-demo-user",
+        auto_extract=True,
+        auto_preferences=True,
+    ) as memory:
+        # Store a message with automatic entity extraction and preference detection
+        await memory.store_message(
+            "user",
+            "I'm researching GraphRAG with Dr. Sarah Chen at Stanford. "
+            "I prefer using Python and Neo4j for knowledge graphs.",
+        )
+        print("  Stored message with auto-extraction and preference detection")
+
+        # Search across all memory types
+        results = await memory.search("GraphRAG research")
+        print(f"  Search returned {len(results)} results")
+
+        # Get assembled context for LLM
+        context = await memory.get_context()
+        print(f"  Context assembled for session: {memory.session_id}")
+        print()
+
+    print("MemoryIntegration handles connection lifecycle, session ID")
+    print("resolution, and background preference detection automatically.")
+    print()
+
+
 async def main():
     """Run the complete Google Cloud integration pipeline."""
     print("\n" + "=" * 70)
     print("  Neo4j Agent Memory - Google Cloud Integration Pipeline")
-    print("  Version 0.0.3 Feature Demonstration")
+    print("  Version 0.1.0 Feature Demonstration")
     print("=" * 70)
 
     print()
@@ -356,6 +406,7 @@ async def main():
     print("  • Google ADK MemoryService")
     print("  • MCP Server with 5 tools")
     print("  • Cloud Run deployment configuration")
+    print("  • MemoryIntegration with SessionStrategy.PER_DAY")
     print()
     print(f"Timestamp: {datetime.now().isoformat()}")
 
@@ -369,6 +420,9 @@ async def main():
 
         # Show production config (no client needed)
         await demo_production_config()
+
+        # Demonstrate MemoryIntegration with session strategies
+        await demo_memory_integration()
 
     except Exception as e:
         print(f"\n❌ Error: {e}")
@@ -386,6 +440,7 @@ async def main():
     print("  ✓ ADK MemoryService for session and entity storage")
     print("  ✓ MCP Server tools for memory operations")
     print("  ✓ Cloud Run deployment configuration")
+    print("  ✓ MemoryIntegration with PER_DAY session strategy")
     print()
     print("Next steps:")
     print("  • Explore Neo4j Browser to see the knowledge graph")

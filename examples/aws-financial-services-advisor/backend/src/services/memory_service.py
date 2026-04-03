@@ -7,8 +7,9 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings
 from neo4j_agent_memory.config import EmbeddingConfig, EmbeddingProvider, Neo4jConfig
+from neo4j_agent_memory.memory.long_term import DeduplicationConfig
 
 from ..config import get_settings
 
@@ -39,7 +40,11 @@ class FinancialMemoryService:
                 model=settings.bedrock.embedding_model_id,
                 aws_region=settings.aws.region,
             ),
+            extraction=ExtractionConfig(),
         )
+        # DeduplicationConfig is available for preventing duplicate customer entities.
+        # Configure via LongTermMemory(deduplication=DeduplicationConfig(...))
+        # to auto-merge or flag similar entities during add_entity() calls.
         self._client = MemoryClient(memory_settings)
         self._initialized = False
 
@@ -106,6 +111,8 @@ class FinancialMemoryService:
             description=description,
             attributes=attributes,
         )
+        # Provenance tracking is available via link_entity_to_message()
+        # and link_entity_to_extractor() to trace where entities originated.
         logger.info(f"Added customer entity: {name} ({customer_id})")
         return entity.id
 

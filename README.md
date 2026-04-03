@@ -142,9 +142,20 @@ neo4j-agent-memory mcp serve --session-strategy per_day --user-id alice --passwo
 
 See the [MCP tools reference](https://neo4j-agent-memory.vercel.app/reference/mcp-tools.html) for full details.
 
-## Demo
+## Examples
 
-The [Lenny's Podcast Memory Explorer](examples/lennys-memory/) loads 299 podcast episodes into a searchable knowledge graph with an AI chat agent, interactive graph visualization, geospatial map view, and Wikipedia-enriched entity cards.
+| Example | Framework | Description |
+|---------|-----------|-------------|
+| [Lenny's Podcast Memory Explorer](examples/lennys-memory/) | PydanticAI | Flagship demo: 299 podcast episodes, knowledge graph, geospatial maps, Wikipedia enrichment |
+| [Full-Stack Chat Agent](examples/full-stack-chat-agent/) | PydanticAI | News research assistant with NVL graph visualization and auto-preference detection |
+| [AWS Financial Advisor](examples/aws-financial-services-advisor/) | Strands (AWS) | Multi-agent KYC/AML compliance with Bedrock and reasoning trace audit trails |
+| [Google Cloud Financial Advisor](examples/google-cloud-financial-advisor/) | Google ADK | Multi-agent compliance with Vertex AI embeddings and real-time SSE streaming |
+| [Microsoft Retail Assistant](examples/microsoft_agent_retail_assistant/) | Microsoft Agent | Shopping recommendations with GDS algorithms, entity deduplication, and context providers |
+| [Domain Schema Examples](examples/domain-schemas/) | Standalone | 8 GLiNER2 extraction scripts with factory pattern, batch extraction, streaming, and GLiREL relations |
+| [Google Cloud Integration](examples/google_cloud_integration/) | Google ADK | Progressive tutorial: Vertex AI, ADK, MCP server, and MemoryIntegration with session strategies |
+| [Google ADK Demo](examples/google_adk_demo/) | Google ADK | Standalone demo of Neo4jMemoryService with session storage, search, and preferences |
+
+All examples use `neo4j-agent-memory>=0.1.0` and demonstrate the latest features including `ExtractionConfig`, `DeduplicationConfig`, `MemoryIntegration`, and `SessionStrategy`.
 
 ## Documentation
 

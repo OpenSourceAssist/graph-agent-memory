@@ -38,6 +38,13 @@ This is the flagship demo application for the `neo4j-agent-memory` library. It d
 
 ---
 
+## Architecture
+
+<!-- Export the Excalidraw diagram to PNG and replace this placeholder -->
+![Lenny's Memory Architecture](img/architecture.png)
+
+> *Diagram source: [img/architecture.excalidraw](img/architecture.excalidraw) -- open in [Excalidraw](https://excalidraw.com) to edit*
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -48,8 +55,20 @@ This is the flagship demo application for the `neo4j-agent-memory` library. It d
 | **Map Visualization** | Leaflet + react-leaflet + Turf.js |
 | **Database** | Neo4j 5.x (with APOC plugin) |
 | **LLM** | OpenAI GPT-4o |
-| **Entity Extraction** | spaCy + GLiNER2 + LLM pipeline |
+| **Entity Extraction** | spaCy + GLiNER2 + LLM pipeline (via `ExtractionConfig`) |
+| **Entity Deduplication** | Embedding similarity + fuzzy matching (via `DeduplicationConfig`) |
 | **Entity Enrichment** | Wikipedia/Wikimedia API |
+| **Observability** | OpenTelemetry / Opik tracing support |
+
+## neo4j-agent-memory v0.1.0 Features
+
+This example showcases several features from neo4j-agent-memory v0.1.0:
+
+- **`ExtractionConfig`** with `gliner_schema="podcast"` -- uses the podcast-optimized domain schema for entity extraction
+- **`DeduplicationConfig`** -- auto-merges entities at 95%+ similarity, flags for review at 85%+, with fuzzy string matching
+- **Observability** -- optional `get_tracer()` integration for OpenTelemetry/Opik tracing of extraction pipelines
+- **Streaming extraction** -- `StreamingExtractor` for memory-efficient processing of long podcast transcripts
+- **Provenance tracking** -- `link_entity_to_message()` and `link_entity_to_extractor()` for tracing entity origins
 
 ## v2.0 Features
 

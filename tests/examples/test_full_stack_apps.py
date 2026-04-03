@@ -191,6 +191,85 @@ class TestLennysMemory:
         assert package_json.exists(), f"package.json not found: {package_json}"
 
 
+class TestFullStackChatAgentFeatures:
+    """Feature validation for the full-stack-chat-agent example."""
+
+    @pytest.fixture
+    def app_dir(self):
+        """Path to the full-stack-chat-agent example."""
+        return EXAMPLES_DIR / "full-stack-chat-agent"
+
+    def test_backend_pyproject_has_version_pin(self, app_dir):
+        """Verify backend has version pin for neo4j-agent-memory."""
+        pyproject = app_dir / "backend" / "pyproject.toml"
+        content = pyproject.read_text()
+        assert ">=0.1.0" in content, "Backend should pin neo4j-agent-memory>=0.1.0"
+
+    def test_backend_uses_memory_integration(self, app_dir):
+        """Verify backend uses MemoryIntegration for high-level operations."""
+        memory_client = app_dir / "backend" / "src" / "memory" / "client.py"
+        if not memory_client.exists():
+            pytest.skip("memory/client.py not found")
+        content = memory_client.read_text()
+        assert "MemoryIntegration" in content, "memory/client.py should use MemoryIntegration"
+
+    def test_backend_uses_session_strategy(self, app_dir):
+        """Verify backend uses SessionStrategy."""
+        memory_client = app_dir / "backend" / "src" / "memory" / "client.py"
+        if not memory_client.exists():
+            pytest.skip("memory/client.py not found")
+        content = memory_client.read_text()
+        assert "SessionStrategy" in content, "memory/client.py should use SessionStrategy"
+
+    def test_backend_uses_auto_preferences(self, app_dir):
+        """Verify backend uses auto_preferences for preference detection."""
+        memory_client = app_dir / "backend" / "src" / "memory" / "client.py"
+        if not memory_client.exists():
+            pytest.skip("memory/client.py not found")
+        content = memory_client.read_text()
+        assert "auto_preferences" in content, "memory/client.py should enable auto_preferences"
+
+
+class TestLennysMemoryFeatures:
+    """Feature validation for the lennys-memory example."""
+
+    @pytest.fixture
+    def app_dir(self):
+        """Path to the lennys-memory example."""
+        return EXAMPLES_DIR / "lennys-memory"
+
+    def test_backend_pyproject_has_version_pin(self, app_dir):
+        """Verify backend has version pin for neo4j-agent-memory."""
+        pyproject = app_dir / "backend" / "pyproject.toml"
+        content = pyproject.read_text()
+        assert ">=0.1.0" in content, "Backend should pin neo4j-agent-memory>=0.1.0"
+
+    def test_backend_uses_extraction_config(self, app_dir):
+        """Verify backend uses ExtractionConfig."""
+        # Check memory service or client files
+        for candidate in [
+            app_dir / "backend" / "src" / "services" / "memory_service.py",
+            app_dir / "backend" / "src" / "memory" / "client.py",
+        ]:
+            if candidate.exists():
+                content = candidate.read_text()
+                if "ExtractionConfig" in content:
+                    return
+        pytest.fail("Backend should use ExtractionConfig in memory configuration")
+
+    def test_backend_uses_dedup_config(self, app_dir):
+        """Verify backend uses DeduplicationConfig."""
+        for candidate in [
+            app_dir / "backend" / "src" / "services" / "memory_service.py",
+            app_dir / "backend" / "src" / "memory" / "client.py",
+        ]:
+            if candidate.exists():
+                content = candidate.read_text()
+                if "DeduplicationConfig" in content:
+                    return
+        pytest.fail("Backend should use DeduplicationConfig")
+
+
 class TestFullStackAppsImports:
     """Test that full-stack app modules can be imported (with mocked dependencies)."""
 

@@ -151,3 +151,31 @@ class TestMicrosoftAgentExampleImports:
             or "Neo4jContextProvider" in content
             or "Neo4jMicrosoftMemory" in content
         )
+
+
+class TestMicrosoftAgentExampleFeatures:
+    """Feature validation for Microsoft Agent retail assistant."""
+
+    def test_uses_dedup_config(self):
+        """Verify example uses DeduplicationConfig."""
+        config = APP_DIR / "backend" / "memory_config.py"
+        if not config.exists():
+            pytest.skip("memory_config.py not found")
+        content = config.read_text()
+        assert "DeduplicationConfig" in content, "memory_config.py should use DeduplicationConfig"
+
+    def test_uses_extraction_config(self):
+        """Verify example uses ExtractionConfig."""
+        config = APP_DIR / "backend" / "memory_config.py"
+        if not config.exists():
+            pytest.skip("memory_config.py not found")
+        content = config.read_text()
+        assert "ExtractionConfig" in content, "memory_config.py should use ExtractionConfig"
+
+    def test_requirements_has_version_pin(self):
+        """Verify requirements.txt has version pin."""
+        req = APP_DIR / "backend" / "requirements.txt"
+        if not req.exists():
+            pytest.skip("requirements.txt not found")
+        content = req.read_text()
+        assert ">=0.1.0" in content, "requirements.txt should pin neo4j-agent-memory>=0.1.0"

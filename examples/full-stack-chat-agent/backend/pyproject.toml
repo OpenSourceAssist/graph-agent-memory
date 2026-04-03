@@ -11,7 +11,7 @@ dependencies = [
     "neo4j>=5.26.0",
     "sse-starlette>=2.2.0",
     "python-dotenv>=1.0.0",
-    "neo4j-agent-memory",
+    "neo4j-agent-memory[openai]>=0.1.0",
 ]
 
 [tool.uv]
@@ -19,9 +19,9 @@ package = true
 
 [tool.uv.sources]
 # For local development, use the editable path:
-# neo4j-agent-memory = { path = "../../..", editable = true }
+neo4j-agent-memory = { path = "../../..", editable = true }
 # For deployment (Railway/production), use the Git URL:
-neo4j-agent-memory = { git = "https://github.com/neo4j-labs/agent-memory" }
+# neo4j-agent-memory = { git = "https://github.com/neo4j-labs/agent-memory" }
 
 [build-system]
 requires = ["hatchling"]

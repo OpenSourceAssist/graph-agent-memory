@@ -20,8 +20,12 @@ from pydantic import SecretStr
 # Load environment from examples/.env
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
-from neo4j_agent_memory.extraction import GLiNEREntityExtractor, is_gliner_available
+from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings, Neo4jConfig
+from neo4j_agent_memory.extraction import (
+    BatchExtractionResult,
+    create_gliner_extractor,
+    is_gliner_available,
+)
 
 # Sample podcast transcript excerpts - fictional tech interviews
 PODCAST_TRANSCRIPTS = [
@@ -132,9 +136,13 @@ async def main():
         print("\n  The GLiNER model (~500MB) will be downloaded on first use.")
         return
 
-    # Create GLiNER extractor with podcast schema
-    print("Initializing GLiNER2 extractor with podcast schema...")
-    extractor = GLiNEREntityExtractor.for_schema("podcast", threshold=0.45)
+    # Create GLiNER extractor with podcast schema using factory pattern
+    print("Initializing GLiNER2 extractor with podcast schema (via factory)...")
+    extraction_config = ExtractionConfig(
+        gliner_schema="podcast",
+        gliner_threshold=0.45,
+    )
+    extractor = create_gliner_extractor(extraction_config)
     print(f"  Model: {extractor._model_name}")
     print(f"  Entity types: {list(extractor.entity_labels.keys())}")
     print()
@@ -165,6 +173,23 @@ async def main():
 
         all_entities.extend(filtered.entities)
         print()
+
+    # Demonstrate batch extraction - process all transcripts at once
+    print("=" * 70)
+    print("BATCH EXTRACTION DEMO")
+    print("=" * 70)
+    print()
+
+    texts = [ep["content"] for ep in PODCAST_TRANSCRIPTS]
+    batch_result: BatchExtractionResult = await extractor.extract_batch(
+        texts,
+        batch_size=10,
+        on_progress=lambda done, total: print(f"  Batch progress: {done}/{total}"),
+    )
+    print(f"  Processed: {batch_result.total_items}, Success: {batch_result.successful_items}")
+    print(f"  Total entities (batch): {batch_result.total_entities}")
+    print(f"  Success rate: {batch_result.success_rate:.0%}")
+    print()
 
     # Summary and insights
     print("=" * 70)

@@ -5,6 +5,13 @@
 
 This example demonstrates how to use Neo4j Agent Memory with Google's Agent Development Kit (ADK).
 
+## Architecture
+
+<!-- Export the Excalidraw diagram to PNG and replace this placeholder -->
+![Google ADK Demo Architecture](img/architecture.png)
+
+> *Diagram source: [img/architecture.excalidraw](img/architecture.excalidraw) -- open in [Excalidraw](https://excalidraw.com) to edit*
+
 ## Overview
 
 The demo shows:
@@ -12,6 +19,7 @@ The demo shows:
 - Semantic search across memories
 - Entity extraction and knowledge graph building
 - Preference learning from conversations
+- `MemoryIntegration` with `SessionStrategy` for high-level session management (shown as alternative pattern)
 
 ## Prerequisites
 

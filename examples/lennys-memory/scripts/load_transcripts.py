@@ -54,6 +54,19 @@ from neo4j_agent_memory.config.settings import (
 )
 from neo4j_agent_memory.graph.schema import SchemaManager
 
+# Optional: StreamingExtractor for memory-efficient processing of very long
+# transcripts (>100K tokens).  Falls back gracefully if the extraction extras
+# are not installed.
+try:
+    from neo4j_agent_memory.extraction import (
+        GLiNEREntityExtractor,
+        create_streaming_extractor,
+    )
+
+    _streaming_available = True
+except ImportError:
+    _streaming_available = False
+
 # Load .env file from backend directory
 load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
 
@@ -561,6 +574,75 @@ async def load_transcript(
                 raise
 
     return stats
+
+
+# ---------------------------------------------------------------------------
+# Alternative: Streaming extraction for very long transcripts
+# ---------------------------------------------------------------------------
+# When a single transcript exceeds ~100K tokens, the standard batch extraction
+# can be slow or hit memory limits.  The StreamingExtractor processes the text
+# in overlapping chunks and automatically deduplicates entities across them.
+#
+# Usage (from the CLI):
+#   python load_transcripts.py --streaming-extraction <data_dir>
+#
+# Or call directly:
+#   await streaming_extract_transcript(memory, Path("Brian Chesky.txt"))
+# ---------------------------------------------------------------------------
+
+
+async def streaming_extract_transcript(
+    memory: MemoryClient,
+    file_path: Path,
+    chunk_size: int = 4000,
+    overlap: int = 200,
+) -> dict:
+    """Extract entities from a transcript using streaming chunked extraction.
+
+    This is an alternative to the built-in per-message extraction used by
+    ``load_transcript``.  It is better suited for very long transcripts because
+    it processes the full text in fixed-size overlapping chunks rather than
+    iterating over individual messages.
+
+    Args:
+        memory: Connected MemoryClient instance.
+        file_path: Path to the transcript text file.
+        chunk_size: Characters per chunk (default 4000).
+        overlap: Character overlap between consecutive chunks (default 200).
+
+    Returns:
+        Dict with extraction statistics (chunks, raw entities, deduplicated).
+    """
+    if not _streaming_available:
+        raise RuntimeError(
+            "Streaming extraction requires the extraction extras. "
+            "Install with:  uv sync --all-extras"
+        )
+
+    # Build a podcast-optimised GLiNER extractor and wrap it for streaming
+    extractor = GLiNEREntityExtractor.for_schema("podcast")
+    streamer = create_streaming_extractor(
+        extractor,
+        chunk_size=chunk_size,
+        overlap=overlap,
+    )
+
+    # Read the full transcript as a single document
+    text = file_path.read_text(encoding="utf-8")
+
+    # Run streaming extraction with automatic cross-chunk deduplication
+    result = await streamer.extract(
+        text,
+        deduplicate=True,
+        on_progress=lambda done, total: None,  # silent; caller can override
+    )
+
+    return {
+        "file": file_path.name,
+        "total_chunks": result.stats.total_chunks,
+        "raw_entities": result.stats.total_entities,
+        "deduplicated_entities": result.stats.deduplicated_entities,
+    }
 
 
 async def extract_entities_from_loaded_sessions(

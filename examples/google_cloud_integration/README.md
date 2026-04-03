@@ -1,6 +1,13 @@
 # Google Cloud Integration Examples
 
-This directory contains comprehensive examples demonstrating Neo4j Agent Memory's Google Cloud integration features introduced in v0.0.3.
+This directory contains comprehensive examples demonstrating Neo4j Agent Memory's Google Cloud integration features (Vertex AI, ADK, MCP, MemoryIntegration with session strategies).
+
+## Architecture
+
+<!-- Export the Excalidraw diagram to PNG and replace this placeholder -->
+![Google Cloud Integration Pipeline](img/architecture.png)
+
+> *Diagram source: [img/architecture.excalidraw](img/architecture.excalidraw) -- open in [Excalidraw](https://excalidraw.com) to edit*
 
 ## Features Demonstrated
 

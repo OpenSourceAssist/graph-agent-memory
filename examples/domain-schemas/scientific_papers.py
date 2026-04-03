@@ -20,8 +20,13 @@ from pydantic import SecretStr
 # Load environment from examples/.env
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
-from neo4j_agent_memory.extraction import GLiNEREntityExtractor, is_gliner_available
+from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings, Neo4jConfig
+from neo4j_agent_memory.extraction import (
+    StreamingExtractor,
+    create_gliner_extractor,
+    create_streaming_extractor,
+    is_gliner_available,
+)
 
 # Sample research paper abstracts - fictional ML papers
 RESEARCH_PAPERS = [
@@ -125,10 +130,14 @@ async def main():
     print("=" * 70)
     print()
 
-    # Create GLiNER extractor with scientific schema
-    print("Initializing GLiNER2 extractor with scientific schema...")
+    # Create GLiNER extractor with scientific schema using factory pattern
+    print("Initializing GLiNER2 extractor with scientific schema (via factory)...")
     try:
-        extractor = GLiNEREntityExtractor.for_schema("scientific", threshold=0.4)
+        extraction_config = ExtractionConfig(
+            gliner_schema="scientific",
+            gliner_threshold=0.4,
+        )
+        extractor = create_gliner_extractor(extraction_config)
         print(f"  Model: {extractor._model_name}")
         print(f"  Entity types: {list(extractor.entity_labels.keys())}")
     except ImportError as e:
@@ -253,6 +262,45 @@ async def main():
        - Identify potential institutional partnerships
        - Discover cross-disciplinary opportunities
     """)
+
+    # Demonstrate streaming extraction for long documents
+    print("=" * 70)
+    print("STREAMING EXTRACTION DEMO (for long documents)")
+    print("=" * 70)
+    print()
+
+    # Combine all papers into a single long document to simulate a survey paper
+    long_document = "\n\n---\n\n".join(
+        f"# {paper['title']}\n{paper['content']}" for paper in RESEARCH_PAPERS
+    )
+    print(f"  Combined document length: {len(long_document)} characters")
+
+    # Create streaming extractor - processes in chunks for memory efficiency
+    streamer = create_streaming_extractor(
+        extractor, chunk_size=2000, overlap=200
+    )
+
+    # Stream results chunk by chunk
+    chunk_count = 0
+    streaming_entities = 0
+    async for chunk_result in streamer.extract_streaming(long_document):
+        chunk_count += 1
+        streaming_entities += chunk_result.entity_count
+        print(
+            f"  Chunk {chunk_result.chunk.index + 1}: "
+            f"{chunk_result.entity_count} entities"
+            f"{' (error: ' + chunk_result.error + ')' if not chunk_result.success else ''}"
+        )
+
+    print(f"\n  Total: {chunk_count} chunks, {streaming_entities} entities (before dedup)")
+
+    # Or get complete result with automatic deduplication
+    complete_result = await streamer.extract(long_document, deduplicate=True)
+    print(
+        f"  After deduplication: {complete_result.stats.deduplicated_entities} entities "
+        f"(from {complete_result.stats.total_entities} raw)"
+    )
+    print()
 
     # Demonstrate Neo4j storage if configured
     neo4j_uri = os.getenv("NEO4J_URI")

@@ -13,27 +13,16 @@ This example application showcases the AWS-Neo4j partnership through a productio
 - **Explainable AI**: Full audit trails for regulatory compliance (EU AI Act ready)
 - **Real-time Monitoring**: Transaction and behavior pattern detection
 - **Graph-based RAG**: Reduces hallucinations through grounded, relationship-aware retrieval
+- **Entity Deduplication**: `DeduplicationConfig` available for preventing duplicate customer/account entities
+- **Provenance Tracking**: `link_entity_to_message()` and `link_entity_to_extractor()` for compliance audit trails
+- **Explicit Extraction Config**: `ExtractionConfig` for configuring entity extraction pipelines
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              AWS Cloud                                       │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────────┐  │
-│  │  CloudFront  │───▶│ API Gateway  │───▶│      Lambda (FastAPI)        │  │
-│  │  (Frontend)  │    │  + Cognito   │    │   + Strands Agent + Tools    │  │
-│  └──────────────┘    └──────────────┘    └──────────────┬───────────────┘  │
-│                                                          │                   │
-│         ┌────────────────────────────────────────────────┼──────────────┐   │
-│         │                                                │              │   │
-│         ▼                                                ▼              ▼   │
-│  ┌──────────────┐                              ┌──────────────┐  ┌────────┐│
-│  │   Bedrock    │                              │  Neo4j Aura  │  │   S3   ││
-│  │ Claude+Titan │                              │Context Graph │  │  Docs  ││
-│  └──────────────┘                              └──────────────┘  └────────┘│
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+<!-- Export the Excalidraw diagram to PNG and replace this placeholder -->
+![AWS Financial Services Advisor Architecture](img/architecture.png)
+
+> *Diagram source: [img/architecture.excalidraw](img/architecture.excalidraw) -- open in [Excalidraw](https://excalidraw.com) to edit*
 
 ### AWS Services Highlighted
 

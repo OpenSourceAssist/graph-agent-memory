@@ -143,3 +143,28 @@ class TestGoogleADKDemoImports:
             assert asyncio.iscoroutinefunction(method), (
                 f"Neo4jMemoryService.{method_name} should be async"
             )
+
+
+class TestGoogleADKDemoFeatures:
+    """Feature validation for google_adk_demo example."""
+
+    @pytest.fixture
+    def demo_dir(self):
+        """Path to the google_adk_demo example."""
+        return EXAMPLES_DIR / "google_adk_demo"
+
+    def test_demo_uses_session_strategy(self, demo_dir):
+        """Verify demo references SessionStrategy."""
+        demo = demo_dir / "demo.py"
+        if not demo.exists():
+            pytest.skip("demo.py not found")
+        content = demo.read_text()
+        assert "SessionStrategy" in content, "demo.py should reference SessionStrategy"
+
+    def test_demo_uses_memory_integration(self, demo_dir):
+        """Verify demo references MemoryIntegration."""
+        demo = demo_dir / "demo.py"
+        if not demo.exists():
+            pytest.skip("demo.py not found")
+        content = demo.read_text()
+        assert "MemoryIntegration" in content, "demo.py should reference MemoryIntegration"

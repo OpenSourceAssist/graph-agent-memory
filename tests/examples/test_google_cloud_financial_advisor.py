@@ -217,3 +217,23 @@ class TestGoogleCloudFinancialAdvisor:
         assert "streamChatMessage" in content, "api.ts should have streamChatMessage"
         assert "getSessionTraces" in content, "api.ts should have getSessionTraces"
         assert "AgentEvent" in content, "api.ts should define AgentEvent type"
+
+    def test_backend_memory_service_uses_extraction_config(self, app_dir):
+        """Verify memory service uses ExtractionConfig."""
+        service = app_dir / "backend" / "src" / "services" / "memory_service.py"
+        content = service.read_text()
+        assert "ExtractionConfig" in content, "memory_service.py should use ExtractionConfig"
+
+    def test_backend_memory_service_references_dedup(self, app_dir):
+        """Verify memory service references DeduplicationConfig."""
+        service = app_dir / "backend" / "src" / "services" / "memory_service.py"
+        content = service.read_text()
+        assert "DeduplicationConfig" in content, (
+            "memory_service.py should reference DeduplicationConfig"
+        )
+
+    def test_backend_pyproject_has_version_pin(self, app_dir):
+        """Verify backend has version pin for neo4j-agent-memory."""
+        pyproject = app_dir / "backend" / "pyproject.toml"
+        content = pyproject.read_text()
+        assert ">=0.1.0" in content, "Backend should pin neo4j-agent-memory>=0.1.0"

@@ -75,6 +75,30 @@ class Neo4jSettings(BaseSettings):
     )
 
 
+class MemoryFeatureSettings(BaseSettings):
+    """Neo4j Agent Memory feature configuration."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="MEMORY_",
+        env_file=("../.env", ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    enable_extraction: bool = Field(
+        default=True, description="Enable entity extraction from conversations"
+    )
+    enable_deduplication: bool = Field(
+        default=True, description="Enable entity deduplication on ingest"
+    )
+    dedup_auto_merge_threshold: float = Field(
+        default=0.95, description="Similarity threshold for automatic entity merge"
+    )
+    dedup_flag_threshold: float = Field(
+        default=0.85, description="Similarity threshold for flagging potential duplicates"
+    )
+
+
 class Settings(BaseSettings):
     """Main application settings.
 
@@ -91,6 +115,9 @@ class Settings(BaseSettings):
     # Nested settings
     vertex_ai: Annotated[VertexAISettings, Field(default_factory=VertexAISettings)]
     neo4j: Annotated[Neo4jSettings, Field(default_factory=Neo4jSettings)]
+    memory_features: Annotated[
+        MemoryFeatureSettings, Field(default_factory=MemoryFeatureSettings)
+    ]
 
     # Application settings
     log_level: str = Field(
