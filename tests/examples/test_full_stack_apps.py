@@ -211,9 +211,7 @@ class TestFullStackChatAgentFeatures:
         if not memory_client.exists():
             pytest.skip("memory/client.py not found")
         content = memory_client.read_text()
-        assert "MemoryIntegration" in content, (
-            "memory/client.py should use MemoryIntegration"
-        )
+        assert "MemoryIntegration" in content, "memory/client.py should use MemoryIntegration"
 
     def test_backend_uses_session_strategy(self, app_dir):
         """Verify backend uses SessionStrategy."""
@@ -221,9 +219,7 @@ class TestFullStackChatAgentFeatures:
         if not memory_client.exists():
             pytest.skip("memory/client.py not found")
         content = memory_client.read_text()
-        assert "SessionStrategy" in content, (
-            "memory/client.py should use SessionStrategy"
-        )
+        assert "SessionStrategy" in content, "memory/client.py should use SessionStrategy"
 
     def test_backend_uses_auto_preferences(self, app_dir):
         """Verify backend uses auto_preferences for preference detection."""
@@ -231,9 +227,7 @@ class TestFullStackChatAgentFeatures:
         if not memory_client.exists():
             pytest.skip("memory/client.py not found")
         content = memory_client.read_text()
-        assert "auto_preferences" in content, (
-            "memory/client.py should enable auto_preferences"
-        )
+        assert "auto_preferences" in content, "memory/client.py should enable auto_preferences"
 
 
 class TestLennysMemoryFeatures:

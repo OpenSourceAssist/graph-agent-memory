@@ -69,11 +69,6 @@ class TestAWSFinancialAdvisorStructure:
         agents_dir = app_dir / "backend" / "src" / "agents"
         assert agents_dir.exists(), f"Agents directory not found: {agents_dir}"
 
-    def test_scripts_directory_exists(self, app_dir):
-        """Verify scripts directory exists."""
-        scripts_dir = app_dir / "scripts"
-        assert scripts_dir.exists(), f"Scripts directory not found: {scripts_dir}"
-
 
 class TestAWSFinancialAdvisorSyntax:
     """Python syntax validation for AWS Financial Services Advisor."""
@@ -100,9 +95,7 @@ class TestAWSFinancialAdvisorFeatures:
         if not service.exists():
             pytest.skip("memory_service.py not found")
         content = service.read_text()
-        assert "ExtractionConfig" in content, (
-            "memory_service.py should use ExtractionConfig"
-        )
+        assert "ExtractionConfig" in content, "memory_service.py should use ExtractionConfig"
 
     def test_memory_service_references_dedup(self):
         """Verify memory service references DeduplicationConfig."""

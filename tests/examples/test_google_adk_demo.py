@@ -159,9 +159,7 @@ class TestGoogleADKDemoFeatures:
         if not demo.exists():
             pytest.skip("demo.py not found")
         content = demo.read_text()
-        assert "SessionStrategy" in content, (
-            "demo.py should reference SessionStrategy"
-        )
+        assert "SessionStrategy" in content, "demo.py should reference SessionStrategy"
 
     def test_demo_uses_memory_integration(self, demo_dir):
         """Verify demo references MemoryIntegration."""
@@ -169,6 +167,4 @@ class TestGoogleADKDemoFeatures:
         if not demo.exists():
             pytest.skip("demo.py not found")
         content = demo.read_text()
-        assert "MemoryIntegration" in content, (
-            "demo.py should reference MemoryIntegration"
-        )
+        assert "MemoryIntegration" in content, "demo.py should reference MemoryIntegration"

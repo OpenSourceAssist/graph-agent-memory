@@ -162,9 +162,7 @@ class TestMicrosoftAgentExampleFeatures:
         if not config.exists():
             pytest.skip("memory_config.py not found")
         content = config.read_text()
-        assert "DeduplicationConfig" in content, (
-            "memory_config.py should use DeduplicationConfig"
-        )
+        assert "DeduplicationConfig" in content, "memory_config.py should use DeduplicationConfig"
 
     def test_uses_extraction_config(self):
         """Verify example uses ExtractionConfig."""
@@ -172,9 +170,7 @@ class TestMicrosoftAgentExampleFeatures:
         if not config.exists():
             pytest.skip("memory_config.py not found")
         content = config.read_text()
-        assert "ExtractionConfig" in content, (
-            "memory_config.py should use ExtractionConfig"
-        )
+        assert "ExtractionConfig" in content, "memory_config.py should use ExtractionConfig"
 
     def test_requirements_has_version_pin(self):
         """Verify requirements.txt has version pin."""
@@ -182,6 +178,4 @@ class TestMicrosoftAgentExampleFeatures:
         if not req.exists():
             pytest.skip("requirements.txt not found")
         content = req.read_text()
-        assert ">=0.1.0" in content, (
-            "requirements.txt should pin neo4j-agent-memory>=0.1.0"
-        )
+        assert ">=0.1.0" in content, "requirements.txt should pin neo4j-agent-memory>=0.1.0"

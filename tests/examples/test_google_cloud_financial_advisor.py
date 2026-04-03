@@ -222,9 +222,7 @@ class TestGoogleCloudFinancialAdvisor:
         """Verify memory service uses ExtractionConfig."""
         service = app_dir / "backend" / "src" / "services" / "memory_service.py"
         content = service.read_text()
-        assert "ExtractionConfig" in content, (
-            "memory_service.py should use ExtractionConfig"
-        )
+        assert "ExtractionConfig" in content, "memory_service.py should use ExtractionConfig"
 
     def test_backend_memory_service_references_dedup(self, app_dir):
         """Verify memory service references DeduplicationConfig."""

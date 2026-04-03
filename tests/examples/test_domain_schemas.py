@@ -72,9 +72,7 @@ class TestDomainSchemasStructure:
         if not script_path.exists():
             pytest.skip(f"Script not found: {script}")
         content = script_path.read_text()
-        assert "is_gliner_available" in content, (
-            f"{script} should check GLiNER availability"
-        )
+        assert "is_gliner_available" in content, f"{script} should check GLiNER availability"
 
 
 class TestDomainSchemasFeatures:
@@ -89,9 +87,7 @@ class TestDomainSchemasFeatures:
         assert "create_gliner_extractor" in content, (
             "podcast_transcripts.py should use create_gliner_extractor factory"
         )
-        assert "ExtractionConfig" in content, (
-            "podcast_transcripts.py should use ExtractionConfig"
-        )
+        assert "ExtractionConfig" in content, "podcast_transcripts.py should use ExtractionConfig"
 
     def test_podcast_uses_batch_extraction(self):
         """Verify podcast script demonstrates batch extraction."""
