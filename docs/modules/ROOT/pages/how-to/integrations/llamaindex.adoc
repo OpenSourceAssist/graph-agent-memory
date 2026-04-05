@@ -72,7 +72,7 @@ Implement LlamaIndex's chat store interface:
 from typing import List, Optional
 from llama_index.core.storage.chat_store import BaseChatStore
 from llama_index.core.llms import ChatMessage, MessageRole
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 
 class Neo4jChatStore(BaseChatStore):
@@ -96,9 +96,9 @@ class Neo4jChatStore(BaseChatStore):
             role = "user" if msg.role == MessageRole.USER else "assistant"
             loop.run_until_complete(
                 self.memory_client.short_term.add_message(
+                    session_id=key,
                     role=role,
                     content=msg.content,
-                    session_id=key,
                 )
             )
 
@@ -107,15 +107,14 @@ class Neo4jChatStore(BaseChatStore):
         import asyncio
         loop = asyncio.get_event_loop()
 
-        raw_messages = loop.run_until_complete(
-            self.memory_client.short_term.get_session_messages(
+        conversation = loop.run_until_complete(
+            self.memory_client.short_term.get_conversation(
                 session_id=key,
-                limit=100,
             )
         )
 
         result = []
-        for msg in raw_messages:
+        for msg in conversation.messages:
             role = MessageRole.USER if msg.role == "user" else MessageRole.ASSISTANT
             result.append(ChatMessage(role=role, content=msg.content))
 
@@ -129,9 +128,9 @@ class Neo4jChatStore(BaseChatStore):
         role = "user" if message.role == MessageRole.USER else "assistant"
         loop.run_until_complete(
             self.memory_client.short_term.add_message(
+                session_id=key,
                 role=role,
                 content=message.content,
-                session_id=key,
             )
         )
 
@@ -178,11 +177,11 @@ from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.llms.openai import OpenAI
 
 # Initialize memory client
-memory_client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"}
 )
+memory_client = MemoryClient(settings)
+await memory_client.connect()
 
 # Create chat store
 chat_store = Neo4jChatStore(memory_client)
@@ -365,16 +364,16 @@ from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from llama_index.core.agent import ReActAgent
 from llama_index.llms.openai import OpenAI
 from llama_index.core.memory import ChatMemoryBuffer
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 
 # --- Initialize ---
 
-memory_client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"}
 )
+memory_client = MemoryClient(settings)
+# Note: call await memory_client.connect() before using in async context
 
 Settings.llm = OpenAI(model="gpt-4o", temperature=0)
 
@@ -409,7 +408,7 @@ def get_client_profile(client_id: str) -> str:
 
     # Get related entities (holdings, accounts)
     holdings = loop.run_until_complete(
-        memory_client.long_term.execute_query(
+        memory_client.graph.execute_read(
             """
             MATCH (c:Client {id: $client_id})-[:HAS_ACCOUNT]->(a:Account)
                   -[:HOLDS]->(p:Position)-[:IN]->(s:Security)
@@ -436,7 +435,7 @@ def search_securities(query: str, sector: str = None) -> str:
     securities = loop.run_until_complete(
         memory_client.long_term.search_entities(
             query=query,
-            entity_type="SECURITY",
+            entity_types=["SECURITY"],
             property_filter=filters,
             limit=10,
         )
@@ -621,7 +620,7 @@ def create_product_index(memory_client: MemoryClient) -> VectorStoreIndex:
     products = loop.run_until_complete(
         memory_client.long_term.search_entities(
             query="",
-            entity_type="PRODUCT",
+            entity_types=["PRODUCT"],
             limit=1000,
         )
     )
@@ -673,7 +672,7 @@ def get_purchase_history(customer_id: str) -> str:
     loop = asyncio.get_event_loop()
 
     purchases = loop.run_until_complete(
-        memory_client.long_term.execute_query(
+        memory_client.graph.execute_read(
             """
             MATCH (c:Customer {id: $customer_id})-[p:PURCHASED]->(product:Product)
             RETURN product.name as product, product.brand as brand,
@@ -695,7 +694,6 @@ def save_preference(customer_id: str, preference: str, category: str) -> str:
 
     loop.run_until_complete(
         memory_client.long_term.add_preference(
-            user_id=customer_id,
             preference=preference,
             category=category,
         )

@@ -24,19 +24,19 @@ Store a single message with automatic embedding generation:
 
 [source,python]
 ----
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
-client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "password"},
 )
+
+client = MemoryClient(settings)
 
 # Store a customer service message
 message = await client.short_term.add_message(
+    session_id="support-session-001",
     role="user",
     content="I'd like to return the Nike Air Max shoes I ordered last week. Order #12345.",
-    session_id="support-session-001",
 )
 
 print(f"Stored message: {message.id}")
@@ -51,9 +51,9 @@ Add custom metadata to messages for filtering and context:
 ----
 # Store an advisory conversation message
 message = await client.short_term.add_message(
+    session_id="advisory-call-2024-01-15",
     role="user",
     content="I want to increase my exposure to technology stocks, maybe 20% of the portfolio.",
-    session_id="advisory-call-2024-01-15",
     metadata={
         "client_id": "CL-78901",
         "advisor_id": "ADV-456",
@@ -69,9 +69,9 @@ message = await client.short_term.add_message(
 ----
 # Store a shopping assistant message
 message = await client.short_term.add_message(
+    session_id="shopping-assistant-001",
     role="assistant",
     content="Based on your previous purchases, I recommend the new Nike ZoomX running shoes. They're similar to the Air Max you loved but with better cushioning for long runs.",
-    session_id="shopping-assistant-001",
     metadata={
         "customer_id": "CUST-12345",
         "channel": "mobile_app",
@@ -223,10 +223,10 @@ Retrieve all messages in a session:
 [source,python]
 ----
 # Get full conversation history
-messages = await client.short_term.get_session_messages(
+conversation = await client.short_term.get_conversation(
     session_id="support-session-001",
-    limit=100,
 )
+messages = conversation.messages
 
 for msg in messages:
     print(f"[{msg.timestamp}] {msg.role}: {msg.content}")
@@ -410,7 +410,8 @@ Generate summaries to avoid context window limits:
 [source,python]
 ----
 # Check if session is getting long
-messages = await client.short_term.get_session_messages(session_id)
+conversation = await client.short_term.get_conversation(session_id)
+messages = conversation.messages
 
 if len(messages) > 20:
     # Generate summary of older messages
@@ -433,10 +434,10 @@ Move completed conversations to long-term storage:
 summary = await client.short_term.summarize_session(session_id)
 
 # Store summary as an entity for long-term reference
-await client.long_term.add_entity(
+entity, dedup_result = await client.long_term.add_entity(
     name=f"Support Case {ticket_id}",
-    entity_type="SUPPORT_CASE",
-    properties={
+    entity_type="EVENT",
+    attributes={
         "summary": summary.content,
         "customer_id": customer_id,
         "resolution": resolution_type,

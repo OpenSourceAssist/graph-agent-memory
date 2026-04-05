@@ -24,16 +24,16 @@ Create entities with name and type:
 
 [source,python]
 ----
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
-client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "password"},
 )
 
+client = MemoryClient(settings)
+
 # Add a customer entity
-entity = await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name="John Smith",
     entity_type="PERSON",
 )
@@ -49,10 +49,10 @@ Add rich metadata to entities:
 [source,python]
 ----
 # Add a client entity with full profile
-client_entity = await client.long_term.add_entity(
+client_entity, _ = await client.long_term.add_entity(
     name="Acme Investment Holdings LLC",
     entity_type="ORGANIZATION",
-    properties={
+    attributes={
         "client_id": "CL-78901",
         "client_type": "institutional",
         "aum": 50000000,  # Assets under management
@@ -65,10 +65,10 @@ client_entity = await client.long_term.add_entity(
 )
 
 # Add a security entity
-security = await client.long_term.add_entity(
+security, _ = await client.long_term.add_entity(
     name="Apple Inc.",
     entity_type="SECURITY",
-    properties={
+    attributes={
         "ticker": "AAPL",
         "exchange": "NASDAQ",
         "sector": "Technology",
@@ -83,10 +83,10 @@ security = await client.long_term.add_entity(
 [source,python]
 ----
 # Add a product entity
-product = await client.long_term.add_entity(
+product, _ = await client.long_term.add_entity(
     name="Nike Air Max 90",
     entity_type="PRODUCT",
-    properties={
+    attributes={
         "sku": "SKU-NKE-AM90-001",
         "brand": "Nike",
         "category": "Footwear",
@@ -100,10 +100,10 @@ product = await client.long_term.add_entity(
 )
 
 # Add a customer entity
-customer = await client.long_term.add_entity(
+customer, _ = await client.long_term.add_entity(
     name="Jane Doe",
     entity_type="CUSTOMER",
-    properties={
+    attributes={
         "customer_id": "CUST-12345",
         "email": "jane.doe@example.com",
         "tier": "gold",
@@ -122,7 +122,7 @@ Add searchable descriptions for semantic retrieval:
 [source,python]
 ----
 # Description enables semantic search
-entity = await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name="Q4 2024 Earnings Report",
     entity_type="DOCUMENT",
     description="""
@@ -131,7 +131,7 @@ entity = await client.long_term.add_entity(
     markets, successful product launches in the athletic footwear segment,
     and improved gross margins due to supply chain optimization.
     """,
-    properties={
+    attributes={
         "document_type": "earnings_report",
         "fiscal_period": "Q4 2024",
         "release_date": "2025-01-15",
@@ -170,7 +170,7 @@ Search within specific entity types:
 ----
 results = await client.long_term.search_entities(
     query="investment bank wealth management",
-    entity_type="FINANCIAL_INSTITUTION",
+    entity_types=["FINANCIAL_INSTITUTION"],
     limit=20,
 )
 ----
@@ -180,7 +180,7 @@ results = await client.long_term.search_entities(
 ----
 results = await client.long_term.search_entities(
     query="comfortable running shoes for marathon training",
-    entity_type="PRODUCT",
+    entity_types=["PRODUCT"],
     limit=15,
 )
 ----
@@ -194,7 +194,7 @@ Combine semantic search with property filters:
 ----
 results = await client.long_term.search_entities(
     query="luxury fashion premium brands",
-    entity_type="CUSTOMER",
+    entity_types=["CUSTOMER"],
     property_filter={
         "tier": "gold",
         "lifetime_value": {"$gte": 5000},
@@ -208,7 +208,7 @@ results = await client.long_term.search_entities(
 ----
 results = await client.long_term.search_entities(
     query="artificial intelligence machine learning",
-    entity_type="SECURITY",
+    entity_types=["SECURITY"],
     property_filter={
         "sector": "Technology",
         "market_cap": {"$in": ["Large Cap", "Mega Cap"]},
@@ -307,7 +307,7 @@ ORDER BY shared_brand_purchases DESC
 LIMIT 10
 """
 
-results = await client.long_term.execute_query(
+results = await client.graph.execute_read(
     query,
     parameters={"customer_id": customer.id}
 )
@@ -420,19 +420,17 @@ Automatically enrich entities with external data:
 
 [source,python]
 ----
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.enrichment import WikimediaEnricher
 
 # Configure enrichment
-client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
-    enrichment_provider=WikimediaEnricher(),
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "password"},
 )
+client = MemoryClient(settings, enrichment_provider=WikimediaEnricher())
 
 # Entity will be automatically enriched
-entity = await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name="Apple Inc.",
     entity_type="ORGANIZATION",
     auto_enrich=True,
@@ -514,16 +512,16 @@ Structure entities based on how you'll query them:
 [source,python]
 ----
 # Good: Separate entities for different query patterns
-await client.long_term.add_entity(
+brand, _ = await client.long_term.add_entity(
     name="Nike",
     entity_type="BRAND",
-    properties={"headquarters": "Oregon"}
+    attributes={"headquarters": "Oregon"}
 )
 
-await client.long_term.add_entity(
+product, _ = await client.long_term.add_entity(
     name="Nike Air Max 90",
     entity_type="PRODUCT",
-    properties={"brand": "Nike", "category": "Running"}
+    attributes={"brand": "Nike", "category": "Running"}
 )
 
 # Then connect them
@@ -541,7 +539,7 @@ Descriptions enable semantic search:
 [source,python]
 ----
 # Good: Rich, searchable description
-entity = await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name="AAPL",
     entity_type="SECURITY",
     description="""
@@ -553,7 +551,7 @@ entity = await client.long_term.add_entity(
 )
 
 # Avoid: No description (only findable by exact name match)
-entity = await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name="AAPL",
     entity_type="SECURITY",
 )
@@ -565,10 +563,10 @@ Record where entities came from:
 
 [source,python]
 ----
-entity = await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name="John Smith",
     entity_type="PERSON",
-    properties={
+    attributes={
         "source": "crm_import",
         "source_id": "CRM-12345",
         "imported_at": "2024-01-15T10:00:00Z",

@@ -132,13 +132,13 @@ for entity in result.entities:
 
 [source,python]
 ----
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
-client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "password"}
 )
+
+client = MemoryClient(settings)
 
 # Extract batch
 result = await extractor.extract_batch(texts=documents)
@@ -152,7 +152,7 @@ for item in result.items:
         await client.long_term.add_entity(
             name=entity.name,
             entity_type=entity.type,
-            properties={
+            attributes={
                 "confidence": entity.confidence,
                 "source_index": item.index,
             },
@@ -211,14 +211,14 @@ for doc_index, item in enumerate(result.items):
 
     # Store document as a message/source
     message = await client.short_term.add_message(
+        session_id="batch-import",
         role="system",
         content=documents[doc_index],
-        session_id="batch-import",
         metadata={"doc_index": doc_index},
     )
 
     for entity in item.entities:
-        stored = await client.long_term.add_entity(
+        stored, _ = await client.long_term.add_entity(
             name=entity.name,
             entity_type=entity.type,
         )
@@ -273,10 +273,10 @@ async def process_financial_documents(documents: list[dict]):
         doc = documents[i]
 
         # Store document metadata as entity
-        doc_entity = await client.long_term.add_entity(
+        doc_entity, _ = await client.long_term.add_entity(
             name=doc.get("title", f"Document {doc['id']}"),
             entity_type="DOCUMENT",
-            properties={
+            attributes={
                 "doc_id": doc["id"],
                 "doc_type": doc.get("type"),
                 "date": doc.get("date"),
@@ -285,17 +285,17 @@ async def process_financial_documents(documents: list[dict]):
 
         # Store extracted entities with relationships
         for entity in item.entities:
-            stored = await client.long_term.add_entity(
+            stored, _ = await client.long_term.add_entity(
                 name=entity.name,
                 entity_type=entity.type,
             )
 
             # Link entity to document
             await client.long_term.add_relationship(
-                from_entity=stored.id,
-                to_entity=doc_entity.id,
+                source=stored.id,
+                target=doc_entity.id,
                 relationship_type="MENTIONED_IN",
-                properties={
+                attributes={
                     "confidence": entity.confidence,
                     "position": entity.start,
                 },
@@ -315,10 +315,10 @@ async def process_financial_documents(documents: list[dict]):
 
             if source and target:
                 await client.long_term.add_relationship(
-                    from_entity=source[0].id,
-                    to_entity=target[0].id,
+                    source=source[0].id,
+                    target=target[0].id,
                     relationship_type=relation.type,
-                    properties={"source_doc": doc["id"]},
+                    attributes={"source_doc": doc["id"]},
                 )
 
     return result
@@ -375,11 +375,11 @@ async def import_product_catalog(products: list[dict]):
 
     for i, product in enumerate(products):
         # Store product as primary entity
-        product_entity = await client.long_term.add_entity(
+        product_entity, _ = await client.long_term.add_entity(
             name=product["name"],
             entity_type="PRODUCT",
             description=product.get("description"),
-            properties={
+            attributes={
                 "sku": product["sku"],
                 "price": product.get("price"),
                 "rating": product.get("rating"),
@@ -389,27 +389,27 @@ async def import_product_catalog(products: list[dict]):
 
         # Store brand as entity
         if product.get("brand"):
-            brand_entity = await client.long_term.add_entity(
+            brand_entity, _ = await client.long_term.add_entity(
                 name=product["brand"],
                 entity_type="BRAND",
             )
 
             await client.long_term.add_relationship(
-                from_entity=product_entity.id,
-                to_entity=brand_entity.id,
+                source=product_entity.id,
+                target=brand_entity.id,
                 relationship_type="MADE_BY",
             )
 
         # Store category as entity
         if product.get("category"):
-            category_entity = await client.long_term.add_entity(
+            category_entity, _ = await client.long_term.add_entity(
                 name=product["category"],
                 entity_type="CATEGORY",
             )
 
             await client.long_term.add_relationship(
-                from_entity=product_entity.id,
-                to_entity=category_entity.id,
+                source=product_entity.id,
+                target=category_entity.id,
                 relationship_type="IN_CATEGORY",
             )
 
@@ -417,14 +417,14 @@ async def import_product_catalog(products: list[dict]):
         if result.items[i].success:
             for entity in result.items[i].entities:
                 if entity.type not in ["PRODUCT", "BRAND"]:  # Avoid duplicates
-                    linked = await client.long_term.add_entity(
+                    linked, _ = await client.long_term.add_entity(
                         name=entity.name,
                         entity_type=entity.type,
                     )
 
                     await client.long_term.add_relationship(
-                        from_entity=product_entity.id,
-                        to_entity=linked.id,
+                        source=product_entity.id,
+                        target=linked.id,
                         relationship_type="RELATED_TO",
                     )
 

@@ -71,7 +71,7 @@ Implement LangChain's `BaseChatMessageHistory` interface:
 from typing import List
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 
 class Neo4jChatMessageHistory(BaseChatMessageHistory):
@@ -94,15 +94,14 @@ class Neo4jChatMessageHistory(BaseChatMessageHistory):
 
         # Run async method synchronously
         loop = asyncio.get_event_loop()
-        raw_messages = loop.run_until_complete(
-            self.memory_client.short_term.get_session_messages(
+        conversation = loop.run_until_complete(
+            self.memory_client.short_term.get_conversation(
                 session_id=self.session_id,
-                limit=100,
             )
         )
 
         result = []
-        for msg in raw_messages:
+        for msg in conversation.messages:
             if msg.role == "user":
                 result.append(HumanMessage(content=msg.content))
             elif msg.role == "assistant":
@@ -119,9 +118,9 @@ class Neo4jChatMessageHistory(BaseChatMessageHistory):
         loop = asyncio.get_event_loop()
         loop.run_until_complete(
             self.memory_client.short_term.add_message(
+                session_id=self.session_id,
                 role=role,
                 content=message.content,
-                session_id=self.session_id,
                 metadata={"user_id": self.user_id} if self.user_id else None,
             )
         )
@@ -155,13 +154,12 @@ class AsyncNeo4jChatMessageHistory(BaseChatMessageHistory):
 
     async def aget_messages(self) -> List[BaseMessage]:
         """Async retrieve all messages."""
-        raw_messages = await self.memory_client.short_term.get_session_messages(
+        conversation = await self.memory_client.short_term.get_conversation(
             session_id=self.session_id,
-            limit=100,
         )
 
         result = []
-        for msg in raw_messages:
+        for msg in conversation.messages:
             if msg.role == "user":
                 result.append(HumanMessage(content=msg.content))
             elif msg.role == "assistant":
@@ -174,9 +172,9 @@ class AsyncNeo4jChatMessageHistory(BaseChatMessageHistory):
         role = "user" if isinstance(message, HumanMessage) else "assistant"
 
         await self.memory_client.short_term.add_message(
+            session_id=self.session_id,
             role=role,
             content=message.content,
-            session_id=self.session_id,
             metadata={"user_id": self.user_id} if self.user_id else None,
         )
 
@@ -210,11 +208,11 @@ from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 
 # Initialize memory client
-memory_client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"}
 )
+memory_client = MemoryClient(settings)
+await memory_client.connect()
 
 # Create message history
 message_history = Neo4jChatMessageHistory(
@@ -260,9 +258,9 @@ from typing import Optional
 class SearchEntitiesInput(BaseModel):
     """Input for entity search."""
     query: str = Field(description="Search query for entities")
-    entity_type: Optional[str] = Field(
+    entity_types: Optional[list[str]] = Field(
         default=None,
-        description="Entity type filter (e.g., PRODUCT, PERSON, ORGANIZATION)"
+        description="Entity type filters (e.g., ['PRODUCT', 'PERSON', 'ORGANIZATION'])"
     )
     limit: int = Field(default=10, description="Maximum results to return")
 
@@ -282,7 +280,7 @@ class SearchEntitesTool(BaseTool):
     def _run(
         self,
         query: str,
-        entity_type: Optional[str] = None,
+        entity_types: Optional[list[str]] = None,
         limit: int = 10,
     ) -> str:
         import asyncio
@@ -290,7 +288,7 @@ class SearchEntitesTool(BaseTool):
         entities = asyncio.get_event_loop().run_until_complete(
             self.memory_client.long_term.search_entities(
                 query=query,
-                entity_type=entity_type,
+                entity_types=entity_types,
                 limit=limit,
             )
         )
@@ -307,12 +305,12 @@ class SearchEntitesTool(BaseTool):
     async def _arun(
         self,
         query: str,
-        entity_type: Optional[str] = None,
+        entity_types: Optional[list[str]] = None,
         limit: int = 10,
     ) -> str:
         entities = await self.memory_client.long_term.search_entities(
             query=query,
-            entity_type=entity_type,
+            entity_types=entity_types,
             limit=limit,
         )
 
@@ -470,11 +468,11 @@ Always use the user's preferences when making recommendations."""),
 
 
 # Usage
-memory_client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"}
 )
+memory_client = MemoryClient(settings)
+await memory_client.connect()
 
 agent = create_memory_agent(
     memory_client=memory_client,
@@ -505,7 +503,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import BaseTool
 from langchain.memory import ConversationBufferMemory
 from pydantic import BaseModel, Field
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 
 # --- Tools ---
@@ -544,7 +542,7 @@ class ProductSearchTool(BaseTool):
         products = asyncio.get_event_loop().run_until_complete(
             self.memory_client.long_term.search_entities(
                 query=query,
-                entity_type="PRODUCT",
+                entity_types=["PRODUCT"],
                 property_filter=filters if filters else None,
                 limit=10,
             )
@@ -609,7 +607,6 @@ class SavePreferenceTool(BaseTool):
 
         asyncio.get_event_loop().run_until_complete(
             self.memory_client.long_term.add_preference(
-                user_id=self.user_id,
                 preference=preference,
                 category=category,
                 confidence=0.85,
@@ -632,7 +629,7 @@ class PurchaseHistoryTool(BaseTool):
         import asyncio
 
         purchases = asyncio.get_event_loop().run_until_complete(
-            self.memory_client.long_term.execute_query(
+            self.memory_client.graph.execute_read(
                 """
                 MATCH (c:Customer {id: $user_id})-[p:PURCHASED]->(product:Product)
                 RETURN product.name as name, product.brand as brand,
@@ -713,11 +710,11 @@ Current customer: {user_id}"""),
 # --- Main ---
 
 async def main():
-    memory_client = MemoryClient(
-        neo4j_uri="bolt://localhost:7687",
-        neo4j_user="neo4j",
-        neo4j_password="password",
+    settings = MemorySettings(
+        neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"}
     )
+    memory_client = MemoryClient(settings)
+    await memory_client.connect()
 
     user_id = "CUST-12345"
     session_id = f"shop-{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -752,7 +749,7 @@ Track LangChain execution in reasoning traces:
 [source,python]
 ----
 from langchain.callbacks.base import BaseCallbackHandler
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 
 class ReasoningTraceCallback(BaseCallbackHandler):

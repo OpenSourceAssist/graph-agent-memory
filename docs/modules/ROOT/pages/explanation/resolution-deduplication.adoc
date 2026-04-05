@@ -210,11 +210,7 @@ When automatic merging isn't confident enough, the system creates `SAME_AS` rela
 [source,python]
 ----
 # Get pending duplicates for compliance review
-duplicates = await memory.find_potential_duplicates(
-    entity_type="PERSON",  # Focus on client names
-    min_confidence=0.80,
-    limit=50
-)
+duplicates = await memory.long_term.find_potential_duplicates(limit=50)
 
 for entity1, entity2, confidence in duplicates:
     print(f"Potential duplicate: '{entity1.name}' ↔ '{entity2.name}'")
@@ -224,30 +220,26 @@ for entity1, entity2, confidence in duplicates:
 
     # Compliance officer reviews
     if user_confirms_same_entity():
-        await memory.review_duplicate(entity1.id, entity2.id, confirm=True)
+        await memory.long_term.review_duplicate(entity1.id, entity2.id, confirm=True)
     else:
-        await memory.review_duplicate(entity1.id, entity2.id, confirm=False)
+        await memory.long_term.review_duplicate(entity1.id, entity2.id, confirm=False)
 ----
 
 .Ecommerce Retail Example
 [source,python]
 ----
 # Get pending product duplicates for catalog team
-duplicates = await memory.find_potential_duplicates(
-    entity_type="PRODUCT",
-    min_confidence=0.85,
-    limit=100
-)
+duplicates = await memory.long_term.find_potential_duplicates(limit=100)
 
 for product1, product2, confidence in duplicates:
     # Show products side by side
     print(f"'{product1.name}' vs '{product2.name}'")
-    print(f"  SKU 1: {product1.properties.get('sku')}")
-    print(f"  SKU 2: {product2.properties.get('sku')}")
+    print(f"  SKU 1: {product1.metadata.get('sku')}")
+    print(f"  SKU 2: {product2.metadata.get('sku')}")
 
     # If same SKU, definitely merge
-    if product1.properties.get('sku') == product2.properties.get('sku'):
-        await memory.review_duplicate(product1.id, product2.id, confirm=True)
+    if product1.metadata.get('sku') == product2.metadata.get('sku'):
+        await memory.long_term.review_duplicate(product1.id, product2.id, confirm=True)
 ----
 
 == Merge Strategies
@@ -371,7 +363,7 @@ Disable deduplication for specific entities:
 # Some entities should never be deduplicated
 # (e.g., intentionally similar product variants)
 
-entity, result = await memory.add_entity(
+entity, result = await memory.long_term.add_entity(
     name="iPhone 15 Pro - Titanium Blue",
     entity_type="PRODUCT",
     deduplicate=False  # Skip deduplication
@@ -390,20 +382,20 @@ Some names are inherently ambiguous:
 # Context determines correct resolution
 
 # In financial context
-await memory.add_entity(
+entity, _ = await memory.long_term.add_entity(
     name="Apple",
     entity_type="ORGANIZATION",
-    properties={
+    metadata={
         "context": "stock market discussion",
         "related_terms": ["AAPL", "Tim Cook", "iPhone"]
     }
 )
 
 # In grocery context
-await memory.add_entity(
+entity, _ = await memory.long_term.add_entity(
     name="Apple",
     entity_type="PRODUCT",
-    properties={
+    metadata={
         "context": "produce section",
         "related_terms": ["Granny Smith", "organic", "fruit"]
     }
@@ -455,7 +447,7 @@ Track resolution quality over time:
 
 [source,python]
 ----
-stats = await memory.get_deduplication_stats()
+stats = await memory.long_term.get_deduplication_stats()
 
 print(f"Total entities: {stats.total_entities}")
 print(f"Auto-merged: {stats.auto_merged_count}")
@@ -532,10 +524,10 @@ Add known aliases when creating entities:
 
 [source,python]
 ----
-await memory.add_entity(
+entity, _ = await memory.long_term.add_entity(
     name="Amazon.com, Inc.",
     entity_type="ORGANIZATION",
-    properties={
+    metadata={
         "aliases": ["Amazon", "AMZN", "AWS parent company"]
     }
 )
@@ -548,19 +540,10 @@ Establish a cadence for reviewing flagged duplicates:
 [source,python]
 ----
 # Daily review of high-confidence flags
-daily_review = await memory.find_potential_duplicates(
-    min_confidence=0.90,
-    status="pending",
-    limit=50
-)
+daily_review = await memory.long_term.find_potential_duplicates(limit=50)
 
 # Weekly review of lower-confidence flags
-weekly_review = await memory.find_potential_duplicates(
-    min_confidence=0.80,
-    max_confidence=0.90,
-    status="pending",
-    limit=200
-)
+weekly_review = await memory.long_term.find_potential_duplicates(limit=200)
 ----
 
 == See Also

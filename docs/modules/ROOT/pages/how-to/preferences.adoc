@@ -61,20 +61,18 @@ Store explicit preferences stated by users:
 
 [source,python]
 ----
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
-client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"}
 )
 
-# Store a preference from customer conversation
-preference = await client.long_term.add_preference(
-    user_id="CUST-12345",
-    preference="Prefers Nike brand for running shoes",
-    category="brand",
-)
+async with MemoryClient(settings) as client:
+    # Store a preference from customer conversation
+    preference = await client.long_term.add_preference(
+        category="brand",
+        preference="Prefers Nike brand for running shoes",
+    )
 
 print(f"Stored preference: {preference.id}")
 ----
@@ -122,9 +120,8 @@ preferences = [
 
 for pref in preferences:
     await client.long_term.add_preference(
-        user_id="CUST-12345",
-        preference=pref["preference"],
         category=pref["category"],
+        preference=pref["preference"],
         confidence=pref.get("confidence", 0.8),
     )
 ----
@@ -168,9 +165,8 @@ preferences = [
 
 for pref in preferences:
     await client.long_term.add_preference(
-        user_id="CL-78901",
-        preference=pref["preference"],
         category=pref["category"],
+        preference=pref["preference"],
         confidence=pref.get("confidence", 0.8),
     )
 ----
@@ -183,9 +179,8 @@ Track where preferences came from:
 ----
 # Preference explicitly stated by customer
 await client.long_term.add_preference(
-    user_id="CUST-12345",
-    preference="Allergic to latex - avoid latex products",
     category="health",
+    preference="Allergic to latex - avoid latex products",
     confidence=1.0,
     metadata={
         "source": "explicit_statement",
@@ -196,9 +191,8 @@ await client.long_term.add_preference(
 
 # Preference inferred from behavior
 await client.long_term.add_preference(
-    user_id="CUST-12345",
-    preference="Tends to purchase during evening hours (6-10 PM)",
     category="shopping_behavior",
+    preference="Tends to purchase during evening hours (6-10 PM)",
     confidence=0.75,  # Lower confidence for inferred
     metadata={
         "source": "behavioral_inference",
@@ -214,9 +208,9 @@ await client.long_term.add_preference(
 
 [source,python]
 ----
-# Get all preferences for a user
-preferences = await client.long_term.get_preferences(
-    user_id="CUST-12345",
+# Get all preferences
+preferences = await client.long_term.search_preferences(
+    query="",
 )
 
 print(f"Found {len(preferences)} preferences:")
@@ -229,16 +223,14 @@ for pref in preferences:
 
 [source,python]
 ----
-# Get only brand preferences
-brand_prefs = await client.long_term.get_preferences(
-    user_id="CUST-12345",
-    category="brand",
+# Get brand preferences
+brand_prefs = await client.long_term.search_preferences(
+    query="brand",
 )
 
 # Get investment-related preferences
-investment_prefs = await client.long_term.get_preferences(
-    user_id="CL-78901",
-    categories=["investment_style", "risk_profile", "time_horizon"],
+investment_prefs = await client.long_term.search_preferences(
+    query="investment risk time horizon",
 )
 ----
 
@@ -250,7 +242,6 @@ Find relevant preferences using semantic search:
 ----
 # Find preferences related to a query
 preferences = await client.long_term.search_preferences(
-    user_id="CUST-12345",
     query="shipping delivery speed",
     limit=5,
 )
@@ -271,8 +262,8 @@ async def build_personalized_prompt(user_id: str, base_prompt: str) -> str:
     """Build a prompt that includes user preferences."""
 
     # Get relevant preferences
-    preferences = await client.long_term.get_preferences(
-        user_id=user_id,
+    preferences = await client.long_term.search_preferences(
+        query="",
         limit=10,
     )
 
@@ -306,16 +297,12 @@ async def get_recommendation_context(user_id: str, product_category: str) -> dic
     """Get preferences relevant for product recommendations."""
 
     # Get category-specific preferences
-    relevant_categories = ["brand", "style", "size", "price_range"]
-
-    preferences = await client.long_term.get_preferences(
-        user_id=user_id,
-        categories=relevant_categories,
+    preferences = await client.long_term.search_preferences(
+        query="brand style size price range",
     )
 
     # Also search for category-specific preferences
     category_prefs = await client.long_term.search_preferences(
-        user_id=user_id,
         query=f"preferences for {product_category}",
         limit=5,
     )
@@ -336,21 +323,18 @@ async def get_investment_context(client_id: str) -> dict:
     """Get preferences relevant for investment advice."""
 
     # Core investment preferences
-    investment_prefs = await client.long_term.get_preferences(
-        user_id=client_id,
-        categories=["risk_profile", "investment_style", "time_horizon", "exclusions"],
+    investment_prefs = await client.long_term.search_preferences(
+        query="risk profile investment style time horizon exclusions",
     )
 
     # Tax-related preferences
-    tax_prefs = await client.long_term.get_preferences(
-        user_id=client_id,
-        categories=["tax_strategy"],
+    tax_prefs = await client.long_term.search_preferences(
+        query="tax strategy",
     )
 
     # Communication preferences
-    comm_prefs = await client.long_term.get_preferences(
-        user_id=client_id,
-        categories=["communication"],
+    comm_prefs = await client.long_term.search_preferences(
+        query="communication",
     )
 
     return {
@@ -422,7 +406,7 @@ from datetime import datetime, timedelta
 async def decay_stale_preferences(user_id: str, decay_after_days: int = 90):
     """Reduce confidence for preferences not recently confirmed."""
 
-    preferences = await client.long_term.get_preferences(user_id=user_id)
+    preferences = await client.long_term.search_preferences(query="")
     cutoff = datetime.now() - timedelta(days=decay_after_days)
 
     for pref in preferences:
@@ -450,7 +434,6 @@ await client.long_term.delete_preference(preference_id=preference.id)
 
 # Delete all preferences in a category
 await client.long_term.delete_preferences(
-    user_id="CUST-12345",
     category="deprecated_category",
 )
 ----
@@ -493,9 +476,8 @@ async def extract_preferences_from_message(
     # Store extracted preferences
     for pref in preferences:
         await client.long_term.add_preference(
-            user_id=user_id,
-            preference=pref["preference"],
             category=pref["category"],
+            preference=pref["preference"],
             confidence=pref.get("confidence", 0.7),
             metadata={"source": "conversation_extraction"},
         )
@@ -526,7 +508,7 @@ async def infer_preferences_from_history(user_id: str):
     """Infer preferences from purchase and browsing history."""
 
     # Get recent purchases from context graph
-    purchases = await client.long_term.execute_query(
+    purchases = await client.graph.execute_read(
         """
         MATCH (c:Customer {id: $user_id})-[:PURCHASED]->(p:Product)
               -[:IN_CATEGORY]->(cat:Category)
@@ -546,9 +528,8 @@ async def infer_preferences_from_history(user_id: str):
 
         if brand_count / total_purchases > 0.5:  # >50% from one brand
             await client.long_term.add_preference(
-                user_id=user_id,
-                preference=f"Shows strong preference for {top_brand} brand",
                 category="brand",
+                preference=f"Shows strong preference for {top_brand} brand",
                 confidence=min(0.9, brand_count / total_purchases),
                 metadata={
                     "source": "purchase_history",
@@ -571,13 +552,11 @@ async def get_preference_filtered_products(
     """Get products matching user preferences."""
 
     # Get relevant preferences
-    brand_prefs = await client.long_term.get_preferences(
-        user_id=user_id,
-        category="brand",
+    brand_prefs = await client.long_term.search_preferences(
+        query="brand",
     )
-    style_prefs = await client.long_term.get_preferences(
-        user_id=user_id,
-        category="style",
+    style_prefs = await client.long_term.search_preferences(
+        query="style",
     )
 
     # Extract preferred brands
@@ -601,7 +580,7 @@ async def get_preference_filtered_products(
     LIMIT $limit
     """
 
-    return await client.long_term.execute_query(
+    return await client.graph.execute_read(
         query,
         parameters={
             "category": category,
@@ -657,9 +636,8 @@ Only store preferences users expect:
 ----
 # Store preference with consent tracking
 await client.long_term.add_preference(
-    user_id=user_id,
-    preference=preference_text,
     category=category,
+    preference=preference_text,
     metadata={
         "consent_type": "implicit",  # or "explicit"
         "consent_date": datetime.now().isoformat(),
@@ -670,7 +648,7 @@ await client.long_term.add_preference(
 # Honor deletion requests
 async def delete_user_preferences(user_id: str):
     """GDPR-compliant preference deletion."""
-    await client.long_term.delete_preferences(user_id=user_id)
+    await client.long_term.delete_preferences()
 ----
 
 === 4. Validate Preferences Periodically

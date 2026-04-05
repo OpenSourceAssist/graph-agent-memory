@@ -176,7 +176,7 @@ Search the entity knowledge graph:
   "name": "search_entities",
   "parameters": {
     "query": "Italian restaurants",
-    "entity_type": "ORGANIZATION",
+    "entity_types": ["ORGANIZATION"],
     "limit": 5
   }
 }

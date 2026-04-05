@@ -28,14 +28,14 @@ Enable deduplication when adding entities:
 
 [source,python]
 ----
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.memory import DeduplicationConfig
 
-client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "password"}
 )
+
+client = MemoryClient(settings)
 
 # Configure deduplication
 dedup_config = DeduplicationConfig(
@@ -223,7 +223,7 @@ Skip deduplication for specific entities:
 [source,python]
 ----
 # Product variants that should NOT be deduplicated
-entity = await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name="iPhone 15 Pro - Blue Titanium",
     entity_type="PRODUCT",
     deduplicate=False,  # Skip deduplication
@@ -238,10 +238,10 @@ For trusted data sources:
 ----
 # Import from verified source without deduplication
 for item in verified_product_catalog:
-    await client.long_term.add_entity(
+    entity, _ = await client.long_term.add_entity(
         name=item["name"],
         entity_type="PRODUCT",
-        properties=item["properties"],
+        attributes=item["attributes"],
         deduplicate=False,  # Trust the source
     )
 ----
@@ -323,10 +323,10 @@ entity_type = "RETAIL_BRAND"
 
 [source,python]
 ----
-await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name="JPMorgan Chase & Co.",
     entity_type="FINANCIAL_INSTITUTION",
-    properties={
+    attributes={
         "aliases": ["JPMorgan", "Chase", "JPMC", "Chase Bank"],
     },
 )

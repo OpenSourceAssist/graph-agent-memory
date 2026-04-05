@@ -205,16 +205,17 @@ List of session info dictionaries:
 ]
 ----
 
-=== get_session_messages
+=== get_conversation
 
-Get all messages in a session.
+Get a conversation and all its messages for a session.
 
 [source,python]
 ----
-messages = await short_term.get_session_messages(
+conversation = await short_term.get_conversation(
     session_id: str,
     limit: int | None = None,
 )
+# conversation.messages contains the list of Message objects
 ----
 
 === delete_session

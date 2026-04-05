@@ -228,7 +228,7 @@ async def main():
         await memory.short_term.add_message("user-123", "user", "I love Italian food!")
 
         # Build knowledge automatically
-        await memory.long_term.add_preference("food", "Loves Italian cuisine", importance=0.9)
+        await memory.long_term.add_preference("food", "Loves Italian cuisine", confidence=0.9)
 
         # Get combined context for your LLM
         context = await memory.get_context("restaurant recommendation", session_id="user-123")

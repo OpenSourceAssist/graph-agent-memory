@@ -72,7 +72,7 @@ Define tools that wrap neo4j-agent-memory for CrewAI agents:
 [source,python]
 ----
 from crewai_tools import BaseTool
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 import json
 
 
@@ -102,7 +102,7 @@ class SearchEntitiesToolClass(BaseTool):
         entities = loop.run_until_complete(
             self.memory_client.long_term.search_entities(
                 query=query,
-                entity_type=entity_type,
+                entity_types=[entity_type] if entity_type else None,
                 limit=10,
             )
         )
@@ -149,12 +149,12 @@ class SaveEntityToolClass(BaseTool):
         import asyncio
         loop = asyncio.get_event_loop()
 
-        entity = loop.run_until_complete(
+        entity, _ = loop.run_until_complete(
             self.memory_client.long_term.add_entity(
                 name=name,
                 entity_type=entity_type,
                 description=description,
-                properties=properties or {},
+                attributes=properties or {},
             )
         )
 
@@ -231,13 +231,17 @@ class SearchMessagesToolClass(BaseTool):
 [source,python]
 ----
 from crewai import Agent, Task, Crew, Process
+from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 
 # Initialize shared memory client
-memory_client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j=Neo4jConfig(
+        uri="bolt://localhost:7687",
+        username="neo4j",
+        password="password",
+    )
 )
+memory_client = MemoryClient(settings)
 
 user_id = "CUST-12345"
 session_id = "crew-session-001"
@@ -365,16 +369,19 @@ Example for collaborative financial analysis:
 ----
 from crewai import Agent, Task, Crew, Process
 from crewai_tools import BaseTool
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 import json
 
 
 # --- Memory Client ---
-memory_client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j=Neo4jConfig(
+        uri="bolt://localhost:7687",
+        username="neo4j",
+        password="password",
+    )
 )
+memory_client = MemoryClient(settings)
 
 client_id = "CL-78901"
 session_id = "advisory-crew-001"
@@ -402,7 +409,7 @@ class GetClientProfileTool(BaseTool):
 
         # Get holdings from context graph
         holdings = loop.run_until_complete(
-            self.memory_client.long_term.execute_query(
+            self.memory_client.graph.execute_read(
                 """
                 MATCH (c:Client {id: $client_id})-[:HAS_ACCOUNT]->(a:Account)
                       -[:HOLDS]->(p:Position)-[:IN]->(s:Security)
@@ -440,7 +447,7 @@ class SearchSecuritiesTool(BaseTool):
         securities = loop.run_until_complete(
             self.memory_client.long_term.search_entities(
                 query=query,
-                entity_type="SECURITY",
+                entity_types=["SECURITY"],
                 property_filter=filters if filters else None,
                 limit=15,
             )
@@ -471,12 +478,12 @@ class SaveAnalysisTool(BaseTool):
         from datetime import datetime
         loop = asyncio.get_event_loop()
 
-        entity = loop.run_until_complete(
+        entity, _ = loop.run_until_complete(
             self.memory_client.long_term.add_entity(
                 name=title,
                 entity_type="ANALYSIS",
                 description=findings,
-                properties={
+                attributes={
                     "analysis_type": analysis_type,
                     "client_id": self.client_id,
                     "created_at": datetime.now().isoformat(),
@@ -834,10 +841,10 @@ Neo4j handles concurrent writes, but design for it:
 [source,python]
 ----
 # Use unique identifiers for saved entities
-entity = await memory_client.long_term.add_entity(
+entity, _ = await memory_client.long_term.add_entity(
     name=f"Analysis-{agent_name}-{timestamp}",
     entity_type="ANALYSIS",
-    properties={"agent": agent_name},
+    attributes={"agent": agent_name},
 )
 ----
 
