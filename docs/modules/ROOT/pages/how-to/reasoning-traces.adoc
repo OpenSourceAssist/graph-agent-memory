@@ -68,25 +68,23 @@ Begin recording when an agent task starts:
 
 [source,python]
 ----
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
-client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "user": "neo4j", "password": "password"}
 )
 
-# Start a new reasoning trace
-trace = await client.reasoning.start_trace(
-    task="Find running shoes matching customer preferences",
-    user_id="CUST-12345",
-    session_id="shopping-session-001",
-    metadata={
-        "agent_version": "2.1.0",
-        "model": "gpt-4o",
-        "trigger": "user_request",
-    },
-)
+async with MemoryClient(settings) as client:
+    # Start a new reasoning trace
+    trace = await client.reasoning.start_trace(
+        session_id="shopping-session-001",
+        task="Find running shoes matching customer preferences",
+        metadata={
+            "agent_version": "2.1.0",
+            "model": "gpt-4o",
+            "trigger": "user_request",
+        },
+    )
 
 print(f"Started trace: {trace.id}")
 ----
@@ -100,24 +98,22 @@ Capture each step of the agent's reasoning:
 # Step 1: Search for products
 step1 = await client.reasoning.add_step(
     trace_id=trace.id,
-    description="Searching product catalog for running shoes",
-    reasoning="Customer asked for running shoes, starting with catalog search",
+    thought="Searching product catalog for running shoes",
+    action="Customer asked for running shoes, starting with catalog search",
 )
 
 # Step 2: Get preferences
 step2 = await client.reasoning.add_step(
     trace_id=trace.id,
-    description="Retrieved customer preferences for brand and style",
-    reasoning="Need to personalize results based on stored preferences",
-    depends_on=step1.id,  # Link steps in sequence
+    thought="Retrieved customer preferences for brand and style",
+    action="Need to personalize results based on stored preferences",
 )
 
 # Step 3: Filter and rank
 step3 = await client.reasoning.add_step(
     trace_id=trace.id,
-    description="Filtered products by Nike brand preference, ranked by rating",
-    reasoning="Customer prefers Nike, so boosting those results",
-    depends_on=step2.id,
+    thought="Filtered products by Nike brand preference, ranked by rating",
+    action="Customer prefers Nike, so boosting those results",
 )
 ----
 
@@ -128,7 +124,7 @@ Track tools used during reasoning:
 [source,python]
 ----
 # Record tool call for product search
-tool_call = await client.reasoning.add_tool_call(
+tool_call = await client.reasoning.record_tool_call(
     step_id=step1.id,
     tool_name="search_products",
     arguments={
@@ -141,11 +137,11 @@ tool_call = await client.reasoning.add_tool_call(
         "top_brands": ["Nike", "Adidas", "Asics"],
     },
     duration_ms=145,
-    success=True,
+    status="success",
 )
 
 # Record preference retrieval
-await client.reasoning.add_tool_call(
+await client.reasoning.record_tool_call(
     step_id=step2.id,
     tool_name="get_user_preferences",
     arguments={"user_id": "CUST-12345", "categories": ["brand", "style"]},
@@ -156,7 +152,7 @@ await client.reasoning.add_tool_call(
         ]
     },
     duration_ms=32,
-    success=True,
+    status="success",
 )
 ----
 
@@ -169,31 +165,15 @@ Mark trace as complete with outcome:
 # Successful completion
 await client.reasoning.complete_trace(
     trace_id=trace.id,
-    outcome="success",
-    result={
-        "recommendations": [
-            {"name": "Nike Pegasus 40", "sku": "NKE-PEG40-001"},
-            {"name": "Nike Air Zoom", "sku": "NKE-AZ-002"},
-            {"name": "Nike Free Run", "sku": "NKE-FR-003"},
-        ],
-        "customer_response": "positive",
-    },
-    metadata={
-        "total_steps": 3,
-        "total_tool_calls": 3,
-        "execution_time_ms": 850,
-    },
+    outcome="Recommended 3 Nike running shoes matching customer preferences",
+    success=True,
 )
 
 # Or record failure
 await client.reasoning.complete_trace(
     trace_id=trace.id,
-    outcome="failure",
-    error="No products found matching criteria",
-    metadata={
-        "failure_reason": "inventory_empty",
-        "category_searched": "running_shoes",
-    },
+    outcome="No products found matching criteria - inventory empty for running_shoes",
+    success=False,
 )
 ----
 
@@ -383,12 +363,12 @@ async def search_products(
     # Record the tool call in the trace
     if ctx.deps.current_trace_id:
         # Get current step (you'd track this in deps)
-        await ctx.deps.memory_client.reasoning.add_tool_call(
+        await ctx.deps.memory_client.reasoning.record_tool_call(
             step_id=ctx.deps.current_step_id,
             tool_name="search_products",
             arguments={"query": query, "category": category},
             result={"status": "searching"},
-            success=True,
+            status="success",
         )
 
     # Actual tool implementation
@@ -400,8 +380,8 @@ async def run_with_tracing(user_query: str, user_id: str):
 
     # Start trace
     trace = await memory_client.reasoning.start_trace(
+        session_id=f"session-{user_id}",
         task=user_query,
-        user_id=user_id,
     )
 
     deps = AgentDeps(
@@ -416,8 +396,8 @@ async def run_with_tracing(user_query: str, user_id: str):
         # Complete trace on success
         await memory_client.reasoning.complete_trace(
             trace_id=trace.id,
-            outcome="success",
-            result={"response": result.data},
+            outcome=f"Successfully processed: {result.data}",
+            success=True,
         )
 
         return result
@@ -426,8 +406,8 @@ async def run_with_tracing(user_query: str, user_id: str):
         # Record failure
         await memory_client.reasoning.complete_trace(
             trace_id=trace.id,
-            outcome="failure",
-            error=str(e),
+            outcome=str(e),
+            success=False,
         )
         raise
 ----
@@ -450,8 +430,8 @@ class ReasoningTraceCallback(BaseCallbackHandler):
     async def on_chain_start(self, serialized, inputs, **kwargs):
         """Start trace when chain begins."""
         self.trace = await self.memory_client.reasoning.start_trace(
+            session_id=f"session-{self.user_id}",
             task=str(inputs),
-            user_id=self.user_id,
         )
         self.trace_id = self.trace.id
 
@@ -461,26 +441,26 @@ class ReasoningTraceCallback(BaseCallbackHandler):
 
         step = await self.memory_client.reasoning.add_step(
             trace_id=self.trace_id,
-            description=f"Calling {tool_name}",
+            thought=f"Calling {tool_name}",
         )
         self.current_step_id = step.id
 
     async def on_tool_end(self, output, **kwargs):
         """Record tool result."""
-        await self.memory_client.reasoning.add_tool_call(
+        await self.memory_client.reasoning.record_tool_call(
             step_id=self.current_step_id,
             tool_name=kwargs.get("name", "unknown"),
             arguments=kwargs.get("input", {}),
             result={"output": str(output)[:500]},
-            success=True,
+            status="success",
         )
 
     async def on_chain_end(self, outputs, **kwargs):
         """Complete trace when chain finishes."""
         await self.memory_client.reasoning.complete_trace(
             trace_id=self.trace_id,
-            outcome="success",
-            result=outputs,
+            outcome="Chain completed successfully",
+            success=True,
         )
 
 # Usage
@@ -601,8 +581,8 @@ Include enough context for future learning:
 # Good: Detailed step with reasoning
 await client.reasoning.add_step(
     trace_id=trace.id,
-    description="Filtered 20 products down to 5 matching Nike brand preference",
-    reasoning="Customer has strong Nike preference (confidence: 0.95). Filtering to boost relevance.",
+    thought="Filtered 20 products down to 5 matching Nike brand preference",
+    observation="Customer has strong Nike preference (confidence: 0.95). Filtering to boost relevance.",
     metadata={
         "input_count": 20,
         "output_count": 5,
@@ -613,7 +593,7 @@ await client.reasoning.add_step(
 # Avoid: Vague step
 await client.reasoning.add_step(
     trace_id=trace.id,
-    description="Filtered products",
+    thought="Filtered products",
 )
 ----
 
@@ -623,20 +603,20 @@ Ensure traces are marked complete even on errors:
 
 [source,python]
 ----
-trace = await client.reasoning.start_trace(task=task, user_id=user_id)
+trace = await client.reasoning.start_trace(session_id=session_id, task=task)
 
 try:
     result = await execute_task()
     await client.reasoning.complete_trace(
         trace_id=trace.id,
-        outcome="success",
-        result=result,
+        outcome=f"Task completed: {result}",
+        success=True,
     )
 except Exception as e:
     await client.reasoning.complete_trace(
         trace_id=trace.id,
-        outcome="failure",
-        error=str(e),
+        outcome=str(e),
+        success=False,
     )
     raise
 finally:
@@ -661,12 +641,8 @@ OUTCOME_TYPES = {
 
 await client.reasoning.complete_trace(
     trace_id=trace.id,
-    outcome="partial_success",
-    result={
-        "completed": ["product_search", "preference_matching"],
-        "skipped": ["inventory_check"],
-        "reason": "inventory_service_unavailable",
-    },
+    outcome="Partial success: completed product_search and preference_matching, skipped inventory_check due to inventory_service_unavailable",
+    success=True,
 )
 ----
 

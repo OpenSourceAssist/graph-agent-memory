@@ -54,14 +54,14 @@ Use the built-in POLE+O schema for general-purpose extraction:
 
 [source,python]
 ----
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.extraction import GLiNEREntityExtractor
 
-client = MemoryClient(
-    neo4j_uri="bolt://localhost:7687",
-    neo4j_user="neo4j",
-    neo4j_password="password",
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "password"}
 )
+
+client = MemoryClient(settings)
 
 # Create extractor with POLE+O schema
 extractor = GLiNEREntityExtractor.for_poleo()
@@ -510,10 +510,10 @@ result = await extractor.extract(text)
 
 # Store each entity in the context graph
 for entity in result.entities:
-    stored = await client.long_term.add_entity(
+    stored, _ = await client.long_term.add_entity(
         name=entity.name,
         entity_type=entity.type,
-        properties={
+        attributes={
             "confidence": entity.confidence,
             "source_text": text[:200],
             "extracted_at": datetime.now().isoformat(),
@@ -529,7 +529,7 @@ Track where entities came from for audit and quality:
 [source,python]
 ----
 # Store entity with provenance
-entity = await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name=extracted.name,
     entity_type=extracted.type,
 )
@@ -638,7 +638,7 @@ async for chunk_result in streamer.extract_streaming(long_document):
 
     # Store entities as they're extracted
     for entity in chunk_result.entities:
-        await client.long_term.add_entity(
+        stored, _ = await client.long_term.add_entity(
             name=entity.name,
             entity_type=entity.type,
         )
@@ -775,7 +775,7 @@ for entity in result.entities:
     if entity.name.lower() in stopwords:
         continue
 
-    await client.long_term.add_entity(
+    stored, _ = await client.long_term.add_entity(
         name=entity.name,
         entity_type=entity.type,
     )

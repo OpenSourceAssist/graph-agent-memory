@@ -8,6 +8,12 @@
 :icons: font
 :source-highlighter: highlight.js
 :experimental:
+:page-ad-icon: mortarboard
+:page-ad-title: Context Graphs: Agent Memory with Neo4j
+:page-ad-description: Build an AI agent that records its reasoning into Neo4j and query the trace to understand what it did and why.
+:page-ad-link: https://graphacademy.neo4j.com/courses/genai-context-graphs/?ref=docs-ad-genai-context-graphs
+:page-ad-underline-role: button
+:page-ad-underline: Enroll now
 
 ++++
 <div class="hero">
@@ -228,7 +234,7 @@ async def main():
         await memory.short_term.add_message("user-123", "user", "I love Italian food!")
 
         # Build knowledge automatically
-        await memory.long_term.add_preference("food", "Loves Italian cuisine", importance=0.9)
+        await memory.long_term.add_preference("food", "Loves Italian cuisine", confidence=0.9)
 
         # Get combined context for your LLM
         context = await memory.get_context("restaurant recommendation", session_id="user-123")

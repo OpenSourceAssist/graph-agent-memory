@@ -7,6 +7,12 @@
 :sectlinks:
 :icons: font
 :source-highlighter: highlight.js
+:page-ad-icon: mortarboard
+:page-ad-title: Context Graphs: Agent Memory with Neo4j
+:page-ad-description: Build an AI agent that records its reasoning into Neo4j and query the trace to understand what it did and why.
+:page-ad-link: https://graphacademy.neo4j.com/courses/genai-context-graphs/?ref=docs-ad-genai-context-graphs
+:page-ad-underline-role: button
+:page-ad-underline: Enroll now
 
 Build a chatbot that remembers users, learns preferences, and provides personalized responses across sessions.
 
@@ -76,7 +82,7 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.extraction import GLiNEREntityExtractor
 
 load_dotenv()
@@ -91,13 +97,12 @@ async def initialize():
     """Initialize memory client and extractor."""
     global memory_client, extractor
 
-    memory_client = MemoryClient(
-        neo4j_uri=os.getenv("NEO4J_URI"),
-        neo4j_user=os.getenv("NEO4J_USER"),
-        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    settings = MemorySettings(
+        neo4j={"uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"), "username": os.getenv("NEO4J_USER", "neo4j"), "password": os.getenv("NEO4J_PASSWORD", "password123")}
     )
 
-    await memory_client.initialize()
+    memory_client = MemoryClient(settings)
+    await memory_client.connect()
     extractor = GLiNEREntityExtractor.for_schema("ecommerce")
 
     print("✓ Memory system initialized!")
@@ -108,7 +113,7 @@ async def get_or_create_user(name: str) -> str:
     # Search for existing user
     users = await memory_client.long_term.search_entities(
         query=name,
-        entity_type="CUSTOMER",
+        entity_types=["CUSTOMER"],
         limit=1,
     )
 
@@ -117,10 +122,10 @@ async def get_or_create_user(name: str) -> str:
         return users[0].id
 
     # Create new user
-    user = await memory_client.long_term.add_entity(
+    user, _ = await memory_client.long_term.add_entity(
         name=name,
         entity_type="CUSTOMER",
-        properties={
+        attributes={
             "created_at": datetime.now().isoformat(),
         },
     )
@@ -131,35 +136,34 @@ async def get_or_create_user(name: str) -> str:
 async def build_context(user_id: str, session_id: str, query: str) -> str:
     """Build personalized context for the LLM."""
 
-    # Get combined context from memory
-    context = await memory_client.get_context(
-        query=query,
-        user_id=user_id,
-        session_id=session_id,
-        include_short_term=True,
-        include_long_term=True,
-        short_term_limit=5,
-        long_term_limit=10,
-    )
+    # Get recent messages
+    conversation = await memory_client.short_term.get_conversation(session_id=session_id)
+    recent_messages = conversation.messages[-5:] if conversation.messages else []
+
+    # Get preferences
+    prefs = await memory_client.long_term.search_preferences(query=query)
+
+    # Get relevant entities
+    entities = await memory_client.long_term.search_entities(query=query, limit=10)
 
     parts = []
 
     # Add preferences
-    if context.preferences:
+    if prefs:
         parts.append("## Customer Preferences")
-        for pref in context.preferences:
+        for pref in prefs:
             parts.append(f"- {pref.category}: {pref.preference}")
 
     # Add recent conversation
-    if context.messages:
+    if recent_messages:
         parts.append("\n## Recent Conversation")
-        for msg in context.messages[-5:]:
+        for msg in recent_messages:
             parts.append(f"- [{msg.role}]: {msg.content[:100]}...")
 
     # Add relevant entities (products, brands)
-    if context.entities:
+    if entities:
         parts.append("\n## Relevant Information")
-        for entity in context.entities[:5]:
+        for entity in entities[:5]:
             if entity.description:
                 parts.append(f"- {entity.name}: {entity.description[:100]}")
             else:
@@ -185,7 +189,6 @@ async def extract_and_store_preferences(
         if brand in message_lower and ("like" in message_lower or "prefer" in message_lower or "love" in message_lower):
             pref = f"Likes {brand.title()} products"
             await memory_client.long_term.add_preference(
-                user_id=user_id,
                 preference=pref,
                 category="brand",
                 confidence=0.85,
@@ -199,7 +202,6 @@ async def extract_and_store_preferences(
         size = size_match.group(1)
         pref = f"Shoe size is {size}"
         await memory_client.long_term.add_preference(
-            user_id=user_id,
             preference=pref,
             category="size",
             confidence=1.0,
@@ -212,7 +214,6 @@ async def extract_and_store_preferences(
         budget = budget_match.group(1)
         pref = f"Budget around ${budget}"
         await memory_client.long_term.add_preference(
-            user_id=user_id,
             preference=pref,
             category="budget",
             confidence=0.9,
@@ -231,16 +232,16 @@ async def chat(
 
     # Store user message
     await memory_client.short_term.add_message(
+        session_id=session_id,
         role="user",
         content=user_message,
-        session_id=session_id,
         metadata={"user_id": user_id},
     )
 
     # Extract entities from message
     extraction = await extractor.extract(user_message)
     for entity in extraction.entities:
-        await memory_client.long_term.add_entity(
+        _, _ = await memory_client.long_term.add_entity(
             name=entity.name,
             entity_type=entity.type,
         )
@@ -282,9 +283,9 @@ Guidelines:
 
     # Store assistant response
     await memory_client.short_term.add_message(
+        session_id=session_id,
         role="assistant",
         content=assistant_message,
-        session_id=session_id,
         metadata={"user_id": user_id},
     )
 
@@ -299,7 +300,7 @@ async def show_memory_stats(user_id: str):
     print("="*50)
 
     # Get preferences
-    prefs = await memory_client.long_term.get_preferences(user_id=user_id)
+    prefs = await memory_client.long_term.search_preferences(query="")
     if prefs:
         print("\n🏷️ Preferences:")
         for pref in prefs:
@@ -467,7 +468,7 @@ Create `seed_products.py` to add some product data:
 import asyncio
 import os
 from dotenv import load_dotenv
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 load_dotenv()
 
@@ -506,22 +507,21 @@ PRODUCTS = [
 
 
 async def main():
-    client = MemoryClient(
-        neo4j_uri=os.getenv("NEO4J_URI"),
-        neo4j_user=os.getenv("NEO4J_USER"),
-        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    settings = MemorySettings(
+        neo4j={"uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"), "username": os.getenv("NEO4J_USER", "neo4j"), "password": os.getenv("NEO4J_PASSWORD", "password123")}
     )
 
-    await client.initialize()
+    client = MemoryClient(settings)
+    await client.connect()
 
     print("Seeding product data...")
 
     for product in PRODUCTS:
-        entity = await client.long_term.add_entity(
+        entity, _ = await client.long_term.add_entity(
             name=product["name"],
             entity_type=product["type"],
             description=product["description"],
-            properties=product["properties"],
+            attributes=product["properties"],
         )
         print(f"  ✓ Added: {entity.name}")
 
@@ -557,55 +557,54 @@ async def chat(
 
     # Start reasoning trace
     trace = await memory_client.reasoning.start_trace(
-        task=f"Respond to: {user_message[:50]}...",
-        user_id=user_id,
         session_id=session_id,
+        task=f"Respond to: {user_message[:50]}...",
     )
 
     try:
         # Store user message
         await memory_client.short_term.add_message(
+            session_id=session_id,
             role="user",
             content=user_message,
-            session_id=session_id,
         )
 
         # Record step: Extract entities
         step1 = await memory_client.reasoning.add_step(
             trace_id=trace.id,
-            description="Extracting entities from user message",
+            thought="Extracting entities from user message",
         )
 
         extraction = await extractor.extract(user_message)
 
-        await memory_client.reasoning.add_tool_call(
+        await memory_client.reasoning.record_tool_call(
             step_id=step1.id,
             tool_name="entity_extraction",
             arguments={"text": user_message[:100]},
             result={"entities": [e.name for e in extraction.entities]},
-            success=True,
+            status="success",
         )
 
         # Record step: Get context
         step2 = await memory_client.reasoning.add_step(
             trace_id=trace.id,
-            description="Retrieving personalized context",
+            thought="Retrieving personalized context",
         )
 
         context = await build_context(user_id, session_id, user_message)
 
-        await memory_client.reasoning.add_tool_call(
+        await memory_client.reasoning.record_tool_call(
             step_id=step2.id,
             tool_name="get_context",
             arguments={"user_id": user_id},
             result={"context_length": len(context)},
-            success=True,
+            status="success",
         )
 
         # Record step: Generate response
         step3 = await memory_client.reasoning.add_step(
             trace_id=trace.id,
-            description="Generating personalized response",
+            thought="Generating personalized response",
         )
 
         # ... rest of LLM call ...
@@ -613,8 +612,8 @@ async def chat(
         # Complete trace
         await memory_client.reasoning.complete_trace(
             trace_id=trace.id,
-            outcome="success",
-            result={"response_length": len(assistant_message)},
+            outcome=f"Generated response ({len(assistant_message)} chars)",
+            success=True,
         )
 
         return assistant_message
@@ -622,8 +621,8 @@ async def chat(
     except Exception as e:
         await memory_client.reasoning.complete_trace(
             trace_id=trace.id,
-            outcome="failure",
-            error=str(e),
+            outcome=f"Failed: {str(e)}",
+            success=False,
         )
         raise
 ----

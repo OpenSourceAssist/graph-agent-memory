@@ -7,6 +7,12 @@
 :sectlinks:
 :icons: font
 :source-highlighter: highlight.js
+:page-ad-icon: mortarboard
+:page-ad-title: Context Graphs: Agent Memory with Neo4j
+:page-ad-description: Build an AI agent that records its reasoning into Neo4j and query the trace to understand what it did and why.
+:page-ad-link: https://graphacademy.neo4j.com/courses/genai-context-graphs/?ref=docs-ad-genai-context-graphs
+:page-ad-underline-role: button
+:page-ad-underline: Enroll now
 
 Extract entities and relationships from documents to build a queryable knowledge graph.
 
@@ -197,7 +203,7 @@ import asyncio
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 from neo4j_agent_memory.extraction import (
     GLiNEREntityExtractor,
     GLiNERWithRelationsExtractor,
@@ -263,12 +269,11 @@ async def extract_from_documents():
     """Extract entities and relationships from all documents."""
 
     # Initialize
-    client = MemoryClient(
-        neo4j_uri=os.getenv("NEO4J_URI"),
-        neo4j_user=os.getenv("NEO4J_USER"),
-        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    settings = MemorySettings(
+        neo4j={"uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"), "username": os.getenv("NEO4J_USER", "neo4j"), "password": os.getenv("NEO4J_PASSWORD", "password123")}
     )
-    await client.initialize()
+    client = MemoryClient(settings)
+    await client.connect()
 
     # Create extractor with custom schema
     schema = create_financial_schema()
@@ -299,10 +304,10 @@ async def extract_from_documents():
         print(f"    Relations: {len(result.relations)}")
 
         # Store document as entity
-        doc_entity = await client.long_term.add_entity(
+        doc_entity, _ = await client.long_term.add_entity(
             name=doc_file.stem.replace("_", " ").title(),
             entity_type="DOCUMENT",
-            properties={
+            attributes={
                 "filename": doc_file.name,
                 "content_preview": content[:200] + "...",
             },
@@ -313,7 +318,7 @@ async def extract_from_documents():
             stored, dedup = await client.long_term.add_entity(
                 name=entity.name,
                 entity_type=entity.type,
-                properties={
+                attributes={
                     "confidence": entity.confidence,
                     "source_doc": doc_file.name,
                 },
@@ -435,18 +440,17 @@ Create a query interface:
 import asyncio
 import os
 from dotenv import load_dotenv
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 load_dotenv()
 
 
 async def main():
-    client = MemoryClient(
-        neo4j_uri=os.getenv("NEO4J_URI"),
-        neo4j_user=os.getenv("NEO4J_USER"),
-        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    settings = MemorySettings(
+        neo4j={"uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"), "username": os.getenv("NEO4J_USER", "neo4j"), "password": os.getenv("NEO4J_PASSWORD", "password123")}
     )
-    await client.initialize()
+    client = MemoryClient(settings)
+    await client.connect()
 
     print("🔍 Knowledge Graph Query Interface")
     print("="*50)
@@ -455,7 +459,7 @@ async def main():
     print("\n1. All Companies in the Knowledge Graph:")
     companies = await client.long_term.search_entities(
         query="",
-        entity_type="COMPANY",
+        entity_types=["COMPANY"],
         limit=20,
     )
     for company in companies:
@@ -465,7 +469,7 @@ async def main():
     print("\n2. Key People Mentioned:")
     people = await client.long_term.search_entities(
         query="CEO executive analyst",
-        entity_type="PERSON",
+        entity_types=["PERSON"],
         limit=10,
     )
     for person in people:
@@ -482,7 +486,7 @@ async def main():
 
     # Query 4: Find relationships using Cypher
     print("\n4. Person-Company Relationships:")
-    results = await client.long_term.execute_query(
+    results = await client.graph.execute_read(
         """
         MATCH (p:Entity {type: 'PERSON'})-[r]->(c:Entity {type: 'COMPANY'})
         RETURN p.name as person, type(r) as relationship, c.name as company
@@ -494,7 +498,7 @@ async def main():
 
     # Query 5: Find entities mentioned in multiple documents
     print("\n5. Cross-Document Entities (mentioned in 2+ docs):")
-    results = await client.long_term.execute_query(
+    results = await client.graph.execute_read(
         """
         MATCH (e:Entity)-[:MENTIONED_IN]->(d:Entity {type: 'DOCUMENT'})
         WITH e, count(DISTINCT d) as doc_count
@@ -509,7 +513,7 @@ async def main():
 
     # Query 6: Find path between two entities
     print("\n6. Connection Path: Sarah Johnson to Apple:")
-    results = await client.long_term.execute_query(
+    results = await client.graph.execute_read(
         """
         MATCH path = shortestPath(
             (a:Entity {name: 'Sarah Johnson'})-[*..5]-(b:Entity)
@@ -588,7 +592,7 @@ import os
 import json
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 load_dotenv()
 
@@ -598,19 +602,18 @@ memory_client = None
 
 async def initialize():
     global memory_client
-    memory_client = MemoryClient(
-        neo4j_uri=os.getenv("NEO4J_URI"),
-        neo4j_user=os.getenv("NEO4J_USER"),
-        neo4j_password=os.getenv("NEO4J_PASSWORD"),
+    settings = MemorySettings(
+        neo4j={"uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"), "username": os.getenv("NEO4J_USER", "neo4j"), "password": os.getenv("NEO4J_PASSWORD", "password123")}
     )
-    await memory_client.initialize()
+    memory_client = MemoryClient(settings)
+    await memory_client.connect()
 
 
 async def search_knowledge_graph(query: str, entity_type: str = None) -> str:
     """Search the knowledge graph for relevant entities."""
     entities = await memory_client.long_term.search_entities(
         query=query,
-        entity_type=entity_type,
+        entity_types=[entity_type] if entity_type else None,
         limit=10,
     )
 
@@ -622,7 +625,7 @@ async def search_knowledge_graph(query: str, entity_type: str = None) -> str:
 
 async def find_relationships(entity_name: str) -> str:
     """Find relationships for an entity."""
-    results = await memory_client.long_term.execute_query(
+    results = await memory_client.graph.execute_read(
         """
         MATCH (e:Entity)-[r]-(related:Entity)
         WHERE e.name CONTAINS $name

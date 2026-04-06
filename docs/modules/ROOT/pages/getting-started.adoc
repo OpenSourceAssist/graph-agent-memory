@@ -6,6 +6,12 @@
 :sectanchors:
 :icons: font
 :source-highlighter: highlight.js
+:page-ad-icon: mortarboard
+:page-ad-title: Context Graphs: Agent Memory with Neo4j
+:page-ad-description: Build an AI agent that records its reasoning into Neo4j and query the trace to understand what it did and why.
+:page-ad-link: https://graphacademy.neo4j.com/courses/genai-context-graphs/?ref=docs-ad-genai-context-graphs
+:page-ad-underline-role: button
+:page-ad-underline: Enroll now
 
 This guide walks you through installing neo4j-agent-memory, connecting to Neo4j, and performing your first memory operations.
 
@@ -172,11 +178,10 @@ async with MemoryClient(settings) as memory:
     )
 
     # Retrieve conversation history
-    messages = await memory.short_term.get_messages(
-        session_id="session-123",
-        limit=10
+    conversation = await memory.short_term.get_conversation(
+        session_id="session-123"
     )
-    for msg in messages:
+    for msg in conversation.messages:
         print(f"{msg.role}: {msg.content}")
 ----
 
@@ -213,7 +218,7 @@ async with MemoryClient(settings) as memory:
     pref = await memory.long_term.add_preference(
         category="food",
         preference="Prefers vegetarian options",
-        importance=0.8,
+        confidence=0.8,
         metadata={"source": "user_profile"}
     )
 
@@ -233,10 +238,6 @@ async with MemoryClient(settings) as memory:
     context = await memory.get_context(
         query="restaurant recommendation",
         session_id="session-123",
-        include_short_term=True,   # Recent conversation
-        include_long_term=True,    # Facts and preferences
-        include_reasoning=True,  # Past reasoning patterns
-        max_items=10
     )
 
     # Use context in your LLM prompt

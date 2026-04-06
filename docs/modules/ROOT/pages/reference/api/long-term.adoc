@@ -141,7 +141,7 @@ Semantic search for entities.
 ----
 results = await long_term.search_entities(
     query: str,
-    entity_type: str | None = None,
+    entity_types: list[str] | None = None,
     limit: int = 10,
     min_score: float = 0.0,
 )
@@ -180,8 +180,7 @@ Add a user preference.
 preference = await long_term.add_preference(
     category: str,
     value: str,
-    user_id: str | None = None,
-    importance: float = 0.5,
+    confidence: float = 0.5,
     metadata: dict[str, Any] | None = None,
 )
 ----
@@ -202,15 +201,10 @@ preference = await long_term.add_preference(
 | _required_
 | Preference value/description
 
-| `user_id`
-| `str`
-| `None`
-| Associated user ID
-
-| `importance`
+| `confidence`
 | `float`
 | `0.5`
-| Importance score (0.0-1.0)
+| Confidence score (0.0-1.0)
 
 | `metadata`
 | `dict`
@@ -225,7 +219,6 @@ Get preferences, optionally filtered.
 [source,python]
 ----
 preferences = await long_term.get_preferences(
-    user_id: str | None = None,
     category: str | None = None,
     limit: int = 100,
 )
@@ -411,7 +404,7 @@ async with MemoryClient(settings) as client:
 
     # Add preference
     await client.long_term.add_preference(
-        "food", "Loves Italian cuisine", importance=0.9
+        "food", "Loves Italian cuisine", confidence=0.9
     )
 
     # Search entities

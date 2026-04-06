@@ -69,7 +69,7 @@ Create a dependency class that includes the memory client:
 [source,python]
 ----
 from dataclasses import dataclass
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 @dataclass
 class AgentDeps:
@@ -146,13 +146,13 @@ async def get_preferences(
 async def search_entities(
     ctx: RunContext[AgentDeps],
     query: str,
-    entity_type: str | None = None,
+    entity_types: list[str] | None = None,
     limit: int = 10,
 ) -> str:
     """Search the context graph for relevant entities."""
     entities = await ctx.deps.memory_client.long_term.search_entities(
         query=query,
-        entity_type=entity_type,
+        entity_types=entity_types,
         limit=limit,
     )
 
@@ -212,11 +212,11 @@ async def add_memory_context(ctx: RunContext[AgentDeps]) -> str:
 ----
 async def main():
     # Initialize memory client
-    memory_client = MemoryClient(
-        neo4j_uri="bolt://localhost:7687",
-        neo4j_user="neo4j",
-        neo4j_password="password",
+    settings = MemorySettings(
+        neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"}
     )
+    memory_client = MemoryClient(settings)
+    await memory_client.connect()
 
     user_id = "CUST-12345"
     session_id = f"session-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -232,9 +232,9 @@ async def main():
 
     # Store user message
     await memory_client.short_term.add_message(
+        session_id=session_id,
         role="user",
         content=user_query,
-        session_id=session_id,
         metadata={"user_id": user_id},
     )
 
@@ -243,9 +243,9 @@ async def main():
 
     # Store assistant response
     await memory_client.short_term.add_message(
+        session_id=session_id,
         role="assistant",
         content=result.data,
-        session_id=session_id,
         metadata={"user_id": user_id},
     )
 
@@ -268,7 +268,7 @@ import json
 
 from pydantic_ai import Agent, RunContext
 from pydantic import BaseModel
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 
 # --- Response Models ---
@@ -333,7 +333,7 @@ async def search_products(
 
     products = await ctx.deps.memory_client.long_term.search_entities(
         query=query,
-        entity_type="PRODUCT",
+        entity_types=["PRODUCT"],
         property_filter=filters if filters else None,
         limit=limit,
     )
@@ -378,7 +378,7 @@ async def get_purchase_history(
     """Get customer's recent purchase history from the context graph."""
 
     # Query the context graph for purchases
-    purchases = await ctx.deps.memory_client.long_term.execute_query(
+    purchases = await ctx.deps.memory_client.graph.execute_read(
         """
         MATCH (c:Customer {id: $user_id})-[p:PURCHASED]->(product:Product)
         RETURN product.name as name, product.brand as brand,
@@ -401,7 +401,6 @@ async def save_preference(
     """Save a new customer preference learned during conversation."""
 
     await ctx.deps.memory_client.long_term.add_preference(
-        user_id=ctx.deps.user_id,
         preference=preference,
         category=category,
         confidence=0.85,
@@ -469,11 +468,11 @@ Use these preferences to personalize your recommendations.
 async def run_shopping_assistant():
     """Run the shopping assistant with memory."""
 
-    memory_client = MemoryClient(
-        neo4j_uri="bolt://localhost:7687",
-        neo4j_user="neo4j",
-        neo4j_password="password",
+    settings = MemorySettings(
+        neo4j={"uri": "bolt://localhost:7687", "username": "neo4j", "password": "password"}
     )
+    memory_client = MemoryClient(settings)
+    await memory_client.connect()
 
     user_id = "CUST-12345"
     session_id = f"shop-{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -488,9 +487,9 @@ async def run_shopping_assistant():
 
         # Store user message
         await memory_client.short_term.add_message(
+            session_id=session_id,
             role="user",
             content=user_input,
-            session_id=session_id,
         )
 
         # Start reasoning trace
@@ -520,9 +519,9 @@ async def run_shopping_assistant():
 
             # Store assistant response
             await memory_client.short_term.add_message(
+                session_id=session_id,
                 role="assistant",
                 content=response,
-                session_id=session_id,
             )
 
             # Complete trace
@@ -559,7 +558,7 @@ Example for a financial services use case:
 from dataclasses import dataclass
 from pydantic_ai import Agent, RunContext
 from pydantic import BaseModel
-from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory import MemoryClient, MemorySettings
 
 
 class InvestmentRecommendation(BaseModel):
@@ -604,7 +603,7 @@ async def get_client_profile(ctx: RunContext[AdvisoryDeps]) -> str:
     """Get comprehensive client profile from context graph."""
 
     # Get client entity with related data
-    profile = await ctx.deps.memory_client.long_term.execute_query(
+    profile = await ctx.deps.memory_client.graph.execute_read(
         """
         MATCH (c:Client {id: $client_id})
         OPTIONAL MATCH (c)-[:HAS_ACCOUNT]->(a:Account)
@@ -644,7 +643,7 @@ async def search_securities(
 
     securities = await ctx.deps.memory_client.long_term.search_entities(
         query=query,
-        entity_type="SECURITY",
+        entity_types=["SECURITY"],
         property_filter=filters if filters else None,
         limit=15,
     )
@@ -693,10 +692,10 @@ async def record_compliance_note(
 ) -> str:
     """Record a compliance-relevant note in the context graph."""
 
-    await ctx.deps.memory_client.long_term.add_entity(
+    entity, _ = await ctx.deps.memory_client.long_term.add_entity(
         name=f"Compliance Note - {datetime.now().isoformat()}",
         entity_type="COMPLIANCE_NOTE",
-        properties={
+        attributes={
             "client_id": ctx.deps.client_id,
             "advisor_id": ctx.deps.advisor_id,
             "session_id": ctx.deps.session_id,
@@ -756,9 +755,9 @@ Capture the full conversation:
 ----
 # Store user message before running agent
 await memory_client.short_term.add_message(
+    session_id=session_id,
     role="user",
     content=user_input,
-    session_id=session_id,
 )
 
 # Run agent
@@ -766,9 +765,9 @@ result = await agent.run(user_input, deps=deps)
 
 # Store assistant response after
 await memory_client.short_term.add_message(
+    session_id=session_id,
     role="assistant",
     content=result.data,
-    session_id=session_id,
 )
 ----
 

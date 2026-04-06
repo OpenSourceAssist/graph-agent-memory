@@ -283,7 +283,7 @@ Custom entity types outside the POLE+O model also become PascalCase labels:
 [source,python]
 ----
 # Custom types become PascalCase labels
-await client.long_term.add_entity(
+entity, _ = await client.long_term.add_entity(
     name="Widget Pro",
     entity_type="PRODUCT",
     subtype="ELECTRONICS",
@@ -380,7 +380,7 @@ Subtypes are automatically extracted by the LLM extractor and can be specified w
 ----
 async with MemoryClient(settings) as memory:
     # Add entity with subtype
-    await memory.long_term.add_entity(
+    entity, _ = await memory.long_term.add_entity(
         name="Tesla Model 3",
         entity_type="OBJECT",
         subtype="VEHICLE",
@@ -390,7 +390,7 @@ async with MemoryClient(settings) as memory:
     # Query by type and subtype
     vehicles = await memory.long_term.search_entities(
         query="cars",
-        entity_type="OBJECT"
+        entity_types=["OBJECT"]
     )
 ----
 
@@ -496,12 +496,12 @@ async with MemoryClient(settings) as memory:
     # Filter by type
     people = await memory.long_term.search_entities(
         query="engineers",
-        entity_type="PERSON",
+        entity_types=["PERSON"],
         limit=10
     )
 
     # Get entity by name
-    entity = await memory.long_term.get_entity(
+    entity = await memory.long_term.get_entity_by_name(
         name="Acme Corp",
         entity_type="ORGANIZATION"
     )
