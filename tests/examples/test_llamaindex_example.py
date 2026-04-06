@@ -97,9 +97,9 @@ class TestLlamaIndexMemoryInterface:
         sig = inspect.signature(Neo4jLlamaIndexMemory.put)
         params = list(sig.parameters.keys())
 
-        # Should have self and node parameters
+        # Should have self and message parameters
         assert "self" in params
-        assert "node" in params
+        assert "message" in params
 
     def test_reset_method_signature(self):
         """Test that reset method has correct signature."""
