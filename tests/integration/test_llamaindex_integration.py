@@ -12,7 +12,8 @@ from neo4j_agent_memory.memory.short_term import MessageRole
 
 # Check if LlamaIndex is available
 try:
-    from llama_index.core.base.llms.types import ChatMessage, MessageRole as LIMessageRole
+    from llama_index.core.base.llms.types import ChatMessage
+    from llama_index.core.base.llms.types import MessageRole as LIMessageRole
     from llama_index.core.memory import BaseMemory
 
     LLAMAINDEX_AVAILABLE = True
