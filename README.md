@@ -12,11 +12,15 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 
 ## What It Does
 
+![The Neo4j Agent Memory data model](img/memory-graph-model.png)
+
 | Short-Term Memory | Long-Term Memory | Reasoning Memory |
 |---|---|---|
 | Conversations & messages | Entities, preferences, facts | Reasoning traces & tool usage |
-| Per-session history | Knowledge graph ([POLE+O model](https://neo4j-agent-memory.vercel.app/explanation/poleo-model.html)) | Learn from past decisions |
+| Per-session history | Knowledge graph ([POLE+O model](https://neo4j.com/labs/agent-memory/explanation/poleo-model.html)) | Learn from past decisions |
 | Vector + text search | Entity resolution & dedup | Similar task retrieval |
+
+![The Neo4j Agent Memory entity extraction pipeline](img/extraction-pipeline.png)
 
 **Plus:** multi-stage entity extraction (spaCy / GLiNER / LLM), relationship extraction (GLiREL), background enrichment (Wikipedia / Diffbot), geospatial queries, [MCP server](#mcp-server) with 16 tools, and integrations with [LangChain, Pydantic AI, Google ADK, Strands, CrewAI, and more](#framework-integrations).
 
@@ -32,6 +36,8 @@ Give any MCP-compatible AI assistant (Claude Desktop, Claude Code, Cursor, VS Co
 # Run directly with uvx (no install needed)
 uvx "neo4j-agent-memory[mcp]" mcp serve --password <neo4j-password>
 ```
+
+![Neo4j Agent Memory MCP server](img/memory-architecture.png)
 
 **Claude Code:**
 
@@ -57,6 +63,8 @@ claude mcp add neo4j-agent-memory -- \
 ```
 
 ### Option B: Python API
+
+![The memory abstractions exposed by the Neo4j Agent Memory package](img/memory-types.png)
 
 ```python
 import asyncio
@@ -90,6 +98,18 @@ async def main():
 asyncio.run(main())
 ```
 
+### Option C: Full-Stack App with create-context-graph
+
+Scaffold a complete full-stack AI application with built-in context graph memory:
+
+```bash
+uvx create-context-graph
+```
+
+![Create Context Graph full stack context graph application powered by Neo4j Agent Memory](img/app-three-panel.png)
+
+This generates a ready-to-run project with a FastAPI backend, Next.js frontend, Neo4j knowledge graph, and neo4j-agent-memory pre-configured. See [create-context-graph.dev](https://create-context-graph.dev) for details.
+
 ## Installation
 
 ```bash
@@ -100,20 +120,20 @@ pip install neo4j-agent-memory[langchain]       # + LangChain
 pip install neo4j-agent-memory[all]             # Everything
 ```
 
-See the [installation guide](https://neo4j-agent-memory.vercel.app/how-to/installation.html) for all extras (Vertex AI, Bedrock, spaCy, GLiNER, Google ADK, Strands, etc.).
+See the [getting started guide](https://neo4j.com/labs/agent-memory/getting-started.html) for all extras (Vertex AI, Bedrock, spaCy, GLiNER, Google ADK, Strands, etc.).
 
 ## Framework Integrations
 
 | Framework | Extra | Import |
 |---|---|---|
-| [LangChain](https://neo4j-agent-memory.vercel.app/how-to/integrations/langchain.html) | `[langchain]` | `from neo4j_agent_memory.integrations.langchain import Neo4jAgentMemory` |
-| [Pydantic AI](https://neo4j-agent-memory.vercel.app/how-to/integrations/pydantic-ai.html) | `[pydantic-ai]` | `from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency` |
-| [Google ADK](https://neo4j-agent-memory.vercel.app/how-to/integrations/google-cloud.html) | `[google-adk]` | `from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService` |
-| [Strands (AWS)](https://neo4j-agent-memory.vercel.app/how-to/integrations/strands.html) | `[strands]` | `from neo4j_agent_memory.integrations.strands import context_graph_tools` |
-| [CrewAI](https://neo4j-agent-memory.vercel.app/how-to/integrations/crewai.html) | `[crewai]` | `from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory` |
-| [LlamaIndex](https://neo4j-agent-memory.vercel.app/how-to/integrations/llamaindex.html) | `[llamaindex]` | `from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory` |
-| [OpenAI Agents](https://neo4j-agent-memory.vercel.app/how-to/integrations/openai-agents.html) | `[openai-agents]` | `from neo4j_agent_memory.integrations.openai_agents import ...` |
-| [Microsoft Agent](https://neo4j-agent-memory.vercel.app/how-to/integrations/microsoft-agent.html) | `[microsoft-agent]` | `from neo4j_agent_memory.integrations.microsoft_agent import Neo4jMicrosoftMemory` |
+| [LangChain](https://neo4j.com/labs/agent-memory/how-to/integrations/langchain.html) | `[langchain]` | `from neo4j_agent_memory.integrations.langchain import Neo4jAgentMemory` |
+| [Pydantic AI](https://neo4j.com/labs/agent-memory/how-to/integrations/pydantic-ai.html) | `[pydantic-ai]` | `from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency` |
+| [Google ADK](https://neo4j.com/labs/agent-memory/how-to/integrations/google-cloud.html) | `[google-adk]` | `from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService` |
+| [Strands (AWS)](https://neo4j.com/labs/agent-memory/how-to/integrations/aws-strands.html) | `[strands]` | `from neo4j_agent_memory.integrations.strands import context_graph_tools` |
+| [CrewAI](https://neo4j.com/labs/agent-memory/how-to/integrations/crewai.html) | `[crewai]` | `from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory` |
+| [LlamaIndex](https://neo4j.com/labs/agent-memory/how-to/integrations/llamaindex.html) | `[llamaindex]` | `from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory` |
+| [OpenAI Agents](https://neo4j.com/labs/agent-memory/how-to/integrations/openai-agents.html) | `[openai-agents]` | `from neo4j_agent_memory.integrations.openai_agents import ...` |
+| [Microsoft Agent](https://neo4j.com/labs/agent-memory/how-to/integrations/microsoft-agent.html) | `[microsoft-agent]` | `from neo4j_agent_memory.integrations.microsoft_agent import Neo4jMicrosoftMemory` |
 
 ## MCP Server
 
@@ -140,7 +160,7 @@ neo4j-agent-memory mcp serve --session-strategy per_day --user-id alice --passwo
 | **core** | 6 | Essential read/write: `memory_search`, `memory_get_context`, `memory_store_message`, `memory_add_entity`, `memory_add_preference`, `memory_add_fact` |
 | **extended** (default) | 16 | Full surface adding: conversation history, entity details, graph export, relationship creation, reasoning traces, observations, read-only Cypher |
 
-See the [MCP tools reference](https://neo4j-agent-memory.vercel.app/reference/mcp-tools.html) for full details.
+See the [MCP tools reference](https://neo4j.com/labs/agent-memory/reference/mcp-tools.html) for full details.
 
 ## Examples
 
@@ -159,12 +179,12 @@ All examples use `neo4j-agent-memory>=0.1.0` and demonstrate the latest features
 
 ## Documentation
 
-Full documentation at **[neo4j-agent-memory.vercel.app](https://neo4j-agent-memory.vercel.app/)**
+Full documentation at **[neo4j.com/labs/agent-memory](https://neo4j.com/labs/agent-memory/)**
 
-- [Tutorials](https://neo4j-agent-memory.vercel.app/tutorials/) -- Build your first memory-enabled agent
-- [How-To Guides](https://neo4j-agent-memory.vercel.app/how-to/) -- Entity extraction, deduplication, enrichment, integrations
-- [API Reference](https://neo4j-agent-memory.vercel.app/reference/) -- Configuration, CLI, MCP tools
-- [Concepts](https://neo4j-agent-memory.vercel.app/explanation/) -- POLE+O model, memory types, extraction pipeline
+- [Tutorials](https://neo4j.com/labs/agent-memory/tutorials/) -- Build your first memory-enabled agent
+- [How-To Guides](https://neo4j.com/labs/agent-memory/how-to/) -- Entity extraction, deduplication, enrichment, integrations
+- [API Reference](https://neo4j.com/labs/agent-memory/reference/) -- Configuration, CLI, MCP tools
+- [Concepts](https://neo4j.com/labs/agent-memory/explanation/) -- POLE+O model, memory types, extraction pipeline
 
 ## Development
 
@@ -181,7 +201,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide, CI pipeli
 ## Requirements
 
 - Python 3.10+
-- Neo4j 5.x (5.11+ recommended for vector indexes)
+- Neo4j 5.20+ (for vector indexes)
 
 ## License
 
@@ -189,4 +209,4 @@ Apache License 2.0
 
 ---
 
-This is a [Neo4j Labs](https://neo4j.com/labs/) project -- community supported, not officially backed by Neo4j. [Community Forum](https://community.neo4j.com) | [GitHub Issues](https://github.com/neo4j-labs/agent-memory/issues) | [Documentation](https://neo4j-agent-memory.vercel.app/)
+This is a [Neo4j Labs](https://neo4j.com/labs/) project -- community supported, not officially backed by Neo4j. [Community Forum](https://community.neo4j.com) | [GitHub Issues](https://github.com/neo4j-labs/agent-memory/issues) | [Documentation](https://neo4j.com/labs/agent-memory/)
