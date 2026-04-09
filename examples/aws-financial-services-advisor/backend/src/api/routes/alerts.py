@@ -1,4 +1,7 @@
-"""Alert API routes."""
+"""Alert API routes.
+
+All alert data is queried from Neo4j via the Neo4jDomainService.
+"""
 
 from __future__ import annotations
 
@@ -7,336 +10,187 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-
-from ...models import (
-    Alert,
-    AlertAcknowledge,
-    AlertClose,
-    AlertCreate,
-    AlertSeverity,
-    AlertStatus,
-    AlertSummary,
-    AlertType,
-)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
-# In-memory store for demo purposes
-_alerts: dict[str, Alert] = {}
+
+def _get_neo4j_service(request: Request):
+    svc = getattr(request.app.state, "neo4j_service", None)
+    if svc is None:
+        raise HTTPException(status_code=503, detail="Neo4j service not available")
+    return svc
 
 
-class AlertListResponse(BaseModel):
-    """Response for alert list endpoint."""
+def _to_python_datetime(val) -> datetime | None:
+    """Convert a Neo4j DateTime to Python datetime."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val
+    if hasattr(val, "to_native"):
+        return val.to_native()
+    return None
 
-    alerts: list[Alert]
-    total: int
-    page: int
-    page_size: int
+
+class AlertResponse(BaseModel):
+    id: str
+    customer_id: str = ""
+    customer_name: str | None = None
+    type: str = "AML"
+    severity: str = "MEDIUM"
+    status: str = "NEW"
+    title: str = ""
+    description: str = ""
+    evidence: list[str] = Field(default_factory=list)
+    requires_sar: bool = False
+    auto_generated: bool = False
+    created_at: datetime | None = None
+    acknowledged_at: datetime | None = None
+    resolved_at: datetime | None = None
 
 
-@router.get("", response_model=AlertListResponse)
+class AlertSummaryResponse(BaseModel):
+    total: int = 0
+    by_severity: dict[str, int] = Field(default_factory=dict)
+    by_status: dict[str, int] = Field(default_factory=dict)
+    critical_unresolved: int = 0
+    high_unresolved: int = 0
+
+
+class AlertCreateRequest(BaseModel):
+    customer_id: str
+    type: str = "AML"
+    severity: str = "MEDIUM"
+    title: str
+    description: str = ""
+    evidence: list[str] = Field(default_factory=list)
+
+
+class AlertUpdateRequest(BaseModel):
+    status: str | None = None
+    severity: str | None = None
+    assigned_to: str | None = None
+    resolution_notes: str | None = None
+
+
+def _alert_from_dict(data: dict) -> AlertResponse:
+    return AlertResponse(
+        id=data.get("id", ""),
+        customer_id=data.get("customer_id", ""),
+        customer_name=data.get("customer_name"),
+        type=data.get("type", "AML"),
+        severity=(data.get("severity") or "MEDIUM").upper(),
+        status=(data.get("status") or "NEW").upper(),
+        title=data.get("title", ""),
+        description=data.get("description", ""),
+        evidence=data.get("evidence") or [],
+        requires_sar=data.get("requires_sar", False),
+        auto_generated=data.get("auto_generated", False),
+        created_at=_to_python_datetime(data.get("created_at")),
+        acknowledged_at=_to_python_datetime(data.get("acknowledged_at")),
+        resolved_at=_to_python_datetime(data.get("resolved_at")),
+    )
+
+
+@router.get("", response_model=list[AlertResponse])
 async def list_alerts(
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    status: AlertStatus | None = Query(None, description="Filter by status"),
-    severity: AlertSeverity | None = Query(None, description="Filter by severity"),
-    alert_type: AlertType | None = Query(None, description="Filter by type"),
-    customer_id: str | None = Query(None, description="Filter by customer"),
-) -> AlertListResponse:
-    """List all alerts with optional filtering.
+    request: Request,
+    status: str | None = Query(None),
+    severity: str | None = Query(None),
+    alert_type: str | None = Query(None),
+    customer_id: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+) -> list[AlertResponse]:
+    """List alerts with optional filtering."""
+    neo4j_service = _get_neo4j_service(request)
+    rows = await neo4j_service.list_alerts(
+        status=status.upper() if status else None,
+        severity=severity.upper() if severity else None,
+        alert_type=alert_type.upper() if alert_type else None,
+        customer_id=customer_id,
+        limit=limit,
+        offset=offset,
+    )
+    return [_alert_from_dict(r) for r in rows]
 
-    Args:
-        page: Page number for pagination
-        page_size: Number of items per page
-        status: Optional status filter
-        severity: Optional severity filter
-        alert_type: Optional type filter
-        customer_id: Optional customer filter
 
-    Returns:
-        Paginated list of alerts
-    """
-    alerts = list(_alerts.values())
-
-    # Apply filters
-    if status:
-        alerts = [a for a in alerts if a.status == status]
-
-    if severity:
-        alerts = [a for a in alerts if a.severity == severity]
-
-    if alert_type:
-        alerts = [a for a in alerts if a.type == alert_type]
-
-    if customer_id:
-        alerts = [a for a in alerts if a.customer_id == customer_id]
-
-    # Sort by created_at descending (newest first)
-    alerts.sort(key=lambda x: x.created_at, reverse=True)
-
-    # Pagination
-    total = len(alerts)
-    start = (page - 1) * page_size
-    end = start + page_size
-    page_alerts = alerts[start:end]
-
-    return AlertListResponse(
-        alerts=page_alerts,
-        total=total,
-        page=page,
-        page_size=page_size,
+@router.get("/summary", response_model=AlertSummaryResponse)
+async def get_alert_summary(request: Request) -> AlertSummaryResponse:
+    """Get summary statistics for alerts."""
+    neo4j_service = _get_neo4j_service(request)
+    summary = await neo4j_service.get_alert_summary()
+    return AlertSummaryResponse(
+        total=summary.get("total", 0),
+        by_severity=summary.get("by_severity", {}),
+        by_status=summary.get("by_status", {}),
+        critical_unresolved=summary.get("critical_unresolved", 0),
+        high_unresolved=summary.get("high_unresolved", 0),
     )
 
 
-@router.post("", response_model=Alert, status_code=201)
-async def create_alert(request: AlertCreate) -> Alert:
-    """Create a new compliance alert.
-
-    Alerts are typically created by agent tools when suspicious activity
-    is detected. This endpoint allows manual alert creation as well.
-
-    Args:
-        request: Alert creation data
-
-    Returns:
-        Created alert
-    """
-    alert_id = f"ALT-{uuid.uuid4().hex[:8].upper()}"
-
-    alert = Alert(
-        id=alert_id,
-        **request.model_dump(),
-    )
-
-    _alerts[alert_id] = alert
-    logger.info(f"Created alert {alert_id}: {alert.title}")
-
-    return alert
+@router.get("/{alert_id}", response_model=AlertResponse)
+async def get_alert(request: Request, alert_id: str) -> AlertResponse:
+    """Get a specific alert."""
+    neo4j_service = _get_neo4j_service(request)
+    data = await neo4j_service.get_alert(alert_id)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
+    return _alert_from_dict(data)
 
 
-@router.get("/summary", response_model=AlertSummary)
-async def get_alert_summary() -> AlertSummary:
-    """Get summary statistics for alerts.
+@router.post("", response_model=AlertResponse)
+async def create_alert(request: Request, body: AlertCreateRequest) -> AlertResponse:
+    """Create a new alert."""
+    neo4j_service = _get_neo4j_service(request)
 
-    Provides an overview of alert counts by status, severity, and type.
+    customer = await neo4j_service.get_customer(body.customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail=f"Customer {body.customer_id} not found")
 
-    Returns:
-        Alert summary statistics
-    """
-    alerts = list(_alerts.values())
-
-    by_status = {}
-    by_severity = {}
-    by_type = {}
-
-    for alert in alerts:
-        by_status[alert.status.value] = by_status.get(alert.status.value, 0) + 1
-        by_severity[alert.severity.value] = by_severity.get(alert.severity.value, 0) + 1
-        by_type[alert.type.value] = by_type.get(alert.type.value, 0) + 1
-
-    # Calculate average resolution time for closed alerts
-    closed_alerts = [a for a in alerts if a.resolved_at and a.created_at]
-    avg_resolution_time = None
-    if closed_alerts:
-        total_hours = sum(
-            (a.resolved_at - a.created_at).total_seconds() / 3600 for a in closed_alerts
-        )
-        avg_resolution_time = total_hours / len(closed_alerts)
-
-    # Find oldest unresolved alert
-    unresolved = [
-        a
-        for a in alerts
-        if a.status not in (AlertStatus.CLOSED, AlertStatus.FALSE_POSITIVE)
-    ]
-    oldest_unresolved = None
-    if unresolved:
-        oldest_unresolved = min(a.created_at for a in unresolved)
-
-    return AlertSummary(
-        total_count=len(alerts),
-        by_status=by_status,
-        by_severity=by_severity,
-        by_type=by_type,
-        avg_resolution_time_hours=avg_resolution_time,
-        oldest_unresolved=oldest_unresolved,
-    )
+    alert_id = f"ALERT-{uuid.uuid4().hex[:6].upper()}"
+    data = await neo4j_service.create_alert({
+        "id": alert_id,
+        "customer_id": body.customer_id,
+        "type": body.type.upper(),
+        "severity": body.severity.upper(),
+        "status": "NEW",
+        "title": body.title,
+        "description": body.description,
+        "evidence": body.evidence,
+        "requires_sar": body.severity.upper() in ["CRITICAL", "HIGH"],
+        "auto_generated": False,
+    })
+    return _alert_from_dict(data)
 
 
-@router.get("/{alert_id}", response_model=Alert)
-async def get_alert(alert_id: str) -> Alert:
-    """Get alert details by ID.
+@router.patch("/{alert_id}", response_model=AlertResponse)
+async def update_alert(request: Request, alert_id: str, body: AlertUpdateRequest) -> AlertResponse:
+    """Update an alert."""
+    neo4j_service = _get_neo4j_service(request)
 
-    Args:
-        alert_id: The alert identifier
+    existing = await neo4j_service.get_alert(alert_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
 
-    Returns:
-        Alert details
-    """
-    if alert_id not in _alerts:
-        raise HTTPException(status_code=404, detail="Alert not found")
+    updates = {}
+    if body.status:
+        updates["status"] = body.status.upper()
+    if body.severity:
+        updates["severity"] = body.severity.upper()
+    if body.assigned_to:
+        updates["assigned_to"] = body.assigned_to
+    if body.resolution_notes:
+        updates["resolution_notes"] = body.resolution_notes
 
-    return _alerts[alert_id]
+    if updates:
+        data = await neo4j_service.update_alert(alert_id, updates)
+    else:
+        data = existing
 
-
-@router.post("/{alert_id}/acknowledge", response_model=Alert)
-async def acknowledge_alert(alert_id: str, request: AlertAcknowledge) -> Alert:
-    """Acknowledge an alert and assign for review.
-
-    Args:
-        alert_id: The alert identifier
-        request: Acknowledgment details
-
-    Returns:
-        Updated alert
-    """
-    if alert_id not in _alerts:
-        raise HTTPException(status_code=404, detail="Alert not found")
-
-    alert = _alerts[alert_id]
-    alert.status = AlertStatus.ACKNOWLEDGED
-    alert.assigned_to = request.analyst_id
-    alert.updated_at = datetime.utcnow()
-
-    _alerts[alert_id] = alert
-    logger.info(f"Alert {alert_id} acknowledged by {request.analyst_id}")
-
-    return alert
-
-
-@router.post("/{alert_id}/escalate", response_model=Alert)
-async def escalate_alert(
-    alert_id: str,
-    reason: str = Query(..., description="Reason for escalation"),
-    escalate_to: str = Query(..., description="Escalation target"),
-) -> Alert:
-    """Escalate an alert for senior review.
-
-    Args:
-        alert_id: The alert identifier
-        reason: Reason for escalation
-        escalate_to: Who to escalate to
-
-    Returns:
-        Updated alert
-    """
-    if alert_id not in _alerts:
-        raise HTTPException(status_code=404, detail="Alert not found")
-
-    alert = _alerts[alert_id]
-    alert.status = AlertStatus.ESCALATED
-    alert.updated_at = datetime.utcnow()
-
-    # Store escalation info in metadata
-    if "escalation_history" not in alert.metadata:
-        alert.metadata["escalation_history"] = []
-
-    alert.metadata["escalation_history"].append(
-        {
-            "timestamp": datetime.utcnow().isoformat(),
-            "reason": reason,
-            "escalated_to": escalate_to,
-        }
-    )
-
-    _alerts[alert_id] = alert
-    logger.info(f"Alert {alert_id} escalated to {escalate_to}")
-
-    return alert
-
-
-@router.post("/{alert_id}/close", response_model=Alert)
-async def close_alert(alert_id: str, request: AlertClose) -> Alert:
-    """Close an alert with resolution notes.
-
-    Args:
-        alert_id: The alert identifier
-        request: Closure details
-
-    Returns:
-        Closed alert
-    """
-    if alert_id not in _alerts:
-        raise HTTPException(status_code=404, detail="Alert not found")
-
-    alert = _alerts[alert_id]
-    alert.status = (
-        AlertStatus.FALSE_POSITIVE if request.is_false_positive else AlertStatus.CLOSED
-    )
-    alert.resolution = request.resolution
-    alert.resolved_at = datetime.utcnow()
-    alert.resolved_by = request.analyst_id
-    alert.updated_at = datetime.utcnow()
-
-    _alerts[alert_id] = alert
-    logger.info(f"Alert {alert_id} closed by {request.analyst_id}")
-
-    return alert
-
-
-@router.post("/{alert_id}/link-investigation", response_model=Alert)
-async def link_investigation(
-    alert_id: str,
-    investigation_id: str = Query(..., description="Investigation ID to link"),
-) -> Alert:
-    """Link an alert to an investigation.
-
-    Args:
-        alert_id: The alert identifier
-        investigation_id: The investigation to link
-
-    Returns:
-        Updated alert
-    """
-    if alert_id not in _alerts:
-        raise HTTPException(status_code=404, detail="Alert not found")
-
-    alert = _alerts[alert_id]
-    alert.investigation_id = investigation_id
-    alert.status = AlertStatus.UNDER_REVIEW
-    alert.updated_at = datetime.utcnow()
-
-    _alerts[alert_id] = alert
-    logger.info(f"Alert {alert_id} linked to investigation {investigation_id}")
-
-    return alert
-
-
-@router.get("/customer/{customer_id}", response_model=list[Alert])
-async def get_customer_alerts(
-    customer_id: str,
-    include_closed: bool = Query(False, description="Include closed alerts"),
-) -> list[Alert]:
-    """Get all alerts for a specific customer.
-
-    Args:
-        customer_id: The customer identifier
-        include_closed: Whether to include closed alerts
-
-    Returns:
-        List of customer alerts
-    """
-    alerts = [a for a in _alerts.values() if a.customer_id == customer_id]
-
-    if not include_closed:
-        alerts = [
-            a
-            for a in alerts
-            if a.status not in (AlertStatus.CLOSED, AlertStatus.FALSE_POSITIVE)
-        ]
-
-    # Sort by severity (critical first) then by created_at
-    severity_order = {
-        AlertSeverity.CRITICAL: 0,
-        AlertSeverity.HIGH: 1,
-        AlertSeverity.MEDIUM: 2,
-        AlertSeverity.LOW: 3,
-    }
-    alerts.sort(
-        key=lambda x: (severity_order.get(x.severity, 99), -x.created_at.timestamp())
-    )
-
-    return alerts
+    if not data:
+        raise HTTPException(status_code=500, detail="Failed to update alert")
+    return _alert_from_dict(data)

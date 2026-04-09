@@ -1,0 +1,54 @@
+[
+  {
+    "id": "ORG-001",
+    "name": "Garcia Trading LLC",
+    "type": "ORGANIZATION",
+    "jurisdiction": "US-FL",
+    "business_type": "Import/Export",
+    "owners": ["CUST-002"],
+    "connections": ["Supplier Co - Panama"]
+  },
+  {
+    "id": "ORG-002",
+    "name": "Shell Corp - Cayman",
+    "type": "ORGANIZATION",
+    "jurisdiction": "KY",
+    "business_type": "Investment",
+    "shell_indicators": ["no_employees", "po_box_address", "nominee_directors"],
+    "connections": ["CUST-003", "Anonymous Trust - Seychelles"]
+  },
+  {
+    "id": "ORG-003",
+    "name": "Anonymous Trust - Seychelles",
+    "type": "ORGANIZATION",
+    "jurisdiction": "SC",
+    "business_type": "Trust",
+    "shell_indicators": ["opaque_structure", "high_risk_jurisdiction"],
+    "connections": ["Shell Corp - Cayman", "CUST-003", "Unknown Beneficial Owner"]
+  },
+  {
+    "id": "ORG-004",
+    "name": "Nominee Director Services Ltd",
+    "type": "ORGANIZATION",
+    "jurisdiction": "BVI",
+    "business_type": "Corporate Services",
+    "role": "nominee_services",
+    "connections": ["CUST-003", "Shell Corp - Cayman"]
+  },
+  {
+    "id": "ORG-005",
+    "name": "Tech Corp Inc",
+    "type": "ORGANIZATION",
+    "jurisdiction": "US-NY",
+    "business_type": "Technology",
+    "connections": ["CUST-001"]
+  },
+  {
+    "id": "ORG-006",
+    "name": "Supplier Co - Panama",
+    "type": "ORGANIZATION",
+    "jurisdiction": "PA",
+    "business_type": "Trading",
+    "connections": ["Garcia Trading LLC", "CUST-002"]
+  }
+]

@@ -46,66 +46,53 @@ This example application showcases the AWS-Neo4j partnership through a productio
 | **Relationship Agent** | Network analysis using Context Graph |
 | **Compliance Agent** | Sanctions/PEP screening, report generation |
 
+## Current Status
+
+This example is in **alpha/demo** state. The architecture and agent orchestration pattern are functional, but several components use simulated data rather than real Neo4j queries. See [REVIEW.md](REVIEW.md) for a detailed analysis and [GETTING_STARTED.md](GETTING_STARTED.md) for a working setup guide.
+
+**Working**: Chat with supervisor agent, conversation memory, customer/alert CRUD, risk scoring, frontend UI
+**Simulated**: KYC/AML/Relationship/Compliance tool results (use `random.choice()`), graph visualization data
+
 ## Quick Start
+
+> For detailed setup instructions and troubleshooting, see **[GETTING_STARTED.md](GETTING_STARTED.md)**.
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.10+ and [uv](https://docs.astral.sh/uv/)
 - Node.js 18+
-- AWS CLI configured with Bedrock access
-- Neo4j Aura account (or local Neo4j instance)
+- AWS CLI configured with Bedrock access (Claude Sonnet 4 + Titan Embed V2)
+- Neo4j Aura account (or local Neo4j via Docker)
 
 ### Local Development
 
-1. **Clone and navigate to the example:**
+1. **Navigate to the example:**
 
 ```bash
-cd examples/financial-services-advisor
+cd examples/aws-financial-services-advisor
 ```
 
 2. **Set up environment:**
 
 ```bash
-cp .env.example .env
-# Edit .env with your Neo4j and AWS credentials
+cp .env.example backend/.env
+# Edit backend/.env with your Neo4j and AWS credentials
 ```
 
-3. **Install backend dependencies:**
+3. **Install dependencies:**
 
 ```bash
-cd backend
-pip install -r requirements.txt
+make install
+# or: cd backend && uv sync && cd ../frontend && npm install
 ```
 
-4. **Install frontend dependencies:**
+4. **Run the application:**
 
 ```bash
-cd ../frontend
-npm install
+make run
 ```
 
-5. **Load sample data:**
-
-```bash
-cd ../data
-python load_sample_data.py
-```
-
-6. **Run the backend:**
-
-```bash
-cd ../backend
-uvicorn src.main:app --reload
-```
-
-7. **Run the frontend:**
-
-```bash
-cd ../frontend
-npm run dev
-```
-
-8. **Access the application:**
+5. **Access the application:**
    - Frontend: http://localhost:5173
    - API Docs: http://localhost:8000/docs
 
@@ -116,14 +103,14 @@ Deploy the complete stack using AWS CDK:
 ```bash
 cd infrastructure
 npm install
-npm run cdk bootstrap  # First time only
-npm run cdk deploy --all
+npx cdk bootstrap  # First time only
+npx cdk deploy --all
 ```
 
 ## Project Structure
 
 ```
-financial-services-advisor/
+aws-financial-services-advisor/
 ├── backend/
 │   ├── src/
 │   │   ├── agents/        # Strands Agent definitions
@@ -131,17 +118,16 @@ financial-services-advisor/
 │   │   ├── models/        # Pydantic models
 │   │   └── services/      # Business logic
 │   ├── handler.py         # Lambda handler
-│   └── requirements.txt
+│   └── pyproject.toml     # Python dependencies (uv)
 ├── frontend/
 │   ├── src/
 │   │   ├── components/    # React components
-│   │   ├── hooks/         # Custom hooks
-│   │   └── lib/           # API client
+│   │   └── lib/           # API client and types
 │   └── package.json
-├── infrastructure/        # AWS CDK stacks
-├── data/                  # Sample data
-└── docs/
-    └── diagrams/          # Architecture diagrams
+├── .env.example           # Environment template
+├── Makefile               # Development commands
+├── GETTING_STARTED.md     # Setup guide
+└── REVIEW.md              # Code review
 ```
 
 ## API Endpoints

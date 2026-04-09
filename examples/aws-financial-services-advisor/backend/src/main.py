@@ -6,12 +6,18 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.routes import alerts, chat, customers, graph, investigations, reports
 from .config import get_settings
 from .services.memory_service import get_memory_service
+from .services.neo4j_service import Neo4jDomainService
+
+# Load .env from parent directory first (handles both backend/ and root locations)
+load_dotenv("../.env")
+load_dotenv(".env")
 
 # Configure logging
 logging.basicConfig(
@@ -23,10 +29,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager.
-
-    Handles startup and shutdown events for the FastAPI application.
-    """
+    """Application lifespan manager."""
     # Startup
     logger.info("Starting Financial Services Advisor...")
 
@@ -38,11 +41,23 @@ async def lifespan(app: FastAPI):
         memory_service = get_memory_service()
         await memory_service.initialize()
         logger.info("Memory service initialized")
+
+        # Create Neo4j domain service sharing the same connection
+        neo4j_service = Neo4jDomainService(memory_service.client.graph)
+        app.state.neo4j_service = neo4j_service
+        logger.info("Neo4j domain service initialized")
+
+        # Reset supervisor agent so it picks up the new neo4j_service
+        from .agents import reset_supervisor_agent
+
+        reset_supervisor_agent()
+
     except Exception as e:
         logger.warning(f"Could not initialize memory service: {e}")
         logger.warning(
             "Running without Neo4j connection - some features will be limited"
         )
+        app.state.neo4j_service = None
 
     logger.info("Financial Services Advisor started successfully")
 
@@ -52,6 +67,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down Financial Services Advisor...")
 
     try:
+        from .agents import reset_supervisor_agent
+
+        reset_supervisor_agent()
+
         memory_service = get_memory_service()
         await memory_service.close()
         logger.info("Memory service closed")
@@ -77,7 +96,7 @@ app = FastAPI(
 
     ## API Groups
 
-    - **Chat**: Interact with the AI advisor
+    - **Chat**: Interact with the AI advisor (sync and SSE streaming)
     - **Customers**: Customer management and risk assessment
     - **Investigations**: Compliance investigations with audit trails
     - **Alerts**: Alert management and escalation
@@ -108,6 +127,14 @@ app.include_router(alerts.router, prefix="/api")
 app.include_router(graph.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 
+# Import and include traces router
+try:
+    from .api.routes import traces
+
+    app.include_router(traces.router, prefix="/api")
+except ImportError:
+    pass
+
 
 @app.get("/")
 async def root() -> dict[str, str]:
@@ -122,20 +149,15 @@ async def root() -> dict[str, str]:
 
 @app.get("/health")
 async def health_check() -> dict[str, Any]:
-    """Health check endpoint.
-
-    Returns the health status of the application and its dependencies.
-    """
+    """Health check endpoint."""
     health_status = {
         "status": "healthy",
         "version": "0.1.0",
         "components": {},
     }
 
-    # Check memory service
     try:
         memory_service = get_memory_service()
-        # Would perform actual health check in production
         health_status["components"]["neo4j"] = {
             "status": "healthy" if memory_service._initialized else "not_initialized",
         }
@@ -145,7 +167,6 @@ async def health_check() -> dict[str, Any]:
             "error": str(e),
         }
 
-    # Check settings
     try:
         settings = get_settings()
         health_status["components"]["config"] = {
@@ -158,7 +179,6 @@ async def health_check() -> dict[str, Any]:
             "error": str(e),
         }
 
-    # Overall status
     unhealthy = [
         c
         for c, s in health_status["components"].items()
@@ -226,12 +246,6 @@ async def api_info() -> dict[str, Any]:
             "long_term": "Customer profiles, entities, and relationships",
             "reasoning": "Investigation traces and decision audit trails",
         },
-        "supported_reports": [
-            "Suspicious Activity Report (SAR)",
-            "Risk Assessment Report",
-            "Enhanced Due Diligence Report",
-            "Periodic Review Report",
-        ],
     }
 
 

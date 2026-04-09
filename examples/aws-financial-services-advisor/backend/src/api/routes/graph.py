@@ -1,305 +1,155 @@
-"""Graph API routes for visualization and exploration."""
+"""Graph API routes for visualization and exploration.
+
+Queries the Neo4j Context Graph via Neo4jDomainService and direct Cypher.
+"""
 
 from __future__ import annotations
 
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-
-from ...services.memory_service import get_memory_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/graph", tags=["graph"])
 
 
-class GraphNode(BaseModel):
-    """Node in the graph visualization."""
-
-    id: str = Field(..., description="Unique node identifier")
-    name: str = Field(..., description="Display name")
-    type: str = Field(..., description="Entity type")
-    attributes: dict[str, Any] = Field(
-        default_factory=dict, description="Node attributes"
-    )
-    risk_level: str | None = Field(default=None, description="Risk level if applicable")
+def _get_neo4j_service(request: Request):
+    svc = getattr(request.app.state, "neo4j_service", None)
+    if svc is None:
+        raise HTTPException(status_code=503, detail="Neo4j service not available")
+    return svc
 
 
-class GraphEdge(BaseModel):
-    """Edge/relationship in the graph visualization."""
-
-    id: str = Field(..., description="Unique edge identifier")
-    source: str = Field(..., description="Source node ID")
-    target: str = Field(..., description="Target node ID")
-    type: str = Field(..., description="Relationship type")
-    attributes: dict[str, Any] = Field(
-        default_factory=dict, description="Edge attributes"
-    )
+class CypherQueryRequest(BaseModel):
+    query: str = Field(..., description="Cypher query (read-only)")
+    parameters: dict[str, Any] = Field(default_factory=dict)
 
 
-class GraphData(BaseModel):
-    """Graph data for visualization."""
-
-    nodes: list[GraphNode] = Field(default_factory=list, description="Graph nodes")
-    edges: list[GraphEdge] = Field(default_factory=list, description="Graph edges")
-    metadata: dict[str, Any] = Field(default_factory=dict, description="Graph metadata")
+class CypherQueryResponse(BaseModel):
+    query: str
+    results: list[dict[str, Any]]
+    count: int
 
 
-class SearchResult(BaseModel):
-    """Entity search result."""
+@router.post("/query", response_model=CypherQueryResponse)
+async def execute_cypher_query(request: Request, body: CypherQueryRequest) -> CypherQueryResponse:
+    """Execute a read-only Cypher query against the Context Graph."""
+    neo4j_service = _get_neo4j_service(request)
 
-    id: str = Field(..., description="Entity identifier")
-    name: str = Field(..., description="Entity name")
-    type: str = Field(..., description="Entity type")
-    score: float = Field(..., description="Relevance score")
-    description: str | None = Field(default=None, description="Entity description")
-    attributes: dict[str, Any] = Field(
-        default_factory=dict, description="Entity attributes"
-    )
+    query_upper = body.query.upper().strip()
+    forbidden = ["CREATE", "MERGE", "DELETE", "REMOVE", "SET", "DROP", "DETACH", "LOAD", "FOREACH"]
+    for keyword in forbidden:
+        if keyword in query_upper:
+            raise HTTPException(status_code=400, detail=f"Write operations ({keyword}) are not allowed.")
 
-
-@router.get("/entity/{entity_name}", response_model=GraphData)
-async def get_entity_graph(
-    entity_name: str,
-    depth: int = Query(2, ge=1, le=4, description="Traversal depth"),
-    include_types: list[str] | None = Query(
-        None, description="Entity types to include"
-    ),
-) -> GraphData:
-    """Get the subgraph around a named entity.
-
-    Retrieves the entity and its relationships up to the specified depth.
-
-    Args:
-        entity_name: Name of the central entity
-        depth: How many hops to traverse
-        include_types: Filter to specific entity types
-
-    Returns:
-        Graph data for visualization
-    """
     try:
-        memory_service = get_memory_service()
-
-        # First search for the entity
-        entities = await memory_service.search_customers(
-            query=entity_name,
-            limit=1,
-        )
-
-        if not entities:
-            raise HTTPException(
-                status_code=404, detail=f"Entity '{entity_name}' not found"
-            )
-
-        entity_id = entities[0].get("id")
-
-        # Get network from that entity
-        network = await memory_service.get_customer_network(
-            customer_id=entity_id,
-            depth=depth,
-        )
-
-        nodes = []
-        edges = []
-
-        for node_data in network.get("nodes", []):
-            node_type = node_data.get("type", "UNKNOWN")
-
-            # Filter by type if specified
-            if include_types and node_type not in include_types:
-                continue
-
-            nodes.append(
-                GraphNode(
-                    id=node_data.get("id", ""),
-                    name=node_data.get("name", "Unknown"),
-                    type=node_type,
-                    attributes=node_data.get("attributes", {}),
-                    risk_level=node_data.get("attributes", {}).get("risk_level"),
-                )
-            )
-
-        for i, edge_data in enumerate(network.get("edges", [])):
-            edges.append(
-                GraphEdge(
-                    id=f"edge-{i}",
-                    source=edge_data.get("source", ""),
-                    target=edge_data.get("target", ""),
-                    type=edge_data.get("type", "RELATED_TO"),
-                    attributes=edge_data.get("attributes", {}),
-                )
-            )
-
-        return GraphData(
-            nodes=nodes,
-            edges=edges,
-            metadata={
-                "central_entity": entity_name,
-                "depth": depth,
-                "node_count": len(nodes),
-                "edge_count": len(edges),
-            },
-        )
-
-    except HTTPException:
-        raise
+        results = await neo4j_service._graph.execute_read(body.query, body.parameters)
+        return CypherQueryResponse(query=body.query, results=results, count=len(results))
     except Exception as e:
-        logger.error(f"Error fetching entity graph: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Cypher query error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/search", response_model=list[SearchResult])
-async def search_entities(
-    query: str = Query(..., description="Search query"),
-    entity_types: list[str] | None = Query(None, description="Filter by entity types"),
-    limit: int = Query(10, ge=1, le=100, description="Maximum results"),
-) -> list[SearchResult]:
-    """Search for entities using semantic search.
-
-    Uses the Context Graph's vector search to find entities
-    matching the query.
-
-    Args:
-        query: Search query
-        entity_types: Filter to specific entity types
-        limit: Maximum results
-
-    Returns:
-        Matching entities with relevance scores
-    """
-    try:
-        memory_service = get_memory_service()
-
-        # Use the customer search which does semantic search
-        results = await memory_service.search_customers(
-            query=query,
-            limit=limit,
-        )
-
-        search_results = []
-        for result in results:
-            # Filter by type if specified
-            if entity_types:
-                # In production, would filter at the query level
-                pass
-
-            search_results.append(
-                SearchResult(
-                    id=result.get("id", ""),
-                    name=result.get("name", "Unknown"),
-                    type="CUSTOMER",  # Default for customer search
-                    score=0.9,  # Placeholder - real implementation would return actual scores
-                    description=None,
-                    attributes={
-                        "customer_id": result.get("customer_id"),
-                        "risk_level": result.get("risk_level"),
-                        "jurisdiction": result.get("jurisdiction"),
-                    },
-                )
-            )
-
-        return search_results
-
-    except Exception as e:
-        logger.error(f"Search error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/connections")
-async def find_connections(
-    entity1: str = Query(..., description="First entity name"),
-    entity2: str = Query(..., description="Second entity name"),
-    max_depth: int = Query(3, ge=1, le=5, description="Maximum path length"),
+@router.get("/neighbors/{entity_id}")
+async def get_entity_neighbors(
+    request: Request,
+    entity_id: str,
+    depth: int = Query(1, ge=1, le=3),
+    limit: int = Query(50, ge=1, le=200),
 ) -> dict[str, Any]:
-    """Find connections between two entities.
+    """Get neighbors of an entity from the Context Graph."""
+    neo4j_service = _get_neo4j_service(request)
 
-    Discovers paths connecting two entities in the graph,
-    which can reveal hidden relationships.
+    conn_data = await neo4j_service.find_connections(entity_id, depth=depth)
 
-    Args:
-        entity1: First entity name
-        entity2: Second entity name
-        max_depth: Maximum path length to search
+    nodes = {}
+    edges = []
 
-    Returns:
-        Paths connecting the entities
+    # Add root node
+    root_query = """
+    MATCH (n) WHERE n.id = $id OR n.name = $id
+    RETURN n.id AS id, n.name AS name, labels(n) AS labels LIMIT 1
     """
-    try:
-        memory_service = get_memory_service()
-
-        # Search for both entities
-        entities1 = await memory_service.search_customers(query=entity1, limit=1)
-        entities2 = await memory_service.search_customers(query=entity2, limit=1)
-
-        if not entities1:
-            raise HTTPException(status_code=404, detail=f"Entity '{entity1}' not found")
-
-        if not entities2:
-            raise HTTPException(status_code=404, detail=f"Entity '{entity2}' not found")
-
-        # In production, would use Cypher path-finding queries
-        # For demo, return simulated connection info
-        return {
-            "entity1": {
-                "name": entity1,
-                "id": entities1[0].get("id"),
-            },
-            "entity2": {
-                "name": entity2,
-                "id": entities2[0].get("id"),
-            },
-            "max_depth_searched": max_depth,
-            "paths_found": 0,  # Would be populated by real query
-            "paths": [],
-            "direct_connection": False,
-            "shortest_path_length": None,
+    root_results = await neo4j_service._graph.execute_read(root_query, {"id": entity_id})
+    if root_results:
+        r = root_results[0]
+        root_id = r["id"] or entity_id
+        nodes[root_id] = {
+            "id": root_id,
+            "label": r["name"] or root_id,
+            "type": r["labels"][0] if r["labels"] else "Unknown",
+            "isRoot": True,
         }
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Connection search error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    for conn in conn_data.get("connections", [])[:limit]:
+        entity = conn.get("entity", {})
+        eid = entity.get("id") or entity.get("name")
+        if eid and eid not in nodes:
+            nodes[eid] = {
+                "id": eid,
+                "label": entity.get("name") or eid,
+                "type": entity.get("type") or "Unknown",
+                "isRoot": False,
+            }
+        rel_types = conn.get("rel_types", [])
+        if eid:
+            edges.append({
+                "from": entity_id,
+                "to": eid,
+                "relationship": rel_types[0] if rel_types else "RELATED",
+            })
 
-
-@router.get("/statistics")
-async def get_graph_statistics() -> dict[str, Any]:
-    """Get statistics about the Context Graph.
-
-    Returns counts and metrics about entities and relationships
-    stored in the graph.
-
-    Returns:
-        Graph statistics
-    """
-    # In production, would query graph for actual statistics
     return {
-        "entities": {
-            "total": 0,
-            "by_type": {
-                "CUSTOMER": 0,
-                "ORGANIZATION": 0,
-                "ACCOUNT": 0,
-                "TRANSACTION": 0,
-                "ALERT": 0,
-            },
-        },
-        "relationships": {
-            "total": 0,
-            "by_type": {
-                "HAS_ACCOUNT": 0,
-                "WORKS_AT": 0,
-                "TRANSACTS_WITH": 0,
-                "CONNECTED_TO": 0,
-            },
-        },
-        "risk_distribution": {
-            "low": 0,
-            "medium": 0,
-            "high": 0,
-            "critical": 0,
-        },
-        "last_updated": None,
+        "entity_id": entity_id,
+        "depth": depth,
+        "nodes": list(nodes.values()),
+        "edges": edges,
+        "total_nodes": len(nodes),
+        "total_edges": len(edges),
     }
+
+
+@router.get("/entity/{entity_name}")
+async def get_entity_graph(
+    request: Request,
+    entity_name: str,
+    depth: int = Query(2, ge=1, le=3),
+) -> dict[str, Any]:
+    """Get subgraph around a named entity."""
+    return await get_entity_neighbors(request, entity_name, depth=depth)
+
+
+@router.post("/search")
+async def search_entities(
+    request: Request,
+    query: str = Query(..., description="Search query"),
+    limit: int = Query(10, ge=1, le=100),
+) -> list[dict[str, Any]]:
+    """Search for entities in the graph."""
+    neo4j_service = _get_neo4j_service(request)
+
+    cypher = """
+    MATCH (n)
+    WHERE n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($query)
+    RETURN n.id AS id, n.name AS name, labels(n)[0] AS type, n.jurisdiction AS jurisdiction
+    LIMIT $limit
+    """
+    results = await neo4j_service._graph.execute_read(cypher, {"query": query, "limit": limit})
+    return [
+        {
+            "id": r.get("id") or r.get("name"),
+            "name": r.get("name"),
+            "type": r.get("type"),
+            "jurisdiction": r.get("jurisdiction"),
+        }
+        for r in results
+    ]
+
+
+@router.get("/stats")
+async def get_graph_statistics(request: Request) -> dict[str, Any]:
+    """Get statistics about the Context Graph."""
+    neo4j_service = _get_neo4j_service(request)
+    return await neo4j_service.get_graph_stats()

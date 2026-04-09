@@ -1,4 +1,7 @@
-"""Customer API routes."""
+"""Customer API routes.
+
+All customer data is queried from Neo4j via the Neo4jDomainService.
+"""
 
 from __future__ import annotations
 
@@ -6,298 +9,258 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ...models import Customer, CustomerCreate, CustomerNetwork, CustomerRisk, RiskLevel
-from ...services.memory_service import get_memory_service
-from ...services.risk_service import get_risk_service
+from ...models.customer import RiskLevel
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/customers", tags=["customers"])
 
-# In-memory store for demo purposes
-# In production, this would be a database
-_customers: dict[str, Customer] = {}
+
+def _get_neo4j_service(request: Request):
+    """Get Neo4jDomainService from app state."""
+    svc = getattr(request.app.state, "neo4j_service", None)
+    if svc is None:
+        raise HTTPException(status_code=503, detail="Neo4j service not available")
+    return svc
 
 
-class CustomerSummary(BaseModel):
-    """Condensed customer information."""
+def _compute_risk(customer: dict) -> dict[str, Any]:
+    """Compute risk score and level from customer data."""
+    base_score = 20
+    risk_factors = customer.get("risk_factors", []) or []
 
+    risk_weights = {
+        "offshore_jurisdiction": 25,
+        "nominee_directors": 20,
+        "shell_company_indicators": 30,
+        "high_risk_business": 15,
+        "international_transactions": 10,
+        "pep_connection": 25,
+        "adverse_media": 20,
+    }
+
+    total_score = base_score
+    contributing_factors = []
+
+    for factor in risk_factors:
+        weight = risk_weights.get(factor, 10)
+        total_score += weight
+        contributing_factors.append(
+            {"factor": factor, "weight": weight, "description": factor.replace("_", " ").title()}
+        )
+
+    documents = customer.get("documents", []) or []
+    pending_docs = sum(1 for d in documents if d.get("status") != "verified")
+    if pending_docs > 0:
+        total_score += pending_docs * 5
+        contributing_factors.append(
+            {"factor": "incomplete_documentation", "weight": pending_docs * 5,
+             "description": f"{pending_docs} documents pending verification"}
+        )
+
+    total_score = min(total_score, 100)
+
+    if total_score >= 75:
+        risk_level = "CRITICAL"
+    elif total_score >= 50:
+        risk_level = "HIGH"
+    elif total_score >= 30:
+        risk_level = "MEDIUM"
+    else:
+        risk_level = "LOW"
+
+    return {"risk_score": total_score, "risk_level": risk_level, "contributing_factors": contributing_factors}
+
+
+class CustomerResponse(BaseModel):
     id: str
     name: str
     type: str
-    jurisdiction: str
-    risk_level: RiskLevel
-    alerts_count: int
+    nationality: str | None = None
+    address: str | None = None
+    occupation: str | None = None
+    employer: str | None = None
+    jurisdiction: str | None = None
+    business_type: str | None = None
+    kyc_status: str = "pending"
+    risk_level: str = "UNKNOWN"
+    risk_score: int = 0
+    risk_factors: list[str] = Field(default_factory=list)
+    alerts_count: int = 0
 
 
 class CustomerListResponse(BaseModel):
-    """Response for customer list endpoint."""
-
-    customers: list[CustomerSummary]
+    customers: list[CustomerResponse]
     total: int
-    page: int
-    page_size: int
+
+
+class CustomerRiskResponse(BaseModel):
+    customer_id: str
+    customer_name: str
+    risk_score: int
+    risk_level: str
+    contributing_factors: list[dict[str, Any]]
+    kyc_status: str
+    recommendation: str
+
+
+def _customer_response(cust: dict, risk: dict) -> CustomerResponse:
+    return CustomerResponse(
+        id=cust.get("id", ""),
+        name=cust.get("name", "Unknown"),
+        type=cust.get("type", "individual"),
+        nationality=cust.get("nationality"),
+        address=cust.get("address") or cust.get("registered_address"),
+        occupation=cust.get("occupation"),
+        employer=cust.get("employer"),
+        jurisdiction=cust.get("jurisdiction"),
+        business_type=cust.get("business_type"),
+        kyc_status=cust.get("kyc_status", "pending"),
+        risk_level=risk["risk_level"],
+        risk_score=risk["risk_score"],
+        risk_factors=cust.get("risk_factors") or [],
+    )
 
 
 @router.get("", response_model=CustomerListResponse)
 async def list_customers(
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    risk_level: RiskLevel | None = Query(None, description="Filter by risk level"),
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    risk_level: str | None = Query(None, description="Filter by risk level"),
     search: str | None = Query(None, description="Search by name"),
 ) -> CustomerListResponse:
-    """List all customers with optional filtering.
+    """List all customers with optional filtering."""
+    neo4j_service = _get_neo4j_service(request)
+    rows = await neo4j_service.list_customers(limit=1000)
 
-    Args:
-        page: Page number for pagination
-        page_size: Number of items per page
-        risk_level: Optional risk level filter
-        search: Optional name search
+    customers = []
+    for cust in rows:
+        risk = _compute_risk(cust)
+        if risk_level and risk["risk_level"].lower() != risk_level.lower():
+            continue
+        if search and search.lower() not in cust.get("name", "").lower():
+            continue
+        customers.append(_customer_response(cust, risk))
 
-    Returns:
-        Paginated list of customers
-    """
-    customers = list(_customers.values())
-
-    # Apply filters
-    if risk_level:
-        customers = [c for c in customers if c.risk_level == risk_level]
-
-    if search:
-        search_lower = search.lower()
-        customers = [c for c in customers if search_lower in c.name.lower()]
-
-    # Pagination
     total = len(customers)
     start = (page - 1) * page_size
-    end = start + page_size
-    page_customers = customers[start:end]
-
-    return CustomerListResponse(
-        customers=[
-            CustomerSummary(
-                id=c.id,
-                name=c.name,
-                type=c.type.value,
-                jurisdiction=c.jurisdiction,
-                risk_level=c.risk_level,
-                alerts_count=c.alerts_count,
-            )
-            for c in page_customers
-        ],
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
+    return CustomerListResponse(customers=customers[start:start + page_size], total=total)
 
 
-@router.post("", response_model=Customer, status_code=201)
-async def create_customer(request: CustomerCreate) -> Customer:
-    """Create a new customer.
-
-    This will create the customer record and add them to the Context Graph
-    for relationship tracking.
-
-    Args:
-        request: Customer creation data
-
-    Returns:
-        Created customer with ID
-    """
-    customer_id = f"CUST-{uuid.uuid4().hex[:8].upper()}"
-
-    customer = Customer(
-        id=customer_id,
-        **request.model_dump(),
-    )
-
-    # Store in memory
-    _customers[customer_id] = customer
-
-    # Add to Context Graph
-    try:
-        memory_service = get_memory_service()
-        await memory_service.add_customer(
-            customer_id=customer_id,
-            name=customer.name,
-            customer_type=customer.type.value,
-            jurisdiction=customer.jurisdiction,
-            industry=customer.industry,
-            metadata=customer.metadata,
-        )
-        logger.info(f"Added customer {customer_id} to Context Graph")
-    except Exception as e:
-        logger.error(f"Failed to add customer to graph: {e}")
-        # Customer is still created locally
-
-    return customer
+@router.get("/{customer_id}", response_model=CustomerResponse)
+async def get_customer(request: Request, customer_id: str) -> CustomerResponse:
+    """Get a specific customer by ID."""
+    neo4j_service = _get_neo4j_service(request)
+    cust = await neo4j_service.get_customer(customer_id)
+    if not cust:
+        raise HTTPException(status_code=404, detail=f"Customer {customer_id} not found")
+    risk = _compute_risk(cust)
+    return _customer_response(cust, risk)
 
 
-@router.get("/{customer_id}", response_model=Customer)
-async def get_customer(customer_id: str) -> Customer:
-    """Get customer details by ID.
+@router.get("/{customer_id}/risk", response_model=CustomerRiskResponse)
+async def get_customer_risk(request: Request, customer_id: str) -> CustomerRiskResponse:
+    """Get risk assessment for a customer."""
+    neo4j_service = _get_neo4j_service(request)
+    cust = await neo4j_service.get_customer(customer_id)
+    if not cust:
+        raise HTTPException(status_code=404, detail=f"Customer {customer_id} not found")
 
-    Args:
-        customer_id: The customer identifier
+    risk = _compute_risk(cust)
+    recommendations = {
+        "CRITICAL": "Immediate escalation required. Consider account restriction pending investigation.",
+        "HIGH": "Enhanced due diligence required. Senior review recommended.",
+        "MEDIUM": "Standard enhanced monitoring. Periodic review required.",
+        "LOW": "Standard monitoring procedures apply.",
+    }
 
-    Returns:
-        Customer details
-    """
-    if customer_id not in _customers:
-        raise HTTPException(status_code=404, detail="Customer not found")
-
-    return _customers[customer_id]
-
-
-@router.put("/{customer_id}", response_model=Customer)
-async def update_customer(customer_id: str, request: CustomerCreate) -> Customer:
-    """Update customer information.
-
-    Args:
-        customer_id: The customer identifier
-        request: Updated customer data
-
-    Returns:
-        Updated customer
-    """
-    if customer_id not in _customers:
-        raise HTTPException(status_code=404, detail="Customer not found")
-
-    existing = _customers[customer_id]
-    updated = Customer(
-        id=customer_id,
-        onboarding_date=existing.onboarding_date,
-        last_review_date=existing.last_review_date,
-        alerts_count=existing.alerts_count,
-        **request.model_dump(),
-    )
-
-    _customers[customer_id] = updated
-    return updated
-
-
-@router.get("/{customer_id}/risk", response_model=CustomerRisk)
-async def get_customer_risk(
-    customer_id: str,
-    include_network: bool = Query(True, description="Include network analysis"),
-) -> CustomerRisk:
-    """Get risk assessment for a customer.
-
-    This calculates a comprehensive risk score based on:
-    - Geographic risk factors
-    - Customer type and structure
-    - Transaction patterns
-    - Network relationships
-
-    Args:
-        customer_id: The customer identifier
-        include_network: Whether to include network risk analysis
-
-    Returns:
-        Comprehensive risk assessment
-    """
-    if customer_id not in _customers:
-        raise HTTPException(status_code=404, detail="Customer not found")
-
-    customer = _customers[customer_id]
-    risk_service = get_risk_service()
-
-    # Get network data if requested
-    network_data = None
-    if include_network:
-        try:
-            memory_service = get_memory_service()
-            network = await memory_service.get_customer_network(customer_id)
-            # Calculate network statistics
-            network_data = {
-                "total_connections": len(network.get("nodes", [])),
-                "high_risk_count": sum(
-                    1
-                    for n in network.get("nodes", [])
-                    if n.get("attributes", {}).get("risk_level") == "high"
-                ),
-                "pep_count": 0,  # Would be calculated from graph
-                "sanctioned_count": 0,
-                "shell_company_count": 0,
-            }
-        except Exception as e:
-            logger.warning(f"Could not fetch network data: {e}")
-
-    risk_assessment = risk_service.assess_customer_risk(
+    return CustomerRiskResponse(
         customer_id=customer_id,
-        customer_type=customer.type.value,
-        jurisdiction=customer.jurisdiction,
-        industry=customer.industry,
-        network_data=network_data,
+        customer_name=cust.get("name", "Unknown"),
+        risk_score=risk["risk_score"],
+        risk_level=risk["risk_level"],
+        contributing_factors=risk["contributing_factors"],
+        kyc_status=cust.get("kyc_status", "pending"),
+        recommendation=recommendations.get(risk["risk_level"], "Review required"),
     )
-
-    # Update customer risk level
-    customer.risk_level = risk_assessment.overall_risk
-    _customers[customer_id] = customer
-
-    return risk_assessment
 
 
 @router.get("/{customer_id}/network")
 async def get_customer_network(
+    request: Request,
     customer_id: str,
-    depth: int = Query(2, ge=1, le=4, description="Network traversal depth"),
-    include_transactions: bool = Query(False, description="Include transaction nodes"),
+    depth: int = Query(2, ge=1, le=3),
 ) -> dict[str, Any]:
-    """Get the relationship network for a customer.
+    """Get the relationship network for a customer."""
+    neo4j_service = _get_neo4j_service(request)
+    cust = await neo4j_service.get_customer(customer_id)
+    if not cust:
+        raise HTTPException(status_code=404, detail=f"Customer {customer_id} not found")
 
-    Uses the Context Graph to map customer relationships including
-    connected organizations, accounts, and other entities.
+    conn_data = await neo4j_service.find_connections(customer_id, depth=depth)
 
-    Args:
-        customer_id: The customer identifier
-        depth: How many hops to traverse
-        include_transactions: Whether to include transaction nodes
+    nodes = [{"id": customer_id, "label": cust.get("name", customer_id), "type": cust.get("type", "UNKNOWN"), "isRoot": True}]
+    edges = []
 
-    Returns:
-        Network graph data for visualization
-    """
-    if customer_id not in _customers:
-        raise HTTPException(status_code=404, detail="Customer not found")
+    for conn in conn_data.get("connections", []):
+        entity = conn.get("entity", {})
+        entity_id = entity.get("id") or entity.get("name")
+        rel_types = conn.get("rel_types", [])
 
-    try:
-        memory_service = get_memory_service()
-        network = await memory_service.get_customer_network(
-            customer_id=customer_id,
-            depth=depth,
-            include_transactions=include_transactions,
-        )
-        return network
+        nodes.append({
+            "id": entity_id,
+            "label": entity.get("name"),
+            "type": entity.get("type"),
+            "jurisdiction": entity.get("jurisdiction"),
+            "distance": conn.get("distance", 1),
+        })
+        edges.append({
+            "from": customer_id if conn.get("distance", 1) == 1 else None,
+            "to": entity_id,
+            "relationship": rel_types[0] if rel_types else "CONNECTED_TO",
+        })
 
-    except Exception as e:
-        logger.error(f"Error fetching network: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"customer_id": customer_id, "depth": depth, "nodes": nodes, "edges": edges, "total_connections": len(conn_data.get("connections", []))}
 
 
-@router.post("/search")
-async def search_customers(
-    query: str = Query(..., description="Search query"),
-    limit: int = Query(10, ge=1, le=100, description="Maximum results"),
-) -> list[dict[str, Any]]:
-    """Search customers using semantic search.
+@router.get("/{customer_id}/verify")
+async def verify_customer(request: Request, customer_id: str) -> dict[str, Any]:
+    """Verify customer identity."""
+    neo4j_service = _get_neo4j_service(request)
+    cust = await neo4j_service.get_customer(customer_id)
+    if not cust:
+        raise HTTPException(status_code=404, detail=f"Customer {customer_id} not found")
 
-    Uses the Context Graph's semantic search to find customers
-    matching the query based on their profiles and descriptions.
+    documents = cust.get("documents", []) or []
+    verified_docs = sum(1 for d in documents if d.get("status") == "verified")
 
-    Args:
-        query: Search query
-        limit: Maximum results
+    if cust.get("type") == "individual":
+        required_docs = ["passport", "utility_bill"]
+    else:
+        required_docs = ["certificate_of_incorporation", "register_of_directors", "proof_of_address"]
 
-    Returns:
-        Matching customers with relevance scores
-    """
-    try:
-        memory_service = get_memory_service()
-        results = await memory_service.search_customers(query=query, limit=limit)
-        return results
+    doc_types_verified = {d["type"] for d in documents if d.get("status") == "verified"}
+    missing_docs = [doc for doc in required_docs if doc not in doc_types_verified]
+    status = "VERIFIED" if not missing_docs else "PENDING"
 
-    except Exception as e:
-        logger.error(f"Search error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "customer_id": customer_id,
+        "customer_name": cust.get("name"),
+        "customer_type": cust.get("type"),
+        "status": status,
+        "verified": status == "VERIFIED",
+        "documents_verified": f"{verified_docs}/{len(documents)}",
+        "missing_documents": missing_docs,
+        "risk_factors": cust.get("risk_factors", []),
+        "kyc_status": cust.get("kyc_status"),
+    }
+
+
+@router.post("", response_model=CustomerResponse)
+async def create_customer(name: str, type: str = "individual") -> CustomerResponse:
+    """Create a new customer (demo - not persisted to Neo4j)."""
+    customer_id = f"CUST-{uuid.uuid4().hex[:6].upper()}"
+    return CustomerResponse(id=customer_id, name=name, type=type, risk_level="MEDIUM", risk_score=20)

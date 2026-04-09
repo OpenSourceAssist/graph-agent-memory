@@ -11,19 +11,34 @@ import {
   Spinner,
 } from '@chakra-ui/react'
 import { FiSend, FiUser, FiCpu } from 'react-icons/fi'
-import { chatApi, ChatMessage } from '../../lib/api'
+import { useAgentStream } from '../../hooks/useAgentStream'
+import AgentOrchestrationView from './AgentOrchestrationView'
+import AgentActivityTimeline from './AgentActivityTimeline'
 
-interface Message extends ChatMessage {
+interface Message {
   id: string
+  role: 'user' | 'assistant'
+  content: string
   isLoading?: boolean
+  agentStates?: Map<string, import('../../hooks/useAgentStream').AgentState>
+  streamResult?: import('../../hooks/useAgentStream').StreamResult | null
 }
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const {
+    isStreaming,
+    activeAgent,
+    agentStates,
+    finalResponse,
+    streamResult,
+    error,
+    startStream,
+  } = useAgentStream()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -31,10 +46,49 @@ export default function ChatInterface() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [messages, isStreaming])
+
+  // When streaming completes with a response, update the loading message
+  useEffect(() => {
+    if (finalResponse && !isStreaming) {
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.isLoading
+            ? {
+                ...msg,
+                content: finalResponse,
+                isLoading: false,
+                agentStates: new Map(agentStates),
+                streamResult: streamResult,
+              }
+            : msg
+        )
+      )
+      if (streamResult?.sessionId) {
+        setSessionId(streamResult.sessionId)
+      }
+    }
+  }, [finalResponse, isStreaming, agentStates, streamResult])
+
+  // Handle error
+  useEffect(() => {
+    if (error && !isStreaming) {
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.isLoading
+            ? {
+                ...msg,
+                content: `Error: ${error}`,
+                isLoading: false,
+              }
+            : msg
+        )
+      )
+    }
+  }, [error, isStreaming])
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isStreaming) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -42,50 +96,18 @@ export default function ChatInterface() {
       content: input.trim(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
-    setInput('')
-    setIsLoading(true)
-
-    // Add loading message
-    const loadingId = Date.now().toString() + '-loading'
-    setMessages((prev) => [
-      ...prev,
-      { id: loadingId, role: 'assistant', content: '', isLoading: true },
-    ])
-
-    try {
-      const response = await chatApi.sendMessage(userMessage.content, sessionId || undefined)
-
-      // Update session ID
-      if (!sessionId) {
-        setSessionId(response.session_id)
-      }
-
-      // Replace loading message with actual response
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === loadingId
-            ? { id: loadingId, role: 'assistant', content: response.response, isLoading: false }
-            : msg
-        )
-      )
-    } catch (error) {
-      // Replace loading with error message
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === loadingId
-            ? {
-                id: loadingId,
-                role: 'assistant',
-                content: 'Sorry, an error occurred. Please try again.',
-                isLoading: false,
-              }
-            : msg
-        )
-      )
-    } finally {
-      setIsLoading(false)
+    const loadingMessage: Message = {
+      id: Date.now().toString() + '-loading',
+      role: 'assistant',
+      content: '',
+      isLoading: true,
     }
+
+    setMessages(prev => [...prev, userMessage, loadingMessage])
+    setInput('')
+
+    // Start SSE stream
+    startStream(userMessage.content, sessionId || undefined)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -127,15 +149,15 @@ export default function ChatInterface() {
                   </Text>
                   <Text fontSize="sm" mt={2} textAlign="center" maxW="400px">
                     Ask about customer risk assessments, investigation findings, or compliance
-                    requirements
+                    requirements. All agent tools now query real data from Neo4j.
                   </Text>
                   <VStack mt={6} gap={2}>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setInput('What are the high-risk customers?')}
+                      onClick={() => setInput('Investigate customer CUST-003 for potential money laundering')}
                     >
-                      What are the high-risk customers?
+                      Investigate CUST-003 for money laundering
                     </Button>
                     <Button
                       size="sm"
@@ -150,53 +172,72 @@ export default function ChatInterface() {
                       size="sm"
                       variant="outline"
                       onClick={() =>
-                        setInput('What patterns should I look for in AML investigations?')
+                        setInput('Analyze the network connections of Global Holdings Ltd')
                       }
                     >
-                      AML investigation patterns
+                      Analyze network connections
                     </Button>
                   </VStack>
                 </Flex>
               ) : (
                 <VStack gap={4} align="stretch">
                   {messages.map((message) => (
-                    <Flex
-                      key={message.id}
-                      justify={message.role === 'user' ? 'flex-end' : 'flex-start'}
-                    >
+                    <Box key={message.id}>
                       <Flex
-                        maxW="80%"
-                        bg={message.role === 'user' ? 'teal.500' : 'gray.100'}
-                        color={message.role === 'user' ? 'white' : 'gray.800'}
-                        borderRadius="lg"
-                        p={4}
-                        gap={3}
+                        justify={message.role === 'user' ? 'flex-end' : 'flex-start'}
                       >
-                        <Box
-                          p={2}
-                          borderRadius="full"
-                          bg={message.role === 'user' ? 'teal.600' : 'gray.200'}
-                          h="fit-content"
+                        <Flex
+                          maxW="80%"
+                          bg={message.role === 'user' ? 'teal.500' : 'gray.100'}
+                          color={message.role === 'user' ? 'white' : 'gray.800'}
+                          borderRadius="lg"
+                          p={4}
+                          gap={3}
                         >
-                          {message.role === 'user' ? (
-                            <FiUser size={16} />
-                          ) : (
-                            <FiCpu size={16} />
-                          )}
-                        </Box>
-                        <Box>
-                          {message.isLoading ? (
-                            <Flex align="center" gap={2}>
-                              <Spinner size="sm" />
-                              <Text>Thinking...</Text>
-                            </Flex>
-                          ) : (
-                            <Text whiteSpace="pre-wrap">{message.content}</Text>
-                          )}
-                        </Box>
+                          <Box
+                            p={2}
+                            borderRadius="full"
+                            bg={message.role === 'user' ? 'teal.600' : 'gray.200'}
+                            h="fit-content"
+                          >
+                            {message.role === 'user' ? (
+                              <FiUser size={16} />
+                            ) : (
+                              <FiCpu size={16} />
+                            )}
+                          </Box>
+                          <Box>
+                            {message.isLoading ? (
+                              <Flex align="center" gap={2}>
+                                <Spinner size="sm" />
+                                <Text>Investigating...</Text>
+                              </Flex>
+                            ) : (
+                              <Text whiteSpace="pre-wrap">{message.content}</Text>
+                            )}
+                          </Box>
+                        </Flex>
                       </Flex>
-                    </Flex>
+
+                      {/* Show agent activity after assistant messages */}
+                      {message.role === 'assistant' && !message.isLoading && message.agentStates && (
+                        <AgentActivityTimeline
+                          agentStates={message.agentStates}
+                          streamResult={message.streamResult || null}
+                        />
+                      )}
+                    </Box>
                   ))}
+
+                  {/* Live orchestration view during streaming */}
+                  {isStreaming && (
+                    <AgentOrchestrationView
+                      agentStates={agentStates}
+                      activeAgent={activeAgent}
+                      isStreaming={isStreaming}
+                    />
+                  )}
+
                   <div ref={messagesEndRef} />
                 </VStack>
               )}
@@ -210,12 +251,12 @@ export default function ChatInterface() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  disabled={isLoading}
+                  disabled={isStreaming}
                 />
                 <Button
                   colorPalette="teal"
                   onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
+                  disabled={!input.trim() || isStreaming}
                 >
                   <FiSend />
                 </Button>

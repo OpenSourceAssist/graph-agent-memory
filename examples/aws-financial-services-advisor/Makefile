@@ -62,7 +62,7 @@ run-frontend:
 
 # Load sample data into Neo4j
 load-data:
-	cd backend && uv run python ../scripts/load_sample_data.py
+	cd backend && uv run python ../data/load_sample_data.py
 
 # Build frontend for production
 build:

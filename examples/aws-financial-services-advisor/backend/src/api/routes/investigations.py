@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from ...models import (
@@ -153,7 +153,6 @@ async def create_investigation(request: InvestigationCreate) -> Investigation:
         session_id = f"session-{investigation_id}"
         trace_id = await memory_service.start_investigation_trace(
             session_id=session_id,
-            investigation_id=investigation_id,
             task=f"Investigation: {investigation.title}",
         )
         _traces[investigation_id] = trace_id
@@ -212,6 +211,7 @@ async def update_investigation_status(
 async def start_investigation(
     investigation_id: str,
     request: StartInvestigationRequest,
+    raw_request: Request,
 ) -> dict[str, Any]:
     """Start running an investigation with the multi-agent system.
 
@@ -238,7 +238,10 @@ async def start_investigation(
     try:
         from ...agents import get_supervisor_agent
 
-        supervisor = get_supervisor_agent()
+        neo4j_service = getattr(raw_request.app.state, "neo4j_service", None)
+        if not neo4j_service:
+            raise HTTPException(status_code=503, detail="Neo4j service not available")
+        supervisor = get_supervisor_agent(neo4j_service)
 
         # Build investigation prompt
         agents_to_run = []
@@ -271,9 +274,7 @@ Coordinate with specialized agents and synthesize findings into a comprehensive 
         # Record reasoning step
         if investigation_id in _traces:
             memory_service = get_memory_service()
-            session_id = f"session-{investigation_id}"
             await memory_service.add_reasoning_step(
-                session_id=session_id,
                 trace_id=_traces[investigation_id],
                 agent="supervisor",
                 action="conduct_investigation",
@@ -321,9 +322,7 @@ async def get_audit_trail(investigation_id: str) -> dict[str, Any]:
 
     try:
         memory_service = get_memory_service()
-        session_id = f"session-{investigation_id}"
         trace = await memory_service.get_investigation_trace(
-            session_id=session_id,
             trace_id=_traces[investigation_id],
         )
 
@@ -367,9 +366,7 @@ async def complete_investigation(
     if investigation_id in _traces:
         try:
             memory_service = get_memory_service()
-            session_id = f"session-{investigation_id}"
             await memory_service.complete_investigation_trace(
-                session_id=session_id,
                 trace_id=_traces[investigation_id],
                 conclusion=request.conclusion,
                 success=True,

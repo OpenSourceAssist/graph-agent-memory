@@ -1,0 +1,54 @@
+[
+  {
+    "id": "CUST-001",
+    "name": "John Smith",
+    "type": "individual",
+    "date_of_birth": "1985-03-15",
+    "nationality": "US",
+    "address": "123 Main St, New York, NY 10001",
+    "occupation": "Software Engineer",
+    "employer": "Tech Corp Inc",
+    "account_opened": "2020-01-15",
+    "documents": {
+      "passport": {"status": "verified", "expiry": "2028-03-15"},
+      "utility_bill": {"status": "verified", "date": "2024-01-01"}
+    },
+    "risk_factors": [],
+    "kyc_status": "approved"
+  },
+  {
+    "id": "CUST-002",
+    "name": "Maria Garcia",
+    "type": "individual",
+    "date_of_birth": "1978-07-22",
+    "nationality": "ES",
+    "address": "456 Oak Ave, Miami, FL 33101",
+    "occupation": "Import/Export Business Owner",
+    "employer": "Garcia Trading LLC",
+    "account_opened": "2019-06-20",
+    "documents": {
+      "passport": {"status": "verified", "expiry": "2026-07-22"},
+      "utility_bill": {"status": "pending", "date": null}
+    },
+    "risk_factors": ["high_risk_business", "international_transactions"],
+    "kyc_status": "enhanced_due_diligence"
+  },
+  {
+    "id": "CUST-003",
+    "name": "Global Holdings Ltd",
+    "type": "corporate",
+    "incorporation_date": "2015-09-10",
+    "jurisdiction": "BVI",
+    "registered_address": "P.O. Box 123, Road Town, Tortola, BVI",
+    "business_type": "Investment Holding",
+    "directors": ["Nominee Director Services Ltd"],
+    "account_opened": "2021-03-05",
+    "documents": {
+      "certificate_of_incorporation": {"status": "verified", "date": "2015-09-10"},
+      "register_of_directors": {"status": "pending", "date": null},
+      "proof_of_address": {"status": "missing", "date": null}
+    },
+    "risk_factors": ["offshore_jurisdiction", "nominee_directors", "shell_company_indicators"],
+    "kyc_status": "under_review"
+  }
+]

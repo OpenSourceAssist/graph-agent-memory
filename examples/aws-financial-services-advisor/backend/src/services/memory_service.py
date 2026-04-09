@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-import uuid
-from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings
 from neo4j_agent_memory.config import EmbeddingConfig, EmbeddingProvider, Neo4jConfig
-from neo4j_agent_memory.memory.long_term import DeduplicationConfig
 
 from ..config import get_settings
 
@@ -42,15 +41,22 @@ class FinancialMemoryService:
             ),
             extraction=ExtractionConfig(),
         )
-        # DeduplicationConfig is available for preventing duplicate customer entities.
-        # Configure via LongTermMemory(deduplication=DeduplicationConfig(...))
-        # to auto-merge or flag similar entities during add_entity() calls.
         self._client = MemoryClient(memory_settings)
         self._initialized = False
+        self._init_lock = asyncio.Lock()
+
+    @property
+    def client(self) -> MemoryClient:
+        """Expose the MemoryClient for Neo4jDomainService connection sharing."""
+        return self._client
 
     async def initialize(self) -> None:
-        """Initialize the memory client and create indexes."""
-        if not self._initialized:
+        """Initialize the memory client and create indexes. Thread-safe."""
+        if self._initialized:
+            return
+        async with self._init_lock:
+            if self._initialized:
+                return
             await self._client.connect()
             self._initialized = True
             logger.info("Financial Memory Service initialized")
@@ -60,365 +66,6 @@ class FinancialMemoryService:
         await self._client.close()
         self._initialized = False
         logger.info("Financial Memory Service closed")
-
-    # ==========================================================================
-    # Customer Entity Management (Long-Term Memory)
-    # ==========================================================================
-
-    async def add_customer(
-        self,
-        customer_id: str,
-        name: str,
-        customer_type: str,
-        jurisdiction: str,
-        risk_level: str = "unknown",
-        industry: str | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> str:
-        """Add a customer entity to the Context Graph.
-
-        Args:
-            customer_id: Unique customer identifier
-            name: Customer name
-            customer_type: Type of customer (individual, corporate, etc.)
-            jurisdiction: Primary jurisdiction
-            risk_level: Current risk level
-            industry: Industry sector (for corporate customers)
-            metadata: Additional customer metadata
-
-        Returns:
-            The entity ID in the graph
-        """
-        attributes = {
-            "customer_id": customer_id,
-            "customer_type": customer_type,
-            "jurisdiction": jurisdiction,
-            "risk_level": risk_level,
-            "onboarding_date": datetime.utcnow().isoformat(),
-        }
-        if industry:
-            attributes["industry"] = industry
-        if metadata:
-            attributes.update(metadata)
-
-        description = f"{customer_type.title()} customer {name} in {jurisdiction}"
-        if industry:
-            description += f", {industry} sector"
-
-        entity = await self._client.long_term.add_entity(
-            name=name,
-            entity_type="CUSTOMER",
-            description=description,
-            attributes=attributes,
-        )
-        # Provenance tracking is available via link_entity_to_message()
-        # and link_entity_to_extractor() to trace where entities originated.
-        logger.info(f"Added customer entity: {name} ({customer_id})")
-        return entity.id
-
-    async def add_organization(
-        self,
-        name: str,
-        org_type: str,
-        jurisdiction: str,
-        attributes: dict[str, Any] | None = None,
-    ) -> str:
-        """Add an organization entity to the graph.
-
-        Args:
-            name: Organization name
-            org_type: Type of organization
-            jurisdiction: Organization jurisdiction
-            attributes: Additional attributes
-
-        Returns:
-            The entity ID
-        """
-        attrs = {
-            "organization_type": org_type,
-            "jurisdiction": jurisdiction,
-            **(attributes or {}),
-        }
-
-        entity = await self._client.long_term.add_entity(
-            name=name,
-            entity_type="ORGANIZATION",
-            description=f"{org_type} organization in {jurisdiction}",
-            attributes=attrs,
-        )
-        return entity.id
-
-    async def add_account(
-        self,
-        account_id: str,
-        account_type: str,
-        currency: str,
-        customer_entity_id: str,
-    ) -> str:
-        """Add an account entity and link to customer.
-
-        Args:
-            account_id: Account identifier
-            account_type: Type of account
-            currency: Account currency
-            customer_entity_id: Entity ID of the owning customer
-
-        Returns:
-            The account entity ID
-        """
-        entity = await self._client.long_term.add_entity(
-            name=f"Account {account_id}",
-            entity_type="ACCOUNT",
-            description=f"{account_type} account in {currency}",
-            attributes={
-                "account_id": account_id,
-                "account_type": account_type,
-                "currency": currency,
-                "status": "active",
-            },
-        )
-
-        # Link account to customer
-        await self._client.long_term.add_relationship(
-            source_entity_id=customer_entity_id,
-            target_entity_id=entity.id,
-            relationship_type="HAS_ACCOUNT",
-            attributes={"opened_date": datetime.utcnow().isoformat()},
-        )
-
-        return entity.id
-
-    async def add_customer_relationship(
-        self,
-        source_customer_id: str,
-        target_entity_id: str,
-        relationship_type: str,
-        attributes: dict[str, Any] | None = None,
-    ) -> None:
-        """Add a relationship between entities.
-
-        Args:
-            source_customer_id: Source entity ID
-            target_entity_id: Target entity ID
-            relationship_type: Type of relationship (WORKS_AT, CONNECTED_TO, etc.)
-            attributes: Relationship attributes
-        """
-        await self._client.long_term.add_relationship(
-            source_entity_id=source_customer_id,
-            target_entity_id=target_entity_id,
-            relationship_type=relationship_type,
-            attributes=attributes or {},
-        )
-
-    async def get_customer_network(
-        self,
-        customer_id: str,
-        depth: int = 2,
-        include_transactions: bool = False,
-    ) -> dict[str, Any]:
-        """Get the relationship network for a customer.
-
-        Args:
-            customer_id: Customer identifier
-            depth: How many hops to traverse
-            include_transactions: Whether to include transaction nodes
-
-        Returns:
-            Network data with nodes and edges
-        """
-        # Search for the customer entity
-        entities = await self._client.long_term.search_entities(
-            query=customer_id,
-            entity_types=["CUSTOMER"],
-            limit=1,
-        )
-
-        if not entities:
-            return {"nodes": [], "edges": [], "error": "Customer not found"}
-
-        customer_entity = entities[0]
-
-        # Get entity graph
-        graph = await self._client.long_term.get_entity_graph(
-            entity_id=customer_entity.id,
-            max_depth=depth,
-        )
-
-        # Convert to visualization format
-        nodes = []
-        edges = []
-
-        for entity in graph.entities:
-            if not include_transactions and entity.entity_type == "TRANSACTION":
-                continue
-
-            nodes.append(
-                {
-                    "id": entity.id,
-                    "name": entity.name,
-                    "type": entity.entity_type,
-                    "attributes": entity.attributes,
-                }
-            )
-
-        for rel in graph.relationships:
-            edges.append(
-                {
-                    "source": rel.source_id,
-                    "target": rel.target_id,
-                    "type": rel.relationship_type,
-                    "attributes": rel.attributes,
-                }
-            )
-
-        return {"nodes": nodes, "edges": edges}
-
-    async def search_customers(
-        self,
-        query: str,
-        limit: int = 10,
-    ) -> list[dict[str, Any]]:
-        """Search for customers by semantic query.
-
-        Args:
-            query: Search query
-            limit: Maximum results
-
-        Returns:
-            List of matching customer summaries
-        """
-        entities = await self._client.long_term.search_entities(
-            query=query,
-            entity_types=["CUSTOMER"],
-            limit=limit,
-        )
-
-        return [
-            {
-                "id": e.id,
-                "name": e.name,
-                "customer_id": e.attributes.get("customer_id"),
-                "risk_level": e.attributes.get("risk_level"),
-                "jurisdiction": e.attributes.get("jurisdiction"),
-            }
-            for e in entities
-        ]
-
-    # ==========================================================================
-    # Transaction Management
-    # ==========================================================================
-
-    async def add_transaction(
-        self,
-        transaction_id: str,
-        from_account_id: str,
-        to_account_id: str | None,
-        amount: float,
-        currency: str,
-        transaction_type: str,
-        timestamp: datetime,
-        beneficiary: dict[str, Any] | None = None,
-    ) -> str:
-        """Add a transaction to the graph.
-
-        Args:
-            transaction_id: Transaction identifier
-            from_account_id: Source account entity ID
-            to_account_id: Destination account entity ID (if internal)
-            amount: Transaction amount
-            currency: Transaction currency
-            transaction_type: Type of transaction
-            timestamp: Transaction timestamp
-            beneficiary: External beneficiary details
-
-        Returns:
-            Transaction entity ID
-        """
-        attrs = {
-            "transaction_id": transaction_id,
-            "amount": amount,
-            "currency": currency,
-            "transaction_type": transaction_type,
-            "timestamp": timestamp.isoformat(),
-        }
-        if beneficiary:
-            attrs["beneficiary"] = beneficiary
-
-        entity = await self._client.long_term.add_entity(
-            name=f"TXN-{transaction_id}",
-            entity_type="TRANSACTION",
-            description=f"{transaction_type} of {amount} {currency}",
-            attributes=attrs,
-        )
-
-        # Link from source account
-        await self._client.long_term.add_relationship(
-            source_entity_id=from_account_id,
-            target_entity_id=entity.id,
-            relationship_type="SENT",
-            attributes={"timestamp": timestamp.isoformat()},
-        )
-
-        # Link to destination if internal
-        if to_account_id:
-            await self._client.long_term.add_relationship(
-                source_entity_id=entity.id,
-                target_entity_id=to_account_id,
-                relationship_type="RECEIVED_BY",
-                attributes={"timestamp": timestamp.isoformat()},
-            )
-
-        return entity.id
-
-    # ==========================================================================
-    # Alert Management
-    # ==========================================================================
-
-    async def add_alert(
-        self,
-        alert_id: str,
-        alert_type: str,
-        severity: str,
-        customer_entity_id: str,
-        description: str,
-        evidence: dict[str, Any] | None = None,
-    ) -> str:
-        """Add an alert entity linked to a customer.
-
-        Args:
-            alert_id: Alert identifier
-            alert_type: Type of alert
-            severity: Alert severity
-            customer_entity_id: Related customer entity ID
-            description: Alert description
-            evidence: Supporting evidence
-
-        Returns:
-            Alert entity ID
-        """
-        entity = await self._client.long_term.add_entity(
-            name=f"Alert {alert_id}",
-            entity_type="ALERT",
-            description=description,
-            attributes={
-                "alert_id": alert_id,
-                "alert_type": alert_type,
-                "severity": severity,
-                "status": "new",
-                "created_at": datetime.utcnow().isoformat(),
-                "evidence": evidence or {},
-            },
-        )
-
-        # Link to customer
-        await self._client.long_term.add_relationship(
-            source_entity_id=customer_entity_id,
-            target_entity_id=entity.id,
-            relationship_type="HAS_ALERT",
-            attributes={"triggered_at": datetime.utcnow().isoformat()},
-        )
-
-        return entity.id
 
     # ==========================================================================
     # Conversation Memory (Short-Term)
@@ -431,14 +78,7 @@ class FinancialMemoryService:
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        """Add a message to conversation history.
-
-        Args:
-            session_id: Conversation session ID
-            role: Message role (user, assistant, system)
-            content: Message content
-            metadata: Additional message metadata
-        """
+        """Add a message to conversation history."""
         await self._client.short_term.add_message(
             session_id=session_id,
             role=role,
@@ -451,27 +91,19 @@ class FinancialMemoryService:
         session_id: str,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
-        """Get conversation history for a session.
-
-        Args:
-            session_id: Conversation session ID
-            limit: Maximum messages to return
-
-        Returns:
-            List of conversation messages
-        """
-        messages = await self._client.short_term.get_conversation(
+        """Get conversation history for a session."""
+        conversation = await self._client.short_term.get_conversation(
             session_id=session_id,
             limit=limit,
         )
         return [
             {
-                "role": m.role,
+                "role": m.role.value if hasattr(m.role, "value") else str(m.role),
                 "content": m.content,
-                "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+                "timestamp": m.created_at.isoformat() if m.created_at else None,
                 "metadata": m.metadata,
             }
-            for m in messages
+            for m in conversation.messages
         ]
 
     async def search_conversations(
@@ -480,17 +112,8 @@ class FinancialMemoryService:
         session_id: str | None = None,
         limit: int = 10,
     ) -> list[dict[str, Any]]:
-        """Search conversation history semantically.
-
-        Args:
-            query: Search query
-            session_id: Optional session to search within
-            limit: Maximum results
-
-        Returns:
-            Matching conversation excerpts
-        """
-        results = await self._client.short_term.search(
+        """Search conversation history semantically."""
+        results = await self._client.short_term.search_messages(
             query=query,
             session_id=session_id,
             limit=limit,
@@ -498,9 +121,8 @@ class FinancialMemoryService:
         return [
             {
                 "content": r.content,
-                "role": r.role,
-                "session_id": r.session_id,
-                "score": r.score,
+                "role": r.role.value if hasattr(r.role, "value") else str(r.role),
+                "metadata": r.metadata,
             }
             for r in results
         ]
@@ -512,121 +134,149 @@ class FinancialMemoryService:
     async def start_investigation_trace(
         self,
         session_id: str,
-        investigation_id: str,
         task: str,
     ) -> str:
         """Start a reasoning trace for an investigation.
 
-        Args:
-            session_id: Session ID
-            investigation_id: Investigation ID
-            task: Investigation task description
-
         Returns:
-            Trace ID
+            Trace ID (as string)
         """
-        trace_id = f"trace-{investigation_id}-{uuid.uuid4().hex[:8]}"
-
-        await self._client.reasoning.start_trace(
+        trace = await self._client.reasoning.start_trace(
             session_id=session_id,
-            trace_id=trace_id,
             task=task,
-            metadata={
-                "investigation_id": investigation_id,
-                "started_at": datetime.utcnow().isoformat(),
-            },
         )
-
-        return trace_id
+        return str(trace.id)
 
     async def add_reasoning_step(
         self,
-        session_id: str,
         trace_id: str,
         agent: str,
         action: str,
         reasoning: str,
         result: dict[str, Any] | None = None,
-    ) -> None:
+    ) -> str:
         """Add a reasoning step to an investigation trace.
 
-        Args:
-            session_id: Session ID
-            trace_id: Trace ID
-            agent: Agent that performed the action
-            action: Action taken
-            reasoning: Agent's reasoning
-            result: Action result
+        Returns:
+            Step ID (as string)
         """
-        await self._client.reasoning.add_step(
-            session_id=session_id,
-            trace_id=trace_id,
+        step = await self._client.reasoning.add_step(
+            UUID(trace_id),
+            thought=reasoning,
             action=action,
-            reasoning=reasoning,
-            result=result or {},
-            metadata={
-                "agent": agent,
-                "timestamp": datetime.utcnow().isoformat(),
-            },
+            observation=str(result) if result else None,
+            metadata={"agent": agent},
         )
+        return str(step.id)
 
     async def complete_investigation_trace(
         self,
-        session_id: str,
         trace_id: str,
         conclusion: str,
         success: bool = True,
     ) -> None:
-        """Complete an investigation reasoning trace.
-
-        Args:
-            session_id: Session ID
-            trace_id: Trace ID
-            conclusion: Final conclusion
-            success: Whether investigation succeeded
-        """
+        """Complete an investigation reasoning trace."""
         await self._client.reasoning.complete_trace(
-            session_id=session_id,
-            trace_id=trace_id,
-            conclusion=conclusion,
+            UUID(trace_id),
+            outcome=conclusion,
             success=success,
         )
 
     async def get_investigation_trace(
         self,
-        session_id: str,
         trace_id: str,
-    ) -> dict[str, Any]:
-        """Get the full reasoning trace for an investigation.
-
-        Args:
-            session_id: Session ID
-            trace_id: Trace ID
-
-        Returns:
-            Full trace with all steps
-        """
-        trace = await self._client.reasoning.get_trace(
-            session_id=session_id,
-            trace_id=trace_id,
-        )
+    ) -> dict[str, Any] | None:
+        """Get the full reasoning trace for an investigation."""
+        trace = await self._client.reasoning.get_trace(trace_id)
+        if not trace:
+            return None
 
         return {
-            "trace_id": trace.trace_id,
+            "trace_id": str(trace.id),
             "task": trace.task,
-            "status": trace.status,
-            "conclusion": trace.conclusion,
+            "outcome": trace.outcome,
+            "success": trace.success,
+            "started_at": trace.started_at.isoformat() if trace.started_at else None,
+            "completed_at": trace.completed_at.isoformat() if trace.completed_at else None,
             "steps": [
                 {
+                    "step_id": str(s.id),
+                    "step_number": s.step_number,
+                    "thought": s.thought,
                     "action": s.action,
-                    "reasoning": s.reasoning,
-                    "result": s.result,
+                    "observation": s.observation,
                     "metadata": s.metadata,
+                    "tool_calls": [
+                        {
+                            "tool_name": tc.tool_name,
+                            "arguments": tc.arguments,
+                            "result": tc.result,
+                            "status": tc.status.value if hasattr(tc.status, "value") else str(tc.status),
+                            "duration_ms": tc.duration_ms,
+                        }
+                        for tc in (s.tool_calls or [])
+                    ],
                 }
-                for s in trace.steps
+                for s in (trace.steps or [])
             ],
             "metadata": trace.metadata,
         }
+
+
+    # ==========================================================================
+    # Context Search & Session Management
+    # ==========================================================================
+
+    async def search_context(
+        self,
+        query: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Search across all memory types (messages, entities, preferences)."""
+        results = await self._client.short_term.search_messages(
+            query=query,
+            limit=limit,
+        )
+        return [
+            {
+                "content": r.content,
+                "role": r.role.value if hasattr(r.role, "value") else str(r.role),
+                "metadata": r.metadata,
+            }
+            for r in results
+        ]
+
+    async def store_finding(
+        self,
+        content: str,
+        session_id: str = "default",
+        category: str = "investigation",
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Store an investigation finding as a message."""
+        await self._client.short_term.add_message(
+            session_id=session_id,
+            role="assistant",
+            content=content,
+            metadata={"category": category, **(metadata or {})},
+        )
+
+    async def add_session(
+        self,
+        session_id: str,
+        messages: list[dict[str, str]],
+    ) -> None:
+        """Store a batch of conversation messages."""
+        for msg in messages:
+            await self._client.short_term.add_message(
+                session_id=session_id,
+                role=msg.get("role", "user"),
+                content=msg.get("content", ""),
+            )
+
+    async def clear_session(self, session_id: str) -> None:
+        """Clear all messages for a session (placeholder)."""
+        logger.info(f"Clear session {session_id} requested (not yet implemented)")
 
 
 # Global service instance
