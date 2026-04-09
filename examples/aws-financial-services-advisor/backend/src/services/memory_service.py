@@ -9,6 +9,7 @@ from uuid import UUID
 
 from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings
 from neo4j_agent_memory.config import EmbeddingConfig, EmbeddingProvider, Neo4jConfig
+from neo4j_agent_memory.memory.long_term import DeduplicationConfig  # noqa: F401
 
 from ..config import get_settings
 
