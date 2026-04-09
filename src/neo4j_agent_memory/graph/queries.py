@@ -362,6 +362,34 @@ RETURN node AS f, score
 ORDER BY score DESC
 """
 
+FIND_DUPLICATE_FACTS = """
+CALL db.index.vector.queryNodes('fact_embedding_idx', $limit, $embedding)
+YIELD node, score
+WHERE score >= $threshold
+  AND node.subject = $subject
+  AND node.predicate = $predicate
+RETURN node AS f, score
+ORDER BY score DESC
+"""
+
+UPDATE_FACT_CONFIDENCE = """
+MATCH (f:Fact {id: $id})
+SET f.confidence = CASE
+    WHEN $confidence > f.confidence THEN $confidence ELSE f.confidence END,
+    f.object = CASE
+    WHEN $confidence > f.confidence THEN $object ELSE f.object END
+RETURN f
+"""
+
+FIND_DUPLICATE_PREFERENCES = """
+CALL db.index.vector.queryNodes('preference_embedding_idx', $limit, $embedding)
+YIELD node, score
+WHERE score >= $threshold
+  AND node.category = $category
+RETURN node AS p, score
+ORDER BY score DESC
+"""
+
 GET_ENTITY_RELATIONSHIPS = """
 MATCH (e:Entity {id: $entity_id})-[r:RELATED_TO]-(other:Entity)
 RETURN e, r, other
