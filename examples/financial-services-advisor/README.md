@@ -2,6 +2,8 @@
 
 A multi-agent AI compliance investigation system powered by [Neo4j Agent Memory](https://github.com/neo4j-labs/agent-memory) Context Graphs. A supervisor agent orchestrates four specialist agents (KYC, AML, Relationship, Compliance) to investigate customers, detect money laundering patterns, trace shell company networks, and screen sanctions lists -- all backed by real Neo4j graph queries.
 
+![agent chat](img/beneficial-ownership.png)
+
 This example is implemented twice using different cloud AI platforms, demonstrating how the same graph-powered agent architecture works across providers:
 
 | | [AWS Implementation](aws-financial-services-advisor/) | [Google Cloud Implementation](google-cloud-financial-advisor/) |
@@ -25,6 +27,8 @@ Ask a question like *"Investigate customer CUST-003 for potential money launderi
 4. **Relationship Agent** maps the entity network via Neo4j graph traversal, detects shell companies (Cayman, Seychelles, BVI), traces beneficial ownership chains
 5. **Compliance Agent** screens against sanctions lists, checks PEP status, generates SAR report drafts
 6. **Supervisor** synthesizes all findings into a comprehensive risk assessment with recommendations
+
+![agent chat](img/aml-wire-transfer.png)
 
 All tool results come from real Cypher queries against Neo4j -- not simulated data.
 
@@ -74,6 +78,22 @@ The sample data creates this graph structure:
 ```
 
 ---
+
+## Alerts
+
+![automated alerts](img/alerts.png)
+
+## Investigations
+
+Creating a new investigation manually:
+
+![agent chat](img/create-investigation.png)
+
+Example:
+
+![agent chat](img/investigations.png)
+
+## Alerts
 
 ## Sample Data
 
