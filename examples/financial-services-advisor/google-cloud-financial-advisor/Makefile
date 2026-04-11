@@ -1,31 +1,38 @@
 # Makefile for Google Cloud Financial Advisor
 
-.PHONY: help install dev build start stop clean load-data deploy logs test lint format
+.PHONY: help install dev run run-backend run-frontend build start stop clean load-data deploy logs test lint format
 
 help:
 	@echo "Google Cloud Financial Advisor - Development Commands"
 	@echo ""
-	@echo "Local Development:"
-	@echo "  make install     - Install backend (uv) and frontend (npm) dependencies"
-	@echo "  make dev         - Start development servers (backend + frontend)"
-	@echo "  make start       - Start all services with Docker Compose"
-	@echo "  make stop        - Stop all services"
-	@echo "  make logs        - View service logs"
-	@echo "  make load-data   - Load sample data into Neo4j"
+	@echo "Setup:"
+	@echo "  make install          - Install backend (uv) and frontend (npm) dependencies"
+	@echo "  make load-data        - Load sample data into Neo4j"
+	@echo ""
+	@echo "Development:"
+	@echo "  make run              - Start both backend and frontend (recommended)"
+	@echo "  make run-backend      - Start FastAPI backend only (port 8000)"
+	@echo "  make run-frontend     - Start Vite frontend only (port 5173)"
+	@echo "  make dev              - Alias for 'make run'"
+	@echo ""
+	@echo "Docker:"
+	@echo "  make start            - Start all services with Docker Compose"
+	@echo "  make stop             - Stop all services"
+	@echo "  make logs             - View service logs"
 	@echo ""
 	@echo "Code Quality:"
-	@echo "  make test        - Run backend tests"
-	@echo "  make lint        - Run linter (ruff)"
-	@echo "  make format      - Format code (ruff)"
+	@echo "  make test             - Run backend tests"
+	@echo "  make lint             - Run linter (ruff)"
+	@echo "  make format           - Format code (ruff)"
 	@echo ""
 	@echo "Build & Deploy:"
-	@echo "  make build       - Build Docker images"
-	@echo "  make deploy      - Deploy to Google Cloud Run"
+	@echo "  make build            - Build Docker images"
+	@echo "  make deploy           - Deploy to Google Cloud Run"
 	@echo ""
 	@echo "Cleanup:"
-	@echo "  make clean       - Remove containers and volumes"
+	@echo "  make clean            - Remove containers and volumes"
 
-# Local Development
+# Setup
 install:
 	@echo "Installing backend dependencies with uv..."
 	cd backend && uv sync
@@ -33,17 +40,32 @@ install:
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
 	@echo ""
-	@echo "Done! Run 'make dev' to start development servers."
+	@echo "Done! Run 'make run' to start development servers."
 
-dev:
-	@echo "Starting development environment..."
-	@echo "This will start backend, and frontend."
+# Run both backend and frontend concurrently
+run:
+	@echo "Starting Google Cloud Financial Advisor..."
+	@echo "  Backend:  http://localhost:8000"
+	@echo "  Frontend: http://localhost:5173"
+	@echo "  API Docs: http://localhost:8000/docs"
 	@echo ""
-	@echo "Starting backend (http://localhost:8000)..."
-	cd backend && uv run uvicorn src.main:app --reload --port 8000 &
+	@echo "Press Ctrl+C to stop both servers."
 	@echo ""
-	@echo "Starting frontend (http://localhost:5173)..."
+	@trap 'kill 0' INT; \
+	(cd backend && uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000) & \
+	(cd frontend && npm run dev) & \
+	wait
+
+# Run backend only
+run-backend:
+	cd backend && uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+
+# Run frontend only
+run-frontend:
 	cd frontend && npm run dev
+
+# Alias for run
+dev: run
 
 start:
 	docker-compose up -d
