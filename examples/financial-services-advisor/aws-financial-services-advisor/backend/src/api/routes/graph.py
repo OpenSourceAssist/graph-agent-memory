@@ -153,3 +153,18 @@ async def get_graph_statistics(request: Request) -> dict[str, Any]:
     """Get statistics about the Context Graph."""
     neo4j_service = _get_neo4j_service(request)
     return await neo4j_service.get_graph_stats()
+
+
+@router.get("/memory")
+async def get_memory_graph(
+    request: Request,
+    session_id: str | None = Query(None, description="Filter by session"),
+    limit: int = Query(500, ge=1, le=2000),
+) -> dict[str, Any]:
+    """Get the full memory graph for NVL visualization.
+
+    Returns domain nodes (Customer, Organization, Transaction, Alert, etc.)
+    and their relationships in a format suitable for the Neo4j Visualization Library.
+    """
+    neo4j_service = _get_neo4j_service(request)
+    return await neo4j_service.get_memory_graph(session_id=session_id, limit=limit)

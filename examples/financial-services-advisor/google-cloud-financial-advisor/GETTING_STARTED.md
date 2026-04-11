@@ -158,6 +158,8 @@ The chat supports **real-time SSE streaming** -- you'll see animated agent cards
 
 ## Architecture
 
+![Google Cloud Financial Advisor Architecture](img/architecture.png)
+
 The supervisor agent orchestrates 4 specialist agents, all with Neo4j-backed tools:
 
 | Agent | Tools | Data Source |

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from ...services.memory_service import (
@@ -224,3 +224,16 @@ async def get_graph_stats(
     except Exception as e:
         logger.error(f"Error getting stats: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/memory")
+async def get_memory_graph(
+    request: Request,
+    session_id: str | None = Query(None, description="Filter by session"),
+    limit: int = Query(500, ge=1, le=2000),
+) -> dict[str, Any]:
+    """Get the full memory graph for NVL visualization."""
+    neo4j_service = getattr(request.app.state, "neo4j_service", None)
+    if neo4j_service is None:
+        raise HTTPException(status_code=503, detail="Neo4j service not available")
+    return await neo4j_service.get_memory_graph(session_id=session_id, limit=limit)

@@ -149,6 +149,15 @@ async def chat_stream(request: ChatRequest, req: Request) -> StreamingResponse:
             metadata={"agent": "supervisor"},
         )
 
+        # Trigger entity extraction on the conversation
+        try:
+            await memory_service.add_session(session_id, [
+                {"role": "user", "content": request.message},
+                {"role": "assistant", "content": response_text},
+            ], extract_entities=True)
+        except Exception as e:
+            logger.warning(f"Entity extraction failed: {e}")
+
         # Record reasoning trace
         trace_id = None
         try:
@@ -241,6 +250,15 @@ async def chat_with_agent(request: ChatRequest, req: Request) -> ChatResponse:
             content=response_text,
             metadata={"agent": "supervisor"},
         )
+
+        # Trigger entity extraction
+        try:
+            await memory_service.add_session(session_id, [
+                {"role": "user", "content": request.message},
+                {"role": "assistant", "content": response_text},
+            ], extract_entities=True)
+        except Exception as e:
+            logger.warning(f"Entity extraction failed: {e}")
 
         # Record reasoning trace
         try:

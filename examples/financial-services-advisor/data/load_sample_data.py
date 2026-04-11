@@ -61,6 +61,7 @@ async def load_data(uri: str, user: str, password: str) -> None:
             "CREATE CONSTRAINT alert_id IF NOT EXISTS FOR (a:Alert) REQUIRE a.id IS UNIQUE",
             "CREATE CONSTRAINT sanctioned_entity_name IF NOT EXISTS FOR (s:SanctionedEntity) REQUIRE s.name IS UNIQUE",
             "CREATE CONSTRAINT pep_name IF NOT EXISTS FOR (p:PEP) REQUIRE p.name IS UNIQUE",
+            "CREATE CONSTRAINT investigation_id IF NOT EXISTS FOR (i:Investigation) REQUIRE i.id IS UNIQUE",
         ]
         for constraint in constraints:
             try:

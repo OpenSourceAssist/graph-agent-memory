@@ -32,33 +32,9 @@ All tool results come from real Cypher queries against Neo4j -- not simulated da
 
 ## Architecture
 
-```
-                    +------------------+
-                    |   Supervisor     |
-                    |   Agent          |
-                    +--------+---------+
-                             |
-              +--------------+--------------+
-              |              |              |              |
-        +-----+----+  +-----+----+  +------+-----+  +----+-------+
-        | KYC      |  | AML      |  | Relationship|  | Compliance |
-        | Agent    |  | Agent    |  | Agent       |  | Agent      |
-        +-----+----+  +-----+----+  +------+-----+  +----+-------+
-              |              |              |              |
-        +-----+----+  +-----+----+  +------+-----+  +----+-------+
-        | verify   |  | scan     |  | find       |  | check      |
-        | identity |  | txns     |  | connections|  | sanctions  |
-        | check    |  | detect   |  | detect     |  | verify     |
-        | docs     |  | patterns |  | shells     |  | PEP        |
-        | assess   |  | flag     |  | map        |  | generate   |
-        | risk     |  | suspicious| | ownership  |  | SAR        |
-        +----------+  +----------+  +------------+  +------------+
-                             |
-                    +--------+---------+
-                    |   Neo4j          |
-                    |   Context Graph  |
-                    +------------------+
-```
+| AWS (Strands + Bedrock) | Google Cloud (ADK + Gemini) |
+|:-:|:-:|
+| ![AWS Architecture](aws-financial-services-advisor/img/architecture.png) | ![GCP Architecture](google-cloud-financial-advisor/img/architecture.png) |
 
 ### Multi-Agent System
 

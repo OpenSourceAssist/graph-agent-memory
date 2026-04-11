@@ -404,3 +404,124 @@ class Neo4jDomainService:
             "nodes_by_label": {r["label"]: r["count"] for r in nodes},
             "relationships_by_type": {r["type"]: r["count"] for r in rels},
         }
+
+    # ── Investigations ─────────────────────────────────────────────────
+
+    async def create_investigation(self, investigation: dict[str, Any]) -> dict[str, Any]:
+        """Create an Investigation node linked to a Customer."""
+        query = """
+        MATCH (c:Customer {id: $customer_id})
+        MERGE (i:Investigation {id: $id})
+        ON CREATE SET
+            i.title = $title, i.description = $description,
+            i.status = $status, i.priority = $priority,
+            i.trigger = $trigger, i.created_at = datetime(),
+            i.customer_id = $customer_id
+        MERGE (c)-[:HAS_INVESTIGATION]->(i)
+        RETURN i {.*, customer_id: c.id, customer_name: c.name} AS investigation
+        """
+        inv_id = investigation.get("id", f"INV-{uuid.uuid4().hex[:8].upper()}")
+        results = await self._graph.execute_write(query, {
+            "customer_id": investigation["customer_id"],
+            "id": inv_id,
+            "title": investigation.get("title", ""),
+            "description": investigation.get("description", ""),
+            "status": investigation.get("status", "PENDING"),
+            "priority": investigation.get("priority", "MEDIUM"),
+            "trigger": investigation.get("trigger", ""),
+        })
+        return results[0]["investigation"] if results else {**investigation, "id": inv_id}
+
+    async def get_investigation(self, investigation_id: str) -> dict[str, Any] | None:
+        """Get an investigation by ID."""
+        query = """
+        MATCH (c:Customer)-[:HAS_INVESTIGATION]->(i:Investigation {id: $id})
+        RETURN i {.*, customer_id: c.id, customer_name: c.name} AS investigation
+        """
+        results = await self._graph.execute_read(query, {"id": investigation_id})
+        return results[0]["investigation"] if results else None
+
+    async def list_investigations(self, *, status: str | None = None, customer_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        """List investigations with optional filters."""
+        filters = []
+        params: dict[str, Any] = {"limit": limit}
+        if status:
+            filters.append("i.status = $status")
+            params["status"] = status
+        if customer_id:
+            filters.append("c.id = $customer_id")
+            params["customer_id"] = customer_id
+        where = ("WHERE " + " AND ".join(filters)) if filters else ""
+        query = f"""
+        MATCH (c:Customer)-[:HAS_INVESTIGATION]->(i:Investigation)
+        {where}
+        RETURN i {{.*, customer_id: c.id, customer_name: c.name}} AS investigation
+        ORDER BY i.created_at DESC
+        LIMIT $limit
+        """
+        results = await self._graph.execute_read(query, params)
+        return [r["investigation"] for r in results]
+
+    async def update_investigation(self, investigation_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
+        """Update investigation properties."""
+        set_clauses = []
+        params: dict[str, Any] = {"id": investigation_id}
+        for key, value in updates.items():
+            if key in ("status", "priority", "conclusion", "summary", "overall_risk_level"):
+                set_clauses.append(f"i.{key} = ${key}")
+                params[key] = value
+        if updates.get("status") == "IN_PROGRESS":
+            set_clauses.append("i.started_at = datetime()")
+        elif updates.get("status") == "COMPLETED":
+            set_clauses.append("i.completed_at = datetime()")
+        if not set_clauses:
+            return await self.get_investigation(investigation_id)
+        query = f"""
+        MATCH (c:Customer)-[:HAS_INVESTIGATION]->(i:Investigation {{id: $id}})
+        SET {", ".join(set_clauses)}, i.updated_at = datetime()
+        RETURN i {{.*, customer_id: c.id, customer_name: c.name}} AS investigation
+        """
+        results = await self._graph.execute_write(query, params)
+        return results[0]["investigation"] if results else None
+
+    # ── Memory Graph (for NVL visualization) ───────────────────────────
+
+    async def get_memory_graph(self, *, session_id: str | None = None, limit: int = 500) -> dict[str, Any]:
+        """Get a subgraph of domain + memory data for NVL visualization."""
+        query = """
+        MATCH (n)
+        WHERE n:Customer OR n:Organization OR n:Transaction OR n:Alert
+           OR n:SanctionedEntity OR n:PEP OR n:Investigation
+        WITH n LIMIT $limit
+        OPTIONAL MATCH (n)-[r]-(m)
+        RETURN
+            collect(DISTINCT {
+                id: coalesce(n.id, n.name, toString(id(n))),
+                label: coalesce(n.name, n.id, n.title),
+                labels: labels(n),
+                properties: properties(n)
+            }) AS nodes,
+            collect(DISTINCT {
+                id: toString(id(r)),
+                from: coalesce(startNode(r).id, startNode(r).name, toString(id(startNode(r)))),
+                to: coalesce(endNode(r).id, endNode(r).name, toString(id(endNode(r)))),
+                type: type(r),
+                properties: properties(r)
+            }) AS relationships
+        """
+        results = await self._graph.execute_read(query, {"limit": limit})
+        if not results:
+            return {"nodes": [], "relationships": []}
+        row = results[0]
+        # Deduplicate nodes by id
+        seen_nodes = {}
+        for n in row.get("nodes", []):
+            nid = n.get("id")
+            if nid and nid not in seen_nodes:
+                seen_nodes[nid] = n
+        seen_rels = {}
+        for r in row.get("relationships", []):
+            rid = r.get("id")
+            if rid and rid not in seen_rels and r.get("from") and r.get("to"):
+                seen_rels[rid] = r
+        return {"nodes": list(seen_nodes.values()), "relationships": list(seen_rels.values())}

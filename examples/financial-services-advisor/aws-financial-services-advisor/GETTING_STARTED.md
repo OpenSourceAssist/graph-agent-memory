@@ -263,6 +263,8 @@ The supervisor agent will delegate to specialized sub-agents (KYC, AML, Relation
 
 ## Architecture Overview
 
+![AWS Financial Services Advisor Architecture](img/architecture.png)
+
 ### Multi-Agent System
 
 The supervisor agent orchestrates 4 specialist agents, each with Neo4j-backed tools:

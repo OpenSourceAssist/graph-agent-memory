@@ -31,9 +31,17 @@ from ...services.memory_service import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/investigations", tags=["investigations"])
 
-# Demo-only: in-memory storage. Use a database for production.
-_investigations: dict[str, Investigation] = {}
+# ADK session service (in-memory for agent state, separate from investigation persistence)
 session_service = InMemorySessionService()
+
+# In-memory cache for investigations not yet in Neo4j (fallback)
+_investigations: dict[str, Investigation] = {}
+
+
+def _get_neo4j_service(request):
+    """Get Neo4jDomainService from app state."""
+    svc = getattr(request.app.state, "neo4j_service", None)
+    return svc
 
 
 @router.get("", response_model=list[Investigation])
@@ -94,8 +102,23 @@ async def create_investigation(
     )
 
     _investigations[investigation_id] = investigation
-    logger.info(f"Created investigation {investigation_id}")
 
+    # Also persist to Neo4j
+    neo4j_service = _get_neo4j_service(raw_request)
+    if neo4j_service:
+        try:
+            await neo4j_service.create_investigation({
+                "id": investigation_id,
+                "customer_id": request.customer_id,
+                "title": request.reason,
+                "description": f"Type: {request.type.value}, Priority: {request.priority}",
+                "trigger": request.reason,
+                "priority": request.priority,
+            })
+        except Exception as e:
+            logger.warning(f"Failed to persist investigation to Neo4j: {e}")
+
+    logger.info(f"Created investigation {investigation_id}")
     return investigation
 
 

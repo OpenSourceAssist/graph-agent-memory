@@ -266,13 +266,20 @@ class FinancialMemoryService:
         self,
         session_id: str,
         messages: list[dict[str, str]],
+        extract_entities: bool = True,
     ) -> None:
-        """Store a batch of conversation messages."""
+        """Store a batch of conversation messages with optional entity extraction.
+
+        When extract_entities is True, the extraction pipeline (spaCy, GLiNER,
+        LLM) runs on each message to populate the knowledge graph with entities
+        like PERSON, ORGANIZATION, LOCATION mentioned in the conversation.
+        """
         for msg in messages:
             await self._client.short_term.add_message(
                 session_id=session_id,
                 role=msg.get("role", "user"),
                 content=msg.get("content", ""),
+                extract_entities=extract_entities,
             )
 
     async def clear_session(self, session_id: str) -> None:

@@ -5,6 +5,7 @@ import CustomerDashboard from './components/Dashboard/CustomerDashboard'
 import ChatInterface from './components/Chat/ChatInterface'
 import InvestigationPanel from './components/Investigation/InvestigationPanel'
 import AlertsPanel from './components/Dashboard/AlertsPanel'
+import MemoryGraphView from './components/Graph/MemoryGraphView'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
             <Route path="/customers" element={<CustomerDashboard />} />
             <Route path="/investigations" element={<InvestigationPanel />} />
             <Route path="/alerts" element={<AlertsPanel />} />
+            <Route path="/graph" element={<MemoryGraphView />} />
           </Routes>
         </Box>
       </Flex>
