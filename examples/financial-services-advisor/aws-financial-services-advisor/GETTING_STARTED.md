@@ -145,7 +145,7 @@ cd ..
 
 ## Step 5: Load Sample Data
 
-The application includes sample financial data (3 customers, 16 transactions, sanctions lists, PEP entries, and compliance alerts). Load it into Neo4j:
+Both the AWS and Google Cloud examples share the same sample data in the parent `data/` directory (3 customers, 16 transactions, sanctions lists, PEP entries, and compliance alerts). Load it into Neo4j:
 
 ```bash
 make load-data
@@ -506,7 +506,7 @@ aws-financial-services-advisor/
 │   │       └── Graph/           # Graph visualization
 │   ├── package.json             # Dependencies (incl. framer-motion)
 │   └── vite.config.ts           # Vite config with API proxy
-├── data/                        # Sample financial data
+../data/                         # Shared sample data (sibling directory)
 │   ├── customers.json           # 3 customers (low/medium/high risk)
 │   ├── organizations.json       # 6 organizations incl. shell companies
 │   ├── transactions.json        # 16 transactions with AML patterns

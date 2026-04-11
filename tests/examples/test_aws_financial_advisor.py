@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
-APP_DIR = EXAMPLES_DIR / "aws-financial-services-advisor"
+APP_DIR = EXAMPLES_DIR / "financial-services-advisor" / "aws-financial-services-advisor"
 
 
 class TestAWSFinancialAdvisorStructure:

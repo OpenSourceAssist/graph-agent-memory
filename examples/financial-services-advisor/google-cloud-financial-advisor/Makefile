@@ -64,7 +64,7 @@ logs:
 
 load-data:
 	@echo "Loading sample data into Neo4j..."
-	cd backend && uv run python ../data/load_sample_data.py
+	cd backend && uv run python ../../data/load_sample_data.py
 	@echo "Done!"
 
 # Code Quality

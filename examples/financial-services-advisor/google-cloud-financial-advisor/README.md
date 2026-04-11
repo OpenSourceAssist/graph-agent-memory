@@ -241,7 +241,7 @@ make load-data
 Or manually:
 
 ```bash
-cd backend && uv run python ../data/load_sample_data.py
+cd backend && uv run python ../../data/load_sample_data.py
 ```
 
 You should see output like:

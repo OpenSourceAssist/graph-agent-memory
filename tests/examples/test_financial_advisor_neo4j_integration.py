@@ -26,7 +26,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 EXAMPLES_DIR = Path(__file__).parent.parent.parent / "examples"
-APP_DIR = EXAMPLES_DIR / "google-cloud-financial-advisor"
+APP_DIR = EXAMPLES_DIR / "financial-services-advisor" / "google-cloud-financial-advisor"
 BACKEND_SRC = APP_DIR / "backend" / "src"
 
 
@@ -1167,13 +1167,13 @@ class TestNewFileStructure:
         assert (app_dir / "backend" / "src" / "services" / "neo4j_service.py").exists()
 
     def test_sanctions_json_exists(self, app_dir):
-        assert (app_dir / "data" / "sanctions.json").exists()
+        assert (app_dir.parent / "data" / "sanctions.json").exists()
 
     def test_pep_json_exists(self, app_dir):
-        assert (app_dir / "data" / "pep.json").exists()
+        assert (app_dir.parent / "data" / "pep.json").exists()
 
     def test_alerts_json_exists(self, app_dir):
-        assert (app_dir / "data" / "alerts.json").exists()
+        assert (app_dir.parent / "data" / "alerts.json").exists()
 
     def test_neo4j_service_has_expected_methods(self, app_dir):
         content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text()

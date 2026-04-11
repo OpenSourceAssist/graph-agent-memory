@@ -22,7 +22,7 @@ class TestGoogleCloudFinancialAdvisor:
     @pytest.fixture
     def app_dir(self):
         """Path to the google-cloud-financial-advisor example."""
-        return EXAMPLES_DIR / "google-cloud-financial-advisor"
+        return EXAMPLES_DIR / "financial-services-advisor" / "google-cloud-financial-advisor"
 
     def test_app_directory_exists(self, app_dir):
         """Verify the example directory exists."""
