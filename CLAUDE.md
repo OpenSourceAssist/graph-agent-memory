@@ -2039,7 +2039,7 @@ See `examples/lennys-memory/README.md` for a full deep dive.
 
 ## Google Cloud Financial Advisor Example
 
-Located in `examples/google-cloud-financial-advisor/`, this demonstrates the Google Cloud ecosystem integration with a multi-agent compliance investigation app.
+Located in `examples/financial-services-advisor/google-cloud-financial-advisor/`, this demonstrates the Google Cloud ecosystem integration with a multi-agent compliance investigation app.
 
 ### Tech Stack
 - **Backend**: FastAPI + Google ADK (Agent Development Kit) + neo4j-agent-memory
@@ -2231,7 +2231,7 @@ make dev
 - `tests/examples/test_google_cloud_financial_advisor.py` - Structure validation tests (directory structure, file existence, dependencies)
 - `tests/examples/test_financial_advisor_neo4j_integration.py` - Unit tests: Neo4jDomainService, tool functions, route helpers, _bind_tool, SSE helpers, traces route, structure validation
 
-See `examples/google-cloud-financial-advisor/README.md` for the full getting started tutorial.
+See `examples/financial-services-advisor/google-cloud-financial-advisor/README.md` for the full getting started tutorial.
 
 ## Documentation
 

@@ -1,86 +1,54 @@
 [
   {
-    "name": "Global Trade Ltd",
-    "type": "corporation",
-    "jurisdiction": "UK",
-    "industry": "import_export",
-    "registration_number": "UK-12345678",
-    "incorporation_date": "2018-03-15",
-    "address": "100 Trade Street, London, UK"
+    "id": "ORG-001",
+    "name": "Garcia Trading LLC",
+    "type": "ORGANIZATION",
+    "jurisdiction": "US-FL",
+    "business_type": "Import/Export",
+    "owners": ["CUST-002"],
+    "connections": ["Supplier Co - Panama"]
   },
   {
-    "name": "Pacific Holdings BVI",
-    "type": "holding_company",
+    "id": "ORG-002",
+    "name": "Shell Corp - Cayman",
+    "type": "ORGANIZATION",
+    "jurisdiction": "KY",
+    "business_type": "Investment",
+    "shell_indicators": ["no_employees", "po_box_address", "nominee_directors"],
+    "connections": ["CUST-003", "Anonymous Trust - Seychelles"]
+  },
+  {
+    "id": "ORG-003",
+    "name": "Anonymous Trust - Seychelles",
+    "type": "ORGANIZATION",
+    "jurisdiction": "SC",
+    "business_type": "Trust",
+    "shell_indicators": ["opaque_structure", "high_risk_jurisdiction"],
+    "connections": ["Shell Corp - Cayman", "CUST-003", "Unknown Beneficial Owner"]
+  },
+  {
+    "id": "ORG-004",
+    "name": "Nominee Director Services Ltd",
+    "type": "ORGANIZATION",
     "jurisdiction": "BVI",
-    "industry": "investment",
-    "registration_number": "BVI-2019-5678",
-    "incorporation_date": "2019-07-22",
-    "address": "Road Town, Tortola, BVI",
-    "shell_indicators": ["registered_agent_address", "no_employees", "offshore_jurisdiction"]
+    "business_type": "Corporate Services",
+    "role": "nominee_services",
+    "connections": ["CUST-003", "Shell Corp - Cayman"]
   },
   {
-    "name": "Offshore Services Ltd",
-    "type": "service_company",
-    "jurisdiction": "Cayman Islands",
-    "industry": "financial_services",
-    "registration_number": "KY-2020-9999",
-    "incorporation_date": "2020-01-10",
-    "address": "George Town, Grand Cayman",
-    "shell_indicators": ["registered_agent_address", "nominee_directors", "offshore_jurisdiction"]
+    "id": "ORG-005",
+    "name": "Tech Corp Inc",
+    "type": "ORGANIZATION",
+    "jurisdiction": "US-NY",
+    "business_type": "Technology",
+    "connections": ["CUST-001"]
   },
   {
-    "name": "Dubai Gold Souk Trading",
-    "type": "trading_company",
-    "jurisdiction": "AE",
-    "industry": "precious_metals",
-    "registration_number": "DXB-TRD-2017-001",
-    "incorporation_date": "2017-05-01",
-    "address": "Gold Souk, Deira, Dubai, UAE"
-  },
-  {
-    "name": "Industrial Machinery Corp",
-    "type": "manufacturer",
-    "jurisdiction": "CN",
-    "industry": "manufacturing",
-    "registration_number": "CN-SH-2015-88888",
-    "incorporation_date": "2015-09-20",
-    "address": "Shanghai, China"
-  },
-  {
-    "name": "Citizens for Progress PAC",
-    "type": "political_organization",
-    "jurisdiction": "US",
-    "industry": "political",
-    "registration_number": "FEC-PAC-2022-001",
-    "incorporation_date": "2022-01-15",
-    "address": "Washington, DC, USA"
-  },
-  {
-    "name": "TechStartup Inc",
-    "type": "startup",
-    "jurisdiction": "US",
-    "industry": "technology",
-    "registration_number": "DE-2023-TECH-001",
-    "incorporation_date": "2023-06-01",
-    "address": "San Francisco, CA, USA"
-  },
-  {
-    "name": "Caribbean International Bank",
-    "type": "bank",
-    "jurisdiction": "BVI",
-    "industry": "banking",
-    "registration_number": "BVI-BANK-2010-001",
-    "incorporation_date": "2010-04-15",
-    "address": "Road Town, Tortola, BVI"
-  },
-  {
-    "name": "Shell Holdings Panamá SA",
-    "type": "holding_company",
+    "id": "ORG-006",
+    "name": "Supplier Co - Panama",
+    "type": "ORGANIZATION",
     "jurisdiction": "PA",
-    "industry": "investment",
-    "registration_number": "PA-2018-SHELL-123",
-    "incorporation_date": "2018-11-30",
-    "address": "Panama City, Panama",
-    "shell_indicators": ["bearer_shares", "nominee_directors", "no_operations", "offshore_jurisdiction"]
+    "business_type": "Trading",
+    "connections": ["Garcia Trading LLC", "CUST-002"]
   }
 ]
