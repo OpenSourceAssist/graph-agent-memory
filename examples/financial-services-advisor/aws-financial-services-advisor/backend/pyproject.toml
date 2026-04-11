@@ -66,7 +66,7 @@ package = true
 
 [tool.uv.sources]
 # For local development, use the editable path:
-neo4j-agent-memory = { path = "../../..", editable = true }
+neo4j-agent-memory = { path = "../../../..", editable = true }
 # For deployment/production, use the Git URL:
 # neo4j-agent-memory = { git = "https://github.com/neo4j-labs/agent-memory" }
 

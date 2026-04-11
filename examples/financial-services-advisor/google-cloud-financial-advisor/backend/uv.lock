@@ -713,7 +713,7 @@ requires-dist = [
     { name = "google-genai", specifier = ">=0.3.0" },
     { name = "httpx", specifier = ">=0.26.0" },
     { name = "neo4j", specifier = ">=5.14.0" },
-    { name = "neo4j-agent-memory", extras = ["google-adk", "vertex-ai"], editable = "../../../" },
+    { name = "neo4j-agent-memory", extras = ["google-adk", "vertex-ai"], editable = "../../../../" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "pydantic-settings", specifier = ">=2.1.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
@@ -1526,8 +1526,8 @@ wheels = [
 
 [[package]]
 name = "neo4j-agent-memory"
-version = "0.0.3"
-source = { editable = "../../../" }
+version = "0.1.0"
+source = { editable = "../../../../" }
 dependencies = [
     { name = "neo4j" },
     { name = "pydantic" },
@@ -1544,9 +1544,14 @@ vertex-ai = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agent-framework", marker = "extra == 'microsoft-agent'", specifier = ">=1.0.0b260212" },
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.20.0" },
+    { name = "boto3", marker = "extra == 'aws'", specifier = ">=1.26.0" },
+    { name = "boto3", marker = "extra == 'bedrock'", specifier = ">=1.26.0" },
+    { name = "boto3", marker = "extra == 'strands'", specifier = ">=1.26.0" },
     { name = "click", marker = "extra == 'cli'", specifier = ">=8.0.0" },
     { name = "crewai", marker = "extra == 'crewai'", specifier = ">=0.50.0" },
+    { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.0.0,<3" },
     { name = "gliner", marker = "extra == 'extraction'", specifier = ">=0.2.0" },
     { name = "gliner", marker = "extra == 'gliner'", specifier = ">=0.2.0" },
     { name = "google-adk", marker = "extra == 'google-adk'", specifier = ">=0.1.0" },
@@ -1554,10 +1559,9 @@ requires-dist = [
     { name = "google-cloud-aiplatform", marker = "extra == 'vertex-ai'", specifier = ">=1.38.0" },
     { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=0.2.0" },
     { name = "llama-index-core", marker = "extra == 'llamaindex'", specifier = ">=0.10.0" },
-    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "neo4j", specifier = ">=5.20.0" },
     { name = "neo4j-agent-memory", extras = ["all", "sentence-transformers", "spacy", "gliner"], marker = "extra == 'full'" },
-    { name = "neo4j-agent-memory", extras = ["openai", "anthropic", "fuzzy", "langchain", "llamaindex", "pydantic-ai", "crewai", "openai-agents"], marker = "extra == 'all'" },
+    { name = "neo4j-agent-memory", extras = ["openai", "anthropic", "fuzzy", "langchain", "llamaindex", "pydantic-ai", "crewai", "openai-agents", "microsoft-agent"], marker = "extra == 'all'" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.0.0" },
     { name = "openai", marker = "extra == 'openai-agents'", specifier = ">=1.0.0" },
     { name = "opentelemetry-api", marker = "extra == 'observability'", specifier = ">=1.20.0" },
@@ -1574,12 +1578,14 @@ requires-dist = [
     { name = "sentence-transformers", marker = "extra == 'sentence-transformers'", specifier = ">=2.2.0" },
     { name = "spacy", marker = "extra == 'extraction'", specifier = ">=3.7.0" },
     { name = "spacy", marker = "extra == 'spacy'", specifier = ">=3.7.0" },
+    { name = "strands-agents", marker = "extra == 'strands'", specifier = ">=0.1.0" },
 ]
-provides-extras = ["openai", "anthropic", "sentence-transformers", "vertex-ai", "google", "spacy", "gliner", "extraction", "fuzzy", "cli", "opentelemetry", "opik", "observability", "langchain", "llamaindex", "pydantic-ai", "crewai", "openai-agents", "mcp", "google-adk", "all", "full"]
+provides-extras = ["openai", "anthropic", "sentence-transformers", "vertex-ai", "bedrock", "google", "aws", "strands", "spacy", "gliner", "extraction", "fuzzy", "cli", "opentelemetry", "opik", "observability", "langchain", "llamaindex", "pydantic-ai", "crewai", "openai-agents", "microsoft-agent", "mcp", "google-adk", "all", "full"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
+    { name = "fastmcp", specifier = ">=2.0.0,<3" },
     { name = "mypy", specifier = ">=1.8.0" },
     { name = "pre-commit", specifier = ">=3.6.0" },
     { name = "pytest", specifier = ">=8.0.0" },
