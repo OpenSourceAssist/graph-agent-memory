@@ -3,7 +3,7 @@ import { Box, Heading, Text, Spinner, Flex, Badge, HStack } from '@chakra-ui/rea
 import { InteractiveNvlWrapper } from '@neo4j-nvl/react'
 import type { Node, Relationship } from '@neo4j-nvl/base'
 import { LuNetwork, LuRefreshCw } from 'react-icons/lu'
-import api from '../../lib/api'
+const API_BASE = '/api'
 
 const NODE_COLORS: Record<string, string> = {
   Customer: '#68BDF6',
@@ -52,7 +52,8 @@ export default function MemoryGraphView() {
     setLoading(true)
     setError(null)
     try {
-      const { data } = await api.get('/graph/memory', { params: { limit: 500 } })
+      const res = await fetch(`${API_BASE}/graph/memory?limit=500`)
+      const data = await res.json()
       setGraphData(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load graph')
@@ -67,9 +68,8 @@ export default function MemoryGraphView() {
 
   const fetchNeighbors = useCallback(async (nodeId: string) => {
     try {
-      const { data } = await api.get(`/graph/neighbors/${encodeURIComponent(nodeId)}`, {
-        params: { depth: 1, limit: 20 },
-      })
+      const res = await fetch(`${API_BASE}/graph/neighbors/${encodeURIComponent(nodeId)}?depth=1&limit=20`)
+      const data = await res.json()
       if (data.nodes && graphData) {
         const existingIds = new Set(graphData.nodes.map(n => n.id))
         const newNodes = (data.nodes as any[])
