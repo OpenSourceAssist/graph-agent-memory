@@ -17,6 +17,7 @@ from neo4j_agent_memory.integrations.google_adk.types import (
     preference_to_memory_entry,
     session_message_from_dict,
 )
+from google.adk.memory.base_memory_service import BaseMemoryService
 
 if TYPE_CHECKING:
     from neo4j_agent_memory import MemoryClient
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class Neo4jMemoryService:
+class Neo4jMemoryService(BaseMemoryService):
     """Neo4j-backed memory service for Google ADK agents.
 
     Implements the ADK MemoryService interface to provide:
@@ -51,7 +52,7 @@ class Neo4jMemoryService:
             await memory_service.add_session_to_memory(session)
 
             # Search memories
-            results = await memory_service.search_memories("project deadline")
+            results = await memory_service.search_memory("project deadline")
 
     Attributes:
         user_id: Optional user identifier for personalization.
@@ -77,6 +78,7 @@ class Neo4jMemoryService:
             include_preferences: Whether to include preferences in search.
             extract_on_store: Whether to extract entities when storing sessions.
         """
+        super().__init__()
         self._client = memory_client
         self._user_id = user_id
         self._include_entities = include_entities
@@ -143,7 +145,7 @@ class Neo4jMemoryService:
 
         logger.debug(f"Stored {len(messages)} messages for session {session_id}")
 
-    async def search_memories(
+    async def search_memory(
         self,
         query: str,
         *,
