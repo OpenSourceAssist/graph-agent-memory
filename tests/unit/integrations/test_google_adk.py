@@ -270,7 +270,7 @@ class TestNeo4jMemoryService:
         mock_memory_client.long_term.search_entities = AsyncMock(return_value=[mock_entity])
         mock_memory_client.long_term.search_preferences = AsyncMock(return_value=[mock_pref])
 
-        results = await memory_service.search_memories("project deadline")
+        results = await memory_service.search_memory("project deadline")
 
         assert len(results) == 3
         assert any(r.memory_type == "message" for r in results)
@@ -292,7 +292,7 @@ class TestNeo4jMemoryService:
 
         mock_memory_client.short_term.search_messages = AsyncMock(return_value=[])
 
-        await service.search_memories("test query")
+        await service.search_memory("test query")
 
         mock_memory_client.short_term.search_messages.assert_called_once()
         mock_memory_client.long_term.search_entities.assert_not_called()

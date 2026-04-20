@@ -145,7 +145,7 @@ from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 
 memory_service = Neo4jMemoryService(memory_client=client, user_id="user-123")
 await memory_service.add_session_to_memory(session)
-results = await memory_service.search_memories("query")
+results = await memory_service.search_memory("query")
 ----
 
 === AWS Strands Agents

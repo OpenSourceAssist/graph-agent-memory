@@ -9,6 +9,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+try:
+    from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
+except ImportError:
+    # Dummy fallback for CI/CD unit testing environments
+    BaseMemoryService = object
+    SearchMemoryResponse = Any
+
 from neo4j_agent_memory.integrations.google_adk.types import (
     MemoryEntry,
     SessionMessage,
@@ -17,7 +24,6 @@ from neo4j_agent_memory.integrations.google_adk.types import (
     preference_to_memory_entry,
     session_message_from_dict,
 )
-from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
 
 if TYPE_CHECKING:
     from neo4j_agent_memory import MemoryClient

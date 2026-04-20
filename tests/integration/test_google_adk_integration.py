@@ -66,7 +66,7 @@ class TestGoogleADKMemoryServiceIntegration:
         )
 
         # Search memories
-        results = await memory_service.search_memories(
+        results = await memory_service.search_memory(
             query="Python programming",
             limit=10,
         )
@@ -97,7 +97,7 @@ class TestGoogleADKMemoryServiceIntegration:
             include_preferences=False,
         )
 
-        results = await memory_service.search_memories(
+        results = await memory_service.search_memory(
             query="cloud computing",
             limit=10,
         )
@@ -126,7 +126,7 @@ class TestGoogleADKMemoryServiceIntegration:
             include_preferences=True,
         )
 
-        results = await memory_service.search_memories(
+        results = await memory_service.search_memory(
             query="programming language preference",
             limit=10,
         )
@@ -281,7 +281,7 @@ class TestGoogleADKMemoryServiceIntegration:
         )
 
         # 4. Search across all memory types
-        results = await memory_service.search_memories(
+        results = await memory_service.search_memory(
             query="graph database",
             limit=20,
         )
