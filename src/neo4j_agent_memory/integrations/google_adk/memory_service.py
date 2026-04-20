@@ -34,8 +34,6 @@ except ImportError:
                     class MockEntry:
                         def __init__(self, data):
                             self.id = data.get("id")
-                            self.memory_type = data.get("memory_type")
-                            self.metadata = data.get("metadata", {})
                             c_data = data.get("content", {})
                             self.content = MockContent(
                                 c_data.get("role", "user"), c_data.get("parts", [])
@@ -247,12 +245,10 @@ class Neo4jMemoryService(BaseMemoryService):
             adk_memories.append(
                 {
                     "id": str(getattr(r, "id", "default")),
-                    "memory_type": getattr(r, "memory_type", "message"),
                     "content": {
                         "role": getattr(r, "role", "user") or "user",
                         "parts": [{"text": str(getattr(r, "content", ""))}],
                     },
-                    "metadata": getattr(r, "metadata", {}) or {},
                 }
             )
 

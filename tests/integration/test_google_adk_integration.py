@@ -73,7 +73,6 @@ class TestGoogleADKMemoryServiceIntegration:
 
         assert len(results.memories) >= 1
         assert any("Python" in r.content.parts[0].text for r in results.memories)
-        assert all(r.memory_type == "message" for r in results.memories)
 
     @pytest.mark.asyncio
     async def test_search_memory_with_entities(self, memory_client, session_id):
@@ -102,9 +101,8 @@ class TestGoogleADKMemoryServiceIntegration:
             limit=10,
         )
 
-        entity_results = [r for r in results.memories if r.memory_type == "entity"]
-        assert len(entity_results) >= 1
-        assert any("Google Cloud" in r.content.parts[0].text for r in entity_results)
+        assert len(results.memories) >= 1
+        assert any("Google Cloud" in r.content.parts[0].text for r in results.memories)
 
     @pytest.mark.asyncio
     async def test_search_memory_with_preferences(self, memory_client, session_id):
@@ -131,8 +129,10 @@ class TestGoogleADKMemoryServiceIntegration:
             limit=10,
         )
 
-        pref_results = [r for r in results.memories if r.memory_type == "preference"]
-        assert len(pref_results) >= 1
+        assert len(results.memories) >= 1
+        assert any(
+            "Prefers Python over JavaScript" in r.content.parts[0].text for r in results.memories
+        )
 
     @pytest.mark.asyncio
     async def test_get_memories_for_session(self, memory_client, session_id):
@@ -286,10 +286,14 @@ class TestGoogleADKMemoryServiceIntegration:
             limit=20,
         )
 
-        # Should find messages, entities, and preferences
-        memory_types = {r.memory_type for r in results.memories}
-        assert "message" in memory_types or "entity" in memory_types
+        # Extract all text from the retrieved memories
+        texts = [r.content.parts[0].text for r in results.memories]
 
-        # 5. Get session memories
+        # Verify both the message and the entity/preference text were retrieved
+        assert any("Neo4j is a powerful graph database!" in t for t in texts)
+        assert any(
+            "Graph database company" in t or "Interested in graph databases" in t for t in texts
+        )
+
         session_memories = await memory_service.get_memories_for_session(session_id)
         assert len(session_memories) == 2

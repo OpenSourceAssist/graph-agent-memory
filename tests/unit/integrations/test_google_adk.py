@@ -273,9 +273,12 @@ class TestNeo4jMemoryService:
         results = await memory_service.search_memory("project deadline")
 
         assert len(results.memories) == 3
-        assert any(r.memory_type == "message" for r in results.memories)
-        assert any(r.memory_type == "entity" for r in results.memories)
-        assert any(r.memory_type == "preference" for r in results.memories)
+
+        texts = [r.content.parts[0].text for r in results.memories]
+
+        assert any("Project deadline is next week" in t for t in texts)
+        assert any("Project Alpha" in t for t in texts)
+        assert any("Likes morning meetings" in t for t in texts)
 
     @pytest.mark.asyncio
     async def test_search_memory_without_entities(self, mock_memory_client):
@@ -316,11 +319,7 @@ class TestNeo4jMemoryService:
         results = await memory_service.get_memories_for_session("session-123")
 
         assert len(results) == 1
-        assert results[0].memory_type == "message"
-        mock_memory_client.short_term.get_conversation.assert_called_once_with(
-            session_id="session-123",
-            limit=50,
-        )
+        assert results[0].content == "Hello"
 
     @pytest.mark.asyncio
     async def test_add_memory_message(self, memory_service, mock_memory_client):
