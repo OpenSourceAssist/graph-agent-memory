@@ -7,22 +7,43 @@ interface for persistent agent memory.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 try:
     from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
-
-    HAS_ADK = True
 except ImportError:
-    HAS_ADK = False
     BaseMemoryService = object
 
-    @dataclass
     class SearchMemoryResponse:
-        """Fallback data structure for CI environments missing google-adk."""
+        """Exact replica of ADK's response objects for CI environments."""
 
-        memories: list = field(default_factory=list)
+        def __init__(self, memories=None, **kwargs):
+            self.memories = []
+            for m in memories or []:
+                if isinstance(m, dict):
+
+                    class MockPart:
+                        def __init__(self, text):
+                            self.text = text
+
+                    class MockContent:
+                        def __init__(self, role, parts):
+                            self.role = role
+                            self.parts = [MockPart(p.get("text", "")) for p in parts]
+
+                    class MockEntry:
+                        def __init__(self, data):
+                            self.id = data.get("id")
+                            self.memory_type = data.get("memory_type")
+                            self.metadata = data.get("metadata", {})
+                            c_data = data.get("content", {})
+                            self.content = MockContent(
+                                c_data.get("role", "user"), c_data.get("parts", [])
+                            )
+
+                    self.memories.append(MockEntry(m))
+                else:
+                    self.memories.append(m)
 
 
 from neo4j_agent_memory.integrations.google_adk.types import (
@@ -221,27 +242,21 @@ class Neo4jMemoryService(BaseMemoryService):
 
         # Sort by score (descending) and limit
         results.sort(key=lambda x: x.score or 0, reverse=True)
+        adk_memories = []
+        for r in results[:limit]:
+            adk_memories.append(
+                {
+                    "id": str(getattr(r, "id", "default")),
+                    "memory_type": getattr(r, "memory_type", "message"),
+                    "content": {
+                        "role": getattr(r, "role", "user") or "user",
+                        "parts": [{"text": str(getattr(r, "content", ""))}],
+                    },
+                    "metadata": getattr(r, "metadata", {}) or {},
+                }
+            )
 
-        if HAS_ADK:
-            dict_results = []
-            for r in results[:limit]:
-                r_id = getattr(r, "id", "default")
-                r_content = getattr(r, "content", "")
-                r_role = getattr(r, "role", "user") or "user"
-
-                adk_content = {"role": str(r_role), "parts": [{"text": str(r_content)}]}
-
-                adk_memory = {"id": str(r_id), "content": adk_content}
-
-                r_time = getattr(r, "timestamp", getattr(r, "created_at", None))
-                if r_time and hasattr(r_time, "isoformat"):
-                    adk_memory["timestamp"] = r_time.isoformat()
-
-                dict_results.append(adk_memory)
-
-            return SearchMemoryResponse(memories=dict_results)
-        else:
-            return SearchMemoryResponse(memories=results[:limit])
+        return SearchMemoryResponse(memories=adk_memories)
 
     async def get_memories_for_session(
         self,

@@ -72,7 +72,7 @@ class TestGoogleADKMemoryServiceIntegration:
         )
 
         assert len(results.memories) >= 1
-        assert any("Python" in r.content for r in results.memories)
+        assert any("Python" in r.content.parts[0].text for r in results.memories)
         assert all(r.memory_type == "message" for r in results.memories)
 
     @pytest.mark.asyncio
@@ -104,7 +104,7 @@ class TestGoogleADKMemoryServiceIntegration:
 
         entity_results = [r for r in results.memories if r.memory_type == "entity"]
         assert len(entity_results) >= 1
-        assert any("Google Cloud" in r.content for r in entity_results)
+        assert any("Google Cloud" in r.content.parts[0].text for r in entity_results)
 
     @pytest.mark.asyncio
     async def test_search_memory_with_preferences(self, memory_client, session_id):
