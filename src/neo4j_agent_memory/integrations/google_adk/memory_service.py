@@ -223,9 +223,22 @@ class Neo4jMemoryService(BaseMemoryService):
         results.sort(key=lambda x: x.score or 0, reverse=True)
 
         if HAS_ADK:
-            dict_results = [
-                r if isinstance(r, dict) else getattr(r, "__dict__", r) for r in results[:limit]
-            ]
+            dict_results = []
+            for r in results[:limit]:
+                r_id = getattr(r, "id", "default")
+                r_content = getattr(r, "content", "")
+                r_role = getattr(r, "role", "user") or "user"
+
+                adk_content = {"role": str(r_role), "parts": [{"text": str(r_content)}]}
+
+                adk_memory = {"id": str(r_id), "content": adk_content}
+
+                r_time = getattr(r, "timestamp", getattr(r, "created_at", None))
+                if r_time and hasattr(r_time, "isoformat"):
+                    adk_memory["timestamp"] = r_time.isoformat()
+
+                dict_results.append(adk_memory)
+
             return SearchMemoryResponse(memories=dict_results)
         else:
             return SearchMemoryResponse(memories=results[:limit])
