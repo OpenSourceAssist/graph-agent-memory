@@ -38,7 +38,7 @@ class TestGoogleADKMemoryServiceIntegration:
         assert conversation.messages[0].content == "Hello, I'm interested in AI"
 
     @pytest.mark.asyncio
-    async def test_search_memories_messages(self, memory_client, session_id):
+    async def test_search_memory_messages(self, memory_client, session_id):
         """Test searching for messages through ADK memory service."""
         from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 
@@ -71,12 +71,12 @@ class TestGoogleADKMemoryServiceIntegration:
             limit=10,
         )
 
-        assert len(results) >= 1
-        assert any("Python" in r.content for r in results)
-        assert all(r.memory_type == "message" for r in results)
+        assert len(results.memories) >= 1
+        assert any("Python" in r.content for r in results.memories)
+        assert all(r.memory_type == "message" for r in results.memories)
 
     @pytest.mark.asyncio
-    async def test_search_memories_with_entities(self, memory_client, session_id):
+    async def test_search_memory_with_entities(self, memory_client, session_id):
         """Test searching includes entities when enabled."""
         from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
         from neo4j_agent_memory.memory.long_term import EntityType
@@ -102,12 +102,12 @@ class TestGoogleADKMemoryServiceIntegration:
             limit=10,
         )
 
-        entity_results = [r for r in results if r.memory_type == "entity"]
+        entity_results = [r for r in results.memories if r.memory_type == "entity"]
         assert len(entity_results) >= 1
         assert any("Google Cloud" in r.content for r in entity_results)
 
     @pytest.mark.asyncio
-    async def test_search_memories_with_preferences(self, memory_client, session_id):
+    async def test_search_memory_with_preferences(self, memory_client, session_id):
         """Test searching includes preferences when enabled."""
         from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
 
@@ -131,7 +131,7 @@ class TestGoogleADKMemoryServiceIntegration:
             limit=10,
         )
 
-        pref_results = [r for r in results if r.memory_type == "preference"]
+        pref_results = [r for r in results.memories if r.memory_type == "preference"]
         assert len(pref_results) >= 1
 
     @pytest.mark.asyncio
@@ -287,7 +287,7 @@ class TestGoogleADKMemoryServiceIntegration:
         )
 
         # Should find messages, entities, and preferences
-        memory_types = {r.memory_type for r in results}
+        memory_types = {r.memory_type for r in results.memories}
         assert "message" in memory_types or "entity" in memory_types
 
         # 5. Get session memories

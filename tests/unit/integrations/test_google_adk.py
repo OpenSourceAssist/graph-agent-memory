@@ -244,7 +244,7 @@ class TestNeo4jMemoryService:
         mock_memory_client.short_term.add_message.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_search_memories(self, memory_service, mock_memory_client):
+    async def test_search_memory(self, memory_service, mock_memory_client): # <-- Updated test name
         """Test searching memories."""
         # Setup mock responses
         mock_msg = MagicMock()
@@ -272,13 +272,13 @@ class TestNeo4jMemoryService:
 
         results = await memory_service.search_memory("project deadline")
 
-        assert len(results) == 3
-        assert any(r.memory_type == "message" for r in results)
-        assert any(r.memory_type == "entity" for r in results)
-        assert any(r.memory_type == "preference" for r in results)
+        assert len(results.memories) == 3
+        assert any(r.memory_type == "message" for r in results.memories)
+        assert any(r.memory_type == "entity" for r in results.memories)
+        assert any(r.memory_type == "preference" for r in results.memories)
 
     @pytest.mark.asyncio
-    async def test_search_memories_without_entities(self, mock_memory_client):
+    async def test_search_memory_without_entities(self, mock_memory_client):
         """Test searching with entities disabled."""
         from neo4j_agent_memory.integrations.google_adk.memory_service import (
             Neo4jMemoryService,

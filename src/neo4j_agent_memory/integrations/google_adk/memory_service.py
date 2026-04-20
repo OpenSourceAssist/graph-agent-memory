@@ -7,14 +7,18 @@ interface for persistent agent memory.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 try:
     from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
 except ImportError:
-    # Dummy fallback for CI/CD unit testing environments
     BaseMemoryService = object
-    SearchMemoryResponse = Any
+
+    @dataclass
+    class SearchMemoryResponse:
+        """Fallback data structure for CI environments missing google-adk."""
+        memories: list = field(default_factory=list)
 
 from neo4j_agent_memory.integrations.google_adk.types import (
     MemoryEntry,
