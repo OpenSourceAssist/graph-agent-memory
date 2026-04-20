@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 try:
     from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
+
     HAS_ADK = True
 except ImportError:
     HAS_ADK = False
@@ -20,7 +21,9 @@ except ImportError:
     @dataclass
     class SearchMemoryResponse:
         """Fallback data structure for CI environments missing google-adk."""
+
         memories: list = field(default_factory=list)
+
 
 from neo4j_agent_memory.integrations.google_adk.types import (
     MemoryEntry,
@@ -218,11 +221,15 @@ class Neo4jMemoryService(BaseMemoryService):
 
         # Sort by score (descending) and limit
         results.sort(key=lambda x: x.score or 0, reverse=True)
+
         if HAS_ADK:
-            memories_for_adk = [r.model_dump(exclude_none=True) for r in results[:limit]]
-            return SearchMemoryResponse(memories=memories_for_adk)
+            dict_results = [
+                r if isinstance(r, dict) else getattr(r, "__dict__", r) for r in results[:limit]
+            ]
+            return SearchMemoryResponse(memories=dict_results)
         else:
             return SearchMemoryResponse(memories=results[:limit])
+
     async def get_memories_for_session(
         self,
         session_id: str,

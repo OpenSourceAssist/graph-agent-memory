@@ -244,7 +244,7 @@ class TestNeo4jMemoryService:
         mock_memory_client.short_term.add_message.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_search_memory(self, memory_service, mock_memory_client): # <-- Updated test name
+    async def test_search_memory(self, memory_service, mock_memory_client):
         """Test searching memories."""
         # Setup mock responses
         mock_msg = MagicMock()
