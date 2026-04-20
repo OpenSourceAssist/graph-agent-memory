@@ -17,7 +17,7 @@ from neo4j_agent_memory.integrations.google_adk.types import (
     preference_to_memory_entry,
     session_message_from_dict,
 )
-from google.adk.memory.base_memory_service import BaseMemoryService
+from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
 
 if TYPE_CHECKING:
     from neo4j_agent_memory import MemoryClient
@@ -154,7 +154,7 @@ class Neo4jMemoryService(BaseMemoryService):
         limit: int = 10,
         threshold: float = 0.7,
         **kwargs: Any,
-    ) -> list[MemoryEntry]:
+    ) -> SearchMemoryResponse:
         """Search across all memory types.
 
         Performs hybrid vector + graph search across messages, entities,
@@ -206,7 +206,7 @@ class Neo4jMemoryService(BaseMemoryService):
 
         # Sort by score (descending) and limit
         results.sort(key=lambda x: x.score or 0, reverse=True)
-        return results[:limit]
+        return SearchMemoryResponse(memories=results[:limit])
 
     async def get_memories_for_session(
         self,
