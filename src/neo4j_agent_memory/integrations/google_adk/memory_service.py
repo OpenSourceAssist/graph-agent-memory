@@ -12,7 +12,9 @@ from typing import TYPE_CHECKING, Any
 
 try:
     from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
+    HAS_ADK = True
 except ImportError:
+    HAS_ADK = False
     BaseMemoryService = object
 
     @dataclass
@@ -216,8 +218,11 @@ class Neo4jMemoryService(BaseMemoryService):
 
         # Sort by score (descending) and limit
         results.sort(key=lambda x: x.score or 0, reverse=True)
-        return SearchMemoryResponse(memories=results[:limit])
-
+        if HAS_ADK:
+            memories_for_adk = [r.model_dump(exclude_none=True) for r in results[:limit]]
+            return SearchMemoryResponse(memories=memories_for_adk)
+        else:
+            return SearchMemoryResponse(memories=results[:limit])
     async def get_memories_for_session(
         self,
         session_id: str,
