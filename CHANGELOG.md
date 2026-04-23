@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-04-23
+
+### Added
+
+- **Fact and Preference Deduplication on Creation** (PR [#97](https://github.com/neo4j-labs/agent-memory/pull/97)): `add_fact()` and `add_preference()` now check for existing entries with matching subject/predicate (or category/preference) and >0.95 embedding similarity. When a duplicate is found, the existing record is returned with `metadata["deduplicated"] = True`, and confidence is updated when the new value is higher.
+- **Metadata on `memory_add_fact` MCP Tool** (PR [#103](https://github.com/AhmedHamadto/agent-memory/pull/103)): Exposed the `metadata` parameter on the `memory_add_fact` MCP tool, matching the existing `memory_add_entity` interface and the underlying `LongTermMemory.add_fact()` API.
+- **AWS Strands Multi-Agent Financial Services Example** (PR [#99](https://github.com/neo4j-labs/agent-memory/pull/99)): Aligned the AWS and GCP financial services examples with shared entity extraction, visualization, and persistent investigation patterns.
+
+### Fixed
+
+- **Google ADK `BaseMemoryService` Inheritance** (PR [#106](https://github.com/neo4j-labs/agent-memory/pull/106), PR [#107](https://github.com/neo4j-labs/agent-memory/pull/107)): `Neo4jMemoryService` now inherits from `google.adk.memory.BaseMemoryService` for proper ADK compatibility, with stricter package detection and updated method signatures (`search_memory` return type).
+- **LlamaIndex Remote Timeout** (PR [#102](https://github.com/neo4j-labs/agent-memory/pull/102)): Adjusted timeout handling in the LlamaIndex integration.
+
+### New Contributors
+
+- [@AhmedHamadto](https://github.com/AhmedHamadto) made their first contribution in PR [#97](https://github.com/neo4j-labs/agent-memory/pull/97) and PR [#103](https://github.com/neo4j-labs/agent-memory/pull/103)
+- [@kaustubh-darekar](https://github.com/kaustubh-darekar) made their first contribution in PR [#106](https://github.com/neo4j-labs/agent-memory/pull/106) and PR [#107](https://github.com/neo4j-labs/agent-memory/pull/107)
+
 ## [0.1.0] - 2026-04-02
 
 ### Added
