@@ -548,7 +548,11 @@ class LongTermMemory(BaseMemory[Entity]):
         metadata: dict[str, Any] | None = None,
     ) -> Preference:
         """
-        Add a user preference.
+        Add a user preference with deduplication.
+
+        If a preference in the same category already exists with high
+        semantic similarity, returns the existing one instead of creating
+        a duplicate.
 
         Args:
             category: Preference category (food, music, communication, etc.)
@@ -559,7 +563,7 @@ class LongTermMemory(BaseMemory[Entity]):
             metadata: Optional metadata
 
         Returns:
-            The created preference
+            The created or existing preference
         """
         # Generate embedding
         embedding = None
@@ -568,6 +572,26 @@ class LongTermMemory(BaseMemory[Entity]):
             if context:
                 text += f" ({context})"
             embedding = await self._embedder.embed(text)
+
+        # Check for duplicate preferences (same category, high similarity)
+        if self._deduplication.enabled and embedding is not None:
+            try:
+                dupes = await self._client.execute_read(
+                    queries.FIND_DUPLICATE_PREFERENCES,
+                    {
+                        "embedding": embedding,
+                        "limit": 3,
+                        "threshold": 0.95,
+                        "category": category,
+                    },
+                )
+                if dupes:
+                    existing_data = dict(dupes[0]["p"])
+                    existing = self._parse_preference(existing_data)
+                    existing.metadata["deduplicated"] = True
+                    return existing
+            except Exception:
+                pass  # Vector index may not exist yet
 
         # Create preference
         pref = Preference(
@@ -609,7 +633,11 @@ class LongTermMemory(BaseMemory[Entity]):
         metadata: dict[str, Any] | None = None,
     ) -> Fact:
         """
-        Add a declarative fact.
+        Add a declarative fact with deduplication.
+
+        If a fact with the same subject and predicate already exists
+        with high semantic similarity, updates the existing fact's
+        confidence instead of creating a duplicate.
 
         Args:
             subject: Fact subject
@@ -622,13 +650,42 @@ class LongTermMemory(BaseMemory[Entity]):
             metadata: Optional metadata
 
         Returns:
-            The created fact
+            The created or existing fact
         """
         # Generate embedding
         embedding = None
         if generate_embedding and self._embedder is not None:
             text = f"{subject} {predicate} {obj}"
             embedding = await self._embedder.embed(text)
+
+        # Check for duplicate facts (same subject+predicate, high similarity)
+        if self._deduplication.enabled and embedding is not None:
+            try:
+                dupes = await self._client.execute_read(
+                    queries.FIND_DUPLICATE_FACTS,
+                    {
+                        "embedding": embedding,
+                        "limit": 3,
+                        "threshold": 0.95,
+                        "subject": subject,
+                        "predicate": predicate,
+                    },
+                )
+                if dupes:
+                    existing_data = dict(dupes[0]["f"])
+                    await self._client.execute_write(
+                        queries.UPDATE_FACT_CONFIDENCE,
+                        {
+                            "id": existing_data["id"],
+                            "confidence": confidence,
+                            "object": obj,
+                        },
+                    )
+                    existing = self._parse_fact(existing_data)
+                    existing.metadata["deduplicated"] = True
+                    return existing
+            except Exception:
+                pass  # Vector index may not exist yet; proceed with creation
 
         # Create fact
         fact = Fact(
