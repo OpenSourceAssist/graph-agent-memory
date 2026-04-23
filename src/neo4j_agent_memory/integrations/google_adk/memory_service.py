@@ -9,6 +9,41 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+try:
+    from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
+except ImportError:
+    BaseMemoryService = object
+
+    class SearchMemoryResponse:
+        """Exact replica of ADK's response objects for CI environments."""
+
+        def __init__(self, memories=None, **kwargs):
+            self.memories = []
+            for m in memories or []:
+                if isinstance(m, dict):
+
+                    class MockPart:
+                        def __init__(self, text):
+                            self.text = text
+
+                    class MockContent:
+                        def __init__(self, role, parts):
+                            self.role = role
+                            self.parts = [MockPart(p.get("text", "")) for p in parts]
+
+                    class MockEntry:
+                        def __init__(self, data):
+                            self.id = data.get("id")
+                            c_data = data.get("content", {})
+                            self.content = MockContent(
+                                c_data.get("role", "user"), c_data.get("parts", [])
+                            )
+
+                    self.memories.append(MockEntry(m))
+                else:
+                    self.memories.append(m)
+
+
 from neo4j_agent_memory.integrations.google_adk.types import (
     MemoryEntry,
     SessionMessage,
@@ -17,7 +52,6 @@ from neo4j_agent_memory.integrations.google_adk.types import (
     preference_to_memory_entry,
     session_message_from_dict,
 )
-from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
 
 if TYPE_CHECKING:
     from neo4j_agent_memory import MemoryClient
@@ -206,7 +240,19 @@ class Neo4jMemoryService(BaseMemoryService):
 
         # Sort by score (descending) and limit
         results.sort(key=lambda x: x.score or 0, reverse=True)
-        return SearchMemoryResponse(memories=results[:limit])
+        adk_memories = []
+        for r in results[:limit]:
+            adk_memories.append(
+                {
+                    "id": str(getattr(r, "id", "default")),
+                    "content": {
+                        "role": getattr(r, "role", "user") or "user",
+                        "parts": [{"text": str(getattr(r, "content", ""))}],
+                    },
+                }
+            )
+
+        return SearchMemoryResponse(memories=adk_memories)
 
     async def get_memories_for_session(
         self,

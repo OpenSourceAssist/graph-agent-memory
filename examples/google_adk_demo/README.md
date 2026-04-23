@@ -91,7 +91,7 @@ async with MemoryClient(settings) as client:
     await memory_service.add_session_to_memory(session)
     
     # Search memories
-    results = await memory_service.search_memories("project deadline")
+    results = await memory_service.search_memory("project deadline")
     for entry in results:
         print(f"[{entry.memory_type}] {entry.content}")
     

@@ -1427,7 +1427,7 @@ Implementation:: `neo4j_agent_memory.integrations.google_adk.Neo4jMemoryService`
 
 * `Neo4jMemoryService` implementing ADK MemoryService interface
 * `add_session_to_memory()` - Store session messages and extract entities
-* `search_memories()` - Semantic search across all memory types
+* `search_memory()` - Semantic search across all memory types
 * `get_memories_for_session()` - Retrieve session-specific memories
 * `add_memory()` - Store individual memory entries
 * `clear_session()` - Clear session data
@@ -1444,7 +1444,7 @@ async with MemoryClient(settings) as client:
     memory_service = Neo4jMemoryService(client, user_id="user-123")
 
     # Search memories
-    results = await memory_service.search_memories(
+    results = await memory_service.search_memory(
         query="What are the project deadlines?",
         limit=10
     )
