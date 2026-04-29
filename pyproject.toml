@@ -1,6 +1,6 @@
 [project]
 name = "neo4j-agent-memory"
-version = "0.1.1"
+version = "0.1.2"
 description = "A comprehensive memory system for AI agents using Neo4j"
 readme = "README.md"
 license = { text = "Apache-2.0" }
