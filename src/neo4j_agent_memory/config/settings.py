@@ -446,7 +446,8 @@ class MemorySettings(BaseSettings):
                     f"extractor_type={ext.extractor_type.value}, "
                     f"enable_llm_fallback={ext.enable_llm_fallback}. "
                     "Either provide an LLMConfig, or set extractor_type to "
-                    "ExtractorType.SPACY/GLINER/NONE and enable_llm_fallback=False."
+                    "ExtractorType.SPACY/GLINER/PIPELINE/NONE and "
+                    "enable_llm_fallback=False."
                 )
             # Lenient fallback preserves pre-0.2 default behavior when the user
             # didn't explicitly opt out.
