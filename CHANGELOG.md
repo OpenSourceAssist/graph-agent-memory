@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.2] - 2026-04-29
 
 ### Added
 
@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Validator on `MemorySettings`**: setting `llm=None` together with `extraction.extractor_type=ExtractorType.LLM` or `extraction.enable_llm_fallback=True` now raises a `ValidationError` at construction time, naming both fields and suggesting the minimal fix. Omitting the `llm` field entirely preserves the historical default of auto-filling an `LLMConfig` when an LLM stage is enabled, so existing code is unaffected.
+- **Validator on `MemorySettings`**: setting `llm=None` together with extraction settings that require an LLM (`extractor_type=ExtractorType.LLM`, or `extractor_type=PIPELINE` with `enable_llm_fallback=True`) now raises a `ValidationError` at construction time, naming both fields and suggesting the minimal fix. Omitting the `llm` field entirely preserves the historical default of auto-filling an `LLMConfig` when an LLM stage is enabled, so existing code is unaffected.
 
 ## [0.1.1] - 2026-04-23
 
