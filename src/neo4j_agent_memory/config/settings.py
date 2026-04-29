@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -123,7 +123,13 @@ class EmbeddingConfig(BaseModel):
 
 
 class LLMConfig(BaseModel):
-    """LLM provider configuration for extraction."""
+    """LLM provider configuration for extraction.
+
+    This config is optional on `MemorySettings`. Set ``MemorySettings.llm=None``
+    to run without any LLM provider (e.g. spaCy/GLiNER-only extraction in
+    air-gapped or no-API-key environments). See the "Running without an LLM"
+    how-to and ``examples/no_llm/`` for a worked example.
+    """
 
     provider: LLMProvider = Field(default=LLMProvider.OPENAI, description="LLM provider to use")
     model: str = Field(default="gpt-4o-mini", description="LLM model name")
@@ -419,7 +425,7 @@ class MemorySettings(BaseSettings):
 
     neo4j: Neo4jConfig = Field(default_factory=lambda: Neo4jConfig(password=SecretStr("")))
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
-    llm: LLMConfig = Field(default_factory=LLMConfig)
+    llm: LLMConfig | None = Field(default=None)
     schema_config: SchemaConfig = Field(default_factory=SchemaConfig)
     extraction: ExtractionConfig = Field(default_factory=ExtractionConfig)
     resolution: ResolutionConfig = Field(default_factory=ResolutionConfig)
@@ -427,6 +433,25 @@ class MemorySettings(BaseSettings):
     search: SearchConfig = Field(default_factory=SearchConfig)
     geocoding: GeocodingConfig = Field(default_factory=GeocodingConfig)
     enrichment: EnrichmentConfig = Field(default_factory=EnrichmentConfig)
+
+    @model_validator(mode="after")
+    def _validate_llm_consistency(self) -> "MemorySettings":
+        ext = self.extraction
+        needs_llm = ext.extractor_type == ExtractorType.LLM or ext.enable_llm_fallback
+        if needs_llm and self.llm is None:
+            # Distinguish explicit `llm=None` (strict) from "user didn't mention llm".
+            if "llm" in self.model_fields_set:
+                raise ValueError(
+                    "llm=None is incompatible with extraction settings: "
+                    f"extractor_type={ext.extractor_type.value}, "
+                    f"enable_llm_fallback={ext.enable_llm_fallback}. "
+                    "Either provide an LLMConfig, or set extractor_type to "
+                    "ExtractorType.SPACY/GLINER/NONE and enable_llm_fallback=False."
+                )
+            # Lenient fallback preserves pre-0.2 default behavior when the user
+            # didn't explicitly opt out.
+            self.llm = LLMConfig()
+        return self
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]) -> "MemorySettings":

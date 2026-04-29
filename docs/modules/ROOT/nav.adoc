@@ -17,6 +17,7 @@
 *** xref:how-to/preferences.adoc[Manage Preferences]
 *** xref:how-to/reasoning-traces.adoc[Record Reasoning Traces]
 *** xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
+*** xref:how-to/running-without-an-llm.adoc[Run Without an LLM]
 *** xref:how-to/batch-processing.adoc[Batch Processing]
 *** xref:how-to/deduplication.adoc[Handle Duplicates]
 *** Integrations

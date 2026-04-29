@@ -1,6 +1,7 @@
 """Unit tests for configuration."""
 
-from pydantic import SecretStr
+import pytest
+from pydantic import SecretStr, ValidationError
 
 from neo4j_agent_memory.config.settings import (
     EmbeddingConfig,
@@ -9,6 +10,7 @@ from neo4j_agent_memory.config.settings import (
     ExtractorType,
     GeocodingConfig,
     GeocodingProvider,
+    LLMConfig,
     MemorySettings,
     Neo4jConfig,
     ResolutionConfig,
@@ -224,3 +226,94 @@ class TestMemorySettings:
         assert settings.geocoding.enabled is True
         assert settings.geocoding.provider == GeocodingProvider.GOOGLE
         assert settings.geocoding.api_key.get_secret_value() == "google-api-key"
+
+
+class TestMemorySettingsOptionalLLM:
+    """Tests for the optional `llm` field on MemorySettings."""
+
+    def test_llm_none_with_spacy_only_extractor(self):
+        """T1: explicit llm=None with a non-LLM extractor is accepted."""
+        settings = MemorySettings(
+            neo4j=Neo4jConfig(password=SecretStr("test")),
+            llm=None,
+            extraction=ExtractionConfig(
+                extractor_type=ExtractorType.SPACY,
+                enable_llm_fallback=False,
+            ),
+        )
+        assert settings.llm is None
+
+    def test_default_settings_auto_fill_llm(self):
+        """T2: omitting `llm` preserves the historical default LLMConfig.
+
+        The default ExtractionConfig has enable_llm_fallback=True, so the
+        validator's lenient branch fills in a default LLMConfig.
+        """
+        settings = MemorySettings(neo4j=Neo4jConfig(password=SecretStr("test")))
+        assert isinstance(settings.llm, LLMConfig)
+
+    def test_default_llm_skipped_when_not_needed(self):
+        """T2b: omitting `llm` and using a non-LLM extractor leaves llm=None.
+
+        No auto-fill when no LLM stage is enabled — avoids surprise OpenAI
+        client construction in air-gapped/no-key environments.
+        """
+        settings = MemorySettings(
+            neo4j=Neo4jConfig(password=SecretStr("test")),
+            extraction=ExtractionConfig(
+                extractor_type=ExtractorType.SPACY,
+                enable_llm_fallback=False,
+            ),
+        )
+        assert settings.llm is None
+
+    def test_llm_none_with_llm_extractor_raises(self):
+        """T3: llm=None + extractor_type=LLM is a ValidationError."""
+        with pytest.raises(ValidationError) as excinfo:
+            MemorySettings(
+                neo4j=Neo4jConfig(password=SecretStr("test")),
+                llm=None,
+                extraction=ExtractionConfig(extractor_type=ExtractorType.LLM),
+            )
+        msg = str(excinfo.value)
+        assert "llm" in msg
+        assert "extractor_type" in msg or "LLM" in msg
+
+    def test_llm_none_with_fallback_enabled_raises(self):
+        """T4: llm=None + enable_llm_fallback=True is a ValidationError."""
+        with pytest.raises(ValidationError) as excinfo:
+            MemorySettings(
+                neo4j=Neo4jConfig(password=SecretStr("test")),
+                llm=None,
+                extraction=ExtractionConfig(
+                    extractor_type=ExtractorType.PIPELINE,
+                    enable_llm_fallback=True,
+                ),
+            )
+        msg = str(excinfo.value)
+        assert "llm" in msg
+        assert "enable_llm_fallback" in msg
+
+    def test_llm_none_with_pipeline_no_fallback_ok(self):
+        """T4b: pipeline with LLM fallback disabled accepts llm=None."""
+        settings = MemorySettings(
+            neo4j=Neo4jConfig(password=SecretStr("test")),
+            llm=None,
+            extraction=ExtractionConfig(
+                extractor_type=ExtractorType.PIPELINE,
+                enable_spacy=True,
+                enable_gliner=True,
+                enable_llm_fallback=False,
+            ),
+        )
+        assert settings.llm is None
+        assert settings.extraction.enable_llm_fallback is False
+
+    def test_explicit_llm_config_passes_through(self):
+        """User-provided LLMConfig is preserved verbatim."""
+        custom = LLMConfig(model="gpt-4o", api_key=SecretStr("sk-test"))
+        settings = MemorySettings(
+            neo4j=Neo4jConfig(password=SecretStr("test")),
+            llm=custom,
+        )
+        assert settings.llm is custom
