@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Optional LLM (`llm=None`)**: `MemorySettings.llm` is now `Optional[LLMConfig]`. Pass `llm=None` to construct a fully working `MemoryClient` without any LLM provider — useful for air-gapped environments, deployments without an `OPENAI_API_KEY`, and deterministic local-only extraction. A new `examples/no_llm/` example and a "Run Without an LLM" how-to guide demonstrate the spaCy/GLiNER-only setup.
+
+### Changed
+
+- **Validator on `MemorySettings`**: setting `llm=None` together with `extraction.extractor_type=ExtractorType.LLM` or `extraction.enable_llm_fallback=True` now raises a `ValidationError` at construction time, naming both fields and suggesting the minimal fix. Omitting the `llm` field entirely preserves the historical default of auto-filling an `LLMConfig` when an LLM stage is enabled, so existing code is unaffected.
+
 ## [0.1.1] - 2026-04-23
 
 ### Added

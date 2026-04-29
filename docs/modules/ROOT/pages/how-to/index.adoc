@@ -47,6 +47,9 @@ Automatically extract entities and relationships to populate your context graph 
 | xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
 | Set up spaCy, GLiNER, or LLM extractors. Create custom domain schemas for financial services, ecommerce, or any industry. Build multi-stage pipelines.
 
+| xref:how-to/running-without-an-llm.adoc[Run Without an LLM]
+| Use spaCy/GLiNER-only extraction with `llm=None`. Run in air-gapped environments or without an OpenAI key.
+
 | xref:how-to/batch-processing.adoc[Process Documents in Batch]
 | Extract entities from large document collections efficiently. Handle streaming for long documents. Import product catalogs or financial reports.
 

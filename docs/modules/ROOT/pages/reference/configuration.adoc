@@ -483,7 +483,7 @@ NAM_RESOLUTION__SEMANTIC_THRESHOLD=0.9
 
 == LLM Configuration
 
-Settings for LLM-based operations.
+Settings for LLM-based operations. The `llm` field on `MemorySettings` is `Optional[LLMConfig]`. Set `llm=None` to opt out of all LLM construction — see xref:how-to/running-without-an-llm.adoc[Run Without an LLM].
 
 === Python Configuration
 
@@ -500,6 +500,11 @@ llm_config = LLMConfig(
     max_tokens=4096,
 )
 ----
+
+[NOTE]
+====
+If you set `MemorySettings(llm=None, ...)` together with `extraction.extractor_type=LLM` or `extraction.enable_llm_fallback=True`, `MemorySettings` raises a `ValidationError` at construction time. Either provide an `LLMConfig` or switch to a non-LLM extractor (`SPACY`, `GLINER`, `NONE`) and disable the LLM fallback.
+====
 
 === Environment Variables
 
