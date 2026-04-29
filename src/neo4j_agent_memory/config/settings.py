@@ -437,7 +437,13 @@ class MemorySettings(BaseSettings):
     @model_validator(mode="after")
     def _validate_llm_consistency(self) -> "MemorySettings":
         ext = self.extraction
-        needs_llm = ext.extractor_type == ExtractorType.LLM or ext.enable_llm_fallback
+        needs_llm = (
+            ext.extractor_type == ExtractorType.LLM
+            or (
+                ext.extractor_type == ExtractorType.PIPELINE
+                and ext.enable_llm_fallback
+            )
+        )
         if needs_llm and self.llm is None:
             # Distinguish explicit `llm=None` (strict) from "user didn't mention llm".
             if "llm" in self.model_fields_set:
