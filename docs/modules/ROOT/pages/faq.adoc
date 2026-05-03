@@ -575,16 +575,21 @@ Entity deduplication automatically merges similar entities during extraction:
 
 [source,python]
 ----
-from neo4j_agent_memory import MemorySettings, DeduplicationConfig
-
-settings = MemorySettings(
-    deduplication=DeduplicationConfig(
-        enabled=True,
-        embedding_threshold=0.92,     # High similarity = auto-merge
-        same_as_threshold=0.85,       # Medium similarity = SAME_AS link
-        create_same_as=True,
-    )
+from neo4j_agent_memory.memory.long_term import (
+    DeduplicationConfig,
+    LongTermMemory,
 )
+
+# Deduplication is configured at the memory layer, not on MemorySettings.
+dedup_config = DeduplicationConfig(
+    enabled=True,
+    auto_merge_threshold=0.95,    # High similarity = auto-merge
+    flag_threshold=0.85,          # Medium similarity = flagged SAME_AS link
+    use_fuzzy_matching=True,
+)
+
+# Pass into LongTermMemory when constructing it manually, or rely on the
+# defaults when using MemoryClient.
 ----
 
 * **High confidence matches** (>0.92) are automatically merged
@@ -849,14 +854,14 @@ pip install neo4j-agent-memory[opik]
 
 [source,python]
 ----
-from neo4j_agent_memory import MemorySettings, ObservabilityConfig, TracingProvider
+from neo4j_agent_memory.observability import get_tracer
 
-settings = MemorySettings(
-    observability=ObservabilityConfig(
-        enabled=True,
-        provider=TracingProvider.OPIK,  # or OPENTELEMETRY
-        project_name="my-agent",
-    )
+# Observability tracers are obtained from
+# ``neo4j_agent_memory.observability.get_tracer(...)``, not from
+# ``MemorySettings``.
+tracer = get_tracer(
+    provider="opik",            # or "opentelemetry"
+    project_name="my-agent",
 )
 ----
 

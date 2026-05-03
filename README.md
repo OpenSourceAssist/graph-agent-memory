@@ -66,6 +66,13 @@ claude mcp add neo4j-agent-memory -- \
 
 ![The memory abstractions exposed by the Neo4j Agent Memory package](img/memory-types.png)
 
+> **`neo4j-agent-memory` is async-only.** Every memory operation is a
+> coroutine. From a script, wrap your entry point in `asyncio.run(...)`
+> as shown below. From a notebook, prefix calls with `await`. From a
+> framework that runs its own loop (FastAPI, PydanticAI, Google ADK),
+> just use `await` inside your handler. There is no synchronous
+> wrapper — by design.
+
 ```python
 import asyncio
 from neo4j_agent_memory import MemoryClient, MemorySettings

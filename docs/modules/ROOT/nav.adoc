@@ -15,7 +15,14 @@
 *** xref:how-to/messages.adoc[Store & Search Messages]
 *** xref:how-to/entities.adoc[Work with Entities]
 *** xref:how-to/preferences.adoc[Manage Preferences]
+*** xref:how-to/multi-tenancy.adoc[Multi-Tenant Memory]
+*** xref:how-to/buffered-writes.adoc[Buffered (Fire-and-Forget) Writes]
+*** xref:how-to/consolidation.adoc[Memory Consolidation]
+*** xref:how-to/privacy-and-audit.adoc[Privacy and Audit]
+*** xref:how-to/evaluation.adoc[Evaluating Memory Quality]
 *** xref:how-to/reasoning-traces.adoc[Record Reasoning Traces]
+*** xref:how-to/audit-reasoning.adoc[Audit Reasoning with TOUCHED Edges]
+*** xref:how-to/adopt-existing-graph.adoc[Adopt an Existing Graph]
 *** xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
 *** xref:how-to/running-without-an-llm.adoc[Run Without an LLM]
 *** xref:how-to/batch-processing.adoc[Batch Processing]
@@ -43,6 +50,7 @@
 *** xref:reference/deployment.adoc[Deployment]
 *** xref:reference/extractors.adoc[Extractors]
 *** xref:reference/schemas.adoc[Schemas]
+*** xref:reference/schema-objects.adoc[Schema Objects (Constraints & Indexes)]
 *** API Reference
 **** xref:reference/api/memory-client.adoc[MemoryClient]
 **** xref:reference/api/short-term.adoc[Short-Term Memory]
@@ -58,4 +66,5 @@
 *** xref:explanation/resolution-deduplication.adoc[Resolution & Deduplication]
 *** xref:explanation/framework-comparison.adoc[Framework Comparison]
 
+** xref:glossary.adoc[Glossary]
 ** xref:faq.adoc[FAQ]

@@ -358,9 +358,9 @@ Every agent interaction is recorded as a reasoning trace, capturing the full cha
 ```cypher
 (ReasoningTrace {task: "Compare growth strategies", success: true})
     -[:HAS_STEP]-> (ReasoningStep {thought: "Search Brian Chesky's comments on growth"})
-        -[:USED_TOOL]-> (ToolCall {tool: "search_by_speaker", duration_ms: 245, status: "success"})
+        -[:USES_TOOL]-> (ToolCall {tool: "search_by_speaker", duration_ms: 245, status: "success"})
     -[:HAS_STEP]-> (ReasoningStep {thought: "Now search Andy Johns' perspective"})
-        -[:USED_TOOL]-> (ToolCall {tool: "search_by_speaker", duration_ms: 198, status: "success"})
+        -[:USES_TOOL]-> (ToolCall {tool: "search_by_speaker", duration_ms: 198, status: "success"})
 ```
 
 This enables the agent to:
@@ -908,7 +908,7 @@ Entity nodes have additional type labels: `:Person`, `:Organization`, `:Location
 // Reasoning memory (reasoning)
 (ReasoningTrace)-[:INITIATED_BY]->(Message)
 (ReasoningTrace)-[:HAS_STEP]->(ReasoningStep)
-(ReasoningStep)-[:USED_TOOL]->(ToolCall)
+(ReasoningStep)-[:USES_TOOL]->(ToolCall)
 ```
 
 The `RELATED_TO` relationship includes properties:
