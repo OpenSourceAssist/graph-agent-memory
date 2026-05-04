@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import os
+import re
 from collections.abc import AsyncGenerator
 from uuid import uuid4
 
@@ -147,11 +148,16 @@ class MockEmbedder(BaseEmbedder):
 
     async def embed(self, text: str) -> list[float]:
         """Generate deterministic token-bag embedding."""
+        # Alphanumeric tokens (punctuation stripped), then a 5-char prefix
+        # stem so morphological variants like "preference"/"preferences"
+        # share signal.
+        words = re.findall(r"[a-z0-9]+", text.lower())
+        tokens = {w[:5] for w in words if len(w) >= 3}
+
         embedding = [0.0] * self._dimensions
-        tokens = text.lower().split()
         if not tokens:
-            # Empty text: fall back to a hash so the vector index still
-            # accepts the embedding (zero vectors get rejected).
+            # Empty / very short text: fall back to a hash so the vector
+            # index still accepts the embedding (zero vectors get rejected).
             h = hashlib.sha256(text.encode()).digest()
             for i in range(self._dimensions):
                 embedding[i] = h[i % len(h)] / 255.0
