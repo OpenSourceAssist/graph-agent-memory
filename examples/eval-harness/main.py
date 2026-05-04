@@ -5,7 +5,7 @@ labeled regression tests over memory quality (retrieval, audit, preference).
 
 Run from the repo root::
 
-    uv run python -m examples.eval-harness.main
+    uv run python examples/eval-harness/main.py
 """
 
 from __future__ import annotations
