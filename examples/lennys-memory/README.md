@@ -1229,3 +1229,13 @@ python ../scripts/load_transcripts.py --data-dir ../data
 ## License
 
 This example is part of the [neo4j-agent-memory](https://github.com/neo4j-labs/agent-memory) project, licensed under Apache 2.0.
+
+## Support
+
+- 💬 [Neo4j Community Forum](https://community.neo4j.com)
+- 🐛 [GitHub Issues](https://github.com/neo4j-labs/agent-memory/issues)
+- 📖 [`neo4j-agent-memory` documentation](https://github.com/neo4j-labs/agent-memory#readme)
+
+---
+
+_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03. During this verification pass, two phantom-method calls in `scripts/load_transcripts.py` (`get_messages` → `get_conversation`) and `backend/src/api/routes/threads.py` (`delete_conversation` → `clear_session`) were corrected. Full UI/end-to-end smoke not re-run; library-side wiring is current._
