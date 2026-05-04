@@ -63,18 +63,32 @@ database level.
 
 === 2. Pass `user_identifier=` on writes
 
-`user_identifier` is an optional kwarg on the v0.4 long-term
-preference API. Future versions will thread it through more APIs (see
-"Roadmap" below).
+`user_identifier` is an optional kwarg on the short-term,
+long-term, and reasoning memory APIs.  When
+`MemorySettings.memory.multi_tenant=True` is set, the library
+enforces that every write includes a `user_identifier`; omitting it
+raises a `ValueError` at the call site.
 
 [source,python]
 ----
-# Preferences scoped to a user
+# Short-term: scope conversations per user
+await client.short_term.add_message(
+    "sara-2026-05-01", "user", "Find me a healthcare team",
+    user_identifier="sara@omg.com",
+)
+
+# Long-term: scope preferences per user
 await client.long_term.add_preference(
     "consultants",
     "Senior on healthcare",
     user_identifier="sara@omg.com",
     applies_to=[EntityRef(name="Healthcare", type="Industry")],
+)
+
+# Reasoning: scope traces per user
+trace = await client.reasoning.start_trace(
+    "sara-2026-05-01", "consultant search",
+    user_identifier="sara@omg.com",
 )
 ----
 
