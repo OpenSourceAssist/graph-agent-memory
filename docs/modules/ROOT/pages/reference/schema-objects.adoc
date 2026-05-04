@@ -13,7 +13,9 @@ runs as part of `MemoryClient.connect()`. Existing constraints/indexes
 with the same name are skipped; the operation is idempotent.
 
 The authoritative source is
-`src/neo4j_agent_memory/graph/schema.py` — this page mirrors that file.
+`src/neo4j_agent_memory/graph/schema.py`. This page is a human-readable
+reference to the schema objects the library creates, but consult that
+file for the complete current inventory used in deployments.
 
 == Unique constraints
 
