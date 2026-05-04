@@ -422,7 +422,7 @@ from neo4j_agent_memory import MemorySettings, SchemaConfig, SchemaModel, Extrac
 
 # E-commerce domain example
 settings = MemorySettings(
-    schema=SchemaConfig(
+    schema_config=SchemaConfig(
         model=SchemaModel.CUSTOM,
         entity_types=["CUSTOMER", "PRODUCT", "ORDER", "STORE", "REVIEW"],
         strict_types=True  # Reject unknown types
@@ -473,7 +473,7 @@ Load it in configuration:
 from neo4j_agent_memory import MemorySettings, SchemaConfig, SchemaModel
 
 settings = MemorySettings(
-    schema=SchemaConfig(
+    schema_config=SchemaConfig(
         model=SchemaModel.CUSTOM,
         custom_schema_path="./ecommerce_schema.json"
     )

@@ -317,3 +317,43 @@ class TestMemorySettingsOptionalLLM:
             llm=custom,
         )
         assert settings.llm is custom
+
+
+class TestStrictExtraFields:
+    """Tests for `extra="forbid"` on MemorySettings and child configs.
+
+    Pre-0.2 the configuration models silently dropped misspelled fields,
+    leading to issues like ``MemorySettings(schema=SchemaConfig(...))``
+    constructing a default schema_config without the user noticing. v0.2
+    made the configuration strict.
+    """
+
+    def test_misspelled_top_level_field_rejected(self):
+        """``schema=`` is the canonical typo bug — verify it's caught."""
+        from neo4j_agent_memory.config.settings import SchemaConfig
+
+        with pytest.raises(ValidationError) as excinfo:
+            MemorySettings(
+                neo4j=Neo4jConfig(password=SecretStr("test")),
+                schema=SchemaConfig(),  # type: ignore[call-arg]
+            )
+        assert "schema" in str(excinfo.value)
+
+    def test_unknown_top_level_field_rejected(self):
+        with pytest.raises(ValidationError):
+            MemorySettings(
+                neo4j=Neo4jConfig(password=SecretStr("test")),
+                completely_made_up=42,  # type: ignore[call-arg]
+            )
+
+    def test_unknown_field_rejected_on_neo4j_config(self):
+        with pytest.raises(ValidationError):
+            Neo4jConfig(password=SecretStr("test"), bogus=True)  # type: ignore[call-arg]
+
+    def test_unknown_field_rejected_on_extraction_config(self):
+        with pytest.raises(ValidationError):
+            ExtractionConfig(enable_gliner_relations=True)  # type: ignore[call-arg]
+
+    def test_unknown_field_rejected_on_geocoding_config(self):
+        with pytest.raises(ValidationError):
+            GeocodingConfig(provider_name="nominatim")  # type: ignore[call-arg]

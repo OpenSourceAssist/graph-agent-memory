@@ -24,6 +24,8 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 
 **Plus:** multi-stage entity extraction (spaCy / GLiNER / LLM), relationship extraction (GLiREL), background enrichment (Wikipedia / Diffbot), geospatial queries, [MCP server](#mcp-server) with 16 tools, and integrations with [LangChain, Pydantic AI, Google ADK, Strands, CrewAI, and more](#framework-integrations).
 
+**New in v0.2** _(in development on the `adopt-existing-graph` branch)_: adopt an existing Neo4j graph as long-term memory (`client.schema.adopt_existing_graph(...)`), multi-tenant scoping (`user_identifier=`), fire-and-forget [buffered writes](examples/buffered-writes/) (`client.buffered.submit(...)`), [consolidation primitives](examples/audit-trail/) (`client.consolidation.dedupe_entities(...)`), an [eval harness](examples/eval-harness/) (`client.eval.run(suite)`), and explicit `:TOUCHED` audit edges from reasoning steps to entities.
+
 ## Quick Start
 
 **Prerequisites:** A running Neo4j instance ([Neo4j Desktop](https://neo4j.com/download/), [Docker](https://hub.docker.com/_/neo4j), or [Neo4j Aura](https://neo4j.com/cloud/) for a free cloud database).
@@ -65,6 +67,13 @@ claude mcp add neo4j-agent-memory -- \
 ### Option B: Python API
 
 ![The memory abstractions exposed by the Neo4j Agent Memory package](img/memory-types.png)
+
+> **`neo4j-agent-memory` is async-only.** Every memory operation is a
+> coroutine. From a script, wrap your entry point in `asyncio.run(...)`
+> as shown below. From a notebook, prefix calls with `await`. From a
+> framework that runs its own loop (FastAPI, PydanticAI, Google ADK),
+> just use `await` inside your handler. There is no synchronous
+> wrapper — by design.
 
 ```python
 import asyncio
@@ -164,6 +173,10 @@ See the [MCP tools reference](https://neo4j.com/labs/agent-memory/reference/mcp-
 
 ## Examples
 
+See [`examples/README.md`](examples/README.md) for the full index. Highlights:
+
+**Full-stack reference apps**
+
 | Example | Framework | Description |
 |---------|-----------|-------------|
 | [Lenny's Podcast Memory Explorer](examples/lennys-memory/) | PydanticAI | Flagship demo: 299 podcast episodes, knowledge graph, geospatial maps, Wikipedia enrichment |
@@ -171,11 +184,26 @@ See the [MCP tools reference](https://neo4j.com/labs/agent-memory/reference/mcp-
 | [AWS Financial Advisor](examples/financial-services-advisor/aws-financial-services-advisor/) | Strands (AWS) | Multi-agent KYC/AML compliance with Bedrock and reasoning trace audit trails |
 | [Google Cloud Financial Advisor](examples/financial-services-advisor/google-cloud-financial-advisor/) | Google ADK | Multi-agent compliance with Vertex AI embeddings and real-time SSE streaming |
 | [Microsoft Retail Assistant](examples/microsoft_agent_retail_assistant/) | Microsoft Agent | Shopping recommendations with GDS algorithms, entity deduplication, and context providers |
+
+**v0.2 feature demos** _(small, single-purpose, no LLM required)_
+
+| Example | Demonstrates |
+|---|---|
+| [`existing-graph/`](examples/existing-graph/) | `client.schema.adopt_existing_graph(...)` — layer the library over a graph you already have in production |
+| [`buffered-writes/`](examples/buffered-writes/) | `write_mode="buffered"`, `client.buffered.submit(...)`, `client.flush()` — agent responses unblocked from Neo4j round-trips |
+| [`audit-trail/`](examples/audit-trail/) | Explicit `:TOUCHED` edges from reasoning steps to entities, plus `TraceOutcome` for indexable audit queries |
+| [`eval-harness/`](examples/eval-harness/) | `client.eval.run(EvalSuite(...))` — labelled regression tests for memory quality |
+
+**Tooling & extraction**
+
+| Example | Framework | Description |
+|---------|-----------|-------------|
+| [`no_llm/`](examples/no_llm/) | Standalone | Run with `llm=None` plus local sentence-transformers + spaCy/GLiNER (air-gapped, deterministic) |
 | [Domain Schema Examples](examples/domain-schemas/) | Standalone | 8 GLiNER2 extraction scripts with factory pattern, batch extraction, streaming, and GLiREL relations |
 | [Google Cloud Integration](examples/google_cloud_integration/) | Google ADK | Progressive tutorial: Vertex AI, ADK, MCP server, and MemoryIntegration with session strategies |
 | [Google ADK Demo](examples/google_adk_demo/) | Google ADK | Standalone demo of Neo4jMemoryService with session storage, search, and preferences |
 
-All examples use `neo4j-agent-memory>=0.1.0` and demonstrate the latest features including `ExtractionConfig`, `DeduplicationConfig`, `MemoryIntegration`, and `SessionStrategy`.
+Examples currently pin `neo4j-agent-memory>=0.1.0`. The v0.2 demos use APIs that ship in v0.2 (in development on the `adopt-existing-graph` branch); pins will move to `>=0.2.0` once that release lands.
 
 ## Documentation
 

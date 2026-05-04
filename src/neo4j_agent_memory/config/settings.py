@@ -1,10 +1,14 @@
 """Configuration settings for neo4j-agent-memory."""
 
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, SecretStr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Strict config shared by every child config model. Misspelled fields raise
+# at construction time instead of being silently dropped.
+_STRICT_CONFIG = ConfigDict(extra="forbid")
 
 
 class EmbeddingProvider(str, Enum):
@@ -66,6 +70,8 @@ class ResolverStrategy(str, Enum):
 class Neo4jConfig(BaseModel):
     """Neo4j connection configuration."""
 
+    model_config = _STRICT_CONFIG
+
     uri: str = Field(default="bolt://localhost:7687", description="Neo4j connection URI")
     username: str = Field(default="neo4j", description="Neo4j username")
     password: SecretStr = Field(description="Neo4j password")
@@ -101,6 +107,8 @@ class Neo4jConfig(BaseModel):
 class EmbeddingConfig(BaseModel):
     """Embedding provider configuration."""
 
+    model_config = _STRICT_CONFIG
+
     provider: EmbeddingProvider = Field(
         default=EmbeddingProvider.OPENAI, description="Embedding provider to use"
     )
@@ -131,6 +139,8 @@ class LLMConfig(BaseModel):
     how-to and ``examples/no_llm/`` for a worked example.
     """
 
+    model_config = _STRICT_CONFIG
+
     provider: LLMProvider = Field(default=LLMProvider.OPENAI, description="LLM provider to use")
     model: str = Field(default="gpt-4o-mini", description="LLM model name")
     api_key: SecretStr | None = Field(default=None, description="API key for LLM provider")
@@ -144,6 +154,8 @@ class SchemaConfig(BaseModel):
     Defines what entity types are valid and how the knowledge graph is structured.
     The default is the POLE+O model (Person, Object, Location, Event, Organization).
     """
+
+    model_config = _STRICT_CONFIG
 
     model: SchemaModel = Field(default=SchemaModel.POLEO, description="Schema model to use")
     entity_types: list[str] | None = Field(
@@ -166,6 +178,8 @@ class ExtractionConfig(BaseModel):
     - PIPELINE: Multi-stage pipeline combining multiple extractors
     - NONE: Disable extraction
     """
+
+    model_config = _STRICT_CONFIG
 
     extractor_type: ExtractorType = Field(
         default=ExtractorType.PIPELINE, description="Type of entity extractor"
@@ -232,6 +246,8 @@ class ExtractionConfig(BaseModel):
 class ResolutionConfig(BaseModel):
     """Entity resolution configuration."""
 
+    model_config = _STRICT_CONFIG
+
     strategy: ResolverStrategy = Field(
         default=ResolverStrategy.COMPOSITE, description="Resolution strategy"
     )
@@ -248,6 +264,8 @@ class ResolutionConfig(BaseModel):
 class MemoryConfig(BaseModel):
     """Memory behavior configuration."""
 
+    model_config = _STRICT_CONFIG
+
     # Short-term memory
     default_conversation_limit: int = Field(
         default=50, ge=1, description="Default conversation message limit"
@@ -263,10 +281,60 @@ class MemoryConfig(BaseModel):
         default=True, description="Enable reasoning trace embeddings"
     )
     tool_stats_enabled: bool = Field(default=True, description="Enable tool usage statistics")
+    # Multi-tenancy (v0.4)
+    multi_tenant: bool = Field(
+        default=False,
+        description=(
+            "When True, APIs that accept ``user_identifier=`` raise a "
+            "ValueError if the kwarg is omitted. Use in production "
+            "deployments to prevent accidental cross-tenant writes."
+        ),
+    )
+    # Buffered writes (v0.4 P1.1)
+    write_mode: Literal["sync", "buffered"] = Field(
+        default="sync",
+        description=(
+            "How fire-and-forget writes via ``client.buffered.submit(...)`` "
+            "are persisted. ``'sync'`` (default): each submit awaits the "
+            "underlying execute_write — useful for tests and small loads. "
+            "``'buffered'``: submits enqueue and a background task drains "
+            "to Neo4j; callers use ``client.flush()`` / "
+            "``client.wait_for_pending()`` at shutdown."
+        ),
+    )
+    max_pending: int = Field(
+        default=200,
+        ge=1,
+        description=(
+            "Maximum number of buffered writes that can be in flight. "
+            "When the queue is full, ``client.buffered.submit(...)`` "
+            "blocks until a worker drains an item."
+        ),
+    )
+    # Conversation hygiene (v0.5)
+    conversation_ttl_days: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "When set, ``client.consolidation.archive_expired_conversations()``"
+            " marks Conversation nodes older than this many days as archived."
+        ),
+    )
+    # Privacy (v0.5)
+    audit_read: bool = Field(
+        default=False,
+        description=(
+            "When True, ``client.consolidation.audit_reads(...)`` records a "
+            ":MemoryReadAudit node for the supplied query string. Off by "
+            "default — auditing every read is opt-in."
+        ),
+    )
 
 
 class SearchConfig(BaseModel):
     """Search configuration."""
+
+    model_config = _STRICT_CONFIG
 
     default_limit: int = Field(default=10, ge=1, description="Default search limit")
     default_threshold: float = Field(
@@ -301,6 +369,8 @@ class GeocodingConfig(BaseModel):
     - NOMINATIM: Free OpenStreetMap-based geocoding (rate limited to 1 req/sec)
     - GOOGLE: Google Maps geocoding (requires API key, has usage costs)
     """
+
+    model_config = _STRICT_CONFIG
 
     enabled: bool = Field(
         default=False, description="Enable automatic geocoding of Location entities"
@@ -337,6 +407,8 @@ class EnrichmentConfig(BaseModel):
     - WIKIMEDIA: Free Wikipedia/Wikidata enrichment (rate limited to ~2 req/sec)
     - DIFFBOT: Diffbot Knowledge Graph (requires API key, structured data)
     """
+
+    model_config = _STRICT_CONFIG
 
     enabled: bool = Field(default=False, description="Enable automatic entity enrichment")
 
@@ -420,7 +492,12 @@ class MemorySettings(BaseSettings):
         env_nested_delimiter="__",
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore",
+        # ``extra="forbid"`` rejects misspelled top-level fields (e.g.
+        # ``schema=`` instead of ``schema_config=``) at construction time
+        # rather than silently dropping them. Pydantic still allows unknown
+        # *environment variables* with the same prefix to be ignored — that
+        # is the intent of the env loader, not a typo in code.
+        extra="forbid",
     )
 
     neo4j: Neo4jConfig = Field(default_factory=lambda: Neo4jConfig(password=SecretStr("")))

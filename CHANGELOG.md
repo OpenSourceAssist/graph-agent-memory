@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+The v0.2 feature drop. Headline feature is **adopting an existing Neo4j graph** as long-term memory; the rest are production-readiness primitives.
+
+### Added
+
+- **Adopt an existing graph** — `client.schema.adopt_existing_graph(label_to_type=..., name_property_per_label=...)` attaches the `:Entity` super-label and the library's required `id`/`type`/`name` properties to nodes in your existing domain graph. Idempotent. After adoption, library writes (entity extraction, MENTIONS edges, relation writes) link to your existing nodes instead of creating duplicates. New how-to: `docs/.../how-to/adopt-existing-graph.adoc`. New example: `examples/existing-graph/`.
+- **Multi-tenancy** — `MemorySettings.memory.multi_tenant=True` plus a `user_identifier=` kwarg on short-term, long-term, and reasoning APIs scopes reads and writes per tenant. New `client.users` (`UserMemory`) layer for first-class `:User` identity. New how-to: `docs/.../how-to/multi-tenancy.adoc`.
+- **Buffered (fire-and-forget) writes** — `MemorySettings.memory.write_mode = "buffered"` plus `client.buffered.submit(query, params)`, `client.flush()`, `client.wait_for_pending()`, and `client.write_errors`. Decouples user-visible latency from Neo4j round-trips. New how-to: `docs/.../how-to/buffered-writes.adoc`. New example: `examples/buffered-writes/`.
+- **Consolidation primitives** — `client.consolidation` exposes `dedupe_entities()`, `summarize_long_traces()`, `detect_superseded_preferences()`, and `archive_expired_conversations()`. All default to `dry_run=True`. New how-to: `docs/.../how-to/consolidation.adoc`.
+- **Evaluation harness** — `client.eval.run(EvalSuite(...))` for labelled regression tests over memory quality (recall@k for retrieval, audit-coverage of `:TOUCHED` paths, preference fidelity). New how-to: `docs/.../how-to/evaluation.adoc`. New example: `examples/eval-harness/`.
+- **Audit-trail / TOUCHED edges** — `record_tool_call(touched_entities=[...])`, `@client.reasoning.on_tool_call_recorded` hook for domain-specific inference, `TraceOutcome` with indexable `error_kind`. Headline payoff: a one-hop `MATCH (e)<-[:TOUCHED]-(s)` audit query. New how-to: `docs/.../how-to/audit-reasoning.adoc`. New example: `examples/audit-trail/`.
+- **Privacy & encryption** — `core.encryption` helper plus `docs/.../how-to/privacy-and-audit.adoc`.
+- **Schema objects reference** — declarative constraints/indexes documented at `docs/.../reference/schema-objects.adoc`.
+- **Glossary page** — `docs/.../glossary.adoc`.
+- **README async-only callout** — explicit guidance that every memory operation is a coroutine.
+- **Generic phantom-method guard** — `tests/examples/test_no_phantom_methods.py` cross-references every `client.<layer>.<method>(` call in `examples/` against the actual class API. Catches silent breakage when an example calls a method that doesn't exist (typically renamed or never landed).
+- **Smoke test for `enrichment_example.py`** — `tests/examples/test_enrichment_example.py`.
+
+### Changed
+
+- All 14 example READMEs migrated to the Neo4j Labs branding template (Labs badge, status badge, community-supported badge, disclaimer block, support section, "verified against" footer). New top-level `examples/README.md` index.
+
+### Fixed (during the v0.2 examples-review pass)
+
+- `examples/google_cloud_integration/adk_memory_service.py` — printed code-example showed deprecated `await memory_client.initialize()`; corrected to `await memory_client.connect()`.
+- `examples/enrichment_example.py` — called phantom `client.long_term.get_entity(entity.id)` (no such public method); fixed to `get_entity_by_name(entity.name)`.
+- `examples/basic_usage.py` — called phantom `client.long_term.get_entity_coordinates()`; fixed to `get_location_coordinates()`. Also tightened `add_entity()` callers to consistently demonstrate the v0.1.1+ tuple return.
+- `examples/langchain_agent.py` — same `add_entity()` consistency fix.
+- `examples/lennys-memory/scripts/load_transcripts.py` — called phantom `client.short_term.get_messages()`; fixed to use `get_conversation()` and check `.messages`. The previous call was wrapped in `except Exception: pass`, so it silently failed at runtime, defeating the dedup check on transcript loads.
+- `examples/lennys-memory/backend/src/api/routes/threads.py` — called phantom `client.short_term.delete_conversation()`; fixed to `clear_session()`. Also wrapped in `except Exception: pass`, so the thread-delete endpoint was silently returning success without actually deleting from Neo4j.
+
 ## [0.1.2] - 2026-04-29
 
 ### Added

@@ -323,7 +323,7 @@ from neo4j_agent_memory.integration import MemoryIntegration, SessionStrategy
 # Initialize memory
 settings = MemorySettings(...)
 memory_client = MemoryClient(settings)
-await memory_client.initialize()
+await memory_client.connect()
 
 # Create memory service
 memory_service = Neo4jMemoryService(

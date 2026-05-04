@@ -44,6 +44,9 @@ Automatically extract entities and relationships to populate your context graph 
 |===
 | Guide | What You'll Accomplish
 
+| xref:how-to/adopt-existing-graph.adoc[Adopt an Existing Domain Graph]
+| Layer agent memory on top of a graph that already exists in production. Attach the `:Entity` super-label and library-managed properties idempotently with `client.schema.adopt_existing_graph()`.
+
 | xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
 | Set up spaCy, GLiNER, or LLM extractors. Create custom domain schemas for financial services, ecommerce, or any industry. Build multi-stage pipelines.
 

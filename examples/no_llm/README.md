@@ -1,17 +1,35 @@
-# Running without an LLM
+# Run Without an LLM
 
-This example shows how to use `neo4j-agent-memory` with no LLM provider — useful for:
+![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)
+![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)
+![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)
 
-- Air-gapped or offline environments
-- Deployments without an `OPENAI_API_KEY`
-- Deterministic, free, fully-local extraction
+> Air-gapped or budget-conscious? Use `neo4j-agent-memory` with no LLM provider — local embeddings, local NER, no API keys.
 
-The key configuration is:
+This example shows how to wire `MemorySettings` for environments where you can't (or don't want to) call an LLM. The key is `llm=None` plus a non-LLM extractor and a local embedder.
+
+> ⚠️ **Neo4j Labs Project**
+>
+> This example is part of [`neo4j-agent-memory`](https://github.com/neo4j-labs/agent-memory), a Neo4j Labs project. It is actively maintained but not officially supported. APIs may change. Community support is available via the [Neo4j Community Forum](https://community.neo4j.com).
+
+## When to use this
+
+- Air-gapped or offline deployments where outbound API calls aren't allowed.
+- Cost-sensitive workloads where every LLM call counts.
+- Deterministic test environments where you want zero variability from a remote model.
+- Bootstrapping a new project before you've decided on an LLM vendor.
+
+## What this demonstrates
+
+- **`llm=None`** — explicit opt-out. Validated at construction time.
+- **`EmbeddingProvider.SENTENCE_TRANSFORMERS`** — local embeddings via `sentence-transformers` (defaults shown: `all-MiniLM-L6-v2`, 384 dims).
+- **`ExtractorType.PIPELINE` with `enable_llm_fallback=False`** — multi-stage spaCy + GLiNER pipeline, no LLM rescue.
+- **Configuration-time validation** — if you pair `llm=None` with an extractor that requires an LLM, `MemorySettings` raises a `ValidationError` naming both fields rather than failing later at runtime.
 
 ```python
 settings = MemorySettings(
     neo4j=Neo4jConfig(...),
-    llm=None,                                # explicit opt-out
+    llm=None,                                 # explicit opt-out
     embedding=EmbeddingConfig(
         provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
         model="all-MiniLM-L6-v2",
@@ -21,21 +39,19 @@ settings = MemorySettings(
         extractor_type=ExtractorType.PIPELINE,
         enable_spacy=True,
         enable_gliner=True,
-        enable_llm_fallback=False,           # required when llm=None
+        enable_llm_fallback=False,            # required when llm=None
     ),
 )
 ```
 
-If you set `llm=None` together with an LLM-dependent extractor (`extractor_type=LLM` or `enable_llm_fallback=True`), `MemorySettings` raises a `ValidationError` at construction time naming both fields.
-
-## Setup
+## Prerequisites
 
 ```bash
 pip install "neo4j-agent-memory[extraction,sentence-transformers]"
 python -m spacy download en_core_web_sm
 ```
 
-Start Neo4j however you like (Docker, Aura, local). Set `NEO4J_URI` / `NEO4J_PASSWORD` if not using `bolt://localhost:7687` with the default `password`.
+A running Neo4j 5.x. Set `NEO4J_URI` / `NEO4J_PASSWORD` if you're not using `bolt://localhost:7687` with the default `password`.
 
 ## Run
 
@@ -43,4 +59,19 @@ Start Neo4j however you like (Docker, Aura, local). Set `NEO4J_URI` / `NEO4J_PAS
 python main.py
 ```
 
-You should see a printed memory context with no calls to OpenAI and no need for any API key.
+You'll see a printed memory context built without a single call to OpenAI, no API key required.
+
+## Going further
+
+- **How-to guide:** [`docs/modules/ROOT/pages/how-to/running-without-an-llm.adoc`](../../docs/modules/ROOT/pages/how-to/running-without-an-llm.adoc).
+- **Reference:** [`docs/modules/ROOT/pages/reference/extractors.adoc`](../../docs/modules/ROOT/pages/reference/extractors.adoc) — extractor menu, when to add LLM rescue, GLiNER schema choices.
+
+## Support
+
+- 💬 [Neo4j Community Forum](https://community.neo4j.com)
+- 🐛 [GitHub Issues](https://github.com/neo4j-labs/agent-memory/issues)
+- 📖 [`neo4j-agent-memory` documentation](https://github.com/neo4j-labs/agent-memory#readme)
+
+---
+
+_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03._
