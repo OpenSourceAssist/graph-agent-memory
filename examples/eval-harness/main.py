@@ -1,6 +1,6 @@
 """Eval-harness example: tiny seed set + report.
 
-Demonstrates the v0.5 P2.3 evaluation harness — the building blocks for
+Demonstrates the v0.2 evaluation harness — the building blocks for
 labeled regression tests over memory quality (retrieval, audit, preference).
 
 Run from the repo root::

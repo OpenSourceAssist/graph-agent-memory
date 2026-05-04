@@ -37,7 +37,7 @@ The harness intentionally pairs with `tests/integration/test_eval_harness.py` â€
 From the repo root:
 
 ```bash
-uv run python -m examples.eval-harness.main
+uv run python examples/eval-harness/main.py
 ```
 
 You should see:

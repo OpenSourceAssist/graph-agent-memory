@@ -4,7 +4,7 @@
 :toclevels: 2
 
 How to run labeled regression tests against your memory graph using the
-v0.5 P2.3 evaluation harness.
+v0.2 evaluation harness.
 
 [.lead]
 The harness is a *scaffold*, not a benchmark — three dimensions, simple
@@ -139,9 +139,8 @@ assert report.audit.score >= 0.95, (
 * Not a public benchmark — your labels are domain-specific.
 * Not a replacement for hand inspection — high recall@k can hide
   systematic bias toward popular entities.
-* Not a substitute for the ``ConsolidationRun`` audit trail in v0.5
-  P1.5 — the eval harness measures *current* state; audit nodes record
-  *change* over time.
+* Not a substitute for the ``ConsolidationRun`` audit trail — the eval
+  harness measures *current* state; audit nodes record *change* over time.
 
 == See Also
 
