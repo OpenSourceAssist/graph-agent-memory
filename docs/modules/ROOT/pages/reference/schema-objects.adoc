@@ -23,15 +23,18 @@ file for the complete current inventory used in deployments.
 |===
 | Name | Label | Property | Purpose
 
-| `conversation_id`     | `Conversation`     | `id`   | Unique conversation identifier.
-| `message_id`          | `Message`          | `id`   | Unique message identifier.
-| `entity_id`           | `Entity`           | `id`   | Unique entity identifier across all subtypes.
-| `preference_id`       | `Preference`       | `id`   | Unique preference identifier.
-| `fact_id`             | `Fact`             | `id`   | Unique fact identifier.
-| `reasoning_trace_id`  | `ReasoningTrace`   | `id`   | Unique reasoning-trace identifier.
-| `reasoning_step_id`   | `ReasoningStep`    | `id`   | Unique reasoning-step identifier.
-| `tool_name`           | `Tool`             | `name` | One `Tool` node per unique tool name (used for aggregated stats).
-| `tool_call_id`        | `ToolCall`         | `id`   | Unique tool-call identifier.
+| `conversation_id`       | `Conversation`       | `id`         | Unique conversation identifier.
+| `message_id`            | `Message`            | `id`         | Unique message identifier.
+| `entity_id`             | `Entity`             | `id`         | Unique entity identifier across all subtypes.
+| `preference_id`         | `Preference`         | `id`         | Unique preference identifier.
+| `fact_id`               | `Fact`               | `id`         | Unique fact identifier.
+| `reasoning_trace_id`    | `ReasoningTrace`     | `id`         | Unique reasoning-trace identifier.
+| `reasoning_step_id`     | `ReasoningStep`      | `id`         | Unique reasoning-step identifier.
+| `tool_name`             | `Tool`               | `name`       | One `Tool` node per unique tool name (used for aggregated stats).
+| `tool_call_id`          | `ToolCall`           | `id`         | Unique tool-call identifier.
+| `user_identifier`       | `User`               | `identifier` | Unique user identifier (multi-tenancy).
+| `consolidation_run_id`  | `ConsolidationRun`   | `id`         | Unique consolidation-job run identifier.
+| `memory_read_audit_id`  | `MemoryReadAudit`    | `id`         | Unique memory-read audit event identifier.
 |===
 
 == Regular indexes
@@ -71,11 +74,12 @@ work, but the rest of the library functions normally.
 |===
 | Name | Label | Property | Purpose
 
-| `message_embedding_idx`     | `Message`        | `embedding`      | Semantic search over message content.
-| `entity_embedding_idx`      | `Entity`         | `embedding`      | Semantic search over entity descriptions.
-| `preference_embedding_idx`  | `Preference`     | `embedding`      | Semantic search over preferences.
-| `fact_embedding_idx`        | `Fact`           | `embedding`      | Semantic search over facts.
-| `task_embedding_idx`        | `ReasoningTrace` | `task_embedding` | Search past reasoning traces by task similarity.
+| `message_embedding_idx`     | `Message`         | `embedding`      | Semantic search over message content.
+| `entity_embedding_idx`      | `Entity`          | `embedding`      | Semantic search over entity descriptions.
+| `preference_embedding_idx`  | `Preference`      | `embedding`      | Semantic search over preferences.
+| `fact_embedding_idx`        | `Fact`            | `embedding`      | Semantic search over facts.
+| `task_embedding_idx`        | `ReasoningTrace`  | `task_embedding` | Search past reasoning traces by task similarity.
+| `step_embedding_idx`        | `ReasoningStep`   | `embedding`      | Semantic search over individual reasoning steps (used by `search_steps`).
 |===
 
 == Point indexes
