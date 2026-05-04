@@ -87,8 +87,9 @@ Created for geospatial queries on Location entities.
 
 `SchemaManager.drop_all()` removes every constraint and index whose name
 starts with one of `conversation_`, `message_`, `entity_`,
-`preference_`, `fact_`, `reasoning_`, `trace_`, `tool_`, `task_`. It
-does not delete data — only schema definitions.
+`preference_`, `fact_`, `reasoning_`, `trace_`, `tool_`, `task_`,
+`step_`, `user_`, `consolidation_`, or `memory_read_`. It does not
+delete data — only schema definitions.
 
 [source,python]
 ----
