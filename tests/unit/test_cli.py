@@ -29,8 +29,16 @@ from neo4j_agent_memory.extraction import (
 
 
 @pytest.fixture
-def runner():
-    """Create a CLI test runner."""
+def runner(monkeypatch):
+    """Create a CLI test runner with a deterministic environment.
+
+    Clears NEO4J_* env vars so the `--password` and `--uri` Click options
+    don't pick up the developer's local environment via `envvar=`. Without
+    this, the `*_no_password` tests fail when run by anyone who has
+    NEO4J_PASSWORD set in their shell.
+    """
+    for var in ("NEO4J_PASSWORD", "NEO4J_USER", "NEO4J_USERNAME", "NEO4J_URI"):
+        monkeypatch.delenv(var, raising=False)
     return CliRunner()
 
 
