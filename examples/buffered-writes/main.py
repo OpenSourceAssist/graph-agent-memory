@@ -9,7 +9,7 @@ Demonstrates the v0.4 P1.1 fire-and-forget API:
 
 Run from the repo root::
 
-    uv run python -m examples.buffered-writes.main
+    uv run python examples/buffered-writes/main.py
 """
 
 from __future__ import annotations
