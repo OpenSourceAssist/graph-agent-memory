@@ -139,12 +139,10 @@ After v0.4 a multi-tenant graph contains:
 
 == Roadmap
 
-The full design (per the PRD) wires `user_identifier=` through
-`short_term.create_conversation` and `reasoning.start_trace` as well,
-plus a `MemorySettings.multi_tenant=True` guardrail. Those are
-incremental; the v0.4 surface above is sufficient to scope the
-preferences-and-bootstrap-query workflow that drove the PRD's
-chapter-9 scenarios.
+The v0.4 surface includes user-scoped conversations, traces, and
+preferences, including the multi-tenant guardrails described above.
+Any remaining roadmap work is additive and does not change the
+recommended scoping model documented on this page.
 
 == See Also
 
