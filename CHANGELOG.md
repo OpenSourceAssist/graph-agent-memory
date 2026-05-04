@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-04
+
 The v0.2 feature drop. Headline feature is **adopting an existing Neo4j graph** as long-term memory; the rest are production-readiness primitives.
 
 ### Added
