@@ -29,9 +29,7 @@ class TestExistingGraphExampleStructure:
             "memory_io.py",
             "run.sh",
         ]:
-            assert (EXISTING_GRAPH_DIR / filename).exists(), (
-                f"Missing example file: {filename}"
-            )
+            assert (EXISTING_GRAPH_DIR / filename).exists(), f"Missing example file: {filename}"
 
     def test_python_files_compile(self):
         for filename in ["memory_settings.py", "adopt.py", "memory_io.py"]:

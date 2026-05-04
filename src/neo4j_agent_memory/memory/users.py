@@ -65,7 +65,7 @@ def _row_to_user(row: dict[str, Any]) -> User:
 class UserMemory:
     """User upsert / lookup / listing for multi-tenant deployments."""
 
-    def __init__(self, client: "Neo4jClient"):
+    def __init__(self, client: Neo4jClient):
         self._client = client
 
     async def upsert_user(
@@ -90,9 +90,7 @@ class UserMemory:
 
     async def get_user(self, identifier: str) -> User | None:
         """Return the user matching ``identifier`` or ``None``."""
-        rows = await self._client.execute_read(
-            _GET_USER, {"identifier": identifier}
-        )
+        rows = await self._client.execute_read(_GET_USER, {"identifier": identifier})
         return _row_to_user(rows[0]) if rows else None
 
     async def list_users(self, *, limit: int = 100) -> list[User]:

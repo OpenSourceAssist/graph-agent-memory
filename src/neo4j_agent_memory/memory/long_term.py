@@ -620,14 +620,10 @@ class LongTermMemory(BaseMemory[Entity]):
                     # and applies-to edges, since this caller may be a
                     # different user pinning the same general preference.
                     if user_identifier is not None:
-                        await self._link_user_to_preference(
-                            user_identifier, str(existing.id)
-                        )
+                        await self._link_user_to_preference(user_identifier, str(existing.id))
                     if applies_to:
                         for ref in applies_to:
-                            await self._link_preference_to_entity(
-                                str(existing.id), ref
-                            )
+                            await self._link_preference_to_entity(str(existing.id), ref)
                     return existing
             except Exception:
                 pass  # Vector index may not exist yet
@@ -674,9 +670,7 @@ class LongTermMemory(BaseMemory[Entity]):
 
         return pref
 
-    async def _link_user_to_preference(
-        self, user_identifier: str, preference_id: str
-    ) -> None:
+    async def _link_user_to_preference(self, user_identifier: str, preference_id: str) -> None:
         """Idempotently write ``(:User)-[:HAS_PREFERENCE]->(:Preference)``."""
         await self._client.execute_write(
             """
@@ -783,7 +777,9 @@ class LongTermMemory(BaseMemory[Entity]):
                 :meth:`supersede_preference`.
         """
         params: dict[str, Any] = {"user_identifier": user_identifier}
-        clauses: list[str] = ["MATCH (u:User {identifier: $user_identifier})-[:HAS_PREFERENCE]->(p:Preference)"]
+        clauses: list[str] = [
+            "MATCH (u:User {identifier: $user_identifier})-[:HAS_PREFERENCE]->(p:Preference)"
+        ]
         where: list[str] = []
 
         if active_only:

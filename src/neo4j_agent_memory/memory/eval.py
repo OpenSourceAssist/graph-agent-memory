@@ -97,11 +97,7 @@ class EvalReport(BaseModel):
     @property
     def overall_score(self) -> float:
         """Mean score across the dimensions that ran."""
-        scores = [
-            d.score
-            for d in (self.retrieval, self.audit, self.preference)
-            if d is not None
-        ]
+        scores = [d.score for d in (self.retrieval, self.audit, self.preference) if d is not None]
         return sum(scores) / len(scores) if scores else 0.0
 
 
@@ -113,14 +109,14 @@ class EvalReport(BaseModel):
 class EvalMemory:
     """``client.eval`` — runs a labeled :class:`EvalSuite`."""
 
-    def __init__(self, client: "MemoryClient"):
+    def __init__(self, client: MemoryClient):
         self._client = client
 
     async def run(
         self,
         suite: EvalSuite,
         *,
-        dimensions: "list[str] | None" = None,
+        dimensions: list[str] | None = None,
     ) -> EvalReport:
         """Evaluate the suite across the requested dimensions.
 
@@ -132,9 +128,7 @@ class EvalMemory:
         Returns:
             :class:`EvalReport` with per-dimension scores.
         """
-        wanted = set(dimensions) if dimensions else {
-            "retrieval", "audit", "preference"
-        }
+        wanted = set(dimensions) if dimensions else {"retrieval", "audit", "preference"}
 
         report = EvalReport()
         if "retrieval" in wanted and suite.retrieval:
@@ -145,9 +139,7 @@ class EvalMemory:
             report.preference = await self._eval_preference(suite.preference)
         return report
 
-    async def _eval_retrieval(
-        self, cases: list[RetrievalCase]
-    ) -> DimensionReport:
+    async def _eval_retrieval(self, cases: list[RetrievalCase]) -> DimensionReport:
         """Compute recall@k against a labeled seedset.
 
         Recall = |retrieved ∩ expected| / |expected|.
@@ -155,9 +147,7 @@ class EvalMemory:
         details: list[dict] = []
         scores: list[float] = []
         for case in cases:
-            results = await self._client.long_term.search_entities(
-                case.query, limit=case.k
-            )
+            results = await self._client.long_term.search_entities(case.query, limit=case.k)
             retrieved_ids: set[str] = set()
             for r in results:
                 # search_entities returns (Entity, score) tuples.
@@ -165,11 +155,7 @@ class EvalMemory:
                 retrieved_ids.add(str(getattr(entity, "id", "")))
 
             hits = retrieved_ids & case.expected_entity_ids
-            recall = (
-                len(hits) / len(case.expected_entity_ids)
-                if case.expected_entity_ids
-                else 1.0
-            )
+            recall = len(hits) / len(case.expected_entity_ids) if case.expected_entity_ids else 1.0
             scores.append(recall)
             details.append(
                 {
@@ -186,9 +172,7 @@ class EvalMemory:
             details=details,
         )
 
-    async def _eval_audit(
-        self, cases: list[AuditCase]
-    ) -> DimensionReport:
+    async def _eval_audit(self, cases: list[AuditCase]) -> DimensionReport:
         """Verify each entity has the expected ``:TOUCHED``-bearing steps."""
         details: list[dict] = []
         scores: list[float] = []
@@ -202,11 +186,7 @@ class EvalMemory:
             )
             actual_ids = {r["id"] for r in rows}
             covered = actual_ids & case.expected_step_ids
-            recall = (
-                len(covered) / len(case.expected_step_ids)
-                if case.expected_step_ids
-                else 1.0
-            )
+            recall = len(covered) / len(case.expected_step_ids) if case.expected_step_ids else 1.0
             scores.append(recall)
             details.append(
                 {
@@ -222,9 +202,7 @@ class EvalMemory:
             details=details,
         )
 
-    async def _eval_preference(
-        self, cases: list[PreferenceCase]
-    ) -> DimensionReport:
+    async def _eval_preference(self, cases: list[PreferenceCase]) -> DimensionReport:
         """Check ``get_preferences_for(active_only=True)`` exact match."""
         details: list[dict] = []
         scores: list[float] = []
@@ -239,11 +217,7 @@ class EvalMemory:
             fn = len(case.expected_active_pref_ids - actual_ids)
             precision = tp / (tp + fp) if (tp + fp) else 1.0
             recall = tp / (tp + fn) if (tp + fn) else 1.0
-            f1 = (
-                2 * precision * recall / (precision + recall)
-                if (precision + recall)
-                else 0.0
-            )
+            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
             scores.append(f1)
             details.append(
                 {

@@ -6,7 +6,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 # Strict config shared by every child config model. Misspelled fields raise
 # at construction time instead of being silently dropped.
 _STRICT_CONFIG = ConfigDict(extra="forbid")

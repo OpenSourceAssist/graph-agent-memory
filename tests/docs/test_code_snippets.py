@@ -243,7 +243,6 @@ class TestSnippetImports:
             "MemoryType",
             # Observability (imported from neo4j_agent_memory.observability)
             "get_tracer",
-            "TracingProvider",
             # v0.3 reasoning models (imported from neo4j_agent_memory.schema.models)
             "EntityRef",
             "TraceOutcome",
@@ -416,9 +415,7 @@ class TestSettingsFieldDrift:
         cls = getattr(module, attr)
         return set(cls.model_fields.keys())
 
-    def test_no_unknown_kwargs_in_doc_constructions(
-        self, python_snippets: list[CodeSnippet]
-    ):
+    def test_no_unknown_kwargs_in_doc_constructions(self, python_snippets: list[CodeSnippet]):
         """Walk every doc snippet's AST. For each ``Class(kwarg=...)`` call
         whose class is in ``_MODELS_TO_CHECK``, verify each kwarg exists on
         the live model.

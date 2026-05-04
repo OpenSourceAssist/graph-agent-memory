@@ -48,9 +48,7 @@ class TestAuditTrailImports:
                 {"client_name": "Anthem"},
                 [{"consultant": "Sara"}],
             )
-            assert any(
-                r.name == "Anthem" and r.type == "Client" for r in result
-            )
+            assert any(r.name == "Anthem" and r.type == "Client" for r in result)
             assert any(r.name == "Sara" and r.type == "PERSON" for r in result)
             assert all(isinstance(r, EntityRef) for r in result)
         finally:

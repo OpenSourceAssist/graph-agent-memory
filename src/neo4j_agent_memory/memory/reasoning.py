@@ -999,11 +999,7 @@ class ReasoningMemory(BaseMemory[ReasoningStep]):
                 """,
                 {"id": rs["id"]},
             )
-            trace_id = (
-                UUID(trace_id_rows[0]["trace_id"])
-                if trace_id_rows
-                else uuid4()
-            )
+            trace_id = UUID(trace_id_rows[0]["trace_id"]) if trace_id_rows else uuid4()
             results.append(
                 ReasoningStepWithContext(
                     step=ReasoningStep(

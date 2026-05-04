@@ -431,16 +431,12 @@ class ExtractorBuilder:
         for downstream filtering by other stages.
         """
         if not 0.0 <= threshold <= 1.0:
-            raise ValueError(
-                f"confidence_threshold must be in [0.0, 1.0], got {threshold!r}"
-            )
+            raise ValueError(f"confidence_threshold must be in [0.0, 1.0], got {threshold!r}")
         self._confidence_threshold = threshold
         self._gliner_threshold = threshold
         return self
 
-    def with_schema(
-        self, schema_config: "EntitySchemaConfig"
-    ) -> "ExtractorBuilder":
+    def with_schema(self, schema_config: "EntitySchemaConfig") -> "ExtractorBuilder":
         """Configure entity types from an :class:`EntitySchemaConfig`.
 
         Derives ``entity_types`` from the schema's

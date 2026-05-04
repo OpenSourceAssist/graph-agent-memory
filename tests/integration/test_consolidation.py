@@ -11,9 +11,7 @@ import pytest
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestDedupeEntities:
-    async def test_dry_run_reports_candidates_without_mutation(
-        self, clean_memory_client
-    ):
+    async def test_dry_run_reports_candidates_without_mutation(self, clean_memory_client):
         client = clean_memory_client
         # Seed two near-identical entities of the same type with embeddings
         # close enough to fall above the 0.95 threshold.
@@ -34,27 +32,22 @@ class TestDedupeEntities:
             {"emb": embedding, "emb_b": embedding_b},
         )
 
-        report = await client.consolidation.dedupe_entities(
-            similarity_threshold=0.9, dry_run=True
-        )
+        report = await client.consolidation.dedupe_entities(similarity_threshold=0.9, dry_run=True)
 
         assert report.dry_run is True
         assert report.kind == "dedupe_entities"
         assert report.run_id is None
-        assert any("Jon Smith" in c.description or "John Smith" in c.description
-                   for c in report.candidates)
+        assert any(
+            "Jon Smith" in c.description or "John Smith" in c.description for c in report.candidates
+        )
         # No actions taken in a dry run.
         assert report.actions_taken == 0
 
         # Confirm no SAME_AS edge was written.
-        rows = await client.graph.execute_read(
-            "MATCH ()-[r:SAME_AS]->() RETURN count(r) AS cnt"
-        )
+        rows = await client.graph.execute_read("MATCH ()-[r:SAME_AS]->() RETURN count(r) AS cnt")
         assert rows[0]["cnt"] == 0
 
-    async def test_real_run_writes_same_as_and_audit_node(
-        self, clean_memory_client
-    ):
+    async def test_real_run_writes_same_as_and_audit_node(self, clean_memory_client):
         client = clean_memory_client
         embedding = [0.2] * 1536
         await client.graph.execute_write(
@@ -71,9 +64,7 @@ class TestDedupeEntities:
             {"emb": embedding},
         )
 
-        report = await client.consolidation.dedupe_entities(
-            similarity_threshold=0.9, dry_run=False
-        )
+        report = await client.consolidation.dedupe_entities(similarity_threshold=0.9, dry_run=False)
 
         assert report.dry_run is False
         assert report.run_id is not None
@@ -105,13 +96,9 @@ class TestSummarizeLongTraces:
         trace = await client.reasoning.start_trace(session_id, "Long task")
         # Seed enough steps to exceed min_steps=3.
         for i in range(5):
-            await client.reasoning.add_step(
-                trace.id, thought=f"Step {i}", generate_embedding=False
-            )
+            await client.reasoning.add_step(trace.id, thought=f"Step {i}", generate_embedding=False)
 
-        report = await client.consolidation.summarize_long_traces(
-            min_steps=3, dry_run=False
-        )
+        report = await client.consolidation.summarize_long_traces(min_steps=3, dry_run=False)
 
         assert report.kind == "summarize_long_traces"
         assert report.dry_run is False
@@ -119,30 +106,21 @@ class TestSummarizeLongTraces:
         assert report.run_id is not None
 
         rows = await client.graph.execute_read(
-            "MATCH (rt:ReasoningTrace {id: $id}) "
-            "RETURN rt.summarization_pending AS pending",
+            "MATCH (rt:ReasoningTrace {id: $id}) RETURN rt.summarization_pending AS pending",
             {"id": str(trace.id)},
         )
         assert rows[0]["pending"] is True
 
-    async def test_skips_already_pending_traces(
-        self, clean_memory_client, session_id
-    ):
+    async def test_skips_already_pending_traces(self, clean_memory_client, session_id):
         client = clean_memory_client
         trace = await client.reasoning.start_trace(session_id, "Already-pending")
         for i in range(4):
-            await client.reasoning.add_step(
-                trace.id, thought=f"Step {i}", generate_embedding=False
-            )
+            await client.reasoning.add_step(trace.id, thought=f"Step {i}", generate_embedding=False)
 
         # First run flags it.
-        await client.consolidation.summarize_long_traces(
-            min_steps=3, dry_run=False
-        )
+        await client.consolidation.summarize_long_traces(min_steps=3, dry_run=False)
         # Second run should find no candidates — idempotent.
-        report = await client.consolidation.summarize_long_traces(
-            min_steps=3, dry_run=False
-        )
+        report = await client.consolidation.summarize_long_traces(min_steps=3, dry_run=False)
         assert report.candidate_count == 0
 
 

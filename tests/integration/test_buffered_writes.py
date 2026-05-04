@@ -62,9 +62,7 @@ class TestBufferedWritesEndToEnd:
         # Drain.
         await client.flush()
 
-        rows = await client.graph.execute_read(
-            "MATCH (t:BufferTest) RETURN count(t) AS cnt"
-        )
+        rows = await client.graph.execute_read("MATCH (t:BufferTest) RETURN count(t) AS cnt")
         assert rows[0]["cnt"] == 10
         assert client.write_errors == []
 
@@ -80,33 +78,23 @@ class TestBufferedWritesEndToEnd:
         except Exception:
             pass
         for i in range(5):
-            await client.buffered.submit(
-                "CREATE (n:DrainTest {i: $i})", {"i": i}
-            )
+            await client.buffered.submit("CREATE (n:DrainTest {i: $i})", {"i": i})
         await client.close()
 
         # Reopen and verify all 5 writes landed.
         client2 = MemoryClient(settings, embedder=mock_embedder)
         try:
             await client2.connect()
-            rows = await client2.graph.execute_read(
-                "MATCH (n:DrainTest) RETURN count(n) AS cnt"
-            )
+            rows = await client2.graph.execute_read("MATCH (n:DrainTest) RETURN count(n) AS cnt")
             assert rows[0]["cnt"] == 5
-            await client2._client.execute_write(
-                "MATCH (n:DrainTest) DETACH DELETE n"
-            )
+            await client2._client.execute_write("MATCH (n:DrainTest) DETACH DELETE n")
         finally:
             await client2.close()
 
     async def test_sync_mode_passthrough(self, clean_memory_client):
         """``write_mode='sync'`` (default) means submit awaits inline."""
         client = clean_memory_client
-        await client.buffered.submit(
-            "CREATE (s:SyncTest {x: $x})", {"x": 42}
-        )
+        await client.buffered.submit("CREATE (s:SyncTest {x: $x})", {"x": 42})
         # No flush needed in sync mode.
-        rows = await client.graph.execute_read(
-            "MATCH (s:SyncTest) RETURN s.x AS x"
-        )
+        rows = await client.graph.execute_read("MATCH (s:SyncTest) RETURN s.x AS x")
         assert rows[0]["x"] == 42

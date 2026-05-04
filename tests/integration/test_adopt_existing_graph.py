@@ -172,9 +172,7 @@ class TestAdoptExistingGraph:
                 name_property_per_label={"Person": "name`); MATCH"},
             )
 
-    async def test_subsequent_mention_links_to_existing_node(
-        self, clean_memory_client, session_id
-    ):
+    async def test_subsequent_mention_links_to_existing_node(self, clean_memory_client, session_id):
         """The whole point of adoption: extracted MENTIONS edges should point
         at the pre-existing domain node, not duplicate it."""
         client = clean_memory_client
@@ -190,14 +188,10 @@ class TestAdoptExistingGraph:
         assert rows[0]["cnt"] == 1
 
         # Add a message that should produce a MENTIONS edge into Alice.
-        await client.short_term.add_message(
-            session_id, "user", "I had lunch with Alice yesterday."
-        )
+        await client.short_term.add_message(session_id, "user", "I had lunch with Alice yesterday.")
 
         # There should still be exactly one Alice node — the library
         # MERGE'd on (:Entity {name:'Alice', type:'PERSON'}) and found the
         # adopted domain node.
-        rows = await client._client.execute_read(
-            "MATCH (p {name: 'Alice'}) RETURN count(p) AS cnt"
-        )
+        rows = await client._client.execute_read("MATCH (p {name: 'Alice'}) RETURN count(p) AS cnt")
         assert rows[0]["cnt"] == 1

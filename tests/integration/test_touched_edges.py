@@ -21,14 +21,10 @@ from neo4j_agent_memory.schema.models import EntityRef, TraceOutcome
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestTouchedEdgeWriter:
-    async def test_record_tool_call_writes_touched_edges(
-        self, clean_memory_client, session_id
-    ):
+    async def test_record_tool_call_writes_touched_edges(self, clean_memory_client, session_id):
         client = clean_memory_client
         trace = await client.reasoning.start_trace(session_id, "Find clients in healthcare")
-        step = await client.reasoning.add_step(
-            trace.id, thought="Look up Anthem"
-        )
+        step = await client.reasoning.add_step(trace.id, thought="Look up Anthem")
 
         await client.reasoning.record_tool_call(
             step.id,
@@ -52,9 +48,7 @@ class TestTouchedEdgeWriter:
         names = [(r["name"], r["type"]) for r in rows]
         assert names == [("Anthem", "Client"), ("Sara", "PERSON")]
 
-    async def test_record_tool_call_idempotent_touched_edges(
-        self, clean_memory_client, session_id
-    ):
+    async def test_record_tool_call_idempotent_touched_edges(self, clean_memory_client, session_id):
         client = clean_memory_client
         trace = await client.reasoning.start_trace(session_id, "Repeat tool call")
         step = await client.reasoning.add_step(trace.id)
@@ -76,9 +70,7 @@ class TestTouchedEdgeWriter:
         )
         assert rows[0]["edges"] == 1
 
-    async def test_observer_hook_fires_and_can_add_edges(
-        self, clean_memory_client, session_id
-    ):
+    async def test_observer_hook_fires_and_can_add_edges(self, clean_memory_client, session_id):
         client = clean_memory_client
 
         observed: list[str] = []
@@ -87,9 +79,7 @@ class TestTouchedEdgeWriter:
         async def hook(tool_call, ctx):
             observed.append(tool_call.tool_name)
             # Hook adds an :Industry edge derived from the tool's result.
-            await ctx.add_touched_edge(
-                EntityRef(name="Healthcare", type="Industry")
-            )
+            await ctx.add_touched_edge(EntityRef(name="Healthcare", type="Industry"))
 
         trace = await client.reasoning.start_trace(session_id, "Hook test")
         step = await client.reasoning.add_step(trace.id)
@@ -137,13 +127,9 @@ class TestTouchedEdgeWriter:
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestTraceOutcomeStructured:
-    async def test_trace_outcome_persists_structured_fields(
-        self, clean_memory_client, session_id
-    ):
+    async def test_trace_outcome_persists_structured_fields(self, clean_memory_client, session_id):
         client = clean_memory_client
-        trace = await client.reasoning.start_trace(
-            session_id, "Failed retrieval"
-        )
+        trace = await client.reasoning.start_trace(session_id, "Failed retrieval")
         step = await client.reasoning.add_step(trace.id, thought="Search")
 
         await client.reasoning.complete_trace(
@@ -186,17 +172,13 @@ class TestTraceOutcomeStructured:
         )
         assert any(r["name"] == "ProjectX" for r in rows)
 
-    async def test_legacy_string_outcome_still_works(
-        self, clean_memory_client, session_id
-    ):
+    async def test_legacy_string_outcome_still_works(self, clean_memory_client, session_id):
         client = clean_memory_client
         trace = await client.reasoning.start_trace(session_id, "Legacy outcome")
         await client.reasoning.add_step(trace.id, thought="Step 1")
 
         # Pre-0.3 callers passed a free-text outcome and a bool.
-        await client.reasoning.complete_trace(
-            trace.id, outcome="Found the answer", success=True
-        )
+        await client.reasoning.complete_trace(trace.id, outcome="Found the answer", success=True)
 
         rows = await client.graph.execute_read(
             "MATCH (rt:ReasoningTrace {id: $id}) "

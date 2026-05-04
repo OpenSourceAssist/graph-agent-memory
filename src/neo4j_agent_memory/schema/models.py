@@ -169,10 +169,7 @@ class TraceOutcome(BaseModel):
     )
     metrics: dict[str, float] = Field(
         default_factory=dict,
-        description=(
-            "Arbitrary numeric metrics keyed by name "
-            "(e.g. 'latency_ms', 'tools_called')"
-        ),
+        description=("Arbitrary numeric metrics keyed by name (e.g. 'latency_ms', 'tools_called')"),
     )
 
 
@@ -213,9 +210,7 @@ class ConsolidationReport(BaseModel):
     ``:ConsolidationRun`` audit node is created in Neo4j.
     """
 
-    kind: str = Field(
-        description="Consolidation kind, e.g. 'dedupe_entities'"
-    )
+    kind: str = Field(description="Consolidation kind, e.g. 'dedupe_entities'")
     dry_run: bool = Field(
         default=True,
         description="True if no mutations occurred",
@@ -226,10 +221,7 @@ class ConsolidationReport(BaseModel):
     )
     run_id: str | None = Field(
         default=None,
-        description=(
-            "ID of the ``:ConsolidationRun`` audit node, set when "
-            "``dry_run=False``."
-        ),
+        description=("ID of the ``:ConsolidationRun`` audit node, set when ``dry_run=False``."),
     )
 
     @property
@@ -251,20 +243,15 @@ class AdoptionLabelReport(BaseModel):
 
     label: str = Field(description="Source domain label, e.g. 'Person'")
     type: str = Field(description="Library entity type assigned, e.g. 'PERSON'")
-    name_property: str = Field(
-        description="Property used as the entity name (defaults to 'name')"
-    )
-    migrated_count: int = Field(
-        default=0, description="Number of nodes adopted in this run"
-    )
+    name_property: str = Field(description="Property used as the entity name (defaults to 'name')")
+    migrated_count: int = Field(default=0, description="Number of nodes adopted in this run")
     already_adopted_count: int = Field(
         default=0, description="Number of nodes that already carried :Entity"
     )
     skipped_count: int = Field(
         default=0,
         description=(
-            "Number of nodes that couldn't be adopted because the configured "
-            "name property is null"
+            "Number of nodes that couldn't be adopted because the configured name property is null"
         ),
     )
 

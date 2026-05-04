@@ -121,9 +121,7 @@ class TestBufferedWriterBufferedMode:
         async def cb(err):
             callback_seen.append(err)
 
-        writer = BufferedWriter(
-            fake, write_mode="buffered", max_pending=4, on_error=cb
-        )
+        writer = BufferedWriter(fake, write_mode="buffered", max_pending=4, on_error=cb)
         try:
             await writer.submit("CREATE (n:FAIL)", {})
             await writer.flush()
@@ -168,9 +166,7 @@ class TestBufferedWriterBufferedMode:
         try:
             await writer.submit("CREATE (a)", {})
             # Wait until the drainer is committed to processing 'a'.
-            await asyncio.wait_for(
-                blocking._first_call_seen.wait(), timeout=2.0
-            )
+            await asyncio.wait_for(blocking._first_call_seen.wait(), timeout=2.0)
             # qsize is 0 here; a second submit fills the queue (qsize=1).
             await writer.submit("CREATE (b)", {})
             assert writer.pending == 1

@@ -282,8 +282,7 @@ class SchemaManager:
 
             if not _SAFE_IDENTIFIER.match(label):
                 raise SchemaError(
-                    f"Refusing to adopt label {label!r}: must match "
-                    f"[A-Za-z_][A-Za-z0-9_]*"
+                    f"Refusing to adopt label {label!r}: must match [A-Za-z_][A-Za-z0-9_]*"
                 )
             if not _SAFE_IDENTIFIER.match(name_property):
                 raise SchemaError(

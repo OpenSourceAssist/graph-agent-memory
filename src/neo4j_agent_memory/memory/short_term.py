@@ -583,9 +583,7 @@ class ShortTermMemory(BaseMemory[Message]):
         else:
             # 'auto' — preserve historical behavior.
             if extract_entities and self._extractor is not None:
-                await self._extract_and_link_entities(
-                    message, extract_relations=extract_relations
-                )
+                await self._extract_and_link_entities(message, extract_relations=extract_relations)
 
         return message
 
@@ -1090,9 +1088,7 @@ class ShortTermMemory(BaseMemory[Message]):
             # surprise when an existing conversation gets its first
             # user-scoped write.
             if user_identifier is not None:
-                await self._link_user_to_conversation(
-                    user_identifier, existing_id
-                )
+                await self._link_user_to_conversation(user_identifier, existing_id)
             return existing_id
 
         # Create new conversation
@@ -1109,9 +1105,7 @@ class ShortTermMemory(BaseMemory[Message]):
             await self._link_user_to_conversation(user_identifier, new_id)
         return new_id
 
-    async def _link_user_to_conversation(
-        self, user_identifier: str, conversation_id: UUID
-    ) -> None:
+    async def _link_user_to_conversation(self, user_identifier: str, conversation_id: UUID) -> None:
         """Idempotently write ``(:User)-[:HAS_CONVERSATION]->(:Conversation)``.
 
         Also denormalizes ``user_identifier`` onto the Conversation node
@@ -1195,9 +1189,7 @@ class ShortTermMemory(BaseMemory[Message]):
             # without changing the constraint or index footprint.
             extracted_by = getattr(entity, "extractor", None)
             metadata_payload = (
-                json.dumps({"extracted_by": extracted_by})
-                if extracted_by is not None
-                else None
+                json.dumps({"extracted_by": extracted_by}) if extracted_by is not None else None
             )
             await self._client.execute_write(
                 create_query,

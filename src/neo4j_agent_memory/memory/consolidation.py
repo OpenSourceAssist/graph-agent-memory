@@ -25,7 +25,6 @@ deduplication, the ``valid_from`` / ``valid_until`` properties on
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
@@ -41,7 +40,7 @@ if TYPE_CHECKING:
 class ConsolidationMemory:
     """``client.consolidation`` — hygiene jobs for memory upkeep."""
 
-    def __init__(self, client: "Neo4jClient"):
+    def __init__(self, client: Neo4jClient):
         self._client = client
 
     async def dedupe_entities(
@@ -98,8 +97,7 @@ class ConsolidationMemory:
                 ConsolidationCandidate(
                     kind="dedupe_entity_pair",
                     description=(
-                        f"{row['a_name']!r} ~= {row['b_name']!r} "
-                        f"(score {row['score']:.3f})"
+                        f"{row['a_name']!r} ~= {row['b_name']!r} (score {row['score']:.3f})"
                     ),
                     payload={
                         "a_id": row["a_id"],
@@ -182,8 +180,7 @@ class ConsolidationMemory:
                 ConsolidationCandidate(
                     kind="summarize_trace",
                     description=(
-                        f"Trace {row['trace_id']} ({row['step_count']} steps): "
-                        f"{row['task']!r}"
+                        f"Trace {row['trace_id']} ({row['step_count']} steps): {row['task']!r}"
                     ),
                     payload={
                         "trace_id": row["trace_id"],
@@ -280,8 +277,7 @@ class ConsolidationMemory:
                 ConsolidationCandidate(
                     kind="supersede_preference",
                     description=(
-                        f"{row['old_text']!r} → {row['new_text']!r} "
-                        f"(score {row['score']:.3f})"
+                        f"{row['old_text']!r} → {row['new_text']!r} (score {row['score']:.3f})"
                     ),
                     payload={
                         "old_id": row["old_id"],
@@ -356,10 +352,7 @@ class ConsolidationMemory:
             candidates.append(
                 ConsolidationCandidate(
                     kind="archive_conversation",
-                    description=(
-                        f"Conversation {row['session_id']} "
-                        f"({row['created_at']!s})"
-                    ),
+                    description=(f"Conversation {row['session_id']} ({row['created_at']!s})"),
                     payload={"id": row["id"]},
                 )
             )

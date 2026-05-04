@@ -16,9 +16,7 @@ from neo4j_agent_memory.schema.models import EntityRef
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestEvalHarness:
-    async def test_audit_dimension_computes_recall(
-        self, clean_memory_client, session_id
-    ):
+    async def test_audit_dimension_computes_recall(self, clean_memory_client, session_id):
         client = clean_memory_client
 
         # Seed: one trace with two steps that both TOUCH the same entity.
@@ -59,9 +57,7 @@ class TestEvalHarness:
         assert report.audit.cases == 1
         assert report.audit.score == 1.0  # full coverage
 
-    async def test_preference_dimension_uses_f1(
-        self, clean_memory_client
-    ):
+    async def test_preference_dimension_uses_f1(self, clean_memory_client):
         client = clean_memory_client
         await client.users.upsert_user(identifier="sara@omg.com")
 
@@ -99,9 +95,7 @@ class TestEvalHarness:
         report = await client.eval.run(suite_wrong, dimensions=["preference"])
         assert report.preference.score < 1.0
 
-    async def test_overall_score_means_dimensions(
-        self, clean_memory_client, session_id
-    ):
+    async def test_overall_score_means_dimensions(self, clean_memory_client, session_id):
         client = clean_memory_client
         # Empty audit + perfect preference + skipped retrieval.
         await client.users.upsert_user(identifier="sara@omg.com")

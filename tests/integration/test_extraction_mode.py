@@ -62,9 +62,7 @@ class TestExtractionMode:
         extractor sets ``extractor=`` on its results.
         """
         client = clean_memory_client
-        await client.short_term.add_message(
-            session_id, "user", "I had lunch with Alice yesterday"
-        )
+        await client.short_term.add_message(session_id, "user", "I had lunch with Alice yesterday")
 
         rows = await client.graph.execute_read(
             """
@@ -82,22 +80,16 @@ class TestExtractionMode:
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestSearchSteps:
-    async def test_search_steps_returns_expected_results(
-        self, clean_memory_client, session_id
-    ):
+    async def test_search_steps_returns_expected_results(self, clean_memory_client, session_id):
         client = clean_memory_client
         # Seed two traces with distinguishable steps.
-        trace1 = await client.reasoning.start_trace(
-            session_id, "Staff a healthcare team"
-        )
+        trace1 = await client.reasoning.start_trace(session_id, "Staff a healthcare team")
         await client.reasoning.add_step(
             trace1.id,
             thought="Query the schema before joining Skill to Technology",
             generate_embedding=True,
         )
-        await client.reasoning.complete_trace(
-            trace1.id, outcome="Done", success=True
-        )
+        await client.reasoning.complete_trace(trace1.id, outcome="Done", success=True)
 
         trace2 = await client.reasoning.start_trace(session_id, "Order a coffee")
         await client.reasoning.add_step(
@@ -105,9 +97,7 @@ class TestSearchSteps:
             thought="Walk to the cafe",
             generate_embedding=True,
         )
-        await client.reasoning.complete_trace(
-            trace2.id, outcome="Done", success=True
-        )
+        await client.reasoning.complete_trace(trace2.id, outcome="Done", success=True)
 
         results = await client.reasoning.search_steps(
             "query schema before joining",

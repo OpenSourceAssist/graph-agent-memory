@@ -43,9 +43,7 @@ class TestUserMemory:
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestPreferenceRelationships:
-    async def test_add_preference_with_user_and_applies_to(
-        self, clean_memory_client
-    ):
+    async def test_add_preference_with_user_and_applies_to(self, clean_memory_client):
         client = clean_memory_client
         await client.users.upsert_user(identifier="sara@omg.com")
 
@@ -69,9 +67,7 @@ class TestPreferenceRelationships:
         assert rows[0]["type"] == "Industry"
         assert rows[0]["vf"] is not None  # valid_from set on creation
 
-    async def test_supersede_preference_writes_edge_and_valid_until(
-        self, clean_memory_client
-    ):
+    async def test_supersede_preference_writes_edge_and_valid_until(self, clean_memory_client):
         client = clean_memory_client
         await client.users.upsert_user(identifier="sara@omg.com")
 
@@ -106,23 +102,17 @@ class TestPreferenceRelationships:
         )
         await client.long_term.supersede_preference(old_pref.id, new_pref.id)
 
-        active = await client.long_term.get_preferences_for(
-            "sara@omg.com", active_only=True
-        )
+        active = await client.long_term.get_preferences_for("sara@omg.com", active_only=True)
         active_ids = {str(p.id) for p in active}
         assert str(new_pref.id) in active_ids
         assert str(old_pref.id) not in active_ids
 
-        all_prefs = await client.long_term.get_preferences_for(
-            "sara@omg.com", active_only=False
-        )
+        all_prefs = await client.long_term.get_preferences_for("sara@omg.com", active_only=False)
         all_ids = {str(p.id) for p in all_prefs}
         assert str(old_pref.id) in all_ids
         assert str(new_pref.id) in all_ids
 
-    async def test_get_preferences_for_scoped_by_applies_to(
-        self, clean_memory_client
-    ):
+    async def test_get_preferences_for_scoped_by_applies_to(self, clean_memory_client):
         client = clean_memory_client
         await client.users.upsert_user(identifier="sara@omg.com")
 
@@ -146,9 +136,7 @@ class TestPreferenceRelationships:
         assert len(prefs) == 1
         assert "healthcare" in prefs[0].preference.lower()
 
-    async def test_as_of_returns_pre_supersede_snapshot(
-        self, clean_memory_client
-    ):
+    async def test_as_of_returns_pre_supersede_snapshot(self, clean_memory_client):
         """Bi-temporal: ``as_of`` returns the preference active at that instant.
 
         Timeline:

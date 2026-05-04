@@ -38,9 +38,15 @@ Example usage:
 """
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from neo4j_agent_memory.memory.buffered import BufferedWriter
+    from neo4j_agent_memory.memory.consolidation import ConsolidationMemory
+    from neo4j_agent_memory.memory.eval import EvalMemory
+    from neo4j_agent_memory.memory.users import UserMemory
 
 from neo4j_agent_memory.config.settings import (
     EmbeddingConfig,
@@ -314,10 +320,10 @@ class MemoryClient:
         self._short_term: ShortTermMemory | None = None
         self._long_term: LongTermMemory | None = None
         self._reasoning: ReasoningMemory | None = None
-        self._users: "UserMemory | None" = None
-        self._buffered: "BufferedWriter | None" = None
-        self._consolidation: "ConsolidationMemory | None" = None
-        self._eval: "EvalMemory | None" = None
+        self._users: UserMemory | None = None
+        self._buffered: BufferedWriter | None = None
+        self._consolidation: ConsolidationMemory | None = None
+        self._eval: EvalMemory | None = None
 
     async def __aenter__(self) -> "MemoryClient":
         """Async context manager entry."""

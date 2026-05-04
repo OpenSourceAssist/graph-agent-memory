@@ -77,7 +77,7 @@ class BufferedWriter:
 
     def __init__(
         self,
-        client: "Neo4jClient",
+        client: Neo4jClient,
         *,
         write_mode: str = "sync",
         max_pending: int = 200,
@@ -108,9 +108,7 @@ class BufferedWriter:
         """Number of writes in the queue waiting for the drainer."""
         return self._queue.qsize() if self._queue is not None else 0
 
-    async def submit(
-        self, query: str, parameters: dict[str, Any] | None = None
-    ) -> None:
+    async def submit(self, query: str, parameters: dict[str, Any] | None = None) -> None:
         """Submit a fire-and-forget write.
 
         In ``sync`` mode, awaits the underlying ``execute_write`` directly.
@@ -185,13 +183,10 @@ class BufferedWriter:
             try:
                 await self._client.execute_write(job.query, job.parameters)
             except BaseException as e:  # capture everything
-                err = BufferedWriteError(
-                    query=job.query, parameters=job.parameters, error=e
-                )
+                err = BufferedWriteError(query=job.query, parameters=job.parameters, error=e)
                 self._errors.append(err)
                 logger.warning(
-                    "Buffered write failed: %s. Error retained at "
-                    "client.write_errors[%d].",
+                    "Buffered write failed: %s. Error retained at client.write_errors[%d].",
                     e,
                     len(self._errors) - 1,
                 )
@@ -199,8 +194,6 @@ class BufferedWriter:
                     try:
                         await self._on_error(err)
                     except Exception:
-                        logger.exception(
-                            "Buffered-write error callback raised; ignoring."
-                        )
+                        logger.exception("Buffered-write error callback raised; ignoring.")
             finally:
                 self._queue.task_done()

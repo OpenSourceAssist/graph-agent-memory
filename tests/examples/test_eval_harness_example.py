@@ -38,9 +38,7 @@ class TestEvalHarnessImports:
         monkeypatch.setenv("NEO4J_USERNAME", "neo4j")
         monkeypatch.setenv("NEO4J_PASSWORD", "password")
 
-        spec = importlib.util.spec_from_file_location(
-            "eval_harness_main", EVAL_DIR / "main.py"
-        )
+        spec = importlib.util.spec_from_file_location("eval_harness_main", EVAL_DIR / "main.py")
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         try:

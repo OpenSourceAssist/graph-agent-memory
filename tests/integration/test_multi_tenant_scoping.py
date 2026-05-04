@@ -57,14 +57,14 @@ async def multi_tenant_client(
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestUserScopedConversation:
-    async def test_add_message_writes_has_conversation_edge(
-        self, clean_memory_client, session_id
-    ):
+    async def test_add_message_writes_has_conversation_edge(self, clean_memory_client, session_id):
         client = clean_memory_client
         await client.users.upsert_user(identifier="sara@omg.com")
 
         await client.short_term.add_message(
-            session_id, "user", "Find healthcare team",
+            session_id,
+            "user",
+            "Find healthcare team",
             user_identifier="sara@omg.com",
         )
 
@@ -78,9 +78,7 @@ class TestUserScopedConversation:
         assert rows[0]["session_id"] == session_id
         assert rows[0]["user_identifier"] == "sara@omg.com"
 
-    async def test_two_users_same_session_id_get_separate_conversations(
-        self, clean_memory_client
-    ):
+    async def test_two_users_same_session_id_get_separate_conversations(self, clean_memory_client):
         """Per-user scoping is by edge, not by session_id alone — but the
         existing conversation lookup is per session_id, so reusing the
         session_id under a second user just attaches both users to the
@@ -90,11 +88,15 @@ class TestUserScopedConversation:
         await client.users.upsert_user(identifier="liam@omg.com")
 
         await client.short_term.add_message(
-            "shared-session", "user", "msg from sara",
+            "shared-session",
+            "user",
+            "msg from sara",
             user_identifier="sara@omg.com",
         )
         await client.short_term.add_message(
-            "shared-session", "user", "msg from liam",
+            "shared-session",
+            "user",
+            "msg from liam",
             user_identifier="liam@omg.com",
         )
 
@@ -111,14 +113,13 @@ class TestUserScopedConversation:
 @pytest.mark.integration
 @pytest.mark.asyncio
 class TestUserScopedReasoningTrace:
-    async def test_start_trace_writes_has_trace_edge(
-        self, clean_memory_client, session_id
-    ):
+    async def test_start_trace_writes_has_trace_edge(self, clean_memory_client, session_id):
         client = clean_memory_client
         await client.users.upsert_user(identifier="sara@omg.com")
 
         trace = await client.reasoning.start_trace(
-            session_id, "Recommend a team",
+            session_id,
+            "Recommend a team",
             user_identifier="sara@omg.com",
         )
 
@@ -140,29 +141,19 @@ class TestMultiTenantGuardrail:
         self, multi_tenant_client, session_id
     ):
         with pytest.raises(ValueError, match="user_identifier"):
-            await multi_tenant_client.short_term.add_message(
-                session_id, "user", "Hello"
-            )
+            await multi_tenant_client.short_term.add_message(session_id, "user", "Hello")
 
     async def test_start_trace_raises_without_user_identifier(
         self, multi_tenant_client, session_id
     ):
         with pytest.raises(ValueError, match="user_identifier"):
-            await multi_tenant_client.reasoning.start_trace(
-                session_id, "Some task"
-            )
+            await multi_tenant_client.reasoning.start_trace(session_id, "Some task")
 
-    async def test_add_preference_raises_without_user_identifier(
-        self, multi_tenant_client
-    ):
+    async def test_add_preference_raises_without_user_identifier(self, multi_tenant_client):
         with pytest.raises(ValueError, match="user_identifier"):
-            await multi_tenant_client.long_term.add_preference(
-                "food", "Italian"
-            )
+            await multi_tenant_client.long_term.add_preference("food", "Italian")
 
-    async def test_writes_succeed_with_user_identifier(
-        self, multi_tenant_client, session_id
-    ):
+    async def test_writes_succeed_with_user_identifier(self, multi_tenant_client, session_id):
         client = multi_tenant_client
         await client.users.upsert_user(identifier="sara@omg.com")
 
@@ -170,9 +161,5 @@ class TestMultiTenantGuardrail:
         await client.short_term.add_message(
             session_id, "user", "Hello", user_identifier="sara@omg.com"
         )
-        await client.reasoning.start_trace(
-            session_id, "Some task", user_identifier="sara@omg.com"
-        )
-        await client.long_term.add_preference(
-            "food", "Italian", user_identifier="sara@omg.com"
-        )
+        await client.reasoning.start_trace(session_id, "Some task", user_identifier="sara@omg.com")
+        await client.long_term.add_preference("food", "Italian", user_identifier="sara@omg.com")
