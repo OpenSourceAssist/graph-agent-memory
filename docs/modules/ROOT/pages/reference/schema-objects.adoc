@@ -76,6 +76,7 @@ work, but the rest of the library functions normally.
 | `preference_embedding_idx`  | `Preference`     | `embedding`      | Semantic search over preferences.
 | `fact_embedding_idx`        | `Fact`           | `embedding`      | Semantic search over facts.
 | `task_embedding_idx`        | `ReasoningTrace` | `task_embedding` | Search past reasoning traces by task similarity.
+| `step_embedding_idx`        | `ReasoningStep`  | `embedding`      | Semantic search over reasoning steps.
 |===
 
 == Point indexes
