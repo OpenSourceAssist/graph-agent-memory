@@ -17,7 +17,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class POLEOEntityType(str, Enum):
@@ -131,7 +131,10 @@ class EntityRef(BaseModel):
             "an existing graph and the caller wants to disambiguate by label."
         ),
     )
-    name: str = Field(description="Entity display name (matches Entity.name)")
+    name: str | None = Field(
+        default=None,
+        description="Entity display name (matches Entity.name)",
+    )
     type: str | None = Field(
         default=None,
         description="POLE+O or custom entity type (matches Entity.type)",
@@ -143,6 +146,12 @@ class EntityRef(BaseModel):
             "exactly one entity regardless of name/type."
         ),
     )
+
+    @model_validator(mode="after")
+    def _require_name_or_id(self) -> "EntityRef":
+        if not self.name and not self.id:
+            raise ValueError("EntityRef requires at least one of 'name' or 'id'")
+        return self
 
 
 class TraceOutcome(BaseModel):

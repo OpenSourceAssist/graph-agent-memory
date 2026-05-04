@@ -110,7 +110,5 @@ class TestSearchSteps:
         # should be the schema-querying one.
         assert len(results) >= 1
         top = results[0]
-        assert top.parent_task in {
-            "Staff a healthcare team",
-            "Order a coffee",
-        }
+        assert top.parent_task == "Staff a healthcare team"
+        assert "schema" in top.step.thought.lower()

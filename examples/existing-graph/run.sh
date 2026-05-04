@@ -26,9 +26,9 @@ cypher-shell -a "$NEO4J_URI" -u "$NEO4J_USERNAME" -p "$NEO4J_PASSWORD" \
     < examples/existing-graph/seed_domain_graph.cypher
 
 echo "==> Running adopt_existing_graph()..."
-uv run python -m examples.existing-graph.adopt
+uv run python examples/existing-graph/adopt.py
 
 echo "==> Writing messages and verifying MENTIONS edges..."
-uv run python -m examples.existing-graph.memory_io
+uv run python examples/existing-graph/memory_io.py
 
 echo "==> Done."

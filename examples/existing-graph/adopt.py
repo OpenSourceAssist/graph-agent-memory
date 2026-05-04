@@ -9,10 +9,15 @@ Idempotent — re-running on an already-adopted graph is a no-op.
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
+
+# Allow running as a standalone script (uv run python examples/existing-graph/adopt.py).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from memory_settings import build_settings
 
 from neo4j_agent_memory import MemoryClient
-
-from .memory_settings import build_settings
 
 
 async def adopt() -> None:

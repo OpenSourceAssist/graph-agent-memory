@@ -16,7 +16,6 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 import pytest
-from pydantic import SecretStr
 
 from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 

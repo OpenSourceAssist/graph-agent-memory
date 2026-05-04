@@ -8,7 +8,6 @@ from neo4j_agent_memory.memory.eval import (
     AuditCase,
     EvalSuite,
     PreferenceCase,
-    RetrievalCase,
 )
 from neo4j_agent_memory.schema.models import EntityRef
 
