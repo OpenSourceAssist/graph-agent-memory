@@ -97,7 +97,7 @@ class TestGoogleADKMemoryServiceIntegration:
         )
 
         results = await memory_service.search_memory(
-            query="cloud computing",
+            query="Google Cloud platform",
             limit=10,
         )
 

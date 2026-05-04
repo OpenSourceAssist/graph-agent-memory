@@ -148,11 +148,19 @@ class MockEmbedder(BaseEmbedder):
 
     async def embed(self, text: str) -> list[float]:
         """Generate deterministic token-bag embedding."""
-        # Alphanumeric tokens (punctuation stripped), then a 5-char prefix
-        # stem so morphological variants like "preference"/"preferences"
-        # share signal.
+        # Alphanumeric tokens (punctuation stripped). Each token contributes
+        # both its full lowercased form and its 5-char prefix stem, so:
+        #   - "Entity0" vs "Entity50" stay distinguishable (different full
+        #     tokens), and
+        #   - "preference" vs "preferences" still share signal (same stem).
         words = re.findall(r"[a-z0-9]+", text.lower())
-        tokens = {w[:5] for w in words if len(w) >= 3}
+        tokens: set[str] = set()
+        for w in words:
+            if len(w) < 3:
+                continue
+            tokens.add(w)
+            if len(w) > 5:
+                tokens.add(w[:5])
 
         embedding = [0.0] * self._dimensions
         if not tokens:
