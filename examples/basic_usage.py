@@ -236,7 +236,7 @@ async def main():
         )
 
         # Check if coordinates were added
-        coords = await memory.long_term.get_entity_coordinates(location_entity.id)
+        coords = await memory.long_term.get_location_coordinates(location_entity.id)
         if coords:
             lat, lon = coords
             print(f"✅ Geocoded: {location_entity.name}")
