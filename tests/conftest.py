@@ -130,7 +130,13 @@ def event_loop():
 
 
 class MockEmbedder(BaseEmbedder):
-    """Mock embedder for unit tests that generates deterministic embeddings."""
+    """Mock embedder for unit tests that generates deterministic embeddings.
+
+    Produces token-bag embeddings: each whitespace-separated token contributes
+    to a stable set of dimensions, so texts that share tokens have higher
+    cosine similarity than disjoint texts. That's enough fidelity to exercise
+    vector-search ordering without a real embedding model.
+    """
 
     def __init__(self, dimensions: int = 1536):
         self._dimensions = dimensions
@@ -140,17 +146,27 @@ class MockEmbedder(BaseEmbedder):
         return self._dimensions
 
     async def embed(self, text: str) -> list[float]:
-        """Generate deterministic fake embedding based on text hash."""
-        h = hashlib.sha256(text.encode()).hexdigest()
-        # Create reproducible embedding from hash
-        embedding = []
-        for i in range(0, min(len(h), self._dimensions * 2), 2):
-            if len(embedding) >= self._dimensions:
-                break
-            embedding.append(float(int(h[i : i + 2], 16)) / 255.0)
-        # Pad if needed
-        while len(embedding) < self._dimensions:
-            embedding.append(0.0)
+        """Generate deterministic token-bag embedding."""
+        embedding = [0.0] * self._dimensions
+        tokens = text.lower().split()
+        if not tokens:
+            # Empty text: fall back to a hash so the vector index still
+            # accepts the embedding (zero vectors get rejected).
+            h = hashlib.sha256(text.encode()).digest()
+            for i in range(self._dimensions):
+                embedding[i] = h[i % len(h)] / 255.0
+            norm = sum(x * x for x in embedding) ** 0.5
+            return [x / norm for x in embedding] if norm > 0 else embedding
+
+        for token in tokens:
+            h = hashlib.sha256(token.encode()).digest()
+            # Each token contributes weight at 8 stable indices.
+            for i in range(0, 16, 2):
+                idx = int.from_bytes(h[i : i + 2], "big") % self._dimensions
+                embedding[idx] += 1.0
+        norm = sum(x * x for x in embedding) ** 0.5
+        if norm > 0:
+            embedding = [x / norm for x in embedding]
         return embedding
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
