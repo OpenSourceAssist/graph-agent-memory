@@ -10,7 +10,7 @@ Demonstrates the v0.3 reasoning-region polish:
 
 Run from the repo root::
 
-    uv run python -m examples.audit-trail.main
+    uv run python examples/audit-trail/main.py
 
 If ``NEO4J_URI`` / ``NEO4J_PASSWORD`` aren't set, the script assumes
 ``bolt://localhost:7687`` with password ``password``.
