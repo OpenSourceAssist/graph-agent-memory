@@ -194,7 +194,8 @@ async def main():
         # Entities are stored with type and subtype as PascalCase Neo4j node labels for efficient querying.
         # Example: This creates a node with labels (:Entity:Location:Landmark)
         # You can then query with: MATCH (l:Location:Landmark) RETURN l
-        await memory.long_term.add_entity(
+        # add_entity returns (entity, dedup_result); discard the dedup_result here.
+        _, _ = await memory.long_term.add_entity(
             name="Downtown",
             entity_type="LOCATION",  # POLE+O type (becomes :Location label)
             subtype="LANDMARK",  # Optional subtype (becomes :Landmark label)
@@ -203,7 +204,7 @@ async def main():
 
         # Custom entity types also become PascalCase labels (not just POLE+O types)
         # Example: This creates a node with labels (:Entity:Cuisine:Italian)
-        await memory.long_term.add_entity(
+        _, _ = await memory.long_term.add_entity(
             name="Italian Food",
             entity_type="CUISINE",  # Custom type -> becomes :Cuisine label
             subtype="ITALIAN",  # Custom subtype -> becomes :Italian label
