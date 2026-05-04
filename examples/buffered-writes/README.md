@@ -39,7 +39,7 @@ When to reach for it: agent turns where the user-visible latency budget cannot a
 From the repo root:
 
 ```bash
-uv run python -m examples.buffered-writes.main
+uv run python examples/buffered-writes/main.py
 ```
 
 You should see something like:
