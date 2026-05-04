@@ -22,6 +22,13 @@ async with MemoryClient(settings) as client:
     # Sara's conversation, scoped via user_identifier=
     await client.short_term.add_message(
         "sara-2026-05-01", "user", "Find me a healthcare team",
+        user_identifier="sara@omg.com",
+    )
+
+    # Liam's conversation, scoped separately via user_identifier=
+    await client.short_term.add_message(
+        "liam-2026-05-01", "user", "Find me a fintech team",
+        user_identifier="liam@omg.com",
     )
 
     # Sara's preference, attached to her :User node
