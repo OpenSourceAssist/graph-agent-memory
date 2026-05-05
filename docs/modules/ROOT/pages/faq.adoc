@@ -1032,6 +1032,39 @@ GLiNER has a context window limit. For large texts:
 . Process chunks separately
 . Merge and deduplicate results
 
+[[extra-forbidden-from-env]]
+=== Why does `MemorySettings(...)` raise `extra_forbidden` for `neo4j_uri` / `openai_api_key`?
+
+You see an error like:
+
+[source,text]
+----
+ValidationError: 1 validation error for MemorySettings
+neo4j_uri
+  Extra inputs are not permitted [type=extra_forbidden, input_value='neo4j://localhost:7687']
+----
+
+…even though you only passed `neo4j={...}` as a kwarg. The cause is unrelated keys in your `.env` file (e.g. plain `NEO4J_URI=...` from a Docker setup, or `OPENAI_API_KEY=...` for a different tool). pydantic-settings 2.x leaks unmatched `.env` keys into the validation payload regardless of `env_prefix`, and `MemorySettings` uses `extra="forbid"` to catch code-level typos.
+
+**Fix:** upgrade to the next `0.2.x` patch release of `neo4j-agent-memory` (not `0.2.0`) or later -- `MemorySettings` filters non-`NAM_`-matching keys before they reach validation. No code change needed.
+
+**On older versions:** subclass `MemorySettings` (or your own settings class) with `extra="ignore"`:
+
+[source,python]
+----
+from pydantic_settings import SettingsConfigDict
+from neo4j_agent_memory import MemorySettings
+
+class MySettings(MemorySettings):
+    model_config = SettingsConfigDict(
+        env_prefix="NAM_",
+        env_nested_delimiter="__",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+----
+
 [[gliner-not-installed]]
 === ImportError: GLiNER not installed
 

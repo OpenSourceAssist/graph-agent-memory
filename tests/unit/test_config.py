@@ -357,3 +357,114 @@ class TestStrictExtraFields:
     def test_unknown_field_rejected_on_geocoding_config(self):
         with pytest.raises(ValidationError):
             GeocodingConfig(provider_name="nominatim")  # type: ignore[call-arg]
+
+
+class TestDotEnvFiltering:
+    """Tests for `.env` keys outside ``NAM_`` prefix being silently ignored.
+
+    pydantic-settings 2.x leaks unmatched ``.env`` keys into the validation
+    payload even when ``env_prefix`` is set, which collides with
+    ``extra="forbid"``. ``MemorySettings.settings_customise_sources`` wraps
+    the dotenv source to filter to known top-level fields only.
+    """
+
+    def test_unprefixed_env_keys_ignored(self, tmp_path, monkeypatch):
+        """Plain ``NEO4J_URI`` / ``OPENAI_API_KEY`` in .env must not raise."""
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "NEO4J_URI=neo4j://leaked:7687\n"
+            "NEO4J_USERNAME=leaked\n"
+            "NEO4J_PASSWORD=leaked\n"
+            "OPENAI_API_KEY=sk-leaked\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        settings = MemorySettings(neo4j=Neo4jConfig(password=SecretStr("kwarg")))
+
+        # Unprefixed values must NOT bleed into the loaded settings.
+        assert settings.neo4j.uri == "bolt://localhost:7687"
+        assert settings.neo4j.username == "neo4j"
+        assert settings.neo4j.password.get_secret_value() == "kwarg"
+
+    def test_prefixed_env_keys_still_loaded(self, tmp_path, monkeypatch):
+        """Filter must not break the normal NAM_-prefixed nested load path."""
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "NAM_NEO4J__URI=neo4j://example:7687\n"
+            "NAM_NEO4J__PASSWORD=fromenv\n"
+            "NEO4J_URI=should-be-ignored\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        settings = MemorySettings()
+
+        assert settings.neo4j.uri == "neo4j://example:7687"
+        assert settings.neo4j.password.get_secret_value() == "fromenv"
+
+    def test_kwarg_typo_still_rejected_with_envfile_present(self, tmp_path, monkeypatch):
+        """Filter must not weaken the existing typo guard for code-level kwargs."""
+        from neo4j_agent_memory.config.settings import SchemaConfig
+
+        env_file = tmp_path / ".env"
+        env_file.write_text("NEO4J_URI=neo4j://noise:7687\n")
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(ValidationError) as excinfo:
+            MemorySettings(
+                neo4j=Neo4jConfig(password=SecretStr("test")),
+                schema=SchemaConfig(),  # type: ignore[call-arg]
+            )
+        assert "schema" in str(excinfo.value)
+
+    def test_subclass_field_survives_filter(self, tmp_path, monkeypatch):
+        """Subclasses adding new top-level fields must still receive prefixed env values."""
+        from pydantic_settings import SettingsConfigDict
+
+        class ExtendedSettings(MemorySettings):
+            model_config = SettingsConfigDict(
+                env_prefix="NAM_",
+                env_nested_delimiter="__",
+                env_file=".env",
+                env_file_encoding="utf-8",
+                extra="forbid",
+            )
+            my_app: str | None = None
+
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "NAM_MY_APP=hello\nMY_APP=ignored-without-prefix\nOPENAI_API_KEY=sk-ignored\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        settings = ExtendedSettings(neo4j=Neo4jConfig(password=SecretStr("test")))
+        assert settings.my_app == "hello"
+
+    def test_custom_env_file_path_respected(self, tmp_path, monkeypatch):
+        """_env_file= override must be forwarded to the wrapped DotEnv source."""
+        # No .env in cwd — if the wrong file were used we'd get defaults.
+        monkeypatch.chdir(tmp_path)
+
+        # Custom env file with NAM_-prefixed keys
+        custom_env = tmp_path / "custom.env"
+        custom_env.write_text(
+            "NAM_NEO4J__URI=neo4j://custom:7687\nNAM_NEO4J__PASSWORD=custompass\n"
+        )
+
+        # Do NOT pass neo4j= as a kwarg — init_settings would take precedence
+        # over dotenv_settings, masking whether the custom file was actually read.
+        settings = MemorySettings(_env_file=custom_env)
+        assert settings.neo4j.uri == "neo4j://custom:7687"
+        assert settings.neo4j.password.get_secret_value() == "custompass"
+
+    def test_env_file_none_disables_dotenv(self, tmp_path, monkeypatch):
+        """_env_file=None must prevent dotenv loading even if .env exists in cwd."""
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "NAM_NEO4J__URI=neo4j://should-not-load:7687\nNAM_NEO4J__PASSWORD=blocked\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        settings = MemorySettings(_env_file=None)
+        # URI must fall back to default, not read from the .env on disk.
+        assert settings.neo4j.uri == "bolt://localhost:7687"
+        assert settings.neo4j.password.get_secret_value() == ""

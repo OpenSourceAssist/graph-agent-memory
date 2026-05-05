@@ -4,7 +4,8 @@ from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
+from pydantic_settings.sources import DotEnvSettingsSource
 
 # Strict config shared by every child config model. Misspelled fields raise
 # at construction time instead of being silently dropped.
@@ -472,6 +473,23 @@ class EnrichmentConfig(BaseModel):
     )
 
 
+class _FilteredDotEnvSource(DotEnvSettingsSource):
+    # Wraps an existing DotEnvSettingsSource instance, preserving all runtime
+    # overrides (e.g. _env_file=None or _env_file=some_path passed at
+    # MemorySettings instantiation time) while dropping .env keys that are not
+    # top-level model fields.  The original source is already configured with
+    # the correct env_file / env_file_encoding / env_prefix when it arrives in
+    # settings_customise_sources — copying its __dict__ is cheaper and safer
+    # than re-constructing from settings_cls alone.
+    def __init__(self, original: PydanticBaseSettingsSource) -> None:
+        self.__dict__.update(original.__dict__)
+
+    def __call__(self) -> dict[str, Any]:
+        data = super().__call__()
+        valid = set(self.settings_cls.model_fields.keys())
+        return {k: v for k, v in data.items() if k in valid}
+
+
 class MemorySettings(BaseSettings):
     """
     Main configuration class for neo4j-agent-memory.
@@ -494,9 +512,10 @@ class MemorySettings(BaseSettings):
         env_file_encoding="utf-8",
         # ``extra="forbid"`` rejects misspelled top-level fields (e.g.
         # ``schema=`` instead of ``schema_config=``) at construction time
-        # rather than silently dropping them. Pydantic still allows unknown
-        # *environment variables* with the same prefix to be ignored — that
-        # is the intent of the env loader, not a typo in code.
+        # rather than silently dropping them. Unrelated keys in a user's
+        # ``.env`` (e.g. plain ``NEO4J_URI=…`` or ``OPENAI_API_KEY=…`` for
+        # other tools) are filtered out by ``settings_customise_sources``
+        # below before they reach validation.
         extra="forbid",
     )
 
@@ -532,6 +551,22 @@ class MemorySettings(BaseSettings):
             # didn't explicitly opt out.
             self.llm = LLMConfig()
         return self
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],  # noqa: ARG003 — required by pydantic-settings hook
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            env_settings,
+            _FilteredDotEnvSource(dotenv_settings),
+            file_secret_settings,
+        )
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]) -> "MemorySettings":
