@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-05
+
 ### Fixed
 
 - **`MemorySettings(...)` no longer raises `extra_forbidden` for unrelated `.env` keys.** pydantic-settings 2.x leaks `.env` keys outside the configured `env_prefix` into the validation payload, which collided with `MemorySettings`'s `extra="forbid"` (used to catch code-level typos). Common symptoms: instantiating `MemorySettings(neo4j={...})` failed with `extra_forbidden` on `neo4j_uri` / `neo4j_password` / `openai_api_key` whenever the user's `.env` contained the unprefixed equivalents (e.g. `NEO4J_URI=...` from a Docker setup, or `OPENAI_API_KEY=...` for an unrelated tool). `MemorySettings.settings_customise_sources` now wraps the dotenv source to drop keys that aren't top-level model fields. `NAM_*`-prefixed nested loads (e.g. `NAM_NEO4J__URI`) are unchanged, and the typo guard for kwargs (`MemorySettings(schema=...)`) still raises. New `TestDotEnvFiltering` regression tests in `tests/unit/test_config.py`.
