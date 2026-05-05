@@ -452,7 +452,7 @@ class TestDotEnvFiltering:
 
         # Do NOT pass neo4j= as a kwarg — init_settings would take precedence
         # over dotenv_settings, masking whether the custom file was actually read.
-        settings = MemorySettings(_env_file=str(custom_env))
+        settings = MemorySettings(_env_file=custom_env)
         assert settings.neo4j.uri == "neo4j://custom:7687"
         assert settings.neo4j.password.get_secret_value() == "custompass"
 
