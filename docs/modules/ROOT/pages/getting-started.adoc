@@ -323,6 +323,11 @@ async with MemoryClient(settings) as memory:
     pass
 ----
 
+[NOTE]
+====
+Other env vars in your `.env` (e.g. plain `NEO4J_URI=...`, `OPENAI_API_KEY=...` for unrelated tools) are silently ignored by `MemorySettings` -- only `NAM_*`-prefixed vars are loaded. If you're on a pre-`0.2.x` release and see `extra_forbidden` errors, see xref:faq.adoc#extra-forbidden-from-env[the FAQ entry].
+====
+
 == Error Handling
 
 [source,python]
