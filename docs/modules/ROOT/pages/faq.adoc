@@ -1046,7 +1046,7 @@ neo4j_uri
 
 …even though you only passed `neo4j={...}` as a kwarg. The cause is unrelated keys in your `.env` file (e.g. plain `NEO4J_URI=...` from a Docker setup, or `OPENAI_API_KEY=...` for a different tool). pydantic-settings 2.x leaks unmatched `.env` keys into the validation payload regardless of `env_prefix`, and `MemorySettings` uses `extra="forbid"` to catch code-level typos.
 
-**Fix:** upgrade to neo4j-agent-memory 0.2.x or later -- `MemorySettings` filters non-`NAM_`-matching keys before they reach validation. No code change needed.
+**Fix:** upgrade to the next `0.2.x` patch release of `neo4j-agent-memory` (not `0.2.0`) or later -- `MemorySettings` filters non-`NAM_`-matching keys before they reach validation. No code change needed.
 
 **On older versions:** subclass `MemorySettings` (or your own settings class) with `extra="ignore"`:
 
