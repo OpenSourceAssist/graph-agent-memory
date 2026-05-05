@@ -438,3 +438,33 @@ class TestDotEnvFiltering:
 
         settings = ExtendedSettings(neo4j=Neo4jConfig(password=SecretStr("test")))
         assert settings.my_app == "hello"
+
+    def test_custom_env_file_path_respected(self, tmp_path, monkeypatch):
+        """_env_file= override must be forwarded to the wrapped DotEnv source."""
+        # No .env in cwd — if the wrong file were used we'd get defaults.
+        monkeypatch.chdir(tmp_path)
+
+        # Custom env file with NAM_-prefixed keys
+        custom_env = tmp_path / "custom.env"
+        custom_env.write_text(
+            "NAM_NEO4J__URI=neo4j://custom:7687\nNAM_NEO4J__PASSWORD=custompass\n"
+        )
+
+        # Do NOT pass neo4j= as a kwarg — init_settings would take precedence
+        # over dotenv_settings, masking whether the custom file was actually read.
+        settings = MemorySettings(_env_file=str(custom_env))
+        assert settings.neo4j.uri == "neo4j://custom:7687"
+        assert settings.neo4j.password.get_secret_value() == "custompass"
+
+    def test_env_file_none_disables_dotenv(self, tmp_path, monkeypatch):
+        """_env_file=None must prevent dotenv loading even if .env exists in cwd."""
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            "NAM_NEO4J__URI=neo4j://should-not-load:7687\nNAM_NEO4J__PASSWORD=blocked\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        settings = MemorySettings(_env_file=None)
+        # URI must fall back to default, not read from the .env on disk.
+        assert settings.neo4j.uri == "bolt://localhost:7687"
+        assert settings.neo4j.password.get_secret_value() == ""

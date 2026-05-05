@@ -474,9 +474,16 @@ class EnrichmentConfig(BaseModel):
 
 
 class _FilteredDotEnvSource(DotEnvSettingsSource):
-    # Drops .env keys that aren't top-level model fields. Works around
-    # pydantic-settings 2.x DotEnvSettingsSource leaking non-prefix-matching
-    # keys into the validation payload when the model has extra='forbid'.
+    # Wraps an existing DotEnvSettingsSource instance, preserving all runtime
+    # overrides (e.g. _env_file=None or _env_file=some_path passed at
+    # MemorySettings instantiation time) while dropping .env keys that are not
+    # top-level model fields.  The original source is already configured with
+    # the correct env_file / env_file_encoding / env_prefix when it arrives in
+    # settings_customise_sources — copying its __dict__ is cheaper and safer
+    # than re-constructing from settings_cls alone.
+    def __init__(self, original: DotEnvSettingsSource) -> None:
+        self.__dict__.update(original.__dict__)
+
     def __call__(self) -> dict[str, Any]:
         data = super().__call__()
         valid = set(self.settings_cls.model_fields.keys())
@@ -551,13 +558,13 @@ class MemorySettings(BaseSettings):
         settings_cls: type[BaseSettings],
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,  # noqa: ARG003 — required by pydantic-settings hook
+        dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (
             init_settings,
             env_settings,
-            _FilteredDotEnvSource(settings_cls),
+            _FilteredDotEnvSource(dotenv_settings),  # type: ignore[arg-type]
             file_secret_settings,
         )
 
