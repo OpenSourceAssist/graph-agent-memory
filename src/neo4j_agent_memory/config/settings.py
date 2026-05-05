@@ -554,7 +554,12 @@ class MemorySettings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,  # noqa: ARG003 — required by pydantic-settings hook
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return init_settings, env_settings, _FilteredDotEnvSource(settings_cls), file_secret_settings
+        return (
+            init_settings,
+            env_settings,
+            _FilteredDotEnvSource(settings_cls),
+            file_secret_settings,
+        )
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]) -> "MemorySettings":

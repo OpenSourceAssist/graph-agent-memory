@@ -432,9 +432,7 @@ class TestDotEnvFiltering:
 
         env_file = tmp_path / ".env"
         env_file.write_text(
-            "NAM_MY_APP=hello\n"
-            "MY_APP=ignored-without-prefix\n"
-            "OPENAI_API_KEY=sk-ignored\n"
+            "NAM_MY_APP=hello\nMY_APP=ignored-without-prefix\nOPENAI_API_KEY=sk-ignored\n"
         )
         monkeypatch.chdir(tmp_path)
 
