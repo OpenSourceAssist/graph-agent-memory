@@ -1,6 +1,5 @@
 = Audit Reasoning with `:TOUCHED` Edges
 :page-product: agent-memory
-:toc: left
 :toclevels: 2
 
 How to make every agent reasoning step queryable from any entity it
@@ -15,6 +14,8 @@ step is three hops. v0.3 introduces a direct
 explicitly or via an observer hook. This page shows both.
 
 == Goal
+
+image::diagrams/provenance-chain-graph-auditability.png[Provenance chain: graph traversal and vector similarity both trace agent decisions back to source messages and entities,width=600,align=left]
 
 Run the headline audit query in 1 hop:
 
@@ -48,7 +49,7 @@ await client.reasoning.record_tool_call(
 
 The library MERGEs each `EntityRef` into the long-term memory layer
 (matching by `id` if provided, else `name + type`, else `name` only)
-and writes a `(:ReasoningStep)-[:TOUCHED {recorded_at}]->(:Entity)`
+and writes a `pass:[(:ReasoningStep)-[:TOUCHED {recorded_at}]->(:Entity)]`
 edge. Re-recording the same touched entity is a no-op — the relationship
 is keyed on the (step, entity) pair.
 
@@ -86,6 +87,8 @@ call is persisted and after any `touched_entities` passed to
 `record_tool_call` have been written.
 
 == Indexable structured outcomes
+
+image::diagrams/graph-provenance-tracing-decisions-to-sources.png[Graph provenance: a single Cypher traversal from a credit decision through shared entities back to the original KYC findings,width=540,align=left]
 
 Pair `:TOUCHED` with `TraceOutcome` to make audit queries filterable
 by structured failure mode:

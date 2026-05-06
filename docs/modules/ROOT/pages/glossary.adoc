@@ -1,6 +1,5 @@
 = Glossary
 :page-product: agent-memory
-:toc: left
 :toclevels: 2
 
 A reference for the terminology used in `neo4j-agent-memory` and how it

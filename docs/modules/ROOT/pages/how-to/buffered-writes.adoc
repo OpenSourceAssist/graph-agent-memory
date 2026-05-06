@@ -1,6 +1,5 @@
 = Buffered (Fire-and-Forget) Writes
 :page-product: agent-memory
-:toc: left
 :toclevels: 2
 
 How to keep the agent's user-facing response from blocking on Neo4j
@@ -14,6 +13,8 @@ write, etc. delays the agent's reply by the round-trip latency. With
 return immediately, and a background drainer pushes them to Neo4j.
 
 == Goal
+
+image::diagrams/buffered-write-flow.png[Buffered write architecture: agent submits to queue and returns immediately; background drainer pushes to Neo4j,width=600,align=left]
 
 The agent responds before persistence completes:
 

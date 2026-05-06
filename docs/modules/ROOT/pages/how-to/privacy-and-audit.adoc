@@ -1,6 +1,5 @@
 = Privacy and Audit
 :page-product: agent-memory
-:toc: left
 :toclevels: 2
 
 How to record audit trails for sensitive memory reads, archive expired

@@ -1,10 +1,8 @@
 = Frequently Asked Questions
 :page-product: agent-memory
 :page-pagination:
-:toc: left
 :toclevels: 3
 :sectanchors:
-:sectlinks:
 :icons: font
 :source-highlighter: highlight.js
 :experimental:
@@ -15,6 +13,13 @@
 :page-ad-underline-role: button
 :page-ad-underline: Enroll now
 
+++++
+<style>
+.doc h3 { font-size: 1.15em; font-weight: 700; margin-top: 1.75rem; margin-bottom: 0.4rem; }
+.doc .hdlist dt { font-weight: 700; }
+</style>
+++++
+
 This document answers common questions about neo4j-agent-memory, with a focus on the entity extraction pipeline and domain schemas.
 
 == General Questions
@@ -24,10 +29,9 @@ This document answers common questions about neo4j-agent-memory, with a focus on
 
 neo4j-agent-memory is a Python package that provides a comprehensive memory system for AI agents using Neo4j as the backend. It implements three memory types:
 
-[horizontal]
-Short-Term Memory:: Conversations and messages
-Long-Term Memory:: Entities, preferences, and facts (using the POLE+O data model)
-Reasoning Memory:: Reasoning traces and tool usage patterns
+* *Short-Term Memory* — Conversations and messages
+* *Long-Term Memory* — Entities, preferences, and facts (using the POLE+O data model)
+* *Reasoning Memory* — Reasoning traces and tool usage patterns
 
 See xref:index.adoc[Overview] for more details.
 
@@ -58,10 +62,9 @@ Neo4j 5.x is supported, with **5.11+ recommended** for vector index support (use
 
 Yes. The package provides full AWS support including:
 
-[horizontal]
-Amazon Bedrock Embeddings:: Use Bedrock embedding models (Titan, Cohere) instead of OpenAI. Install with `pip install neo4j-agent-memory[bedrock]`.
-Strands Agents SDK:: Pre-built tools for context graph operations with the AWS Strands Agents framework. Install with `pip install neo4j-agent-memory[strands]`.
-AgentCore Memory:: `HybridMemoryProvider` for routing between short-term and long-term memory stores.
+* *Amazon Bedrock Embeddings* — Use Bedrock embedding models (Titan, Cohere) instead of OpenAI. Install with `pip install neo4j-agent-memory[bedrock]`.
+* *Strands Agents SDK* — Pre-built tools for context graph operations with the AWS Strands Agents framework. Install with `pip install neo4j-agent-memory[strands]`.
+* *AgentCore Memory* — `HybridMemoryProvider` for routing between short-term and long-term memory stores.
 
 See xref:how-to/integrations/aws-strands.adoc[Strands Integration] and xref:how-to/integrations/aws-bedrock-embeddings.adoc[Bedrock Embeddings] for details.
 
@@ -423,10 +426,9 @@ For most use cases, `en_core_web_sm` is sufficient and fastest.
 
 Use LLM extraction when you need:
 
-[horizontal]
-Relationship extraction:: LLM is the only extractor that can extract relationships between entities
-Complex context:: When entity identification requires understanding context
-Highest accuracy:: When cost is not a concern
+* *Relationship extraction* — LLM is the only extractor that can extract relationships between entities
+* *Complex context* — When entity identification requires understanding context
+* *Highest accuracy* — When cost is not a concern
 
 [[llm-models]]
 === What LLM models are supported?
@@ -629,10 +631,9 @@ The package automatically creates:
 
 Entities get multiple labels based on their type:
 
-[horizontal]
-Base label:: `:Entity`
-Type label:: `:Person`, `:Organization`, `:Location`, `:Event`, `:Object`
-Subtype label:: `:Vehicle`, `:Address`, `:Company`, etc. (if specified)
+* *Base label* — `:Entity`
+* *Type label* — `:Person`, `:Organization`, `:Location`, `:Event`, `:Object`
+* *Subtype label* — `:Vehicle`, `:Address`, `:Company`, etc. (if specified)
 
 .Example
 ====

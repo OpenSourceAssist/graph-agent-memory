@@ -1,6 +1,5 @@
 = Evaluating Memory Quality
 :page-product: agent-memory
-:toc: left
 :toclevels: 2
 
 How to run labeled regression tests against your memory graph using the

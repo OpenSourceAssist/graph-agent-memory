@@ -1,6 +1,5 @@
 = Memory Consolidation
 :page-product: agent-memory
-:toc: left
 :toclevels: 2
 
 How to keep your memory graph clean over time. v0.5 ships four

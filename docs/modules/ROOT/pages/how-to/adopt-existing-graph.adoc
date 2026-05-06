@@ -1,7 +1,6 @@
 = Adopt an Existing Domain Graph
 :page-product: agent-memory
 :page-pagination:
-:toc: left
 :toclevels: 2
 
 How to layer `neo4j-agent-memory` on top of a Neo4j graph that already

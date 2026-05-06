@@ -1,6 +1,5 @@
 = Multi-Tenant Memory
 :page-product: agent-memory
-:toc: left
 :toclevels: 2
 
 How to scope conversations, traces, and preferences to a user identity
@@ -9,6 +8,8 @@ and per-user scoping logic; v0.4 makes user identity a first-class
 concept.
 
 == Goal
+
+image::diagrams/multi-tenant-scoping.png[Multi-tenant scoping: two User nodes each owning separate Conversations and Preferences in a shared Neo4j instance,width=540,align=left]
 
 Two users sharing a Neo4j instance, with reads and writes scoped per
 user and zero application-level Cypher:
