@@ -17,7 +17,7 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 | Short-Term Memory | Long-Term Memory | Reasoning Memory |
 |---|---|---|
 | Conversations & messages | Entities, preferences, facts | Reasoning traces & tool usage |
-| Per-session history | Knowledge graph ([POLE+O model](https://neo4j.com/labs/agent-memory/explanation/poleo-model.html)) | Learn from past decisions |
+| Per-session history | Knowledge graph ([POLE+O model](https://neo4j.com/labs/agent-memory/explanation/poleo-model)) | Learn from past decisions |
 | Vector + text search | Entity resolution & dedup | Similar task retrieval |
 
 ![The Neo4j Agent Memory entity extraction pipeline](img/extraction-pipeline.png)
@@ -135,14 +135,14 @@ See the [getting started guide](https://neo4j.com/labs/agent-memory/getting-star
 
 | Framework | Extra | Import |
 |---|---|---|
-| [LangChain](https://neo4j.com/labs/agent-memory/how-to/integrations/langchain.html) | `[langchain]` | `from neo4j_agent_memory.integrations.langchain import Neo4jAgentMemory` |
-| [Pydantic AI](https://neo4j.com/labs/agent-memory/how-to/integrations/pydantic-ai.html) | `[pydantic-ai]` | `from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency` |
-| [Google ADK](https://neo4j.com/labs/agent-memory/how-to/integrations/google-cloud.html) | `[google-adk]` | `from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService` |
-| [Strands (AWS)](https://neo4j.com/labs/agent-memory/how-to/integrations/aws-strands.html) | `[strands]` | `from neo4j_agent_memory.integrations.strands import context_graph_tools` |
-| [CrewAI](https://neo4j.com/labs/agent-memory/how-to/integrations/crewai.html) | `[crewai]` | `from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory` |
-| [LlamaIndex](https://neo4j.com/labs/agent-memory/how-to/integrations/llamaindex.html) | `[llamaindex]` | `from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory` |
-| [OpenAI Agents](https://neo4j.com/labs/agent-memory/how-to/integrations/openai-agents.html) | `[openai-agents]` | `from neo4j_agent_memory.integrations.openai_agents import ...` |
-| [Microsoft Agent](https://neo4j.com/labs/agent-memory/how-to/integrations/microsoft-agent.html) | `[microsoft-agent]` | `from neo4j_agent_memory.integrations.microsoft_agent import Neo4jMicrosoftMemory` |
+| [LangChain](https://neo4j.com/labs/agent-memory/how-to/integrations/langchain) | `[langchain]` | `from neo4j_agent_memory.integrations.langchain import Neo4jAgentMemory` |
+| [Pydantic AI](https://neo4j.com/labs/agent-memory/how-to/integrations/pydantic-ai) | `[pydantic-ai]` | `from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency` |
+| [Google ADK](https://neo4j.com/labs/agent-memory/how-to/integrations/google-cloud) | `[google-adk]` | `from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService` |
+| [Strands (AWS)](https://neo4j.com/labs/agent-memory/how-to/integrations/aws-strands) | `[strands]` | `from neo4j_agent_memory.integrations.strands import context_graph_tools` |
+| [CrewAI](https://neo4j.com/labs/agent-memory/how-to/integrations/crewai) | `[crewai]` | `from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory` |
+| [LlamaIndex](https://neo4j.com/labs/agent-memory/how-to/integrations/llamaindex) | `[llamaindex]` | `from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory` |
+| [OpenAI Agents](https://neo4j.com/labs/agent-memory/how-to/integrations/openai-agents) | `[openai-agents]` | `from neo4j_agent_memory.integrations.openai_agents import ...` |
+| [Microsoft Agent](https://neo4j.com/labs/agent-memory/how-to/integrations/microsoft-agent) | `[microsoft-agent]` | `from neo4j_agent_memory.integrations.microsoft_agent import Neo4jMicrosoftMemory` |
 
 ## MCP Server
 
@@ -169,7 +169,7 @@ neo4j-agent-memory mcp serve --session-strategy per_day --user-id alice --passwo
 | **core** | 6 | Essential read/write: `memory_search`, `memory_get_context`, `memory_store_message`, `memory_add_entity`, `memory_add_preference`, `memory_add_fact` |
 | **extended** (default) | 16 | Full surface adding: conversation history, entity details, graph export, relationship creation, reasoning traces, observations, read-only Cypher |
 
-See the [MCP tools reference](https://neo4j.com/labs/agent-memory/reference/mcp-tools.html) for full details.
+See the [MCP tools reference](https://neo4j.com/labs/agent-memory/reference/mcp-tools) for full details.
 
 ## Examples
 
