@@ -1,4 +1,4 @@
-"""Smoke tests for google_cloud_integration example scripts.
+﻿"""Smoke tests for google_cloud_integration example scripts.
 
 Tests validate that the example scripts:
 - Exist and have correct structure
@@ -72,7 +72,7 @@ class TestGoogleCloudIntegrationStructure:
     def test_script_valid_python(self, script_name):
         """Verify each script is valid Python syntax."""
         script = INTEGRATION_DIR / script_name
-        source_code = script.read_text()
+        source_code = script.read_text(encoding="utf-8")
         try:
             ast.parse(source_code)
         except SyntaxError as e:
@@ -82,7 +82,7 @@ class TestGoogleCloudIntegrationStructure:
     def test_script_has_docstring(self, script_name):
         """Verify each script has a module docstring."""
         script = INTEGRATION_DIR / script_name
-        content = script.read_text()
+        content = script.read_text(encoding="utf-8")
         assert content.strip().startswith("#!/usr/bin/env python") or content.strip().startswith(
             '"""'
         ), f"{script_name} should have a module docstring or shebang"

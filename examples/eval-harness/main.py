@@ -17,8 +17,6 @@ from pydantic import SecretStr
 
 from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 from neo4j_agent_memory.config.settings import (
-    EmbeddingConfig,
-    EmbeddingProvider,
     ExtractionConfig,
     ExtractorType,
 )
@@ -38,11 +36,7 @@ def build_settings() -> MemorySettings:
             password=SecretStr(os.getenv("NEO4J_PASSWORD", "password")),
         ),
         llm=None,
-        embedding=EmbeddingConfig(
-            provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
-            model="all-MiniLM-L6-v2",
-            dimensions=384,
-        ),
+        embedding="sentence-transformers/all-MiniLM-L6-v2",
         extraction=ExtractionConfig(extractor_type=ExtractorType.NONE),
     )
 

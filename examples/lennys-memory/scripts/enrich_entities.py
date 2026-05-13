@@ -29,9 +29,9 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / "backend" / ".env")
 
 from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
-from neo4j_agent_memory.config.settings import EmbeddingConfig
-from neo4j_agent_memory.enrichment.wikimedia import WikimediaProvider
 from neo4j_agent_memory.enrichment.base import EnrichmentStatus
+from neo4j_agent_memory.enrichment.wikimedia import WikimediaProvider
+from neo4j_agent_memory.llm import from_provider
 
 # Configure logging
 logging.basicConfig(
@@ -441,17 +441,25 @@ Examples:
     print(color("  Wikipedia Entity Enrichment", Colors.BOLD))
     print(color("═" * 60, Colors.PURPLE))
 
-    # Get settings from environment
+    # Get settings from environment. v0.3+: provider-string shorthand —
+    # resolves to OpenAIEmbeddingProvider when [openai] is installed.
     import os
+
+    embed_kwargs: dict = {}
+    if os.getenv("OPENAI_API_KEY"):
+        embed_kwargs["api_key"] = os.getenv("OPENAI_API_KEY")
+    embedding_provider = from_provider(
+        os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small"),
+        kind="embedding",
+        **embed_kwargs,
+    )
     settings = MemorySettings(
         neo4j=Neo4jConfig(
             uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
             username=os.getenv("NEO4J_USERNAME", "neo4j"),
             password=os.getenv("NEO4J_PASSWORD", "password"),
         ),
-        embedding=EmbeddingConfig(
-            api_key=os.getenv("OPENAI_API_KEY"),
-        ),
+        embedding=embedding_provider,
     )
 
     print(f"\n{color('Connecting to Neo4j...', Colors.CYAN)}")

@@ -1,4 +1,4 @@
-"""Tests for documentation link validation.
+﻿"""Tests for documentation link validation.
 
 These tests verify that internal links, cross-references, and structure are correct.
 """
@@ -21,7 +21,7 @@ class TestXrefLinks:
         broken_links: list[str] = []
 
         for adoc_file in all_adoc_files:
-            content = adoc_file.read_text()
+            content = adoc_file.read_text(encoding="utf-8")
             file_dir = adoc_file.parent
 
             # For nav.adoc (in modules/ROOT), xrefs are relative to pages dir
@@ -78,7 +78,7 @@ class TestXrefLinks:
         violations = []
 
         for adoc_file in all_adoc_files:
-            content = adoc_file.read_text()
+            content = adoc_file.read_text(encoding="utf-8")
             if empty_pattern.search(content):
                 violations.append(str(adoc_file.relative_to(docs_dir)))
 
@@ -148,7 +148,7 @@ class TestNavigationConsistency:
         if not index.exists():
             pytest.skip("index.adoc not found")
 
-        content = index.read_text()
+        content = index.read_text(encoding="utf-8")
         quadrants = ["tutorials", "how-to", "reference", "explanation"]
 
         for quadrant in quadrants:
@@ -162,7 +162,7 @@ class TestNavigationConsistency:
             if not index.exists():
                 continue
 
-            content = index.read_text()
+            content = index.read_text(encoding="utf-8")
 
             # Get other files in the quadrant
             content_files = [f for f in path.glob("*.adoc") if f.name != "index.adoc"]
@@ -188,7 +188,7 @@ class TestImageReferences:
         assets_dir = docs_dir / "assets"
 
         for adoc_file in all_adoc_files:
-            content = adoc_file.read_text()
+            content = adoc_file.read_text(encoding="utf-8")
 
             for match in image_pattern.finditer(content):
                 image_path = match.group(1)
@@ -228,7 +228,7 @@ class TestOrphanedFiles:
 
         # For nav.adoc, xrefs are relative to pages directory
         for adoc_file in all_adoc_files:
-            content = adoc_file.read_text()
+            content = adoc_file.read_text(encoding="utf-8")
             file_dir = adoc_file.parent
             is_nav_file = adoc_file.name == "nav.adoc"
 
@@ -292,7 +292,7 @@ class TestExternalLinks:
         malformed = []
 
         for adoc_file in all_adoc_files:
-            content = adoc_file.read_text()
+            content = adoc_file.read_text(encoding="utf-8")
 
             for match in url_pattern.finditer(content):
                 url = match.group(0)

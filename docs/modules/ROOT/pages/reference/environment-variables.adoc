@@ -11,6 +11,20 @@ Environment variables use the `NAM_` prefix (Neo4j Agent Memory) and follow a ne
 
 Example: `NAM_NEO4J__URI` maps to `settings.neo4j.uri`
 
+== Provider strings (v0.3+)
+
+The MCP CLI also reads two top-level provider env vars that bypass the legacy nested structure:
+
+[cols="2,1,3", options="header"]
+|===
+| Variable          | Type   | Description
+| `NAM_LLM`         | string | LLM provider string, e.g. `anthropic/claude-3-5-sonnet-latest`. Resolved via `from_provider`.
+| `NAM_LLM_API_KEY` | string | API key override for `NAM_LLM`.
+| `NAM_EMBEDDING`   | string | Embedding provider string, e.g. `BAAI/bge-small-en-v1.5`.
+|===
+
+These are equivalent to the matching `--llm` / `--embedding` flags on `neo4j-agent-memory mcp serve`. See xref:how-to/bring-your-own-model.adoc[Bring Your Own Model].
+
 == Neo4j Connection
 
 [cols="2,1,1,3", options="header"]

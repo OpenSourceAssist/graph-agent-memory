@@ -61,6 +61,39 @@ a|
 pip install neo4j-agent-memory crewai crewai-tools
 ----
 
+== Pass-through your CrewAI LLM (v0.3+)
+
+CrewAI uses LiteLLM under the hood, so a CrewAI `LLM` exposes a `model` attribute that's already provider-prefixed. `llm_provider_from_crewai` plugs the same model into memory extraction:
+
+[source,python]
+----
+from crewai import LLM
+
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.crewai import llm_provider_from_crewai
+
+llm = LLM(model="anthropic/claude-3-5-sonnet-latest")
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=llm_provider_from_crewai(llm),
+    embedding="openai/text-embedding-3-small",
+)
+----
+
+For string-only model configs (the common CrewAI pattern), feed the same string directly to `MemorySettings.llm`:
+
+[source,python]
+----
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm="anthropic/claude-3-5-sonnet-latest",     # same string CrewAI uses
+    embedding="openai/text-embedding-3-small",
+)
+----
+
+See xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5] for the full pass-through pattern matrix.
+
 == Basic Integration
 
 === Create Memory Tools

@@ -26,6 +26,8 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 
 **New in v0.2** _(in development on the `adopt-existing-graph` branch)_: adopt an existing Neo4j graph as long-term memory (`client.schema.adopt_existing_graph(...)`), multi-tenant scoping (`user_identifier=`), fire-and-forget [buffered writes](examples/buffered-writes/) (`client.buffered.submit(...)`), [consolidation primitives](examples/audit-trail/) (`client.consolidation.dedupe_entities(...)`), an [eval harness](examples/eval-harness/) (`client.eval.run(suite)`), and explicit `:TOUCHED` audit edges from reasoning steps to entities.
 
+**New in v0.3** _(pluggable providers)_: bring your own model. `MemorySettings.embedding` and `MemorySettings.llm` now accept a provider-string shorthand (`"anthropic/claude-3-5-sonnet-latest"`, `"BAAI/bge-small-en-v1.5"`) or a Provider instance. Native adapters for OpenAI, Anthropic, Bedrock, Vertex AI, and sentence-transformers; LiteLLM universal fallback covers 100+ providers (Cohere, Voyage, Groq, Together, Mistral, Ollama, ...). Existing `EmbeddingConfig`/`LLMConfig` users keep working with a one-time deprecation warning — full migration guide at [migrate-to-v0.3](https://neo4j.com/labs/agent-memory/how-to/migrate-to-v0.3.html).
+
 ## Quick Start
 
 **Prerequisites:** A running Neo4j instance ([Neo4j Desktop](https://neo4j.com/download/), [Docker](https://hub.docker.com/_/neo4j), or [Neo4j Aura](https://neo4j.com/cloud/) for a free cloud database).
@@ -80,8 +82,14 @@ import asyncio
 from neo4j_agent_memory import MemoryClient, MemorySettings
 
 async def main():
+    # v0.3+: pass the model as a provider-prefixed string. Swap in
+    # "openai/...", "bedrock/...", "vertex_ai/...", or any of the 100+
+    # LiteLLM-supported providers. Defaults to a working OpenAI setup
+    # when llm/embedding are omitted, for v0.2 compatibility.
     settings = MemorySettings(
-        neo4j={"uri": "bolt://localhost:7687", "password": "your-password"}
+        neo4j={"uri": "bolt://localhost:7687", "password": "your-password"},
+        llm="anthropic/claude-3-5-sonnet-latest",
+        embedding="openai/text-embedding-3-small",
     )
 
     async with MemoryClient(settings) as memory:
@@ -107,6 +115,8 @@ async def main():
 asyncio.run(main())
 ```
 
+> Already using `EmbeddingConfig`/`LLMConfig`? It still works — you'll just see a one-time `DeprecationWarning` at construction. See the [v0.3 migration guide](https://neo4j.com/labs/agent-memory/how-to/migrate-to-v0.3.html).
+
 ### Option C: Full-Stack App with create-context-graph
 
 Scaffold a complete full-stack AI application with built-in context graph memory:
@@ -122,14 +132,19 @@ This generates a ready-to-run project with a FastAPI backend, Next.js frontend, 
 ## Installation
 
 ```bash
-pip install neo4j-agent-memory                  # Core
-pip install neo4j-agent-memory[openai]          # + OpenAI embeddings
-pip install neo4j-agent-memory[mcp]             # + MCP server
-pip install neo4j-agent-memory[langchain]       # + LangChain
-pip install neo4j-agent-memory[all]             # Everything
+pip install neo4j-agent-memory                       # Core
+pip install neo4j-agent-memory[openai]               # + OpenAI native adapter
+pip install neo4j-agent-memory[anthropic]            # + Anthropic native adapter
+pip install neo4j-agent-memory[bedrock]              # + AWS Bedrock native adapter
+pip install neo4j-agent-memory[sentence-transformers]# + local HF embeddings
+pip install neo4j-agent-memory[litellm]              # + LiteLLM universal fallback (100+ providers)
+pip install neo4j-agent-memory[mcp]                  # + MCP server
+pip install neo4j-agent-memory[langchain]            # + LangChain
+pip install neo4j-agent-memory[all]                  # Everything except heavy local ML
+pip install neo4j-agent-memory[full]                 # Everything including spaCy, GLiNER, sentence-transformers, instructor
 ```
 
-See the [getting started guide](https://neo4j.com/labs/agent-memory/getting-started.html) for all extras (Vertex AI, Bedrock, spaCy, GLiNER, Google ADK, Strands, etc.).
+Provider extras follow native-first resolution: with both `[openai]` and `[litellm]` installed, an `"openai/..."` model uses the native adapter; an unsupported provider like `"groq/..."` falls through to LiteLLM. See [Bring your own model](https://neo4j.com/labs/agent-memory/how-to/bring-your-own-model.html) for details.
 
 ## Framework Integrations
 

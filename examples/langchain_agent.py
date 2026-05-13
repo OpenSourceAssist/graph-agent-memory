@@ -55,11 +55,34 @@ from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 
 
 async def main():
+    # v0.3+: when you have a LangChain chat model already configured, use
+    # llm_provider_from_langchain to feed it directly into MemorySettings.
+    # This avoids declaring the same model twice (once for the agent,
+    # once for memory extraction). Falls back to the default OpenAI
+    # provider when LangChain is not installed.
+    llm_provider = None
+    try:
+        from langchain_openai import ChatOpenAI
+
+        from neo4j_agent_memory.integrations.langchain import (
+            llm_provider_from_langchain,
+        )
+
+        chat_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0)
+        llm_provider = llm_provider_from_langchain(chat_model)
+        print("Using shared LangChain model for memory extraction")
+    except ImportError:
+        # LangChain not installed; let MemorySettings auto-provision the
+        # legacy OpenAI default via the lenient fallback.
+        pass
+
     settings = MemorySettings(
         neo4j=Neo4jConfig(
             uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
             password=SecretStr(os.getenv("NEO4J_PASSWORD", "password")),
-        )
+        ),
+        embedding="openai/text-embedding-3-small",
+        llm=llm_provider,  # None falls back to the legacy default
     )
 
     async with MemoryClient(settings) as client:

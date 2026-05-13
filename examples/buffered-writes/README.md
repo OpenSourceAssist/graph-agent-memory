@@ -1,4 +1,4 @@
-# Buffered Writes Example
+﻿# Buffered Writes Example
 
 ![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)
 ![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)
@@ -12,6 +12,7 @@ This example shows the fire-and-forget write API in `neo4j-agent-memory`. With `
 >
 > This example is part of [`neo4j-agent-memory`](https://github.com/neo4j-labs/agent-memory), a Neo4j Labs project. It is actively maintained but not officially supported. APIs may change. Community support is available via the [Neo4j Community Forum](https://community.neo4j.com).
 
+> **Need a different LLM or embedding model?** As of `neo4j-agent-memory` v0.3 you can swap providers via a single string — `MemorySettings(llm="anthropic/claude-3-5-sonnet-latest", embedding="BAAI/bge-small-en-v1.5")`. See [Bring Your Own Model](https://neo4j.com/labs/agent-memory/how-to/bring-your-own-model.html).
 ## What this demonstrates
 
 - **`MemorySettings.memory.write_mode = "buffered"`** — opt-in fire-and-forget mode.

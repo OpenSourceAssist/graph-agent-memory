@@ -154,23 +154,61 @@ def create_llm_extractor(
     Args:
         extraction_config: Extraction configuration
         schema_config: Optional schema configuration for entity types
-        llm_config: Optional LLM configuration
+        llm_config: Optional LLM source. Accepts:
+
+            * an :class:`LLMConfig` (legacy) — translated to a provider
+              via :func:`neo4j_agent_memory.llm.from_provider`,
+            * a fully-constructed :class:`LLMProvider` instance,
+            * ``None`` — falls back to the legacy ``extraction_config.llm_model``
+              and lets :class:`LLMEntityExtractor` build its own default.
 
     Returns:
         LLMEntityExtractor instance
     """
+    from neo4j_agent_memory.config.settings import LLMConfig
     from neo4j_agent_memory.extraction.llm_extractor import LLMEntityExtractor
 
     entity_types = extraction_config.entity_types
     if schema_config and schema_config.entity_types:
         entity_types = schema_config.entity_types
 
-    return LLMEntityExtractor(
-        model=extraction_config.llm_model,
-        entity_types=entity_types,
-        extract_relations=extraction_config.extract_relations,
-        extract_preferences=extraction_config.extract_preferences,
-    )
+    common_kwargs: dict[str, Any] = {
+        "entity_types": entity_types,
+        "extract_relations": extraction_config.extract_relations,
+        "extract_preferences": extraction_config.extract_preferences,
+    }
+
+    # Provider instance: pass through directly.
+    if llm_config is not None and not isinstance(llm_config, LLMConfig):
+        return LLMEntityExtractor(provider=llm_config, **common_kwargs)
+
+    # Legacy LLMConfig: build provider via from_provider() so the extractor
+    # is wired with the user-selected provider/api_key, not the hardcoded
+    # extraction_config.llm_model default.
+    if isinstance(llm_config, LLMConfig):
+        from neo4j_agent_memory.llm import from_provider
+
+        # Map legacy LLMConfig.provider enum to provider-prefixed model id.
+        provider_prefix = llm_config.provider.value
+        # CUSTOM provider lacks a registry entry; treat the configured model
+        # string as authoritative and let from_provider() infer the prefix.
+        if provider_prefix == "custom":
+            model_id = llm_config.model
+        else:
+            model_id = (
+                llm_config.model
+                if "/" in llm_config.model
+                else f"{provider_prefix}/{llm_config.model}"
+            )
+        kwargs: dict[str, Any] = {}
+        if llm_config.api_key is not None:
+            kwargs["api_key"] = llm_config.api_key.get_secret_value()
+        provider = from_provider(model_id, kind="llm", **kwargs)
+        return LLMEntityExtractor(provider=provider, **common_kwargs)
+
+    # No llm_config: let LLMEntityExtractor build its own default provider
+    # from extraction_config.llm_model.
+    return LLMEntityExtractor(model=extraction_config.llm_model, **common_kwargs)
 
 
 def create_extraction_pipeline(

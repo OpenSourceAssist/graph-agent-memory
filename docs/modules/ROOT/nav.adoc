@@ -5,11 +5,19 @@
 *** xref:tutorials/first-agent-memory.adoc[First Agent Memory]
 *** xref:tutorials/conversation-memory.adoc[Conversation Memory]
 *** xref:tutorials/knowledge-graph.adoc[Knowledge Graphs]
+*** xref:tutorials/anthropic-and-local-embeddings.adoc[Anthropic + Local Embeddings]
 *** xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Quickstart]
 *** xref:tutorials/mcp-server.adoc[MCP Server for Claude Desktop]
 *** xref:tutorials/microsoft-agent-memory.adoc[Microsoft Agent Memory]
 
 ** xref:how-to/index.adoc[How-To Guides]
+
+*** Pluggable Providers (v0.3)
+**** xref:how-to/bring-your-own-model.adoc[Bring Your Own Model]
+**** xref:how-to/configure-llm-provider.adoc[Configure LLM Provider]
+**** xref:how-to/configure-embedding-provider.adoc[Configure Embedding Provider]
+**** xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3]
+**** xref:how-to/migrate-embedding-model.adoc[Migrate Embedding Model]
 
 *** Core Operations
 **** xref:how-to/messages.adoc[Store & Search Messages]
@@ -64,6 +72,9 @@
 **** xref:reference/api/short-term.adoc[Short-Term Memory]
 **** xref:reference/api/long-term.adoc[Long-Term Memory]
 **** xref:reference/api/reasoning.adoc[Reasoning Memory]
+**** xref:reference/api/llm-provider.adoc[LLM Provider Protocol]
+**** xref:reference/api/adapters.adoc[Adapters]
+**** xref:reference/api/factory.adoc[`from_provider` Factory]
 
 ** xref:explanation/index.adoc[Concepts]
 *** xref:explanation/memory-types.adoc[Memory Types]
@@ -71,6 +82,8 @@
 *** xref:explanation/graph-architecture.adoc[Graph Architecture]
 *** xref:explanation/extraction-pipeline.adoc[Extraction Pipeline]
 *** xref:explanation/resolution-deduplication.adoc[Resolution & Deduplication]
+*** xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?]
+*** xref:explanation/structured-extraction.adoc[Structured Extraction]
 *** xref:explanation/framework-comparison.adoc[Framework Comparison]
 
 ** xref:glossary.adoc[Glossary]

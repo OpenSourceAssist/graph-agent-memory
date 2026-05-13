@@ -29,6 +29,16 @@ class Settings(BaseSettings):
     # OpenAI Configuration
     openai_api_key: SecretStr = Field(default=SecretStr(""))
 
+    # Provider Configuration (v0.3+)
+    # Override these to swap LLM/embedding provider without touching code.
+    # Set LLM_MODEL=anthropic/... and EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+    # plus ANTHROPIC_API_KEY=sk-ant-... to run on Anthropic + local
+    # embeddings. Empty defaults preserve the v0.2 lenient-fallback
+    # behavior (auto-provisions an OpenAI LLM at construction time).
+    llm_model: str = Field(default="")
+    embedding_model: str = Field(default="")
+    anthropic_api_key: SecretStr | None = Field(default=None)
+
     # Server Configuration
     host: str = Field(default="0.0.0.0")
     port: int = Field(default=8000)

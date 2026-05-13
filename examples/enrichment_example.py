@@ -277,30 +277,23 @@ async def demo_with_neo4j():
     from pydantic import SecretStr
 
     from neo4j_agent_memory import (
-        EmbeddingConfig,
-        EmbeddingProvider,
         MemoryClient,
         MemorySettings,
         Neo4jConfig,
     )
     from neo4j_agent_memory.config.settings import EnrichmentConfig, EnrichmentProvider
 
-    # Check for OpenAI API key
+    # v0.3+: choose an embedding model as a provider-string. The factory
+    # picks the best available adapter — OpenAI native if [openai] is
+    # installed, sentence-transformers local otherwise.
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if openai_api_key:
-        embedding_config = EmbeddingConfig(
-            provider=EmbeddingProvider.OPENAI,
-            model="text-embedding-3-small",
-        )
+        embedding_model = "openai/text-embedding-3-small"
     else:
         try:
             import sentence_transformers  # noqa: F401
 
-            embedding_config = EmbeddingConfig(
-                provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
-                model="all-MiniLM-L6-v2",
-                dimensions=384,
-            )
+            embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
         except ImportError:
             print("\nERROR: Need either OPENAI_API_KEY or sentence-transformers")
             return
@@ -312,7 +305,7 @@ async def demo_with_neo4j():
             username=os.getenv("NEO4J_USERNAME", "neo4j"),
             password=SecretStr(neo4j_password),
         ),
-        embedding=embedding_config,
+        embedding=embedding_model,
         enrichment=EnrichmentConfig(
             enabled=True,
             providers=[EnrichmentProvider.WIKIMEDIA],

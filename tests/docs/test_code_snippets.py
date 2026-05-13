@@ -1,4 +1,4 @@
-"""Tests for Python code snippets in documentation.
+﻿"""Tests for Python code snippets in documentation.
 
 These tests validate that code examples in the documentation are syntactically
 correct and use valid imports.
@@ -291,7 +291,7 @@ class TestSnippetCoverage:
         for tutorial in tutorials_dir.glob("*.adoc"):
             if tutorial.name == "index.adoc":
                 continue
-            content = tutorial.read_text()
+            content = tutorial.read_text(encoding="utf-8")
             assert "[source,python]" in content, f"{tutorial.name} has no Python code snippets"
 
     def test_howto_guides_have_code_snippets(self, docs_dir: Path):
@@ -303,7 +303,7 @@ class TestSnippetCoverage:
         for guide in howto_dir.glob("*.adoc"):
             if guide.name == "index.adoc":
                 continue
-            content = guide.read_text()
+            content = guide.read_text(encoding="utf-8")
             assert "[source,python]" in content or "[source,bash]" in content, (
                 f"{guide.name} has no code snippets"
             )
@@ -317,7 +317,7 @@ class TestSnippetCoverage:
         for api_doc in api_dir.glob("*.adoc"):
             if api_doc.name == "index.adoc":
                 continue
-            content = api_doc.read_text()
+            content = api_doc.read_text(encoding="utf-8")
             # API docs should have at least one code example
             has_code = "[source,python]" in content or "[source,cypher]" in content
             assert has_code, f"{api_doc.name} has no code examples"

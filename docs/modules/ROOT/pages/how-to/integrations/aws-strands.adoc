@@ -36,6 +36,30 @@ The Strands integration provides four memory tools that agents can use:
 pip install neo4j-agent-memory[aws,strands]
 ----
 
+== Pass-through your Strands model (v0.3+)
+
+Strands agents typically use Bedrock model strings (e.g. `"anthropic.claude-sonnet-4-20250514-v1:0"`). `llm_provider_from_strands` accepts either a bare string or a model object and prepends `bedrock/` when no provider prefix is present:
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.strands import (
+    llm_provider_from_strands,
+)
+
+provider = llm_provider_from_strands(
+    "anthropic.claude-sonnet-4-20250514-v1:0",
+)
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=provider,
+    embedding="bedrock/amazon.titan-embed-text-v2:0",
+)
+----
+
+The `context_graph_tools(...)` helper already resolves the embedder via `from_provider` internally — the pass-through is only needed when you want the same model used by both the agent and memory extraction.
+
 == Quick Start
 
 [source,python]

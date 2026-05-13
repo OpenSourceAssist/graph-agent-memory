@@ -8,7 +8,8 @@ from typing import Any
 from uuid import UUID
 
 from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings
-from neo4j_agent_memory.config import EmbeddingConfig, EmbeddingProvider, Neo4jConfig
+from neo4j_agent_memory.config import Neo4jConfig
+from neo4j_agent_memory.llm import from_provider
 from neo4j_agent_memory.memory.long_term import DeduplicationConfig  # noqa: F401
 
 from ..config import get_settings
@@ -28,6 +29,14 @@ class FinancialMemoryService:
     def __init__(self) -> None:
         """Initialize the memory service."""
         settings = get_settings()
+        # v0.3+: build a BedrockEmbeddingProvider via from_provider. The
+        # adapter reads the standard boto3 credential chain plus the
+        # explicit aws_region we pass through.
+        embedding_provider = from_provider(
+            f"bedrock/{settings.bedrock.embedding_model_id}",
+            kind="embedding",
+            aws_region=settings.aws.region,
+        )
         memory_settings = MemorySettings(
             neo4j=Neo4jConfig(
                 uri=settings.neo4j.uri,
@@ -35,11 +44,7 @@ class FinancialMemoryService:
                 password=settings.neo4j.password,
                 database=settings.neo4j.database,
             ),
-            embedding=EmbeddingConfig(
-                provider=EmbeddingProvider.BEDROCK,
-                model=settings.bedrock.embedding_model_id,
-                aws_region=settings.aws.region,
-            ),
+            embedding=embedding_provider,
             extraction=ExtractionConfig(),
         )
         self._client = MemoryClient(memory_settings)

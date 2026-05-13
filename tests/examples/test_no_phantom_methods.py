@@ -1,4 +1,4 @@
-"""Cross-reference scan: every memory-layer method call in `examples/` must
+﻿"""Cross-reference scan: every memory-layer method call in `examples/` must
 reference a real public method on the actual class.
 
 This catches the kind of drift that broke `get_entity`, `get_messages`,
@@ -75,7 +75,7 @@ def test_no_phantom_layer_methods_in_examples(layer_apis):
 
     drift: list[str] = []
     for path in _iter_example_py_files():
-        source = path.read_text()
+        source = path.read_text(encoding="utf-8")
         for match in pattern.finditer(source):
             layer, method = match.group(1), match.group(2)
             if method not in layer_apis[layer]:

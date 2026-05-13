@@ -1,0 +1,196 @@
+= Configure an LLM Provider
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+The complete reference for wiring an LLM provider into `MemorySettings.llm`.
+
+[.lead]
+This is a task-oriented page for "I have X and want to do Y." For the bigger-picture choice between providers, see xref:how-to/bring-your-own-model.adoc[Bring Your Own Model]. For the conceptual rationale, see xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?].
+
+== Set the LLM via a provider string
+
+Recommended for most users.
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm="anthropic/claude-3-5-sonnet-latest",
+)
+----
+
+Resolved via `from_provider(model, kind="llm")`. The factory does native-first dispatch.
+
+== Set the LLM via an explicit Provider instance
+
+When you need adapter-specific kwargs.
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings
+from neo4j_agent_memory.llm.adapters.anthropic import AnthropicProvider
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=AnthropicProvider(
+        "anthropic/claude-3-5-sonnet-latest",
+        cache_system=True,            # Anthropic prompt caching
+        timeout=120.0,
+        max_retries=5,
+    ),
+)
+----
+
+== Set the LLM via a framework model
+
+[source,python]
+----
+from langchain_openai import ChatOpenAI
+from neo4j_agent_memory import MemorySettings
+from neo4j_agent_memory.integrations.langchain import (
+    llm_provider_from_langchain,
+)
+
+chat = ChatOpenAI(model_name="gpt-4o-mini")
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=llm_provider_from_langchain(chat),
+)
+----
+
+Pass-through helpers exist for every supported integration. See xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5] for the full list.
+
+== Use no LLM at all
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings
+from neo4j_agent_memory.config.settings import ExtractionConfig, ExtractorType
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=None,
+    extraction=ExtractionConfig(
+        extractor_type=ExtractorType.GLINER,  # or SPACY / PIPELINE
+        enable_llm_fallback=False,
+    ),
+)
+----
+
+See xref:how-to/running-without-an-llm.adoc[Run Without an LLM] for the full guide.
+
+== Override the API key
+
+[source,python]
+----
+from neo4j_agent_memory.llm import from_provider
+
+provider = from_provider(
+    "anthropic/claude-3-5-sonnet-latest",
+    api_key="sk-ant-...",
+)
+----
+
+Otherwise the adapter reads the provider's standard env var (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, AWS credential chain, ...).
+
+== Override the API base (vLLM / Ollama / internal endpoint)
+
+[source,python]
+----
+from neo4j_agent_memory.llm.adapters.litellm import LiteLLMProvider
+
+# Local Ollama
+ollama = LiteLLMProvider(
+    "ollama/llama3.2",
+    api_base="http://localhost:11434",
+)
+
+# Self-hosted vLLM with an OpenAI-compatible endpoint
+internal = LiteLLMProvider(
+    "openai/llama-3.3-70b-instruct",     # any LiteLLM-routed openai/* works
+    api_base="https://llms.internal.corp/v1",
+    api_key="...",
+)
+----
+
+== Force LiteLLM (skip the native adapter)
+
+[source,python]
+----
+from neo4j_agent_memory.llm import from_provider
+
+provider = from_provider(
+    "openai/gpt-4o",
+    prefer_litellm=True,
+)
+----
+
+Useful for consistency tests, observability standardisation across providers, or when you want LiteLLM's cost tracking.
+
+== Configure via the MCP CLI
+
+[source,bash]
+----
+neo4j-agent-memory mcp serve \
+  --password mypw \
+  --llm anthropic/claude-3-5-sonnet-latest \
+  --llm-api-key $ANTHROPIC_API_KEY \
+  --llm-api-base https://custom-endpoint.example.com  # optional
+----
+
+Or env vars:
+
+[source,bash]
+----
+export NAM_LLM=anthropic/claude-3-5-sonnet-latest
+export NAM_LLM_API_KEY=$ANTHROPIC_API_KEY
+neo4j-agent-memory mcp serve --password mypw
+----
+
+== Catch provider errors uniformly
+
+[source,python]
+----
+from neo4j_agent_memory.llm import (
+    ProviderAuthError, ProviderRateLimitError, ProviderTimeoutError,
+)
+
+try:
+    result = await provider.complete(messages)
+except ProviderRateLimitError as exc:
+    # Same exception type across OpenAI / Anthropic / Bedrock / LiteLLM.
+    await asyncio.sleep(exc.retry_after or 1.0)
+except ProviderAuthError:
+    raise SystemExit("API key invalid — check your env vars.")
+except ProviderTimeoutError:
+    ...
+----
+
+== Verify which adapter you got
+
+Provider strings dispatch to different adapter classes based on what's installed. To confirm:
+
+[source,python]
+----
+import logging
+logging.getLogger("neo4j_agent_memory.llm.factory").setLevel(logging.DEBUG)
+
+from neo4j_agent_memory.llm import from_provider
+provider = from_provider("openai/gpt-4o-mini")
+print(type(provider).__name__)
+# OpenAIProvider  (when [openai] is installed)
+# LiteLLMProvider (when only [litellm] is installed)
+----
+
+== Related
+
+* xref:how-to/bring-your-own-model.adoc[Bring Your Own Model] — the headline overview.
+* xref:how-to/configure-embedding-provider.adoc[Configure Embedding Provider].
+* xref:reference/configuration.adoc[Configuration Reference].
+* xref:reference/cli.adoc[CLI Reference].

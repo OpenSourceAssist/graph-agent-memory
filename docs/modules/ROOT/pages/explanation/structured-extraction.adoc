@@ -1,0 +1,184 @@
+= Structured Extraction
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+Why the library splits structured extraction into its own Protocol, and how the different paths (OpenAI strict mode, Anthropic forced tool use, schema-aligned retry, Instructor) compare.
+
+[.lead]
+The Silver TCK tier — `StructuredExtractor` — is what makes entity extraction reliable across providers. This page explains why it's a separate Protocol from `LLMProvider`, how each adapter implements it, and when schema-aligned retry kicks in. For task-oriented use, see xref:how-to/bring-your-own-model.adoc[Bring Your Own Model].
+
+== The problem structured extraction solves
+
+The entity extractor needs the model to produce a JSON object validating against a Pydantic schema. Free-form `complete()` calls produce text — sometimes valid JSON, often near-misses (markdown fences, trailing commas, a leading "Sure, here's the JSON:" prelude, hallucinated fields). The library converts those text completions into validated `LLMExtractionPayload` instances in three layered ways.
+
+== The three paths
+
+Each path delivers the same contract — `complete_structured(messages, response_model) -> T` — but with different reliability/quality trade-offs.
+
+[cols="3,3,2",options="header"]
+|===
+| Path                     | Mechanism                                                | When it runs
+| Native strict mode       | OpenAI `response_format={"type":"json_schema","strict":true}` | OpenAI-via-`OpenAIProvider` (only).
+| Forced tool use          | Anthropic `tool_choice={"type":"tool","name":...}`        | Anthropic-via-`AnthropicProvider` and Bedrock-via-`BedrockProvider` for Anthropic models.
+| Schema-aligned retry (SAP) | Prompt with schema + tolerant parse + validation feedback retry | Everything else, including LiteLLM and any custom `LLMProvider` that doesn't implement `StructuredExtractor` natively.
+|===
+
+Native paths produce schema-valid output on the first call. SAP retries on validation failure, feeding the error back to the model as a correction prompt — empirically the second-attempt success rate on capable models is very high.
+
+== Why split `StructuredExtractor` from `LLMProvider`?
+
+[source,python]
+----
+@runtime_checkable
+class LLMProvider(Protocol):
+    model: str
+    async def complete(self, messages, ...) -> Completion: ...
+
+@runtime_checkable
+class StructuredExtractor(Protocol):
+    async def complete_structured(
+        self, messages, response_model, ...
+    ) -> T: ...
+----
+
+Two reasons:
+
+. **Capability tiers should be explicit.** Some adapters can't do native structured output. `InstructorProvider`, conversely, *only* does structured output — there's no value-add wrapping `instructor.from_provider` to expose a Bronze `complete()`. A two-Protocol split lets each adapter declare exactly what it provides.
+. **The entity extractor picks the best available path.** `LLMEntityExtractor` introspects the provider with `isinstance(provider, StructuredExtractor)` at runtime. If it sees the Silver Protocol, it calls `complete_structured`; otherwise, it falls back to prompt-engineered JSON via `complete` and the same tolerant parser. The split makes the dispatch explicit.
+
+== How `schema_aligned_extract` works
+
+The function (in `neo4j_agent_memory.llm.structured`) is ~80 lines:
+
+. **Build a system message containing the schema.** The schema is `response_model.model_json_schema()`, dumped as indented JSON, with instructions: "return JSON only, no prose, no markdown."
+. **Call the provider's `complete()`.** Returns a `Completion`.
+. **Tolerant-parse the response.** Strips markdown fences, smart quotes, trailing commas; finds the largest balanced `{...}` block. Truncated JSON (mid-string cutoff) surfaces as `JSONDecodeError` — the correct outcome, since it must trigger a retry.
+. **Validate against the Pydantic model.** Success returns the validated `T`.
+. **On `ValidationError` or `JSONDecodeError`, retry with feedback.** Append the failed assistant response and a feedback `user` message naming the violated field paths. Example feedback: `"Your previous response failed schema validation: - entities[0].type: invalid value 'PLACE'. Return a corrected JSON object..."`
+. **After `max_retries + 1` total attempts, raise `StructuredExtractionError`** carrying every attempt's raw text and the validation errors for diagnosability.
+
+The validation-error feedback is the secret ingredient. Models respond to "the field `entities[0].type` is invalid" much better than "your response was invalid" — empirical observation across thousands of extraction runs.
+
+== Why native paths win when available
+
+OpenAI's strict mode is a hard guarantee: the model is constrained at decoding time to emit only tokens consistent with the schema. There is no retry; the first response is always schema-valid (or the model fails to generate at all). This is structurally stronger than any prompt-based approach.
+
+Anthropic's forced tool use is similar in spirit: the model is required to call a single tool whose `input_schema` is your Pydantic schema. Anthropic's tool-use mode has high schema-conformance rates because the same training data that taught the model to use tools taught it to respect tool input schemas.
+
+LiteLLM normalises away strict mode for most providers — it routes through `response_format={"type": "json_object"}` (JSON mode, not schema-strict), which gets you parseable JSON but not necessarily *schema-valid* JSON. That's why the LiteLLM adapter delegates to SAP rather than relying on `response_format`.
+
+== Why we didn't make Instructor the only structured path
+
+`InstructorProvider` exists as an optional adapter for users already invested in the https://python.useinstructor.com/[Instructor library]. We considered making it the *only* `StructuredExtractor` path. Three reasons not to:
+
+. **Instructor adds dependencies.** Users who aren't on Instructor shouldn't have to install it.
+. **Native adapters can do better.** OpenAI strict mode and Anthropic forced tool use exploit provider-specific features that Instructor's universal interface can't access. Native > Instructor on those providers.
+. **SAP works everywhere.** A 80-line retry loop with feedback covers every provider with a `complete()` method. Instructor is one of several ways to achieve the same end; the library exposes it as a peer, not a privileged path.
+
+The TCK design then becomes: Bronze = `LLMProvider`. Silver = `StructuredExtractor` via any path (native, SAP, or Instructor). Gold = behavioural conformance under the contract harness.
+
+== Using `complete_structured` directly
+
+Outside the entity extractor, you can call `complete_structured` on any provider that implements `StructuredExtractor`:
+
+[source,python]
+----
+from pydantic import BaseModel
+from neo4j_agent_memory.llm import ChatMessage, from_provider
+
+
+class Address(BaseModel):
+    street: str
+    city: str
+    postal_code: str
+
+
+provider = from_provider("anthropic/claude-3-5-sonnet-latest")
+addr = await provider.complete_structured(
+    [ChatMessage(role="user", content="Extract: 123 Main St, Springfield IL 62701")],
+    response_model=Address,
+)
+print(addr.city)  # Springfield
+----
+
+Or use `schema_aligned_extract` directly against a plain `LLMProvider` that doesn't implement Silver:
+
+[source,python]
+----
+from neo4j_agent_memory.llm import schema_aligned_extract
+
+addr = await schema_aligned_extract(
+    provider,
+    messages=[ChatMessage(role="user", content="Extract: 123 Main St ...")],
+    response_model=Address,
+    max_retries=2,
+)
+----
+
+== When SAP retries: a worked example
+
+Suppose the model returns invalid JSON on the first attempt:
+
+[source,text]
+----
+Attempt 1 response:
+  Sure! Here's the address:
+  ```json
+  {"street": "123 Main", "city": "Springfield"}
+  ```
+----
+
+. Tolerant parser strips the prose preamble and markdown fence, extracts `{"street": "123 Main", "city": "Springfield"}`.
+. Pydantic validation fails: missing required field `postal_code`.
+. SAP appends:
++
+[source,text]
+----
+Assistant: {"street": "123 Main", "city": "Springfield"}
+User: Your previous response failed schema validation:
+  - postal_code: Field required
+
+Return a corrected JSON object that validates against the Address schema.
+Output JSON only — no prose, no markdown.
+----
+. Attempt 2 returns `{"street": "123 Main", "city": "Springfield", "postal_code": "62701"}`. Validation succeeds.
+
+`max_retries=2` (default) gives three total attempts. The default is conservative — most calls resolve in one or two.
+
+== When SAP fails
+
+If all `max_retries + 1` attempts fail, the function raises `StructuredExtractionError` carrying:
+
+* `last_attempts: list[str]` — raw text of every attempt, in order.
+* `validation_errors: list[ValidationError]` — Pydantic errors from each failed validation. May be shorter than `last_attempts` if some attempts failed at JSON parsing rather than validation.
+
+[source,python]
+----
+try:
+    addr = await provider.complete_structured(...)
+except StructuredExtractionError as exc:
+    logger.error(
+        "Extraction failed after %d attempts. Last raw response: %s",
+        len(exc.last_attempts),
+        exc.last_attempts[-1][:500],
+    )
+----
+
+The full diagnostic trail makes post-mortem debugging tractable — you see exactly what the model tried, in what order, and why it failed each time.
+
+== Tuning
+
+* **`max_retries`**: Default 2. Bumping to 3-4 helps marginally for weak models; not worth it for capable ones.
+* **`temperature`**: SAP passes the caller's `temperature` to every retry. Stick to 0.0 for deterministic extraction. Higher temperatures rarely help on structured tasks.
+* **Prompt design**: For complex schemas, embed examples in the system message before SAP gets involved. SAP's retry feedback is good but expensive — first-attempt success rate dominates total cost.
+
+== Related
+
+* xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — the bigger-picture design.
+* xref:explanation/extraction-pipeline.adoc[Extraction Pipeline] — how `LLMEntityExtractor` calls the Silver path.
+* xref:reference/api/llm-provider.adoc[LLM Provider API] — Protocol signatures.
+* xref:reference/api/adapters.adoc[Adapters] — per-adapter Silver implementation notes.

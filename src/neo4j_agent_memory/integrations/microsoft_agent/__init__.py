@@ -41,9 +41,26 @@ Example:
         )
 """
 
+from typing import Any
+
+from neo4j_agent_memory.integrations._passthrough import (
+    llm_provider_from_framework_model as _passthrough,
+)
+
 # Target API version - document for compatibility tracking
 MICROSOFT_AGENT_FRAMEWORK_VERSION = "1.0.0b260212"
 MICROSOFT_AGENT_FRAMEWORK_MIN_VERSION = "1.0.0b260212"
+
+
+def llm_provider_from_microsoft_agent(model: Any) -> Any:
+    """Translate a Microsoft Agent Framework chat client into an :class:`LLMProvider`.
+
+    The Agent Framework wraps Azure OpenAI and OpenAI clients. The
+    underlying client typically exposes ``deployment_name`` (Azure) or
+    ``model`` (OpenAI). The shared introspector reads either.
+    """
+    return _passthrough(model)
+
 
 try:
     from .chat_store import Neo4jChatMessageStore
@@ -72,6 +89,8 @@ try:
         # Version info
         "MICROSOFT_AGENT_FRAMEWORK_VERSION",
         "MICROSOFT_AGENT_FRAMEWORK_MIN_VERSION",
+        # Pass-through
+        "llm_provider_from_microsoft_agent",
     ]
 except ImportError as e:
     # Microsoft Agent Framework not installed
@@ -87,4 +106,5 @@ except ImportError as e:
     __all__ = [
         "MICROSOFT_AGENT_FRAMEWORK_VERSION",
         "MICROSOFT_AGENT_FRAMEWORK_MIN_VERSION",
+        "llm_provider_from_microsoft_agent",
     ]

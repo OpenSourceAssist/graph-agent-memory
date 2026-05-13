@@ -96,36 +96,36 @@ async def demo_basic_embeddings():
 async def demo_with_memory_client():
     """Demonstrate Vertex AI embeddings with MemoryClient."""
     from neo4j_agent_memory import MemoryClient, MemorySettings
-    from neo4j_agent_memory.config.settings import (
-        EmbeddingConfig,
-        EmbeddingProvider,
-        Neo4jConfig,
-    )
+    from neo4j_agent_memory.config.settings import Neo4jConfig
+    from neo4j_agent_memory.llm import from_provider
 
     print("=" * 60)
     print("Vertex AI Embeddings - With MemoryClient")
     print("=" * 60)
     print()
 
-    # Configure with Vertex AI embeddings
+    # v0.3+: resolve a VertexAIEmbeddingProvider via the factory. Project
+    # ID and location are passed through to the adapter constructor.
+    embedding_provider = from_provider(
+        "vertex_ai/text-embedding-004",
+        kind="embedding",
+        project_id=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+        location=os.environ.get("VERTEX_AI_LOCATION", "us-central1"),
+    )
+
     settings = MemorySettings(
         neo4j=Neo4jConfig(
             uri=os.environ.get("NEO4J_URI", "bolt://localhost:7687"),
             username=os.environ.get("NEO4J_USER", "neo4j"),
             password=SecretStr(os.environ.get("NEO4J_PASSWORD", "password")),
         ),
-        embedding=EmbeddingConfig(
-            provider=EmbeddingProvider.VERTEX_AI,
-            model="text-embedding-004",
-            project_id=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            location=os.environ.get("VERTEX_AI_LOCATION", "us-central1"),
-        ),
+        embedding=embedding_provider,
     )
 
     print("Configuration:")
-    print(f"  Embedding Provider: {settings.embedding.provider}")
+    print(f"  Embedding Provider: {type(settings.embedding).__name__}")
     print(f"  Model: {settings.embedding.model}")
-    print(f"  Project: {settings.embedding.project_id}")
+    print(f"  Dimensions: {settings.embedding.dimensions}")
     print()
 
     async with MemoryClient(settings) as client:

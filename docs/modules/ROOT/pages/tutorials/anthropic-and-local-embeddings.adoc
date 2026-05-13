@@ -1,0 +1,210 @@
+= Build an Agent with Anthropic and Local Embeddings
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+A step-by-step tutorial: build a memory-enabled agent using Anthropic Claude for entity extraction and local sentence-transformers for embeddings. Zero OpenAI dependency.
+
+[.lead]
+By the end you'll have a working memory system where the LLM is Anthropic and embeddings are computed locally on your machine — no embedding API calls leave your network. This is the headline configuration for v0.3.
+
+== What you'll learn
+
+* How to wire `neo4j-agent-memory` to a non-OpenAI LLM
+* How to use a local sentence-transformers embedder
+* How to confirm your chosen models are actually being used
+* How to switch back without losing data
+
+== Prerequisites
+
+* Python 3.10 or higher
+* An Anthropic API key (https://console.anthropic.com[free trial available])
+* A running Neo4j 5.11+ instance
+* About 30 minutes
+
+== Step 1: Install dependencies
+
+[source,bash]
+----
+pip install "neo4j-agent-memory[anthropic,sentence-transformers]"
+----
+
+This pulls in:
+
+* The core memory library
+* The native Anthropic adapter (uses the `anthropic` SDK directly for strict forced-tool-use structured output)
+* `sentence-transformers` for local embeddings
+
+== Step 2: Set up Neo4j
+
+If you don't already have a Neo4j 5.11+ instance running:
+
+[source,bash]
+----
+docker run \
+  --name neo4j-memory \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password123 \
+  -e NEO4J_PLUGINS='["apoc"]' \
+  -d \
+  neo4j:5.26-community
+----
+
+Wait ~30 seconds for it to boot, then open http://localhost:7474 to confirm.
+
+== Step 3: Configure environment variables
+
+[source,bash]
+----
+export ANTHROPIC_API_KEY=sk-ant-...
+export NEO4J_URI=bolt://localhost:7687
+export NEO4J_PASSWORD=password123
+----
+
+== Step 4: Wire the agent
+
+Create `agent.py`:
+
+[source,python]
+----
+import asyncio
+import os
+from pydantic import SecretStr
+
+from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
+
+
+async def main():
+    settings = MemorySettings(
+        neo4j=Neo4jConfig(
+            uri=os.environ["NEO4J_URI"],
+            password=SecretStr(os.environ["NEO4J_PASSWORD"]),
+        ),
+        # Anthropic LLM for entity extraction.
+        llm="anthropic/claude-3-5-sonnet-latest",
+        # Local 384-dim sentence-transformers embedder. First run
+        # downloads the model (~130 MB); subsequent runs use the cache.
+        embedding="BAAI/bge-small-en-v1.5",
+    )
+
+    async with MemoryClient(settings) as client:
+        # Store a conversation message. The extractor uses Anthropic's
+        # forced-tool-use structured output to extract entities.
+        await client.short_term.add_message(
+            session_id="tutorial-1",
+            role="user",
+            content=(
+                "Hi, I'm Maya Chen. I work as a product manager at "
+                "Acme Robotics in San Francisco. I'm building a new "
+                "feature for our warehouse automation product."
+            ),
+            extract_entities=True,
+        )
+
+        # Inspect what was extracted.
+        entities = await client.long_term.search_entities(
+            query="Maya",
+            limit=5,
+        )
+        print(f"Found {len(entities)} entities:")
+        for entity in entities:
+            print(f"  - {entity.name} ({entity.full_type})")
+
+        # Add a preference.
+        await client.long_term.add_preference(
+            category="communication",
+            preference="Prefers async written updates over meetings",
+        )
+
+        # Assemble context for an LLM prompt.
+        context = await client.get_context(
+            "What does Maya prefer for status updates?",
+            session_id="tutorial-1",
+        )
+        print("\nContext:\n", context)
+
+
+asyncio.run(main())
+----
+
+Run it:
+
+[source,bash]
+----
+python agent.py
+----
+
+You should see the extracted entities (Maya Chen, Acme Robotics, San Francisco) and the assembled context.
+
+== Step 5: Confirm your providers were used
+
+The factory chooses adapters silently. Verify with debug logging:
+
+[source,python]
+----
+import logging
+logging.getLogger("neo4j_agent_memory.llm.factory").setLevel(logging.DEBUG)
+
+# Run agent.py again. You should see something like:
+# DEBUG: from_provider: routing 'anthropic/claude-3-5-sonnet-latest' to native AnthropicProvider
+# DEBUG: from_provider: routing 'BAAI/bge-small-en-v1.5' to SentenceTransformersProvider
+----
+
+If you see `LiteLLMProvider` in the log instead of `AnthropicProvider`, the `[anthropic]` extra isn't installed.
+
+== Step 6: Inspect the graph
+
+Open Neo4j Browser at http://localhost:7474 and run:
+
+[source,cypher]
+----
+MATCH (e:Entity)
+WHERE e.embedding IS NOT NULL
+RETURN e.name, e.type, size(e.embedding) AS dim
+LIMIT 10
+----
+
+You should see `dim = 384` — the dimensionality of `BAAI/bge-small-en-v1.5`. This is what the vector index is sized for; if you tried to insert a 1536-dim OpenAI vector now, Neo4j would reject it.
+
+== Step 7: Verify dimensions match
+
+[source,cypher]
+----
+SHOW VECTOR INDEXES YIELD name, options
+RETURN name, options.indexConfig.`vector.dimensions` AS dim
+----
+
+Every library-managed index should report `dim = 384`. `MemoryClient.connect()` already validates this for you — if the dimensions drift you get `EmbeddingDimensionMismatchError` with a pointer to the migration runbook.
+
+== What just happened?
+
+. `MemorySettings.embedding = "BAAI/bge-small-en-v1.5"` resolved via `from_provider`. Sentence-transformers prefix detection picked `SentenceTransformersProvider`, and dimensions were auto-populated from the defaults table (`384`).
+. `MemorySettings.llm = "anthropic/claude-3-5-sonnet-latest"` resolved to `AnthropicProvider`. The `[anthropic]` extra was installed, so the factory chose the native adapter over LiteLLM.
+. When you added a message with `extract_entities=True`, `LLMEntityExtractor` saw that the provider implements `StructuredExtractor` and called `complete_structured(...)` with a Pydantic schema. Anthropic responded via forced tool use — the model was *required* to emit valid JSON matching the schema.
+. Each extracted entity got embedded locally by `BAAI/bge-small-en-v1.5`. No outbound HTTP calls for embeddings.
+
+== Switching providers later
+
+The whole config is two strings. Swap them at any time:
+
+[source,python]
+----
+# Back to OpenAI for both:
+settings = MemorySettings(
+    neo4j={"password": os.environ["NEO4J_PASSWORD"]},
+    llm="openai/gpt-4o-mini",
+    embedding="openai/text-embedding-3-small",
+)
+----
+
+If you change the *embedding* model the dimensions change, and you'll need to rebuild indexes — see xref:how-to/migrate-embedding-model.adoc[Migrate Embedding Model]. Changing only the LLM has no schema impact.
+
+== Going further
+
+* xref:how-to/bring-your-own-model.adoc[Bring Your Own Model] — the full provider matrix.
+* xref:tutorials/conversation-memory.adoc[Conversation Memory] — add a real chat loop.
+* xref:tutorials/knowledge-graph.adoc[Knowledge Graphs] — bulk-ingest from documents.
+* xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.

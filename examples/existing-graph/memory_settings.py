@@ -13,8 +13,6 @@ from pydantic import SecretStr
 
 from neo4j_agent_memory import MemorySettings, Neo4jConfig
 from neo4j_agent_memory.config.settings import (
-    EmbeddingConfig,
-    EmbeddingProvider,
     ExtractionConfig,
     ExtractorType,
     SchemaConfig,
@@ -35,6 +33,8 @@ def build_settings() -> MemorySettings:
     * ``ExtractionConfig.entity_types`` mirrors the schema types so that
       anything extracted from messages is constrained to the same set
       the domain graph uses.
+    * The embedding is set via the v0.3 provider-string shorthand;
+      resolves to a local SentenceTransformersProvider — no network calls.
     """
     return MemorySettings(
         neo4j=Neo4jConfig(
@@ -43,11 +43,7 @@ def build_settings() -> MemorySettings:
             password=SecretStr(os.getenv("NEO4J_PASSWORD", "password")),
         ),
         llm=None,
-        embedding=EmbeddingConfig(
-            provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
-            model="all-MiniLM-L6-v2",
-            dimensions=384,
-        ),
+        embedding="sentence-transformers/all-MiniLM-L6-v2",
         schema_config=SchemaConfig(
             model=SchemaModel.CUSTOM,
             entity_types=["PERSON", "MOVIE", "GENRE"],

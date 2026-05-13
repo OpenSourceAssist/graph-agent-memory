@@ -55,11 +55,31 @@ from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 
 
 async def main():
+    # v0.3+: when you have a PydanticAI model already configured for your
+    # agent, hand it to memory via llm_provider_from_pydantic_ai. The
+    # extractor will use the same provider for entity extraction.
+    llm_provider = None
+    try:
+        from pydantic_ai.models.openai import OpenAIModel
+
+        from neo4j_agent_memory.integrations.pydantic_ai import (
+            llm_provider_from_pydantic_ai,
+        )
+
+        agent_model = OpenAIModel("gpt-4o-mini")
+        llm_provider = llm_provider_from_pydantic_ai(agent_model)
+        print("Using shared PydanticAI model for memory extraction")
+    except ImportError:
+        # pydantic-ai not installed; fall through to the legacy default.
+        pass
+
     settings = MemorySettings(
         neo4j=Neo4jConfig(
             uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
             password=SecretStr(os.getenv("NEO4J_PASSWORD", "password")),
-        )
+        ),
+        embedding="openai/text-embedding-3-small",
+        llm=llm_provider,
     )
 
     async with MemoryClient(settings) as client:

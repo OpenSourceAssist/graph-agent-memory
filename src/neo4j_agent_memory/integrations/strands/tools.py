@@ -76,26 +76,33 @@ def _get_or_create_client(
 
     if cache_key not in _client_cache:
         from neo4j_agent_memory import MemoryClient, MemorySettings
-        from neo4j_agent_memory.config.settings import (
-            EmbeddingConfig,
-            EmbeddingProvider,
-            Neo4jConfig,
-        )
+        from neo4j_agent_memory.config.settings import Neo4jConfig
+        from neo4j_agent_memory.llm import from_provider
 
-        # Build embedding config
-        provider_map = {
-            "bedrock": EmbeddingProvider.BEDROCK,
-            "openai": EmbeddingProvider.OPENAI,
-            "vertex_ai": EmbeddingProvider.VERTEX_AI,
-            "sentence_transformers": EmbeddingProvider.SENTENCE_TRANSFORMERS,
+        # Strands accepts provider-name strings ("bedrock", "openai", ...);
+        # translate them to the canonical ``"<provider>/<model>"`` shape
+        # consumed by :func:`from_provider`.
+        provider_prefixes = {
+            "bedrock": "bedrock/",
+            "openai": "openai/",
+            "vertex_ai": "vertex_ai/",
+            "sentence_transformers": "",  # HF model id has no prefix
         }
+        prefix = provider_prefixes.get(embedding_provider, "bedrock/")
+        # Fall back to a sensible Bedrock default when the user did not
+        # specify a model — preserves the v0.2 behavior of this helper.
+        model_id = embedding_model or "amazon.titan-embed-text-v2:0"
+        model_string = f"{prefix}{model_id}" if prefix else model_id
 
-        embedding_config = EmbeddingConfig(
-            provider=provider_map.get(embedding_provider, EmbeddingProvider.BEDROCK),
-            model=embedding_model,
-            aws_region=kwargs.get("aws_region"),
-            aws_profile=kwargs.get("aws_profile"),
-        )
+        embed_kwargs: dict[str, Any] = {}
+        aws_region = kwargs.get("aws_region")
+        aws_profile = kwargs.get("aws_profile")
+        if aws_region is not None:
+            embed_kwargs["aws_region"] = aws_region
+        if aws_profile is not None:
+            embed_kwargs["aws_profile"] = aws_profile
+
+        embedding_provider_instance = from_provider(model_string, kind="embedding", **embed_kwargs)
 
         neo4j_config = Neo4jConfig(
             uri=neo4j_uri,
@@ -106,7 +113,7 @@ def _get_or_create_client(
 
         settings = MemorySettings(
             neo4j=neo4j_config,
-            embedding=embedding_config,
+            embedding=embedding_provider_instance,
         )
 
         client = MemoryClient(settings)

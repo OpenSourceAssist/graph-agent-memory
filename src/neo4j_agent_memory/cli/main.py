@@ -758,6 +758,45 @@ def mcp():
     default=False,
     help="Disable automatic preference detection.",
 )
+@click.option(
+    "--llm",
+    envvar="NAM_LLM",
+    default=None,
+    help=(
+        "LLM provider string (e.g. 'openai/gpt-4o-mini', "
+        "'anthropic/claude-3-5-sonnet-latest', 'ollama/llama3.2'). "
+        "Resolved via neo4j_agent_memory.llm.from_provider."
+    ),
+)
+@click.option(
+    "--llm-api-key",
+    envvar="NAM_LLM_API_KEY",
+    default=None,
+    help="API key for the LLM provider (overrides provider-default env var).",
+)
+@click.option(
+    "--llm-api-base",
+    default=None,
+    help=(
+        "Base URL for the LLM provider (e.g. for vLLM, Ollama, or an "
+        "internal endpoint). Passed through to the adapter constructor."
+    ),
+)
+@click.option(
+    "--embedding",
+    envvar="NAM_EMBEDDING",
+    default=None,
+    help=(
+        "Embedding provider string (e.g. 'openai/text-embedding-3-small', "
+        "'BAAI/bge-small-en-v1.5'). Resolved via from_provider."
+    ),
+)
+@click.option(
+    "--embedding-dimensions",
+    type=int,
+    default=None,
+    help="Embedding dimensions override (for models not in the defaults table).",
+)
 def mcp_serve(
     uri: str,
     user: str,
@@ -771,6 +810,11 @@ def mcp_serve(
     user_id: str | None,
     observation_threshold: int,
     no_auto_preferences: bool,
+    llm: str | None,
+    llm_api_key: str | None,
+    llm_api_base: str | None,
+    embedding: str | None,
+    embedding_dimensions: int | None,
 ):
     """Start the MCP server for Claude Desktop and other MCP hosts.
 
@@ -820,6 +864,11 @@ def mcp_serve(
             user_id=user_id,
             observation_threshold=observation_threshold,
             auto_preferences=not no_auto_preferences,
+            llm=llm,
+            llm_api_key=llm_api_key,
+            llm_api_base=llm_api_base,
+            embedding=embedding,
+            embedding_dimensions=embedding_dimensions,
         )
     )
 

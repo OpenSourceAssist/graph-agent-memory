@@ -23,6 +23,24 @@ class Settings(BaseSettings):
     # OpenAI Configuration
     openai_api_key: SecretStr = Field(default=SecretStr(""))
 
+    # Provider Configuration (v0.3+)
+    # Override these to swap LLM/embedding provider without touching code.
+    # Defaults preserve the v0.2 behaviour (OpenAI for both); set to e.g.
+    # ``"anthropic/claude-3-5-sonnet-latest"`` and
+    # ``"BAAI/bge-small-en-v1.5"`` to run on Anthropic + local embeddings.
+    llm_model: str = Field(
+        default="openai/gpt-4o-mini",
+        description="LLM provider string for entity extraction.",
+    )
+    embedding_model: str = Field(
+        default="openai/text-embedding-3-small",
+        description="Embedding provider string. Use sentence-transformers IDs (e.g. 'BAAI/bge-small-en-v1.5') for local embeddings.",
+    )
+    anthropic_api_key: SecretStr | None = Field(
+        default=None,
+        description="Required when llm_model targets Anthropic.",
+    )
+
     # Enrichment Configuration
     enrichment_enabled: bool = Field(default=True)  # Enable Wikipedia enrichment
     diffbot_api_key: SecretStr | None = Field(default=None)  # Optional Diffbot API key

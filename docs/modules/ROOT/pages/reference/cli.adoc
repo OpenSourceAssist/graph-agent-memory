@@ -278,6 +278,66 @@ Reasoning Memory
   Tool Calls: 312
 ----
 
+=== mcp serve
+
+Start the MCP server for Claude Desktop and other MCP hosts.
+
+[source,bash]
+----
+neo4j-agent-memory mcp serve [OPTIONS]
+----
+
+==== Options
+
+[cols="1,1,3", options="header"]
+|===
+| Option                  | Default               | Description
+| `--uri`                 | `bolt://localhost:7687`| Neo4j connection URI (env: `NEO4J_URI`).
+| `--user`                | `neo4j`               | Neo4j username (env: `NEO4J_USER`).
+| `--password`            | _required_            | Neo4j password (env: `NEO4J_PASSWORD`).
+| `--database`            | `neo4j`               | Neo4j database name (env: `NEO4J_DATABASE`).
+| `--transport`           | `stdio`               | MCP transport (`stdio`, `sse`, or `http`).
+| `--host`                | `127.0.0.1`           | Host for network transports.
+| `--port`                | `8080`                | Port for network transports.
+| `--profile`             | `extended`            | Tool profile: `core` (6 tools) or `extended` (16 tools).
+| `--session-strategy`    | `per_conversation`    | `per_conversation`, `per_day`, or `persistent`.
+| `--user-id`             | _none_                | User ID for `per_day`/`persistent` strategies (env: `MCP_USER_ID`).
+| `--observation-threshold`| `30000`              | Token threshold for observational memory compression.
+| `--no-auto-preferences` | _disabled_            | Disable automatic preference detection.
+| `--llm`                 | _none_                | LLM provider string, e.g. `anthropic/claude-3-5-sonnet-latest` (env: `NAM_LLM`). See xref:how-to/bring-your-own-model.adoc[Bring Your Own Model].
+| `--llm-api-key`         | _none_                | API key override for the LLM provider (env: `NAM_LLM_API_KEY`).
+| `--llm-api-base`        | _none_                | Base URL override (vLLM, Ollama, internal endpoint).
+| `--embedding`           | _none_                | Embedding provider string, e.g. `BAAI/bge-small-en-v1.5` (env: `NAM_EMBEDDING`).
+| `--embedding-dimensions`| _none_                | Override embedding dimensions for unknown models.
+|===
+
+==== Examples
+
+[source,bash]
+----
+# Default (OpenAI embeddings, OpenAI gpt-4o-mini extractor).
+neo4j-agent-memory mcp serve --password mypw
+
+# Anthropic + local sentence-transformers, no OpenAI dependency.
+neo4j-agent-memory mcp serve \
+  --password mypw \
+  --llm anthropic/claude-3-5-sonnet-latest \
+  --embedding BAAI/bge-small-en-v1.5
+
+# Local vLLM endpoint via LiteLLM.
+neo4j-agent-memory mcp serve \
+  --password mypw \
+  --llm openai/llama-3.3-70b-instruct \
+  --llm-api-base https://llms.internal.corp/v1
+
+# Core profile (fewer tools), per-day session strategy.
+neo4j-agent-memory mcp serve \
+  --password mypw \
+  --profile core \
+  --session-strategy per_day \
+  --user-id alice
+----
+
 == Environment Variables
 
 The CLI respects these environment variables:
@@ -289,8 +349,13 @@ export NEO4J_URI=bolt://localhost:7687
 export NEO4J_USER=neo4j
 export NEO4J_PASSWORD=password
 
-# OpenAI (for LLM extractor)
+# OpenAI (for LLM extractor or OpenAI provider strings)
 export OPENAI_API_KEY=sk-...
+
+# v0.3+ provider configuration
+export NAM_LLM=anthropic/claude-3-5-sonnet-latest
+export NAM_LLM_API_KEY=$ANTHROPIC_API_KEY
+export NAM_EMBEDDING=BAAI/bge-small-en-v1.5
 ----
 
 == See Also

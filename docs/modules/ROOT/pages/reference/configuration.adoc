@@ -37,6 +37,41 @@ settings = MemorySettings(
 )
 ----
 
+=== `embedding` and `llm` — three accepted shapes (v0.3+)
+
+As of v0.3 both fields accept a discriminated union:
+
+* **legacy `EmbeddingConfig` / `LLMConfig`** — emits one `DeprecationWarning` per construction when user-explicit; planned removal in v0.5.0. Backward compat preserved through v0.4.
+* **provider-string shorthand** — e.g. `"openai/text-embedding-3-small"` or `"anthropic/claude-3-5-sonnet-latest"`. Resolved via `neo4j_agent_memory.llm.from_provider`.
+* **fully-constructed Provider instance** — the new canonical shape. See xref:reference/api/adapters.adoc[Adapters Reference].
+
+[source,python]
+----
+# Provider string (recommended)
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    embedding="openai/text-embedding-3-small",
+    llm="anthropic/claude-3-5-sonnet-latest",
+)
+
+# Explicit Provider instance (full control)
+from neo4j_agent_memory.llm.adapters.anthropic import AnthropicProvider
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=AnthropicProvider("anthropic/claude-3-5-sonnet-latest", cache_system=True),
+)
+
+# Legacy (still works, one DeprecationWarning per construction)
+from neo4j_agent_memory.config.settings import EmbeddingConfig, EmbeddingProvider
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    embedding=EmbeddingConfig(provider=EmbeddingProvider.OPENAI, ...),
+)
+----
+
+For the full migration guide, see xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3].
+
 == Neo4j Configuration
 
 Connection settings for Neo4j database.
