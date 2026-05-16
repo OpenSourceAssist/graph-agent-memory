@@ -276,10 +276,15 @@ try:
         if llm:
             from neo4j_agent_memory.llm import from_provider
 
+            provider_prefix = llm.split("/", 1)[0].lower()
             llm_kwargs: dict[str, Any] = {}
             if llm_api_key:
+                if provider_prefix == "bedrock":
+                    raise ValueError("--llm-api-key is not supported for bedrock/* providers")
                 llm_kwargs["api_key"] = llm_api_key
             if llm_api_base:
+                if provider_prefix == "bedrock":
+                    raise ValueError("--llm-api-base is not supported for bedrock/* providers")
                 llm_kwargs["api_base"] = llm_api_base
             settings_kwargs["llm"] = from_provider(llm, kind="llm", **llm_kwargs)
         if embedding:

@@ -146,3 +146,87 @@ class TestModuleExports:
         from neo4j_agent_memory.mcp import Neo4jMemoryMCPServer
 
         assert Neo4jMemoryMCPServer is not None
+
+
+class TestRunServerProviderKwargs:
+    """Tests provider-specific kwargs handling in run_server()."""
+
+    async def test_run_server_passes_openai_llm_kwargs(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import neo4j_agent_memory as nam
+        import neo4j_agent_memory.config.settings as settings_mod
+        import neo4j_agent_memory.llm as llm_mod
+        import neo4j_agent_memory.mcp.server as server_mod
+
+        captured: dict[str, object] = {}
+        fake_server = MagicMock()
+        fake_server.run_async = AsyncMock()
+
+        def fake_from_provider(model: str, *, kind: str = "llm", **kwargs: object) -> object:
+            captured["model"] = model
+            captured["kind"] = kind
+            captured["kwargs"] = kwargs
+            return object()
+
+        class _FakeSettings:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        class _FakeNeo4jConfig:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        monkeypatch.setattr(llm_mod, "from_provider", fake_from_provider)
+        monkeypatch.setattr(nam, "MemorySettings", _FakeSettings)
+        monkeypatch.setattr(settings_mod, "Neo4jConfig", _FakeNeo4jConfig)
+
+        def fake_create_mcp_server(*_args, **_kwargs):
+            return fake_server
+
+        monkeypatch.setattr(server_mod, "create_mcp_server", fake_create_mcp_server)
+
+        await server_mod.run_server(
+            neo4j_uri="bolt://localhost:7687",
+            neo4j_user="neo4j",
+            neo4j_password="test-password",
+            llm="openai/gpt-4o-mini",
+            llm_api_key="sk-test",
+            llm_api_base="https://example.invalid/v1",
+        )
+
+        assert captured["model"] == "openai/gpt-4o-mini"
+        assert captured["kind"] == "llm"
+        assert captured["kwargs"] == {
+            "api_key": "sk-test",
+            "api_base": "https://example.invalid/v1",
+        }
+
+    async def test_run_server_rejects_bedrock_llm_api_base(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import neo4j_agent_memory as nam
+        import neo4j_agent_memory.config.settings as settings_mod
+        import neo4j_agent_memory.mcp.server as server_mod
+
+        class _FakeSettings:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        class _FakeNeo4jConfig:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        monkeypatch.setattr(nam, "MemorySettings", _FakeSettings)
+        monkeypatch.setattr(settings_mod, "Neo4jConfig", _FakeNeo4jConfig)
+
+        with pytest.raises(
+            ValueError, match=r"--llm-api-base is not supported for bedrock/\* providers"
+        ):
+            await server_mod.run_server(
+                neo4j_uri="bolt://localhost:7687",
+                neo4j_user="neo4j",
+                neo4j_password="test-password",
+                llm="bedrock/us.anthropic.claude-3-5-sonnet-20240620-v1:0",
+                llm_api_base="https://example.invalid/v1",
+            )
