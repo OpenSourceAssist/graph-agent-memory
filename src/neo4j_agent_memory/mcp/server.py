@@ -276,7 +276,8 @@ try:
         if llm:
             from neo4j_agent_memory.llm import from_provider
 
-            provider_prefix = llm.split("/", 1)[0].lower()
+            provider_prefix, _, _ = llm.partition("/")
+            provider_prefix = provider_prefix.lower()
             llm_kwargs: dict[str, Any] = {}
             if llm_api_key:
                 if provider_prefix == "bedrock":
