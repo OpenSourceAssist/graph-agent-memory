@@ -248,6 +248,20 @@ class TestSnippetImports:
             "TraceOutcome",
             "AdoptionLabelReport",
             "AdoptionReport",
+            # v0.3 pluggable LLM/embedding providers
+            # (from neo4j_agent_memory.llm and neo4j_agent_memory.llm.adapters.*)
+            "ChatMessage",
+            "from_provider",
+            "schema_aligned_extract",
+            "ProviderRateLimitError",
+            "ProviderTimeoutError",
+            "AnthropicProvider",
+            "LiteLLMProvider",
+            "OpenAIEmbeddingProvider",
+            "BedrockEmbeddingProvider",
+            "VertexAIEmbeddingProvider",
+            # CrewAI bridge (from neo4j_agent_memory.integrations.crewai)
+            "llm_provider_from_crewai",
         }
         actual_missing = set(missing) - allowed_missing
 
