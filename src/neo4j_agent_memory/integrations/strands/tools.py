@@ -36,6 +36,11 @@ logger = logging.getLogger(__name__)
 _client_cache: dict[str, MemoryClient] = {}
 
 
+def _is_valid_hf_model_id(model_id: str) -> bool:
+    """Return True when model_id looks like a full HuggingFace repo id."""
+    return "/" in model_id and not model_id.startswith("/") and not model_id.endswith("/")
+
+
 def _run_async(coro: Any) -> Any:
     """Run an async coroutine synchronously.
 
@@ -85,14 +90,11 @@ def _get_or_create_client(
         # Fall back to a sensible Bedrock default when the user did not
         # specify a model — preserves the v0.2 behavior of this helper.
         model_id = embedding_model or "amazon.titan-embed-text-v2:0"
-        is_bedrock = embedding_provider == "bedrock"
         if embedding_provider == "sentence_transformers":
             # Accept full HuggingFace ids ("BAAI/bge-small-en-v1.5") as-is,
             # but normalize bare model names ("all-MiniLM-L6-v2") to the
             # canonical provider-string format consumed by from_provider().
-            has_full_hf_id = (
-                "/" in model_id and not model_id.startswith("/") and not model_id.endswith("/")
-            )
+            has_full_hf_id = _is_valid_hf_model_id(model_id)
             model_string = model_id if has_full_hf_id else f"sentence-transformers/{model_id}"
         else:
             provider_prefixes = {
@@ -104,6 +106,7 @@ def _get_or_create_client(
             model_string = f"{prefix}{model_id}"
 
         embed_kwargs: dict[str, Any] = {}
+        is_bedrock = embedding_provider == "bedrock"
         if is_bedrock:
             aws_region = kwargs.get("aws_region")
             aws_profile = kwargs.get("aws_profile")
