@@ -82,17 +82,23 @@ def _get_or_create_client(
         # Strands accepts provider-name strings ("bedrock", "openai", ...);
         # translate them to the canonical ``"<provider>/<model>"`` shape
         # consumed by :func:`from_provider`.
-        provider_prefixes = {
-            "bedrock": "bedrock/",
-            "openai": "openai/",
-            "vertex_ai": "vertex_ai/",
-            "sentence_transformers": "",  # HF model id has no prefix
-        }
-        prefix = provider_prefixes.get(embedding_provider, "bedrock/")
         # Fall back to a sensible Bedrock default when the user did not
         # specify a model — preserves the v0.2 behavior of this helper.
         model_id = embedding_model or "amazon.titan-embed-text-v2:0"
-        model_string = f"{prefix}{model_id}" if prefix else model_id
+        if embedding_provider == "sentence_transformers":
+            # Accept full HuggingFace ids ("BAAI/bge-small-en-v1.5") as-is,
+            # but normalize bare model names ("all-MiniLM-L6-v2") to the
+            # canonical provider-string format consumed by from_provider().
+            model_string = model_id if "/" in model_id else f"sentence-transformers/{model_id}"
+            prefix = ""
+        else:
+            provider_prefixes = {
+                "bedrock": "bedrock/",
+                "openai": "openai/",
+                "vertex_ai": "vertex_ai/",
+            }
+            prefix = provider_prefixes.get(embedding_provider, "bedrock/")
+            model_string = f"{prefix}{model_id}"
 
         embed_kwargs: dict[str, Any] = {}
         if prefix == "bedrock/":
