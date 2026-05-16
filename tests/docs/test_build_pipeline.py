@@ -169,7 +169,7 @@ class TestHtmlContent:
     def test_index_has_navigation(self, antora_component_dir: Path):
         """Verify index.html has navigation elements."""
         index_html = antora_component_dir / "index.html"
-        content = index_html.read_text()
+        content = index_html.read_text(encoding="utf-8")
 
         # Antora UI bundle includes navigation
         assert "nav" in content.lower(), "Navigation not found in index.html"
@@ -178,7 +178,7 @@ class TestHtmlContent:
         """Verify nested pages have breadcrumb navigation."""
         tutorial_index = antora_component_dir / "tutorials" / "index.html"
         if tutorial_index.exists():
-            content = tutorial_index.read_text()
+            content = tutorial_index.read_text(encoding="utf-8")
             assert "breadcrumb" in content.lower(), "Breadcrumbs not found in tutorials/index.html"
 
     def test_code_blocks_have_highlighting(self, antora_component_dir: Path):
@@ -186,14 +186,14 @@ class TestHtmlContent:
         # Check a file known to have code blocks
         tutorial = antora_component_dir / "tutorials" / "first-agent-memory.html"
         if tutorial.exists():
-            content = tutorial.read_text()
+            content = tutorial.read_text(encoding="utf-8")
             # Antora/highlight.js adds highlight classes
             assert "highlight" in content or "code" in content, "Syntax highlighting not found"
 
     def test_pages_have_search(self, antora_component_dir: Path):
         """Verify pages reference search functionality."""
         index_html = antora_component_dir / "index.html"
-        content = index_html.read_text()
+        content = index_html.read_text(encoding="utf-8")
         # Neo4j UI bundle includes search
         assert "search" in content.lower(), "Search not found in index.html"
 

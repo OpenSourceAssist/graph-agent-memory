@@ -268,7 +268,10 @@ class TestExtractionPipeline:
         assert result.stages_run == 2
         assert result.successful_stages == 2
         assert len(result.stage_results) == 2
-        assert result.total_duration_ms > 0
+        # Mocked extractors complete sub-resolution on fast machines, so
+        # ``time.time()`` may yield identical start/stop readings — the
+        # contract here is "duration was measured at all", not "non-zero".
+        assert result.total_duration_ms >= 0
 
     @pytest.mark.asyncio
     async def test_pipeline_empty_text(self):

@@ -33,7 +33,7 @@ class TestExistingGraphExampleStructure:
 
     def test_python_files_compile(self):
         for filename in ["memory_settings.py", "adopt.py", "memory_io.py"]:
-            source = (EXISTING_GRAPH_DIR / filename).read_text()
+            source = (EXISTING_GRAPH_DIR / filename).read_text(encoding="utf-8")
             ast.parse(source)
 
 
@@ -56,6 +56,10 @@ class TestExistingGraphExampleImports:
 
     def test_build_settings_uses_custom_schema(self, monkeypatch):
         """The example's build_settings() must produce a CUSTOM-schema config."""
+        # v0.3+: the example resolves a SentenceTransformersProvider via
+        # from_provider; skip when the extra is not installed.
+        pytest.importorskip("sentence_transformers")
+
         monkeypatch.setenv("NEO4J_URI", "bolt://localhost:7687")
         monkeypatch.setenv("NEO4J_USERNAME", "neo4j")
         monkeypatch.setenv("NEO4J_PASSWORD", "password")
@@ -91,13 +95,13 @@ class TestExistingGraphExampleContent:
     """Sanity-check that the example demonstrates what its README claims."""
 
     def test_adopt_calls_adopt_existing_graph(self):
-        source = (EXISTING_GRAPH_DIR / "adopt.py").read_text()
+        source = (EXISTING_GRAPH_DIR / "adopt.py").read_text(encoding="utf-8")
         assert "adopt_existing_graph" in source
         assert "label_to_type" in source
 
     def test_seed_creates_pre_library_nodes(self):
         """Seed graph should NOT use :Entity — that's the whole point of adopt."""
-        source = (EXISTING_GRAPH_DIR / "seed_domain_graph.cypher").read_text()
+        source = (EXISTING_GRAPH_DIR / "seed_domain_graph.cypher").read_text(encoding="utf-8")
         # Strip comment lines before checking for :Entity in actual Cypher.
         cypher = "\n".join(
             line for line in source.splitlines() if not line.strip().startswith("//")

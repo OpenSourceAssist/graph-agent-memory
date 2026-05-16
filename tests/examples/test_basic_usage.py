@@ -314,7 +314,7 @@ class TestBasicUsageExample:
     def test_example_sections_present(self, examples_dir):
         """Verify the example covers all documented sections."""
         example_path = examples_dir / "basic_usage.py"
-        content = example_path.read_text()
+        content = example_path.read_text(encoding="utf-8")
 
         # Check for key sections
         assert "SHORT-TERM MEMORY" in content

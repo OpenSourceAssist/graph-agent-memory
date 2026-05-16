@@ -345,15 +345,33 @@ class MemoryClient:
         self._client = Neo4jClient(self._settings.neo4j)
         await self._client.connect()
 
+        # Initialize embedder before schema setup so the vector index is
+        # sized for the embedder's dimensions. Falls back to the legacy
+        # EmbeddingConfig.dimensions when no Provider is configured.
+        if self._embedder_override is not None:
+            # Test/code overrides may pass either the legacy Embedder
+            # shape or a new EmbeddingProvider. Adapt to the legacy shape
+            # so downstream memory layers keep working unchanged.
+            from neo4j_agent_memory.embeddings.base import adapt_to_legacy_embedder
+
+            self._embedder = adapt_to_legacy_embedder(self._embedder_override)
+        else:
+            self._embedder = self._create_embedder()
+
+        vector_dimensions = self._resolve_vector_dimensions()
+
         # Set up schema
         self._schema_manager = SchemaManager(
             self._client,
-            vector_dimensions=self._settings.embedding.dimensions,
+            vector_dimensions=vector_dimensions,
         )
         await self._schema_manager.setup_all()
 
-        # Initialize embedder (use override if provided)
-        self._embedder = self._embedder_override or self._create_embedder()
+        # Validate existing vector indexes match the configured embedder.
+        # Raises EmbeddingDimensionMismatchError on mismatch with actionable
+        # remediation guidance.
+        if self._embedder is not None:
+            await self._schema_manager.validate_vector_index_dimensions(vector_dimensions)
 
         # Initialize extractor (use override if provided)
         self._extractor = self._extractor_override or self._create_extractor()
@@ -372,11 +390,22 @@ class MemoryClient:
 
         # Create memory instances
         multi_tenant = self._settings.memory.multi_tenant
+        # Surface settings.llm as the default summarizer when it's a
+        # Provider instance — lets get_conversation_summary() work
+        # without the caller having to wire a summarizer callable.
+        from neo4j_agent_memory.llm.protocol import (
+            LLMProvider as _LLMProvider,
+        )
+
+        default_llm_provider = (
+            self._settings.llm if isinstance(self._settings.llm, _LLMProvider) else None
+        )
         self._short_term = ShortTermMemory(
             self._client,
             self._embedder,
             self._extractor,
             multi_tenant=multi_tenant,
+            default_llm_provider=default_llm_provider,
         )
         self._long_term = LongTermMemory(
             self._client,
@@ -1044,9 +1073,32 @@ class MemoryClient:
             return []
 
     def _create_embedder(self):
-        """Create embedder based on settings."""
+        """Create embedder from ``self._settings.embedding``.
+
+        Handles the union type introduced in v0.3.0:
+
+        * :class:`EmbeddingConfig` (legacy) — translated to the matching
+          concrete adapter from :mod:`neo4j_agent_memory.embeddings`.
+        * :class:`EmbeddingProvider` instance — wrapped in a
+          :class:`_ProviderToEmbedderAdapter` so downstream memory layers
+          (which still consume the legacy ``embed(text)`` /
+          ``embed_batch(texts)`` API) keep working unchanged.
+
+        The deprecation warning for legacy config use is already emitted
+        by :meth:`MemorySettings._resolve_providers` at construction
+        time; this method does not re-warn.
+        """
         config = self._settings.embedding
 
+        # New shape: an EmbeddingProvider. Wrap so callers see the old
+        # Embedder API. The wrapper preserves ``dimensions`` and ``model``
+        # attributes used by :meth:`_resolve_vector_dimensions` and logs.
+        if not isinstance(config, EmbeddingConfig):
+            from neo4j_agent_memory.embeddings.base import adapt_to_legacy_embedder
+
+            return adapt_to_legacy_embedder(config)
+
+        # Legacy EmbeddingConfig: translate to a concrete embedder.
         if config.provider == EmbeddingProvider.OPENAI:
             from neo4j_agent_memory.embeddings.openai import OpenAIEmbedder
 
@@ -1078,6 +1130,10 @@ class MemoryClient:
         - SPACY: spaCy NER extraction (local)
         - GLINER: GLiNER zero-shot NER (local)
         - PIPELINE: Multi-stage pipeline combining multiple extractors
+
+        ``self._settings.llm`` may be an :class:`LLMConfig` (legacy) or
+        an :class:`LLMProvider` instance (v0.3+); the factory handles
+        both shapes transparently.
         """
         from neo4j_agent_memory.extraction.factory import create_extractor
 
@@ -1091,6 +1147,29 @@ class MemoryClient:
             schema_config=self._settings.schema_config,
             llm_config=self._settings.llm,
         )
+
+    def _resolve_vector_dimensions(self) -> int:
+        """Return the vector index dimensionality for schema setup.
+
+        Resolution order:
+
+        1. The resolved embedder's ``dimensions`` attribute (works for
+           both legacy :class:`BaseEmbedder` and new
+           :class:`EmbeddingProvider` instances).
+        2. The legacy :class:`EmbeddingConfig.dimensions` field when
+           ``self._embedder`` is ``None`` and the settings still carry
+           an :class:`EmbeddingConfig`.
+        3. A default of 1536 (text-embedding-3-small) as the historical
+           fallback.
+        """
+        if self._embedder is not None:
+            dim = getattr(self._embedder, "dimensions", None)
+            if isinstance(dim, int) and dim > 0:
+                return dim
+        cfg = self._settings.embedding
+        if isinstance(cfg, EmbeddingConfig):
+            return cfg.dimensions
+        return 1536
 
     def _create_resolver(self):
         """Create resolver based on settings."""

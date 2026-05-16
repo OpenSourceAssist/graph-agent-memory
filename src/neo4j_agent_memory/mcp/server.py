@@ -68,9 +68,22 @@ try:
                 from neo4j_agent_memory.mcp._observer import MemoryObserver
 
                 async with _MemoryClient(settings) as client:
+                    # Wire the configured LLMProvider (if any) into the
+                    # observer so reflections are produced by the same
+                    # provider the rest of the server uses. Falls back to
+                    # keyword extraction when settings.llm is a legacy
+                    # LLMConfig (not a Provider instance).
+                    from neo4j_agent_memory.llm.protocol import (
+                        LLMProvider as _LLMProvider,
+                    )
+
+                    llm_for_observer = (
+                        settings.llm if isinstance(settings.llm, _LLMProvider) else None
+                    )
                     observer = MemoryObserver(
                         client,
                         threshold_tokens=observation_threshold,
+                        llm_provider=llm_for_observer,
                     )
                     integration = MemoryIntegration(
                         client,
@@ -215,6 +228,11 @@ try:
         user_id: str | None = None,
         observation_threshold: int = 30000,
         auto_preferences: bool = True,
+        llm: str | None = None,
+        llm_api_key: str | None = None,
+        llm_api_base: str | None = None,
+        embedding: str | None = None,
+        embedding_dimensions: int | None = None,
     ) -> None:
         """Run the MCP server with Neo4j connection.
 
@@ -233,20 +251,52 @@ try:
             user_id: User identifier for session strategies.
             observation_threshold: Token threshold for observer compression.
             auto_preferences: Whether to auto-detect preferences.
+            llm: Provider string for the LLM (e.g. 'anthropic/claude-3-5-sonnet-latest').
+                When ``None`` the existing default (OpenAI gpt-4o-mini via the
+                lenient fallback in :class:`MemorySettings`) is used.
+            llm_api_key: API key override for the LLM provider.
+            llm_api_base: Base URL override for the LLM provider (vLLM, Ollama, …).
+            embedding: Provider string for embeddings (e.g. 'BAAI/bge-small-en-v1.5').
+            embedding_dimensions: Override for embedding dimensions when the
+                model is not in the defaults lookup table.
         """
         from pydantic import SecretStr
 
         from neo4j_agent_memory import MemorySettings
         from neo4j_agent_memory.config.settings import Neo4jConfig
 
-        settings = MemorySettings(
-            neo4j=Neo4jConfig(
+        settings_kwargs: dict[str, Any] = {
+            "neo4j": Neo4jConfig(
                 uri=neo4j_uri,
                 username=neo4j_user,
                 password=SecretStr(neo4j_password),
                 database=neo4j_database,
-            )
-        )
+            ),
+        }
+        if llm:
+            from neo4j_agent_memory.llm import from_provider
+
+            provider_prefix, _, _ = llm.partition("/")
+            provider_prefix = provider_prefix.lower()
+            llm_kwargs: dict[str, Any] = {}
+            if llm_api_key:
+                if provider_prefix == "bedrock":
+                    raise ValueError("--llm-api-key is not supported for bedrock/* providers")
+                llm_kwargs["api_key"] = llm_api_key
+            if llm_api_base:
+                if provider_prefix == "bedrock":
+                    raise ValueError("--llm-api-base is not supported for bedrock/* providers")
+                llm_kwargs["api_base"] = llm_api_base
+            settings_kwargs["llm"] = from_provider(llm, kind="llm", **llm_kwargs)
+        if embedding:
+            from neo4j_agent_memory.llm import from_provider
+
+            emb_kwargs: dict[str, Any] = {}
+            if embedding_dimensions is not None:
+                emb_kwargs["dimensions"] = embedding_dimensions
+            settings_kwargs["embedding"] = from_provider(embedding, kind="embedding", **emb_kwargs)
+
+        settings = MemorySettings(**settings_kwargs)
 
         server = create_mcp_server(
             settings,

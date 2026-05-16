@@ -41,31 +41,28 @@ def print_subheader(title: str) -> None:
 async def setup_client():
     """Create and return a configured MemoryClient."""
     from neo4j_agent_memory import MemoryClient, MemorySettings
-    from neo4j_agent_memory.config.settings import (
-        EmbeddingConfig,
-        EmbeddingProvider,
-        Neo4jConfig,
-    )
+    from neo4j_agent_memory.config.settings import Neo4jConfig
     from neo4j_agent_memory.integration import MemoryIntegration, SessionStrategy
+    from neo4j_agent_memory.llm import from_provider
 
-    # Determine embedding provider
+    # v0.3+: resolve the embedding model via a provider string. Vertex AI
+    # uses the native adapter; OpenAI uses the OpenAI native adapter.
     use_vertex = os.environ.get("GOOGLE_CLOUD_PROJECT") and os.environ.get(
         "EMBEDDING_PROVIDER", ""
     ).lower() in ("vertex_ai", "vertex", "google")
 
     if use_vertex:
-        embedding_config = EmbeddingConfig(
-            provider=EmbeddingProvider.VERTEX_AI,
-            model=os.environ.get("EMBEDDING_MODEL", "text-embedding-004"),
+        model = os.environ.get("EMBEDDING_MODEL", "text-embedding-004")
+        embedding_provider = from_provider(
+            f"vertex_ai/{model}",
+            kind="embedding",
             project_id=os.environ.get("GOOGLE_CLOUD_PROJECT"),
             location=os.environ.get("VERTEX_AI_LOCATION", "us-central1"),
         )
         print("Using Vertex AI embeddings")
     else:
-        embedding_config = EmbeddingConfig(
-            provider=EmbeddingProvider.OPENAI,
-            model=os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small"),
-        )
+        model = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
+        embedding_provider = from_provider(f"openai/{model}", kind="embedding")
         print("Using OpenAI embeddings (set GOOGLE_CLOUD_PROJECT for Vertex AI)")
 
     settings = MemorySettings(
@@ -75,7 +72,7 @@ async def setup_client():
             password=SecretStr(os.environ.get("NEO4J_PASSWORD", "password")),
             database=os.environ.get("NEO4J_DATABASE", "neo4j"),
         ),
-        embedding=embedding_config,
+        embedding=embedding_provider,
     )
 
     return MemoryClient(settings)

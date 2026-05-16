@@ -151,6 +151,24 @@ cp .env.example .env
 # Edit .env and add your OPENAI_API_KEY
 ```
 
+**Optional — run on Anthropic + local embeddings (no OpenAI dependency):**
+
+Edit `backend/.env` and set:
+
+```bash
+LLM_MODEL=anthropic/claude-3-5-sonnet-latest
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Then install the matching extras:
+
+```bash
+pip install "neo4j-agent-memory[anthropic,sentence-transformers]"
+```
+
+Embeddings stay on your machine; only the LLM call leaves your network. See the [v0.3 bring-your-own-model guide](https://neo4j.com/labs/agent-memory/how-to/bring-your-own-model.html) for the full provider matrix.
+
 Frontend:
 ```bash
 cd frontend

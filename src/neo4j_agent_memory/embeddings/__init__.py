@@ -1,15 +1,37 @@
-"""Embedding providers for vector representations."""
+"""Embedding providers for vector representations.
 
-from neo4j_agent_memory.embeddings.base import BaseEmbedder, Embedder
+.. note::
+    The canonical Provider Protocol now lives in
+    :mod:`neo4j_agent_memory.llm`. This module retains the legacy
+    :class:`Embedder` Protocol and concrete implementations
+    (:class:`OpenAIEmbedder`, :class:`SentenceTransformerEmbedder`, etc.)
+    for backward compatibility. New code should prefer the providers in
+    :mod:`neo4j_agent_memory.llm.adapters`, accessible through
+    :func:`neo4j_agent_memory.llm.from_provider`.
+"""
+
+from neo4j_agent_memory.embeddings.base import (
+    BaseEmbedder,
+    Embedder,
+    adapt_to_embedding_provider,
+)
 from neo4j_agent_memory.embeddings.openai import OpenAIEmbedder
 
+# Re-export the new Protocol so users who reach for it from the old
+# location continue to get something sensible.
+from neo4j_agent_memory.llm.protocol import EmbeddingProvider
+
 __all__ = [
+    # Old protocol + legacy classes (kept for backward compat)
     "BaseEmbedder",
     "Embedder",
     "OpenAIEmbedder",
     "VertexAIEmbedder",
     "BedrockEmbedder",
     "SentenceTransformerEmbedder",
+    # New protocol + bridge helper
+    "EmbeddingProvider",
+    "adapt_to_embedding_provider",
 ]
 
 

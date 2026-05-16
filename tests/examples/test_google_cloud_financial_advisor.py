@@ -61,7 +61,7 @@ class TestGoogleCloudFinancialAdvisor:
     def test_backend_pyproject_has_neo4j_agent_memory(self, app_dir):
         """Verify backend depends on neo4j-agent-memory."""
         pyproject = app_dir / "backend" / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert "neo4j-agent-memory" in content, "Backend should depend on neo4j-agent-memory"
 
     def test_backend_main_module_exists(self, app_dir):
@@ -77,7 +77,7 @@ class TestGoogleCloudFinancialAdvisor:
     def test_backend_main_has_health_endpoint(self, app_dir):
         """Verify backend has health check endpoint."""
         main = app_dir / "backend" / "src" / "main.py"
-        content = main.read_text()
+        content = main.read_text(encoding="utf-8")
         assert "/health" in content, "Backend should have /health endpoint"
         assert "health" in content, "Backend should have health check function"
 
@@ -171,13 +171,13 @@ class TestGoogleCloudFinancialAdvisor:
     def test_frontend_package_has_framer_motion(self, app_dir):
         """Verify frontend depends on framer-motion."""
         package_json = app_dir / "frontend" / "package.json"
-        content = package_json.read_text()
+        content = package_json.read_text(encoding="utf-8")
         assert "framer-motion" in content, "Frontend should depend on framer-motion"
 
     def test_backend_chat_has_stream_endpoint(self, app_dir):
         """Verify chat.py has the SSE streaming endpoint."""
         chat = app_dir / "backend" / "src" / "api" / "routes" / "chat.py"
-        content = chat.read_text()
+        content = chat.read_text(encoding="utf-8")
         assert "chat_stream" in content, "chat.py should have chat_stream function"
         assert "text/event-stream" in content, "chat.py should use SSE content type"
         assert "_sse_event" in content, "chat.py should have _sse_event helper"
@@ -186,34 +186,34 @@ class TestGoogleCloudFinancialAdvisor:
     def test_backend_chat_filters_internal_functions(self, app_dir):
         """Verify chat.py filters ADK internal transfer functions."""
         chat = app_dir / "backend" / "src" / "api" / "routes" / "chat.py"
-        content = chat.read_text()
+        content = chat.read_text(encoding="utf-8")
         assert "transfer_to_agent" in content, "Should reference transfer_to_agent"
         assert "_internal_fns" in content, "Should have _internal_fns set"
 
     def test_backend_traces_route_exists(self, app_dir):
         """Verify traces.py has expected endpoints."""
         traces = app_dir / "backend" / "src" / "api" / "routes" / "traces.py"
-        content = traces.read_text()
+        content = traces.read_text(encoding="utf-8")
         assert "get_session_traces" in content, "Should have get_session_traces"
         assert "get_trace_detail" in content, "Should have get_trace_detail"
 
     def test_backend_main_registers_traces_router(self, app_dir):
         """Verify main.py registers the traces router."""
         main = app_dir / "backend" / "src" / "main.py"
-        content = main.read_text()
+        content = main.read_text(encoding="utf-8")
         assert "traces" in content, "main.py should import and register traces router"
 
     def test_backend_neo4j_service_uses_merge_for_alerts(self, app_dir):
         """Verify create_alert uses MERGE instead of CREATE."""
         neo4j_service = app_dir / "backend" / "src" / "services" / "neo4j_service.py"
-        content = neo4j_service.read_text()
+        content = neo4j_service.read_text(encoding="utf-8")
         assert "MERGE (a:Alert" in content, "create_alert should use MERGE"
         assert "ON CREATE SET" in content, "create_alert should use ON CREATE SET"
 
     def test_frontend_api_has_streaming_support(self, app_dir):
         """Verify api.ts has streaming functions."""
         api = app_dir / "frontend" / "src" / "lib" / "api.ts"
-        content = api.read_text()
+        content = api.read_text(encoding="utf-8")
         assert "streamChatMessage" in content, "api.ts should have streamChatMessage"
         assert "getSessionTraces" in content, "api.ts should have getSessionTraces"
         assert "AgentEvent" in content, "api.ts should define AgentEvent type"
@@ -221,13 +221,13 @@ class TestGoogleCloudFinancialAdvisor:
     def test_backend_memory_service_uses_extraction_config(self, app_dir):
         """Verify memory service uses ExtractionConfig."""
         service = app_dir / "backend" / "src" / "services" / "memory_service.py"
-        content = service.read_text()
+        content = service.read_text(encoding="utf-8")
         assert "ExtractionConfig" in content, "memory_service.py should use ExtractionConfig"
 
     def test_backend_memory_service_references_dedup(self, app_dir):
         """Verify memory service references DeduplicationConfig."""
         service = app_dir / "backend" / "src" / "services" / "memory_service.py"
-        content = service.read_text()
+        content = service.read_text(encoding="utf-8")
         assert "DeduplicationConfig" in content, (
             "memory_service.py should reference DeduplicationConfig"
         )
@@ -235,5 +235,5 @@ class TestGoogleCloudFinancialAdvisor:
     def test_backend_pyproject_has_version_pin(self, app_dir):
         """Verify backend has version pin for neo4j-agent-memory."""
         pyproject = app_dir / "backend" / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert ">=0.1.0" in content, "Backend should pin neo4j-agent-memory>=0.1.0"

@@ -1,5 +1,8 @@
 """Configuration settings for neo4j-agent-memory."""
 
+from __future__ import annotations
+
+import warnings
 from enum import Enum
 from typing import Any, Literal
 
@@ -520,8 +523,22 @@ class MemorySettings(BaseSettings):
     )
 
     neo4j: Neo4jConfig = Field(default_factory=lambda: Neo4jConfig(password=SecretStr("")))
-    embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
-    llm: LLMConfig | None = Field(default=None)
+    # ``embedding`` and ``llm`` accept three shapes as of v0.3.0:
+    #
+    # * legacy :class:`EmbeddingConfig` / :class:`LLMConfig` — emits a
+    #   :class:`DeprecationWarning`, planned removal in v0.5.0.
+    # * provider string shorthand — e.g. ``"openai/text-embedding-3-small"``
+    #   or ``"anthropic/claude-3-5-sonnet-latest"``; resolved via
+    #   :func:`neo4j_agent_memory.llm.from_provider`.
+    # * a fully-constructed :class:`EmbeddingProvider` / :class:`LLMProvider`
+    #   instance (the new canonical shape).
+    #
+    # The declared type is :class:`Any` because Pydantic cannot natively
+    # schema the runtime-checkable Protocols. Validation happens in the
+    # ``_resolve_providers`` model validator below, which also catches
+    # malformed inputs with a clear error message.
+    embedding: Any = Field(default_factory=EmbeddingConfig)
+    llm: Any = Field(default=None)
     schema_config: SchemaConfig = Field(default_factory=SchemaConfig)
     extraction: ExtractionConfig = Field(default_factory=ExtractionConfig)
     resolution: ResolutionConfig = Field(default_factory=ResolutionConfig)
@@ -531,7 +548,95 @@ class MemorySettings(BaseSettings):
     enrichment: EnrichmentConfig = Field(default_factory=EnrichmentConfig)
 
     @model_validator(mode="after")
-    def _validate_llm_consistency(self) -> "MemorySettings":
+    def _resolve_providers(self) -> MemorySettings:
+        """Resolve string shorthand and emit deprecation warnings.
+
+        Runs before :meth:`_validate_llm_consistency`. After this method:
+
+        * ``self.embedding`` is :class:`EmbeddingConfig` or an
+          :class:`EmbeddingProvider` instance (never a string).
+        * ``self.llm`` is :class:`LLMConfig`, an :class:`LLMProvider`
+          instance, or ``None`` (never a string).
+
+        Legacy :class:`EmbeddingConfig` / :class:`LLMConfig` continue to
+        work; they emit exactly one :class:`DeprecationWarning` per
+        construction when the user explicitly passed them (the implicit
+        default factories do not warn).
+        """
+        # Coerce dict input to the legacy config types — preserves the
+        # v0.2 pattern ``embedding={"provider": "openai", ...}``. The
+        # field is typed Any here so Pydantic does not auto-coerce; we
+        # do it explicitly so the deprecation logic below still fires.
+        if isinstance(self.embedding, dict):
+            self.embedding = EmbeddingConfig(**self.embedding)
+        if isinstance(self.llm, dict):
+            self.llm = LLMConfig(**self.llm)
+
+        # Resolve string shorthand for embedding
+        if isinstance(self.embedding, str):
+            from neo4j_agent_memory.llm import from_provider
+
+            self.embedding = from_provider(self.embedding, kind="embedding")
+        elif self.embedding is None:
+            raise ValueError(
+                "MemorySettings.embedding cannot be None — pass a config, "
+                "provider string, or EmbeddingProvider instance."
+            )
+        elif isinstance(self.embedding, EmbeddingConfig):
+            if "embedding" in self.model_fields_set:
+                warnings.warn(
+                    "Passing EmbeddingConfig to MemorySettings.embedding is "
+                    "deprecated and will be removed in v0.5.0. Use a provider "
+                    "string like 'openai/text-embedding-3-small' or pass an "
+                    "EmbeddingProvider instance directly. See "
+                    "https://neo4j.com/labs/agent-memory/migration/v0.3",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+        else:
+            # Must implement the EmbeddingProvider Protocol.
+            from neo4j_agent_memory.llm.protocol import EmbeddingProvider as _EP
+
+            if not isinstance(self.embedding, _EP):
+                raise TypeError(
+                    f"MemorySettings.embedding must be EmbeddingConfig, a "
+                    f"provider string, or an EmbeddingProvider instance; got "
+                    f"{type(self.embedding).__name__}."
+                )
+
+        # Resolve string shorthand for llm
+        if isinstance(self.llm, str):
+            from neo4j_agent_memory.llm import from_provider
+
+            self.llm = from_provider(self.llm, kind="llm")
+        elif self.llm is None:
+            # Legitimate "no LLM" — handled by _validate_llm_consistency below.
+            pass
+        elif isinstance(self.llm, LLMConfig):
+            if "llm" in self.model_fields_set:
+                warnings.warn(
+                    "Passing LLMConfig to MemorySettings.llm is deprecated "
+                    "and will be removed in v0.5.0. Use a provider string "
+                    "like 'anthropic/claude-3-5-sonnet-latest' or pass an "
+                    "LLMProvider instance directly. See "
+                    "https://neo4j.com/labs/agent-memory/migration/v0.3",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+        else:
+            from neo4j_agent_memory.llm.protocol import LLMProvider as _LP
+
+            if not isinstance(self.llm, _LP):
+                raise TypeError(
+                    f"MemorySettings.llm must be LLMConfig, a provider string, "
+                    f"an LLMProvider instance, or None; got "
+                    f"{type(self.llm).__name__}."
+                )
+
+        return self
+
+    @model_validator(mode="after")
+    def _validate_llm_consistency(self) -> MemorySettings:
         ext = self.extraction
         needs_llm = ext.extractor_type == ExtractorType.LLM or (
             ext.extractor_type == ExtractorType.PIPELINE and ext.enable_llm_fallback
@@ -543,12 +648,13 @@ class MemorySettings(BaseSettings):
                     "llm=None is incompatible with extraction settings: "
                     f"extractor_type={ext.extractor_type.value}, "
                     f"enable_llm_fallback={ext.enable_llm_fallback}. "
-                    "Either provide an LLMConfig, or set extractor_type to "
-                    "ExtractorType.SPACY/GLINER/PIPELINE/NONE and "
-                    "enable_llm_fallback=False."
+                    "Either provide an LLMConfig/LLMProvider, or set "
+                    "extractor_type to ExtractorType.SPACY/GLINER/PIPELINE/"
+                    "NONE and enable_llm_fallback=False."
                 )
             # Lenient fallback preserves pre-0.2 default behavior when the user
-            # didn't explicitly opt out.
+            # didn't explicitly opt out. No deprecation warning here: the
+            # user did not explicitly choose LLMConfig.
             self.llm = LLMConfig()
         return self
 
@@ -569,6 +675,6 @@ class MemorySettings(BaseSettings):
         )
 
     @classmethod
-    def from_dict(cls, config: dict[str, Any]) -> "MemorySettings":
+    def from_dict(cls, config: dict[str, Any]) -> MemorySettings:
         """Create settings from a dictionary."""
         return cls(**config)

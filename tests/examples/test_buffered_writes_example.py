@@ -20,7 +20,7 @@ class TestBufferedWritesStructure:
             assert (BUFFERED_DIR / filename).exists(), f"Missing: {filename}"
 
     def test_main_compiles(self):
-        ast.parse((BUFFERED_DIR / "main.py").read_text())
+        ast.parse((BUFFERED_DIR / "main.py").read_text(encoding="utf-8"))
 
 
 @pytest.mark.imports
@@ -34,6 +34,10 @@ class TestBufferedWritesImports:
         from neo4j_agent_memory.memory.buffered import BufferedWriter  # noqa: F401
 
     def test_build_settings_uses_buffered_mode(self, monkeypatch):
+        # v0.3+: the example resolves a SentenceTransformersProvider via
+        # from_provider; skip when the extra is not installed.
+        pytest.importorskip("sentence_transformers")
+
         monkeypatch.setenv("NEO4J_URI", "bolt://localhost:7687")
         monkeypatch.setenv("NEO4J_USERNAME", "neo4j")
         monkeypatch.setenv("NEO4J_PASSWORD", "password")
@@ -55,9 +59,9 @@ class TestBufferedWritesImports:
 @pytest.mark.syntax
 class TestBufferedWritesContent:
     def test_main_uses_buffered_submit(self):
-        source = (BUFFERED_DIR / "main.py").read_text()
+        source = (BUFFERED_DIR / "main.py").read_text(encoding="utf-8")
         assert "client.buffered.submit" in source
 
     def test_main_calls_flush(self):
-        source = (BUFFERED_DIR / "main.py").read_text()
+        source = (BUFFERED_DIR / "main.py").read_text(encoding="utf-8")
         assert "client.flush()" in source

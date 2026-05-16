@@ -56,7 +56,7 @@ class TestFullStackChatAgent:
     def test_backend_pyproject_has_neo4j_agent_memory(self, app_dir):
         """Verify backend depends on neo4j-agent-memory."""
         pyproject = app_dir / "backend" / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert "neo4j-agent-memory" in content, "Backend should depend on neo4j-agent-memory"
 
     def test_backend_main_module_exists(self, app_dir):
@@ -90,7 +90,7 @@ class TestFullStackChatAgent:
     def test_backend_main_has_health_endpoint(self, app_dir):
         """Verify backend has health check endpoint."""
         main = app_dir / "backend" / "src" / "main.py"
-        content = main.read_text()
+        content = main.read_text(encoding="utf-8")
         assert "/health" in content, "Backend should have /health endpoint"
         assert "health_check" in content, "Backend should have health_check function"
 
@@ -150,13 +150,13 @@ class TestLennysMemory:
     def test_backend_pyproject_has_neo4j_agent_memory(self, app_dir):
         """Verify backend depends on neo4j-agent-memory."""
         pyproject = app_dir / "backend" / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert "neo4j-agent-memory" in content, "Backend should depend on neo4j-agent-memory"
 
     def test_backend_pyproject_has_extraction_extras(self, app_dir):
         """Verify backend has extraction extras (lennys-memory specific)."""
         pyproject = app_dir / "backend" / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         # lennys-memory should use extraction features
         assert "extraction" in content or "spacy" in content, (
             "Backend should have extraction dependencies"
@@ -182,7 +182,7 @@ class TestLennysMemory:
     def test_backend_main_has_health_endpoint(self, app_dir):
         """Verify backend has health check endpoint."""
         main = app_dir / "backend" / "src" / "main.py"
-        content = main.read_text()
+        content = main.read_text(encoding="utf-8")
         assert "/health" in content, "Backend should have /health endpoint"
 
     def test_frontend_package_json_exists(self, app_dir):
@@ -202,7 +202,7 @@ class TestFullStackChatAgentFeatures:
     def test_backend_pyproject_has_version_pin(self, app_dir):
         """Verify backend has version pin for neo4j-agent-memory."""
         pyproject = app_dir / "backend" / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert ">=0.1.0" in content, "Backend should pin neo4j-agent-memory>=0.1.0"
 
     def test_backend_uses_memory_integration(self, app_dir):
@@ -210,7 +210,7 @@ class TestFullStackChatAgentFeatures:
         memory_client = app_dir / "backend" / "src" / "memory" / "client.py"
         if not memory_client.exists():
             pytest.skip("memory/client.py not found")
-        content = memory_client.read_text()
+        content = memory_client.read_text(encoding="utf-8")
         assert "MemoryIntegration" in content, "memory/client.py should use MemoryIntegration"
 
     def test_backend_uses_session_strategy(self, app_dir):
@@ -218,7 +218,7 @@ class TestFullStackChatAgentFeatures:
         memory_client = app_dir / "backend" / "src" / "memory" / "client.py"
         if not memory_client.exists():
             pytest.skip("memory/client.py not found")
-        content = memory_client.read_text()
+        content = memory_client.read_text(encoding="utf-8")
         assert "SessionStrategy" in content, "memory/client.py should use SessionStrategy"
 
     def test_backend_uses_auto_preferences(self, app_dir):
@@ -226,7 +226,7 @@ class TestFullStackChatAgentFeatures:
         memory_client = app_dir / "backend" / "src" / "memory" / "client.py"
         if not memory_client.exists():
             pytest.skip("memory/client.py not found")
-        content = memory_client.read_text()
+        content = memory_client.read_text(encoding="utf-8")
         assert "auto_preferences" in content, "memory/client.py should enable auto_preferences"
 
 
@@ -241,7 +241,7 @@ class TestLennysMemoryFeatures:
     def test_backend_pyproject_has_version_pin(self, app_dir):
         """Verify backend has version pin for neo4j-agent-memory."""
         pyproject = app_dir / "backend" / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert ">=0.1.0" in content, "Backend should pin neo4j-agent-memory>=0.1.0"
 
     def test_backend_uses_extraction_config(self, app_dir):
@@ -252,7 +252,7 @@ class TestLennysMemoryFeatures:
             app_dir / "backend" / "src" / "memory" / "client.py",
         ]:
             if candidate.exists():
-                content = candidate.read_text()
+                content = candidate.read_text(encoding="utf-8")
                 if "ExtractionConfig" in content:
                     return
         pytest.fail("Backend should use ExtractionConfig in memory configuration")
@@ -264,7 +264,7 @@ class TestLennysMemoryFeatures:
             app_dir / "backend" / "src" / "memory" / "client.py",
         ]:
             if candidate.exists():
-                content = candidate.read_text()
+                content = candidate.read_text(encoding="utf-8")
                 if "DeduplicationConfig" in content:
                     return
         pytest.fail("Backend should use DeduplicationConfig")
@@ -317,7 +317,7 @@ class TestExampleConsistency:
 
         for example in simple_examples:
             if example.exists():
-                content = example.read_text()
+                content = example.read_text(encoding="utf-8")
                 # Should use async with for proper resource management
                 assert "async with MemoryClient" in content, (
                     f"{example.name} should use 'async with MemoryClient'"
@@ -334,7 +334,7 @@ class TestExampleConsistency:
 
         for example in simple_examples:
             if example.exists():
-                content = example.read_text()
+                content = example.read_text(encoding="utf-8")
                 assert "async def main():" in content, (
                     f"{example.name} should have 'async def main()'"
                 )
@@ -353,7 +353,7 @@ class TestExampleConsistency:
 
         for example in all_examples:
             if example.exists():
-                content = example.read_text()
+                content = example.read_text(encoding="utf-8")
                 # Should start with docstring
                 assert content.strip().startswith(
                     "#!/usr/bin/env python"

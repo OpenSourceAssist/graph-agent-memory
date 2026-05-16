@@ -45,13 +45,13 @@ class TestAWSFinancialAdvisorStructure:
     def test_backend_pyproject_has_neo4j_agent_memory(self, app_dir):
         """Verify backend depends on neo4j-agent-memory."""
         pyproject = app_dir / "backend" / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert "neo4j-agent-memory" in content, "Backend should depend on neo4j-agent-memory"
 
     def test_backend_pyproject_has_version_pin(self, app_dir):
         """Verify backend has version pin for neo4j-agent-memory."""
         pyproject = app_dir / "backend" / "pyproject.toml"
-        content = pyproject.read_text()
+        content = pyproject.read_text(encoding="utf-8")
         assert ">=0.1.0" in content, "Backend should pin neo4j-agent-memory>=0.1.0"
 
     def test_readme_exists(self, app_dir):
@@ -81,7 +81,7 @@ class TestAWSFinancialAdvisorSyntax:
 
         for py_file in backend_src.rglob("*.py"):
             try:
-                ast.parse(py_file.read_text())
+                ast.parse(py_file.read_text(encoding="utf-8"))
             except SyntaxError as e:
                 pytest.fail(f"Syntax error in {py_file}: {e}")
 
@@ -94,7 +94,7 @@ class TestAWSFinancialAdvisorFeatures:
         service = APP_DIR / "backend" / "src" / "services" / "memory_service.py"
         if not service.exists():
             pytest.skip("memory_service.py not found")
-        content = service.read_text()
+        content = service.read_text(encoding="utf-8")
         assert "ExtractionConfig" in content, "memory_service.py should use ExtractionConfig"
 
     def test_memory_service_references_dedup(self):
@@ -102,7 +102,7 @@ class TestAWSFinancialAdvisorFeatures:
         service = APP_DIR / "backend" / "src" / "services" / "memory_service.py"
         if not service.exists():
             pytest.skip("memory_service.py not found")
-        content = service.read_text()
+        content = service.read_text(encoding="utf-8")
         assert "DeduplicationConfig" in content, (
             "memory_service.py should reference DeduplicationConfig"
         )

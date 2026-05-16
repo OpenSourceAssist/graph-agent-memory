@@ -1,0 +1,232 @@
+= Adapters Reference
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+Constructor signatures and notes for every adapter shipped in `neo4j_agent_memory.llm.adapters`.
+
+[.lead]
+All adapters implement one or more of the Protocols in xref:reference/api/llm-provider.adoc[LLM Provider API]. Each adapter module imports its underlying SDK lazily — the module itself is importable without the SDK installed.
+
+== `OpenAIProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.openai` &nbsp; · &nbsp; Extra: `[openai]`
+
+[source,python]
+----
+OpenAIProvider(
+    model: str,
+    *,
+    api_key: str | None = None,
+    api_base: str | None = None,
+    organization: str | None = None,
+    timeout: float = 60.0,
+    max_retries: int = 3,
+    return_raw: bool = False,
+    default_headers: dict[str, str] | None = None,
+)
+----
+
+* Implements `LLMProvider` and `StructuredExtractor`.
+* Uses OpenAI's strict-mode `response_format={"type": "json_schema", "strict": True}` in `complete_structured`. Falls back to `schema_aligned_extract` on older models.
+* Strips `openai/` prefix from `model` if present.
+
+== `OpenAIEmbeddingProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.openai` &nbsp; · &nbsp; Extra: `[openai]`
+
+[source,python]
+----
+OpenAIEmbeddingProvider(
+    model: str = "openai/text-embedding-3-small",
+    *,
+    api_key: str | None = None,
+    api_base: str | None = None,
+    organization: str | None = None,
+    dimensions: int | None = None,
+    batch_size: int = 100,
+    timeout: float = 60.0,
+    max_retries: int = 3,
+)
+----
+
+* Implements `EmbeddingProvider`.
+* `dimensions` auto-populated from the defaults table for known models. If user supplies an explicit `dimensions` smaller than the model's native size, requests dimension reduction from the API (`text-embedding-3-*` family).
+
+== `AnthropicProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.anthropic` &nbsp; · &nbsp; Extra: `[anthropic]`
+
+[source,python]
+----
+AnthropicProvider(
+    model: str,
+    *,
+    api_key: str | None = None,
+    timeout: float = 60.0,
+    max_retries: int = 3,
+    return_raw: bool = False,
+    cache_system: bool = False,    # opt-in Anthropic prompt caching
+    default_max_tokens: int = 4096,
+)
+----
+
+* Implements `LLMProvider` and `StructuredExtractor`.
+* `complete_structured` uses forced tool use — the model is required to call a single tool whose `input_schema` is your Pydantic `response_model`. Falls back to `schema_aligned_extract` on `ValidationError`.
+* When `cache_system=True`, system messages are sent with `cache_control={"type": "ephemeral"}`.
+* Anthropic requires `max_tokens`; the adapter defaults to `default_max_tokens` if the caller does not specify one.
+
+== `BedrockProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.bedrock` &nbsp; · &nbsp; Extra: `[bedrock]`
+
+[source,python]
+----
+BedrockProvider(
+    model: str,
+    *,
+    aws_region: str | None = None,
+    aws_profile: str | None = None,
+    timeout: float = 60.0,
+    return_raw: bool = False,
+)
+----
+
+* Implements `LLMProvider` and `StructuredExtractor`.
+* Uses AWS Bedrock Converse API (works for Anthropic/Titan/Llama under one wrapper).
+* Reads credentials via the boto3 chain (env vars, `~/.aws/credentials`, IAM role, …).
+* `complete_structured` uses Converse `toolConfig` with forced tool choice for Anthropic models; falls back to `schema_aligned_extract` for Titan/Llama.
+
+== `BedrockEmbeddingProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.bedrock` &nbsp; · &nbsp; Extra: `[bedrock]`
+
+[source,python]
+----
+BedrockEmbeddingProvider(
+    model: str,
+    *,
+    aws_region: str | None = None,
+    aws_profile: str | None = None,
+    dimensions: int | None = None,
+)
+----
+
+* Implements `EmbeddingProvider`.
+* Wraps the existing `embeddings.bedrock.BedrockEmbedder`.
+
+== `LiteLLMProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.litellm` &nbsp; · &nbsp; Extra: `[litellm]`
+
+[source,python]
+----
+LiteLLMProvider(
+    model: str,
+    *,
+    api_key: str | None = None,
+    api_base: str | None = None,
+    timeout: float = 60.0,
+    return_raw: bool = False,
+    **default_kwargs: Any,    # provider-specific kwargs merged into every call
+)
+----
+
+* Implements `LLMProvider` and `StructuredExtractor`.
+* Universal fallback for 100+ providers — Cohere, Voyage, Groq, Together, Mistral, Ollama, OpenRouter, …
+* `complete_structured` delegates to `schema_aligned_extract` (LiteLLM has no single structured-output mode that works across all providers).
+* Provider-specific kwargs passed via `**default_kwargs` are merged into every `acompletion` call — e.g. `aws_region_name="us-east-1"` for Bedrock-via-LiteLLM, `vertex_project="proj-id"` for Vertex AI, `api_version="2024-02-15"` for Azure.
+
+== `LiteLLMEmbeddingProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.litellm` &nbsp; · &nbsp; Extra: `[litellm]`
+
+[source,python]
+----
+LiteLLMEmbeddingProvider(
+    model: str,
+    *,
+    api_key: str | None = None,
+    api_base: str | None = None,
+    dimensions: int | None = None,
+    **default_kwargs: Any,
+)
+----
+
+* Implements `EmbeddingProvider`.
+* `dimensions` auto-populated for known models; required otherwise.
+
+== `SentenceTransformersProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.sentence_transformers` &nbsp; · &nbsp; Extra: `[sentence-transformers]`
+
+[source,python]
+----
+SentenceTransformersProvider(
+    model: str,
+    *,
+    dimensions: int | None = None,
+    device: str | None = None,    # "cpu", "cuda", "mps", or None for auto
+    batch_size: int = 32,
+    normalize_embeddings: bool = True,
+)
+----
+
+* Implements `EmbeddingProvider`.
+* Lazy-loads the HuggingFace model on first `embed()` call.
+* For models in the defaults table, `dimensions` is populated without loading the model. For unknown models, dimensions are read from `model.get_sentence_embedding_dimension()` after lazy load.
+* `device=None` auto-detects (CUDA > MPS > CPU).
+
+== `VertexAIEmbeddingProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.vertex_ai` &nbsp; · &nbsp; Extra: `[vertex-ai]`
+
+[source,python]
+----
+VertexAIEmbeddingProvider(
+    model: str,
+    *,
+    project_id: str | None = None,
+    location: str = "us-central1",
+    task_type: str = "RETRIEVAL_DOCUMENT",
+    dimensions: int | None = None,
+)
+----
+
+* Implements `EmbeddingProvider`.
+* Wraps the existing `embeddings.vertex_ai.VertexAIEmbedder`.
+* `task_type` is one of `RETRIEVAL_QUERY`, `RETRIEVAL_DOCUMENT`, `SEMANTIC_SIMILARITY`, `CLASSIFICATION`, `CLUSTERING`.
+
+Vertex AI as an *LLM* provider routes through LiteLLM — there is no native `VertexAIProvider` because the existing Vertex AI embedder predates the Protocol and is well-tested for embeddings only.
+
+== `InstructorProvider`
+
+Module: `neo4j_agent_memory.llm.adapters.instructor` &nbsp; · &nbsp; Extra: `[instructor]`
+
+[source,python]
+----
+InstructorProvider(
+    model: str,
+    *,
+    api_key: str | None = None,
+    mode: str | None = None,    # passed through to instructor.from_provider
+    **kwargs: Any,
+)
+----
+
+* Implements `StructuredExtractor` only (not `LLMProvider`).
+* For users already invested in the https://python.useinstructor.com/[Instructor library].
+* Calls `instructor.from_provider(...)` under the hood.
+
+== Adapter availability
+
+The `from_provider` factory uses `importlib.util.find_spec` to detect which adapters are available. Native adapters are preferred when their extra is installed; LiteLLM is the universal fallback. Override with `prefer_litellm=True`.
+
+== Related
+
+* xref:reference/api/llm-provider.adoc[LLM Provider API] — the Protocols every adapter implements.
+* xref:reference/api/factory.adoc[Factory] — `from_provider` details.
+* xref:how-to/bring-your-own-model.adoc[Bring Your Own Model] — task-oriented overview.

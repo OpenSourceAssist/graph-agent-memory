@@ -44,6 +44,28 @@ pip install neo4j-agent-memory[mcp]
 pip install neo4j-agent-memory[google,mcp]
 ----
 
+== Pass-through your Google ADK / Gemini model (v0.3+)
+
+`llm_provider_from_google_adk` accepts a Gemini model string or a configured client. Bare strings short-circuit to `from_provider` with the `vertex_ai/` prefix added:
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.google_adk import (
+    llm_provider_from_google_adk,
+)
+
+provider = llm_provider_from_google_adk("gemini-2.5-flash")
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=provider,
+    embedding="vertex_ai/text-embedding-004",     # Vertex AI embeddings
+)
+----
+
+This is equivalent to `MemorySettings(llm="vertex_ai/gemini-2.5-flash")`. Both Vertex AI models route through LiteLLM in v0.3 (no native LLM adapter); Vertex AI embeddings have a native adapter. See xref:how-to/configure-embedding-provider.adoc[Configure Embedding Provider] for the Vertex AI specifics.
+
 == Prerequisites
 
 === Google Cloud Authentication

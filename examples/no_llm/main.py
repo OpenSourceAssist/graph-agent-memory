@@ -26,8 +26,6 @@ from pydantic import SecretStr
 
 from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
 from neo4j_agent_memory.config.settings import (
-    EmbeddingConfig,
-    EmbeddingProvider,
     ExtractionConfig,
     ExtractorType,
 )
@@ -42,11 +40,9 @@ def build_settings() -> MemorySettings:
         ),
         # Explicit opt-out: never construct an LLM client.
         llm=None,
-        embedding=EmbeddingConfig(
-            provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
-            model="all-MiniLM-L6-v2",
-            dimensions=384,
-        ),
+        # v0.3+ provider-string shorthand. Resolves to a local
+        # SentenceTransformersProvider — embeddings stay on this machine.
+        embedding="sentence-transformers/all-MiniLM-L6-v2",
         # Local extraction only. enable_llm_fallback=False is required when
         # llm=None — otherwise MemorySettings raises a ValidationError.
         extraction=ExtractionConfig(

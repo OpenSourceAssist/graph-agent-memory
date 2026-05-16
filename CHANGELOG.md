@@ -7,6 +7,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-12
+
+The "bring your own model" release. Headline feature is **pluggable LLM and embedding providers** — Anthropic, Bedrock, Vertex AI, local sentence-transformers, and 100+ others via LiteLLM now slot in alongside OpenAI through a single Protocol. Existing v0.2.x code keeps working with a one-time `DeprecationWarning`; the legacy `EmbeddingConfig`/`LLMConfig` types are removed in v0.5.0.
+
+### Added
+
+- **`neo4j_agent_memory.llm` package** — new public surface for the Provider Protocol. Three `@runtime_checkable` Protocols:
+  - `LLMProvider` — chat completions (Bronze tier).
+  - `StructuredExtractor` — validated Pydantic outputs (Silver tier).
+  - `EmbeddingProvider` — text embeddings (Bronze tier).
+  Plus types (`ChatMessage`, `Completion`, `Usage`), a provider-agnostic exception hierarchy (`ProviderError`, `ProviderRateLimitError`, `ProviderTimeoutError`, `ProviderAuthError`, `ProviderInvalidRequestError`, `ProviderServiceError`, `StructuredExtractionError`, `EmbeddingDimensionMismatchError`), a defaults lookup (`EMBEDDING_DIMENSIONS`, `lookup_embedding_dimensions`), the schema-aligned retry helper (`schema_aligned_extract`), and the factory (`from_provider`).
+- **Native adapters** — `OpenAIProvider`, `OpenAIEmbeddingProvider`, `AnthropicProvider` (with optional Anthropic prompt-caching via `cache_system=True`), `BedrockProvider`, `BedrockEmbeddingProvider`, `SentenceTransformersProvider`, `VertexAIEmbeddingProvider`, `InstructorProvider`.
+- **Universal adapter** — `LiteLLMProvider` and `LiteLLMEmbeddingProvider` cover 100+ providers (Cohere, Voyage, Groq, Together, Mistral, Ollama, OpenRouter, ...).
+- **`from_provider("provider/model", ...)`** string-shorthand factory with native-first resolution: when both a native adapter and LiteLLM are installed, the native adapter wins. Override with `prefer_litellm=True`. Unknown-extra errors include an actionable install hint.
+- **Vector index dimension validation** — `SchemaManager.validate_vector_index_dimensions(expected)` runs in `MemoryClient.connect()`. A mismatch between the configured embedder's `dimensions` and an existing Neo4j vector index raises `EmbeddingDimensionMismatchError` listing every offending index and pointing at the migration runbook (`how-to/migrate-embedding-model.adoc`).
+- **`MCPserve --llm` / `--embedding`** CLI flags (plus `--llm-api-key`, `--llm-api-base`, `--embedding-dimensions`) and matching `NAM_LLM` / `NAM_EMBEDDING` / `NAM_LLM_API_KEY` env vars on `neo4j-agent-memory mcp serve`.
+- **LLM-driven session reflections** — `MemoryObserver(llm_provider=...)` uses the configured provider to summarize older messages when the token threshold trips. Falls back to keyword extraction on missing provider or provider error.
+- **LLM-driven conversation summaries** — `ShortTermMemory(default_llm_provider=...)` wires the configured provider into `get_conversation_summary()` so the method works without an explicit `summarizer=` callable. A module-level `_llm_summarizer(provider)` helper builds the equivalent callable for user code.
+- **Framework pass-through helpers** — `llm_provider_from_langchain`, `_pydantic_ai`, `_llamaindex`, `_crewai`, `_openai_agents`, `_microsoft_agent`, `_google_adk`, and `_strands` translate a framework-native model object into an `LLMProvider`. Lets users avoid double-declaring their model.
+- **New installation extras** — `[litellm]` (universal fallback) and `[instructor]` (structured-output power user). `[all]` now bundles `litellm`; `[full]` adds `instructor`.
+- **New tests** — `tests/unit/llm/` (foundations + contract harness + canned providers), `tests/unit/test_legacy_compat.py` (deprecation + v0.2 backward compat), `tests/unit/test_passthrough.py`, `tests/unit/test_observer_llm.py`, `tests/unit/test_short_term_summarizer.py`, `tests/unit/test_index_validate.py`.
+
+### Changed
+
+- **`MemorySettings.embedding` and `MemorySettings.llm`** are now union types. They accept:
+  - the legacy `EmbeddingConfig` / `LLMConfig` (emits one `DeprecationWarning` per construction when user-explicit; planned removal in v0.5.0),
+  - a provider-string shorthand resolved via `from_provider` (`"openai/text-embedding-3-small"`, `"anthropic/claude-3-5-sonnet-latest"`),
+  - a fully-constructed Provider instance (the new canonical shape).
+  Dict input is still coerced to legacy configs for v0.2 compatibility.
+- **`MemoryClient.connect()`** sizes vector indexes from the resolved embedder's `dimensions`, not from the legacy `EmbeddingConfig.dimensions` field — works correctly when a Provider instance is configured.
+- **`LLMEntityExtractor`** accepts an injected `provider: LLMProvider | StructuredExtractor`. The legacy `model=` / `api_key=` constructor signature continues to work and now constructs the provider internally via `from_provider`. When the provider also implements `StructuredExtractor`, the extractor uses `complete_structured` with a `LLMExtractionPayload` Pydantic model for native-quality structured outputs.
+- **Strands integration** routes `embedding_provider` strings through `from_provider` instead of mapping to the legacy enum.
+
+### Deprecated
+
+- **`EmbeddingConfig` and `LLMConfig`** as values for `MemorySettings.embedding` / `MemorySettings.llm`. Passing either at construction time emits a single `DeprecationWarning` pointing at the migration guide. **Removal planned for v0.5.0.** The classes themselves remain importable through v0.5.0 for type-import usage in user code.
+
+### Migration
+
+Three patterns are common. Pick the one closest to your existing code.
+
+**v0.2.x — legacy explicit configs (still works, one warning per construction):**
+
+```python
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.config.settings import (
+    EmbeddingConfig, EmbeddingProvider, LLMConfig, LLMProvider,
+)
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    embedding=EmbeddingConfig(
+        provider=EmbeddingProvider.OPENAI,
+        model="text-embedding-3-small",
+    ),
+    llm=LLMConfig(provider=LLMProvider.OPENAI, model="gpt-4o-mini"),
+)
+```
+
+**v0.3 — provider-string shorthand (recommended for most users):**
+
+```python
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    embedding="openai/text-embedding-3-small",
+    llm="anthropic/claude-3-5-sonnet-latest",
+)
+```
+
+**v0.3 — explicit Provider instance (full control, e.g. local vLLM/Ollama):**
+
+```python
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.llm.adapters.litellm import LiteLLMProvider
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    embedding="BAAI/bge-small-en-v1.5",
+    llm=LiteLLMProvider(
+        "ollama/llama3.2",
+        api_base="http://localhost:11434",
+    ),
+)
+```
+
+See `docs/.../how-to/migrate-to-v0.3.adoc` for the full migration cookbook, including embedding-dimension migration when changing models.
+
+### Backward compatibility
+
+- All v0.2.x example code runs unmodified, emitting exactly one `DeprecationWarning` per `MemoryClient` construction. Verified by `tests/unit/test_legacy_compat.py`.
+- The legacy `Embedder` Protocol in `neo4j_agent_memory.embeddings.base` remains; a new internal `_ProviderToEmbedderAdapter` bridges new Provider instances back to the old API for downstream memory layers that have not migrated.
+- `extra="forbid"` on `MemorySettings` is preserved; field-name typos still raise.
+
 ## [0.2.1] - 2026-05-05
 
 ### Fixed

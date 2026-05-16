@@ -1,7 +1,7 @@
 """Short-term memory for conversations and messages."""
 
 import json
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
@@ -12,6 +12,54 @@ from pydantic import BaseModel, Field
 from neo4j_agent_memory.core.memory import BaseMemory, MemoryEntry
 from neo4j_agent_memory.graph import queries
 from neo4j_agent_memory.graph.query_builder import build_create_entity_query
+
+
+def _llm_summarizer(
+    provider: "LLMProvider",
+    *,
+    max_tokens: int = 500,
+    temperature: float = 0.0,
+) -> Callable[[str], Awaitable[str]]:
+    """Build an async summarizer callable backed by an :class:`LLMProvider`.
+
+    The returned callable matches the ``summarizer`` parameter shape of
+    :meth:`ShortTermMemory.get_conversation_summary` — it accepts the
+    transcript string and returns a summary string.
+
+    Used internally by :meth:`get_conversation_summary` when no explicit
+    ``summarizer`` is passed and ``default_llm_provider`` is configured.
+    Exposed at module scope so user code can build the same summarizer
+    around any Provider instance.
+
+    Args:
+        provider: An :class:`LLMProvider` to make the completion call.
+        max_tokens: Soft upper bound on completion length.
+        temperature: Sampling temperature (0.0 = deterministic).
+
+    Returns:
+        An async callable ``(transcript: str) -> str``.
+    """
+    from neo4j_agent_memory.llm.types import ChatMessage
+
+    async def summarize(transcript: str) -> str:
+        completion = await provider.complete(
+            [
+                ChatMessage(
+                    role="system",
+                    content=(
+                        "You are a conversation summarizer. Produce a concise "
+                        "summary capturing the key points, decisions, and "
+                        "unresolved questions. No bullet lists, no headers."
+                    ),
+                ),
+                ChatMessage(role="user", content=transcript),
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return completion.content.strip()
+
+    return summarize
 
 
 def _serialize_metadata(metadata: dict[str, Any] | None) -> str | None:
@@ -188,6 +236,7 @@ if TYPE_CHECKING:
     from neo4j_agent_memory.embeddings.base import Embedder
     from neo4j_agent_memory.extraction.base import EntityExtractor
     from neo4j_agent_memory.graph.client import Neo4jClient
+    from neo4j_agent_memory.llm.protocol import LLMProvider
 
 
 class MessageRole(str, Enum):
@@ -274,10 +323,24 @@ class ShortTermMemory(BaseMemory[Message]):
         extractor: "EntityExtractor | None" = None,
         *,
         multi_tenant: bool = False,
+        default_llm_provider: "LLMProvider | None" = None,
     ):
-        """Initialize short-term memory."""
+        """Initialize short-term memory.
+
+        Args:
+            client: Connected Neo4j client.
+            embedder: Optional embedder for message embeddings.
+            extractor: Optional entity extractor.
+            multi_tenant: When True, writes require ``user_identifier=``.
+            default_llm_provider: Optional :class:`LLMProvider` used by
+                :meth:`get_conversation_summary` when no explicit
+                ``summarizer`` is passed. Wired automatically by
+                :class:`MemoryClient` from ``settings.llm`` when it is a
+                Provider instance.
+        """
         super().__init__(client, embedder, extractor)
         self._multi_tenant = multi_tenant
+        self._default_llm_provider = default_llm_provider
 
     def _enforce_multi_tenant(self, user_identifier: str | None) -> None:
         """Raise if multi-tenant is on and ``user_identifier`` is missing."""
@@ -1290,7 +1353,7 @@ class ShortTermMemory(BaseMemory[Message]):
         *,
         max_tokens: int = 500,
         include_entities: bool = True,
-        summarizer: Callable[[str], str] | None = None,
+        summarizer: Callable[[str], str | Awaitable[str]] | None = None,
     ) -> ConversationSummary:
         """
         Generate a summary of a conversation.
@@ -1364,6 +1427,12 @@ class ShortTermMemory(BaseMemory[Message]):
             key_entities = [row["name"] for row in entity_results]
 
         # Generate summary
+        if summarizer is None and self._default_llm_provider is not None:
+            # Auto-summarize via the configured LLMProvider when no explicit
+            # callable is supplied. Wraps the provider in a ``summarizer``-
+            # shaped callable so the rest of this path stays uniform.
+            summarizer = _llm_summarizer(self._default_llm_provider, max_tokens=max_tokens)
+
         if summarizer is not None:
             # Use custom summarizer (may be sync or async)
             import asyncio

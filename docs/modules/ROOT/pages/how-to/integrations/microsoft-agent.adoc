@@ -37,6 +37,33 @@ This installs:
 * `agent-framework>=1.0.0b` - Microsoft Agent Framework
 * Required Neo4j dependencies
 
+== Pass-through your Agent Framework client (v0.3+)
+
+The Microsoft Agent Framework wraps Azure OpenAI and OpenAI clients. `llm_provider_from_microsoft_agent` introspects the client (reading `deployment_name` for Azure or `model` for OpenAI) and routes via `from_provider`:
+
+[source,python]
+----
+from agent_framework.azure import AzureOpenAIResponsesClient
+
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.microsoft_agent import (
+    llm_provider_from_microsoft_agent,
+)
+
+chat_client = AzureOpenAIResponsesClient(
+    deployment_name="gpt-4o-mini-prod",
+    api_key="...",
+)
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=llm_provider_from_microsoft_agent(chat_client),
+    embedding="openai/text-embedding-3-small",
+)
+----
+
+See xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5] for the pattern across other integrations.
+
 == Quick Start
 
 === Using Neo4jContextProvider

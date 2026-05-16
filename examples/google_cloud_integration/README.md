@@ -12,6 +12,7 @@ Comprehensive examples wiring `neo4j-agent-memory` into the Google Cloud surface
 >
 > This example is part of [`neo4j-agent-memory`](https://github.com/neo4j-labs/agent-memory), a Neo4j Labs project. It is actively maintained but not officially supported. APIs may change. Community support is available via the [Neo4j Community Forum](https://community.neo4j.com).
 
+> **Need a different LLM or embedding model?** As of `neo4j-agent-memory` v0.3 you can swap providers via a single string — `MemorySettings(llm="anthropic/claude-3-5-sonnet-latest", embedding="BAAI/bge-small-en-v1.5")`. See [Bring Your Own Model](https://neo4j.com/labs/agent-memory/how-to/bring-your-own-model.html).
 ## Architecture
 
 <!-- Export the Excalidraw diagram to PNG and replace this placeholder -->

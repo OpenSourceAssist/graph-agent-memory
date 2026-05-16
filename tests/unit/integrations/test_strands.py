@@ -370,6 +370,102 @@ class TestRunAsync:
         assert result == 5
 
 
+class TestGetOrCreateClient:
+    """Tests for _get_or_create_client helper."""
+
+    @staticmethod
+    def _patch_provider_capture(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> tuple[dict[str, object], object]:
+        import neo4j_agent_memory as nam
+        import neo4j_agent_memory.config.settings as settings_mod
+        import neo4j_agent_memory.llm as llm_mod
+        from neo4j_agent_memory.integrations.strands import tools
+
+        captured: dict[str, object] = {}
+
+        def fake_from_provider(model: str, *, kind: str = "llm", **kwargs: object) -> object:
+            captured["model"] = model
+            captured["kind"] = kind
+            captured["kwargs"] = kwargs
+            return object()
+
+        class _FakeSettings:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        class _FakeNeo4jConfig:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        class _FakeClient:
+            def __init__(self, settings: object) -> None:
+                self.settings = settings
+
+        monkeypatch.setattr(llm_mod, "from_provider", fake_from_provider)
+        monkeypatch.setattr(nam, "MemorySettings", _FakeSettings)
+        monkeypatch.setattr(nam, "MemoryClient", _FakeClient)
+        monkeypatch.setattr(settings_mod, "Neo4jConfig", _FakeNeo4jConfig)
+        tools.clear_client_cache()
+        return captured, tools
+
+    def test_non_bedrock_embedding_does_not_forward_aws_kwargs(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured, tools = self._patch_provider_capture(monkeypatch)
+
+        tools._get_or_create_client(
+            neo4j_uri="neo4j+s://test.databases.neo4j.io",
+            neo4j_user="neo4j",
+            neo4j_password="password",
+            neo4j_database="neo4j",
+            embedding_provider="openai",
+            embedding_model="text-embedding-3-small",
+            aws_region="us-east-1",
+            aws_profile="default",
+        )
+
+        assert captured["model"] == "openai/text-embedding-3-small"
+        assert captured["kind"] == "embedding"
+        assert captured["kwargs"] == {}
+
+    def test_sentence_transformers_bare_model_is_normalized(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured, tools = self._patch_provider_capture(monkeypatch)
+
+        tools._get_or_create_client(
+            neo4j_uri="neo4j+s://test.databases.neo4j.io",
+            neo4j_user="neo4j",
+            neo4j_password="password",
+            neo4j_database="neo4j",
+            embedding_provider="sentence_transformers",
+            embedding_model="all-MiniLM-L6-v2",
+        )
+
+        assert captured["model"] == "sentence-transformers/all-MiniLM-L6-v2"
+        assert captured["kind"] == "embedding"
+        assert captured["kwargs"] == {}
+
+    def test_sentence_transformers_full_hf_id_is_preserved(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured, tools = self._patch_provider_capture(monkeypatch)
+
+        tools._get_or_create_client(
+            neo4j_uri="neo4j+s://test.databases.neo4j.io",
+            neo4j_user="neo4j",
+            neo4j_password="password",
+            neo4j_database="neo4j",
+            embedding_provider="sentence_transformers",
+            embedding_model="BAAI/bge-small-en-v1.5",
+        )
+
+        assert captured["model"] == "BAAI/bge-small-en-v1.5"
+        assert captured["kind"] == "embedding"
+        assert captured["kwargs"] == {}
+
+
 class TestBedrockModels:
     """Tests for Bedrock model constants."""
 

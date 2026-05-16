@@ -1,0 +1,188 @@
+= Migrate to a New Embedding Model
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+How to switch embedding model when you already have data in Neo4j.
+
+[.lead]
+Neo4j vector indexes are sized at creation time. If you change embedding model to one with a different dimension count, existing indexes will not accept the new vectors. `MemoryClient.connect()` detects this and raises `EmbeddingDimensionMismatchError` before any data corruption can occur. This guide explains the error and walks the two safe remediations.
+
+== The error
+
+[source,text]
+----
+EmbeddingDimensionMismatchError:
+Vector index dimension mismatch.
+
+  Index 'message_embedding_idx': expected 384, found 1536
+  Index 'entity_embedding_idx':  expected 384, found 1536
+
+This usually means you've changed the embedding model since the
+indexes were created. Two options:
+
+  1. Drop and recreate the indexes (loses existing embeddings).
+     See docs/how-to/migrate-embedding-model.adoc.
+  2. Revert to the previous embedding model.
+
+Configured embedder dimensions: 384
+----
+
+The exception's attributes (`expected_dimensions`, `actual_dimensions`, `index_name`) are also programmatically accessible.
+
+== Decision: rebuild or revert?
+
+The right answer depends on whether your old embeddings are *recoverable*.
+
+[cols="1,1,2",options="header"]
+|===
+| If you have                           | And your old data is...           | Choose
+| Old embeddings of a known model       | Re-embeddable from source text    | **Rebuild** — the new model's vectors are what you want.
+| Old embeddings of an unknown vendor   | Not re-embeddable                 | **Revert** — keep the old indexes. Switching loses recall against old content.
+| A test or dev database                | Throwaway                         | **Rebuild** — wipe and start clean.
+| Production with mixed traffic         | Mostly recent                     | **Rebuild incrementally** — re-embed batch by batch (see below).
+|===
+
+== Option 1: Rebuild from scratch (lose existing embeddings)
+
+Use when the database is dev/test, or when re-embedding the entire corpus is acceptable.
+
+[source,python]
+----
+import asyncio
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+async def rebuild():
+    # Open with the OLD embedder so the validator does not raise.
+    old = MemorySettings(
+        neo4j={"password": "p"},
+        embedding="openai/text-embedding-3-small",   # 1536-dim
+    )
+    async with MemoryClient(old) as client:
+        # Drop every library-managed vector index.
+        await client.schema.drop_all()
+
+    # Re-open with the NEW embedder; setup_all() recreates the indexes
+    # at the new dimensionality.
+    new = MemorySettings(
+        neo4j={"password": "p"},
+        embedding="BAAI/bge-small-en-v1.5",          # 384-dim
+    )
+    async with MemoryClient(new) as client:
+        # Indexes are now sized for 384 dims. Existing nodes have stale
+        # embedding properties — see "Re-embed existing nodes" below to
+        # backfill, or delete the properties to start clean.
+        ...
+
+asyncio.run(rebuild())
+----
+
+`drop_all()` removes every constraint and vector index whose name starts with one of the library prefixes (`message_`, `entity_`, `preference_`, `fact_`, `reasoning_`, `trace_`, `tool_`, `task_`, `step_`, `user_`, `consolidation_`, `memory_read_`). User-created indexes are left alone.
+
+== Option 2: Revert to the previous embedding model
+
+Pin the old model in your settings; nothing else changes.
+
+[source,python]
+----
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    embedding="openai/text-embedding-3-small",  # original model
+)
+----
+
+This is the right choice when the original embeddings cannot be regenerated (lost source text, retired vendor model, etc.).
+
+== Option 3: Re-embed existing nodes (no data loss)
+
+The most operationally clean path: rebuild the indexes at the new dimensionality *and* recompute every node's embedding from its source text. This preserves recall against old content.
+
+[source,python]
+----
+import asyncio
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+async def reembed():
+    settings = MemorySettings(
+        neo4j={"password": "p"},
+        embedding="BAAI/bge-small-en-v1.5",  # new embedder
+    )
+    async with MemoryClient(settings) as client:
+        # 1. Drop the old vector indexes so dimensions can change.
+        await client.schema.drop_all()
+        # 2. Recreate at the new dimensions.
+        await client.schema.setup_all()
+        # 3. Walk every node that has an embedding property and
+        #    recompute it. Examples below — adapt to your scale.
+
+        # Messages
+        async for msg in _iter_with_embedding(client, "Message", "embedding"):
+            vec = await client._embedder.embed(msg["content"])
+            await client._client.execute_write(
+                "MATCH (m:Message {id: $id}) SET m.embedding = $vec",
+                {"id": msg["id"], "vec": vec},
+            )
+
+        # Entities (use name + description as the embedding text)
+        async for ent in _iter_with_embedding(client, "Entity", "embedding"):
+            text = ent.get("description") or ent["name"]
+            vec = await client._embedder.embed(text)
+            await client._client.execute_write(
+                "MATCH (e:Entity {id: $id}) SET e.embedding = $vec",
+                {"id": ent["id"], "vec": vec},
+            )
+
+        # Repeat for Preference, Fact, ReasoningTrace.task_embedding,
+        # ReasoningStep.embedding.
+
+async def _iter_with_embedding(client, label, prop, batch_size=200):
+    skip = 0
+    while True:
+        rows = await client._client.execute_read(
+            f"MATCH (n:{label}) WHERE n.{prop} IS NOT NULL "
+            f"RETURN n.id AS id, n.content AS content, n.name AS name, "
+            f"n.description AS description SKIP $skip LIMIT $limit",
+            {"skip": skip, "limit": batch_size},
+        )
+        if not rows:
+            return
+        for row in rows:
+            yield row
+        skip += batch_size
+
+asyncio.run(reembed())
+----
+
+For very large graphs, run the recompute in batches with `MemorySettings.memory.write_mode = "buffered"` so the embedding RPCs and Neo4j writes overlap.
+
+== Verifying the migration
+
+After the rebuild, `MemoryClient.connect()` no longer raises. You can also explicitly check:
+
+[source,python]
+----
+async with MemoryClient(settings) as client:
+    # Throws EmbeddingDimensionMismatchError if any managed index disagrees.
+    await client.schema.validate_vector_index_dimensions(
+        client._embedder.dimensions,
+    )
+----
+
+== What the validator actually checks
+
+`SchemaManager.validate_vector_index_dimensions(expected)`:
+
+. Queries `SHOW VECTOR INDEXES` for every existing vector index.
+. Filters down to the library-managed names (`message_embedding_idx`, `entity_embedding_idx`, `preference_embedding_idx`, `fact_embedding_idx`, `task_embedding_idx`, `step_embedding_idx`).
+. Reads each index's `options.indexConfig['vector.dimensions']`.
+. Raises `EmbeddingDimensionMismatchError` with every mismatching index listed, if any.
+
+The validation is skipped silently on Neo4j < 5.11 (the `SHOW VECTOR INDEXES` syntax did not exist before then) — there's nothing to validate on a server that does not support vector indexes natively.
+
+== Related
+
+* xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 (Pluggable Providers)] — for the broader v0.3 migration.
+* xref:reference/configuration.adoc[Configuration] — embedding settings reference.

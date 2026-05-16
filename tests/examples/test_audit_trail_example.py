@@ -21,7 +21,7 @@ class TestAuditTrailStructure:
 
     def test_python_files_compile(self):
         for filename in ["tool_calls.py", "main.py"]:
-            ast.parse((AUDIT_DIR / filename).read_text())
+            ast.parse((AUDIT_DIR / filename).read_text(encoding="utf-8"))
 
 
 @pytest.mark.imports
@@ -58,13 +58,13 @@ class TestAuditTrailImports:
 @pytest.mark.syntax
 class TestAuditTrailContent:
     def test_main_uses_on_tool_call_recorded_hook(self):
-        source = (AUDIT_DIR / "main.py").read_text()
+        source = (AUDIT_DIR / "main.py").read_text(encoding="utf-8")
         assert "on_tool_call_recorded" in source
 
     def test_main_uses_trace_outcome(self):
-        source = (AUDIT_DIR / "main.py").read_text()
+        source = (AUDIT_DIR / "main.py").read_text(encoding="utf-8")
         assert "TraceOutcome" in source
 
     def test_queries_use_touched_edge(self):
-        source = (AUDIT_DIR / "queries.cypher").read_text()
+        source = (AUDIT_DIR / "queries.cypher").read_text(encoding="utf-8")
         assert ":TOUCHED" in source

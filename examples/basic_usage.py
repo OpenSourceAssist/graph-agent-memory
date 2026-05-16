@@ -60,8 +60,6 @@ def load_env_files():
 load_env_files()
 
 from neo4j_agent_memory import (
-    EmbeddingConfig,
-    EmbeddingProvider,
     ExtractionConfig,
     ExtractorType,
     GeocodingConfig,
@@ -75,29 +73,23 @@ from neo4j_agent_memory import (
 
 
 async def main():
-    # Configure embedding provider based on available API keys
+    # v0.3+: pick an embedding model as a provider-string. The factory
+    # resolves to the best available adapter — OpenAI native if [openai]
+    # is installed, sentence-transformers local if the openai key is
+    # missing and [sentence-transformers] is installed.
     openai_api_key = os.getenv("OPENAI_API_KEY")
 
     if openai_api_key:
-        # Use OpenAI embeddings if API key is available
-        embedding_config = EmbeddingConfig(
-            provider=EmbeddingProvider.OPENAI,
-            model="text-embedding-3-small",
-        )
+        embedding_model: str = "openai/text-embedding-3-small"
         extraction_config = ExtractionConfig(
             extractor_type=ExtractorType.LLM,
         )
         print("Using OpenAI embeddings and LLM extraction")
     else:
-        # Fall back to sentence-transformers (requires: pip install neo4j-agent-memory[sentence-transformers])
         try:
             import sentence_transformers  # noqa: F401
 
-            embedding_config = EmbeddingConfig(
-                provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
-                model="all-MiniLM-L6-v2",
-                dimensions=384,
-            )
+            embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
             extraction_config = ExtractionConfig(
                 extractor_type=ExtractorType.NONE,  # Disable extraction without LLM
             )
@@ -128,7 +120,7 @@ async def main():
             username=os.getenv("NEO4J_USERNAME", "neo4j"),
             password=SecretStr(os.getenv("NEO4J_PASSWORD", "password")),
         ),
-        embedding=embedding_config,
+        embedding=embedding_model,
         extraction=extraction_config,
         geocoding=geocoding_config,
     )

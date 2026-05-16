@@ -1,10 +1,28 @@
-"""LLM-based entity and preference extraction."""
+"""LLM-based entity and preference extraction.
+
+Provider-aware as of v0.3.0: accepts an injected
+:class:`~neo4j_agent_memory.llm.protocol.LLMProvider` (or
+:class:`~neo4j_agent_memory.llm.protocol.StructuredExtractor`) instead of
+constructing an OpenAI client directly. When the provider also implements
+:class:`StructuredExtractor`, the extractor uses
+:meth:`StructuredExtractor.complete_structured` for the most reliable
+output mode that provider supports — OpenAI strict mode, Anthropic forced
+tool use, or schema-aligned retry as the safety net.
+
+The legacy ``model=`` / ``api_key=`` constructor parameters are retained
+for backward compatibility: when ``provider=`` is not supplied, a default
+provider is constructed via :func:`~neo4j_agent_memory.llm.from_provider`
+using the legacy parameters.
+"""
+
+from __future__ import annotations
 
 import json
 import logging
 from typing import TYPE_CHECKING, Any
 
 from neo4j_agent_memory.core.exceptions import ExtractionError
+from neo4j_agent_memory.extraction._payloads import ExtractionPayload
 from neo4j_agent_memory.extraction.base import (
     EntityExtractor,
     ExtractedEntity,
@@ -14,7 +32,8 @@ from neo4j_agent_memory.extraction.base import (
 )
 
 if TYPE_CHECKING:
-    from openai import AsyncOpenAI
+    from neo4j_agent_memory.llm.protocol import LLMProvider, StructuredExtractor
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +48,7 @@ DEFAULT_ENTITY_TYPES = [
 ]
 
 # Common subtypes for POLE+O model
-POLEO_SUBTYPES = {
+POLEO_SUBTYPES: dict[str, list[str]] = {
     "PERSON": ["INDIVIDUAL", "ALIAS", "PERSONA"],
     "OBJECT": ["VEHICLE", "PHONE", "EMAIL", "DOCUMENT", "DEVICE", "WEAPON", "PRODUCT"],
     "LOCATION": ["ADDRESS", "CITY", "REGION", "COUNTRY", "LANDMARK", "FACILITY"],
@@ -37,10 +56,13 @@ POLEO_SUBTYPES = {
     "ORGANIZATION": ["COMPANY", "NONPROFIT", "GOVERNMENT", "EDUCATIONAL", "GROUP"],
 }
 
-# Default prompt optimized for POLE+O extraction
+# Default prompt optimized for POLE+O extraction. The structured-extraction
+# path uses Pydantic schema validation instead, so this is the fallback
+# for plain-LLM-call extraction (when the provider does not implement
+# StructuredExtractor).
 DEFAULT_EXTRACTION_PROMPT = """Extract entities, relationships, and preferences from the following text.
 
-## Entity Types (POLE+O Model)
+## Entity Types
 Extract entities of these types:
 {entity_types}
 
@@ -88,90 +110,76 @@ Subtypes (optional, use when you can determine a more specific type):
 {subtype_list}
 """
 
+SYSTEM_MESSAGE = (
+    "You are an expert at extracting structured information from text. "
+    "You follow the configured entity-type schema. Always respond with valid JSON."
+)
+
 
 class LLMEntityExtractor(EntityExtractor):
-    """
-    LLM-based entity and preference extraction using the POLE+O model.
+    """LLM-based entity, relation, and preference extraction.
 
-    Uses OpenAI's structured output capabilities for reliable extraction.
-    Supports Person, Object, Location, Event, and Organization entity types
-    with optional subtypes for finer classification.
+    Provider-aware. When given a :class:`StructuredExtractor` provider it
+    uses ``complete_structured`` for native-quality structured outputs.
+    When given a plain :class:`LLMProvider` (or no provider at all) it
+    falls back to prompt-engineered JSON extraction.
 
-    This extractor can:
-    - Extract entities with type and optional subtype
-    - Extract relationships between entities
-    - Extract user preferences
+    Example with explicit provider::
 
-    Example:
-        ```python
-        extractor = LLMEntityExtractor(
-            model="gpt-4o-mini",
-            entity_types=["PERSON", "ORGANIZATION", "LOCATION"],
-        )
+        from neo4j_agent_memory.llm.adapters.anthropic import AnthropicProvider
 
-        result = await extractor.extract(
-            "John Smith works at Acme Corp in New York City."
-        )
+        provider = AnthropicProvider("anthropic/claude-3-5-sonnet-latest")
+        extractor = LLMEntityExtractor(provider=provider)
+        result = await extractor.extract("John works at Acme.")
 
-        for entity in result.entities:
-            print(f"{entity.name}: {entity.type}")
-        # John Smith: PERSON
-        # Acme Corp: ORGANIZATION
-        # New York City: LOCATION
-        ```
+    Example with legacy signature (constructs OpenAI provider internally)::
+
+        extractor = LLMEntityExtractor(model="gpt-4o-mini", api_key="sk-...")
     """
 
     def __init__(
         self,
-        model: str = "gpt-4o-mini",
+        provider: LLMProvider | StructuredExtractor | None = None,
         *,
+        # Legacy parameters — used to construct a default provider when
+        # ``provider`` is not supplied.
+        model: str | None = None,
         api_key: str | None = None,
+        # Configuration shared between provider modes
         entity_types: list[str] | None = None,
         subtypes: dict[str, list[str]] | None = None,
         extraction_prompt: str | None = None,
         temperature: float = 0.0,
         extract_relations: bool = True,
         extract_preferences: bool = True,
-    ):
-        """
-        Initialize LLM extractor.
-
-        Args:
-            model: OpenAI model to use
-            api_key: OpenAI API key (or set OPENAI_API_KEY env var)
-            entity_types: Entity types to extract (defaults to POLE+O)
-            subtypes: Mapping of entity types to allowed subtypes
-            extraction_prompt: Custom extraction prompt
-            temperature: LLM temperature (0.0 for deterministic)
-            extract_relations: Whether to extract relations by default
-            extract_preferences: Whether to extract preferences by default
-        """
-        self._model = model
-        self._api_key = api_key
-        self._entity_types = entity_types or DEFAULT_ENTITY_TYPES
-        self._subtypes = subtypes or POLEO_SUBTYPES
+    ) -> None:
+        # Resolve the provider: explicit > legacy-args > default(gpt-4o-mini)
+        if provider is None:
+            resolved_model = model or "openai/gpt-4o-mini"
+            try:
+                from neo4j_agent_memory.llm import from_provider
+            except ImportError as exc:
+                raise ExtractionError(
+                    "Could not import neo4j_agent_memory.llm — install a provider extra "
+                    "(e.g. pip install 'neo4j-agent-memory[openai]')"
+                ) from exc
+            kwargs: dict[str, Any] = {}
+            if api_key is not None:
+                kwargs["api_key"] = api_key
+            provider = from_provider(resolved_model, kind="llm", **kwargs)  # type: ignore[assignment]
+        self._provider = provider
+        self._model_label = getattr(provider, "model", "unknown")
+        self._entity_types = entity_types or list(DEFAULT_ENTITY_TYPES)
+        self._subtypes = subtypes if subtypes is not None else dict(POLEO_SUBTYPES)
         self._prompt = extraction_prompt or DEFAULT_EXTRACTION_PROMPT
         self._temperature = temperature
         self._extract_relations = extract_relations
         self._extract_preferences = extract_preferences
-        self._client: AsyncOpenAI | None = None
 
     @property
     def name(self) -> str:
         """Extractor name for pipeline identification."""
         return "LLMEntityExtractor"
-
-    def _ensure_client(self) -> "AsyncOpenAI":
-        """Ensure the OpenAI client is initialized."""
-        if self._client is None:
-            try:
-                from openai import AsyncOpenAI
-            except ImportError:
-                raise ExtractionError(
-                    "OpenAI package not installed. Install with: pip install neo4j-agent-memory[openai]"
-                )
-            self._client = AsyncOpenAI(api_key=self._api_key)
-        return self._client
 
     def _build_subtype_info(self, types_to_use: list[str]) -> str:
         """Build subtype information string for the prompt."""
@@ -180,10 +188,16 @@ class LLMEntityExtractor(EntityExtractor):
             subtypes = self._subtypes.get(entity_type, [])
             if subtypes:
                 subtype_lines.append(f"- {entity_type}: {', '.join(subtypes)}")
-
         if subtype_lines:
             return SUBTYPE_INFO_TEMPLATE.format(subtype_list="\n".join(subtype_lines))
         return ""
+
+    def _build_prompt(self, text: str, types_to_use: list[str]) -> str:
+        return self._prompt.format(
+            entity_types=", ".join(types_to_use),
+            subtype_info=self._build_subtype_info(types_to_use),
+            text=text,
+        )
 
     async def extract(
         self,
@@ -193,22 +207,19 @@ class LLMEntityExtractor(EntityExtractor):
         extract_relations: bool | None = None,
         extract_preferences: bool | None = None,
     ) -> ExtractionResult:
-        """
-        Extract entities, relations, and preferences from text.
+        """Extract entities, relations, and preferences from text.
 
-        Args:
-            text: Text to extract from
-            entity_types: Override entity types to extract
-            extract_relations: Override whether to extract relations
-            extract_preferences: Override whether to extract preferences
+        Picks the right provider call based on capabilities:
 
-        Returns:
-            ExtractionResult containing entities, relations, and preferences
+        * If the provider implements :class:`StructuredExtractor`, uses
+          ``complete_structured`` with the :class:`ExtractionPayload`
+          schema. This is the high-quality path.
+        * Otherwise falls back to prompt-engineered JSON via
+          ``complete``, then parses the response loosely.
         """
         if not text or not text.strip():
             return ExtractionResult(source_text=text)
 
-        client = self._ensure_client()
         types_to_use = entity_types or self._entity_types
         include_relations = (
             extract_relations if extract_relations is not None else self._extract_relations
@@ -217,137 +228,172 @@ class LLMEntityExtractor(EntityExtractor):
             extract_preferences if extract_preferences is not None else self._extract_preferences
         )
 
-        # Build the prompt with subtype info
-        subtype_info = self._build_subtype_info(types_to_use)
-        prompt = self._prompt.format(
-            entity_types=", ".join(types_to_use),
-            subtype_info=subtype_info,
-            text=text,
+        # Lazy import to avoid circular dep at module load
+        from neo4j_agent_memory.llm.protocol import StructuredExtractor
+
+        if isinstance(self._provider, StructuredExtractor):
+            try:
+                return await self._extract_structured(
+                    text, types_to_use, include_relations, include_preferences
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "Structured extraction failed (%s); falling back to plain LLM call",
+                    type(exc).__name__,
+                )
+        return await self._extract_with_complete(
+            text, types_to_use, include_relations, include_preferences
         )
 
-        try:
-            response = await client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an expert at extracting structured information from text. "
-                        "You follow the POLE+O data model (Person, Object, Location, Event, Organization). "
-                        "Always respond with valid JSON.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=self._temperature,
-                response_format={"type": "json_object"},
-            )
-
-            content = response.choices[0].message.content
-            if not content:
-                return ExtractionResult(source_text=text)
-
-            data = json.loads(content)
-            result = self._parse_extraction_result(
-                data, text, include_relations, include_preferences, types_to_use
-            )
-
-            logger.debug(
-                f"LLM extracted {result.entity_count} entities, "
-                f"{result.relation_count} relations, "
-                f"{result.preference_count} preferences"
-            )
-
-            return result
-
-        except json.JSONDecodeError as e:
-            raise ExtractionError(f"Failed to parse LLM response as JSON: {e}") from e
-        except Exception as e:
-            raise ExtractionError(f"Failed to extract entities: {e}") from e
-
-    def _parse_extraction_result(
+    async def _extract_structured(
         self,
-        data: dict[str, Any],
-        source_text: str,
+        text: str,
+        types_to_use: list[str],
         include_relations: bool,
         include_preferences: bool,
-        allowed_types: list[str],
     ) -> ExtractionResult:
-        """Parse LLM response into ExtractionResult."""
+        """Run extraction via :meth:`StructuredExtractor.complete_structured`."""
+        from neo4j_agent_memory.llm.types import ChatMessage
+
+        prompt = self._build_prompt(text, types_to_use)
+        messages = [
+            ChatMessage(role="system", content=SYSTEM_MESSAGE),
+            ChatMessage(role="user", content=prompt),
+        ]
+        # The structured-extraction path validates against ExtractionPayload.
+        # ``complete_structured`` raises StructuredExtractionError on failure
+        # which we let propagate so the pipeline can decide how to handle it.
+        payload: ExtractionPayload = await self._provider.complete_structured(  # type: ignore[attr-defined]
+            messages,
+            ExtractionPayload,
+            temperature=self._temperature,
+        )
+        return self._payload_to_result(
+            payload, text, types_to_use, include_relations, include_preferences
+        )
+
+    async def _extract_with_complete(
+        self,
+        text: str,
+        types_to_use: list[str],
+        include_relations: bool,
+        include_preferences: bool,
+    ) -> ExtractionResult:
+        """Run extraction via plain :meth:`LLMProvider.complete`.
+
+        Used when the provider does not implement
+        :class:`StructuredExtractor`. Less reliable than the structured
+        path but still works for any LLM.
+        """
+        from neo4j_agent_memory.llm.types import ChatMessage
+
+        prompt = self._build_prompt(text, types_to_use)
+        messages = [
+            ChatMessage(role="system", content=SYSTEM_MESSAGE),
+            ChatMessage(role="user", content=prompt),
+        ]
+        try:
+            completion = await self._provider.complete(  # type: ignore[union-attr]
+                messages,
+                temperature=self._temperature,
+            )
+        except Exception as exc:
+            raise ExtractionError(f"Failed to extract entities: {exc}") from exc
+
+        try:
+            # Strip markdown fence if the model wrapped JSON in one
+            content = completion.content.strip()
+            if content.startswith("```"):
+                # Remove the first line and trailing fence
+                lines = content.splitlines()
+                if lines and lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].rstrip("`").strip() == "":
+                    lines = lines[:-1]
+                content = "\n".join(lines)
+            data = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise ExtractionError(f"Failed to parse LLM response as JSON: {exc}") from exc
+
+        # The raw dict from a non-structured call is shaped the same as
+        # ExtractionPayload — validate to coerce strings and silently
+        # drop extras. This still gives us the type-safety win.
+        try:
+            payload = ExtractionPayload.model_validate(data)
+        except Exception as exc:
+            raise ExtractionError(
+                f"LLM response did not match expected extraction shape: {exc}"
+            ) from exc
+
+        return self._payload_to_result(
+            payload, text, types_to_use, include_relations, include_preferences
+        )
+
+    def _payload_to_result(
+        self,
+        payload: ExtractionPayload,
+        source_text: str,
+        allowed_types: list[str],
+        include_relations: bool,
+        include_preferences: bool,
+    ) -> ExtractionResult:
+        """Convert an :class:`ExtractionPayload` to an :class:`ExtractionResult`."""
         entities: list[ExtractedEntity] = []
+        for ent in payload.entities:
+            entity_type = (ent.type or "OBJECT").upper()
+            if entity_type not in allowed_types:
+                entity_type = self._map_to_allowed_type(entity_type, allowed_types)
+            subtype = ent.subtype.upper() if ent.subtype else None
+            if subtype:
+                allowed_subtypes = self._subtypes.get(entity_type, [])
+                if allowed_subtypes and subtype not in allowed_subtypes:
+                    subtype = None
+            entities.append(
+                ExtractedEntity(
+                    name=ent.name,
+                    type=entity_type,
+                    subtype=subtype,
+                    confidence=ent.confidence,
+                    extractor="llm",
+                )
+            )
+
         relations: list[ExtractedRelation] = []
-        preferences: list[ExtractedPreference] = []
-
-        # Parse entities
-        for entity_data in data.get("entities", []):
-            try:
-                entity_type = entity_data.get("type", "OBJECT").upper()
-
-                # Validate type against allowed types
-                if entity_type not in allowed_types:
-                    # Try to map to closest allowed type
-                    entity_type = self._map_to_allowed_type(entity_type, allowed_types)
-
-                # Get subtype
-                subtype = entity_data.get("subtype")
-                if subtype:
-                    subtype = subtype.upper()
-                    # Validate subtype
-                    allowed_subtypes = self._subtypes.get(entity_type, [])
-                    if allowed_subtypes and subtype not in allowed_subtypes:
-                        subtype = None  # Invalid subtype, ignore
-
-                entities.append(
-                    ExtractedEntity(
-                        name=entity_data.get("name", ""),
-                        type=entity_type,
-                        subtype=subtype,
-                        confidence=float(entity_data.get("confidence", 1.0)),
-                        extractor="llm",
+        if include_relations:
+            entity_names_lower = {e.name.lower() for e in entities}
+            for rel in payload.relations:
+                if (
+                    rel.source.lower() not in entity_names_lower
+                    or rel.target.lower() not in entity_names_lower
+                ):
+                    continue
+                relations.append(
+                    ExtractedRelation(
+                        source=rel.source,
+                        target=rel.target,
+                        relation_type=rel.relation_type.upper(),
+                        confidence=rel.confidence,
                     )
                 )
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to parse entity: {e}")
-                continue
 
-        # Parse relations
-        if include_relations:
-            entity_names = {e.name.lower() for e in entities}
-
-            for relation_data in data.get("relations", []):
-                try:
-                    source = relation_data.get("source", "")
-                    target = relation_data.get("target", "")
-
-                    # Only include relations between extracted entities
-                    if source.lower() not in entity_names or target.lower() not in entity_names:
-                        continue
-
-                    relations.append(
-                        ExtractedRelation(
-                            source=source,
-                            target=target,
-                            relation_type=relation_data.get("relation_type", "RELATED_TO").upper(),
-                            confidence=float(relation_data.get("confidence", 1.0)),
-                        )
-                    )
-                except (ValueError, TypeError) as e:
-                    logger.warning(f"Failed to parse relation: {e}")
-                    continue
-
-        # Parse preferences
+        preferences: list[ExtractedPreference] = []
         if include_preferences:
-            for pref_data in data.get("preferences", []):
-                try:
-                    preferences.append(
-                        ExtractedPreference(
-                            category=pref_data.get("category", "general"),
-                            preference=pref_data.get("preference", ""),
-                            context=pref_data.get("context"),
-                            confidence=float(pref_data.get("confidence", 1.0)),
-                        )
+            for pref in payload.preferences:
+                preferences.append(
+                    ExtractedPreference(
+                        category=pref.category,
+                        preference=pref.preference,
+                        context=pref.context,
+                        confidence=pref.confidence,
                     )
-                except (ValueError, TypeError) as e:
-                    logger.warning(f"Failed to parse preference: {e}")
-                    continue
+                )
+
+        logger.debug(
+            "LLM extracted %d entities, %d relations, %d preferences",
+            len(entities),
+            len(relations),
+            len(preferences),
+        )
 
         return ExtractionResult(
             entities=entities,
@@ -358,7 +404,6 @@ class LLMEntityExtractor(EntityExtractor):
 
     def _map_to_allowed_type(self, entity_type: str, allowed_types: list[str]) -> str:
         """Map an unknown entity type to the closest allowed type."""
-        # Simple mapping for common types
         type_mappings = {
             "CONCEPT": "OBJECT",
             "EMOTION": "OBJECT",
@@ -380,37 +425,50 @@ class LLMEntityExtractor(EntityExtractor):
             "DATE": "EVENT",
             "TIME": "EVENT",
         }
-
         mapped = type_mappings.get(entity_type, "OBJECT")
         return (
-            mapped if mapped in allowed_types else allowed_types[0] if allowed_types else "OBJECT"
+            mapped if mapped in allowed_types else (allowed_types[0] if allowed_types else "OBJECT")
         )
 
     @classmethod
     def for_poleo(
         cls,
-        model: str = "gpt-4o-mini",
+        provider: LLMProvider | StructuredExtractor | None = None,
+        *,
+        model: str = "openai/gpt-4o-mini",
         api_key: str | None = None,
-    ) -> "LLMEntityExtractor":
+    ) -> LLMEntityExtractor:
         """Create extractor configured for POLE+O model."""
         return cls(
+            provider=provider,
             model=model,
             api_key=api_key,
-            entity_types=DEFAULT_ENTITY_TYPES,
-            subtypes=POLEO_SUBTYPES,
+            entity_types=list(DEFAULT_ENTITY_TYPES),
+            subtypes=dict(POLEO_SUBTYPES),
         )
 
     @classmethod
     def for_custom_types(
         cls,
         entity_types: list[str],
-        model: str = "gpt-4o-mini",
+        provider: LLMProvider | StructuredExtractor | None = None,
+        *,
+        model: str = "openai/gpt-4o-mini",
         api_key: str | None = None,
-    ) -> "LLMEntityExtractor":
+    ) -> LLMEntityExtractor:
         """Create extractor for custom entity types."""
         return cls(
+            provider=provider,
             model=model,
             api_key=api_key,
             entity_types=entity_types,
-            subtypes={},  # No subtypes for custom types
+            subtypes={},
         )
+
+
+__all__ = [
+    "LLMEntityExtractor",
+    "DEFAULT_ENTITY_TYPES",
+    "POLEO_SUBTYPES",
+    "DEFAULT_EXTRACTION_PROMPT",
+]

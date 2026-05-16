@@ -149,7 +149,7 @@ class TestLlamaIndexSourceCodeQuality:
             if memory_file.exists():
                 source_file = memory_file
 
-        source_code = source_file.read_text()
+        source_code = source_file.read_text(encoding="utf-8")
 
         # Should parse without syntax errors
         try:
@@ -167,7 +167,7 @@ class TestLlamaIndexSourceCodeQuality:
             if memory_file.exists():
                 source_file = memory_file
 
-        source_code = source_file.read_text()
+        source_code = source_file.read_text(encoding="utf-8")
         tree = ast.parse(source_code)
 
         for node in ast.walk(tree):

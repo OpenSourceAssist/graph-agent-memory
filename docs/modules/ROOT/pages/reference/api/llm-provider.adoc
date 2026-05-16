@@ -1,0 +1,228 @@
+= LLM Provider API
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+Reference for the `neo4j_agent_memory.llm` Protocols, types, factory, and exception hierarchy.
+
+[.lead]
+Every adapter in `neo4j_agent_memory.llm.adapters` implements one or more of the Protocols below. Adapter constructors are documented separately at xref:reference/api/adapters.adoc[Adapters]. The factory is documented at xref:reference/api/factory.adoc[Factory].
+
+== Module
+
+`neo4j_agent_memory.llm`
+
+== Public exports
+
+[source,python]
+----
+from neo4j_agent_memory.llm import (
+    # Protocols
+    LLMProvider,
+    StructuredExtractor,
+    EmbeddingProvider,
+    # Types
+    ChatMessage,
+    Completion,
+    Usage,
+    # Errors
+    ProviderError,
+    ProviderAuthError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+    ProviderInvalidRequestError,
+    ProviderServiceError,
+    StructuredExtractionError,
+    EmbeddingDimensionMismatchError,
+    # Factory
+    from_provider,
+    # Helpers
+    schema_aligned_extract,
+)
+----
+
+== Protocols
+
+=== `LLMProvider`
+
+Chat completions. Bronze TCK tier.
+
+[source,python]
+----
+class LLMProvider(Protocol):
+    model: str
+
+    async def complete(
+        self,
+        messages: Sequence[ChatMessage],
+        *,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
+        stop: Sequence[str] | None = None,
+        timeout: float | None = None,
+    ) -> Completion: ...
+----
+
+Implementations MUST:
+
+* Be safe to call concurrently — no shared mutable state.
+* Translate SDK-specific errors to `ProviderError` subclasses.
+* Honor `temperature=0.0` as deterministic where the provider supports it.
+
+The `model` attribute is the canonical `"provider/model"` identifier. Adapters that accept bare names normalise to include the prefix.
+
+=== `StructuredExtractor`
+
+Validated Pydantic outputs. Silver TCK tier.
+
+[source,python]
+----
+class StructuredExtractor(Protocol):
+    async def complete_structured(
+        self,
+        messages: Sequence[ChatMessage],
+        response_model: type[T],
+        *,
+        temperature: float = 0.0,
+        max_retries: int = 2,
+        timeout: float | None = None,
+    ) -> T: ...
+----
+
+Implementations MUST:
+
+* Use the most reliable structured-output mode the underlying provider supports — strict JSON schema (OpenAI), forced tool use (Anthropic), `response_format` (LiteLLM), etc.
+* Retry on `ValidationError` up to `max_retries` times, with feedback.
+* Raise `StructuredExtractionError` after exhausting retries.
+
+Adapters without a native structured mode delegate to `schema_aligned_extract`.
+
+=== `EmbeddingProvider`
+
+Text embeddings. Bronze TCK tier.
+
+[source,python]
+----
+class EmbeddingProvider(Protocol):
+    model: str
+    dimensions: int
+
+    async def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
+    async def embed_one(self, text: str) -> list[float]: ...
+----
+
+Contract:
+
+* `dimensions` must be available at construction time (not lazily).
+* `embed([])` returns `[]`.
+* Every returned vector has length `dimensions`.
+
+`MemoryClient.connect()` reads `dimensions` to size vector indexes and validates against existing indexes — see xref:how-to/migrate-embedding-model.adoc[the migration runbook].
+
+== Types
+
+=== `ChatMessage`
+
+Pydantic, frozen.
+
+[source,python]
+----
+class ChatMessage(BaseModel):
+    role: Literal["system", "user", "assistant", "tool"]
+    content: str
+    name: str | None = None
+    tool_call_id: str | None = None
+----
+
+`content` is `str` only — multimodal is a v0.4+ concern.
+
+=== `Completion`
+
+Pydantic.
+
+[source,python]
+----
+class Completion(BaseModel):
+    content: str
+    model: str
+    usage: Usage | None = None
+    finish_reason: str | None = None
+    raw: dict[str, Any] | None = None    # only set when adapter return_raw=True
+----
+
+=== `Usage`
+
+Pydantic.
+
+[source,python]
+----
+class Usage(BaseModel):
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    cached_tokens: int = 0    # Anthropic prompt cache, OpenAI cached inputs
+    cost_usd: float | None = None
+----
+
+== Exception hierarchy
+
+All inherit from `ProviderError`, which inherits from `Exception`. None inherit from `MemoryError` — provider errors are intentionally separate from storage errors.
+
+[cols="2,3",options="header"]
+|===
+| Class                              | Raised when
+| `ProviderError`                    | Base class.
+| `ProviderAuthError`                | API key invalid / missing / expired.
+| `ProviderRateLimitError`           | 429 / quota exceeded. Carries `retry_after: float \| None`.
+| `ProviderTimeoutError`             | Request exceeded configured timeout.
+| `ProviderInvalidRequestError`      | Malformed request (unknown model, bad params).
+| `ProviderServiceError`             | Retriable 5xx server error.
+| `StructuredExtractionError`        | SAP exhausted retries. Carries `last_attempts: list[str]`, `validation_errors`.
+| `EmbeddingDimensionMismatchError`  | Existing vector index disagrees with embedder. Carries `expected_dimensions`, `actual_dimensions`, `index_name`.
+|===
+
+== Factory
+
+`from_provider(model: str, *, kind="llm", prefer_litellm=False, **kwargs)` — string-shorthand factory. Returns an `LLMProvider` or `EmbeddingProvider` depending on `kind`. See xref:reference/api/factory.adoc[Factory Reference].
+
+== Helper functions
+
+=== `schema_aligned_extract`
+
+[source,python]
+----
+async def schema_aligned_extract(
+    provider: LLMProvider,
+    messages: Sequence[ChatMessage],
+    response_model: type[T],
+    *,
+    temperature: float = 0.0,
+    max_retries: int = 2,
+    timeout: float | None = None,
+) -> T: ...
+----
+
+Generic structured-output path. Builds a system message containing the schema, parses tolerantly, validates against `response_model`, retries with feedback on failure. Use directly when your provider does not implement `StructuredExtractor`.
+
+== Tolerant JSON parser
+
+`schema_aligned_extract` strips markdown fences, smart quotes, trailing commas, and finds the largest balanced `{...}` block. Truncated JSON (mid-string cutoff) surfaces as `json.JSONDecodeError` — the correct outcome, since it must trigger a retry.
+
+== Default model dimensions
+
+`neo4j_agent_memory.llm.defaults` exposes:
+
+* `EMBEDDING_DIMENSIONS: dict[str, int]` — known model → dimensions.
+* `lookup_embedding_dimensions(model: str) -> int | None` — tolerant lookup with and without provider prefix.
+
+For models not in the table, embedding adapters require an explicit `dimensions=N` constructor argument.
+
+== Related
+
+* xref:reference/api/adapters.adoc[Adapters Reference] — constructor signatures for every adapter.
+* xref:reference/api/factory.adoc[Factory Reference] — `from_provider` details.
+* xref:reference/configuration.adoc[Configuration] — how to wire providers into `MemorySettings`.
+* xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.

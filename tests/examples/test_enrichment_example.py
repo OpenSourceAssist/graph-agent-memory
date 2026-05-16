@@ -17,7 +17,7 @@ class TestEnrichmentExampleStructure:
         assert EXAMPLE_FILE.exists(), f"Missing: {EXAMPLE_FILE}"
 
     def test_example_compiles(self):
-        ast.parse(EXAMPLE_FILE.read_text())
+        ast.parse(EXAMPLE_FILE.read_text(encoding="utf-8"))
 
 
 @pytest.mark.imports
@@ -53,22 +53,22 @@ class TestEnrichmentExampleContent:
     """
 
     def test_uses_tuple_unpacking_for_add_entity(self):
-        source = EXAMPLE_FILE.read_text()
+        source = EXAMPLE_FILE.read_text(encoding="utf-8")
         assert "entity, dedup_result = await client.long_term.add_entity(" in source, (
             "Example must demonstrate the v0.1.1+ tuple return from add_entity"
         )
 
     def test_does_not_call_phantom_get_entity(self):
-        source = EXAMPLE_FILE.read_text()
+        source = EXAMPLE_FILE.read_text(encoding="utf-8")
         assert ".long_term.get_entity(" not in source, (
             "long_term.get_entity() does not exist; use get_entity_by_name()"
         )
 
     def test_uses_get_entity_by_name(self):
-        source = EXAMPLE_FILE.read_text()
+        source = EXAMPLE_FILE.read_text(encoding="utf-8")
         assert "get_entity_by_name(" in source
 
     def test_uses_enrichment_config(self):
-        source = EXAMPLE_FILE.read_text()
+        source = EXAMPLE_FILE.read_text(encoding="utf-8")
         assert "EnrichmentConfig(" in source
         assert "EnrichmentProvider.WIKIMEDIA" in source

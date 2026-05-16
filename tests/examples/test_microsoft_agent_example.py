@@ -77,17 +77,17 @@ class TestMicrosoftAgentExampleDependencies:
 
     def test_requirements_has_agent_framework(self):
         """Verify requirements.txt includes agent-framework."""
-        content = (APP_DIR / "backend" / "requirements.txt").read_text()
+        content = (APP_DIR / "backend" / "requirements.txt").read_text(encoding="utf-8")
         assert "agent-framework" in content
 
     def test_requirements_has_neo4j_agent_memory(self):
         """Verify requirements.txt includes neo4j-agent-memory."""
-        content = (APP_DIR / "backend" / "requirements.txt").read_text()
+        content = (APP_DIR / "backend" / "requirements.txt").read_text(encoding="utf-8")
         assert "neo4j-agent-memory" in content or "microsoft-agent" in content
 
     def test_requirements_has_fastapi(self):
         """Verify requirements.txt includes fastapi."""
-        content = (APP_DIR / "backend" / "requirements.txt").read_text()
+        content = (APP_DIR / "backend" / "requirements.txt").read_text(encoding="utf-8")
         assert "fastapi" in content
 
 
@@ -113,7 +113,7 @@ class TestMicrosoftAgentExampleSyntax:
         """Verify Python file can be parsed without syntax errors."""
         if not python_file.exists():
             pytest.skip(f"File not found: {python_file}")
-        source = python_file.read_text()
+        source = python_file.read_text(encoding="utf-8")
         try:
             ast.parse(source, filename=str(python_file))
         except SyntaxError as e:
@@ -125,27 +125,27 @@ class TestMicrosoftAgentExampleImports:
 
     def test_agent_imports_neo4j_memory(self):
         """Verify agent.py imports neo4j_agent_memory integration."""
-        content = (APP_DIR / "backend" / "agent.py").read_text()
+        content = (APP_DIR / "backend" / "agent.py").read_text(encoding="utf-8")
         assert "neo4j_agent_memory" in content or "microsoft_agent" in content
 
     def test_memory_config_imports_memory_client(self):
         """Verify memory_config.py imports MemoryClient."""
-        content = (APP_DIR / "backend" / "memory_config.py").read_text()
+        content = (APP_DIR / "backend" / "memory_config.py").read_text(encoding="utf-8")
         assert "MemoryClient" in content
 
     def test_main_imports_fastapi(self):
         """Verify main.py imports FastAPI."""
-        content = (APP_DIR / "backend" / "main.py").read_text()
+        content = (APP_DIR / "backend" / "main.py").read_text(encoding="utf-8")
         assert "fastapi" in content or "FastAPI" in content
 
     def test_agent_uses_create_memory_tools(self):
         """Verify agent.py uses create_memory_tools."""
-        content = (APP_DIR / "backend" / "agent.py").read_text()
+        content = (APP_DIR / "backend" / "agent.py").read_text(encoding="utf-8")
         assert "create_memory_tools" in content
 
     def test_agent_uses_context_provider(self):
         """Verify agent.py uses context provider pattern."""
-        content = (APP_DIR / "backend" / "agent.py").read_text()
+        content = (APP_DIR / "backend" / "agent.py").read_text(encoding="utf-8")
         assert (
             "context_provider" in content
             or "Neo4jContextProvider" in content
@@ -161,7 +161,7 @@ class TestMicrosoftAgentExampleFeatures:
         config = APP_DIR / "backend" / "memory_config.py"
         if not config.exists():
             pytest.skip("memory_config.py not found")
-        content = config.read_text()
+        content = config.read_text(encoding="utf-8")
         assert "DeduplicationConfig" in content, "memory_config.py should use DeduplicationConfig"
 
     def test_uses_extraction_config(self):
@@ -169,7 +169,7 @@ class TestMicrosoftAgentExampleFeatures:
         config = APP_DIR / "backend" / "memory_config.py"
         if not config.exists():
             pytest.skip("memory_config.py not found")
-        content = config.read_text()
+        content = config.read_text(encoding="utf-8")
         assert "ExtractionConfig" in content, "memory_config.py should use ExtractionConfig"
 
     def test_requirements_has_version_pin(self):
@@ -177,5 +177,5 @@ class TestMicrosoftAgentExampleFeatures:
         req = APP_DIR / "backend" / "requirements.txt"
         if not req.exists():
             pytest.skip("requirements.txt not found")
-        content = req.read_text()
+        content = req.read_text(encoding="utf-8")
         assert ">=0.1.0" in content, "requirements.txt should pin neo4j-agent-memory>=0.1.0"

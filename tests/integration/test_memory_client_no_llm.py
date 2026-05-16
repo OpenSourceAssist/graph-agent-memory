@@ -19,6 +19,7 @@ import sys
 import textwrap
 
 import pytest
+from neo4j import GraphDatabase
 from pydantic import SecretStr
 
 from neo4j_agent_memory import MemoryClient, MemorySettings, Neo4jConfig
@@ -28,6 +29,14 @@ from neo4j_agent_memory.config.settings import (
     ExtractionConfig,
     ExtractorType,
 )
+from neo4j_agent_memory.graph.schema import SchemaManager
+
+# Names of the managed vector indexes that get created with the configured
+# embedder dimension. Earlier tests in the same pytest session create these
+# at 1536 dims (mock embedder / OpenAI default); without dropping them, the
+# 384-dim sentence-transformers configuration used below trips the
+# EmbeddingDimensionMismatchError guard in MemoryClient.connect().
+_MANAGED_VECTOR_INDEX_NAMES = tuple(name for name, _, _ in SchemaManager._MANAGED_VECTOR_INDEXES)
 
 
 def _build_settings(neo4j_connection_info) -> MemorySettings:
@@ -50,11 +59,47 @@ def _build_settings(neo4j_connection_info) -> MemorySettings:
     )
 
 
+@pytest.fixture
+def _reset_vector_indexes(neo4j_connection_info):
+    """Drop managed vector indexes so each no-LLM test can recreate them.
+
+    The session-scoped Neo4j testcontainer is shared across all integration
+    tests. Earlier tests create vector indexes sized for a 1536-dim embedder;
+    the no-LLM tests configure a 384-dim sentence-transformers embedder, and
+    MemoryClient.connect() refuses to attach to indexes with a mismatched
+    dimension. Dropping the managed indexes before each test in this class
+    lets them be re-created at whatever dimension this test expects.
+
+    Uses the sync driver so the fixture works for both async and sync tests
+    in this class.
+    """
+
+    def _drop_indexes() -> None:
+        with driver.session() as session:
+            for name in _MANAGED_VECTOR_INDEX_NAMES:
+                session.run(f"DROP INDEX {name} IF EXISTS")
+
+    driver = GraphDatabase.driver(
+        neo4j_connection_info["uri"],
+        auth=(neo4j_connection_info["username"], neo4j_connection_info["password"]),
+    )
+    try:
+        # Drop before so this test can recreate at its expected dim.
+        _drop_indexes()
+        yield
+        # Drop after too so the next test in the session — which likely
+        # uses a 1536-dim mock embedder — isn't blocked by 384-dim indexes
+        # this test may have left behind.
+        _drop_indexes()
+    finally:
+        driver.close()
+
+
 @pytest.mark.integration
 class TestMemoryClientNoLLM:
     @pytest.mark.asyncio
     async def test_get_context_works_without_llm(
-        self, neo4j_connection_info, mock_embedder, session_id
+        self, neo4j_connection_info, mock_embedder, session_id, _reset_vector_indexes
     ):
         """T6: end-to-end add_message + get_context with llm=None succeeds."""
         settings = _build_settings(neo4j_connection_info)
@@ -66,7 +111,7 @@ class TestMemoryClientNoLLM:
             context = await client.get_context("Tell me about John")
             assert isinstance(context, str)
 
-    def test_no_openai_import_with_llm_none(self, neo4j_connection_info):
+    def test_no_openai_import_with_llm_none(self, neo4j_connection_info, _reset_vector_indexes):
         """T5: constructing+connecting a client with llm=None must not import openai."""
         script = textwrap.dedent(
             f"""

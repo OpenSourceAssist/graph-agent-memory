@@ -25,7 +25,7 @@ class TestNoLLMExample:
 
     def test_example_compiles(self):
         """The example must be syntactically valid Python."""
-        source = (NO_LLM_DIR / "main.py").read_text()
+        source = (NO_LLM_DIR / "main.py").read_text(encoding="utf-8")
         ast.parse(source)
 
     def test_example_imports_work(self):
@@ -48,6 +48,11 @@ class TestNoLLMExample:
 
     def test_build_settings_produces_llm_none(self, monkeypatch):
         """The example's build_settings() must produce a settings object with llm=None."""
+        # v0.3+: the example uses ``from_provider("sentence-transformers/...")``
+        # which resolves the adapter eagerly. Skip when the extra is not
+        # installed in the test env.
+        pytest.importorskip("sentence_transformers")
+
         # Avoid relying on a live Neo4j — `build_settings()` only constructs the
         # config object, no connection is made here.
         monkeypatch.setenv("NEO4J_URI", "bolt://localhost:7687")
@@ -63,13 +68,18 @@ class TestNoLLMExample:
             settings = module.build_settings()
             assert settings.llm is None
             assert settings.extraction.enable_llm_fallback is False
-            assert settings.embedding.provider.value == "sentence_transformers"
+            # v0.3+: embedding is an EmbeddingProvider instance (the
+            # resolved adapter), not the legacy EmbeddingConfig enum.
+            from neo4j_agent_memory.llm.protocol import EmbeddingProvider
+
+            assert isinstance(settings.embedding, EmbeddingProvider)
+            assert "MiniLM" in settings.embedding.model
         finally:
             sys.modules.pop("no_llm_example_main", None)
 
     def test_example_uses_explicit_llm_none(self):
         """Sanity check: the example demonstrates the ``llm=None`` opt-out."""
-        source = (NO_LLM_DIR / "main.py").read_text()
+        source = (NO_LLM_DIR / "main.py").read_text(encoding="utf-8")
         assert "llm=None" in source
         assert "enable_llm_fallback=False" in source
 

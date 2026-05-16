@@ -46,12 +46,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Embedding providers
+# Provider extras follow native-first resolution (see PRD §5.4):
+#   - Native adapters: [openai], [anthropic], [bedrock], [vertex-ai],
+#     [sentence-transformers]
+#   - Universal fallback: [litellm] — covers every other provider
+#   - Optional power-user: [instructor] — for users who already use Instructor
+# LLM + embedding providers
 openai = ["openai>=1.0.0"]
 anthropic = ["anthropic>=0.20.0"]
 sentence-transformers = ["sentence-transformers>=2.2.0"]
 vertex-ai = ["google-cloud-aiplatform>=1.38.0"]
 bedrock = ["boto3>=1.26.0"]
+litellm = ["litellm>=1.50.0,<2.0"]
+instructor = ["instructor>=1.7.0"]
 
 # Cloud provider bundles
 google = ["google-cloud-aiplatform>=1.38.0"]
@@ -101,12 +108,12 @@ google-adk = ["google-adk>=0.1.0"]
 
 # All optional dependencies (excluding heavy ML models by default)
 all = [
-    "neo4j-agent-memory[openai,anthropic,fuzzy,langchain,llamaindex,pydantic-ai,crewai,openai-agents,microsoft-agent]",
+    "neo4j-agent-memory[openai,anthropic,litellm,fuzzy,langchain,llamaindex,pydantic-ai,crewai,openai-agents,microsoft-agent]",
 ]
 
 # Full install including local models and extraction pipeline
 full = [
-    "neo4j-agent-memory[all,sentence-transformers,spacy,gliner]",
+    "neo4j-agent-memory[all,sentence-transformers,spacy,gliner,instructor]",
 ]
 
 [project.scripts]

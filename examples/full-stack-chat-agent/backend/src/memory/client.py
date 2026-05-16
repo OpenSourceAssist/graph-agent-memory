@@ -2,6 +2,8 @@
 
 import logging
 
+from typing import Any
+
 from neo4j_agent_memory import (
     ExtractionConfig,
     MemoryClient,
@@ -10,6 +12,7 @@ from neo4j_agent_memory import (
     Neo4jConfig,
     SessionStrategy,
 )
+from neo4j_agent_memory.llm import from_provider
 from neo4j_agent_memory.memory.long_term import DeduplicationConfig
 from src.config import get_settings
 
@@ -33,6 +36,33 @@ async def init_memory_client() -> MemoryClient | None:
 
     settings = get_settings()
 
+    # Build provider kwargs honouring optional LLM_MODEL / EMBEDDING_MODEL
+    # env vars (see config.py). Empty strings fall through to the legacy
+    # OpenAI defaults so v0.2 setups keep working unchanged.
+    memory_kwargs: dict[str, Any] = {}
+
+    if settings.embedding_model:
+        emb_kwargs: dict[str, Any] = {}
+        if (
+            settings.embedding_model.startswith("openai/")
+            and settings.openai_api_key.get_secret_value()
+        ):
+            emb_kwargs["api_key"] = settings.openai_api_key.get_secret_value()
+        memory_kwargs["embedding"] = from_provider(
+            settings.embedding_model, kind="embedding", **emb_kwargs
+        )
+
+    if settings.llm_model:
+        llm_kwargs: dict[str, Any] = {}
+        if (
+            settings.llm_model.startswith("openai/")
+            and settings.openai_api_key.get_secret_value()
+        ):
+            llm_kwargs["api_key"] = settings.openai_api_key.get_secret_value()
+        elif settings.llm_model.startswith("anthropic/") and settings.anthropic_api_key:
+            llm_kwargs["api_key"] = settings.anthropic_api_key.get_secret_value()
+        memory_kwargs["llm"] = from_provider(settings.llm_model, kind="llm", **llm_kwargs)
+
     memory_settings = MemorySettings(
         neo4j=Neo4jConfig(
             uri=settings.neo4j_uri,
@@ -44,6 +74,7 @@ async def init_memory_client() -> MemoryClient | None:
             enable_spacy=False,
             enable_llm_fallback=False,
         ),
+        **memory_kwargs,
     )
 
     _memory_client = MemoryClient(memory_settings)

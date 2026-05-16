@@ -1,5 +1,6 @@
 """Neo4j schema management for indexes and constraints."""
 
+import logging
 import re
 from typing import TYPE_CHECKING
 
@@ -18,10 +19,33 @@ if TYPE_CHECKING:
 # Matches names like ``Person``, ``Person_v2``, ``Client``. We deliberately
 # disallow backticks so the caller cannot break out of the quoted label.
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+logger = logging.getLogger(__name__)
 
 
 # Default vector dimensions
 DEFAULT_VECTOR_DIMENSIONS = 1536
+
+
+def _extract_vector_dimensions(options: object) -> int | None:
+    """Pull ``vector.dimensions`` from a ``SHOW VECTOR INDEXES`` options map.
+
+    Neo4j's vector index ``options`` is a nested map of shape::
+
+        {"indexConfig": {"vector.dimensions": 1536, ...}, ...}
+
+    Drivers may return the inner map as a ``dict`` or a Neo4j map object.
+    Returns ``None`` if the structure does not match or the value is not
+    a positive integer (e.g. older Neo4j versions, user-edited indexes).
+    """
+    if not isinstance(options, dict):
+        return None
+    config = options.get("indexConfig")
+    if not isinstance(config, dict):
+        return None
+    dims = config.get("vector.dimensions")
+    if isinstance(dims, int) and dims > 0:
+        return dims
+    return None
 
 
 class SchemaManager:
@@ -105,19 +129,101 @@ class SchemaManager:
         for index_name, label, property_name in indexes:
             await self._create_index(index_name, label, property_name)
 
+    # Vector indexes the library manages. Used by both
+    # :meth:`setup_vector_indexes` and
+    # :meth:`validate_vector_index_dimensions`.
+    _MANAGED_VECTOR_INDEXES: tuple[tuple[str, str, str], ...] = (
+        ("message_embedding_idx", "Message", "embedding"),
+        ("entity_embedding_idx", "Entity", "embedding"),
+        ("preference_embedding_idx", "Preference", "embedding"),
+        ("fact_embedding_idx", "Fact", "embedding"),
+        ("task_embedding_idx", "ReasoningTrace", "task_embedding"),
+        ("step_embedding_idx", "ReasoningStep", "embedding"),
+    )
+
     async def setup_vector_indexes(self) -> None:
         """Create vector indexes for semantic search."""
-        vector_indexes = [
-            ("message_embedding_idx", "Message", "embedding"),
-            ("entity_embedding_idx", "Entity", "embedding"),
-            ("preference_embedding_idx", "Preference", "embedding"),
-            ("fact_embedding_idx", "Fact", "embedding"),
-            ("task_embedding_idx", "ReasoningTrace", "task_embedding"),
-            ("step_embedding_idx", "ReasoningStep", "embedding"),
-        ]
-
-        for index_name, label, property_name in vector_indexes:
+        for index_name, label, property_name in self._MANAGED_VECTOR_INDEXES:
             await self._create_vector_index(index_name, label, property_name)
+
+    async def validate_vector_index_dimensions(self, expected: int) -> None:
+        """Verify existing vector indexes match ``expected`` dimensions.
+
+        Called from :meth:`MemoryClient.connect` after schema setup so the
+        first sign of a misconfigured embedder is a clear error, not a
+        downstream cosine-similarity failure or a silently-wrong search
+        result.
+
+        Only indexes the library manages
+        (:attr:`_MANAGED_VECTOR_INDEXES`) are checked. User-created vector
+        indexes outside that set are ignored.
+
+        Args:
+            expected: Dimensionality declared by the configured embedder.
+
+        Raises:
+            EmbeddingDimensionMismatchError: Any managed vector index
+                has a dimension count that disagrees with ``expected``.
+                The error message lists every mismatching index and points
+                at the migration runbook.
+        """
+        # Lazy import — avoids a circular dependency between
+        # :mod:`graph.schema` and :mod:`llm.errors`.
+        from neo4j_agent_memory.llm.errors import EmbeddingDimensionMismatchError
+
+        try:
+            rows = await self._client.execute_read(queries.SHOW_VECTOR_INDEXES_WITH_OPTIONS)
+        except Exception as exc:
+            # Vector indexes require Neo4j 5.11+. On older servers the
+            # ``SHOW VECTOR INDEXES`` syntax fails; skip validation in
+            # that case — :meth:`setup_vector_indexes` already swallows
+            # the equivalent CREATE failure.
+            if getattr(exc, "code", None) == "Neo.ClientError.Statement.SyntaxError":
+                return
+            logger.warning(
+                "Failed to validate vector index dimensions using SHOW VECTOR INDEXES.",
+                exc_info=True,
+            )
+            raise
+
+        managed_names = {name for name, _, _ in self._MANAGED_VECTOR_INDEXES}
+        mismatches: list[tuple[str, int, int]] = []
+        for row in rows:
+            name = row.get("name")
+            if name not in managed_names:
+                continue
+            actual = _extract_vector_dimensions(row.get("options"))
+            if actual is None:
+                continue
+            if actual != expected:
+                mismatches.append((name, expected, actual))
+
+        if not mismatches:
+            return
+
+        # Build a multi-line, actionable error message.
+        lines = ["Vector index dimension mismatch.", ""]
+        for name, want, got in mismatches:
+            lines.append(f"  Index {name!r}: expected {want}, found {got}")
+        lines.extend(
+            [
+                "",
+                "This usually means you've changed the embedding model since the",
+                "indexes were created. Two options:",
+                "",
+                "  1. Drop and recreate the indexes (loses existing embeddings).",
+                "     See docs/how-to/migrate-embedding-model.adoc.",
+                "  2. Revert to the previous embedding model.",
+                "",
+                f"Configured embedder dimensions: {expected}",
+            ]
+        )
+        raise EmbeddingDimensionMismatchError(
+            "\n".join(lines),
+            expected_dimensions=expected,
+            actual_dimensions=mismatches[0][2],
+            index_name=mismatches[0][0],
+        )
 
     async def setup_point_indexes(self) -> None:
         """Create point indexes for geospatial queries."""

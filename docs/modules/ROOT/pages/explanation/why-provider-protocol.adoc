@@ -1,0 +1,152 @@
+= Why the Provider Protocol?
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+A conceptual look at the design choices behind v0.3's pluggable LLM and embedding providers — why three protocols instead of one, why native-first resolution, why schema-aligned retry instead of an Instructor-only path.
+
+[.lead]
+v0.3 reshapes the LLM and embedding surface from a single hard-coded OpenAI client into three structural Protocols backed by adapters. This page explains *why* the design landed where it did. For task-oriented use, see xref:how-to/bring-your-own-model.adoc[Bring Your Own Model].
+
+== The problem v0.2 had
+
+In v0.2, `LLMEntityExtractor` directly imported `from openai import AsyncOpenAI`. Even if a user passed `LLMConfig(provider=LLMProvider.ANTHROPIC, ...)`, the extractor still constructed an OpenAI client. That meant:
+
+* Anthropic users had to monkey-patch or fork the library.
+* Bedrock-only deployments (with no internet egress to OpenAI) couldn't run the extractor.
+* Custom local models (vLLM, Ollama, Together) were unreachable.
+* Costs were locked to OpenAI pricing.
+
+The fix had three constraints:
+
+. **Backward compatibility.** Every line of v0.2 code in the wild must keep working.
+. **No abstraction over abstraction.** LiteLLM already abstracts 100+ providers. Wrapping LiteLLM with our own "neo4j-agent-memory layer over LiteLLM" would have been pure cost — no value-add.
+. **Quality must not regress.** OpenAI's strict-mode JSON output and Anthropic's forced tool use produce materially better extraction than LiteLLM's normalised `response_format`. The design has to preserve that.
+
+== Three Protocols, not one
+
+[source,python]
+----
+class LLMProvider(Protocol):
+    model: str
+    async def complete(self, messages, *, temperature=0.0, ...) -> Completion: ...
+
+class StructuredExtractor(Protocol):
+    async def complete_structured(
+        self, messages, response_model, *, temperature=0.0, max_retries=2, ...
+    ) -> T: ...
+
+class EmbeddingProvider(Protocol):
+    model: str
+    dimensions: int
+    async def embed(self, texts) -> list[list[float]]: ...
+    async def embed_one(self, text) -> list[float]: ...
+----
+
+Why three rather than one combined "Provider" interface?
+
+* **Embedding is genuinely a different concern.** It has no chat messages, no temperature, no completion. Folding it into `LLMProvider` would force every embedding-only adapter (`SentenceTransformersProvider`, `OpenAIEmbeddingProvider`) to no-op a `complete()` method.
+* **Structured extraction is opt-in.** A thin adapter (or an experimental local-model adapter) can satisfy the Bronze tier (`LLMProvider`) without committing to the Silver tier (`StructuredExtractor`). The library's entity extractor inspects the provider with `isinstance(provider, StructuredExtractor)` at runtime and chooses the appropriate path. Adapters get to participate at the level they support.
+* **Runtime-checkable Protocols give us free duck typing.** Users with their own custom LLM client can implement `LLMProvider` without inheriting from a base class. `isinstance(my_provider, LLMProvider)` works on structural typing, and Pydantic validates Provider instances against the Protocol in `MemorySettings._resolve_providers`.
+
+The cost of three Protocols is a bit more conceptual surface area. The win is precision: every adapter declares exactly which capabilities it provides, and the entity extractor can pick the best available path.
+
+== Native-first resolution
+
+When you write `from_provider("openai/gpt-4o-mini")`:
+
+* If the `[openai]` extra is installed, you get `OpenAIProvider`.
+* If only `[litellm]` is installed, you get `LiteLLMProvider`.
+* If both are installed, you get `OpenAIProvider` (the native adapter wins).
+
+Why?
+
+* Native adapters preserve provider-specific features that LiteLLM normalises away — OpenAI strict-mode JSON, Anthropic prompt caching (opt-in via `cache_system=True`), Bedrock Converse streaming. These are quality and cost wins.
+* LiteLLM is the universal fallback. We want LiteLLM to *just work* for the long tail of providers without needing 50 native adapter files in the package.
+* Users who want consistent behaviour across providers — for example, observability tooling that depends on LiteLLM's normalised cost-tracking — can override with `prefer_litellm=True`.
+
+The escape hatch is intentional. The default is "best available" because that's what produces the best agent quality.
+
+== Schema-aligned retry (SAP) as the safety net
+
+OpenAI has strict mode. Anthropic has forced tool use. LiteLLM has... `response_format` that works on some providers and not others. What do you do for a provider that has no native structured output mode?
+
+`schema_aligned_extract` is the answer. The algorithm is simple:
+
+. Send the prompt with the JSON schema as system context.
+. Parse the response tolerantly (strip markdown fences, smart quotes, trailing commas; find the largest balanced `{...}` block).
+. Validate against the Pydantic schema.
+. On `ValidationError` or `JSONDecodeError`, append the failed response and a feedback message naming the violated field paths, then retry.
+. After `max_retries + 1` attempts, raise `StructuredExtractionError` carrying every attempt for diagnosability.
+
+It's a coarse path. But the validation-error feedback message is the secret: models respond to "the field `entities[0].type` is invalid" much better than "your response was invalid." Empirically, second-attempt success rates are very high on capable models.
+
+We considered making Instructor (https://python.useinstructor.com/[instructor library]) the only structured-output path. We rejected it because:
+
+* Instructor is great for users *already on Instructor*, but it's a heavy dependency for users who aren't.
+* Native adapters (OpenAI, Anthropic, Bedrock) already do better than Instructor for their own provider because they use vendor-specific features.
+* We expose Instructor as an *optional* adapter (`InstructorProvider` in `[instructor]`) for users who want it.
+
+== Why a separate exception hierarchy
+
+`neo4j_agent_memory.llm.errors` defines `ProviderError`, `ProviderRateLimitError`, etc. — completely separate from `neo4j_agent_memory.core.exceptions.MemoryError`.
+
+Provider errors are about LLM/embedding API calls. Memory errors are about Neo4j storage. A user's `except ProviderRateLimitError` should never inadvertently catch a Neo4j connection failure. Separation keeps the "what went wrong" surface clean.
+
+Each adapter translates its SDK's exceptions to the agnostic hierarchy. The translation table is documented in each adapter's module docstring; the goal is that `except ProviderRateLimitError` works identically across OpenAI, Anthropic, Bedrock, and LiteLLM.
+
+== Why `dimensions: int` is required on `EmbeddingProvider`
+
+Neo4j vector indexes are sized at creation time. If your embedder reports `dimensions=384` but the existing index is sized for `1536`, every insert silently fails (or, worse, succeeds with truncated/garbage vectors).
+
+`MemoryClient.connect()` introspects the embedder's `dimensions` attribute and validates every managed vector index. A mismatch raises `EmbeddingDimensionMismatchError` with the offending index list and a pointer to xref:how-to/migrate-embedding-model.adoc[the migration runbook] — fail fast, with actionable guidance.
+
+This is why `EmbeddingProvider.dimensions` is a required attribute, not a method. It must be available at construction time, not lazily after the first `embed()` call. Adapters auto-populate it from the defaults table for known models; for unknown models the user must pass `dimensions=N` explicitly. Sentence-transformers is the one exception: it can introspect itself after model load.
+
+== Why the legacy `EmbeddingConfig` / `LLMConfig` types are deprecated, not removed
+
+Two reasons:
+
+. **Backward compatibility is non-negotiable.** Removing the types in v0.3 would break every v0.2.x user. The plan is v0.3 deprecates, v0.4 escalates to `FutureWarning`, v0.5 removes.
+. **The new surface is strictly better.** Provider strings are shorter, easier to type, easier to switch. Provider instances offer more control than the legacy enum allowed (api_base override, batch_size, prompt caching). There's no reason to keep the legacy path long-term.
+
+The migration cost is minimal — see xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3] for side-by-side examples — and the warning fires exactly once per `MemoryClient` construction.
+
+== What we deliberately did not build
+
+Out of scope for v0.3:
+
+* **Multimodal content** — `ChatMessage.content` is `str` only. Introducing `content: str | list[ContentPart]` is non-breaking and can land in v0.4.
+* **Streaming responses** — `complete()` returns the final `Completion`. Streaming is a v0.4+ concern.
+* **LiteLLM Router** — users who want LiteLLM's fallback / retry / load-balancing features can wrap their own Provider.
+* **Embedding caching** — content-addressed cache layer is a v0.4+ optimisation.
+* **A hosted gateway / proxy** — outside the library's scope.
+* **Synchronous API** — the library remains async-only, by design.
+
+== Why this design helps the TCK
+
+The Provider Protocol is the canonical specification for the `agent-memory-tck` certification tiers:
+
+* **Bronze**: implements `LLMProvider` + `EmbeddingProvider`.
+* **Silver**: also implements `StructuredExtractor`.
+* **Gold**: meets the Bronze + Silver behavioural tests in the TCK harness against real cassettes.
+
+The Python protocol module is small (`llm/protocol.py` is ~80 lines), has no SDK dependency, and serves as the source-of-truth specification. Polyglot ports (TypeScript, Go) target the same shape.
+
+== Summary
+
+* Three Protocols make capability tiers explicit and let adapters declare what they support.
+* Native-first resolution gets the best output quality per provider, with LiteLLM as the universal fallback.
+* SAP is the structured-output safety net for providers without native modes.
+* A separate exception hierarchy keeps provider errors distinct from storage errors.
+* `dimensions: int` is required at construction time so vector indexes fail fast on mismatches.
+* Backward compatibility is preserved through v0.4; legacy types are deprecated, not removed.
+
+== Related
+
+* xref:how-to/bring-your-own-model.adoc[Bring Your Own Model] — the task-oriented version of this page.
+* xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3].
+* xref:explanation/extraction-pipeline.adoc[Extraction Pipeline] — how the entity extractor uses the Protocol.

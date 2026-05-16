@@ -27,6 +27,7 @@ Both implementations share the same sample data, Neo4j schema, tool implementati
 
 ---
 
+> **Need a different LLM or embedding model?** As of `neo4j-agent-memory` v0.3 you can swap providers via a single string — `MemorySettings(llm="anthropic/claude-3-5-sonnet-latest", embedding="BAAI/bge-small-en-v1.5")`. See [Bring Your Own Model](https://neo4j.com/labs/agent-memory/how-to/bring-your-own-model.html).
 ## What It Does
 
 Ask a question like *"Investigate customer CUST-003 for potential money laundering"* and the system:

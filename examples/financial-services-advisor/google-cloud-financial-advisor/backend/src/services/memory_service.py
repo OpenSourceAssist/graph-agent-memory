@@ -13,13 +13,10 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 from neo4j_agent_memory import ExtractionConfig, MemoryClient, MemorySettings
-from neo4j_agent_memory.config.settings import (
-    EmbeddingConfig,
-    EmbeddingProvider,
-    Neo4jConfig,
-)
-from neo4j_agent_memory.memory.long_term import DeduplicationConfig
+from neo4j_agent_memory.config.settings import Neo4jConfig
 from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+from neo4j_agent_memory.llm import from_provider
+from neo4j_agent_memory.memory.long_term import DeduplicationConfig
 
 from ..config import get_settings
 
@@ -57,7 +54,15 @@ class FinancialMemoryService:
         """
         settings = get_settings()
 
-        # Configure memory settings with Vertex AI embeddings
+        # v0.3+: build a VertexAIEmbeddingProvider via from_provider.
+        # Project ID and location pass through to the adapter.
+        embedding_provider = from_provider(
+            f"vertex_ai/{settings.vertex_ai.embedding_model}",
+            kind="embedding",
+            project_id=settings.vertex_ai.get_project_id(),
+            location=settings.vertex_ai.location,
+        )
+
         self._memory_settings = MemorySettings(
             neo4j=Neo4jConfig(
                 uri=settings.neo4j.uri,
@@ -65,12 +70,7 @@ class FinancialMemoryService:
                 password=settings.neo4j.password,
                 database=settings.neo4j.database,
             ),
-            embedding=EmbeddingConfig(
-                provider=EmbeddingProvider.VERTEX_AI,
-                model=settings.vertex_ai.embedding_model,
-                project_id=settings.vertex_ai.get_project_id(),
-                location=settings.vertex_ai.location,
-            ),
+            embedding=embedding_provider,
             extraction=ExtractionConfig(),
         )
         # DeduplicationConfig is available for preventing duplicate customer entities.

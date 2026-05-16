@@ -14,6 +14,7 @@ This example shows the minimal wiring to back a Google ADK agent with `neo4j-age
 
 > **Looking for more?** [`examples/google_cloud_integration/`](../google_cloud_integration/) covers the full Google Cloud surface — Vertex AI embeddings, MCP server, Cloud Run deployment.
 
+> **Need a different LLM or embedding model?** As of `neo4j-agent-memory` v0.3 you can swap providers via a single string — `MemorySettings(llm="anthropic/claude-3-5-sonnet-latest", embedding="BAAI/bge-small-en-v1.5")`. See [Bring Your Own Model](https://neo4j.com/labs/agent-memory/how-to/bring-your-own-model.html).
 ## What this demonstrates
 
 - **`Neo4jMemoryService`** — the ADK-compatible `MemoryService` interface backed by `MemoryClient`.

@@ -22,19 +22,15 @@ This example shows how to wire `MemorySettings` for environments where you can't
 ## What this demonstrates
 
 - **`llm=None`** — explicit opt-out. Validated at construction time.
-- **`EmbeddingProvider.SENTENCE_TRANSFORMERS`** — local embeddings via `sentence-transformers` (defaults shown: `all-MiniLM-L6-v2`, 384 dims).
+- **Provider-string shorthand for local embeddings** — `"sentence-transformers/all-MiniLM-L6-v2"` resolves to `SentenceTransformersProvider` via `from_provider`. No external API calls.
 - **`ExtractorType.PIPELINE` with `enable_llm_fallback=False`** — multi-stage spaCy + GLiNER pipeline, no LLM rescue.
 - **Configuration-time validation** — if you pair `llm=None` with an extractor that requires an LLM, `MemorySettings` raises a `ValidationError` naming both fields rather than failing later at runtime.
 
 ```python
 settings = MemorySettings(
     neo4j=Neo4jConfig(...),
-    llm=None,                                 # explicit opt-out
-    embedding=EmbeddingConfig(
-        provider=EmbeddingProvider.SENTENCE_TRANSFORMERS,
-        model="all-MiniLM-L6-v2",
-        dimensions=384,
-    ),
+    llm=None,                                          # explicit opt-out
+    embedding="sentence-transformers/all-MiniLM-L6-v2",# local embeddings
     extraction=ExtractionConfig(
         extractor_type=ExtractorType.PIPELINE,
         enable_spacy=True,

@@ -181,7 +181,7 @@ class TestPydanticAIAgentExample:
     def test_example_sections_present(self, examples_dir):
         """Verify the example covers all documented sections."""
         example_path = examples_dir / "pydantic_ai_agent.py"
-        content = example_path.read_text()
+        content = example_path.read_text(encoding="utf-8")
 
         # Check for key sections
         assert "MemoryDependency" in content
@@ -194,7 +194,7 @@ class TestPydanticAIAgentExample:
     def test_example_has_proper_structure(self, examples_dir):
         """Verify the example has proper Python structure."""
         example_path = examples_dir / "pydantic_ai_agent.py"
-        content = example_path.read_text()
+        content = example_path.read_text(encoding="utf-8")
 
         # Check for main function and entry point
         assert "async def main():" in content

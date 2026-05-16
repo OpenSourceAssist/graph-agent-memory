@@ -3,13 +3,13 @@
 import logging
 
 from neo4j_agent_memory import (
-    EmbeddingConfig,
     ExtractionConfig,
     MemoryClient,
     MemorySettings,
     Neo4jConfig,
 )
 from neo4j_agent_memory.config.settings import EnrichmentConfig, EnrichmentProvider
+from neo4j_agent_memory.llm import from_provider
 from neo4j_agent_memory.memory.long_term import DeduplicationConfig
 from src.config import get_settings
 
@@ -63,15 +63,46 @@ async def init_memory_client() -> MemoryClient | None:
         gliner_schema="podcast",
     )
 
+    # Resolve providers from the user-configurable strings. Defaults are
+    # OpenAI for both; set LLM_MODEL=anthropic/claude-3-5-sonnet-latest
+    # and EMBEDDING_MODEL=BAAI/bge-small-en-v1.5 in the .env to run the
+    # demo entirely on Anthropic + local embeddings (PRD acceptance #2).
+    embed_kwargs: dict = {}
+    if (
+        settings.embedding_model.startswith("openai/")
+        and settings.openai_api_key.get_secret_value()
+    ):
+        embed_kwargs["api_key"] = settings.openai_api_key.get_secret_value()
+    embedding_provider = from_provider(
+        settings.embedding_model,
+        kind="embedding",
+        **embed_kwargs,
+    )
+
+    llm_kwargs: dict = {}
+    if (
+        settings.llm_model.startswith("openai/")
+        and settings.openai_api_key.get_secret_value()
+    ):
+        llm_kwargs["api_key"] = settings.openai_api_key.get_secret_value()
+    elif settings.llm_model.startswith("anthropic/") and settings.anthropic_api_key:
+        llm_kwargs["api_key"] = settings.anthropic_api_key.get_secret_value()
+    llm_provider = from_provider(settings.llm_model, kind="llm", **llm_kwargs)
+
+    logger.info(
+        "Memory providers: llm=%s embedding=%s",
+        type(llm_provider).__name__,
+        type(embedding_provider).__name__,
+    )
+
     memory_settings = MemorySettings(
         neo4j=Neo4jConfig(
             uri=settings.neo4j_uri,
             username=settings.neo4j_username,
             password=settings.neo4j_password,
         ),
-        embedding=EmbeddingConfig(
-            api_key=settings.openai_api_key,
-        ),
+        embedding=embedding_provider,
+        llm=llm_provider,
         enrichment=enrichment_config,
         extraction=extraction_config,
     )

@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from neo4j_agent_memory import MemoryClient
+    from neo4j_agent_memory.llm.protocol import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -85,11 +86,26 @@ class MemoryObserver:
         *,
         threshold_tokens: int = 30000,
         recent_message_window: int = 20,
+        llm_provider: LLMProvider | None = None,
     ):
+        """Initialize the observer.
+
+        Args:
+            client: MemoryClient for querying conversation history.
+            threshold_tokens: Token count at which to trigger compression.
+            recent_message_window: Number of recent messages to always keep
+                in full detail (not compressed).
+            llm_provider: Optional :class:`LLMProvider` used to summarize
+                older messages when generating reflections. When ``None``,
+                the observer falls back to keyword/entity extraction (the
+                v0.2 behavior). Wiring this argument is what enables
+                Anthropic/Bedrock/Ollama-powered reflection summaries.
+        """
         self._client = client
         self._threshold_tokens = threshold_tokens
         self._recent_window = recent_message_window
         self._sessions: dict[str, SessionContext] = {}
+        self._llm_provider = llm_provider
 
     def _get_session(self, session_id: str) -> SessionContext:
         """Get or create session context tracker."""
@@ -134,8 +150,10 @@ class MemoryObserver:
     async def _generate_reflection(self, session_id: str) -> None:
         """Generate a high-level reflection for the session.
 
-        This compresses older messages into a summary reflection.
-        Falls back to entity/topic extraction if no LLM is available.
+        This compresses older messages into a summary reflection. When an
+        :class:`LLMProvider` is configured, uses a single ``complete`` call
+        to produce a one-paragraph summary. Otherwise falls back to
+        keyword/entity extraction (the v0.2 behavior).
         """
         ctx = self._get_session(session_id)
 
@@ -155,36 +173,13 @@ class MemoryObserver:
             if not older_messages:
                 return
 
-            # Build a keyword-based summary
-            entities: set[str] = set()
+            reflection: str | None
+            if self._llm_provider is not None:
+                reflection = await self._llm_summarize(older_messages, ctx)
+            else:
+                reflection = self._keyword_reflection(older_messages, ctx)
 
-            for msg in older_messages:
-                # Extract capitalized multi-word phrases as potential entities
-                words = msg.content.split()
-                for i, word in enumerate(words):
-                    if word and word[0].isupper() and len(word) > 2:
-                        # Check for multi-word entity (consecutive capitalized words)
-                        entity_parts = [word]
-                        for j in range(i + 1, min(i + 4, len(words))):
-                            if words[j] and words[j][0].isupper():
-                                entity_parts.append(words[j])
-                            else:
-                                break
-                        if len(entity_parts) > 1:
-                            entities.add(" ".join(entity_parts))
-
-            # Create a reflection from accumulated data
-            reflection_parts = []
-            if ctx.observations:
-                obs_summary = "; ".join(o.content for o in ctx.observations[-10:])
-                reflection_parts.append(f"Key observations: {obs_summary}")
-            if entities:
-                top_entities = sorted(entities)[:10]
-                reflection_parts.append(f"Entities discussed: {', '.join(top_entities)}")
-            if reflection_parts:
-                reflection = f"Session summary ({ctx.message_count} messages): " + ". ".join(
-                    reflection_parts
-                )
+            if reflection:
                 ctx.reflections.append(reflection)
 
             ctx.last_compression_at = ctx.message_count
@@ -196,6 +191,92 @@ class MemoryObserver:
 
         except Exception as e:
             logger.warning(f"Error generating reflection for session {session_id}: {e}")
+
+    async def _llm_summarize(
+        self,
+        older_messages: list[Any],
+        ctx: SessionContext,
+    ) -> str | None:
+        """Use the configured :class:`LLMProvider` to summarize older messages.
+
+        On any provider error we silently fall through to the keyword path
+        — a reflection failure must never break the message-store hot path.
+        """
+        if self._llm_provider is None:  # pragma: no cover - guarded by caller
+            return None
+        from neo4j_agent_memory.llm.types import ChatMessage
+
+        transcript_parts: list[str] = []
+        for msg in older_messages[-60:]:  # cap transcript size
+            role = getattr(msg, "role", None)
+            role_name = role.value if hasattr(role, "value") else (role or "user")
+            transcript_parts.append(f"{role_name}: {msg.content}")
+        transcript = "\n".join(transcript_parts)
+
+        system = ChatMessage(
+            role="system",
+            content=(
+                "You are a session summarizer. Produce a single concise "
+                "paragraph capturing decisions, facts, and unresolved "
+                "questions. No bullet lists, no headers, under 120 words."
+            ),
+        )
+        user = ChatMessage(
+            role="user",
+            content=(
+                f"Summarize this conversation so future turns have the "
+                f"essential context. There are {ctx.message_count} total "
+                f"messages; the following is the older portion:\n\n{transcript}"
+            ),
+        )
+        try:
+            completion = await self._llm_provider.complete(
+                [system, user],
+                temperature=0.0,
+                max_tokens=400,
+            )
+        except Exception as exc:  # pragma: no cover - provider errors logged
+            logger.warning("LLM summarization failed, falling back to keywords: %s", exc)
+            return self._keyword_reflection(older_messages, ctx)
+        summary = completion.content.strip()
+        if not summary:
+            return self._keyword_reflection(older_messages, ctx)
+        return f"Session summary ({ctx.message_count} messages): {summary}"
+
+    def _keyword_reflection(
+        self,
+        older_messages: list[Any],
+        ctx: SessionContext,
+    ) -> str | None:
+        """Fallback summarizer that uses capitalized phrases as entity proxies.
+
+        Identical to the v0.2 behavior; lifted into its own method so the
+        LLM path can fall back to it on error.
+        """
+        entities: set[str] = set()
+        for msg in older_messages:
+            words = msg.content.split()
+            for i, word in enumerate(words):
+                if word and word[0].isupper() and len(word) > 2:
+                    entity_parts = [word]
+                    for j in range(i + 1, min(i + 4, len(words))):
+                        if words[j] and words[j][0].isupper():
+                            entity_parts.append(words[j])
+                        else:
+                            break
+                    if len(entity_parts) > 1:
+                        entities.add(" ".join(entity_parts))
+
+        reflection_parts: list[str] = []
+        if ctx.observations:
+            obs_summary = "; ".join(o.content for o in ctx.observations[-10:])
+            reflection_parts.append(f"Key observations: {obs_summary}")
+        if entities:
+            top_entities = sorted(entities)[:10]
+            reflection_parts.append(f"Entities discussed: {', '.join(top_entities)}")
+        if not reflection_parts:
+            return None
+        return f"Session summary ({ctx.message_count} messages): " + ". ".join(reflection_parts)
 
     def _extract_inline_observations(
         self,

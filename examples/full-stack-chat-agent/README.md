@@ -45,7 +45,20 @@ A complete example demonstrating `neo4j-agent-memory` integration with a Pydanti
 - Python 3.11+
 - Node.js 18+
 - Docker (for Neo4j)
-- OpenAI API key
+- OpenAI API key (or another provider — see [Bring Your Own Model](https://neo4j.com/labs/agent-memory/how-to/bring-your-own-model.html))
+
+### Swapping the LLM / embedding provider (v0.3+)
+
+This example uses `neo4j-agent-memory` v0.3's provider-string shorthand, so you can switch to Anthropic / Bedrock / Vertex AI / local sentence-transformers by changing a single setting in `backend/.env`:
+
+```bash
+# Anthropic + local embeddings (no OpenAI dependency)
+LLM_MODEL=anthropic/claude-3-5-sonnet-latest
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Then install the matching extras: `uv sync --extra anthropic --extra sentence-transformers`. See the [v0.3 migration guide](https://neo4j.com/labs/agent-memory/how-to/migrate-to-v0.3.html) for the full provider matrix.
 
 ## Quick Start
 

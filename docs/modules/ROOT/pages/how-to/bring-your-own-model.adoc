@@ -1,0 +1,286 @@
+= Bring Your Own Model
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+How to plug in any LLM or embedding provider — native adapters for OpenAI, Anthropic, Bedrock, Vertex AI, and sentence-transformers; LiteLLM universal fallback for everything else.
+
+[.lead]
+As of v0.3 `neo4j-agent-memory` is provider-pluggable. You pass either a provider-string shorthand (`"anthropic/claude-3-5-sonnet-latest"`), an explicit Provider instance, or hand off your already-configured framework model. The library picks the most reliable backend available.
+
+== TL;DR — string shorthand
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm="anthropic/claude-3-5-sonnet-latest",
+    embedding="openai/text-embedding-3-small",
+)
+
+async with MemoryClient(settings) as client:
+    ...
+----
+
+* Install: `pip install neo4j-agent-memory[anthropic,openai]`
+* The factory picks a native adapter when the matching extra is installed, and falls back to LiteLLM for unsupported providers.
+* Returned Providers implement the `LLMProvider` / `EmbeddingProvider` Protocols.
+
+== Pick a provider
+
+[cols="2,3,2,2",options="header"]
+|===
+| Provider             | Example model string                            | Extra                     | Notes
+| OpenAI               | `openai/gpt-4o-mini`                            | `[openai]`                | Native: strict-mode structured output.
+| Anthropic            | `anthropic/claude-3-5-sonnet-latest`            | `[anthropic]`             | Native: forced tool-use + optional prompt caching.
+| AWS Bedrock          | `bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0` | `[bedrock]`           | Native: Converse API; reads boto3 credential chain.
+| Vertex AI (Gemini)   | `vertex_ai/gemini-2.5-flash`                    | `[litellm]`               | Routes via LiteLLM; needs ADC credentials.
+| Ollama (local)       | `ollama/llama3.2`                               | `[litellm]`               | Pass `api_base="http://localhost:11434"`.
+| Groq                 | `groq/llama-3.1-70b-versatile`                  | `[litellm]`               | LiteLLM universal.
+| Together             | `together_ai/meta-llama/Llama-3.3-70B-Instruct-Turbo` | `[litellm]`         | LiteLLM universal.
+| Cohere               | `cohere/command-r-plus`                         | `[litellm]`               | LiteLLM universal.
+| OpenRouter (any)     | `openrouter/anthropic/claude-3.5-sonnet`        | `[litellm]`               | LiteLLM universal.
+|===
+
+Embedding-only providers:
+
+[cols="2,3,2,2",options="header"]
+|===
+| Provider                 | Example model string                  | Extra                     | Dimensions
+| OpenAI                   | `openai/text-embedding-3-small`       | `[openai]`                | 1536
+| OpenAI (large)           | `openai/text-embedding-3-large`       | `[openai]`                | 3072
+| Vertex AI                | `vertex_ai/text-embedding-004`        | `[vertex-ai]`             | 768
+| Bedrock Titan            | `bedrock/amazon.titan-embed-text-v2:0`| `[bedrock]`               | 1024
+| sentence-transformers    | `BAAI/bge-small-en-v1.5`              | `[sentence-transformers]` | 384
+| sentence-transformers    | `BAAI/bge-large-en-v1.5`              | `[sentence-transformers]` | 1024
+| Cohere                   | `cohere/embed-english-v3.0`           | `[litellm]`               | 1024
+| Voyage                   | `voyage/voyage-3`                     | `[litellm]`               | 1024
+|===
+
+For models not in the defaults table, pass an explicit `dimensions=N` when constructing the adapter directly, or via `--embedding-dimensions` on the MCP CLI.
+
+== Native-first resolution
+
+When you call `from_provider("openai/gpt-4o-mini")`:
+
+. Parse `openai` as the provider prefix.
+. If `[openai]` is installed and the prefix is one of `{openai, anthropic, bedrock}`, use the native adapter.
+. Otherwise, if `[litellm]` is installed, route through `LiteLLMProvider`.
+. Otherwise, raise `ImportError` with an install hint for both the native extra and the universal fallback.
+
+You can force LiteLLM even when a native adapter is available:
+
+[source,python]
+----
+from neo4j_agent_memory.llm import from_provider
+
+provider = from_provider(
+    "openai/gpt-4o",
+    prefer_litellm=True,
+)
+----
+
+Why this design? Native adapters get provider-specific features (OpenAI strict-mode JSON, Anthropic prompt caching, Bedrock Converse) that LiteLLM normalizes away or lags on. The escape hatch exists for consistency-across-providers testing.
+
+== Three ways to wire a provider
+
+=== A. Provider-string shorthand
+
+Simplest. The factory resolves the string.
+
+[source,python]
+----
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm="anthropic/claude-3-5-sonnet-latest",
+)
+----
+
+=== B. Explicit Provider instance
+
+When you need adapter-specific kwargs (`api_base`, `cache_system`, `aws_region`):
+
+[source,python]
+----
+from neo4j_agent_memory.llm.adapters.anthropic import AnthropicProvider
+from neo4j_agent_memory.llm.adapters.litellm import LiteLLMProvider
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=AnthropicProvider(
+        "anthropic/claude-3-5-sonnet-latest",
+        cache_system=True,           # opt-in prompt caching
+    ),
+)
+
+# Or a local model behind LiteLLM:
+ollama = LiteLLMProvider(
+    "ollama/llama3.2",
+    api_base="http://localhost:11434",
+)
+----
+
+=== C. Framework pass-through
+
+Hand off a model you've already configured with your agent framework:
+
+[source,python]
+----
+from langchain_anthropic import ChatAnthropic
+from neo4j_agent_memory.integrations.langchain import (
+    llm_provider_from_langchain,
+)
+
+chat = ChatAnthropic(model_name="claude-3-5-sonnet-latest")
+
+settings = MemorySettings(
+    neo4j={"password": "p"},
+    llm=llm_provider_from_langchain(chat),
+)
+----
+
+See xref:how-to/migrate-to-v0.3.adoc[the migration guide] for the full list of `llm_provider_from_<framework>` helpers.
+
+== Embedding models — the dimension gotcha
+
+Embedding adapters require `dimensions: int` so Neo4j vector indexes are sized correctly at `connect()`. The defaults table covers common models; for an unknown model, pass `dimensions=` explicitly:
+
+[source,python]
+----
+from neo4j_agent_memory.llm.adapters.sentence_transformers import (
+    SentenceTransformersProvider,
+)
+
+# Known model — dimensions auto-populated from defaults.
+embedder = SentenceTransformersProvider("BAAI/bge-small-en-v1.5")
+assert embedder.dimensions == 384
+
+# Unknown model — must specify dimensions.
+custom = SentenceTransformersProvider("my-org/my-internal-model", dimensions=512)
+----
+
+If you change embedding model after creating data, see xref:how-to/migrate-embedding-model.adoc[Migrate Embedding Model] for the index-rebuild runbook.
+
+== Structured extraction
+
+The library's entity extractor calls `complete_structured()` when the provider implements `StructuredExtractor`. This is what makes extraction quality high across providers:
+
+* **OpenAI**: strict mode (`response_format={"type": "json_schema", "strict": True}`) — schema-conforming output guaranteed.
+* **Anthropic**: forced tool use — the model is required to call a single tool whose input is your Pydantic schema.
+* **LiteLLM**: schema-aligned retry (`schema_aligned_extract`) — feeds validation errors back to the LLM as feedback for up to 2 retries.
+
+You can use the same pattern directly:
+
+[source,python]
+----
+from pydantic import BaseModel
+from neo4j_agent_memory.llm import ChatMessage, from_provider
+
+class City(BaseModel):
+    name: str
+    population: int
+
+provider = from_provider("anthropic/claude-3-5-sonnet-latest")
+city = await provider.complete_structured(
+    [ChatMessage(role="user", content="Population of Paris in 2024?")],
+    response_model=City,
+)
+print(city.name, city.population)
+----
+
+If a provider does not implement `StructuredExtractor`, the universal `schema_aligned_extract` helper still works:
+
+[source,python]
+----
+from neo4j_agent_memory.llm import schema_aligned_extract
+
+city = await schema_aligned_extract(
+    provider,
+    messages=[ChatMessage(role="user", content="...")],
+    response_model=City,
+    max_retries=2,
+)
+----
+
+== Error handling
+
+Every adapter translates SDK-specific exceptions to the provider-agnostic hierarchy in `neo4j_agent_memory.llm.errors`:
+
+[source,python]
+----
+from neo4j_agent_memory.llm import ProviderRateLimitError, ProviderTimeoutError
+
+try:
+    result = await provider.complete([...])
+except ProviderRateLimitError as e:
+    # Same except clause works across OpenAI, Anthropic, Bedrock, LiteLLM.
+    await asyncio.sleep(e.retry_after or 1.0)
+    result = await provider.complete([...])
+except ProviderTimeoutError:
+    ...
+----
+
+The full hierarchy:
+
+* `ProviderError` (base)
+  ** `ProviderAuthError` — invalid/missing API key.
+  ** `ProviderRateLimitError` — carries `retry_after: float | None`.
+  ** `ProviderTimeoutError`.
+  ** `ProviderInvalidRequestError` — unknown model, malformed request.
+  ** `ProviderServiceError` — 5xx / retriable.
+  ** `StructuredExtractionError` — SAP retries exhausted; carries `last_attempts` and `validation_errors`.
+  ** `EmbeddingDimensionMismatchError` — see xref:how-to/migrate-embedding-model.adoc[migration runbook].
+
+== Provider matrix at a glance
+
+[cols="2,1,1,1,1",options="header"]
+|===
+| Adapter                                       | LLM Bronze | Structured Silver | Embedding | Notes
+| `OpenAIProvider`                              | ✓          | ✓ (strict mode)   |           | Most reliable.
+| `OpenAIEmbeddingProvider`                     |            |                   | ✓         | Dimension reduction supported.
+| `AnthropicProvider`                           | ✓          | ✓ (forced tool)   |           | Optional prompt caching.
+| `BedrockProvider`                             | ✓          | ✓ (tool use)      |           | Boto3 credential chain.
+| `BedrockEmbeddingProvider`                    |            |                   | ✓         | Titan + Cohere via Bedrock.
+| `LiteLLMProvider`                             | ✓          | ✓ (via SAP)       |           | 100+ providers.
+| `LiteLLMEmbeddingProvider`                    |            |                   | ✓         | Cohere, Voyage, etc.
+| `SentenceTransformersProvider`                |            |                   | ✓         | Local, no API key.
+| `VertexAIEmbeddingProvider`                   |            |                   | ✓         | Wraps existing Vertex AI embedder.
+| `InstructorProvider`                          |            | ✓ (Instructor SDK)|           | For users already on Instructor.
+|===
+
+== Configure via the MCP CLI
+
+Match the Python API surface from the command line:
+
+[source,bash]
+----
+neo4j-agent-memory mcp serve \
+  --password mypw \
+  --llm anthropic/claude-3-5-sonnet-latest \
+  --embedding BAAI/bge-small-en-v1.5 \
+  --llm-api-key $ANTHROPIC_API_KEY
+----
+
+Or via env vars:
+
+[source,bash]
+----
+export NAM_LLM=anthropic/claude-3-5-sonnet-latest
+export NAM_EMBEDDING=BAAI/bge-small-en-v1.5
+neo4j-agent-memory mcp serve --password mypw
+----
+
+See xref:reference/cli.adoc[CLI Reference] for the full flag set.
+
+== Related
+
+* xref:tutorials/anthropic-and-local-embeddings.adoc[Tutorial: Anthropic + local embeddings] — a copy-paste-runnable walkthrough.
+* xref:how-to/configure-llm-provider.adoc[Configure LLM Provider].
+* xref:how-to/configure-embedding-provider.adoc[Configure Embedding Provider].
+* xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.
+* xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3] — backward compat and side-by-side examples.

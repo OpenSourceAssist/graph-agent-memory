@@ -1262,6 +1262,9 @@ SHOW_CONSTRAINTS = "SHOW CONSTRAINTS YIELD name RETURN name"
 SHOW_INDEXES = "SHOW INDEXES YIELD name RETURN name"
 SHOW_CONSTRAINTS_DETAIL = "SHOW CONSTRAINTS YIELD name, type, labelsOrTypes, properties RETURN *"
 SHOW_INDEXES_DETAIL = "SHOW INDEXES YIELD name, type, labelsOrTypes, properties RETURN *"
+SHOW_VECTOR_INDEXES_WITH_OPTIONS = (
+    "SHOW VECTOR INDEXES YIELD name, options RETURN name AS name, options AS options"
+)
 
 # =============================================================================
 # SHORT-TERM MEMORY ENTITY EXTRACTION QUERIES

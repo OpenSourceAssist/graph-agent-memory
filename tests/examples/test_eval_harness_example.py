@@ -20,7 +20,7 @@ class TestEvalHarnessStructure:
             assert (EVAL_DIR / filename).exists(), f"Missing: {filename}"
 
     def test_main_compiles(self):
-        ast.parse((EVAL_DIR / "main.py").read_text())
+        ast.parse((EVAL_DIR / "main.py").read_text(encoding="utf-8"))
 
 
 @pytest.mark.imports
@@ -53,10 +53,10 @@ class TestEvalHarnessImports:
 @pytest.mark.syntax
 class TestEvalHarnessContent:
     def test_main_uses_eval_run(self):
-        source = (EVAL_DIR / "main.py").read_text()
+        source = (EVAL_DIR / "main.py").read_text(encoding="utf-8")
         assert "client.eval.run" in source
 
     def test_main_uses_audit_and_preference_cases(self):
-        source = (EVAL_DIR / "main.py").read_text()
+        source = (EVAL_DIR / "main.py").read_text(encoding="utf-8")
         assert "AuditCase" in source
         assert "PreferenceCase" in source

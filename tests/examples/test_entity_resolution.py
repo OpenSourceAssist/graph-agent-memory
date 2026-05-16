@@ -3,6 +3,7 @@
 This example doesn't require Neo4j - it tests resolution algorithms only.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -124,12 +125,17 @@ class TestEntityResolutionExample:
         """Run the complete example script and verify it completes."""
         example_path = EXAMPLES_DIR / "entity_resolution.py"
 
+        # Force UTF-8 stdout in the subprocess so example scripts printing
+        # Unicode glyphs (e.g. ✓) don't crash on Windows' default cp1252.
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
         result = subprocess.run(
             [sys.executable, str(example_path)],
             capture_output=True,
             text=True,
             timeout=60,
             cwd=str(EXAMPLES_DIR),
+            env=env,
+            encoding="utf-8",
         )
 
         # Check it completed (may have warnings about missing packages)
@@ -140,7 +146,7 @@ class TestEntityResolutionExample:
     def test_example_sections_present(self, examples_dir):
         """Verify the example covers all documented sections."""
         example_path = examples_dir / "entity_resolution.py"
-        content = example_path.read_text()
+        content = example_path.read_text(encoding="utf-8")
 
         # Check for key sections from the example
         assert "Exact Match Resolution" in content

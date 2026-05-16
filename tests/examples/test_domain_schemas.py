@@ -51,7 +51,7 @@ class TestDomainSchemasStructure:
         if not script_path.exists():
             pytest.skip(f"Script not found: {script}")
         try:
-            ast.parse(script_path.read_text())
+            ast.parse(script_path.read_text(encoding="utf-8"))
         except SyntaxError as e:
             pytest.fail(f"Syntax error in {script}: {e}")
 
@@ -61,7 +61,7 @@ class TestDomainSchemasStructure:
         script_path = SCHEMAS_DIR / script
         if not script_path.exists():
             pytest.skip(f"Script not found: {script}")
-        content = script_path.read_text()
+        content = script_path.read_text(encoding="utf-8")
         assert "async def main():" in content, f"{script} should have 'async def main()'"
         assert '__name__ == "__main__"' in content, f"{script} should have main entry point"
 
@@ -71,7 +71,7 @@ class TestDomainSchemasStructure:
         script_path = SCHEMAS_DIR / script
         if not script_path.exists():
             pytest.skip(f"Script not found: {script}")
-        content = script_path.read_text()
+        content = script_path.read_text(encoding="utf-8")
         assert "is_gliner_available" in content, f"{script} should check GLiNER availability"
 
 
@@ -83,7 +83,7 @@ class TestDomainSchemasFeatures:
         script = SCHEMAS_DIR / "podcast_transcripts.py"
         if not script.exists():
             pytest.skip("Script not found")
-        content = script.read_text()
+        content = script.read_text(encoding="utf-8")
         assert "create_gliner_extractor" in content, (
             "podcast_transcripts.py should use create_gliner_extractor factory"
         )
@@ -94,7 +94,7 @@ class TestDomainSchemasFeatures:
         script = SCHEMAS_DIR / "podcast_transcripts.py"
         if not script.exists():
             pytest.skip("Script not found")
-        content = script.read_text()
+        content = script.read_text(encoding="utf-8")
         assert "extract_batch" in content, (
             "podcast_transcripts.py should demonstrate batch extraction"
         )
@@ -104,7 +104,7 @@ class TestDomainSchemasFeatures:
         script = SCHEMAS_DIR / "news_articles.py"
         if not script.exists():
             pytest.skip("Script not found")
-        content = script.read_text()
+        content = script.read_text(encoding="utf-8")
         assert "GLiNERWithRelationsExtractor" in content or "is_glirel_available" in content, (
             "news_articles.py should demonstrate GLiREL relation extraction"
         )
@@ -114,7 +114,7 @@ class TestDomainSchemasFeatures:
         script = SCHEMAS_DIR / "scientific_papers.py"
         if not script.exists():
             pytest.skip("Script not found")
-        content = script.read_text()
+        content = script.read_text(encoding="utf-8")
         assert "StreamingExtractor" in content or "create_streaming_extractor" in content, (
             "scientific_papers.py should demonstrate streaming extraction"
         )
@@ -124,7 +124,7 @@ class TestDomainSchemasFeatures:
         script = SCHEMAS_DIR / "poleo_investigations.py"
         if not script.exists():
             pytest.skip("Script not found")
-        content = script.read_text()
+        content = script.read_text(encoding="utf-8")
         assert "GLiNERWithRelationsExtractor" in content or "is_glirel_available" in content, (
             "poleo_investigations.py should demonstrate GLiREL relation extraction"
         )

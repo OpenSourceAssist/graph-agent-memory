@@ -53,7 +53,7 @@ class TestGoogleADKDemoStructure:
     def test_demo_has_docstring(self, demo_dir):
         """Verify demo.py has a module docstring."""
         demo = demo_dir / "demo.py"
-        content = demo.read_text()
+        content = demo.read_text(encoding="utf-8")
         assert content.strip().startswith("#!/usr/bin/env python") or content.strip().startswith(
             '"""'
         ), "demo.py should have a module docstring or shebang"
@@ -61,14 +61,14 @@ class TestGoogleADKDemoStructure:
     def test_demo_has_main_function(self, demo_dir):
         """Verify demo.py has async main function."""
         demo = demo_dir / "demo.py"
-        content = demo.read_text()
+        content = demo.read_text(encoding="utf-8")
         assert "async def main():" in content, "demo.py should have 'async def main()'"
         assert 'if __name__ == "__main__":' in content, "demo.py should have main entry point"
 
     def test_demo_valid_python(self, demo_dir):
         """Verify demo.py is valid Python syntax."""
         demo = demo_dir / "demo.py"
-        source_code = demo.read_text()
+        source_code = demo.read_text(encoding="utf-8")
         try:
             ast.parse(source_code)
         except SyntaxError as e:
@@ -77,13 +77,13 @@ class TestGoogleADKDemoStructure:
     def test_demo_uses_async_context_manager(self, demo_dir):
         """Verify demo.py uses async context manager for MemoryClient."""
         demo = demo_dir / "demo.py"
-        content = demo.read_text()
+        content = demo.read_text(encoding="utf-8")
         assert "async with MemoryClient" in content, "demo.py should use 'async with MemoryClient'"
 
     def test_demo_uses_neo4j_memory_service(self, demo_dir):
         """Verify demo.py uses Neo4jMemoryService."""
         demo = demo_dir / "demo.py"
-        content = demo.read_text()
+        content = demo.read_text(encoding="utf-8")
         assert "Neo4jMemoryService" in content, "demo.py should use Neo4jMemoryService"
 
 
@@ -158,7 +158,7 @@ class TestGoogleADKDemoFeatures:
         demo = demo_dir / "demo.py"
         if not demo.exists():
             pytest.skip("demo.py not found")
-        content = demo.read_text()
+        content = demo.read_text(encoding="utf-8")
         assert "SessionStrategy" in content, "demo.py should reference SessionStrategy"
 
     def test_demo_uses_memory_integration(self, demo_dir):
@@ -166,5 +166,5 @@ class TestGoogleADKDemoFeatures:
         demo = demo_dir / "demo.py"
         if not demo.exists():
             pytest.skip("demo.py not found")
-        content = demo.read_text()
+        content = demo.read_text(encoding="utf-8")
         assert "MemoryIntegration" in content, "demo.py should reference MemoryIntegration"
