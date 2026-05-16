@@ -73,6 +73,7 @@ def _reset_vector_indexes(neo4j_connection_info):
     Uses the sync driver so the fixture works for both async and sync tests
     in this class.
     """
+
     def _drop_indexes() -> None:
         with driver.session() as session:
             for name in _MANAGED_VECTOR_INDEX_NAMES:
