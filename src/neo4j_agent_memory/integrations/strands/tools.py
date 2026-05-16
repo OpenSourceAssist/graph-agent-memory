@@ -85,12 +85,14 @@ def _get_or_create_client(
         # Fall back to a sensible Bedrock default when the user did not
         # specify a model — preserves the v0.2 behavior of this helper.
         model_id = embedding_model or "amazon.titan-embed-text-v2:0"
+        is_bedrock = embedding_provider == "bedrock"
         if embedding_provider == "sentence_transformers":
             # Accept full HuggingFace ids ("BAAI/bge-small-en-v1.5") as-is,
             # but normalize bare model names ("all-MiniLM-L6-v2") to the
             # canonical provider-string format consumed by from_provider().
-            model_string = model_id if "/" in model_id else f"sentence-transformers/{model_id}"
-            prefix = ""
+            org, slash, model_name = model_id.partition("/")
+            has_full_hf_id = bool(slash) and bool(org) and bool(model_name)
+            model_string = model_id if has_full_hf_id else f"sentence-transformers/{model_id}"
         else:
             provider_prefixes = {
                 "bedrock": "bedrock/",
@@ -101,7 +103,7 @@ def _get_or_create_client(
             model_string = f"{prefix}{model_id}"
 
         embed_kwargs: dict[str, Any] = {}
-        if prefix == "bedrock/":
+        if is_bedrock:
             aws_region = kwargs.get("aws_region")
             aws_profile = kwargs.get("aws_profile")
             if aws_region is not None:

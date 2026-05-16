@@ -373,9 +373,10 @@ class TestRunAsync:
 class TestGetOrCreateClient:
     """Tests for _get_or_create_client helper."""
 
-    def test_non_bedrock_embedding_does_not_forward_aws_kwargs(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    @staticmethod
+    def _patch_provider_capture(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> tuple[dict[str, object], object]:
         import neo4j_agent_memory as nam
         import neo4j_agent_memory.config.settings as settings_mod
         import neo4j_agent_memory.llm as llm_mod
@@ -406,6 +407,12 @@ class TestGetOrCreateClient:
         monkeypatch.setattr(nam, "MemoryClient", _FakeClient)
         monkeypatch.setattr(settings_mod, "Neo4jConfig", _FakeNeo4jConfig)
         tools.clear_client_cache()
+        return captured, tools
+
+    def test_non_bedrock_embedding_does_not_forward_aws_kwargs(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured, tools = self._patch_provider_capture(monkeypatch)
 
         tools._get_or_create_client(
             neo4j_uri="neo4j+s://test.databases.neo4j.io",
@@ -425,36 +432,7 @@ class TestGetOrCreateClient:
     def test_sentence_transformers_bare_model_is_normalized(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import neo4j_agent_memory as nam
-        import neo4j_agent_memory.config.settings as settings_mod
-        import neo4j_agent_memory.llm as llm_mod
-        from neo4j_agent_memory.integrations.strands import tools
-
-        captured: dict[str, object] = {}
-
-        def fake_from_provider(model: str, *, kind: str = "llm", **kwargs: object) -> object:
-            captured["model"] = model
-            captured["kind"] = kind
-            captured["kwargs"] = kwargs
-            return object()
-
-        class _FakeSettings:
-            def __init__(self, **kwargs: object) -> None:
-                self.kwargs = kwargs
-
-        class _FakeNeo4jConfig:
-            def __init__(self, **kwargs: object) -> None:
-                self.kwargs = kwargs
-
-        class _FakeClient:
-            def __init__(self, settings: object) -> None:
-                self.settings = settings
-
-        monkeypatch.setattr(llm_mod, "from_provider", fake_from_provider)
-        monkeypatch.setattr(nam, "MemorySettings", _FakeSettings)
-        monkeypatch.setattr(nam, "MemoryClient", _FakeClient)
-        monkeypatch.setattr(settings_mod, "Neo4jConfig", _FakeNeo4jConfig)
-        tools.clear_client_cache()
+        captured, tools = self._patch_provider_capture(monkeypatch)
 
         tools._get_or_create_client(
             neo4j_uri="neo4j+s://test.databases.neo4j.io",
@@ -472,36 +450,7 @@ class TestGetOrCreateClient:
     def test_sentence_transformers_full_hf_id_is_preserved(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        import neo4j_agent_memory as nam
-        import neo4j_agent_memory.config.settings as settings_mod
-        import neo4j_agent_memory.llm as llm_mod
-        from neo4j_agent_memory.integrations.strands import tools
-
-        captured: dict[str, object] = {}
-
-        def fake_from_provider(model: str, *, kind: str = "llm", **kwargs: object) -> object:
-            captured["model"] = model
-            captured["kind"] = kind
-            captured["kwargs"] = kwargs
-            return object()
-
-        class _FakeSettings:
-            def __init__(self, **kwargs: object) -> None:
-                self.kwargs = kwargs
-
-        class _FakeNeo4jConfig:
-            def __init__(self, **kwargs: object) -> None:
-                self.kwargs = kwargs
-
-        class _FakeClient:
-            def __init__(self, settings: object) -> None:
-                self.settings = settings
-
-        monkeypatch.setattr(llm_mod, "from_provider", fake_from_provider)
-        monkeypatch.setattr(nam, "MemorySettings", _FakeSettings)
-        monkeypatch.setattr(nam, "MemoryClient", _FakeClient)
-        monkeypatch.setattr(settings_mod, "Neo4jConfig", _FakeNeo4jConfig)
-        tools.clear_client_cache()
+        captured, tools = self._patch_provider_capture(monkeypatch)
 
         tools._get_or_create_client(
             neo4j_uri="neo4j+s://test.databases.neo4j.io",
