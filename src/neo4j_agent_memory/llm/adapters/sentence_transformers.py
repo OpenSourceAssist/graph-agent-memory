@@ -14,12 +14,8 @@ Notes:
     * For known HuggingFace model IDs (``BAAI/bge-*``, ``sentence-transformers/all-*``,
       etc.) the :attr:`dimensions` is auto-populated from the defaults table
       without loading the model.
-    * For unknown model IDs, the model is loaded lazily on first ``embed()``
-      and :attr:`dimensions` is introspected from
-      ``model.get_sentence_embedding_dimension()``. Until then,
-      :attr:`dimensions` reflects whatever the user passed (or raises).
-    * The price for unknown-model auto-introspection is a one-time
-      model-download delay. Document this behavior at adoption time.
+    * For unknown model IDs, pass ``dimensions=`` explicitly. This guarantees
+      :attr:`dimensions` is always valid before vector index setup.
 """
 
 from __future__ import annotations
@@ -99,7 +95,7 @@ class SentenceTransformersProvider:
         self._embedder_loaded = False
 
         # Best-effort dimensions resolution before model load.
-        # Order: explicit > defaults table > defer to lazy load.
+        # Order: explicit > defaults table > require explicit for unknown models.
         if dimensions is not None:
             self.dimensions = dimensions
         else:
@@ -107,13 +103,9 @@ class SentenceTransformersProvider:
             if known is not None:
                 self.dimensions = known
             else:
-                # Sentence-transformers can introspect after load; defer.
-                # We set a placeholder; first embed() call will refresh.
-                self.dimensions = 0
-                logger.debug(
-                    "SentenceTransformersProvider: dimensions for %r not in defaults "
-                    "table; will be introspected on first embed() call.",
-                    model,
+                raise ValueError(
+                    "Unknown sentence-transformers model dimensions for "
+                    f"{model!r}. Pass dimensions=<positive-int> explicitly."
                 )
 
     def _ensure_underlying(self) -> SentenceTransformerEmbedder:

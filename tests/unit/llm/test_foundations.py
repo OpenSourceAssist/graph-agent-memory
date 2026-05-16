@@ -120,6 +120,24 @@ def test_lookup_misses_unknown_model():
     assert lookup_embedding_dimensions("vendor-x/unknown-v9") is None
 
 
+def test_sentence_transformers_requires_dimensions_for_unknown_model():
+    from neo4j_agent_memory.llm.adapters.sentence_transformers import (
+        SentenceTransformersProvider,
+    )
+
+    with pytest.raises(ValueError, match="Pass dimensions=<positive-int> explicitly"):
+        SentenceTransformersProvider("vendor-x/unknown-v9")
+
+
+def test_sentence_transformers_accepts_explicit_dimensions_for_unknown_model():
+    from neo4j_agent_memory.llm.adapters.sentence_transformers import (
+        SentenceTransformersProvider,
+    )
+
+    provider = SentenceTransformersProvider("vendor-x/unknown-v9", dimensions=384)
+    assert provider.dimensions == 384
+
+
 # ---------------------------------------------------------------------------
 # Error hierarchy
 # ---------------------------------------------------------------------------
