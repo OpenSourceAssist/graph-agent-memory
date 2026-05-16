@@ -1,4 +1,4 @@
-﻿# Google ADK Memory Demo
+# Google ADK Memory Demo
 
 ![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)
 ![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)

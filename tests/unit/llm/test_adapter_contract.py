@@ -169,7 +169,6 @@ def test_adapter_class_exists_and_is_a_class(module_path: str, class_name: str):
     methods), so importing the module itself should succeed even without
     the underlying extra installed.
     """
-    pytest.importorskip(module_path.rsplit(".", 1)[1], reason="adapter module unavailable")
     import importlib
 
     module = importlib.import_module(module_path)
