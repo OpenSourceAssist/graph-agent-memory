@@ -71,6 +71,12 @@ class _StubClient:
         return self._rows
 
 
+class _SyntaxErrorStub(RuntimeError):
+    """Exception stub matching Neo4j syntax error code contract."""
+
+    code = "Neo.ClientError.Statement.SyntaxError"
+
+
 async def test_validate_passes_when_all_managed_indexes_match():
     rows = [
         {
@@ -149,9 +155,10 @@ async def test_validate_silently_skips_when_show_query_unsupported():
     # ``SHOW VECTOR INDEXES`` does not exist on Neo4j < 5.11. The validator
     # must swallow the error and skip validation (rather than crashing the
     # connect() path).
-    unsupported = RuntimeError("simulated syntax error")
-    unsupported.code = "Neo.ClientError.Statement.SyntaxError"  # type: ignore[attr-defined]
-    mgr = SchemaManager(_StubClient(error_on_read=unsupported), vector_dimensions=1536)  # type: ignore[arg-type]
+    mgr = SchemaManager(
+        _StubClient(error_on_read=_SyntaxErrorStub("simulated syntax error")),
+        vector_dimensions=1536,
+    )  # type: ignore[arg-type]
     await mgr.validate_vector_index_dimensions(1536)
 
 

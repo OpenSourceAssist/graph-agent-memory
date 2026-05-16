@@ -244,6 +244,9 @@ def _resolve_embedding(
 
 def _install_hint(provider_prefix: str, kind: str) -> str:
     """Build the install-hint message attached to a missing-adapter ImportError."""
+    if kind not in {"llm", "embedding"}:
+        raise ValueError(f"Unsupported adapter kind: {kind!r}")
+
     native_extras_by_kind: dict[str, dict[str, str]] = {
         "llm": {
             "openai": "openai",
