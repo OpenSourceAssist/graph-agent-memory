@@ -1,4 +1,4 @@
-﻿"""Smoke tests for LlamaIndex example code."""
+"""Smoke tests for LlamaIndex example code."""
 
 import ast
 import importlib.util

@@ -1,4 +1,4 @@
-﻿"""Smoke tests for the audit-trail example."""
+"""Smoke tests for the audit-trail example."""
 
 from __future__ import annotations
 

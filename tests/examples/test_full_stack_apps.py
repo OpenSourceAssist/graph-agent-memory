@@ -1,4 +1,4 @@
-﻿"""Validation tests for full-stack example applications.
+"""Validation tests for full-stack example applications.
 
 These tests validate that the example apps:
 - Have correct structure

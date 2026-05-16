@@ -1,4 +1,4 @@
-﻿"""Tests for Python code snippets in documentation.
+"""Tests for Python code snippets in documentation.
 
 These tests validate that code examples in the documentation are syntactically
 correct and use valid imports.

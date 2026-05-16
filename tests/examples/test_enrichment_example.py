@@ -1,4 +1,4 @@
-﻿"""Smoke tests for the enrichment_example.py example."""
+"""Smoke tests for the enrichment_example.py example."""
 
 from __future__ import annotations
 

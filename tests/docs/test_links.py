@@ -1,4 +1,4 @@
-﻿"""Tests for documentation link validation.
+"""Tests for documentation link validation.
 
 These tests verify that internal links, cross-references, and structure are correct.
 """

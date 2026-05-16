@@ -1,4 +1,4 @@
-﻿"""Validation tests for domain-schemas example scripts.
+"""Validation tests for domain-schemas example scripts.
 
 These tests validate that the domain schema scripts:
 - Exist and have valid Python syntax

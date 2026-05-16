@@ -1,4 +1,4 @@
-﻿"""Validation tests for the microsoft_agent_retail_assistant example.
+"""Validation tests for the microsoft_agent_retail_assistant example.
 
 These tests validate that the example app:
 - Has correct structure

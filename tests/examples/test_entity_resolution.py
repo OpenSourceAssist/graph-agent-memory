@@ -1,4 +1,4 @@
-﻿"""Smoke tests for entity_resolution.py example.
+"""Smoke tests for entity_resolution.py example.
 
 This example doesn't require Neo4j - it tests resolution algorithms only.
 """

@@ -1,4 +1,4 @@
-﻿"""Tests for the Financial Advisor Neo4j integration.
+"""Tests for the Financial Advisor Neo4j integration.
 
 Covers:
 - Neo4jDomainService (unit tests with mocked graph client)
@@ -1176,7 +1176,9 @@ class TestNewFileStructure:
         assert (app_dir.parent / "data" / "alerts.json").exists()
 
     def test_neo4j_service_has_expected_methods(self, app_dir):
-        content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text(encoding="utf-8")
+        content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text(
+            encoding="utf-8"
+        )
         expected = [
             "list_customers",
             "get_customer",
@@ -1210,14 +1212,18 @@ class TestNewFileStructure:
             "relationship_tools.py",
             "compliance_tools.py",
         ]:
-            content = (app_dir / "backend" / "src" / "tools" / tool_file).read_text(encoding="utf-8")
+            content = (app_dir / "backend" / "src" / "tools" / tool_file).read_text(
+                encoding="utf-8"
+            )
             assert "neo4j_service: Neo4jDomainService" in content, (
                 f"{tool_file} missing neo4j_service param"
             )
 
     def test_agent_files_have_bind_tool(self, app_dir):
         # bind_tool is now imported from the agents package __init__.py
-        init_content = (app_dir / "backend" / "src" / "agents" / "__init__.py").read_text(encoding="utf-8")
+        init_content = (app_dir / "backend" / "src" / "agents" / "__init__.py").read_text(
+            encoding="utf-8"
+        )
         assert "def bind_tool(" in init_content, "__init__.py missing bind_tool"
 
         for agent_file in [
@@ -1226,7 +1232,9 @@ class TestNewFileStructure:
             "relationship_agent.py",
             "compliance_agent.py",
         ]:
-            content = (app_dir / "backend" / "src" / "agents" / agent_file).read_text(encoding="utf-8")
+            content = (app_dir / "backend" / "src" / "agents" / agent_file).read_text(
+                encoding="utf-8"
+            )
             assert "bind_tool" in content, f"{agent_file} missing bind_tool import"
 
     def test_main_initializes_neo4j_service(self, app_dir):
@@ -1241,18 +1249,24 @@ class TestNewFileStructure:
 
     def test_routes_use_app_state(self, app_dir):
         for route_file in ["customers.py", "alerts.py"]:
-            content = (app_dir / "backend" / "src" / "api" / "routes" / route_file).read_text(encoding="utf-8")
+            content = (app_dir / "backend" / "src" / "api" / "routes" / route_file).read_text(
+                encoding="utf-8"
+            )
             assert "_get_neo4j_service" in content, f"{route_file} missing _get_neo4j_service"
 
     def test_chat_has_both_endpoints(self, app_dir):
-        content = (app_dir / "backend" / "src" / "api" / "routes" / "chat.py").read_text(encoding="utf-8")
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "chat.py").read_text(
+            encoding="utf-8"
+        )
         assert "async def chat_stream" in content, "chat.py should have chat_stream"
         assert "async def chat(" in content, "chat.py should have original chat endpoint"
         assert "StreamingResponse" in content, "chat.py should use StreamingResponse"
         assert "text/event-stream" in content, "chat.py should use SSE content type"
 
     def test_chat_records_reasoning_traces(self, app_dir):
-        content = (app_dir / "backend" / "src" / "api" / "routes" / "chat.py").read_text(encoding="utf-8")
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "chat.py").read_text(
+            encoding="utf-8"
+        )
         assert "start_trace" in content, "chat.py should call start_trace"
         assert "add_step" in content, "chat.py should call add_step"
         assert "record_tool_call" in content, "chat.py should call record_tool_call"
@@ -1260,13 +1274,17 @@ class TestNewFileStructure:
         assert "ToolCallStatus" in content, "chat.py should import ToolCallStatus"
 
     def test_chat_filters_internal_adk_functions(self, app_dir):
-        content = (app_dir / "backend" / "src" / "api" / "routes" / "chat.py").read_text(encoding="utf-8")
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "chat.py").read_text(
+            encoding="utf-8"
+        )
         assert "_internal_fns" in content, "chat.py should define _internal_fns set"
         assert '"transfer_to_agent"' in content, "Should filter transfer_to_agent"
         assert '"transfer"' in content, "Should filter transfer"
 
     def test_traces_route_has_endpoints(self, app_dir):
-        content = (app_dir / "backend" / "src" / "api" / "routes" / "traces.py").read_text(encoding="utf-8")
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "traces.py").read_text(
+            encoding="utf-8"
+        )
         assert "get_session_traces" in content, "traces.py should have get_session_traces"
         assert "get_trace_detail" in content, "traces.py should have get_trace_detail"
         assert "reasoning" in content, "traces.py should use reasoning layer"
@@ -1274,18 +1292,24 @@ class TestNewFileStructure:
         assert "get_trace" in content, "traces.py should call get_trace"
 
     def test_routes_init_exports_traces(self, app_dir):
-        content = (app_dir / "backend" / "src" / "api" / "routes" / "__init__.py").read_text(encoding="utf-8")
+        content = (app_dir / "backend" / "src" / "api" / "routes" / "__init__.py").read_text(
+            encoding="utf-8"
+        )
         assert "traces" in content, "__init__.py should export traces module"
 
     def test_neo4j_service_uses_merge_for_alerts(self, app_dir):
-        content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text(encoding="utf-8")
+        content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text(
+            encoding="utf-8"
+        )
         assert "MERGE (a:Alert" in content, "create_alert should use MERGE"
         assert "ON CREATE SET" in content, "create_alert should use ON CREATE SET"
         assert "import uuid" in content, "Should import uuid for alert IDs"
 
     def test_neo4j_service_uses_where_not_and(self, app_dir):
         """Verify get_transactions uses WHERE (not AND) for optional filters."""
-        content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text(encoding="utf-8")
+        content = (app_dir / "backend" / "src" / "services" / "neo4j_service.py").read_text(
+            encoding="utf-8"
+        )
         # The dynamic filter should use WHERE with AND-joined filter list
         assert 'where_extra = "WHERE "' in content, "get_transactions should use WHERE"
 
@@ -1296,7 +1320,9 @@ class TestNewFileStructure:
             "relationship_tools.py",
             "compliance_tools.py",
         ]:
-            content = (app_dir / "backend" / "src" / "tools" / tool_file).read_text(encoding="utf-8")
+            content = (app_dir / "backend" / "src" / "tools" / tool_file).read_text(
+                encoding="utf-8"
+            )
             assert "SAMPLE_CUSTOMERS" not in content, f"{tool_file} still has SAMPLE_CUSTOMERS"
             assert "SAMPLE_TRANSACTIONS" not in content, (
                 f"{tool_file} still has SAMPLE_TRANSACTIONS"
@@ -1305,7 +1331,9 @@ class TestNewFileStructure:
 
     def test_no_hardcoded_sample_data_in_routes(self, app_dir):
         for route_file in ["customers.py", "alerts.py", "investigations.py"]:
-            content = (app_dir / "backend" / "src" / "api" / "routes" / route_file).read_text(encoding="utf-8")
+            content = (app_dir / "backend" / "src" / "api" / "routes" / route_file).read_text(
+                encoding="utf-8"
+            )
             assert "SAMPLE_CUSTOMERS" not in content, f"{route_file} still has SAMPLE_CUSTOMERS"
 
     # -- Frontend structure --------------------------------------------------

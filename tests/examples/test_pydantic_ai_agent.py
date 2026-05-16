@@ -1,4 +1,4 @@
-﻿"""Smoke tests for pydantic_ai_agent.py example.
+"""Smoke tests for pydantic_ai_agent.py example.
 
 This example requires Neo4j and Pydantic AI integration.
 """

@@ -1,4 +1,4 @@
-﻿"""Smoke tests for google_cloud_integration example scripts.
+"""Smoke tests for google_cloud_integration example scripts.
 
 Tests validate that the example scripts:
 - Exist and have correct structure

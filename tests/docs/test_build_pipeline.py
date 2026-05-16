@@ -1,4 +1,4 @@
-﻿"""Tests for the documentation build pipeline.
+"""Tests for the documentation build pipeline.
 
 These tests verify that the Antora build system works correctly.
 """

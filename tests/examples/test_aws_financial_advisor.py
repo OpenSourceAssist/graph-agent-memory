@@ -1,4 +1,4 @@
-﻿"""Validation tests for the AWS Financial Services Advisor example.
+"""Validation tests for the AWS Financial Services Advisor example.
 
 These tests validate that the example:
 - Has correct structure (backend/frontend directories)

@@ -1,4 +1,4 @@
-﻿"""Smoke tests for the existing-graph example.
+"""Smoke tests for the existing-graph example.
 
 Validates structure, imports, and the configuration produced by
 ``examples/existing-graph/memory_settings.py``. This test does NOT require

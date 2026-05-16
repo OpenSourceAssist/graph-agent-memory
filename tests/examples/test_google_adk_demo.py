@@ -1,4 +1,4 @@
-﻿"""Smoke tests for google_adk_demo example.
+"""Smoke tests for google_adk_demo example.
 
 Tests validate that the example:
 - Has correct file structure

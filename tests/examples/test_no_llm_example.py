@@ -1,4 +1,4 @@
-﻿"""Smoke tests for the no_llm example (T7).
+"""Smoke tests for the no_llm example (T7).
 
 Validates structure, imports, and the configuration produced by
 ``examples/no_llm/main.py``. This test does NOT require Neo4j and runs in

@@ -1,4 +1,4 @@
-﻿"""Smoke tests for the eval-harness example."""
+"""Smoke tests for the eval-harness example."""
 
 from __future__ import annotations
 

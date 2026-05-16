@@ -1,4 +1,4 @@
-﻿"""Cross-reference scan: every memory-layer method call in `examples/` must
+"""Cross-reference scan: every memory-layer method call in `examples/` must
 reference a real public method on the actual class.
 
 This catches the kind of drift that broke `get_entity`, `get_messages`,

@@ -1,4 +1,4 @@
-﻿"""Validation tests for the google-cloud-financial-advisor example application.
+"""Validation tests for the google-cloud-financial-advisor example application.
 
 These tests validate that the example app:
 - Has correct directory structure

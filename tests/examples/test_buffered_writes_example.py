@@ -1,4 +1,4 @@
-﻿"""Smoke tests for the buffered-writes example."""
+"""Smoke tests for the buffered-writes example."""
 
 from __future__ import annotations
 

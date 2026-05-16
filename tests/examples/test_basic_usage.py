@@ -1,4 +1,4 @@
-﻿"""Smoke tests for basic_usage.py example.
+"""Smoke tests for basic_usage.py example.
 
 This example requires Neo4j and demonstrates core memory functionality.
 """

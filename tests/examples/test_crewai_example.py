@@ -1,4 +1,4 @@
-﻿"""Smoke tests for CrewAI example code."""
+"""Smoke tests for CrewAI example code."""
 
 import ast
 import importlib.util
