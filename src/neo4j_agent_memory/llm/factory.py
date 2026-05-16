@@ -244,17 +244,21 @@ def _resolve_embedding(
 
 def _install_hint(provider_prefix: str, kind: str) -> str:
     """Build the install-hint message attached to a missing-adapter ImportError."""
-    # Native extras we map cleanly
-    native_extras = {
-        "openai": "openai",
-        "anthropic": "anthropic",
-        "bedrock": "bedrock",
-        "vertex_ai": "vertex-ai",
-        "sentence-transformers": "sentence-transformers",
+    native_extras_by_kind: dict[str, dict[str, str]] = {
+        "llm": {
+            "openai": "openai",
+            "anthropic": "anthropic",
+            "bedrock": "bedrock",
+        },
+        "embedding": {
+            "openai": "openai",
+            "bedrock": "bedrock",
+            "vertex_ai": "vertex-ai",
+            "sentence-transformers": "sentence-transformers",
+        },
     }
-    if kind == "embedding" and provider_prefix == "sentence-transformers":
-        hint_native = "neo4j-agent-memory[sentence-transformers]"
-    elif provider_prefix in native_extras:
+    native_extras = native_extras_by_kind.get(kind, {})
+    if provider_prefix in native_extras:
         hint_native = f"neo4j-agent-memory[{native_extras[provider_prefix]}]"
     else:
         hint_native = None

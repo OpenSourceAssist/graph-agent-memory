@@ -56,16 +56,18 @@ class _StubClient:
     """Minimal Neo4jClient stand-in returning canned rows for execute_read."""
 
     def __init__(
-        self, rows: list[dict[str, Any]] | None = None, raise_on_read: bool = False
+        self,
+        rows: list[dict[str, Any]] | None = None,
+        error_on_read: Exception | None = None,
     ) -> None:
         self._rows = rows or []
-        self._raise = raise_on_read
+        self._error = error_on_read
 
     async def execute_read(
         self, query: str, params: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
-        if self._raise:
-            raise RuntimeError("simulated server error")
+        if self._error is not None:
+            raise self._error
         return self._rows
 
 
@@ -143,9 +145,20 @@ async def test_validate_ignores_unmanaged_indexes():
     await mgr.validate_vector_index_dimensions(1536)
 
 
-async def test_validate_silently_skips_when_show_query_fails():
+async def test_validate_silently_skips_when_show_query_unsupported():
     # ``SHOW VECTOR INDEXES`` does not exist on Neo4j < 5.11. The validator
     # must swallow the error and skip validation (rather than crashing the
     # connect() path).
-    mgr = SchemaManager(_StubClient(raise_on_read=True), vector_dimensions=1536)  # type: ignore[arg-type]
+    unsupported = RuntimeError("simulated syntax error")
+    unsupported.code = "Neo.ClientError.Statement.SyntaxError"  # type: ignore[attr-defined]
+    mgr = SchemaManager(_StubClient(error_on_read=unsupported), vector_dimensions=1536)  # type: ignore[arg-type]
     await mgr.validate_vector_index_dimensions(1536)
+
+
+async def test_validate_reraises_unexpected_show_query_failures():
+    mgr = SchemaManager(
+        _StubClient(error_on_read=RuntimeError("simulated server error")),
+        vector_dimensions=1536,
+    )  # type: ignore[arg-type]
+    with pytest.raises(RuntimeError, match="simulated server error"):
+        await mgr.validate_vector_index_dimensions(1536)

@@ -1,7 +1,7 @@
 """Short-term memory for conversations and messages."""
 
 import json
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
@@ -15,11 +15,11 @@ from neo4j_agent_memory.graph.query_builder import build_create_entity_query
 
 
 def _llm_summarizer(
-    provider: Any,
+    provider: "LLMProvider",
     *,
     max_tokens: int = 500,
     temperature: float = 0.0,
-) -> Callable[[str], Any]:
+) -> Callable[[str], Awaitable[str]]:
     """Build an async summarizer callable backed by an :class:`LLMProvider`.
 
     The returned callable matches the ``summarizer`` parameter shape of
@@ -236,6 +236,7 @@ if TYPE_CHECKING:
     from neo4j_agent_memory.embeddings.base import Embedder
     from neo4j_agent_memory.extraction.base import EntityExtractor
     from neo4j_agent_memory.graph.client import Neo4jClient
+    from neo4j_agent_memory.llm.protocol import LLMProvider
 
 
 class MessageRole(str, Enum):
@@ -322,7 +323,7 @@ class ShortTermMemory(BaseMemory[Message]):
         extractor: "EntityExtractor | None" = None,
         *,
         multi_tenant: bool = False,
-        default_llm_provider: Any = None,
+        default_llm_provider: "LLMProvider | None" = None,
     ):
         """Initialize short-term memory.
 
@@ -1352,7 +1353,7 @@ class ShortTermMemory(BaseMemory[Message]):
         *,
         max_tokens: int = 500,
         include_entities: bool = True,
-        summarizer: Callable[[str], str] | None = None,
+        summarizer: Callable[[str], str | Awaitable[str]] | None = None,
     ) -> ConversationSummary:
         """
         Generate a summary of a conversation.

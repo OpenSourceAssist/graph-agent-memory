@@ -95,12 +95,13 @@ def _get_or_create_client(
         model_string = f"{prefix}{model_id}" if prefix else model_id
 
         embed_kwargs: dict[str, Any] = {}
-        aws_region = kwargs.get("aws_region")
-        aws_profile = kwargs.get("aws_profile")
-        if aws_region is not None:
-            embed_kwargs["aws_region"] = aws_region
-        if aws_profile is not None:
-            embed_kwargs["aws_profile"] = aws_profile
+        if prefix == "bedrock/":
+            aws_region = kwargs.get("aws_region")
+            aws_profile = kwargs.get("aws_profile")
+            if aws_region is not None:
+                embed_kwargs["aws_region"] = aws_region
+            if aws_profile is not None:
+                embed_kwargs["aws_profile"] = aws_profile
 
         embedding_provider_instance = from_provider(model_string, kind="embedding", **embed_kwargs)
 

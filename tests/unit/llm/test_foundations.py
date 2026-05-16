@@ -263,6 +263,27 @@ def test_from_provider_unknown_kind_raises():
         from_provider("openai/gpt-4o", kind="vision")  # type: ignore[arg-type]
 
 
+def test_from_provider_vertex_ai_llm_hint_is_not_embedding_extra(monkeypatch):
+    import neo4j_agent_memory.llm.factory as factory
+
+    monkeypatch.setattr(factory, "_has", lambda _extra: False)
+    with pytest.raises(ImportError) as excinfo:
+        from_provider("vertex_ai/gemini-2.0-flash", kind="llm")
+    msg = str(excinfo.value)
+    assert "vertex-ai" not in msg
+    assert "litellm" in msg
+
+
+def test_from_provider_vertex_ai_embedding_hint_suggests_vertex_extra(monkeypatch):
+    import neo4j_agent_memory.llm.factory as factory
+
+    monkeypatch.setattr(factory, "_has", lambda _extra: False)
+    with pytest.raises(ImportError) as excinfo:
+        from_provider("vertex_ai/text-embedding-004", kind="embedding")
+    msg = str(excinfo.value)
+    assert "vertex-ai" in msg
+
+
 # ---------------------------------------------------------------------------
 # Tolerant JSON parser
 # ---------------------------------------------------------------------------

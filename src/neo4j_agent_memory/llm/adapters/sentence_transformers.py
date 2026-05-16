@@ -92,7 +92,6 @@ class SentenceTransformersProvider:
         self.model = model
         self._device = device if device is not None else _auto_device()
         self._underlying: SentenceTransformerEmbedder | None = None
-        self._embedder_loaded = False
 
         # Best-effort dimensions resolution before model load.
         # Order: explicit > defaults table > require explicit for unknown models.
@@ -125,35 +124,16 @@ class SentenceTransformersProvider:
             )
         return self._underlying
 
-    async def _refresh_dimensions(self) -> None:
-        """After the model loads, refresh :attr:`dimensions` from introspection.
-
-        Sentence-Transformers exposes the actual model dimension via
-        ``get_sentence_embedding_dimension()``. If our defaults-table guess
-        was wrong, this corrects it before any vector index is queried.
-        """
-        if self.dimensions:  # already set
-            return
-        underlying = self._ensure_underlying()
-        # The underlying class lazy-loads; force a load by accessing .dimensions
-        self.dimensions = underlying.dimensions
-
     async def embed(self, texts: Sequence[str]) -> list[list[float]]:
         if not texts:
             return []
         underlying = self._ensure_underlying()
         # Use the wrapped class's batch logic (already async-safe).
-        vectors = await underlying.embed_batch(list(texts))
-        if not self.dimensions:
-            self.dimensions = underlying.dimensions
-        return vectors
+        return await underlying.embed_batch(list(texts))
 
     async def embed_one(self, text: str) -> list[float]:
         underlying = self._ensure_underlying()
-        vector = await underlying.embed(text)
-        if not self.dimensions:
-            self.dimensions = underlying.dimensions
-        return vector
+        return await underlying.embed(text)
 
 
 __all__ = [

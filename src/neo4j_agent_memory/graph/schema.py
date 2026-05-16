@@ -1,5 +1,6 @@
 """Neo4j schema management for indexes and constraints."""
 
+import logging
 import re
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
 # Matches names like ``Person``, ``Person_v2``, ``Client``. We deliberately
 # disallow backticks so the caller cannot break out of the quoted label.
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+logger = logging.getLogger(__name__)
 
 
 # Default vector dimensions
@@ -171,12 +173,18 @@ class SchemaManager:
 
         try:
             rows = await self._client.execute_read(queries.SHOW_VECTOR_INDEXES_WITH_OPTIONS)
-        except Exception:
+        except Exception as exc:
             # Vector indexes require Neo4j 5.11+. On older servers the
             # ``SHOW VECTOR INDEXES`` syntax fails; skip validation in
             # that case — :meth:`setup_vector_indexes` already swallows
             # the equivalent CREATE failure.
-            return
+            if getattr(exc, "code", None) == "Neo.ClientError.Statement.SyntaxError":
+                return
+            logger.warning(
+                "Failed to validate vector index dimensions using SHOW VECTOR INDEXES.",
+                exc_info=True,
+            )
+            raise
 
         managed_names = {name for name, _, _ in self._MANAGED_VECTOR_INDEXES}
         mismatches: list[tuple[str, int, int]] = []
