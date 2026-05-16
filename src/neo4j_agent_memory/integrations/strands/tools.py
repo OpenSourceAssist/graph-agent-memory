@@ -90,8 +90,9 @@ def _get_or_create_client(
             # Accept full HuggingFace ids ("BAAI/bge-small-en-v1.5") as-is,
             # but normalize bare model names ("all-MiniLM-L6-v2") to the
             # canonical provider-string format consumed by from_provider().
-            org, slash, model_name = model_id.partition("/")
-            has_full_hf_id = bool(slash) and bool(org) and bool(model_name)
+            has_full_hf_id = (
+                "/" in model_id and not model_id.startswith("/") and not model_id.endswith("/")
+            )
             model_string = model_id if has_full_hf_id else f"sentence-transformers/{model_id}"
         else:
             provider_prefixes = {
