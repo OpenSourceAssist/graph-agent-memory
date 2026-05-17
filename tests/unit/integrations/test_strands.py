@@ -220,15 +220,18 @@ class TestContextGraphToolsFactory:
         """Test clearing the client cache."""
         from neo4j_agent_memory.integrations.strands.tools import (
             _client_cache,
+            _nams_client_cache,
             clear_client_cache,
         )
 
         # Add something to the cache
         _client_cache["test-key"] = MagicMock()
+        _nams_client_cache[("https://memory.test/v1", "auto")] = [MagicMock()]
 
         clear_client_cache()
 
         assert len(_client_cache) == 0
+        assert len(_nams_client_cache) == 0
 
 
 class TestToolDescriptions:
@@ -495,9 +498,11 @@ class TestNamsClientCache:
         api_key = "nams_sameprefix_1234567890"
         tools._get_or_create_nams_client("https://memory.test/v1", api_key, "bridge")
 
-        expected_key = tools._get_nams_cache_key("https://memory.test/v1", api_key, "bridge")
-        assert list(tools._client_cache) == [expected_key]
-        assert api_key[:8] not in next(iter(tools._client_cache))
+        bucket = tools._get_nams_cache_bucket("https://memory.test/v1", "bridge")
+        cached_entries = tools._nams_client_cache[bucket]
+        assert list(tools._nams_client_cache) == [bucket]
+        assert api_key[:8] not in repr(bucket)
+        assert api_key[:8] not in repr(cached_entries[0])
         assert len(created_settings) == 1
 
     def test_nams_cache_distinguishes_same_prefix_keys(
@@ -535,7 +540,7 @@ class TestNamsClientCache:
         )
 
         assert client_a is not client_b
-        assert len(tools._client_cache) == 2
+        assert len(tools._nams_client_cache[("https://memory.test/v1", "auto")]) == 2
 
 
 class TestBedrockModels:

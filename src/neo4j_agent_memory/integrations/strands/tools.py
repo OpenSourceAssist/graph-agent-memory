@@ -24,9 +24,8 @@ Example:
 from __future__ import annotations
 
 import asyncio
-import hmac
 import logging
-import secrets
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -36,7 +35,13 @@ logger = logging.getLogger(__name__)
 
 # Module-level client cache for tool reuse
 _client_cache: dict[str, MemoryClient] = {}
-_NAMS_CACHE_SALT = secrets.token_bytes(32)
+_nams_client_cache: dict[tuple[str, str], list[_CachedNamsClient]] = {}
+
+
+@dataclass(repr=False)
+class _CachedNamsClient:
+    api_key: str
+    client: MemoryClient
 
 
 def _is_valid_hf_model_id(model_id: str) -> bool:
@@ -67,12 +72,16 @@ def _run_async(coro: Any) -> Any:
         return asyncio.run(coro)
 
 
-def _get_nams_cache_key(endpoint: str, api_key: str, transport_mode: str) -> str:
-    """Build an opaque cache key for NAMS clients without exposing API key material."""
+def _get_nams_cache_bucket(endpoint: str, transport_mode: str) -> tuple[str, str]:
+    """Return the process-local cache bucket key for NAMS clients."""
+    return (endpoint, transport_mode)
+
+
+def _require_nams_api_key(api_key: str) -> str:
+    """Validate that NAMS cache/client creation has a non-empty API key."""
     if not api_key:
-        raise ValueError("api_key is required")
-    key_digest = hmac.digest(_NAMS_CACHE_SALT, api_key.encode("utf-8"), "sha256").hex()
-    return f"nams:{endpoint}:{transport_mode}:{key_digest}"
+        raise ValueError("NAMS cache key generation requires a non-empty api_key.")
+    return api_key
 
 
 def _get_or_create_client(
@@ -741,8 +750,9 @@ def clear_client_cache() -> None:
 
     Call this when you want future tool invocations to create fresh clients.
     """
-    global _client_cache
+    global _client_cache, _nams_client_cache
     _client_cache.clear()
+    _nams_client_cache.clear()
 
 
 # =============================================================================
@@ -757,30 +767,37 @@ def _get_or_create_nams_client(
 ) -> MemoryClient:
     """Build (or retrieve cached) a NAMS-backed MemoryClient for Strands tools.
 
-    Cached by endpoint, transport mode, and a one-way hash of the API key
-    so repeat tool invocations can reuse the same configured client.
+    Cached by endpoint and transport mode, with per-bucket API key matching,
+    so repeat tool invocations in the same process can reuse the same configured client
+    without exposing API key material in the cache key.
     Each tool invocation still opens and closes the client's underlying
     HTTP transport via ``async with client:``.
     """
-    cache_key = _get_nams_cache_key(endpoint, api_key, transport_mode)
-    if cache_key not in _client_cache:
-        from pydantic import SecretStr
+    api_key = _require_nams_api_key(api_key)
+    bucket = _get_nams_cache_bucket(endpoint, transport_mode)
+    cached_clients = _nams_client_cache.setdefault(bucket, [])
+    for cached in cached_clients:
+        if cached.api_key == api_key:
+            return cached.client
 
-        from neo4j_agent_memory import MemoryClient, MemorySettings, NamsConfig
+    from pydantic import SecretStr
 
-        settings = MemorySettings(
-            backend="nams",
-            nams=NamsConfig(
-                endpoint=endpoint,
-                api_key=SecretStr(api_key),
-                # Strands runs tools in short bursts via sync wrappers —
-                # skipping probe avoids a round-trip on every call.
-                validate_on_connect=False,
-                transport_mode=transport_mode,
-            ),
-        )
-        _client_cache[cache_key] = MemoryClient(settings)
-    return _client_cache[cache_key]
+    from neo4j_agent_memory import MemoryClient, MemorySettings, NamsConfig
+
+    settings = MemorySettings(
+        backend="nams",
+        nams=NamsConfig(
+            endpoint=endpoint,
+            api_key=SecretStr(api_key),
+            # Strands runs tools in short bursts via sync wrappers —
+            # skipping probe avoids a round-trip on every call.
+            validate_on_connect=False,
+            transport_mode=transport_mode,
+        ),
+    )
+    client = MemoryClient(settings)
+    cached_clients.append(_CachedNamsClient(api_key=api_key, client=client))
+    return client
 
 
 def _nams_search_context_tool(endpoint: str, api_key: str, transport_mode: str) -> Any:
