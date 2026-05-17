@@ -752,7 +752,7 @@ def _get_or_create_nams_client(
     Each tool invocation still opens and closes the client's underlying
     HTTP transport via ``async with client:``.
     """
-    key_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    key_hash = hashlib.blake2b(api_key.encode("utf-8"), digest_size=32).hexdigest()
     cache_key = f"nams:{endpoint}:{transport_mode}:{key_hash}"
     if cache_key not in _client_cache:
         from pydantic import SecretStr
