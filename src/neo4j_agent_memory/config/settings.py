@@ -504,7 +504,8 @@ class NamsConfig(BaseModel):
     )
     api_key: SecretStr | None = Field(
         default=None,
-        description="NAMS API key (format 'nams_...'). Falls back to MEMORY_API_KEY env var.",
+        description="NAMS API key (format 'nams_...'). When constructed via "
+        "MemorySettings, an unset value may be populated from MEMORY_API_KEY.",
     )
     timeout: float = Field(default=30.0, gt=0, description="HTTP request timeout in seconds.")
     max_retries: int = Field(

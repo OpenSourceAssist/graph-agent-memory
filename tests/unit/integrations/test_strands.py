@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from hashlib import sha256
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -464,6 +465,78 @@ class TestGetOrCreateClient:
         assert captured["model"] == "BAAI/bge-small-en-v1.5"
         assert captured["kind"] == "embedding"
         assert captured["kwargs"] == {}
+
+
+class TestNamsClientCache:
+    def test_nams_cache_key_uses_hashed_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import neo4j_agent_memory as nam
+        import neo4j_agent_memory.config.settings as settings_mod
+        from neo4j_agent_memory.integrations.strands import tools
+
+        created_settings: list[object] = []
+
+        class _FakeNamsConfig:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        class _FakeSettings:
+            def __init__(self, **kwargs: object) -> None:
+                created_settings.append(kwargs)
+
+        class _FakeClient:
+            def __init__(self, settings: object) -> None:
+                self.settings = settings
+
+        monkeypatch.setattr(nam, "NamsConfig", _FakeNamsConfig)
+        monkeypatch.setattr(nam, "MemorySettings", _FakeSettings)
+        monkeypatch.setattr(nam, "MemoryClient", _FakeClient)
+        monkeypatch.setattr(settings_mod, "NamsConfig", _FakeNamsConfig)
+        tools.clear_client_cache()
+
+        api_key = "nams_sameprefix_1234567890"
+        tools._get_or_create_nams_client("https://memory.test/v1", api_key, "bridge")
+
+        expected_hash = sha256(api_key.encode("utf-8")).hexdigest()
+        assert list(tools._client_cache) == [f"nams:https://memory.test/v1:bridge:{expected_hash}"]
+        assert api_key[:8] not in next(iter(tools._client_cache))
+        assert len(created_settings) == 1
+
+    def test_nams_cache_distinguishes_same_prefix_keys(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import neo4j_agent_memory as nam
+        import neo4j_agent_memory.config.settings as settings_mod
+        from neo4j_agent_memory.integrations.strands import tools
+
+        class _FakeNamsConfig:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        class _FakeSettings:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        class _FakeClient:
+            def __init__(self, settings: object) -> None:
+                self.settings = settings
+
+        monkeypatch.setattr(nam, "NamsConfig", _FakeNamsConfig)
+        monkeypatch.setattr(nam, "MemorySettings", _FakeSettings)
+        monkeypatch.setattr(nam, "MemoryClient", _FakeClient)
+        monkeypatch.setattr(settings_mod, "NamsConfig", _FakeNamsConfig)
+        tools.clear_client_cache()
+
+        client_a = tools._get_or_create_nams_client(
+            "https://memory.test/v1",
+            "nams_sameprefix_AAAAAAAA",
+        )
+        client_b = tools._get_or_create_nams_client(
+            "https://memory.test/v1",
+            "nams_sameprefix_BBBBBBBB",
+        )
+
+        assert client_a is not client_b
+        assert len(tools._client_cache) == 2
 
 
 class TestBedrockModels:

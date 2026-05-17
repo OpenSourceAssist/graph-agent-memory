@@ -230,9 +230,7 @@ class TestGetTrace:
 
     @respx.mock
     async def test_not_found_returns_none(self, reasoning):
-        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(
-            404, json={"error": "trace not found"}
-        )
+        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(404)
         assert await reasoning.get_trace("00000000-0000-0000-0000-000000000001") is None
 
 
@@ -249,9 +247,7 @@ class TestGetTraceWithSteps:
 
     @respx.mock
     async def test_not_found_returns_none(self, reasoning):
-        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(
-            404, json={"error": "not found"}
-        )
+        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(404)
         result = await reasoning.get_trace_with_steps("00000000-0000-0000-0000-000000000001")
         assert result is None
 
@@ -276,11 +272,20 @@ class TestListTraces:
 class TestGetContext:
     @respx.mock
     async def test_dict_response(self, reasoning):
-        respx.post("https://memory.test/v1/reasoning/context").respond(
+        route = respx.post("https://memory.test/v1/reasoning/context").respond(
             200, json={"context": "reasoning summary"}
         )
         ctx = await reasoning.get_context("query")
         assert ctx == "reasoning summary"
+        assert json.loads(route.calls[0].request.content) == {"query": "query"}
+
+    @respx.mock
+    async def test_max_traces_zero_is_preserved(self, reasoning):
+        route = respx.post("https://memory.test/v1/reasoning/context").respond(
+            200, json={"context": "reasoning summary"}
+        )
+        await reasoning.get_context("query", max_traces=0, max_items=10)
+        assert json.loads(route.calls[0].request.content) == {"query": "query", "max_traces": 0}
 
 
 # -----------------------------------------------------------------------------

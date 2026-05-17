@@ -24,6 +24,7 @@ Example:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -728,7 +729,7 @@ def context_graph_tools(
 def clear_client_cache() -> None:
     """Clear the cached MemoryClient instances.
 
-    Call this when you want to force new connections to be created.
+    Call this when you want future tool invocations to create fresh clients.
     """
     global _client_cache
     _client_cache.clear()
@@ -746,10 +747,13 @@ def _get_or_create_nams_client(
 ) -> MemoryClient:
     """Build (or retrieve cached) a NAMS-backed MemoryClient for Strands tools.
 
-    Cached by endpoint+api_key prefix so repeat tool invocations don't
-    re-open HTTP connections.
+    Cached by endpoint, transport mode, and a one-way hash of the API key
+    so repeat tool invocations can reuse the same configured client.
+    Each tool invocation still opens and closes the client's underlying
+    HTTP transport via ``async with client:``.
     """
-    cache_key = f"nams:{endpoint}:{api_key[:8] if api_key else ''}"
+    key_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+    cache_key = f"nams:{endpoint}:{transport_mode}:{key_hash}"
     if cache_key not in _client_cache:
         from pydantic import SecretStr
 

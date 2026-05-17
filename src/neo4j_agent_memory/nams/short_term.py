@@ -252,11 +252,14 @@ class NamsShortTermMemory:
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
         """Return assembled context text for a query (NAMS Platinum get_context)."""
+        max_messages = kwargs.get("max_messages")
+        if max_messages is None:
+            max_messages = kwargs.get("max_items")
         body = _drop_none(
             {
                 "query": query,
                 "session_id": kwargs.get("session_id"),
-                "max_messages": kwargs.get("max_messages") or kwargs.get("max_items"),
+                "max_messages": max_messages,
                 "include_short_term": kwargs.get("include_short_term"),
                 "include_long_term": kwargs.get("include_long_term"),
                 "include_reasoning": kwargs.get("include_reasoning"),

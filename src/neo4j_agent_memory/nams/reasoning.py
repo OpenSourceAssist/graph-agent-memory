@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from neo4j_agent_memory.core.exceptions import MemoryError
 from neo4j_agent_memory.memory.reasoning import (
     ReasoningStep,
     ReasoningTrace,
@@ -90,6 +91,12 @@ _SPEC_GET_CONTEXT = EndpointSpec(
 
 def _drop_none(d: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in d.items() if v is not None}
+
+
+def _is_not_found_error(exc: MemoryError) -> bool:
+    """Return True when the transport raised for an HTTP 404."""
+    message = str(exc)
+    return "→ 404" in message or "-> 404" in message
 
 
 def _to_str(value: UUID | str) -> str:
@@ -232,15 +239,13 @@ class NamsReasoningMemory:
 
     async def get_trace(self, trace_id: UUID | str) -> ReasoningTrace | None:
         """Fetch a single trace (header only)."""
-        from neo4j_agent_memory.core.exceptions import MemoryError as _ME
-
         try:
             payload = await self._transport.request(
                 _SPEC_GET_TRACE,
                 path_params={"trace_id": _to_str(trace_id)},
             )
-        except _ME as e:
-            if "not found" in str(e).lower():
+        except MemoryError as e:
+            if _is_not_found_error(e):
                 return None
             raise
         if payload is None:
@@ -252,16 +257,14 @@ class NamsReasoningMemory:
         trace_id: UUID | str,
     ) -> ReasoningTrace | None:
         """Fetch a trace with its full step + tool-call chain."""
-        from neo4j_agent_memory.core.exceptions import MemoryError as _ME
-
         try:
             payload = await self._transport.request(
                 _SPEC_GET_TRACE_WITH_STEPS,
                 path_params={"trace_id": _to_str(trace_id)},
                 params={"include": "steps"},
             )
-        except _ME as e:
-            if "not found" in str(e).lower():
+        except MemoryError as e:
+            if _is_not_found_error(e):
                 return None
             raise
         if payload is None:
@@ -298,10 +301,13 @@ class NamsReasoningMemory:
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
         """Return assembled context text from reasoning memory."""
+        max_traces = kwargs.get("max_traces")
+        if max_traces is None:
+            max_traces = kwargs.get("max_items")
         body = _drop_none(
             {
                 "query": query,
-                "max_traces": kwargs.get("max_traces") or kwargs.get("max_items"),
+                "max_traces": max_traces,
                 "session_id": kwargs.get("session_id"),
             }
         )
