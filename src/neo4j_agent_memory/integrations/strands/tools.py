@@ -24,8 +24,9 @@ Example:
 from __future__ import annotations
 
 import asyncio
-import hashlib
+import hmac
 import logging
+import secrets
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 # Module-level client cache for tool reuse
 _client_cache: dict[str, MemoryClient] = {}
+_NAMS_CACHE_SALT = secrets.token_bytes(32)
 
 
 def _is_valid_hf_model_id(model_id: str) -> bool:
@@ -63,6 +65,14 @@ def _run_async(coro: Any) -> Any:
     else:
         # No running loop - safe to use asyncio.run
         return asyncio.run(coro)
+
+
+def _get_nams_cache_key(endpoint: str, api_key: str, transport_mode: str) -> str:
+    """Build an opaque cache key for NAMS clients without exposing API key material."""
+    if not api_key:
+        raise ValueError("api_key is required")
+    key_digest = hmac.digest(_NAMS_CACHE_SALT, api_key.encode("utf-8"), "sha256").hex()
+    return f"nams:{endpoint}:{transport_mode}:{key_digest}"
 
 
 def _get_or_create_client(
@@ -752,8 +762,7 @@ def _get_or_create_nams_client(
     Each tool invocation still opens and closes the client's underlying
     HTTP transport via ``async with client:``.
     """
-    key_hash = hashlib.blake2b(api_key.encode("utf-8"), digest_size=32).hexdigest()
-    cache_key = f"nams:{endpoint}:{transport_mode}:{key_hash}"
+    cache_key = _get_nams_cache_key(endpoint, api_key, transport_mode)
     if cache_key not in _client_cache:
         from pydantic import SecretStr
 

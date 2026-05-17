@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from hashlib import blake2b
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -496,8 +495,8 @@ class TestNamsClientCache:
         api_key = "nams_sameprefix_1234567890"
         tools._get_or_create_nams_client("https://memory.test/v1", api_key, "bridge")
 
-        expected_hash = blake2b(api_key.encode("utf-8"), digest_size=32).hexdigest()
-        assert list(tools._client_cache) == [f"nams:https://memory.test/v1:bridge:{expected_hash}"]
+        expected_key = tools._get_nams_cache_key("https://memory.test/v1", api_key, "bridge")
+        assert list(tools._client_cache) == [expected_key]
         assert api_key[:8] not in next(iter(tools._client_cache))
         assert len(created_settings) == 1
 

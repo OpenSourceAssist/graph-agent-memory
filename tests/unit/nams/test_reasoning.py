@@ -230,6 +230,7 @@ class TestGetTrace:
 
     @respx.mock
     async def test_not_found_returns_none(self, reasoning):
+        # Intentionally use a bare 404 so we exercise status-based detection.
         respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(404)
         assert await reasoning.get_trace("00000000-0000-0000-0000-000000000001") is None
 
@@ -247,6 +248,7 @@ class TestGetTraceWithSteps:
 
     @respx.mock
     async def test_not_found_returns_none(self, reasoning):
+        # Intentionally use a bare 404 so we exercise status-based detection.
         respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(404)
         result = await reasoning.get_trace_with_steps("00000000-0000-0000-0000-000000000001")
         assert result is None
