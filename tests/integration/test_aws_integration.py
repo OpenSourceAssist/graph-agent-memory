@@ -303,7 +303,8 @@ class TestHybridMemoryProviderIntegration:
         client.short_term.search_messages = AsyncMock(return_value=[mock_message])
         client.long_term.search_entities = AsyncMock(return_value=[mock_entity])
         client.long_term.search_preferences = AsyncMock(return_value=[mock_preference])
-        client._client.execute_read = AsyncMock(return_value=[])
+        # v0.4: HybridMemoryProvider migrated to client.query.cypher (Phase 6).
+        client.query.cypher = AsyncMock(return_value=[])
 
         return client
 
@@ -372,7 +373,9 @@ class TestHybridMemoryProviderIntegration:
         """Test getting entity relationships."""
         from neo4j_agent_memory.integrations.agentcore import HybridMemoryProvider
 
-        mock_memory_client._client.execute_read = AsyncMock(
+        # v0.4: HybridMemoryProvider.get_entity_relationships now uses
+        # client.query.cypher (Phase 6 migration).
+        mock_memory_client.query.cypher = AsyncMock(
             return_value=[
                 {
                     "entity_name": "John Doe",
