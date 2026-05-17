@@ -413,3 +413,133 @@ def _is_error_result(result: Any) -> bool:
     if isinstance(result, str):
         return result.lower().startswith("error:")
     return False
+
+
+def nams_memory_tools(memory: "MemoryClient") -> list[Callable]:
+    """Pydantic AI tools exposing NAMS Platinum operations.
+
+    Returns the standard :func:`create_memory_tools` set plus four
+    Platinum-tier tools that NAMS exposes via REST:
+
+    * ``set_entity_feedback`` — record positive/negative feedback on
+      an entity (NAMS persists this and uses it to bias future
+      retrieval).
+    * ``get_entity_history`` — the conversation-and-mention history
+      for an entity, useful for the agent to reason about whether an
+      entity has shown up before.
+    * ``get_entity_provenance`` — the source messages and extractors
+      that produced an entity (great for citation-style outputs).
+    * ``cypher_query`` — read-only Cypher escape hatch via NAMS
+      ``POST /v1/cypher``.
+
+    All four raise :class:`NotSupportedError` at tool-call time if the
+    underlying ``MemoryClient`` is on the bolt backend without the
+    corresponding Platinum-tier method. Portable code can catch the
+    error and fall back; agents typically don't need to.
+
+    Example::
+
+        from pydantic_ai import Agent
+        from neo4j_agent_memory.integrations.pydantic_ai import (
+            nams_memory_tools,
+        )
+
+        async with MemoryClient(MemorySettings(backend="nams", ...)) as c:
+            agent = Agent("openai:gpt-4o", tools=nams_memory_tools(c))
+
+    Returns the base tools followed by the four Platinum tools.
+    """
+
+    async def set_entity_feedback(
+        entity_id: str,
+        feedback: str,
+        user_identifier: str | None = None,
+    ) -> str:
+        """
+        Record feedback (e.g. "positive"/"negative") on an entity.
+
+        Args:
+            entity_id: Entity UUID.
+            feedback: Feedback string — convention is "positive" or
+                "negative", but any string the server accepts works.
+            user_identifier: Optional per-user scoping.
+
+        Returns:
+            Confirmation message.
+        """
+        # Platinum-tier method — present on NamsLongTermMemory at runtime; the
+        # bolt LongTermMemory class doesn't declare it (Protocol-vs-class lie).
+        await memory.long_term.set_entity_feedback(  # type: ignore[attr-defined]
+            entity_id,
+            feedback,
+            user_identifier=user_identifier,
+        )
+        return f"Recorded {feedback!r} feedback on entity {entity_id}."
+
+    async def get_entity_history(entity_id: str, limit: int = 20) -> str:
+        """
+        Get the recent edit/mention history for an entity.
+
+        Args:
+            entity_id: Entity UUID.
+            limit: Maximum history entries to return.
+
+        Returns:
+            Formatted history as plain text.
+        """
+        entries = await memory.long_term.get_entity_history(  # type: ignore[attr-defined]
+            entity_id, limit=limit
+        )
+        if not entries:
+            return "No history for this entity."
+        lines = []
+        for entry in entries:
+            cid = entry.get("conversation_id", "?")
+            mentions = entry.get("mention_count", 0)
+            lines.append(f"- conversation={cid} mentions={mentions}")
+        return "\n".join(lines)
+
+    async def get_entity_provenance(entity_id: str) -> str:
+        """
+        Get the provenance (source messages + extractors) for an entity.
+
+        Args:
+            entity_id: Entity UUID.
+
+        Returns:
+            Formatted provenance summary.
+        """
+        prov = await memory.long_term.get_entity_provenance(entity_id)  # type: ignore[arg-type]
+        sources = prov.get("sources") or []
+        extractors = prov.get("extractors") or []
+        lines = [f"Sources ({len(sources)}):"]
+        for s in sources[:10]:
+            lines.append(f"- message {s.get('message_id', '?')}")
+        lines.append(f"Extractors ({len(extractors)}):")
+        for e in extractors[:10]:
+            lines.append(f"- {e.get('name', '?')} v{e.get('version', '?')}")
+        return "\n".join(lines)
+
+    async def cypher_query(query: str, params: dict[str, Any] | None = None) -> str:
+        """
+        Execute a read-only Cypher query via NAMS (Platinum ``POST /v1/cypher``).
+
+        Args:
+            query: Read-only Cypher (writes are rejected client-side).
+            params: Optional query parameters.
+
+        Returns:
+            JSON-encoded result rows.
+        """
+        import json as _json
+
+        rows = await memory.query.cypher(query, params)
+        return _json.dumps(rows, default=str)
+
+    return [
+        *create_memory_tools(memory),
+        set_entity_feedback,
+        get_entity_history,
+        get_entity_provenance,
+        cypher_query,
+    ]

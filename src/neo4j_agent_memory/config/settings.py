@@ -476,6 +476,64 @@ class EnrichmentConfig(BaseModel):
     )
 
 
+class NamsConfig(BaseModel):
+    """Configuration for the hosted NAMS (Neo4j Agent Memory Service) backend.
+
+    Activated when ``MemorySettings.backend = "nams"``. The hosted REST API
+    lives at ``https://memory.neo4jlabs.com/v1``; on-prem or sandbox
+    deployments can point ``endpoint`` elsewhere.
+
+    Two wire protocols are supported and auto-selected from
+    ``endpoint`` shape:
+
+    * **REST** — endpoint contains ``/v\\d+`` (e.g. ``/v1``). Each method
+      maps to a versioned REST path (e.g. ``POST /v1/conversations/{id}/messages``).
+    * **TCK bridge** — anything else. Each method maps to a snake-case
+      POST (e.g. ``POST /add_message``). Used by the conformance test
+      reference implementation.
+
+    Override the detection with ``transport_mode={"rest", "bridge"}``.
+    """
+
+    model_config = _STRICT_CONFIG
+
+    endpoint: str = Field(
+        default="https://memory.neo4jlabs.com/v1",
+        description="NAMS endpoint base URL. REST shape ends in /v<N> (e.g. /v1); "
+        "anything else is treated as TCK bridge unless overridden by transport_mode.",
+    )
+    api_key: SecretStr | None = Field(
+        default=None,
+        description="NAMS API key (format 'nams_...'). Falls back to MEMORY_API_KEY env var.",
+    )
+    timeout: float = Field(
+        default=30.0, gt=0, description="HTTP request timeout in seconds."
+    )
+    max_retries: int = Field(
+        default=3,
+        ge=0,
+        description="Max retry attempts for 429 (after Retry-After), 5xx, and network errors.",
+    )
+    retry_backoff_seconds: float = Field(
+        default=0.5,
+        gt=0,
+        description="Base exponential backoff between retries (0.5 → 0.5, 1.0, 2.0...).",
+    )
+    headers: dict[str, str] = Field(
+        default_factory=dict,
+        description="Extra HTTP headers added to every request (e.g. tracing headers).",
+    )
+    validate_on_connect: bool = Field(
+        default=True,
+        description="If True, MemoryClient.connect() makes a fail-fast authenticated probe "
+        "request to verify credentials and reachability. Disable for serverless/cold-start.",
+    )
+    transport_mode: Literal["auto", "rest", "bridge"] = Field(
+        default="auto",
+        description="Wire-protocol override. 'auto' (default) infers from endpoint shape.",
+    )
+
+
 class _FilteredDotEnvSource(DotEnvSettingsSource):
     # Wraps an existing DotEnvSettingsSource instance, preserving all runtime
     # overrides (e.g. _env_file=None or _env_file=some_path passed at
@@ -546,6 +604,20 @@ class MemorySettings(BaseSettings):
     search: SearchConfig = Field(default_factory=SearchConfig)
     geocoding: GeocodingConfig = Field(default_factory=GeocodingConfig)
     enrichment: EnrichmentConfig = Field(default_factory=EnrichmentConfig)
+
+    # v0.4: storage-backend selection. ``None`` defers to ``_resolve_backend``
+    # which inspects the environment (``MEMORY_API_KEY`` → NAMS, otherwise
+    # bolt). Existing v0.3.x users hit the bolt default unchanged.
+    backend: Literal["bolt", "nams"] | None = Field(
+        default=None,
+        description=(
+            "Storage backend. 'bolt' uses direct Neo4j via the Python driver. "
+            "'nams' uses the hosted Neo4j Agent Memory Service REST API. "
+            "When unset (None), backend is resolved at construction time: "
+            "NAMS if MEMORY_API_KEY is in env, otherwise bolt."
+        ),
+    )
+    nams: NamsConfig = Field(default_factory=NamsConfig)
 
     @model_validator(mode="after")
     def _resolve_providers(self) -> MemorySettings:
@@ -656,6 +728,43 @@ class MemorySettings(BaseSettings):
             # didn't explicitly opt out. No deprecation warning here: the
             # user did not explicitly choose LLMConfig.
             self.llm = LLMConfig()
+        return self
+
+    @model_validator(mode="after")
+    def _resolve_backend(self) -> MemorySettings:
+        """Resolve the storage backend (bolt vs NAMS).
+
+        Decision flow:
+
+        1. ``MEMORY_API_KEY`` and ``MEMORY_ENDPOINT`` env aliases — if set
+           and the corresponding ``NamsConfig`` field is unspecified, lift
+           the env value into ``self.nams``. These user-friendly aliases
+           complement the ``NAM_NAMS__*`` family that pydantic-settings
+           already wires automatically.
+        2. If the user explicitly set ``backend``, honor it.
+        3. Otherwise: NAMS if ``self.nams.api_key`` is now populated
+           (either from explicit config or the env alias above),
+           otherwise bolt.
+
+        Runs after :meth:`_resolve_providers` and
+        :meth:`_validate_llm_consistency` so the provider config is
+        already coerced into its canonical shape.
+        """
+        import os
+
+        # Step 1: user-friendly env aliases (only when user hasn't overridden).
+        env_api_key = os.environ.get("MEMORY_API_KEY")
+        if env_api_key and self.nams.api_key is None:
+            self.nams.api_key = SecretStr(env_api_key)
+
+        env_endpoint = os.environ.get("MEMORY_ENDPOINT")
+        if env_endpoint and "endpoint" not in self.nams.model_fields_set:
+            self.nams.endpoint = env_endpoint
+
+        # Step 2 & 3: resolve backend if user didn't pin it.
+        if self.backend is None:
+            self.backend = "nams" if self.nams.api_key is not None else "bolt"
+
         return self
 
     @classmethod

@@ -13,39 +13,21 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 from fastmcp import Context
 
+# ``_is_read_only_query`` was relocated to ``neo4j_agent_memory.core.query`` in
+# v0.4 so the bolt and NAMS Cypher accessors share the same validator. The
+# private alias below preserves backward compatibility for internal callers
+# (including tests/unit/mcp/test_fastmcp_tools.py).
+from neo4j_agent_memory.core.query import is_read_only_query as _is_read_only_query  # noqa: F401
 from neo4j_agent_memory.mcp._common import get_client, get_integration
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
-
-# ── Read-only query validation ────────────────────────────────────────
-
-WRITE_PATTERNS = [
-    r"\bCREATE\b",
-    r"\bMERGE\b",
-    r"\bDELETE\b",
-    r"\bDETACH\s+DELETE\b",
-    r"\bSET\b",
-    r"\bREMOVE\b",
-    r"\bDROP\b",
-    r"\bLOAD\s+CSV\b",
-    r"\bFOREACH\b",
-    r"\bCALL\s+\{",
-    r"\bIN\s+TRANSACTIONS\b",
-]
-
-
-def _is_read_only_query(query: str) -> bool:
-    """Check if a Cypher query is read-only."""
-    query_upper = query.upper()
-    return all(not re.search(pattern, query_upper) for pattern in WRITE_PATTERNS)
 
 
 # ── Tool annotations ──────────────────────────────────────────────────
@@ -66,16 +48,29 @@ WRITE_ANNOTATIONS = {
 # ── Registration dispatcher ──────────────────────────────────────────
 
 
-def register_tools(mcp: FastMCP, *, profile: str = "extended") -> None:
+def register_tools(
+    mcp: FastMCP,
+    *,
+    profile: str = "extended",
+    register_platinum: bool = False,
+) -> None:
     """Register MCP tools on the server based on the selected profile.
 
     Args:
         mcp: FastMCP server instance.
         profile: Tool profile - 'core' (6 tools) or 'extended' (16 tools).
+        register_platinum: When True (and profile == 'extended'), register
+            four additional NAMS Platinum-tier tools:
+            ``memory_set_entity_feedback``, ``memory_get_entity_history``,
+            ``memory_get_entity_provenance``, ``memory_get_reflections``.
+            Server startup should set this when the underlying MemoryClient
+            uses ``backend == "nams"`` — see :func:`mcp.server.create_mcp_server`.
     """
     _register_core_tools(mcp)
     if profile == "extended":
         _register_extended_tools(mcp)
+        if register_platinum:
+            _register_platinum_tools(mcp)
 
 
 # ── Core Profile (6 tools) ───────────────────────────────────────────
@@ -771,7 +766,10 @@ def _register_extended_tools(mcp: FastMCP) -> None:
         client = get_client(ctx)
 
         try:
-            records = await client.graph.execute_read(query, parameters or {})
+            # v0.4: use the unified client.query.cypher accessor — works on
+            # both bolt and NAMS backends (NAMS routes via POST /v1/cypher,
+            # bolt via Neo4jClient.execute_read).
+            records = await client.query.cypher(query, parameters or {})
             return json.dumps(
                 {
                     "success": True,
@@ -783,6 +781,128 @@ def _register_extended_tools(mcp: FastMCP) -> None:
 
         except Exception as e:
             logger.error(f"Error in graph_query: {e}")
+            return json.dumps({"error": str(e)})
+
+
+# ── Platinum Profile (4 additional NAMS-only tools) ──────────────────
+
+
+def _register_platinum_tools(mcp: FastMCP) -> None:
+    """Register NAMS Platinum-tier tools.
+
+    Only registered when the MemoryClient is configured with
+    ``backend == "nams"``. These tools rely on Platinum operations
+    (``set_entity_feedback``, ``get_entity_history``,
+    ``get_entity_provenance``, ``get_reflections``) that the bolt
+    backend does not implement.
+    """
+
+    @mcp.tool(annotations=WRITE_ANNOTATIONS)
+    async def memory_set_entity_feedback(
+        ctx: Context,
+        entity_id: str,
+        feedback: str,
+        user_identifier: str | None = None,
+    ) -> str:
+        """Record user feedback on an entity (NAMS Platinum).
+
+        Use this when the user explicitly confirms or rejects an entity
+        the agent surfaced — NAMS uses the signal to bias future
+        retrieval and dedup decisions.
+
+        Args:
+            entity_id: Entity UUID (returned by memory_add_entity or
+                memory_search).
+            feedback: Free-form feedback — convention is "positive" or
+                "negative".
+            user_identifier: Optional per-user scoping (multi-tenant).
+        """
+        client = get_client(ctx)
+        try:
+            # Platinum-tier — present on NamsLongTermMemory at runtime.
+            await client.long_term.set_entity_feedback(  # type: ignore[attr-defined]
+                entity_id, feedback, user_identifier=user_identifier
+            )
+            return json.dumps({"status": "ok", "entity_id": entity_id, "feedback": feedback})
+        except Exception as e:
+            logger.error(f"Error in memory_set_entity_feedback: {e}")
+            return json.dumps({"error": str(e)})
+
+    @mcp.tool(annotations=READ_ANNOTATIONS)
+    async def memory_get_entity_history(
+        ctx: Context,
+        entity_id: str,
+        limit: int = 50,
+    ) -> str:
+        """Get the conversation-and-mention history for an entity (NAMS Platinum).
+
+        Returns a list of conversations where the entity has been
+        mentioned, with mention counts and first/last seen timestamps.
+        Useful when the agent needs to know "have I encountered this
+        entity before?".
+
+        Args:
+            entity_id: Entity UUID.
+            limit: Maximum history entries to return (default: 50).
+        """
+        client = get_client(ctx)
+        try:
+            history = await client.long_term.get_entity_history(  # type: ignore[attr-defined]
+                entity_id, limit=limit
+            )
+            return json.dumps({"entity_id": entity_id, "history": history}, default=str)
+        except Exception as e:
+            logger.error(f"Error in memory_get_entity_history: {e}")
+            return json.dumps({"error": str(e)})
+
+    @mcp.tool(annotations=READ_ANNOTATIONS)
+    async def memory_get_entity_provenance(
+        ctx: Context,
+        entity_id: str,
+    ) -> str:
+        """Get the provenance record for an entity (source messages + extractors).
+
+        Returns ``{"sources": [...], "extractors": [...]}`` so the agent
+        can cite where it learned an entity from.
+
+        Args:
+            entity_id: Entity UUID.
+        """
+        client = get_client(ctx)
+        try:
+            prov = await client.long_term.get_entity_provenance(entity_id)  # type: ignore[arg-type]
+            return json.dumps(prov, default=str)
+        except Exception as e:
+            logger.error(f"Error in memory_get_entity_provenance: {e}")
+            return json.dumps({"error": str(e)})
+
+    @mcp.tool(annotations=READ_ANNOTATIONS)
+    async def memory_get_reflections(
+        ctx: Context,
+        session_id: str,
+        limit: int = 20,
+    ) -> str:
+        """Get LLM-generated reflections for a session (NAMS Platinum).
+
+        Reflections are higher-level summaries the hosted service
+        generates over a conversation — distinct from raw message
+        history. Use to understand the agent's prior thinking about a
+        session without re-scanning every message.
+
+        Args:
+            session_id: Session identifier.
+            limit: Maximum reflections to return (default: 20).
+        """
+        client = get_client(ctx)
+        try:
+            reflections = await client.short_term.get_reflections(  # type: ignore[attr-defined]
+                session_id, limit=limit
+            )
+            return json.dumps(
+                {"session_id": session_id, "reflections": reflections}, default=str
+            )
+        except Exception as e:
+            logger.error(f"Error in memory_get_reflections: {e}")
             return json.dumps({"error": str(e)})
 
 
@@ -817,7 +937,8 @@ async def _get_entity_neighbors(
     """
 
     try:
-        records = await client.graph.execute_read(
+        # v0.4: portable read-only Cypher accessor (works on bolt + NAMS).
+        records = await client.query.cypher(
             query,
             {"entity_id": entity_id},
         )

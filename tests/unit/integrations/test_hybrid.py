@@ -40,7 +40,7 @@ class TestHybridMemoryProvider:
         client.short_term.add_message = AsyncMock()
         client.long_term.search_entities = AsyncMock(return_value=[])
         client.long_term.search_preferences = AsyncMock(return_value=[])
-        client._client.execute_read = AsyncMock(return_value=[])
+        client.query.cypher = AsyncMock(return_value=[])
 
         return client
 
@@ -165,7 +165,7 @@ class TestRoutingStrategies:
         client.short_term.get_conversation = AsyncMock(return_value=MagicMock(messages=[]))
         client.long_term.search_entities = AsyncMock(return_value=[])
         client.long_term.search_preferences = AsyncMock(return_value=[])
-        client._client.execute_read = AsyncMock(return_value=[])
+        client.query.cypher = AsyncMock(return_value=[])
         return client
 
     @pytest.mark.asyncio
@@ -300,7 +300,7 @@ class TestMergeResults:
         client.short_term.search_messages = AsyncMock(return_value=[mock_message])
         client.long_term.search_entities = AsyncMock(return_value=[mock_entity])
         client.long_term.search_preferences = AsyncMock(return_value=[mock_preference])
-        client._client.execute_read = AsyncMock(return_value=[])
+        client.query.cypher = AsyncMock(return_value=[])
 
         return client
 
@@ -365,7 +365,7 @@ class TestEntityRelationships:
         """Test getting relationships for an existing entity."""
         from neo4j_agent_memory.integrations.agentcore import HybridMemoryProvider
 
-        mock_memory_client._client.execute_read = AsyncMock(
+        mock_memory_client.query.cypher = AsyncMock(
             return_value=[
                 {
                     "entity_name": "John Doe",
@@ -399,7 +399,7 @@ class TestEntityRelationships:
         """Test getting relationships for a non-existent entity."""
         from neo4j_agent_memory.integrations.agentcore import HybridMemoryProvider
 
-        mock_memory_client._client.execute_read = AsyncMock(return_value=[])
+        mock_memory_client.query.cypher = AsyncMock(return_value=[])
 
         provider = HybridMemoryProvider(memory_client=mock_memory_client)
 
@@ -412,7 +412,7 @@ class TestEntityRelationships:
         """Test filtering relationships by type."""
         from neo4j_agent_memory.integrations.agentcore import HybridMemoryProvider
 
-        mock_memory_client._client.execute_read = AsyncMock(return_value=[])
+        mock_memory_client.query.cypher = AsyncMock(return_value=[])
 
         provider = HybridMemoryProvider(memory_client=mock_memory_client)
 
@@ -422,7 +422,7 @@ class TestEntityRelationships:
         )
 
         # Check that execute_read was called (query was executed)
-        mock_memory_client._client.execute_read.assert_called_once()
+        mock_memory_client.query.cypher.assert_called_once()
 
 
 class TestIncludeFilters:
@@ -438,7 +438,7 @@ class TestIncludeFilters:
         client.short_term.search_messages = AsyncMock(return_value=[])
         client.long_term.search_entities = AsyncMock(return_value=[])
         client.long_term.search_preferences = AsyncMock(return_value=[])
-        client._client.execute_read = AsyncMock(return_value=[])
+        client.query.cypher = AsyncMock(return_value=[])
         return client
 
     @pytest.mark.asyncio

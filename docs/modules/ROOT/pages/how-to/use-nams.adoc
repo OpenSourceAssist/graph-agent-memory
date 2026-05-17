@@ -1,0 +1,238 @@
+= Use NAMS (hosted backend)
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+How to configure `MemoryClient` to talk to the **Neo4j Agent Memory Service (NAMS)** — Neo4j's hosted memory API — instead of a direct Neo4j cluster.
+
+[.lead]
+NAMS is a managed REST service backed by Neo4j. You don't run the database; you just point `MemoryClient` at the service with an API key. The rest of the library API is unchanged. For the conceptual comparison with bolt, see xref:explanation/backends.adoc[Bolt vs NAMS].
+
+== Prerequisites
+
+* Python 3.10+
+* A NAMS API key — sign up at https://memory.neo4jlabs.com[memory.neo4jlabs.com]. Keys start with `nams_`.
+
+== Install
+
+```bash
+uv pip install 'neo4j-agent-memory[nams]>=0.4.0'
+```
+
+The `[nams]` extra pulls in `httpx`. If you already have `httpx` (or any framework integration that depends on it), you don't strictly need the extra — the import is lazy.
+
+== Configure
+
+The shortest path: set one environment variable.
+
+```bash
+export MEMORY_API_KEY=nams_xxxxxxxxxxxxxxxx
+```
+
+That's enough — `MemoryClient()` with no args picks up the env var and switches the backend to NAMS:
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient
+
+async with MemoryClient() as client:
+    await client.short_term.add_message("session-1", "user", "Hello!")
+----
+
+Or be explicit:
+
+[source,python]
+----
+from pydantic import SecretStr
+
+from neo4j_agent_memory import MemoryClient, MemorySettings, NamsConfig
+
+settings = MemorySettings(
+    backend="nams",
+    nams=NamsConfig(api_key=SecretStr("nams_xxxxxxxxxxxx")),
+)
+
+async with MemoryClient(settings) as client:
+    await client.short_term.add_message("session-1", "user", "Hello!")
+----
+
+== NamsConfig fields
+
+[cols="1,1,3",options="header"]
+|===
+| Field | Default | Description
+
+| `endpoint`
+| `https://memory.neo4jlabs.com/v1`
+| Base URL. The `/v\d+` suffix triggers REST mode; other shapes use the TCK bridge protocol.
+| `api_key`
+| `None`
+| Your NAMS API key (`SecretStr`). Falls back to `MEMORY_API_KEY` env var.
+| `timeout`
+| `30.0`
+| HTTP request timeout in seconds.
+| `max_retries`
+| `3`
+| Retry budget for 429, 5xx, and network errors.
+| `retry_backoff_seconds`
+| `0.5`
+| Base exponential backoff (0.5, 1.0, 2.0, ...).
+| `headers`
+| `{}`
+| Extra HTTP headers (e.g. tracing IDs).
+| `validate_on_connect`
+| `True`
+| If True, `connect()` makes a fail-fast authenticated probe request to verify credentials and reachability.
+| `transport_mode`
+| `"auto"`
+| Override wire-protocol detection: `"rest"` or `"bridge"`.
+|===
+
+== Env var reference
+
+[cols="1,2",options="header"]
+|===
+| Variable | Purpose
+
+| `MEMORY_API_KEY`
+| NAMS API key. When set and `backend` is unspecified, the backend defaults to NAMS.
+| `MEMORY_ENDPOINT`
+| Override the default endpoint URL.
+| `NAM_BACKEND`
+| Force the backend (`bolt` or `nams`). Overrides the env-based default.
+| `NAM_NAMS__*`
+| Per-field overrides on `NamsConfig` (pydantic-settings nested-field syntax — e.g. `NAM_NAMS__TIMEOUT=60`).
+|===
+
+== First request
+
+[source,python]
+----
+import asyncio
+from neo4j_agent_memory import MemoryClient
+
+
+async def main() -> None:
+    async with MemoryClient() as client:
+        session_id = "first-request-demo"
+
+        # Short-term
+        msg = await client.short_term.add_message(
+            session_id, "user", "I love Italian food."
+        )
+        print(f"Stored message {msg.id}")
+
+        # Long-term
+        await client.long_term.add_preference(
+            "food", "Italian cuisine", context="introduction"
+        )
+
+        # Reasoning
+        trace = await client.reasoning.start_trace(
+            session_id, "Recommend a restaurant"
+        )
+        await client.reasoning.complete_trace(
+            trace.id, outcome="Done", success=True
+        )
+
+        # Read-only Cypher (Platinum)
+        rows = await client.query.cypher(
+            "MATCH (e:Entity) RETURN e.name AS name LIMIT 5"
+        )
+        print(rows)
+
+
+asyncio.run(main())
+----
+
+== Custom endpoint (private deployments)
+
+If you run NAMS on-prem or in a private cloud, override `endpoint`:
+
+[source,python]
+----
+settings = MemorySettings(
+    backend="nams",
+    nams=NamsConfig(
+        endpoint="https://nams.internal.example.com/v1",
+        api_key=SecretStr("nams_xxx"),
+    ),
+)
+----
+
+Or set `MEMORY_ENDPOINT` in the environment.
+
+== Multi-tenancy
+
+NAMS scopes data two ways:
+
+1. **Workspace** — implicit in the API key. Different keys = different workspaces.
+2. **User** — explicit per-call. Pass `user_identifier=` on `add_message`, `add_preference`, `set_entity_feedback`, etc.; it's forwarded to NAMS as `userId`.
+
+[source,python]
+----
+await client.short_term.add_message(
+    "session-alice",
+    "user",
+    "Hi from Alice.",
+    user_identifier="alice-user-id",
+)
+----
+
+== What's *not* available on NAMS
+
+These accessors / methods raise `NotSupportedError` because NAMS handles them server-side or doesn't expose them at all:
+
+* `client.graph` — use `client.query.cypher` instead.
+* `client.users` (UserMemory).
+* `client.buffered` (BufferedWriter).
+* `client.consolidation` (dedupe / archival).
+* `client.schema.adopt_existing_graph()`.
+* `client.long_term.geocode_locations()`, `search_locations_near()`, `search_locations_in_bounding_box()`.
+* `client.long_term.find_potential_duplicates()`, `merge_duplicate_entities()`, `review_duplicate()`.
+* `client.get_stats()`, `client.get_graph()`, `client.get_locations()`.
+
+If you configure client-side `embedding`, `extraction`, `resolution`, `geocoding`, or `enrichment` alongside `backend="nams"`, you'll see a single `UserWarning` at `connect()` time naming the inactive layers — the configs are otherwise ignored (NAMS manages these server-side).
+
+The `llm` provider config **does** stay active on NAMS — it's still used by `client.short_term.get_conversation_summary()` and any of your own client-side LLM workflows.
+
+For the complete list of NAMS-side methods and their bolt counterparts, see xref:how-to/migrate-to-nams.adoc[Migrate to NAMS].
+
+== Common errors
+
+[cols="2,1,2",options="header"]
+|===
+| Error | When | Fix
+
+| `AuthenticationError: Empty API key`
+| At construction time
+| Set `MEMORY_API_KEY` or pass `api_key=SecretStr(...)`
+| `AuthenticationError: Invalid or missing API key`
+| Probe / first request returns 401
+| Check your key is current; old keys may be revoked
+| `AuthenticationError: Forbidden`
+| 403
+| Key doesn't have access to the workspace
+| `RateLimitError`
+| 429 after retries exhausted
+| Inspect `e.retry_after`; back off; consider higher tier
+| `TransportError`
+| Network errors or 5xx after retries
+| Check connectivity; verify endpoint URL; service status
+| `NotSupportedError: client.graph is not supported on the 'nams' backend`
+| Calling a bolt-only feature
+| Switch to `client.query.cypher` or the appropriate replacement
+|===
+
+== Observability
+
+The NAMS transport emits OpenTelemetry-style spans for every request when a tracer is configured. Span name is `nams.http.request`; attributes include `http.method`, `http.url`, `http.status_code`, `nams.method`, `nams.protocol`, and (when retries fire) `nams.retry_count`. See the observability how-to.
+
+== Next steps
+
+* xref:tutorials/nams-quickstart.adoc[Tutorial: 5-minute NAMS quickstart].
+* xref:how-to/migrate-to-nams.adoc[Migrate an existing bolt project to NAMS].
+* xref:explanation/backends.adoc[Bolt vs NAMS: when to pick which].

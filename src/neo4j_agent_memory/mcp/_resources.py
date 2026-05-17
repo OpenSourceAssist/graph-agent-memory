@@ -132,7 +132,8 @@ def _register_extended_resources(mcp: FastMCP) -> None:
         """
         client = get_client(ctx)
         try:
-            records = await client.graph.execute_read(
+            # v0.4: portable read-only Cypher (works on bolt + NAMS).
+            records = await client.query.cypher(
                 "MATCH (n) RETURN labels(n) AS labels, count(*) AS count",
                 {},
             )

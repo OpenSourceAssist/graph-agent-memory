@@ -161,7 +161,8 @@ class TestGraphStatsResource:
     @pytest.mark.asyncio
     async def test_returns_stats(self):
         mock_client = make_mock_client()
-        mock_client.graph.execute_read = AsyncMock(
+        # v0.4: memory://graph/stats routes through client.query.cypher.
+        mock_client.query.cypher = AsyncMock(
             return_value=[
                 {"labels": ["Entity"], "count": 42},
                 {"labels": ["Message"], "count": 100},
@@ -179,7 +180,7 @@ class TestGraphStatsResource:
     @pytest.mark.asyncio
     async def test_handles_error_gracefully(self):
         mock_client = make_mock_client()
-        mock_client.graph.execute_read = AsyncMock(side_effect=Exception("Connection lost"))
+        mock_client.query.cypher = AsyncMock(side_effect=Exception("Connection lost"))
 
         server = create_resource_server(mock_client, profile="extended")
         async with Client(server) as client:

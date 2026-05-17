@@ -43,10 +43,17 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
+    from neo4j_agent_memory.core.protocols import (
+        CypherQueryProtocol,
+        LongTermProtocol,
+        ReasoningProtocol,
+        ShortTermProtocol,
+    )
     from neo4j_agent_memory.memory.buffered import BufferedWriter
     from neo4j_agent_memory.memory.consolidation import ConsolidationMemory
     from neo4j_agent_memory.memory.eval import EvalMemory
     from neo4j_agent_memory.memory.users import UserMemory
+    from neo4j_agent_memory.nams.client import NamsBackend
 
 from neo4j_agent_memory.config.settings import (
     EmbeddingConfig,
@@ -61,22 +68,34 @@ from neo4j_agent_memory.config.settings import (
     LLMProvider,
     MemoryConfig,
     MemorySettings,
+    NamsConfig,
     Neo4jConfig,
     ResolutionConfig,
     ResolverStrategy,
     SearchConfig,
 )
 from neo4j_agent_memory.core.exceptions import (
+    AuthenticationError,
     ConfigurationError,
     ConnectionError,
     EmbeddingError,
     ExtractionError,
     MemoryError,
     NotConnectedError,
+    NotSupportedError,
+    RateLimitError,
     ResolutionError,
     SchemaError,
+    TransportError,
+    ValidationError,
 )
 from neo4j_agent_memory.core.memory import BaseMemory, MemoryEntry
+from neo4j_agent_memory.core.protocols import (
+    CypherQueryProtocol,
+    LongTermProtocol,
+    ReasoningProtocol,
+    ShortTermProtocol,
+)
 
 
 class GraphNode(BaseModel):
@@ -187,7 +206,7 @@ from neo4j_agent_memory.memory.short_term import (
     ShortTermMemory,
 )
 
-__version__ = "0.2.1"
+__version__ = "0.4.0"
 
 __all__ = [
     # Main client
@@ -198,6 +217,7 @@ __all__ = [
     # Settings
     "MemorySettings",
     "Neo4jConfig",
+    "NamsConfig",
     "EmbeddingConfig",
     "LLMConfig",
     "ExtractionConfig",
@@ -206,6 +226,11 @@ __all__ = [
     "SearchConfig",
     "GeocodingConfig",
     "EnrichmentConfig",
+    # Protocols (backend-agnostic contracts)
+    "ShortTermProtocol",
+    "LongTermProtocol",
+    "ReasoningProtocol",
+    "CypherQueryProtocol",
     # Enums
     "EmbeddingProvider",
     "LLMProvider",
@@ -261,7 +286,56 @@ __all__ = [
     "EmbeddingError",
     "ConfigurationError",
     "NotConnectedError",
+    # NAMS exceptions (v0.4)
+    "TransportError",
+    "AuthenticationError",
+    "NotSupportedError",
+    "RateLimitError",
+    "ValidationError",
 ]
+
+
+class _DeprecatedGraphProxy:
+    """Wrapper returned by ``MemoryClient.graph`` on the bolt backend.
+
+    Forwards every attribute to the underlying :class:`Neo4jClient`, but
+    intercepts ``execute_read`` to emit a one-time ``DeprecationWarning``
+    pointing at the portable replacement ``client.query.cypher``. The
+    warning fires once per process to avoid log spam.
+
+    Scheduled for removal in v0.6.0 along with the underlying
+    ``client.graph`` accessor itself.
+    """
+
+    _execute_read_warned: bool = False
+
+    def __init__(self, client: "Neo4jClient") -> None:
+        # Use object.__setattr__ to avoid triggering __getattr__ on init.
+        object.__setattr__(self, "_client", client)
+
+    async def execute_read(self, *args: Any, **kwargs: Any) -> Any:
+        if not type(self)._execute_read_warned:
+            import warnings as _w
+
+            _w.warn(
+                "MemoryClient.graph.execute_read is deprecated and will be "
+                "removed in v0.6.0. Use client.query.cypher(query, params) "
+                "for portable read-only queries (works on both bolt and "
+                "NAMS backends).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            type(self)._execute_read_warned = True
+        return await self._client.execute_read(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        # Delegate everything else (execute_write, vector_search, driver,
+        # etc.) transparently. Not triggered for ``execute_read`` because
+        # the explicit method above takes precedence.
+        return getattr(self._client, name)
+
+    def __repr__(self) -> str:
+        return f"_DeprecatedGraphProxy({self._client!r})"
 
 
 class MemoryClient:
@@ -302,6 +376,8 @@ class MemoryClient:
             enrichment_provider: Optional enrichment provider override (for testing)
         """
         self._settings = settings or MemorySettings()
+        # Bolt-only state. ``_client`` and ``_schema_manager`` stay None
+        # when ``settings.backend == "nams"``.
         self._client: Neo4jClient | None = None
         self._schema_manager: SchemaManager | None = None
         self._embedder_override = embedder
@@ -316,13 +392,23 @@ class MemoryClient:
         self._enrichment_provider = None
         self._enrichment_service = None
 
-        # Memory instances (initialized on connect)
-        self._short_term: ShortTermMemory | None = None
-        self._long_term: LongTermMemory | None = None
-        self._reasoning: ReasoningMemory | None = None
-        self._users: UserMemory | None = None
-        self._buffered: BufferedWriter | None = None
-        self._consolidation: ConsolidationMemory | None = None
+        # NAMS-only state. ``_nams_backend`` stays None on bolt.
+        self._nams_backend: NamsBackend | None = None
+
+        # Memory accessors (Protocol-typed so either backend's impl satisfies
+        # the contract). Initialized in connect().
+        self._short_term: ShortTermProtocol | None = None
+        self._long_term: LongTermProtocol | None = None
+        self._reasoning: ReasoningProtocol | None = None
+        self._query: CypherQueryProtocol | None = None
+
+        # Bolt-only accessors. On NAMS these are replaced by ``_NamsUnsupported``
+        # sentinels — but the declared type stays as the bolt class so user
+        # code that type-checks against e.g. ``UserMemory`` continues to work
+        # in the common (bolt) case.
+        self._users: UserMemory | Any = None
+        self._buffered: BufferedWriter | Any = None
+        self._consolidation: ConsolidationMemory | Any = None
         self._eval: EvalMemory | None = None
 
     async def __aenter__(self) -> "MemoryClient":
@@ -336,11 +422,24 @@ class MemoryClient:
 
     async def connect(self) -> None:
         """
-        Connect to Neo4j and initialize memory stores.
+        Connect to the configured backend and initialize memory stores.
 
-        This sets up the database connection, creates necessary indexes
-        and constraints, and initializes all memory type instances.
+        Dispatches on ``settings.backend``:
+
+        * ``"bolt"`` (default) — opens the Neo4j driver, runs schema
+          setup, wires the bolt memory implementations.
+        * ``"nams"`` — opens the NAMS HTTP transport, runs a fail-fast
+          auth probe (when ``nams.validate_on_connect=True``), wires
+          the NAMS memory implementations. Client-side layers
+          (extraction/embedding/etc.) are warn-and-ignored.
         """
+        if self._settings.backend == "nams":
+            await self._connect_nams()
+        else:
+            await self._connect_bolt()
+
+    async def _connect_bolt(self) -> None:
+        """Connect to Neo4j via the bolt driver (the historic path)."""
         # Create Neo4j client
         self._client = Neo4jClient(self._settings.neo4j)
         await self._client.connect()
@@ -400,14 +499,18 @@ class MemoryClient:
         default_llm_provider = (
             self._settings.llm if isinstance(self._settings.llm, _LLMProvider) else None
         )
-        self._short_term = ShortTermMemory(
+        # Concrete bolt impls satisfy the Protocols structurally — mypy's
+        # @runtime_checkable check is conservative, so we suppress the
+        # assignment errors here. Runtime ``isinstance(..., ShortTermProtocol)``
+        # checks pass (covered in tests/unit/nams/test_protocols.py).
+        self._short_term = ShortTermMemory(  # type: ignore[assignment]
             self._client,
             self._embedder,
             self._extractor,
             multi_tenant=multi_tenant,
             default_llm_provider=default_llm_provider,
         )
-        self._long_term = LongTermMemory(
+        self._long_term = LongTermMemory(  # type: ignore[assignment]
             self._client,
             self._embedder,
             self._extractor,
@@ -416,7 +519,7 @@ class MemoryClient:
             self._enrichment_service,
             multi_tenant=multi_tenant,
         )
-        self._reasoning = ReasoningMemory(
+        self._reasoning = ReasoningMemory(  # type: ignore[assignment]
             self._client,
             self._embedder,
             multi_tenant=multi_tenant,
@@ -444,11 +547,130 @@ class MemoryClient:
 
         self._eval = EvalMemory(self)
 
+        # Wire the unified Cypher accessor — bolt impl forwards to
+        # ``Neo4jClient.execute_read`` after read-only validation.
+        from neo4j_agent_memory.core.query import BoltCypherQuery
+
+        self._query = BoltCypherQuery(self._client)
+
+    async def _connect_nams(self) -> None:
+        """Connect to the hosted NAMS service via HTTP transport.
+
+        Per plan decisions:
+
+        * #10 — Client-side layers (``embedding``/``extraction``/
+          ``resolution``/``enrichment``/``geocoding``) are warn-and-ignored
+          at connect time. The ``llm`` provider stays active (decision
+          #20) for any client-side LLM workflows.
+        * #18 — Fail-fast auth probe (one lightweight authenticated
+          request) when ``nams.validate_on_connect=True``.
+        * #13 — Bolt-only accessors (``users``, ``buffered``,
+          ``consolidation``, ``schema.adopt_existing_graph``) become
+          ``_NamsUnsupported`` sentinels that raise ``NotSupportedError``
+          on any method call.
+        """
+        self._warn_inactive_layers_on_nams()
+
+        # Lazy import — httpx is only required on the NAMS path.
+        from neo4j_agent_memory.nams._unsupported import _NamsUnsupported
+        from neo4j_agent_memory.nams.client import NamsBackend
+
+        self._nams_backend = NamsBackend.from_config(self._settings.nams)
+        # Enter the transport's HTTP session.
+        await self._nams_backend.__aenter__()
+
+        if self._settings.nams.validate_on_connect:
+            await self._nams_backend.probe()
+
+        # Bind the protocol-typed accessors to the NAMS implementations.
+        self._short_term = self._nams_backend.short_term
+        self._long_term = self._nams_backend.long_term
+        self._reasoning = self._nams_backend.reasoning
+        self._query = self._nams_backend.query
+
+        # Bolt-only accessors → sentinels that raise on method call.
+        self._users = _NamsUnsupported(
+            accessor="users",
+            message="User memory is bolt-only. NAMS scopes data per-conversation "
+            "via userId on requests and per-workspace via the API key.",
+        )
+        self._buffered = _NamsUnsupported(
+            accessor="buffered",
+            message="Buffered writes are bolt-only. NAMS commits writes "
+            "server-side and exposes them as soon as the request returns.",
+        )
+        self._consolidation = _NamsUnsupported(
+            accessor="consolidation",
+            message="Consolidation hygiene jobs are bolt-only. NAMS handles "
+            "deduplication and archival server-side.",
+        )
+
+        # Evaluation harness works on both backends — it uses the public
+        # protocol surface only.
+        from neo4j_agent_memory.memory.eval import EvalMemory
+
+        self._eval = EvalMemory(self)
+
+    def _warn_inactive_layers_on_nams(self) -> None:
+        """Emit a single warning listing client-side layers ignored by NAMS.
+
+        Surfaces silent config drift — e.g. a user who copy-pastes a bolt
+        ``MemorySettings(extraction=...)`` and switches to NAMS won't
+        realize their extraction config is now a no-op.
+        """
+        import warnings as _warnings
+
+        s = self._settings
+        inactive: list[str] = []
+        if "embedding" in s.model_fields_set:
+            inactive.append("embedding (server-managed)")
+        if "extraction" in s.model_fields_set:
+            inactive.append("extraction (server-managed)")
+        if "resolution" in s.model_fields_set:
+            inactive.append("resolution (server-managed)")
+        if s.geocoding.enabled:
+            inactive.append("geocoding (not available on NAMS)")
+        if s.enrichment.enabled:
+            inactive.append("enrichment (not available on NAMS)")
+
+        if inactive:
+            _warnings.warn(
+                "NAMS backend ignores client-side memory layers: "
+                f"{', '.join(inactive)}. NAMS provides server-managed "
+                "embedding/extraction/resolution. The LLM provider config "
+                "remains active for client-side summarization. "
+                "See docs/how-to/use-nams.adoc.",
+                UserWarning,
+                stacklevel=3,
+            )
+
     async def close(self) -> None:
-        """Close the Neo4j connection and stop background services."""
+        """Close the backend connection and stop background services.
+
+        On bolt: drain buffered writes, stop enrichment background
+        service, close the Neo4j driver.
+
+        On NAMS: close the HTTP transport. No bolt-only cleanup runs.
+        """
+        # NAMS path — close HTTP transport and bail.
+        if self._nams_backend is not None:
+            await self._nams_backend.close()
+            self._nams_backend = None
+            # Drop accessor references so post-close attribute access
+            # raises NotConnectedError consistently with the bolt path.
+            self._short_term = None
+            self._long_term = None
+            self._reasoning = None
+            self._query = None
+            self._users = None
+            self._buffered = None
+            self._consolidation = None
+            return
+
+        # Bolt path — preserved unchanged.
         # Drain buffered writes before closing the driver — otherwise
         # in-flight writes would be lost.
-        if self._buffered is not None:
+        if self._buffered is not None and hasattr(self._buffered, "stop"):
             await self._buffered.stop()
             self._buffered = None
 
@@ -472,14 +694,20 @@ class MemoryClient:
 
     @property
     def write_errors(self) -> list:
-        """Background buffered-write errors recorded since startup."""
-        if self._buffered is None:
+        """Background buffered-write errors recorded since startup.
+
+        Always empty on the NAMS backend — NAMS commits writes
+        synchronously server-side; there is no client-side queue.
+        """
+        if self._buffered is None or self._settings.backend == "nams":
             return []
         return self._buffered.errors
 
     @property
     def is_connected(self) -> bool:
-        """Check if client is connected."""
+        """Check if client is connected (either backend)."""
+        if self._nams_backend is not None:
+            return self._nams_backend.transport.is_open
         return self._client is not None and self._client.is_connected
 
     @property
@@ -495,7 +723,11 @@ class MemoryClient:
         """
         if self._short_term is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        return self._short_term
+        # Declared return type is the bolt class so bolt users get
+        # type-checked access to bolt-only methods. On NAMS the runtime
+        # type is NamsShortTermMemory, which structurally implements the
+        # Protocol — see ShortTermProtocol in core.protocols.
+        return self._short_term  # type: ignore[return-value]
 
     @property
     def long_term(self) -> LongTermMemory:
@@ -510,7 +742,7 @@ class MemoryClient:
         """
         if self._long_term is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        return self._long_term
+        return self._long_term  # type: ignore[return-value]
 
     @property
     def reasoning(self) -> ReasoningMemory:
@@ -525,7 +757,7 @@ class MemoryClient:
         """
         if self._reasoning is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        return self._reasoning
+        return self._reasoning  # type: ignore[return-value]
 
     @property
     def eval(self) -> "EvalMemory":
@@ -588,44 +820,98 @@ class MemoryClient:
         """
         Access schema manager for database schema operations.
 
+        **Bolt only.** On NAMS this returns a ``_NamsUnsupported``
+        sentinel — schema operations (``adopt_existing_graph``,
+        ``setup_all``, ``validate_vector_index_dimensions``, etc.) are
+        server-managed by the hosted service.
+
         Returns:
-            SchemaManager instance
+            SchemaManager instance (bolt) or ``_NamsUnsupported`` shim (NAMS).
 
         Raises:
-            NotConnectedError: If client is not connected
+            NotConnectedError: If client is not connected (bolt path).
         """
+        if self._settings.backend == "nams":
+            from neo4j_agent_memory.nams._unsupported import _NamsUnsupported
+
+            return _NamsUnsupported(  # type: ignore[return-value]
+                accessor="schema",
+                message="Schema operations are server-managed on NAMS.",
+            )
         if self._schema_manager is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
         return self._schema_manager
+
+    @property
+    def query(self) -> "CypherQueryProtocol":
+        """
+        Read-only Cypher accessor — works on both backends.
+
+        On bolt, forwards to :meth:`Neo4jClient.execute_read` after a
+        client-side read-only validation. On NAMS, forwards to the
+        Platinum ``POST /v1/cypher`` endpoint.
+
+        Example::
+
+            async with MemoryClient(settings) as client:
+                rows = await client.query.cypher(
+                    "MATCH (n:Entity) RETURN n.name LIMIT 10"
+                )
+
+        Returns:
+            :class:`CypherQueryProtocol` instance.
+
+        Raises:
+            NotConnectedError: If client is not connected.
+        """
+        if self._query is None:
+            raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
+        return self._query
 
     @property
     def graph(self) -> "Neo4jClient":
         """
         Access the underlying Neo4j graph client for custom Cypher queries.
 
-        This allows applications to query domain-specific data stored in the
-        same Neo4j database alongside agent memory operations, without creating
-        a separate database connection.
+        **Bolt only.** On NAMS this raises :class:`NotSupportedError` —
+        use :attr:`query` for portable read-only Cypher.
 
-        The returned client provides ``execute_read()``, ``execute_write()``,
-        ``vector_search()``, and other query methods.
+        On bolt, returns a thin proxy around :class:`Neo4jClient` that
+        emits a one-time :class:`DeprecationWarning` for ``execute_read``
+        calls. The proxy passes ``execute_write``, ``vector_search``,
+        and other attributes through unchanged. Scheduled removal:
+        v0.6.0.
 
         Example::
 
             async with MemoryClient(settings) as client:
+                # Deprecated:
                 results = await client.graph.execute_read(
+                    "MATCH (c:Customer) RETURN c.name AS name LIMIT 10"
+                )
+                # Replacement (works on both backends):
+                results = await client.query.cypher(
                     "MATCH (c:Customer) RETURN c.name AS name LIMIT 10"
                 )
 
         Returns:
-            Neo4jClient instance
+            ``_DeprecatedGraphProxy`` wrapping :class:`Neo4jClient`.
 
         Raises:
-            NotConnectedError: If client is not connected
+            NotSupportedError: When ``backend == "nams"``.
+            NotConnectedError: If client is not connected.
         """
+        if self._settings.backend == "nams":
+            raise NotSupportedError(
+                backend="nams",
+                method="client.graph",
+                message="Direct Neo4j driver access is bolt-only.",
+                workaround="Use client.query.cypher(query, params) for "
+                "portable read-only Cypher.",
+            )
         if self._client is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        return self._client
+        return _DeprecatedGraphProxy(self._client)  # type: ignore[return-value]
 
     async def get_context(
         self,
@@ -688,8 +974,21 @@ class MemoryClient:
         Get memory statistics.
 
         Returns:
-            Dictionary with counts for each memory type
+            Dictionary with counts for each memory type.
+
+        Raises:
+            NotSupportedError: When ``backend == "nams"`` — NAMS does not
+                expose a stats endpoint; use ``client.query.cypher()``
+                with a custom aggregation query if needed.
+            NotConnectedError: If client is not connected.
         """
+        if self._settings.backend == "nams":
+            raise NotSupportedError(
+                backend="nams",
+                method="get_stats",
+                workaround="Use client.query.cypher() with a counting "
+                "query (e.g. 'MATCH (n) RETURN labels(n), count(n)').",
+            )
         if self._client is None:
             raise NotConnectedError("Client not connected.")
 
@@ -735,7 +1034,21 @@ class MemoryClient:
 
         Returns:
             MemoryGraph with nodes, relationships, and metadata
+
+        Raises:
+            NotSupportedError: When ``backend == "nams"`` — the
+                visualization export uses bolt-specific Cypher; NAMS
+                exposes ``client.long_term.get_entity_graph()`` for a
+                comparable hosted-side equivalent.
         """
+        if self._settings.backend == "nams":
+            raise NotSupportedError(
+                backend="nams",
+                method="get_graph",
+                workaround="Use NAMS-specific endpoints via "
+                "client.long_term.get_entity_provenance() or "
+                "client.query.cypher() with custom MATCH queries.",
+            )
         if self._client is None:
             raise NotConnectedError("Client not connected.")
 
@@ -999,7 +1312,20 @@ class MemoryClient:
                 - latitude: Latitude coordinate
                 - longitude: Longitude coordinate
                 - conversations: List of conversations mentioning this location
+
+        Raises:
+            NotSupportedError: When ``backend == "nams"`` — relies on
+                bolt-specific Cypher with the ``location`` Point property.
         """
+        if self._settings.backend == "nams":
+            raise NotSupportedError(
+                backend="nams",
+                method="get_locations",
+                workaround="Use client.long_term.search_locations_near() "
+                "is also bolt-only. NAMS does not expose Point-property "
+                "geospatial queries via the REST API. File an issue if "
+                "you need this on NAMS.",
+            )
         if self._client is None:
             raise NotConnectedError("Client not connected.")
 

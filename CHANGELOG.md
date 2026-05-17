@@ -7,6 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-17
+
+The "hosted backend" release. Headline feature is **NAMS (Neo4j Agent Memory Service) backend support** — write once against `MemoryClient`, choose between local bolt-to-Neo4j or the hosted REST service at config time. The change is purely additive — existing v0.3.x code keeps working unchanged on bolt.
+
+### Added
+
+- **NAMS backend** — `MemorySettings(backend="nams", nams=NamsConfig(api_key=...))` routes every `client.short_term`, `client.long_term`, `client.reasoning`, and `client.query` call to the hosted REST API at `https://memory.neo4jlabs.com/v1` (default endpoint, overridable). SPEC tier conformance targets Bronze, Silver, Gold, and Platinum.
+- **`neo4j_agent_memory.nams` package** — new public surface:
+  - `NamsConfig` — endpoint, api_key (`SecretStr`), timeout, retries, headers, `validate_on_connect`, `transport_mode`.
+  - `AuthProvider` Protocol + `StaticApiKeyAuth` (`Authorization: Bearer {api_key}`).
+  - `HttpTransport` — httpx-based async client with retry policy (429 honors `Retry-After`, 5xx + network errors retried with exponential backoff), structured error mapping, and OpenTelemetry-style span attributes.
+  - Auto-protocol detection: `/v\d+`-shaped endpoints → REST; otherwise TCK bridge protocol (`POST /{snake_case_method}`).
+  - `NamsBackend` — composition root that owns the transport + three memory implementations + Cypher accessor. Used by `MemoryClient.connect()` when `backend == "nams"`.
+- **`neo4j_agent_memory.core.protocols`** — three new `@runtime_checkable` Protocols (`ShortTermProtocol`, `LongTermProtocol`, `ReasoningProtocol`) plus `CypherQueryProtocol`. Existing `ShortTermMemory`/`LongTermMemory`/`ReasoningMemory` bolt classes structurally satisfy them; new `NamsShortTermMemory`/`NamsLongTermMemory`/`NamsReasoningMemory` implement them over HTTP.
+- **`client.query.cypher(query, params)`** — unified read-only Cypher accessor. Works on both backends. On bolt, forwards to `Neo4jClient.execute_read`; on NAMS, forwards to `POST /v1/cypher` (Platinum). Read-only enforcement uses a shared `is_read_only_query` validator.
+- **Platinum-tier methods** on `client.long_term` and `client.short_term`:
+  - `set_entity_feedback(entity_id, feedback, user_identifier=...)`
+  - `get_entity_history(entity_id, limit=...)`
+  - `get_entity_provenance(entity_id)` (Gold; available on bolt and NAMS)
+  - `bulk_add_messages(session_id, messages)`
+  - `get_observations(session_id, limit=...)`
+  - `get_reflections(session_id, limit=...)`
+  - `create_conversation(session_id, ...)`
+  - `list_conversations(user_identifier=..., limit=...)`
+
+  NAMS implements them via REST; bolt is missing the Platinum surface and raises `NotSupportedError` at call time.
+- **New exceptions** in `neo4j_agent_memory.core.exceptions`:
+  - `TransportError(ConnectionError)` — HTTP transport failures (5xx, network).
+  - `AuthenticationError(MemoryError)` — 401/403.
+  - `NotSupportedError(MemoryError)` — structured with `backend`, `method`, `workaround`.
+  - `RateLimitError(MemoryError)` — 429, carries `retry_after`.
+  - `ValidationError(MemoryError)` — 400, carries `details`.
+
+  Existing `except ConnectionError` blocks still catch transport failures (since `TransportError` is a subclass).
+- **NAMS-flavored framework helpers**:
+  - `integrations.pydantic_ai.nams_memory_tools(memory)` — base tools + Platinum tools (`set_entity_feedback`, `get_entity_history`, `get_entity_provenance`, `cypher_query`) as Pydantic AI tools.
+  - `integrations.strands.nams_context_graph_tools(endpoint=..., api_key=...)` — Strands `@tool` functions for NAMS Platinum operations. Auto-reads `MEMORY_API_KEY`/`MEMORY_ENDPOINT` from env.
+- **MCP server**:
+  - Four new Platinum tools (`memory_set_entity_feedback`, `memory_get_entity_history`, `memory_get_entity_provenance`, `memory_get_reflections`) registered automatically when the underlying `MemoryClient` uses `backend == "nams"`.
+  - `register_tools(mcp, *, profile, register_platinum)` parameter.
+- **CLI** — `neo4j-agent-memory mcp serve` accepts new flags:
+  - `--backend {bolt,nams}` (env: `NAM_BACKEND`)
+  - `--api-key` (env: `MEMORY_API_KEY`)
+  - `--endpoint` (env: `MEMORY_ENDPOINT`)
+- **Environment variables** — `MEMORY_API_KEY` and `MEMORY_ENDPOINT` are recognized by `MemorySettings`. When `MEMORY_API_KEY` is set and `backend` is unspecified, the backend defaults to NAMS (otherwise bolt — preserving the historical default).
+- **Documentation**:
+  - `explanation/backends.adoc` — bolt vs NAMS trade-offs and feature matrix.
+  - `how-to/use-nams.adoc` — first-time NAMS setup.
+  - `how-to/migrate-to-nams.adoc` — porting bolt code; full `NotSupportedError` table.
+  - `tutorials/nams-quickstart.adoc` — 5-minute walkthrough.
+- **Examples**:
+  - `examples/nams-quickstart/` — minimal end-to-end NAMS usage.
+  - `examples/nams-langchain/` — LangChain `ConversationChain` backed by NAMS.
+  - `examples/nams-fastapi/` — FastAPI app with lifespan-managed NAMS client.
+- **Tests** — `tests/unit/nams/` (12 test files, respx-based, 320+ tests). `tests/integration/nams/` scaffold for TCK conformance suite (Bronze/Silver/Gold/Platinum) once the TCK reference Docker image is available.
+
+### Changed
+
+- **`MemoryClient.connect()`** dispatches on `MemorySettings.backend`. When unset, NAMS if `MEMORY_API_KEY` is in the environment, otherwise bolt.
+- **`client.graph`** raises `NotSupportedError` on NAMS — use `client.query.cypher()` for portable read-only queries. On bolt, returns a deprecation proxy that emits a one-time `DeprecationWarning` on `execute_read` calls; `execute_write` continues to work without deprecation.
+- **`client.users`, `client.buffered`, `client.consolidation`** — on NAMS, accessors return a `_NamsUnsupported` sentinel that raises `NotSupportedError` with workaround hints on any method call.
+- **`client.schema`** — on NAMS, returns a `_NamsUnsupported` sentinel (`adopt_existing_graph` and other schema operations are server-managed by NAMS).
+- **`client.get_stats`, `client.get_graph`, `client.get_locations`** — raise `NotSupportedError` on NAMS (rely on bolt-specific Cypher; use `client.query.cypher()` with a custom query).
+- **MCP `graph_query` tool, `_get_entity_neighbors` helper, `memory://graph/stats` resource** — migrated from `client.graph.execute_read` to `client.query.cypher`. Now portable across both backends.
+- **Strands `context_graph_tools` internal Cypher**, **AgentCore `HybridMemoryProvider._enrich_with_relationships`**, and **`EvalMemory._eval_audit`** — same migration. All work on both backends.
+
+### Deprecated
+
+- **`client.graph.execute_read`** — use `client.query.cypher` for portable read-only queries. Emits one-time `DeprecationWarning` per process. Scheduled for removal in **v0.6.0**.
+
+### Migration
+
+Existing v0.3.x users:
+
+* Stay on bolt → **no code changes required**.
+* Switch to NAMS → set one env var:
+  ```bash
+  export MEMORY_API_KEY=nams_xxxxx
+  ```
+  `MemoryClient()` now talks to NAMS. Methods that don't apply (geocoding, enrichment, deduplication knobs) emit a single `UserWarning` at `connect()` time listing the inactive layers.
+* For custom Cypher:
+  ```python
+  # v0.3 (deprecated, still works on bolt)
+  results = await client.graph.execute_read("MATCH (n:Entity) RETURN n LIMIT 10")
+  # v0.4 (works on both backends)
+  results = await client.query.cypher("MATCH (n:Entity) RETURN n LIMIT 10")
+  ```
+
+See `docs/.../how-to/migrate-to-nams.adoc` for the full migration cookbook and `NotSupportedError` reference table.
+
+### Backward compatibility
+
+* Every public class/function from v0.3.x is importable unchanged.
+* All existing examples and integration tests pass on bolt without modification.
+* The SPEC-aligned method names (`add_message`, `add_entity`, `start_trace`, ...) were already present in v0.3 — they were the source for the SPEC.
+* `BaseMemory[T]` ABC stays as the bolt base class; the new Protocols supplement it without replacing it.
+
 ## [0.3.0] - 2026-05-12
 
 The "bring your own model" release. Headline feature is **pluggable LLM and embedding providers** — Anthropic, Bedrock, Vertex AI, local sentence-transformers, and 100+ others via LiteLLM now slot in alongside OpenAI through a single Protocol. Existing v0.2.x code keeps working with a one-time `DeprecationWarning`; the legacy `EmbeddingConfig`/`LLMConfig` types are removed in v0.5.0.

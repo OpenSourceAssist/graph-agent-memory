@@ -109,7 +109,11 @@ try:
         from neo4j_agent_memory.mcp._resources import register_resources
         from neo4j_agent_memory.mcp._tools import register_tools
 
-        register_tools(mcp, profile=profile)
+        # v0.4: Platinum tools (NAMS-only) are registered when the
+        # configured backend is NAMS. Settings is None means no lifespan
+        # client; default to bolt (no Platinum).
+        register_platinum = settings is not None and settings.backend == "nams"
+        register_tools(mcp, profile=profile, register_platinum=register_platinum)
         register_resources(mcp, profile=profile)
         register_prompts(mcp, profile=profile)
 
@@ -198,7 +202,14 @@ try:
             from neo4j_agent_memory.mcp._resources import register_resources
             from neo4j_agent_memory.mcp._tools import register_tools
 
-            register_tools(self._mcp, profile=profile)
+            # v0.4: register Platinum tools when the pre-connected client
+            # is NAMS-backed.
+            register_platinum = (
+                memory_client._settings.backend == "nams"
+            )
+            register_tools(
+                self._mcp, profile=profile, register_platinum=register_platinum
+            )
             register_resources(self._mcp, profile=profile)
             register_prompts(self._mcp, profile=profile)
 
@@ -233,6 +244,9 @@ try:
         llm_api_base: str | None = None,
         embedding: str | None = None,
         embedding_dimensions: int | None = None,
+        backend: str = "bolt",
+        nams_api_key: str | None = None,
+        nams_endpoint: str | None = None,
     ) -> None:
         """Run the MCP server with Neo4j connection.
 
@@ -262,17 +276,26 @@ try:
         """
         from pydantic import SecretStr
 
-        from neo4j_agent_memory import MemorySettings
+        from neo4j_agent_memory import MemorySettings, NamsConfig
         from neo4j_agent_memory.config.settings import Neo4jConfig
 
-        settings_kwargs: dict[str, Any] = {
-            "neo4j": Neo4jConfig(
+        settings_kwargs: dict[str, Any] = {"backend": backend}
+        if backend == "nams":
+            if not nams_api_key:
+                raise ValueError(
+                    "NAMS backend requires nams_api_key (or MEMORY_API_KEY env var)."
+                )
+            nams_kwargs: dict[str, Any] = {"api_key": SecretStr(nams_api_key)}
+            if nams_endpoint:
+                nams_kwargs["endpoint"] = nams_endpoint
+            settings_kwargs["nams"] = NamsConfig(**nams_kwargs)
+        else:
+            settings_kwargs["neo4j"] = Neo4jConfig(
                 uri=neo4j_uri,
                 username=neo4j_user,
                 password=SecretStr(neo4j_password),
                 database=neo4j_database,
-            ),
-        }
+            )
         if llm:
             from neo4j_agent_memory.llm import from_provider
 

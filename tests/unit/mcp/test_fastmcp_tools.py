@@ -299,7 +299,8 @@ class TestExtendedToolExecution:
         mock_entity.aliases = []
 
         mock_client.long_term.search_entities = AsyncMock(return_value=[mock_entity])
-        mock_client.graph.execute_read = AsyncMock(return_value=[])
+        # v0.4: _get_entity_neighbors uses client.query.cypher.
+        mock_client.query.cypher = AsyncMock(return_value=[])
 
         async with Client(server) as client:
             result = await client.call_tool("memory_get_entity", {"name": "John"})
@@ -382,7 +383,8 @@ class TestExtendedToolExecution:
 
     @pytest.mark.asyncio
     async def test_graph_query_read_only(self, server, mock_client):
-        mock_client.graph.execute_read = AsyncMock(return_value=[{"name": "test"}])
+        # v0.4: the graph_query MCP tool routes through client.query.cypher.
+        mock_client.query.cypher = AsyncMock(return_value=[{"name": "test"}])
 
         async with Client(server) as client:
             result = await client.call_tool(

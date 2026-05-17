@@ -797,6 +797,32 @@ def mcp():
     default=None,
     help="Embedding dimensions override (for models not in the defaults table).",
 )
+@click.option(
+    "--backend",
+    type=click.Choice(["bolt", "nams"]),
+    default=None,
+    envvar="NAM_BACKEND",
+    help=(
+        "Storage backend (v0.4). 'bolt' uses direct Neo4j; 'nams' uses the "
+        "hosted Neo4j Agent Memory Service REST API. Defaults to NAMS if "
+        "MEMORY_API_KEY is set, otherwise bolt."
+    ),
+)
+@click.option(
+    "--api-key",
+    envvar="MEMORY_API_KEY",
+    default=None,
+    help="NAMS API key (or set MEMORY_API_KEY env var). Required when --backend=nams.",
+)
+@click.option(
+    "--endpoint",
+    envvar="MEMORY_ENDPOINT",
+    default=None,
+    help=(
+        "NAMS endpoint base URL. Defaults to MEMORY_ENDPOINT env var, or "
+        "https://memory.neo4jlabs.com/v1 when neither is set."
+    ),
+)
 def mcp_serve(
     uri: str,
     user: str,
@@ -815,6 +841,9 @@ def mcp_serve(
     llm_api_base: str | None,
     embedding: str | None,
     embedding_dimensions: int | None,
+    backend: str | None,
+    api_key: str | None,
+    endpoint: str | None,
 ):
     """Start the MCP server for Claude Desktop and other MCP hosts.
 
@@ -835,11 +864,27 @@ def mcp_serve(
         # Start with core profile (fewer tools, less context overhead)
         neo4j-agent-memory mcp serve --profile core
     """
-    if not password:
-        error_console.print(
-            "[red]Error:[/red] Neo4j password required. Set NEO4J_PASSWORD or use --password."
-        )
-        sys.exit(1)
+    # Resolve backend: explicit --backend wins; otherwise infer from env.
+    resolved_backend = backend or ("nams" if api_key else "bolt")
+
+    if resolved_backend == "nams":
+        if not api_key:
+            error_console.print(
+                "[red]Error:[/red] NAMS backend requires an API key. "
+                "Set MEMORY_API_KEY or use --api-key."
+            )
+            sys.exit(1)
+    else:
+        # bolt: password required, api-key irrelevant.
+        if not password:
+            error_console.print(
+                "[red]Error:[/red] Neo4j password required. Set NEO4J_PASSWORD or use --password."
+            )
+            sys.exit(1)
+        if api_key:
+            error_console.print(
+                "[yellow]Warning:[/yellow] --api-key is set but --backend is bolt; ignoring."
+            )
 
     try:
         from neo4j_agent_memory.mcp.server import run_server
@@ -854,7 +899,7 @@ def mcp_serve(
         run_server(
             neo4j_uri=uri,
             neo4j_user=user,
-            neo4j_password=password,
+            neo4j_password=password or "",
             neo4j_database=database,
             transport=transport,
             host=host,
@@ -869,6 +914,9 @@ def mcp_serve(
             llm_api_base=llm_api_base,
             embedding=embedding,
             embedding_dimensions=embedding_dimensions,
+            backend=resolved_backend,
+            nams_api_key=api_key,
+            nams_endpoint=endpoint,
         )
     )
 

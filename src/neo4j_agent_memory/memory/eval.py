@@ -177,7 +177,12 @@ class EvalMemory:
         details: list[dict] = []
         scores: list[float] = []
         for case in cases:
-            rows = await self._client._client.execute_read(
+            # v0.4: use the portable client.query.cypher accessor — runs on
+            # bolt (Neo4jClient.execute_read) and NAMS (POST /v1/cypher).
+            # Note that ``:TOUCHED`` audit edges are a bolt-side schema feature;
+            # this query returns no rows on NAMS, and the audit dimension is
+            # effectively a no-op there. Documented in the v0.4 release notes.
+            rows = await self._client.query.cypher(
                 """
                 MATCH (e:Entity {id: $eid})<-[:TOUCHED]-(s:ReasoningStep)
                 RETURN s.id AS id

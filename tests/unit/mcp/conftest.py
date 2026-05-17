@@ -47,6 +47,7 @@ def create_tool_server(
     *,
     profile: str = "extended",
     mock_integration: MagicMock | None = None,
+    register_platinum: bool = False,
 ) -> FastMCP:
     """Create a FastMCP server with tools registered and a mock client.
 
@@ -55,6 +56,8 @@ def create_tool_server(
         profile: Tool profile - 'core' or 'extended'.
         mock_integration: Optional mock MemoryIntegration. Created from
             mock_client if not provided.
+        register_platinum: When True (and profile == 'extended'), register
+            the four NAMS Platinum-tier tools (v0.4).
 
     Returns:
         Configured FastMCP server with tools registered.
@@ -69,7 +72,7 @@ def create_tool_server(
 
     from neo4j_agent_memory.mcp._tools import register_tools
 
-    register_tools(mcp, profile=profile)
+    register_tools(mcp, profile=profile, register_platinum=register_platinum)
     return mcp
 
 

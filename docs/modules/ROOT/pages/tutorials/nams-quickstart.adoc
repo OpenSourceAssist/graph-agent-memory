@@ -1,0 +1,168 @@
+= 5-Minute NAMS Quickstart
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+A hands-on, five-minute walkthrough: install, configure, store some memory, and retrieve it — using the hosted **Neo4j Agent Memory Service (NAMS)** backend.
+
+[.lead]
+By the end of this tutorial you'll have a Python script that stores messages, an entity, a preference, and a reasoning trace in the hosted NAMS service, and reads them back via portable Cypher. You won't run any database — NAMS handles that for you.
+
+== What you'll need
+
+* Python 3.10 or newer.
+* A NAMS API key. https://memory.neo4jlabs.com[Sign up here].
+* About five minutes.
+
+== 1. Install
+
+In a fresh virtualenv:
+
+[source,bash]
+----
+uv pip install 'neo4j-agent-memory[nams]>=0.4.0'
+----
+
+Or with `pip`:
+
+[source,bash]
+----
+pip install 'neo4j-agent-memory[nams]>=0.4.0'
+----
+
+== 2. Configure
+
+Set your API key in the environment:
+
+[source,bash]
+----
+export MEMORY_API_KEY=nams_xxxxxxxxxxxx  # your real key
+----
+
+That's all the configuration needed. With `MEMORY_API_KEY` set, `MemoryClient()` automatically picks NAMS as the backend.
+
+== 3. Write the script
+
+Create `quickstart.py`:
+
+[source,python]
+----
+import asyncio
+from neo4j_agent_memory import MemoryClient
+
+
+async def main() -> None:
+    async with MemoryClient() as client:
+        session_id = "tutorial-demo"
+
+        # Short-term memory
+        await client.short_term.add_message(
+            session_id, "user", "Hi, I'm Alice."
+        )
+        await client.short_term.add_message(
+            session_id, "user", "I love Italian food."
+        )
+
+        # Long-term memory
+        entity = await client.long_term.add_entity(
+            "Alice", "PERSON", description="The user"
+        )
+        await client.long_term.add_preference(
+            category="food",
+            preference="Italian cuisine",
+        )
+
+        # Reasoning memory
+        trace = await client.reasoning.start_trace(
+            session_id, "Recommend dinner"
+        )
+        step = await client.reasoning.add_step(
+            trace.id, thought="Alice likes Italian"
+        )
+        await client.reasoning.record_tool_call(
+            step.id,
+            tool_name="search",
+            arguments={"cuisine": "Italian"},
+            result=["Da Mario"],
+        )
+        await client.reasoning.complete_trace(
+            trace.id, outcome="Suggested Da Mario", success=True
+        )
+
+        # Read everything back
+        conv = await client.short_term.get_conversation(session_id)
+        prefs = await client.long_term.search_preferences("food")
+        traces = await client.reasoning.get_session_traces(session_id)
+
+        print(f"Messages: {len(conv.messages)}")
+        print(f"Preferences found: {[p.preference for p in prefs]}")
+        print(f"Traces: {[t.task for t in traces]}")
+
+
+asyncio.run(main())
+----
+
+== 4. Run it
+
+[source,bash]
+----
+python quickstart.py
+----
+
+Expected output:
+
+[source,text]
+----
+Messages: 2
+Preferences found: ['Italian cuisine']
+Traces: ['Recommend dinner']
+----
+
+== 5. Inspect with Cypher
+
+NAMS exposes a read-only Cypher endpoint via `client.query.cypher`. Add this snippet to the script:
+
+[source,python]
+----
+        # Portable read-only Cypher
+        rows = await client.query.cypher(
+            "MATCH (e:Entity {name: $name}) RETURN e.name AS name, e.type AS type",
+            {"name": "Alice"},
+        )
+        for row in rows:
+            print(row)
+----
+
+Run again. You should see:
+
+[source,text]
+----
+{'name': 'Alice', 'type': 'PERSON'}
+----
+
+The same Cypher query works on bolt too — `client.query.cypher` is backend-agnostic.
+
+== What just happened?
+
+* `MemoryClient()` with no arguments inspected the environment, saw `MEMORY_API_KEY`, and built a NAMS-backed client.
+* Every method call became an HTTPS POST/GET to `https://memory.neo4jlabs.com/v1/...`.
+* NAMS embedded your messages, deduplicated the entity, and stored the trace — all server-side.
+* `client.query.cypher` ran a read-only query against the hosted graph.
+
+You didn't touch Neo4j. You didn't configure embeddings. You didn't run schema setup. NAMS did all of that.
+
+== What now?
+
+* xref:how-to/use-nams.adoc[How-to: Use NAMS] — full config reference.
+* xref:how-to/migrate-to-nams.adoc[How-to: Migrate to NAMS] — port existing bolt code.
+* xref:explanation/backends.adoc[Bolt vs NAMS] — when to choose which.
+* xref:tutorials/first-agent-memory.adoc[Tutorial: Build your first agent with memory] — full LLM-agent example.
+
+== Cleanup
+
+Want to wipe your tutorial data? It lives in your NAMS workspace; manage it through the NAMS UI at https://memory.neo4jlabs.com.
+
+For bolt-side cleanup you'd run a `MATCH (n) DETACH DELETE n` Cypher; on NAMS, that write-Cypher is rejected client-side. Use the NAMS dashboard or `clear_session(session_id)` for individual conversations.

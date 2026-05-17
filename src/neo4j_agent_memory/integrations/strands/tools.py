@@ -245,7 +245,9 @@ def _create_search_context_tool(
                                        other.type AS related_type
                                 LIMIT 10
                                 """
-                                rels = await client._client.execute_read(
+                                # v0.4: portable read-only Cypher (works on
+                                # bolt + NAMS).
+                                rels = await client.query.cypher(
                                     rel_query,
                                     {"entity_id": str(entity.id)},
                                 )
@@ -386,7 +388,8 @@ def _create_get_entity_graph_tool(
                 """
 
                 try:
-                    records = await client._client.execute_read(
+                    # v0.4: portable read-only Cypher accessor.
+                    records = await client.query.cypher(
                         query,
                         {"entity_id": entity_id},
                     )
@@ -729,3 +732,259 @@ def clear_client_cache() -> None:
     """
     global _client_cache
     _client_cache.clear()
+
+
+# =============================================================================
+# NAMS-flavored Strands tools (v0.4)
+# =============================================================================
+
+
+def _get_or_create_nams_client(
+    endpoint: str,
+    api_key: str,
+    transport_mode: str = "auto",
+) -> MemoryClient:
+    """Build (or retrieve cached) a NAMS-backed MemoryClient for Strands tools.
+
+    Cached by endpoint+api_key prefix so repeat tool invocations don't
+    re-open HTTP connections.
+    """
+    cache_key = f"nams:{endpoint}:{api_key[:8] if api_key else ''}"
+    if cache_key not in _client_cache:
+        from pydantic import SecretStr
+
+        from neo4j_agent_memory import MemoryClient, MemorySettings, NamsConfig
+
+        settings = MemorySettings(
+            backend="nams",
+            nams=NamsConfig(
+                endpoint=endpoint,
+                api_key=SecretStr(api_key),
+                # Strands runs tools in short bursts via sync wrappers —
+                # skipping probe avoids a round-trip on every call.
+                validate_on_connect=False,
+                transport_mode=transport_mode,
+            ),
+        )
+        _client_cache[cache_key] = MemoryClient(settings)
+    return _client_cache[cache_key]
+
+
+def _nams_search_context_tool(endpoint: str, api_key: str, transport_mode: str) -> Any:
+    """NAMS-backed search_context tool (Strands @tool)."""
+    try:
+        from strands import tool
+    except ImportError as e:
+        raise ImportError(
+            "strands-agents is required for Strands integration. "
+            "Install with: pip install strands-agents"
+        ) from e
+
+    @tool
+    def search_context(
+        query: str,
+        user_id: str,
+        top_k: int = 10,
+    ) -> list[dict[str, Any]]:
+        """Search the NAMS Context Graph for relevant memories.
+
+        Uses the hosted NAMS service rather than a direct Neo4j connection.
+
+        Args:
+            query: The search query.
+            user_id: User identifier for per-user scoping.
+            top_k: Maximum number of results.
+
+        Returns:
+            List of memory items (messages, entities, preferences).
+        """
+
+        async def _search() -> list[dict[str, Any]]:
+            client = _get_or_create_nams_client(endpoint, api_key, transport_mode)
+            async with client:
+                results: list[dict[str, Any]] = []
+                try:
+                    messages = await client.short_term.search_messages(
+                        query=query, session_id=user_id, limit=top_k
+                    )
+                    for msg in messages:
+                        role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+                        results.append(
+                            {"type": "message", "role": role, "content": msg.content}
+                        )
+                except Exception as e:
+                    logger.debug(f"NAMS message search failed: {e}")
+                try:
+                    entities = await client.long_term.search_entities(query=query, limit=top_k)
+                    for entity in entities:
+                        results.append(
+                            {
+                                "type": "entity",
+                                "name": entity.display_name,
+                                "entity_type": entity.type,
+                                "description": entity.description,
+                            }
+                        )
+                except Exception as e:
+                    logger.debug(f"NAMS entity search failed: {e}")
+                return results
+
+        return _run_async(_search())
+
+    return search_context
+
+
+def _nams_set_entity_feedback_tool(endpoint: str, api_key: str, transport_mode: str) -> Any:
+    """NAMS-only @tool — record positive/negative feedback on an entity."""
+    try:
+        from strands import tool
+    except ImportError as e:
+        raise ImportError(
+            "strands-agents is required for Strands integration."
+        ) from e
+
+    @tool
+    def set_entity_feedback(entity_id: str, feedback: str, user_id: str | None = None) -> str:
+        """Record feedback on an entity in NAMS.
+
+        Args:
+            entity_id: Entity UUID.
+            feedback: Feedback string ("positive" or "negative").
+            user_id: Optional per-user scoping.
+
+        Returns:
+            Confirmation message.
+        """
+
+        async def _set() -> str:
+            client = _get_or_create_nams_client(endpoint, api_key, transport_mode)
+            async with client:
+                # Platinum-tier — present on NamsLongTermMemory at runtime.
+                await client.long_term.set_entity_feedback(  # type: ignore[attr-defined]
+                    entity_id, feedback, user_identifier=user_id
+                )
+            return f"Recorded {feedback!r} feedback on entity {entity_id}."
+
+        return str(_run_async(_set()))
+
+    return set_entity_feedback
+
+
+def _nams_get_entity_provenance_tool(endpoint: str, api_key: str, transport_mode: str) -> Any:
+    """NAMS-only @tool — fetch sources + extractors for an entity."""
+    try:
+        from strands import tool
+    except ImportError as e:
+        raise ImportError(
+            "strands-agents is required for Strands integration."
+        ) from e
+
+    @tool
+    def get_entity_provenance(entity_id: str) -> dict[str, Any]:
+        """Get the provenance record for an entity (NAMS Platinum).
+
+        Args:
+            entity_id: Entity UUID.
+
+        Returns:
+            Dict with ``sources`` and ``extractors`` keys.
+        """
+
+        async def _get() -> dict[str, Any]:
+            client = _get_or_create_nams_client(endpoint, api_key, transport_mode)
+            async with client:
+                return await client.long_term.get_entity_provenance(entity_id)  # type: ignore[arg-type]
+
+        result = _run_async(_get())
+        return result if isinstance(result, dict) else {}
+
+    return get_entity_provenance
+
+
+def _nams_cypher_tool(endpoint: str, api_key: str, transport_mode: str) -> Any:
+    """NAMS-only @tool — read-only Cypher escape hatch (POST /v1/cypher)."""
+    try:
+        from strands import tool
+    except ImportError as e:
+        raise ImportError(
+            "strands-agents is required for Strands integration."
+        ) from e
+
+    @tool
+    def cypher_query(query: str) -> list[dict[str, Any]]:
+        """Execute a read-only Cypher query via NAMS.
+
+        Writes (CREATE/MERGE/DELETE/SET/REMOVE) are rejected client-side.
+
+        Args:
+            query: Read-only Cypher query string.
+
+        Returns:
+            Result rows as a list of dicts.
+        """
+
+        async def _q() -> list[dict[str, Any]]:
+            client = _get_or_create_nams_client(endpoint, api_key, transport_mode)
+            async with client:
+                return await client.query.cypher(query)
+
+        result = _run_async(_q())
+        return result if isinstance(result, list) else []
+
+    return cypher_query
+
+
+def nams_context_graph_tools(
+    endpoint: str | None = None,
+    api_key: str | None = None,
+    transport_mode: str = "auto",
+) -> list[Any]:
+    """Create Strands @tool functions backed by NAMS rather than direct Neo4j.
+
+    Returns a focused tool set sized for NAMS Platinum semantics:
+
+    * ``search_context`` — search messages + entities (works on both
+      backends, but here scoped to a NAMS-backed client).
+    * ``set_entity_feedback`` — NAMS Platinum tool.
+    * ``get_entity_provenance`` — NAMS Gold tool.
+    * ``cypher_query`` — read-only Cypher via NAMS REST.
+
+    Bolt-flavored full graph traversal (``get_entity_graph``) is omitted
+    because NAMS's hosted Cypher endpoint can't replicate the bespoke
+    deep-traversal semantics one-to-one. Use ``cypher_query`` with a
+    bounded ``MATCH (e)-[*1..2]-(n) RETURN ...`` instead.
+
+    Args:
+        endpoint: NAMS endpoint URL. Defaults to ``MEMORY_ENDPOINT`` env
+            var; falls back to ``https://memory.neo4jlabs.com/v1``.
+        api_key: NAMS API key. Defaults to ``MEMORY_API_KEY`` env var.
+        transport_mode: ``"auto"`` (default), ``"rest"``, or ``"bridge"``.
+
+    Returns:
+        List of Strands @tool functions ready for ``Agent(tools=...)``.
+
+    Example::
+
+        from strands import Agent
+        from neo4j_agent_memory.integrations.strands import (
+            nams_context_graph_tools,
+        )
+
+        tools = nams_context_graph_tools()  # picks up MEMORY_API_KEY from env
+        agent = Agent(model="anthropic.claude-sonnet-4-20250514-v1:0", tools=tools)
+    """
+    import os
+
+    endpoint = endpoint or os.environ.get("MEMORY_ENDPOINT") or "https://memory.neo4jlabs.com/v1"
+    api_key = api_key or os.environ.get("MEMORY_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "api_key is required. Pass api_key= or set MEMORY_API_KEY env var."
+        )
+
+    return [
+        _nams_search_context_tool(endpoint, api_key, transport_mode),
+        _nams_set_entity_feedback_tool(endpoint, api_key, transport_mode),
+        _nams_get_entity_provenance_tool(endpoint, api_key, transport_mode),
+        _nams_cypher_tool(endpoint, api_key, transport_mode),
+    ]
