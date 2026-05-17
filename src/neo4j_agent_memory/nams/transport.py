@@ -266,9 +266,7 @@ class HttpTransport:
                 if span is not None:
                     span.record_exception(exc)
                     span.set_status("ERROR", str(exc))
-                raise TransportError(
-                    f"NAMS {http_method} {url} network error: {exc}"
-                ) from exc
+                raise TransportError(f"NAMS {http_method} {url} network error: {exc}") from exc
 
             status = response.status_code
             last_status = status
@@ -303,9 +301,7 @@ class HttpTransport:
 
             # No more retries — map status → exception.
             if span is not None:
-                _telemetry.set_response_attributes(
-                    span, status_code=status, retry_count=attempt
-                )
+                _telemetry.set_response_attributes(span, status_code=status, retry_count=attempt)
             self._raise_for_status(
                 http_method=http_method,
                 url=url,
@@ -315,9 +311,7 @@ class HttpTransport:
             )
             # _raise_for_status always raises; the next line is unreachable but
             # keeps the type-checker happy.
-            raise TransportError(
-                f"NAMS {http_method} {url} unexpected status {last_status}"
-            )
+            raise TransportError(f"NAMS {http_method} {url} unexpected status {last_status}")
 
     def _backoff_delay(self, attempt: int) -> float:
         """Exponential backoff: ``backoff * 2**attempt`` (so 0.5, 1.0, 2.0, ...)."""

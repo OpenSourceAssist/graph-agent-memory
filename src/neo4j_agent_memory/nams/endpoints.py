@@ -45,7 +45,9 @@ def detect_protocol(endpoint: str, mode: TransportMode = "auto") -> WireProtocol
     return "rest" if _REST_RE.search(endpoint) else "bridge"
 
 
-def build_url(endpoint: str, *, rest_path: str | None, bridge_method: str, protocol: WireProtocol) -> str:
+def build_url(
+    endpoint: str, *, rest_path: str | None, bridge_method: str, protocol: WireProtocol
+) -> str:
     """Construct a full URL for the chosen protocol.
 
     * ``rest_path`` is a path beginning with ``/`` (e.g. ``/conversations``);
@@ -62,15 +64,11 @@ def build_url(endpoint: str, *, rest_path: str | None, bridge_method: str, proto
                 "must declare both."
             )
         if not rest_path.startswith("/"):
-            raise ValueError(
-                f"rest_path must begin with '/'; got {rest_path!r}."
-            )
+            raise ValueError(f"rest_path must begin with '/'; got {rest_path!r}.")
         return base + rest_path
     # bridge
     if "/" in bridge_method:
-        raise ValueError(
-            f"bridge_method must not contain '/'; got {bridge_method!r}."
-        )
+        raise ValueError(f"bridge_method must not contain '/'; got {bridge_method!r}.")
     return f"{base}/{bridge_method}"
 
 

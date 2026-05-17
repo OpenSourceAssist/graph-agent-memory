@@ -225,9 +225,7 @@ class NamsShortTermMemory:
                 "order_by": kwargs.get("order_by"),
             }
         )
-        payload = await self._transport.request(
-            _SPEC_LIST_SESSIONS, params=params or None
-        )
+        payload = await self._transport.request(_SPEC_LIST_SESSIONS, params=params or None)
         return [payload_to_model(item, SessionInfo) for item in (payload or [])]
 
     # ------------------------------------------------------------------ Silver
@@ -324,9 +322,7 @@ class NamsShortTermMemory:
                 "limit": kwargs.get("limit"),
             }
         )
-        payload = await self._transport.request(
-            _SPEC_LIST_CONVERSATIONS, params=params or None
-        )
+        payload = await self._transport.request(_SPEC_LIST_CONVERSATIONS, params=params or None)
         return [payload_to_model(item, Conversation) for item in (payload or [])]
 
     # ---------------------------------------------------------------- Platinum

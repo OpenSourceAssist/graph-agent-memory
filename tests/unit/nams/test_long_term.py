@@ -80,9 +80,7 @@ class TestAddEntity:
     @respx.mock
     async def test_basic_returns_entity_only(self, long_term):
         """NAMS returns just Entity (no DeduplicationResult tuple)."""
-        route = respx.post("https://memory.test/v1/entities").respond(
-            200, json=SAMPLE_ENTITY
-        )
+        route = respx.post("https://memory.test/v1/entities").respond(200, json=SAMPLE_ENTITY)
         result = await long_term.add_entity("Alice", "PERSON", subtype="INDIVIDUAL")
         assert isinstance(result, Entity)
         assert result.name == "Alice"
@@ -96,9 +94,7 @@ class TestAddEntity:
 
     @respx.mock
     async def test_bolt_only_kwargs_ignored(self, long_term):
-        route = respx.post("https://memory.test/v1/entities").respond(
-            200, json=SAMPLE_ENTITY
-        )
+        route = respx.post("https://memory.test/v1/entities").respond(200, json=SAMPLE_ENTITY)
         await long_term.add_entity(
             "Alice",
             "PERSON",
@@ -173,9 +169,7 @@ class TestSearchEntities:
         route = respx.post("https://memory.test/v1/entities/search").respond(
             200, json=[SAMPLE_ENTITY]
         )
-        results = await long_term.search_entities(
-            "Alice", entity_type="PERSON", limit=5
-        )
+        results = await long_term.search_entities("Alice", entity_type="PERSON", limit=5)
         assert len(results) == 1
         assert isinstance(results[0], Entity)
         body = json.loads(route.calls[0].request.content)
@@ -197,9 +191,7 @@ class TestSearchPreferences:
 class TestSearchFacts:
     @respx.mock
     async def test_basic(self, long_term):
-        respx.post("https://memory.test/v1/facts/search").respond(
-            200, json=[SAMPLE_FACT]
-        )
+        respx.post("https://memory.test/v1/facts/search").respond(200, json=[SAMPLE_FACT])
         results = await long_term.search_facts("Acme")
         assert len(results) == 1
         assert isinstance(results[0], Fact)
@@ -221,9 +213,7 @@ class TestGetEntityByName:
 
     @respx.mock
     async def test_returns_first_when_list(self, long_term):
-        respx.get("https://memory.test/v1/entities").respond(
-            200, json=[SAMPLE_ENTITY]
-        )
+        respx.get("https://memory.test/v1/entities").respond(200, json=[SAMPLE_ENTITY])
         e = await long_term.get_entity_by_name("Alice")
         assert isinstance(e, Entity)
 
@@ -260,9 +250,7 @@ class TestGetRelatedEntities:
             200,
             json={"entities": [SAMPLE_ENTITY], "relationships": []},
         )
-        result = await long_term.get_related_entities(
-            "00000000-0000-0000-0000-000000000001"
-        )
+        result = await long_term.get_related_entities("00000000-0000-0000-0000-000000000001")
         assert isinstance(result, dict)
         assert "entities" in result
 
@@ -273,9 +261,7 @@ class TestGetPreferencesFor:
         route = respx.get("https://memory.test/v1/preferences").respond(
             200, json=[SAMPLE_PREFERENCE]
         )
-        prefs = await long_term.get_preferences_for(
-            category="food", user_identifier="alice"
-        )
+        prefs = await long_term.get_preferences_for(category="food", user_identifier="alice")
         assert len(prefs) == 1
         assert route.calls[0].request.url.params["category"] == "food"
         assert route.calls[0].request.url.params["userId"] == "alice"
@@ -294,9 +280,7 @@ class TestSupersedePreference:
 class TestGetFactsAbout:
     @respx.mock
     async def test_basic(self, long_term):
-        respx.get(
-            "https://memory.test/v1/entities/Alice/facts"
-        ).respond(200, json=[SAMPLE_FACT])
+        respx.get("https://memory.test/v1/entities/Alice/facts").respond(200, json=[SAMPLE_FACT])
         facts = await long_term.get_facts_about("Alice")
         assert len(facts) == 1
         assert isinstance(facts[0], Fact)
@@ -322,9 +306,7 @@ class TestGetEntityRelationships:
                 }
             ],
         )
-        rels = await long_term.get_entity_relationships(
-            "00000000-0000-0000-0000-000000000001"
-        )
+        rels = await long_term.get_entity_relationships("00000000-0000-0000-0000-000000000001")
         assert len(rels) == 1
         assert isinstance(rels[0], Relationship)
 
@@ -361,9 +343,7 @@ class TestGetEntityProvenance:
             200,
             json={"sources": [{"message_id": "m1"}], "extractors": []},
         )
-        prov = await long_term.get_entity_provenance(
-            "00000000-0000-0000-0000-000000000001"
-        )
+        prov = await long_term.get_entity_provenance("00000000-0000-0000-0000-000000000001")
         assert "sources" in prov
         assert prov["sources"][0]["message_id"] == "m1"
 

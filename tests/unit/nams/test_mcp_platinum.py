@@ -44,9 +44,7 @@ class TestConditionalRegistration:
     async def test_registered_when_flag_set(self):
         """register_platinum=True adds the 4 Platinum tools."""
         mock_client = make_mock_client()
-        server = create_tool_server(
-            mock_client, profile="extended", register_platinum=True
-        )
+        server = create_tool_server(mock_client, profile="extended", register_platinum=True)
         async with Client(server) as client:
             tools = await client.list_tools()
             names = {t.name for t in tools}
@@ -58,9 +56,7 @@ class TestConditionalRegistration:
     async def test_core_profile_ignores_register_platinum(self):
         """Platinum tools are extended-only — core profile never registers them."""
         mock_client = make_mock_client()
-        server = create_tool_server(
-            mock_client, profile="core", register_platinum=True
-        )
+        server = create_tool_server(mock_client, profile="core", register_platinum=True)
         async with Client(server) as client:
             tools = await client.list_tools()
             assert len(tools) == 6
@@ -79,16 +75,12 @@ class TestPlatinumToolExecution:
         client.long_term.get_entity_provenance = AsyncMock(
             return_value={"sources": [{"message_id": "m1"}], "extractors": []}
         )
-        client.short_term.get_reflections = AsyncMock(
-            return_value=[{"text": "reflection one"}]
-        )
+        client.short_term.get_reflections = AsyncMock(return_value=[{"text": "reflection one"}])
         return client
 
     @pytest.fixture
     def server(self, mock_client):
-        return create_tool_server(
-            mock_client, profile="extended", register_platinum=True
-        )
+        return create_tool_server(mock_client, profile="extended", register_platinum=True)
 
     @pytest.mark.asyncio
     async def test_set_entity_feedback(self, server, mock_client):
@@ -105,9 +97,7 @@ class TestPlatinumToolExecution:
     @pytest.mark.asyncio
     async def test_get_entity_history(self, server, mock_client):
         async with Client(server) as client:
-            result = await client.call_tool(
-                "memory_get_entity_history", {"entity_id": "e1"}
-            )
+            result = await client.call_tool("memory_get_entity_history", {"entity_id": "e1"})
             data = json.loads(result.content[0].text)
         assert data["entity_id"] == "e1"
         assert len(data["history"]) == 1
@@ -116,9 +106,7 @@ class TestPlatinumToolExecution:
     @pytest.mark.asyncio
     async def test_get_entity_provenance(self, server, mock_client):
         async with Client(server) as client:
-            result = await client.call_tool(
-                "memory_get_entity_provenance", {"entity_id": "e1"}
-            )
+            result = await client.call_tool("memory_get_entity_provenance", {"entity_id": "e1"})
             data = json.loads(result.content[0].text)
         assert "sources" in data
         assert data["sources"][0]["message_id"] == "m1"
@@ -126,9 +114,7 @@ class TestPlatinumToolExecution:
     @pytest.mark.asyncio
     async def test_get_reflections(self, server, mock_client):
         async with Client(server) as client:
-            result = await client.call_tool(
-                "memory_get_reflections", {"session_id": "s1"}
-            )
+            result = await client.call_tool("memory_get_reflections", {"session_id": "s1"})
             data = json.loads(result.content[0].text)
         assert data["session_id"] == "s1"
         assert len(data["reflections"]) == 1

@@ -282,9 +282,7 @@ class NamsReasoningMemory:
                 "success_only": kwargs.get("success_only"),
             }
         )
-        payload = await self._transport.request(
-            _SPEC_GET_SESSION_TRACES, params=params or None
-        )
+        payload = await self._transport.request(_SPEC_GET_SESSION_TRACES, params=params or None)
         return [payload_to_model(item, ReasoningTrace) for item in (payload or [])]
 
     async def list_traces(self, **kwargs: Any) -> list[ReasoningTrace]:
@@ -295,9 +293,7 @@ class NamsReasoningMemory:
                 "offset": kwargs.get("offset"),
             }
         )
-        payload = await self._transport.request(
-            _SPEC_LIST_TRACES, params=params or None
-        )
+        payload = await self._transport.request(_SPEC_LIST_TRACES, params=params or None)
         return [payload_to_model(item, ReasoningTrace) for item in (payload or [])]
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
@@ -331,9 +327,7 @@ class NamsReasoningMemory:
                 "session_id": kwargs.get("session_id"),
             }
         )
-        payload = await self._transport.request(
-            _SPEC_GET_TOOL_STATS, params=params or None
-        )
+        payload = await self._transport.request(_SPEC_GET_TOOL_STATS, params=params or None)
         return [payload_to_model(item, ToolStats) for item in (payload or [])]
 
     async def link_trace_to_message(

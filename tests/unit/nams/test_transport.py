@@ -107,9 +107,9 @@ class TestLifecycle:
 class TestHappyPath:
     @respx.mock
     async def test_post_returns_parsed_json(self, nams_config, auth):
-        route = respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(200, json={"id": "m1", "role": "user", "content": "hi"})
+        route = respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            200, json={"id": "m1", "role": "user", "content": "hi"}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             result = await t.request(
@@ -135,9 +135,7 @@ class TestHappyPath:
 
     @respx.mock
     async def test_204_returns_none(self, nams_config, auth):
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(204)
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(204)
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             result = await t.request(
@@ -150,9 +148,7 @@ class TestHappyPath:
     @respx.mock
     async def test_200_empty_body_returns_none(self, nams_config, auth):
         # Some servers send 200 with no body — be tolerant.
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(200, content=b"")
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(200, content=b"")
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             result = await t.request(
@@ -164,9 +160,9 @@ class TestHappyPath:
 
     @respx.mock
     async def test_auth_header_applied(self, nams_config, auth):
-        route = respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(200, json={})
+        route = respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            200, json={}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             await t.request(
@@ -174,10 +170,7 @@ class TestHappyPath:
                 path_params={"session_id": "abc"},
                 json={"role": "user", "content": "hi"},
             )
-        assert (
-            route.calls[0].request.headers["Authorization"]
-            == "Bearer nams_test_key"
-        )
+        assert route.calls[0].request.headers["Authorization"] == "Bearer nams_test_key"
 
     @respx.mock
     async def test_custom_headers_passed_through(self, auth):
@@ -187,9 +180,9 @@ class TestHappyPath:
             headers={"X-Trace-Id": "t1"},
             validate_on_connect=False,
         )
-        route = respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(200, json={})
+        route = respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            200, json={}
+        )
         async with HttpTransport.from_config(
             config, auth=StaticApiKeyAuth.from_config(config)
         ) as t:
@@ -200,19 +193,14 @@ class TestHappyPath:
             )
         assert route.calls[0].request.headers["X-Trace-Id"] == "t1"
         # Auth header still present alongside.
-        assert (
-            route.calls[0].request.headers["Authorization"]
-            == "Bearer nams_test_key"
-        )
+        assert route.calls[0].request.headers["Authorization"] == "Bearer nams_test_key"
 
 
 class TestBridgeProtocol:
     @respx.mock
     async def test_bridge_routing(self, bridge_config):
         # Bridge protocol = POST /<snake_case_method>
-        route = respx.post("https://memory.test/add_message").respond(
-            200, json={"id": "m1"}
-        )
+        route = respx.post("https://memory.test/add_message").respond(200, json={"id": "m1"})
         auth = StaticApiKeyAuth.from_config(bridge_config)
         async with HttpTransport.from_config(bridge_config, auth=auth) as t:
             result = await t.request(
@@ -230,9 +218,9 @@ class TestBridgeProtocol:
 class TestErrorMapping:
     @respx.mock
     async def test_400_raises_validation_error_with_details(self, nams_config, auth):
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(400, json={"error": "missing field", "field": "role"})
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            400, json={"error": "missing field", "field": "role"}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(ValidationError) as exc_info:
@@ -246,9 +234,9 @@ class TestErrorMapping:
 
     @respx.mock
     async def test_401_raises_authentication_error(self, nams_config, auth):
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(401, json={"error": "invalid api key"})
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            401, json={"error": "invalid api key"}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(AuthenticationError):
@@ -260,9 +248,9 @@ class TestErrorMapping:
 
     @respx.mock
     async def test_403_raises_authentication_error(self, nams_config, auth):
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(403, json={"error": "forbidden"})
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            403, json={"error": "forbidden"}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(AuthenticationError):
@@ -274,9 +262,9 @@ class TestErrorMapping:
 
     @respx.mock
     async def test_404_raises_memory_error(self, nams_config, auth):
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(404, json={"error": "session not found"})
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            404, json={"error": "session not found"}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(MemoryError, match="not found"):
@@ -288,9 +276,9 @@ class TestErrorMapping:
 
     @respx.mock
     async def test_405_raises_not_supported(self, nams_config, auth):
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(405, json={"error": "method not allowed"})
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            405, json={"error": "method not allowed"}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(NotSupportedError) as exc_info:
@@ -304,9 +292,7 @@ class TestErrorMapping:
 
     @respx.mock
     async def test_501_raises_not_supported(self, nams_config, auth):
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(501)
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(501)
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(NotSupportedError):
@@ -321,9 +307,7 @@ class TestRetryBehavior:
     @respx.mock
     async def test_5xx_retried_then_succeeds(self, nams_config, auth):
         # First two calls fail with 503, third succeeds.
-        route = respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).mock(
+        route = respx.post("https://memory.test/v1/conversations/abc/messages").mock(
             side_effect=[
                 httpx.Response(503, json={"error": "busy"}),
                 httpx.Response(503, json={"error": "busy"}),
@@ -341,13 +325,11 @@ class TestRetryBehavior:
         assert route.call_count == 3
 
     @respx.mock
-    async def test_5xx_exhausts_retries_then_raises_transport_error(
-        self, nams_config, auth
-    ):
+    async def test_5xx_exhausts_retries_then_raises_transport_error(self, nams_config, auth):
         # max_retries=2 from fixture → 3 attempts total, all 503.
-        route = respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(503, json={"error": "down"})
+        route = respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            503, json={"error": "down"}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(TransportError, match="503"):
@@ -368,9 +350,7 @@ class TestRetryBehavior:
 
         monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).mock(
+        respx.post("https://memory.test/v1/conversations/abc/messages").mock(
             side_effect=[
                 httpx.Response(429, headers={"Retry-After": "0.05"}),
                 httpx.Response(200, json={"id": "m1"}),
@@ -389,9 +369,7 @@ class TestRetryBehavior:
         assert sleeps == [0.05]
 
     @respx.mock
-    async def test_429_without_retry_after_uses_backoff(
-        self, nams_config, auth, monkeypatch
-    ):
+    async def test_429_without_retry_after_uses_backoff(self, nams_config, auth, monkeypatch):
         sleeps: list[float] = []
 
         async def fake_sleep(seconds: float) -> None:
@@ -399,9 +377,7 @@ class TestRetryBehavior:
 
         monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).mock(
+        respx.post("https://memory.test/v1/conversations/abc/messages").mock(
             side_effect=[
                 httpx.Response(429),  # no Retry-After header
                 httpx.Response(200, json={"id": "m1"}),
@@ -419,9 +395,9 @@ class TestRetryBehavior:
 
     @respx.mock
     async def test_429_exhausts_retries_raises_rate_limit(self, nams_config, auth):
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(429, headers={"Retry-After": "0.001"})
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            429, headers={"Retry-After": "0.001"}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(RateLimitError) as exc_info:
@@ -436,9 +412,7 @@ class TestRetryBehavior:
     @respx.mock
     async def test_network_error_retried(self, nams_config, auth):
         # Two ConnectErrors, then success.
-        route = respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).mock(
+        route = respx.post("https://memory.test/v1/conversations/abc/messages").mock(
             side_effect=[
                 httpx.ConnectError("connection refused"),
                 httpx.ConnectError("connection refused"),
@@ -456,12 +430,10 @@ class TestRetryBehavior:
         assert route.call_count == 3
 
     @respx.mock
-    async def test_network_error_exhausts_raises_transport_error(
-        self, nams_config, auth
-    ):
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).mock(side_effect=httpx.ConnectError("net down"))
+    async def test_network_error_exhausts_raises_transport_error(self, nams_config, auth):
+        respx.post("https://memory.test/v1/conversations/abc/messages").mock(
+            side_effect=httpx.ConnectError("net down")
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(TransportError, match="network error"):
@@ -474,9 +446,9 @@ class TestRetryBehavior:
     @respx.mock
     async def test_400_not_retried(self, nams_config, auth):
         # ValidationError is non-retryable — should hit the server exactly once.
-        route = respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(400, json={"error": "bad"})
+        route = respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            400, json={"error": "bad"}
+        )
 
         async with HttpTransport.from_config(nams_config, auth=auth) as t:
             with pytest.raises(ValidationError):
@@ -497,16 +469,12 @@ class TestTracerIntegration:
         # Use a real Tracer (NoOpTracer) and capture span method calls.
         span = MagicMock()
         tracer = MagicMock()
-        tracer.async_span.return_value.__aenter__ = MagicMock(
-            return_value=_AsyncReturn(span)
-        )
-        tracer.async_span.return_value.__aexit__ = MagicMock(
-            return_value=_AsyncReturn(None)
-        )
+        tracer.async_span.return_value.__aenter__ = MagicMock(return_value=_AsyncReturn(span))
+        tracer.async_span.return_value.__aexit__ = MagicMock(return_value=_AsyncReturn(None))
 
-        respx.post(
-            "https://memory.test/v1/conversations/abc/messages"
-        ).respond(200, json={"id": "m1"})
+        respx.post("https://memory.test/v1/conversations/abc/messages").respond(
+            200, json={"id": "m1"}
+        )
 
         t = HttpTransport.from_config(nams_config, auth=auth, tracer=tracer)
         async with t:
@@ -519,9 +487,7 @@ class TestTracerIntegration:
         # set_attribute called multiple times — verify the key ones landed.
         attr_calls = {call.args[0]: call.args[1] for call in span.set_attribute.call_args_list}
         assert attr_calls["http.method"] == "POST"
-        assert attr_calls["http.url"] == (
-            "https://memory.test/v1/conversations/abc/messages"
-        )
+        assert attr_calls["http.url"] == ("https://memory.test/v1/conversations/abc/messages")
         assert attr_calls["nams.method"] == "add_message"
         assert attr_calls["nams.protocol"] == "rest"
         assert attr_calls["http.status_code"] == 200

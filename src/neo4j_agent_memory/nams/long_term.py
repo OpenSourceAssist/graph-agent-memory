@@ -39,9 +39,7 @@ _SPEC_ADD_ENTITY = EndpointSpec(
 _SPEC_ADD_PREFERENCE = EndpointSpec(
     rest_method="POST", rest_path="/preferences", bridge_method="add_preference"
 )
-_SPEC_ADD_FACT = EndpointSpec(
-    rest_method="POST", rest_path="/facts", bridge_method="add_fact"
-)
+_SPEC_ADD_FACT = EndpointSpec(rest_method="POST", rest_path="/facts", bridge_method="add_fact")
 _SPEC_ADD_RELATIONSHIP = EndpointSpec(
     rest_method="POST", rest_path="/relationships", bridge_method="add_relationship"
 )
@@ -184,9 +182,7 @@ class NamsLongTermMemory:
                 "object": object,
                 "confidence": kwargs.get("confidence"),
                 "source_id": (
-                    _to_str(kwargs["source_id"])
-                    if kwargs.get("source_id") is not None
-                    else None
+                    _to_str(kwargs["source_id"]) if kwargs.get("source_id") is not None else None
                 ),
                 "valid_from": kwargs.get("valid_from"),
                 "valid_until": kwargs.get("valid_until"),
@@ -316,9 +312,7 @@ class NamsLongTermMemory:
                 "limit": kwargs.get("limit"),
             }
         )
-        payload = await self._transport.request(
-            _SPEC_GET_PREFERENCES_FOR, params=params or None
-        )
+        payload = await self._transport.request(_SPEC_GET_PREFERENCES_FOR, params=params or None)
         return [payload_to_model(item, Preference) for item in (payload or [])]
 
     async def supersede_preference(

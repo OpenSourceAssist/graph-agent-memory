@@ -809,9 +809,7 @@ def _nams_search_context_tool(endpoint: str, api_key: str, transport_mode: str) 
                     )
                     for msg in messages:
                         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-                        results.append(
-                            {"type": "message", "role": role, "content": msg.content}
-                        )
+                        results.append({"type": "message", "role": role, "content": msg.content})
                 except Exception as e:
                     logger.debug(f"NAMS message search failed: {e}")
                 try:
@@ -839,9 +837,7 @@ def _nams_set_entity_feedback_tool(endpoint: str, api_key: str, transport_mode: 
     try:
         from strands import tool
     except ImportError as e:
-        raise ImportError(
-            "strands-agents is required for Strands integration."
-        ) from e
+        raise ImportError("strands-agents is required for Strands integration.") from e
 
     @tool
     def set_entity_feedback(entity_id: str, feedback: str, user_id: str | None = None) -> str:
@@ -875,9 +871,7 @@ def _nams_get_entity_provenance_tool(endpoint: str, api_key: str, transport_mode
     try:
         from strands import tool
     except ImportError as e:
-        raise ImportError(
-            "strands-agents is required for Strands integration."
-        ) from e
+        raise ImportError("strands-agents is required for Strands integration.") from e
 
     @tool
     def get_entity_provenance(entity_id: str) -> dict[str, Any]:
@@ -906,9 +900,7 @@ def _nams_cypher_tool(endpoint: str, api_key: str, transport_mode: str) -> Any:
     try:
         from strands import tool
     except ImportError as e:
-        raise ImportError(
-            "strands-agents is required for Strands integration."
-        ) from e
+        raise ImportError("strands-agents is required for Strands integration.") from e
 
     @tool
     def cypher_query(query: str) -> list[dict[str, Any]]:
@@ -978,9 +970,7 @@ def nams_context_graph_tools(
     endpoint = endpoint or os.environ.get("MEMORY_ENDPOINT") or "https://memory.neo4jlabs.com/v1"
     api_key = api_key or os.environ.get("MEMORY_API_KEY")
     if not api_key:
-        raise ValueError(
-            "api_key is required. Pass api_key= or set MEMORY_API_KEY env var."
-        )
+        raise ValueError("api_key is required. Pass api_key= or set MEMORY_API_KEY env var.")
 
     return [
         _nams_search_context_tool(endpoint, api_key, transport_mode),

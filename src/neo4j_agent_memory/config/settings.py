@@ -506,9 +506,7 @@ class NamsConfig(BaseModel):
         default=None,
         description="NAMS API key (format 'nams_...'). Falls back to MEMORY_API_KEY env var.",
     )
-    timeout: float = Field(
-        default=30.0, gt=0, description="HTTP request timeout in seconds."
-    )
+    timeout: float = Field(default=30.0, gt=0, description="HTTP request timeout in seconds.")
     max_retries: int = Field(
         default=3,
         ge=0,

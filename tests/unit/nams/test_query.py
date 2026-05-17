@@ -122,9 +122,7 @@ def nams_query(transport) -> NamsCypherQuery:
 class TestNamsCypherQuery:
     @respx.mock
     async def test_basic_returns_rows(self, nams_query):
-        route = respx.post("https://memory.test/v1/cypher").respond(
-            200, json=[{"n": 1}, {"n": 2}]
-        )
+        route = respx.post("https://memory.test/v1/cypher").respond(200, json=[{"n": 1}, {"n": 2}])
         result = await nams_query.cypher("MATCH (n) RETURN n LIMIT 2")
         assert result == [{"n": 1}, {"n": 2}]
         body = json.loads(route.calls[0].request.content)
@@ -133,9 +131,7 @@ class TestNamsCypherQuery:
     @respx.mock
     async def test_forwards_params(self, nams_query):
         route = respx.post("https://memory.test/v1/cypher").respond(200, json=[])
-        await nams_query.cypher(
-            "MATCH (n {id: $id}) RETURN n", {"id": "abc"}
-        )
+        await nams_query.cypher("MATCH (n {id: $id}) RETURN n", {"id": "abc"})
         body = json.loads(route.calls[0].request.content)
         assert body["params"] == {"id": "abc"}
 
@@ -181,9 +177,7 @@ class TestNamsBackendQueryAccessor:
     async def test_query_accessor_exposed(self, nams_config):
         from neo4j_agent_memory.nams import NamsBackend
 
-        respx.post("https://memory.test/v1/cypher").respond(
-            200, json=[{"count": 42}]
-        )
+        respx.post("https://memory.test/v1/cypher").respond(200, json=[{"count": 42}])
         async with NamsBackend.from_config(nams_config) as backend:
             assert isinstance(backend.query, NamsCypherQuery)
             assert isinstance(backend.query, CypherQueryProtocol)

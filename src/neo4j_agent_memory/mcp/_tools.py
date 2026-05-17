@@ -898,9 +898,7 @@ def _register_platinum_tools(mcp: FastMCP) -> None:
             reflections = await client.short_term.get_reflections(  # type: ignore[attr-defined]
                 session_id, limit=limit
             )
-            return json.dumps(
-                {"session_id": session_id, "reflections": reflections}, default=str
-            )
+            return json.dumps({"session_id": session_id, "reflections": reflections}, default=str)
         except Exception as e:
             logger.error(f"Error in memory_get_reflections: {e}")
             return json.dumps({"error": str(e)})

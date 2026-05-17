@@ -906,8 +906,7 @@ class MemoryClient:
                 backend="nams",
                 method="client.graph",
                 message="Direct Neo4j driver access is bolt-only.",
-                workaround="Use client.query.cypher(query, params) for "
-                "portable read-only Cypher.",
+                workaround="Use client.query.cypher(query, params) for portable read-only Cypher.",
             )
         if self._client is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")

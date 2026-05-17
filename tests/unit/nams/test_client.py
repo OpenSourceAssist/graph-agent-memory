@@ -90,18 +90,14 @@ class TestProbe:
 
     @respx.mock
     async def test_probe_raises_on_401(self, nams_config):
-        respx.get("https://memory.test/v1/sessions").respond(
-            401, json={"error": "invalid key"}
-        )
+        respx.get("https://memory.test/v1/sessions").respond(401, json={"error": "invalid key"})
         async with NamsBackend.from_config(nams_config) as backend:
             with pytest.raises(AuthenticationError):
                 await backend.probe()
 
     @respx.mock
     async def test_probe_raises_on_403(self, nams_config):
-        respx.get("https://memory.test/v1/sessions").respond(
-            403, json={"error": "forbidden"}
-        )
+        respx.get("https://memory.test/v1/sessions").respond(403, json={"error": "forbidden"})
         async with NamsBackend.from_config(nams_config) as backend:
             with pytest.raises(AuthenticationError):
                 await backend.probe()
@@ -133,9 +129,7 @@ class TestProbe:
 class TestBridgeMode:
     @respx.mock
     async def test_probe_in_bridge_mode(self, bridge_config):
-        route = respx.post("https://memory.test/list_sessions").respond(
-            200, json=[]
-        )
+        route = respx.post("https://memory.test/list_sessions").respond(200, json=[])
         async with NamsBackend.from_config(bridge_config) as backend:
             await backend.probe()
         assert route.called
@@ -149,9 +143,7 @@ class TestBridgeMode:
 class TestSmokeEnd2End:
     @respx.mock
     async def test_all_three_layers_reach_their_endpoints(self, nams_config):
-        respx.post(
-            "https://memory.test/v1/conversations/s1/messages"
-        ).respond(
+        respx.post("https://memory.test/v1/conversations/s1/messages").respond(
             200,
             json={
                 "id": "00000000-0000-0000-0000-000000000001",

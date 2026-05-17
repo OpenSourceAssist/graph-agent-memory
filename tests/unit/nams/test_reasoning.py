@@ -83,9 +83,7 @@ class TestProtocolConformance:
 class TestStartTrace:
     @respx.mock
     async def test_basic(self, reasoning):
-        route = respx.post("https://memory.test/v1/traces").respond(
-            200, json=SAMPLE_TRACE
-        )
+        route = respx.post("https://memory.test/v1/traces").respond(200, json=SAMPLE_TRACE)
         trace = await reasoning.start_trace("s1", "find restaurants")
         assert isinstance(trace, ReasoningTrace)
         assert trace.session_id == "s1"
@@ -97,9 +95,7 @@ class TestStartTrace:
     async def test_with_triggered_by_message_id(self, reasoning):
         from uuid import UUID
 
-        route = respx.post("https://memory.test/v1/traces").respond(
-            200, json=SAMPLE_TRACE
-        )
+        route = respx.post("https://memory.test/v1/traces").respond(200, json=SAMPLE_TRACE)
         msg_id = UUID(int=42)
         await reasoning.start_trace(
             "s1",
@@ -138,9 +134,7 @@ class TestAddStep:
         respx.post(
             "https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001/steps"
         ).respond(200, json=SAMPLE_STEP)
-        await reasoning.add_step(
-            "00000000-0000-0000-0000-000000000001", thought="just thinking"
-        )
+        await reasoning.add_step("00000000-0000-0000-0000-000000000001", thought="just thinking")
 
 
 class TestRecordToolCall:
@@ -205,9 +199,7 @@ class TestCompleteTrace:
 class TestSearchSteps:
     @respx.mock
     async def test_basic(self, reasoning):
-        respx.post("https://memory.test/v1/steps/search").respond(
-            200, json=[SAMPLE_STEP]
-        )
+        respx.post("https://memory.test/v1/steps/search").respond(200, json=[SAMPLE_STEP])
         steps = await reasoning.search_steps("search", session_id="s1", limit=5)
         assert len(steps) == 1
         assert isinstance(steps[0], ReasoningStep)
@@ -219,9 +211,7 @@ class TestGetSimilarTraces:
         route = respx.post("https://memory.test/v1/traces/similar").respond(
             200, json=[SAMPLE_TRACE]
         )
-        traces = await reasoning.get_similar_traces(
-            "find food", limit=3, success_only=True
-        )
+        traces = await reasoning.get_similar_traces("find food", limit=3, success_only=True)
         assert len(traces) == 1
         body = json.loads(route.calls[0].request.content)
         assert body["query"] == "find food"
@@ -232,52 +222,44 @@ class TestGetSimilarTraces:
 class TestGetTrace:
     @respx.mock
     async def test_found(self, reasoning):
-        respx.get(
-            "https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001"
-        ).respond(200, json=SAMPLE_TRACE)
+        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(
+            200, json=SAMPLE_TRACE
+        )
         t = await reasoning.get_trace("00000000-0000-0000-0000-000000000001")
         assert isinstance(t, ReasoningTrace)
 
     @respx.mock
     async def test_not_found_returns_none(self, reasoning):
-        respx.get(
-            "https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001"
-        ).respond(404, json={"error": "trace not found"})
+        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(
+            404, json={"error": "trace not found"}
+        )
         assert await reasoning.get_trace("00000000-0000-0000-0000-000000000001") is None
 
 
 class TestGetTraceWithSteps:
     @respx.mock
     async def test_found_includes_steps(self, reasoning):
-        respx.get(
-            "https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001"
-        ).respond(
+        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(
             200,
             json={**SAMPLE_TRACE, "steps": [SAMPLE_STEP]},
         )
-        t = await reasoning.get_trace_with_steps(
-            "00000000-0000-0000-0000-000000000001"
-        )
+        t = await reasoning.get_trace_with_steps("00000000-0000-0000-0000-000000000001")
         assert t is not None
         assert len(t.steps) == 1
 
     @respx.mock
     async def test_not_found_returns_none(self, reasoning):
-        respx.get(
-            "https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001"
-        ).respond(404, json={"error": "not found"})
-        result = await reasoning.get_trace_with_steps(
-            "00000000-0000-0000-0000-000000000001"
+        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(
+            404, json={"error": "not found"}
         )
+        result = await reasoning.get_trace_with_steps("00000000-0000-0000-0000-000000000001")
         assert result is None
 
 
 class TestGetSessionTraces:
     @respx.mock
     async def test_basic(self, reasoning):
-        route = respx.get("https://memory.test/v1/traces").respond(
-            200, json=[SAMPLE_TRACE]
-        )
+        route = respx.get("https://memory.test/v1/traces").respond(200, json=[SAMPLE_TRACE])
         traces = await reasoning.get_session_traces("s1", limit=20)
         assert len(traces) == 1
         assert route.calls[0].request.url.params["session_id"] == "s1"
@@ -358,9 +340,7 @@ class TestBridgeRouting:
     @respx.mock
     async def test_start_trace_bridge_path(self, bridge_config):
         auth = StaticApiKeyAuth.from_config(bridge_config)
-        route = respx.post("https://memory.test/start_trace").respond(
-            200, json=SAMPLE_TRACE
-        )
+        route = respx.post("https://memory.test/start_trace").respond(200, json=SAMPLE_TRACE)
         async with HttpTransport.from_config(bridge_config, auth=auth) as t:
             r = NamsReasoningMemory(t)
             await r.start_trace("s1", "task")

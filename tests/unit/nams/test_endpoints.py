@@ -106,25 +106,27 @@ class TestBuildUrl:
 
 class TestExpandPath:
     def test_substitution(self):
-        assert expand_path(
-            "/conversations/{session_id}/messages", session_id="abc"
-        ) == "/conversations/abc/messages"
+        assert (
+            expand_path("/conversations/{session_id}/messages", session_id="abc")
+            == "/conversations/abc/messages"
+        )
 
     def test_multiple_placeholders(self):
-        assert expand_path(
-            "/traces/{trace_id}/messages/{msg_id}",
-            trace_id="t1",
-            msg_id="m2",
-        ) == "/traces/t1/messages/m2"
+        assert (
+            expand_path(
+                "/traces/{trace_id}/messages/{msg_id}",
+                trace_id="t1",
+                msg_id="m2",
+            )
+            == "/traces/t1/messages/m2"
+        )
 
     def test_no_placeholders_passes_through(self):
         assert expand_path("/conversations") == "/conversations"
 
     def test_extra_params_ignored(self):
         # ``str.format`` ignores extras as long as required keys are present.
-        assert expand_path(
-            "/x/{id}", id="1", unused="oops"
-        ) == "/x/1"
+        assert expand_path("/x/{id}", id="1", unused="oops") == "/x/1"
 
     def test_missing_placeholder_raises(self):
         with pytest.raises(KeyError):

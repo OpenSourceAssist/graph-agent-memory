@@ -56,9 +56,7 @@ class TestBackendResolution:
 
     @patch("neo4j_agent_memory.cli.main.asyncio")
     @patch("neo4j_agent_memory.mcp.server.run_server", new_callable=AsyncMock)
-    def test_explicit_nams_requires_api_key(
-        self, _run_server, mock_asyncio, runner
-    ):
+    def test_explicit_nams_requires_api_key(self, _run_server, mock_asyncio, runner):
         mock_asyncio.run = lambda _coro: None
         result = runner.invoke(cli, ["mcp", "serve", "--backend", "nams"])
         assert result.exit_code == 1
@@ -66,9 +64,7 @@ class TestBackendResolution:
 
     @patch("neo4j_agent_memory.cli.main.asyncio")
     @patch("neo4j_agent_memory.mcp.server.run_server", new_callable=AsyncMock)
-    def test_nams_with_api_key_succeeds(
-        self, _run_server, mock_asyncio, runner
-    ):
+    def test_nams_with_api_key_succeeds(self, _run_server, mock_asyncio, runner):
         mock_asyncio.run = lambda _coro: None
         result = runner.invoke(
             cli,
@@ -85,9 +81,7 @@ class TestBackendResolution:
 
     @patch("neo4j_agent_memory.cli.main.asyncio")
     @patch("neo4j_agent_memory.mcp.server.run_server", new_callable=AsyncMock)
-    def test_api_key_env_var(
-        self, _run_server, mock_asyncio, runner, monkeypatch
-    ):
+    def test_api_key_env_var(self, _run_server, mock_asyncio, runner, monkeypatch):
         """Setting MEMORY_API_KEY env defaults backend to nams."""
         mock_asyncio.run = lambda _coro: None
         monkeypatch.setenv("MEMORY_API_KEY", "nams_from_env")
@@ -96,9 +90,7 @@ class TestBackendResolution:
 
     @patch("neo4j_agent_memory.cli.main.asyncio")
     @patch("neo4j_agent_memory.mcp.server.run_server", new_callable=AsyncMock)
-    def test_bolt_with_api_key_warns(
-        self, _run_server, mock_asyncio, runner
-    ):
+    def test_bolt_with_api_key_warns(self, _run_server, mock_asyncio, runner):
         """--api-key with --backend=bolt emits a warning but doesn't fail."""
         mock_asyncio.run = lambda _coro: None
         result = runner.invoke(
@@ -123,9 +115,7 @@ class TestRunServerKwargs:
 
     @patch("neo4j_agent_memory.cli.main.asyncio")
     @patch("neo4j_agent_memory.mcp.server.run_server", new_callable=AsyncMock)
-    def test_nams_kwargs_forwarded(
-        self, mock_run_server, mock_asyncio, runner
-    ):
+    def test_nams_kwargs_forwarded(self, mock_run_server, mock_asyncio, runner):
         captured: dict = {}
 
         def _capture(coro):

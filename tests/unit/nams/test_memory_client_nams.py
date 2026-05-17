@@ -89,9 +89,7 @@ class TestLifecycle:
 
     @respx.mock
     async def test_probe_failure_propagates_at_connect_time(self):
-        respx.get("https://memory.test/v1/sessions").respond(
-            401, json={"error": "invalid key"}
-        )
+        respx.get("https://memory.test/v1/sessions").respond(401, json={"error": "invalid key"})
         client = MemoryClient(_make_nams_settings(validate_on_connect=True))
         with pytest.raises(AuthenticationError):
             await client.connect()
@@ -124,9 +122,7 @@ class TestAccessorDispatch:
     @respx.mock
     async def test_end_to_end_add_message(self):
         """Full flow: connect, add_message via NAMS, parse response."""
-        respx.post(
-            "https://memory.test/v1/conversations/s1/messages"
-        ).respond(
+        respx.post("https://memory.test/v1/conversations/s1/messages").respond(
             200,
             json={
                 "id": "00000000-0000-0000-0000-000000000001",
@@ -142,9 +138,7 @@ class TestAccessorDispatch:
 
     @respx.mock
     async def test_end_to_end_query_cypher(self):
-        respx.post("https://memory.test/v1/cypher").respond(
-            200, json=[{"n": 1}]
-        )
+        respx.post("https://memory.test/v1/cypher").respond(200, json=[{"n": 1}])
         async with MemoryClient(_make_nams_settings()) as client:
             rows = await client.query.cypher("MATCH (n) RETURN n LIMIT 1")
         assert rows == [{"n": 1}]
@@ -252,9 +246,7 @@ class TestWarnAndIgnore:
             warnings.simplefilter("always", UserWarning)
             async with MemoryClient(_make_nams_settings()):
                 pass
-        nams_warnings = [
-            w for w in caught if "NAMS backend ignores" in str(w.message)
-        ]
+        nams_warnings = [w for w in caught if "NAMS backend ignores" in str(w.message)]
         assert nams_warnings == []
 
     @respx.mock
@@ -274,9 +266,7 @@ class TestWarnAndIgnore:
             warnings.simplefilter("always", UserWarning)
             async with MemoryClient(settings):
                 pass
-        nams_warnings = [
-            w for w in caught if "NAMS backend ignores" in str(w.message)
-        ]
+        nams_warnings = [w for w in caught if "NAMS backend ignores" in str(w.message)]
         assert len(nams_warnings) == 1
         assert "extraction" in str(nams_warnings[0].message)
 
@@ -334,9 +324,7 @@ class TestBoltGraphDeprecation:
             result = await client.graph.execute_read("MATCH (n) RETURN n")
 
         assert result == [{"n": 1}]
-        dep_warnings = [
-            w for w in caught if issubclass(w.category, DeprecationWarning)
-        ]
+        dep_warnings = [w for w in caught if issubclass(w.category, DeprecationWarning)]
         assert len(dep_warnings) == 1
         assert "client.query.cypher" in str(dep_warnings[0].message)
 
@@ -359,9 +347,7 @@ class TestBoltGraphDeprecation:
             await client.graph.execute_read("MATCH (x) RETURN x")
 
         # Three calls, one warning.
-        dep_warnings = [
-            w for w in caught if issubclass(w.category, DeprecationWarning)
-        ]
+        dep_warnings = [w for w in caught if issubclass(w.category, DeprecationWarning)]
         assert len(dep_warnings) == 1
 
     async def test_other_attrs_delegate_without_warning(self):
@@ -378,9 +364,7 @@ class TestBoltGraphDeprecation:
             result = await client.graph.execute_write("CREATE (n:X)")
 
         assert result == [{"created": 1}]
-        dep_warnings = [
-            w for w in caught if issubclass(w.category, DeprecationWarning)
-        ]
+        dep_warnings = [w for w in caught if issubclass(w.category, DeprecationWarning)]
         # No deprecation on execute_write.
         assert dep_warnings == []
 

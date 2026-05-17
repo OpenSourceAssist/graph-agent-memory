@@ -204,12 +204,8 @@ try:
 
             # v0.4: register Platinum tools when the pre-connected client
             # is NAMS-backed.
-            register_platinum = (
-                memory_client._settings.backend == "nams"
-            )
-            register_tools(
-                self._mcp, profile=profile, register_platinum=register_platinum
-            )
+            register_platinum = memory_client._settings.backend == "nams"
+            register_tools(self._mcp, profile=profile, register_platinum=register_platinum)
             register_resources(self._mcp, profile=profile)
             register_prompts(self._mcp, profile=profile)
 
@@ -282,9 +278,7 @@ try:
         settings_kwargs: dict[str, Any] = {"backend": backend}
         if backend == "nams":
             if not nams_api_key:
-                raise ValueError(
-                    "NAMS backend requires nams_api_key (or MEMORY_API_KEY env var)."
-                )
+                raise ValueError("NAMS backend requires nams_api_key (or MEMORY_API_KEY env var).")
             nams_kwargs: dict[str, Any] = {"api_key": SecretStr(nams_api_key)}
             if nams_endpoint:
                 nams_kwargs["endpoint"] = nams_endpoint

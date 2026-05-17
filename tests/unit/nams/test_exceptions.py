@@ -79,7 +79,9 @@ class TestRateLimitError:
 
 class TestValidationError:
     def test_with_details(self):
-        err = ValidationError("Invalid request", details={"field": "session_id", "reason": "missing"})
+        err = ValidationError(
+            "Invalid request", details={"field": "session_id", "reason": "missing"}
+        )
         assert err.details == {"field": "session_id", "reason": "missing"}
 
     def test_details_default_empty(self):

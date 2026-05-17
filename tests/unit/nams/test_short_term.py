@@ -91,9 +91,9 @@ class TestProtocolConformance:
 class TestAddMessage:
     @respx.mock
     async def test_basic(self, short_term):
-        route = respx.post(
-            "https://memory.test/v1/conversations/s1/messages"
-        ).respond(200, json=SAMPLE_MESSAGE)
+        route = respx.post("https://memory.test/v1/conversations/s1/messages").respond(
+            200, json=SAMPLE_MESSAGE
+        )
         msg = await short_term.add_message("s1", "user", "hi")
         assert isinstance(msg, Message)
         assert msg.role == MessageRole.USER
@@ -104,9 +104,9 @@ class TestAddMessage:
 
     @respx.mock
     async def test_with_metadata_and_user_identifier(self, short_term):
-        route = respx.post(
-            "https://memory.test/v1/conversations/s1/messages"
-        ).respond(200, json=SAMPLE_MESSAGE)
+        route = respx.post("https://memory.test/v1/conversations/s1/messages").respond(
+            200, json=SAMPLE_MESSAGE
+        )
         await short_term.add_message(
             "s1",
             "user",
@@ -120,9 +120,9 @@ class TestAddMessage:
 
     @respx.mock
     async def test_bolt_only_kwargs_ignored(self, short_term):
-        route = respx.post(
-            "https://memory.test/v1/conversations/s1/messages"
-        ).respond(200, json=SAMPLE_MESSAGE)
+        route = respx.post("https://memory.test/v1/conversations/s1/messages").respond(
+            200, json=SAMPLE_MESSAGE
+        )
         await short_term.add_message(
             "s1",
             "user",
@@ -141,9 +141,9 @@ class TestAddMessage:
         from uuid import UUID
 
         cid = UUID(int=42)
-        route = respx.post(
-            "https://memory.test/v1/conversations/s1/messages"
-        ).respond(200, json=SAMPLE_MESSAGE)
+        route = respx.post("https://memory.test/v1/conversations/s1/messages").respond(
+            200, json=SAMPLE_MESSAGE
+        )
         await short_term.add_message("s1", "user", "hi", conversation_id=cid)
         body = json.loads(route.calls[0].request.content)
         assert body["conversation_id"] == str(cid)
@@ -152,9 +152,7 @@ class TestAddMessage:
 class TestGetConversation:
     @respx.mock
     async def test_basic(self, short_term):
-        respx.get(
-            "https://memory.test/v1/conversations/s1"
-        ).respond(200, json=SAMPLE_CONVERSATION)
+        respx.get("https://memory.test/v1/conversations/s1").respond(200, json=SAMPLE_CONVERSATION)
         conv = await short_term.get_conversation("s1")
         assert isinstance(conv, Conversation)
         assert conv.session_id == "s1"
@@ -162,9 +160,9 @@ class TestGetConversation:
 
     @respx.mock
     async def test_with_limit(self, short_term):
-        route = respx.get(
-            "https://memory.test/v1/conversations/s1"
-        ).respond(200, json=SAMPLE_CONVERSATION)
+        route = respx.get("https://memory.test/v1/conversations/s1").respond(
+            200, json=SAMPLE_CONVERSATION
+        )
         await short_term.get_conversation("s1", limit=20)
         assert route.calls[0].request.url.params["limit"] == "20"
 
@@ -212,44 +210,27 @@ class TestDeleteMessage:
         respx.delete(
             "https://memory.test/v1/messages/00000000-0000-0000-0000-000000000001"
         ).respond(204)
-        assert (
-            await short_term.delete_message(
-                "00000000-0000-0000-0000-000000000001"
-            )
-            is True
-        )
+        assert await short_term.delete_message("00000000-0000-0000-0000-000000000001") is True
 
     @respx.mock
     async def test_returns_true_on_json_deleted(self, short_term):
         respx.delete(
             "https://memory.test/v1/messages/00000000-0000-0000-0000-000000000001"
         ).respond(200, json={"deleted": True})
-        assert (
-            await short_term.delete_message(
-                "00000000-0000-0000-0000-000000000001"
-            )
-            is True
-        )
+        assert await short_term.delete_message("00000000-0000-0000-0000-000000000001") is True
 
     @respx.mock
     async def test_returns_false_when_server_says_so(self, short_term):
         respx.delete(
             "https://memory.test/v1/messages/00000000-0000-0000-0000-000000000001"
         ).respond(200, json={"deleted": False})
-        assert (
-            await short_term.delete_message(
-                "00000000-0000-0000-0000-000000000001"
-            )
-            is False
-        )
+        assert await short_term.delete_message("00000000-0000-0000-0000-000000000001") is False
 
 
 class TestClearSession:
     @respx.mock
     async def test_basic(self, short_term):
-        route = respx.delete(
-            "https://memory.test/v1/conversations/s1"
-        ).respond(204)
+        route = respx.delete("https://memory.test/v1/conversations/s1").respond(204)
         result = await short_term.clear_session("s1")
         assert result is None
         assert route.called
@@ -258,9 +239,7 @@ class TestClearSession:
 class TestGetContext:
     @respx.mock
     async def test_string_response(self, short_term):
-        respx.post("https://memory.test/v1/context").respond(
-            200, json="assembled context"
-        )
+        respx.post("https://memory.test/v1/context").respond(200, json="assembled context")
         ctx = await short_term.get_context("query", session_id="s1")
         assert ctx == "assembled context"
 
@@ -274,9 +253,7 @@ class TestGetContext:
 
     @respx.mock
     async def test_dict_response_with_text_key_fallback(self, short_term):
-        respx.post("https://memory.test/v1/context").respond(
-            200, json={"text": "fallback"}
-        )
+        respx.post("https://memory.test/v1/context").respond(200, json={"text": "fallback"})
         ctx = await short_term.get_context("query")
         assert ctx == "fallback"
 
@@ -284,9 +261,7 @@ class TestGetContext:
 class TestGetConversationSummary:
     @respx.mock
     async def test_basic(self, short_term):
-        respx.post(
-            "https://memory.test/v1/conversations/s1/summary"
-        ).respond(
+        respx.post("https://memory.test/v1/conversations/s1/summary").respond(
             200,
             json={
                 "session_id": "s1",
@@ -313,9 +288,7 @@ class TestCreateConversation:
         route = respx.post("https://memory.test/v1/conversations").respond(
             200, json=SAMPLE_CONVERSATION
         )
-        conv = await short_term.create_conversation(
-            "s1", title="My Chat", user_identifier="alice"
-        )
+        conv = await short_term.create_conversation("s1", title="My Chat", user_identifier="alice")
         assert isinstance(conv, Conversation)
         body = json.loads(route.calls[0].request.content)
         assert body == {"session_id": "s1", "title": "My Chat", "userId": "alice"}
@@ -341,9 +314,9 @@ class TestListConversations:
 class TestBulkAddMessages:
     @respx.mock
     async def test_basic(self, short_term):
-        route = respx.post(
-            "https://memory.test/v1/conversations/s1/messages:bulk"
-        ).respond(200, json=[SAMPLE_MESSAGE, SAMPLE_MESSAGE])
+        route = respx.post("https://memory.test/v1/conversations/s1/messages:bulk").respond(
+            200, json=[SAMPLE_MESSAGE, SAMPLE_MESSAGE]
+        )
         msgs = await short_term.bulk_add_messages(
             "s1",
             [
@@ -365,27 +338,25 @@ class TestBulkAddMessages:
 class TestGetObservations:
     @respx.mock
     async def test_basic(self, short_term):
-        respx.get(
-            "https://memory.test/v1/conversations/s1/observations"
-        ).respond(200, json=[{"text": "user likes Italian food"}])
+        respx.get("https://memory.test/v1/conversations/s1/observations").respond(
+            200, json=[{"text": "user likes Italian food"}]
+        )
         obs = await short_term.get_observations("s1", limit=20)
         assert len(obs) == 1
         assert obs[0]["text"] == "user likes Italian food"
 
     @respx.mock
     async def test_empty(self, short_term):
-        respx.get(
-            "https://memory.test/v1/conversations/s1/observations"
-        ).respond(200, json=[])
+        respx.get("https://memory.test/v1/conversations/s1/observations").respond(200, json=[])
         assert await short_term.get_observations("s1") == []
 
 
 class TestGetReflections:
     @respx.mock
     async def test_basic(self, short_term):
-        respx.get(
-            "https://memory.test/v1/conversations/s1/reflections"
-        ).respond(200, json=[{"text": "user prefers cooking at home"}])
+        respx.get("https://memory.test/v1/conversations/s1/reflections").respond(
+            200, json=[{"text": "user prefers cooking at home"}]
+        )
         refs = await short_term.get_reflections("s1")
         assert len(refs) == 1
 
@@ -401,9 +372,7 @@ class TestBridgeRouting:
     @respx.mock
     async def test_add_message_bridge_path(self, bridge_config):
         auth = StaticApiKeyAuth.from_config(bridge_config)
-        route = respx.post("https://memory.test/add_message").respond(
-            200, json=SAMPLE_MESSAGE
-        )
+        route = respx.post("https://memory.test/add_message").respond(200, json=SAMPLE_MESSAGE)
         async with HttpTransport.from_config(bridge_config, auth=auth) as t:
             st = NamsShortTermMemory(t)
             await st.add_message("s1", "user", "hi")
@@ -429,9 +398,9 @@ class TestBridgeRouting:
 class TestErrorPropagation:
     @respx.mock
     async def test_session_not_found(self, short_term):
-        respx.get(
-            "https://memory.test/v1/conversations/missing"
-        ).respond(404, json={"error": "session not found"})
+        respx.get("https://memory.test/v1/conversations/missing").respond(
+            404, json={"error": "session not found"}
+        )
         with pytest.raises(MemoryError, match="not found"):
             await short_term.get_conversation("missing")
 
