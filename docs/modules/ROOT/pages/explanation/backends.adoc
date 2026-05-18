@@ -70,8 +70,10 @@ The same `MemoryClient` API runs against two completely different storage backen
 |===
 | Capability | Bolt | NAMS
 
-| `client.short_term.add_message` / `search_messages` / `list_sessions`
+| `client.short_term.add_message` / `search_messages`
 | Yes | Yes
+| `client.short_term.list_sessions` / `list_conversations`
+| Yes | Bolt-only / Yes
 | `client.short_term.create_conversation` / `bulk_add_messages`
 | (synthesized) | Yes (Platinum)
 | `client.short_term.get_observations` / `get_reflections`
@@ -89,7 +91,7 @@ The same `MemoryClient` API runs against two completely different storage backen
 | `client.reasoning.start_trace` / `add_step` / `record_tool_call`
 | Yes | Yes
 | `client.reasoning.get_tool_stats`
-| Yes (`dict`) | Yes (`list`)
+| Yes (`dict`) | No (use `client.query.cypher` if your NAMS tier exposes query access)
 | `client.users` (UserMemory)
 | Yes | No (use `user_identifier=` on calls)
 | `client.buffered` (BufferedWriter)

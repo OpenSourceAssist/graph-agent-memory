@@ -108,7 +108,7 @@ class NamsBackend:
 
     @property
     def query(self) -> NamsCypherQuery:
-        """Read-only Cypher accessor (NAMS Platinum ``POST /v1/cypher``)."""
+        """Read-only Cypher accessor (NAMS Platinum ``POST /v1/query``)."""
         return self._query
 
     # ----------------------------------------------------------------- probe

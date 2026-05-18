@@ -9,7 +9,7 @@
 A hands-on, five-minute walkthrough: install, configure, store some memory, and retrieve it — using the hosted **Neo4j Agent Memory Service (NAMS)** backend.
 
 [.lead]
-By the end of this tutorial you'll have a Python script that stores messages, an entity, a preference, and a reasoning trace in the hosted NAMS service, and reads them back via portable Cypher. You won't run any database — NAMS handles that for you.
+By the end of this tutorial you'll have a Python script that stores messages, an entity, and a reasoning trace in the hosted NAMS service, and reads them back via portable Cypher. You won't run any database — NAMS handles that for you.
 
 == What you'll need
 
@@ -56,28 +56,27 @@ from neo4j_agent_memory import MemoryClient
 
 async def main() -> None:
     async with MemoryClient() as client:
-        session_id = "tutorial-demo"
+        conversation = await client.short_term.create_conversation("tutorial-demo")
+        conversation_id = str(conversation.id)
 
         # Short-term memory
         await client.short_term.add_message(
-            session_id, "user", "Hi, I'm Alice."
+            conversation_id, "user", "Hi, I'm Alice."
         )
         await client.short_term.add_message(
-            session_id, "user", "I love Italian food."
+            conversation_id, "user", "I love Italian food."
         )
 
-        # Long-term memory
+        # Long-term memory (entities are supported on NAMS; preferences are bolt-only)
         entity = await client.long_term.add_entity(
             "Alice", "PERSON", description="The user"
         )
-        await client.long_term.add_preference(
-            category="food",
-            preference="Italian cuisine",
-        )
+        if isinstance(entity, tuple):
+            entity = entity[0]
 
         # Reasoning memory
         trace = await client.reasoning.start_trace(
-            session_id, "Recommend dinner"
+            conversation_id, "Recommend dinner"
         )
         step = await client.reasoning.add_step(
             trace.id, thought="Alice likes Italian"
@@ -93,12 +92,11 @@ async def main() -> None:
         )
 
         # Read everything back
-        conv = await client.short_term.get_conversation(session_id)
-        prefs = await client.long_term.search_preferences("food")
-        traces = await client.reasoning.get_session_traces(session_id)
+        conv = await client.short_term.get_conversation(conversation_id)
+        traces = await client.reasoning.get_session_traces(conversation_id)
 
         print(f"Messages: {len(conv.messages)}")
-        print(f"Preferences found: {[p.preference for p in prefs]}")
+        print(f"Entity stored: {entity.name}")
         print(f"Traces: {[t.task for t in traces]}")
 
 
@@ -117,7 +115,7 @@ Expected output:
 [source,text]
 ----
 Messages: 2
-Preferences found: ['Italian cuisine']
+Entity stored: Alice
 Traces: ['Recommend dinner']
 ----
 
@@ -165,4 +163,4 @@ You didn't touch Neo4j. You didn't configure embeddings. You didn't run schema s
 
 Want to wipe your tutorial data? It lives in your NAMS workspace; manage it through the NAMS UI at https://memory.neo4jlabs.com.
 
-For bolt-side cleanup you'd run a `MATCH (n) DETACH DELETE n` Cypher; on NAMS, that write-Cypher is rejected client-side. Use the NAMS dashboard or `clear_session(session_id)` for individual conversations.
+For bolt-side cleanup you'd run a `MATCH (n) DETACH DELETE n` Cypher; on NAMS, that write-Cypher is rejected client-side. Use the NAMS dashboard or `clear_session(conversation_id)` for individual conversations.

@@ -178,7 +178,7 @@ class EvalMemory:
         scores: list[float] = []
         for case in cases:
             # v0.4: use the portable client.query.cypher accessor — runs on
-            # bolt (Neo4jClient.execute_read) and NAMS (POST /v1/cypher).
+            # bolt (Neo4jClient.execute_read) and NAMS (POST /v1/query).
             # Note that ``:TOUCHED`` audit edges are a bolt-side schema feature;
             # this query returns no rows on NAMS, and the audit dimension is
             # effectively a no-op there. Documented in the v0.4 release notes.

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -277,9 +278,13 @@ try:
 
         settings_kwargs: dict[str, Any] = {"backend": backend}
         if backend == "nams":
+            nams_api_key = nams_api_key or os.environ.get("MEMORY_API_KEY")
             if not nams_api_key:
-                raise ValueError("NAMS backend requires nams_api_key (or MEMORY_API_KEY env var).")
+                raise ValueError(
+                    "NAMS backend requires nams_api_key or a MEMORY_API_KEY environment variable."
+                )
             nams_kwargs: dict[str, Any] = {"api_key": SecretStr(nams_api_key)}
+            nams_endpoint = nams_endpoint or os.environ.get("MEMORY_ENDPOINT")
             if nams_endpoint:
                 nams_kwargs["endpoint"] = nams_endpoint
             settings_kwargs["nams"] = NamsConfig(**nams_kwargs)

@@ -926,7 +926,7 @@ def _nams_get_entity_provenance_tool(endpoint: str, api_key: str, transport_mode
 
 
 def _nams_cypher_tool(endpoint: str, api_key: str, transport_mode: str) -> Any:
-    """NAMS-only @tool — read-only Cypher escape hatch (POST /v1/cypher)."""
+    """NAMS-only @tool — read-only Cypher escape hatch (POST /v1/query)."""
     try:
         from strands import tool
     except ImportError as e:

@@ -125,6 +125,10 @@ class TestParseDatetime:
         dt = parse_datetime("2026-05-17T12:00:00+00:00")
         assert dt == datetime(2026, 5, 17, 12, 0, 0, tzinfo=timezone.utc)
 
+    def test_naive_string_treated_as_utc(self):
+        dt = parse_datetime("2026-05-17T12:00:00")
+        assert dt == datetime(2026, 5, 17, 12, 0, 0, tzinfo=timezone.utc)
+
     def test_passthrough_existing_datetime(self):
         existing = datetime(2026, 1, 1, tzinfo=timezone.utc)
         assert parse_datetime(existing) is existing

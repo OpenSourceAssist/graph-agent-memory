@@ -416,7 +416,7 @@ class CypherQueryProtocol(Protocol):
 
     Implementations: :class:`BoltCypherQuery` (forwards to
     :class:`Neo4jClient.execute_read`), :class:`NamsCypherQuery`
-    (forwards to ``POST /v1/cypher``, Platinum tier).
+    (forwards to ``POST /v1/query``, Platinum tier).
 
     Both implementations enforce read-only via a shared
     ``_is_read_only_query`` validator. Write queries raise

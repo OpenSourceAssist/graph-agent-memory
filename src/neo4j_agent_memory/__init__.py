@@ -849,7 +849,7 @@ class MemoryClient:
 
         On bolt, forwards to :meth:`Neo4jClient.execute_read` after a
         client-side read-only validation. On NAMS, forwards to the
-        Platinum ``POST /v1/cypher`` endpoint.
+        Platinum ``POST /v1/query`` endpoint.
 
         Example::
 

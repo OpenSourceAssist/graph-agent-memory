@@ -1,7 +1,7 @@
 """NAMS + FastAPI — chat endpoint backed by hosted Neo4j Agent Memory Service.
 
 Demonstrates the production wiring pattern for a NAMS-backed FastAPI
-app: lifespan-managed ``MemoryClient``, per-request session_id,
+app: lifespan-managed ``MemoryClient``, per-request conversation ids,
 multi-tenant ``user_identifier`` scoping, and graceful shutdown of the
 HTTP transport.
 
@@ -61,13 +61,13 @@ class ChatRequest(BaseModel):
     """Per-message request shape."""
 
     message: str
-    session_id: str
+    conversation_id: str | None = None
 
 
 class ChatResponse(BaseModel):
     """Echo response shape — replace with your real agent output."""
 
-    session_id: str
+    conversation_id: str
     message_count: int
     last_user_message: str
 
@@ -82,13 +82,25 @@ async def chat(
 
     The ``X-User-Id`` header is forwarded to NAMS as ``user_identifier``
     so the conversation is scoped per-user within your NAMS workspace.
+    If the caller omits ``conversation_id``, the server creates a new NAMS
+    conversation and returns its canonical id.
     """
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="Empty message")
 
     try:
+        conversation_id = request.conversation_id
+        if conversation_id is None:
+            conversation_id = "fastapi-chat"
+            create_conversation = getattr(memory.short_term, "create_conversation", None)
+            if callable(create_conversation):
+                conversation = await create_conversation(
+                    conversation_id,
+                    user_identifier=user_id,
+                )
+                conversation_id = str(conversation.id)
         await memory.short_term.add_message(
-            request.session_id,
+            conversation_id,
             "user",
             request.message,
             user_identifier=user_id,
@@ -96,9 +108,9 @@ async def chat(
     except Exception as e:  # noqa: BLE001 — demo error path
         raise HTTPException(status_code=502, detail=f"NAMS error: {e}") from e
 
-    conv = await memory.short_term.get_conversation(request.session_id)
+    conv = await memory.short_term.get_conversation(conversation_id)
     return ChatResponse(
-        session_id=request.session_id,
+        conversation_id=conversation_id,
         message_count=len(conv.messages),
         last_user_message=request.message,
     )

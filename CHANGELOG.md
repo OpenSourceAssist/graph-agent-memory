@@ -21,7 +21,7 @@ The "hosted backend" release. Headline feature is **NAMS (Neo4j Agent Memory Ser
   - Auto-protocol detection: `/v\d+`-shaped endpoints → REST; otherwise TCK bridge protocol (`POST /{snake_case_method}`).
   - `NamsBackend` — composition root that owns the transport + three memory implementations + Cypher accessor. Used by `MemoryClient.connect()` when `backend == "nams"`.
 - **`neo4j_agent_memory.core.protocols`** — three new `@runtime_checkable` Protocols (`ShortTermProtocol`, `LongTermProtocol`, `ReasoningProtocol`) plus `CypherQueryProtocol`. Existing `ShortTermMemory`/`LongTermMemory`/`ReasoningMemory` bolt classes structurally satisfy them; new `NamsShortTermMemory`/`NamsLongTermMemory`/`NamsReasoningMemory` implement them over HTTP.
-- **`client.query.cypher(query, params)`** — unified read-only Cypher accessor. Works on both backends. On bolt, forwards to `Neo4jClient.execute_read`; on NAMS, forwards to `POST /v1/cypher` (Platinum). Read-only enforcement uses a shared `is_read_only_query` validator.
+- **`client.query.cypher(query, params)`** — unified read-only Cypher accessor. Works on both backends. On bolt, forwards to `Neo4jClient.execute_read`; on NAMS, forwards to `POST /v1/query` (Platinum). Read-only enforcement uses a shared `is_read_only_query` validator.
 - **Platinum-tier methods** on `client.long_term` and `client.short_term`:
   - `set_entity_feedback(entity_id, feedback, user_identifier=...)`
   - `get_entity_history(entity_id, limit=...)`

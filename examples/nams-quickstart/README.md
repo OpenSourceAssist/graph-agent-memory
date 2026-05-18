@@ -5,8 +5,8 @@ against the hosted **Neo4j Agent Memory Service (NAMS)**.
 
 This script:
 
-1. Stores a few short-term messages in a session.
-2. Records a long-term entity and preference.
+1. Stores a few short-term messages in a NAMS conversation.
+2. Records a long-term entity.
 3. Starts, steps, and completes a reasoning trace with a tool call.
 4. Runs a portable read-only Cypher query.
 
@@ -45,7 +45,6 @@ Connected to 'https://memory.neo4jlabs.com/v1'
 
 Conversation has 3 messages
 Created entity: Alice (PERSON)
-Recorded preference: [food] Italian cuisine
 Completed reasoning trace: Recommend a restaurant for Alice.
 Cypher round-trip: [{'name': 'Alice'}]
 

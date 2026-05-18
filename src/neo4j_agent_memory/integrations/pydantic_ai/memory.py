@@ -430,7 +430,7 @@ def nams_memory_tools(memory: "MemoryClient") -> list[Callable]:
     * ``get_entity_provenance`` — the source messages and extractors
       that produced an entity (great for citation-style outputs).
     * ``cypher_query`` — read-only Cypher escape hatch via NAMS
-      ``POST /v1/cypher``.
+      ``POST /v1/query``.
 
     All four raise :class:`NotSupportedError` at tool-call time if the
     underlying ``MemoryClient`` is on the bolt backend without the
@@ -522,7 +522,7 @@ def nams_memory_tools(memory: "MemoryClient") -> list[Callable]:
 
     async def cypher_query(query: str, params: dict[str, Any] | None = None) -> str:
         """
-        Execute a read-only Cypher query via NAMS (Platinum ``POST /v1/cypher``).
+        Execute a read-only Cypher query via NAMS (Platinum ``POST /v1/query``).
 
         Args:
             query: Read-only Cypher (writes are rejected client-side).

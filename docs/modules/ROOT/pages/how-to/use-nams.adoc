@@ -39,7 +39,9 @@ That's enough — `MemoryClient()` with no args picks up the env var and switche
 from neo4j_agent_memory import MemoryClient
 
 async with MemoryClient() as client:
-    await client.short_term.add_message("session-1", "user", "Hello!")
+    conversation = await client.short_term.create_conversation("session-1")
+    conversation_id = str(conversation.id)
+    await client.short_term.add_message(conversation_id, "user", "Hello!")
 ----
 
 Or be explicit:
@@ -56,7 +58,9 @@ settings = MemorySettings(
 )
 
 async with MemoryClient(settings) as client:
-    await client.short_term.add_message("session-1", "user", "Hello!")
+    conversation = await client.short_term.create_conversation("session-1")
+    conversation_id = str(conversation.id)
+    await client.short_term.add_message(conversation_id, "user", "Hello!")
 ----
 
 == NamsConfig fields
@@ -70,7 +74,8 @@ async with MemoryClient(settings) as client:
 | Base URL. The `/v\d+` suffix triggers REST mode; other shapes use the TCK bridge protocol.
 | `api_key`
 | `None`
-| Your NAMS API key (`SecretStr`). Falls back to `MEMORY_API_KEY` env var.
+| Your NAMS API key (`SecretStr`). `MemorySettings()` can lift `MEMORY_API_KEY`
+  into this field when the backend is resolved from the environment.
 | `timeout`
 | `30.0`
 | HTTP request timeout in seconds.
@@ -117,22 +122,24 @@ from neo4j_agent_memory import MemoryClient
 
 async def main() -> None:
     async with MemoryClient() as client:
-        session_id = "first-request-demo"
+        conversation = await client.short_term.create_conversation("first-request-demo")
+        conversation_id = str(conversation.id)
 
         # Short-term
         msg = await client.short_term.add_message(
-            session_id, "user", "I love Italian food."
+            conversation_id, "user", "I love Italian food."
         )
         print(f"Stored message {msg.id}")
 
         # Long-term
-        await client.long_term.add_preference(
-            "food", "Italian cuisine", context="introduction"
+        entity = await client.long_term.add_entity(
+            "Alice", "PERSON", description="The user introducing themselves"
         )
+        print(f"Stored entity {entity.name}")
 
         # Reasoning
         trace = await client.reasoning.start_trace(
-            session_id, "Recommend a restaurant"
+            conversation_id, "Recommend a restaurant"
         )
         await client.reasoning.complete_trace(
             trace.id, outcome="Done", success=True
@@ -170,12 +177,18 @@ Or set `MEMORY_ENDPOINT` in the environment.
 NAMS scopes data two ways:
 
 1. **Workspace** — implicit in the API key. Different keys = different workspaces.
-2. **User** — explicit per-call. Pass `user_identifier=` on `add_message`, `add_preference`, `set_entity_feedback`, etc.; it's forwarded to NAMS as `userId`.
+2. **User** — explicit per-call. Pass `user_identifier=` on `create_conversation`,
+   `add_message`, `start_trace`, `set_entity_feedback`, etc.; it's forwarded to NAMS as `userId`.
 
 [source,python]
 ----
-await client.short_term.add_message(
+conversation = await client.short_term.create_conversation(
     "session-alice",
+    user_identifier="alice-user-id",
+)
+conversation_id = str(conversation.id)
+await client.short_term.add_message(
+    conversation_id,
     "user",
     "Hi from Alice.",
     user_identifier="alice-user-id",

@@ -96,7 +96,10 @@ def parse_datetime(value: str | datetime) -> datetime:
         return value
     if value.endswith("Z"):
         value = value[:-1] + "+00:00"
-    return datetime.fromisoformat(value)
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def parse_uuid(value: str | UUID) -> UUID:

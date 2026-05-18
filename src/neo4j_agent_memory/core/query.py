@@ -8,7 +8,7 @@ transport). Both enforce read-only via :func:`is_read_only_query`.
 The validator was previously private to :mod:`mcp._tools`; relocating it
 here makes it the single source of truth so the MCP ``graph_query``
 tool, the bolt :meth:`Neo4jClient.execute_read` wrapper, and the NAMS
-``POST /v1/cypher`` wrapper all agree on what "read-only" means.
+``POST /v1/query`` wrapper all agree on what "read-only" means.
 """
 
 from __future__ import annotations

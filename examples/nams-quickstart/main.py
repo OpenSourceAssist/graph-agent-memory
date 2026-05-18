@@ -38,38 +38,36 @@ async def main() -> None:
 
     async with MemoryClient(settings) as client:
         print(f"Connected to {client._settings.nams.endpoint!r}")
-        session_id = "nams-quickstart-demo"
+        conversation_id = "nams-quickstart-demo"
+        create_conversation = getattr(client.short_term, "create_conversation", None)
+        if callable(create_conversation):
+            conversation = await create_conversation(conversation_id)
+            conversation_id = str(conversation.id)
 
         # 1. Short-term memory: store a few messages.
-        await client.short_term.add_message(session_id, "user", "Hi, I'm Alice.")
+        await client.short_term.add_message(conversation_id, "user", "Hi, I'm Alice.")
         await client.short_term.add_message(
-            session_id, "assistant", "Nice to meet you, Alice!"
+            conversation_id, "assistant", "Nice to meet you, Alice!"
         )
         await client.short_term.add_message(
-            session_id, "user", "I love Italian food and dislike crowded restaurants."
+            conversation_id, "user", "I love Italian food and dislike crowded restaurants."
         )
 
-        conv = await client.short_term.get_conversation(session_id)
+        conv = await client.short_term.get_conversation(conversation_id)
         print(f"\nConversation has {len(conv.messages)} messages")
 
-        # 2. Long-term memory: record an entity and a preference.
-        entity = await client.long_term.add_entity(
+        # 2. Long-term memory: record an entity.
+        entity_result = await client.long_term.add_entity(
             "Alice",
             "PERSON",
             description="The user introducing themselves.",
         )
+        entity = entity_result[0] if isinstance(entity_result, tuple) else entity_result
         print(f"Created entity: {entity.name} ({entity.type})")
-
-        pref = await client.long_term.add_preference(
-            category="food",
-            preference="Italian cuisine",
-            context="discussed in the introduction conversation",
-        )
-        print(f"Recorded preference: [{pref.category}] {pref.preference}")
 
         # 3. Reasoning memory: start, step, and complete a trace.
         trace = await client.reasoning.start_trace(
-            session_id=session_id,
+            session_id=conversation_id,
             task="Recommend a restaurant for Alice.",
         )
         step = await client.reasoning.add_step(

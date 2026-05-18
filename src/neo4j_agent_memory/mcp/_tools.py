@@ -767,7 +767,7 @@ def _register_extended_tools(mcp: FastMCP) -> None:
 
         try:
             # v0.4: use the unified client.query.cypher accessor — works on
-            # both bolt and NAMS backends (NAMS routes via POST /v1/cypher,
+            # both bolt and NAMS backends (NAMS routes via POST /v1/query,
             # bolt via Neo4jClient.execute_read).
             records = await client.query.cypher(query, parameters or {})
             return json.dumps(

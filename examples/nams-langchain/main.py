@@ -32,12 +32,21 @@ async def main() -> None:
     settings = MemorySettings(backend="nams")
 
     async with MemoryClient(settings) as client:
+        conversation_id = "nams-langchain-demo"
+        create_conversation = getattr(client.short_term, "create_conversation", None)
+        if callable(create_conversation):
+            conversation = await create_conversation(conversation_id)
+            conversation_id = str(conversation.id)
+
         # Same LangChain memory adapter — no NAMS-specific variant needed.
         # Phase 6 of the v0.4 work migrated the underlying Cypher calls to
-        # ``client.query.cypher``, so this works on both backends.
+        # ``client.query.cypher``. For NAMS today, short-term memory is the
+        # supported path through the adapter, so we disable the bolt-only layers.
         memory = Neo4jAgentMemory(
             memory_client=client,
-            session_id="nams-langchain-demo",
+            session_id=conversation_id,
+            include_long_term=False,
+            include_reasoning=False,
         )
 
         # Add a couple of messages via the adapter — these flow through
@@ -49,14 +58,14 @@ async def main() -> None:
             ]
         )
 
-        # Pull memory variables back out (the standard LangChain pattern).
+        # Pull short-term memory variables back out (the standard LangChain pattern).
         variables = await memory.aload_memory_variables({})
         print(f"Loaded memory variables: {list(variables.keys())}")
 
         # The retriever / tools / agent wiring you'd normally do with
         # LangChain hooks up exactly the same way against ``memory``.
         # See the LangChain integration docs for the full agent example —
-        # the only NAMS-specific change is settings.backend.
+        # on NAMS, keep to the layers the hosted API currently exposes.
         print("Demo complete. Swap MemorySettings(backend='nams') for")
         print("MemorySettings(neo4j=Neo4jConfig(password=...)) to run on bolt.")
 
