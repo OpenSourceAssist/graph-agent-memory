@@ -130,6 +130,37 @@ def _coerce_uuid_str(value: UUID | str) -> str:
     return str(value)
 
 
+def _conversation_with_defaults(
+    payload: dict[str, Any] | None,
+    *,
+    session_id: str | None = None,
+) -> dict[str, Any]:
+    """Inject defaults the bolt Pydantic ``Conversation`` model expects.
+
+    NAMS's ``Conversation`` responses are minimal — observed shape is
+    ``{"id": "<uuid>"}`` with no ``session_id`` or ``created_at``. The
+    bolt-side Pydantic ``Conversation`` model requires both. This helper
+    fills the gaps with caller-supplied or sensible defaults so
+    ``payload_to_model`` succeeds.
+
+    The injected ``session_id`` is the value the caller passed when
+    invoking the NAMS method — keeping the user-facing semantics
+    consistent across backends.
+    """
+    from datetime import datetime, timezone
+
+    data = dict(payload or {})
+    if "session_id" not in data and session_id is not None:
+        data["session_id"] = session_id
+    if "created_at" not in data:
+        data["created_at"] = datetime.now(timezone.utc).isoformat()
+    if "messages" not in data:
+        data["messages"] = []
+    if "metadata" not in data:
+        data["metadata"] = {}
+    return data
+
+
 class NamsShortTermMemory:
     """Short-term memory backed by the NAMS HTTP service.
 
@@ -197,6 +228,9 @@ class NamsShortTermMemory:
             path_params={"session_id": session_id},
             params=params or None,
         )
+        # NAMS may return a minimal {"id": "..."} body; inject required defaults
+        # (session_id, created_at, messages) so Pydantic parsing succeeds.
+        payload = _conversation_with_defaults(payload, session_id=session_id)
         return payload_to_model(payload, Conversation)
 
     async def search_messages(
@@ -305,7 +339,14 @@ class NamsShortTermMemory:
         session_id: str,
         **kwargs: Any,
     ) -> Conversation:
-        """Explicitly create a conversation node (no initial messages)."""
+        """Explicitly create a conversation node (no initial messages).
+
+        NAMS responds with a minimal body — typically ``{"id": "<uuid>"}``
+        — without echoing the supplied ``session_id``. We inject the
+        caller's ``session_id`` into the payload before Pydantic parsing
+        so the returned :class:`Conversation` has the field populated
+        (matching bolt semantics).
+        """
         body = _drop_none(
             {
                 "session_id": session_id,
@@ -315,10 +356,16 @@ class NamsShortTermMemory:
             }
         )
         payload = await self._transport.request(_SPEC_CREATE_CONVERSATION, json=body)
+        payload = _conversation_with_defaults(payload, session_id=session_id)
         return payload_to_model(payload, Conversation)
 
     async def list_conversations(self, **kwargs: Any) -> list[Conversation]:
-        """List conversations; bolt filters by ``user_identifier``."""
+        """List conversations; bolt filters by ``user_identifier``.
+
+        NAMS may return Conversation items without ``session_id``;
+        we inject a placeholder per item (the item's own ``id`` if
+        the session_id field is missing) so Pydantic parsing succeeds.
+        """
         params = _drop_none(
             {
                 "userId": kwargs.get("user_identifier"),
@@ -326,7 +373,17 @@ class NamsShortTermMemory:
             }
         )
         payload = await self._transport.request(_SPEC_LIST_CONVERSATIONS, params=params or None)
-        return [payload_to_model(item, Conversation) for item in (payload or [])]
+        items = payload or []
+        out: list[Conversation] = []
+        for item in items:
+            if isinstance(item, dict):
+                # If session_id is absent, fall back to the item's id so the
+                # Pydantic model can be constructed. Callers can match
+                # conversations by ``conv.id`` instead of by session_id.
+                fallback_session = item.get("session_id") or item.get("id")
+                normalized = _conversation_with_defaults(item, session_id=fallback_session)
+                out.append(payload_to_model(normalized, Conversation))
+        return out
 
     # ---------------------------------------------------------------- Platinum
 
