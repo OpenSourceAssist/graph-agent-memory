@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory.core.exceptions import AuthenticationError
 from neo4j_agent_memory.memory.short_term import Conversation, Message
 
 pytestmark = pytest.mark.integration
@@ -161,8 +162,17 @@ async def test_get_entity_history(
 
 @pytest.mark.asyncio
 async def test_cypher_basic_read(nams_client: MemoryClient) -> None:
-    """``client.query.cypher`` runs a basic read query."""
-    rows = await nams_client.query.cypher("MATCH (n) RETURN count(n) AS total LIMIT 1")
+    """``client.query.cypher`` runs a basic read query.
+
+    NAMS gates ``POST /v1/query`` behind an "internal access" tier;
+    sandbox API keys typically don't have it and get a 403. We skip
+    rather than fail in that case — the failure mode is a deployment
+    authorization concern, not a client bug.
+    """
+    try:
+        rows = await nams_client.query.cypher("MATCH (n) RETURN count(n) AS total LIMIT 1")
+    except AuthenticationError as exc:
+        pytest.skip(f"NAMS /v1/query gated on this sandbox key: {exc}")
     assert isinstance(rows, list)
     # Single-row aggregation should yield one row.
     if rows:
@@ -171,14 +181,20 @@ async def test_cypher_basic_read(nams_client: MemoryClient) -> None:
 
 @pytest.mark.asyncio
 async def test_cypher_with_params(nams_client: MemoryClient, unique_name: Any) -> None:
-    """``client.query.cypher`` correctly substitutes parameters."""
+    """``client.query.cypher`` correctly substitutes parameters.
+
+    Same Cypher-gating caveat as :func:`test_cypher_basic_read`.
+    """
     name = unique_name("cyparams")
     await nams_client.long_term.add_entity(name, "PERSON")
 
-    rows = await nams_client.query.cypher(
-        "MATCH (e:Entity {name: $name}) RETURN e.name AS name LIMIT 1",
-        {"name": name},
-    )
+    try:
+        rows = await nams_client.query.cypher(
+            "MATCH (e:Entity {name: $name}) RETURN e.name AS name LIMIT 1",
+            {"name": name},
+        )
+    except AuthenticationError as exc:
+        pytest.skip(f"NAMS /v1/query gated on this sandbox key: {exc}")
     assert isinstance(rows, list)
     if rows:
         assert rows[0]["name"] == name

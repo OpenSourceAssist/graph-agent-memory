@@ -138,13 +138,28 @@ def _normalize_message(payload: dict[str, Any]) -> dict[str, Any]:
     NAMS shape: ``{id, conversationId, content, role[, createdAt, tokenCount, score]}``.
     The ``createdAt`` field is absent on POST responses but present on
     list/search responses; we default to now-UTC when absent.
+
+    NAMS lets callers create conversations under arbitrary string IDs
+    (e.g. ``"itest-abc123-shared-a"``), but :class:`Message.conversation_id`
+    is typed as ``UUID``. We drop the field when it isn't UUID-parseable
+    so Pydantic validation doesn't fail — the call-site already knows the
+    conversation, so losing this redundant copy on the response object is
+    harmless.
     """
+    from uuid import UUID
+
     raw = snakeize_keys(payload) if isinstance(payload, dict) else {}
     data: dict[str, Any] = dict(raw) if isinstance(raw, dict) else {}
     if "created_at" not in data:
         data["created_at"] = _now_utc_iso()
     if "metadata" not in data:
         data["metadata"] = {}
+    conv_id = data.get("conversation_id")
+    if isinstance(conv_id, str):
+        try:
+            UUID(conv_id)
+        except (ValueError, AttributeError):
+            data.pop("conversation_id", None)
     return data
 
 

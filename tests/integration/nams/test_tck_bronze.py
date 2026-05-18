@@ -22,6 +22,7 @@ from typing import Any
 import pytest
 
 from neo4j_agent_memory import MemoryClient
+from neo4j_agent_memory.core.exceptions import NotSupportedError
 from neo4j_agent_memory.memory.short_term import Message, MessageRole
 
 pytestmark = pytest.mark.integration
@@ -47,22 +48,25 @@ async def test_add_single_message_returns_persisted_message(
 
 
 @pytest.mark.asyncio
-async def test_add_message_with_metadata_round_trips(
+async def test_add_message_metadata_is_silently_dropped(
     nams_client: MemoryClient, nams_session: str
 ) -> None:
-    """Metadata supplied at write time survives read-back."""
+    """NAMS only accepts ``{content, role}`` on POST /messages — message
+    metadata is silently dropped by the server (verified against the live
+    spec). The bolt-only ``metadata=`` kwarg must not raise on NAMS, but
+    nothing should round-trip on the response either.
+    """
     metadata = {"source": "integration-test", "channel": "test"}
-    await nams_client.short_term.add_message(
+    msg = await nams_client.short_term.add_message(
         nams_session, "user", "Message with metadata", metadata=metadata
     )
+    assert msg.content == "Message with metadata"
 
     conv = await nams_client.short_term.get_conversation(nams_session)
-    assert len(conv.messages) >= 1
     target = next((m for m in conv.messages if m.content == "Message with metadata"), None)
     assert target is not None
-    # NAMS may strip/normalize metadata keys; assert keys we know we sent.
-    assert "source" in target.metadata
-    assert target.metadata["source"] == "integration-test"
+    # NAMS does not persist per-message metadata.
+    assert target.metadata == {}
 
 
 @pytest.mark.asyncio
@@ -163,18 +167,33 @@ async def test_search_messages_unrelated_query_returns_empty_or_low_relevance(
 
 
 @pytest.mark.asyncio
-async def test_list_sessions_includes_created_session(
+async def test_list_sessions_raises_not_supported_on_nams(
+    nams_client: MemoryClient,
+) -> None:
+    """``list_sessions`` is bolt-only — NAMS exposes ``list_conversations``
+    instead and raises :class:`NotSupportedError` here.
+    """
+    with pytest.raises(NotSupportedError):
+        await nams_client.short_term.list_sessions(limit=100)
+
+
+@pytest.mark.asyncio
+async def test_list_conversations_includes_created_session(
     nams_client: MemoryClient, nams_session: str
 ) -> None:
-    """A newly-created session appears in ``list_sessions``."""
+    """NAMS' equivalent: ``list_conversations`` returns the newly-created
+    conversation. This is the workaround documented on the
+    :class:`NotSupportedError` raised by ``list_sessions``.
+    """
     await nams_client.short_term.add_message(
         nams_session, "user", "First message in a fresh session."
     )
 
-    sessions = await nams_client.short_term.list_sessions(limit=100)
-    session_ids = {s.session_id for s in sessions}
-    assert nams_session in session_ids or any(s.session_id == nams_session for s in sessions), (
-        f"Expected session {nams_session} in list_sessions, got: {sorted(session_ids)[:10]}..."
+    conversations = await nams_client.short_term.list_conversations(limit=100)
+    ids = {str(c.id) for c in conversations if c.id is not None}
+    assert nams_session in ids, (
+        f"Expected conversation {nams_session} in list_conversations; got first 10: "
+        f"{sorted(ids)[:10]}"
     )
 
 
@@ -258,16 +277,13 @@ async def test_session_isolation(
 
 
 @pytest.mark.asyncio
-async def test_delete_message_removes_one(nams_client: MemoryClient, nams_session: str) -> None:
-    """``delete_message`` removes exactly the targeted message."""
-    msg_a = await nams_client.short_term.add_message(nams_session, "user", "keep")
-    msg_b = await nams_client.short_term.add_message(nams_session, "user", "delete")
-    await nams_client.short_term.add_message(nams_session, "user", "keep too")
-
-    deleted = await nams_client.short_term.delete_message(msg_b.id)
-    assert deleted is True
-
-    conv = await nams_client.short_term.get_conversation(nams_session)
-    remaining_ids = {str(m.id) for m in conv.messages}
-    assert str(msg_a.id) in remaining_ids
-    assert str(msg_b.id) not in remaining_ids
+async def test_delete_message_raises_not_supported_on_nams(
+    nams_client: MemoryClient, nams_session: str
+) -> None:
+    """``delete_message`` is bolt-only — NAMS has no per-message delete
+    endpoint. Use :meth:`clear_session` to drop an entire conversation
+    instead.
+    """
+    msg = await nams_client.short_term.add_message(nams_session, "user", "delete me")
+    with pytest.raises(NotSupportedError):
+        await nams_client.short_term.delete_message(msg.id)
