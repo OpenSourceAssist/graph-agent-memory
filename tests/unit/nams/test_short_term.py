@@ -239,9 +239,10 @@ class TestClearSession:
 class TestGetContext:
     @respx.mock
     async def test_string_response(self, short_term):
-        respx.post("https://memory.test/v1/context").respond(200, json="assembled context")
+        route = respx.post("https://memory.test/v1/context").respond(200, json="assembled context")
         ctx = await short_term.get_context("query", session_id="s1")
         assert ctx == "assembled context"
+        assert json.loads(route.calls[0].request.content) == {"query": "query", "session_id": "s1"}
 
     @respx.mock
     async def test_dict_response_with_context_key(self, short_term):
@@ -256,6 +257,12 @@ class TestGetContext:
         respx.post("https://memory.test/v1/context").respond(200, json={"text": "fallback"})
         ctx = await short_term.get_context("query")
         assert ctx == "fallback"
+
+    @respx.mock
+    async def test_max_messages_zero_is_preserved(self, short_term):
+        route = respx.post("https://memory.test/v1/context").respond(200, json="assembled context")
+        await short_term.get_context("query", max_messages=0, max_items=10)
+        assert json.loads(route.calls[0].request.content) == {"query": "query", "max_messages": 0}
 
 
 class TestGetConversationSummary:

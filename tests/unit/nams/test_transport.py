@@ -430,6 +430,24 @@ class TestRetryBehavior:
         assert route.call_count == 3
 
     @respx.mock
+    async def test_timeout_error_retried(self, nams_config, auth):
+        route = respx.post("https://memory.test/v1/conversations/abc/messages").mock(
+            side_effect=[
+                httpx.WriteTimeout("timed out"),
+                httpx.Response(200, json={"id": "m1"}),
+            ]
+        )
+
+        async with HttpTransport.from_config(nams_config, auth=auth) as t:
+            result = await t.request(
+                ADD_MESSAGE_SPEC,
+                path_params={"session_id": "abc"},
+                json={"role": "user", "content": "hi"},
+            )
+        assert result == {"id": "m1"}
+        assert route.call_count == 2
+
+    @respx.mock
     async def test_network_error_exhausts_raises_transport_error(self, nams_config, auth):
         respx.post("https://memory.test/v1/conversations/abc/messages").mock(
             side_effect=httpx.ConnectError("net down")

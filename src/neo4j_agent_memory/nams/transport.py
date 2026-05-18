@@ -55,7 +55,7 @@ _RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
 def _is_retryable_exception(exc: BaseException) -> bool:
     """Return True if ``exc`` is a transient network error worth retrying."""
-    return isinstance(exc, (httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError))
+    return isinstance(exc, (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError))
 
 
 def _parse_retry_after(value: str | None) -> float | None:
