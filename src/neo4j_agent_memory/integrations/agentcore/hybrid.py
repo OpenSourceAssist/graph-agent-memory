@@ -376,7 +376,8 @@ class HybridMemoryProvider(Neo4jMemoryProvider):
                                other.type AS related_type
                         LIMIT $limit
                         """
-                        relationships = await self._client._client.execute_read(
+                        # v0.4: portable read-only Cypher (bolt + NAMS).
+                        relationships = await self._client.query.cypher(
                             rel_query,
                             {"name": entity_name, "limit": self._relationship_depth * 5},
                         )
@@ -495,7 +496,8 @@ class HybridMemoryProvider(Neo4jMemoryProvider):
         """
 
         try:
-            records = await self._client._client.execute_read(query, params)
+            # v0.4: portable read-only Cypher (bolt + NAMS).
+            records = await self._client.query.cypher(query, params)
 
             if not records:
                 return {"found": False, "entity_name": entity_name}

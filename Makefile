@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws test-nams-unit test-nams-integration test-nams coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
 
 # Default target
 help:
@@ -139,6 +139,19 @@ test-integration-mcp:
 test-e2e:
 	@echo "Running end-to-end MCP flow tests with testcontainers..."
 	uv run pytest tests/integration/test_mcp_e2e.py -v --timeout=300
+
+# NAMS unit tests (respx-based, no Docker required) — v0.4
+test-nams-unit:
+	uv run pytest tests/unit/nams -v
+
+# NAMS integration tests (TCK conformance suite). Skipped when the
+# TCK reference impl is not reachable; see tests/integration/nams/README.md.
+test-nams-integration:
+	@echo "Running NAMS integration tests..."
+	uv run pytest tests/integration/nams -v --timeout=300
+
+# All NAMS tests (unit + integration)
+test-nams: test-nams-unit test-nams-integration
 
 # Run all tests using testcontainers
 test-all:

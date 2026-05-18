@@ -264,3 +264,44 @@ class TestRunServerProviderKwargs:
                 llm="bedrock/us.anthropic.claude-3-5-sonnet-20240620-v1:0",
                 llm_api_key="test-key",
             )
+
+    async def test_run_server_uses_nams_env_fallbacks(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import neo4j_agent_memory as nam
+        import neo4j_agent_memory.mcp.server as server_mod
+
+        fake_server = MagicMock()
+        fake_server.run_async = AsyncMock()
+        created_settings: list[object] = []
+
+        class _FakeSettings:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        class _FakeNamsConfig:
+            def __init__(self, **kwargs: object) -> None:
+                self.kwargs = kwargs
+
+        monkeypatch.setenv("MEMORY_API_KEY", "nams_from_env")
+        monkeypatch.setenv("MEMORY_ENDPOINT", "https://memory.example.test/v1")
+        monkeypatch.setattr(nam, "MemorySettings", _FakeSettings)
+        monkeypatch.setattr(nam, "NamsConfig", _FakeNamsConfig)
+
+        def fake_create_mcp_server(settings, *_args, **_kwargs):
+            created_settings.append(settings)
+            return fake_server
+
+        monkeypatch.setattr(server_mod, "create_mcp_server", fake_create_mcp_server)
+
+        await server_mod.run_server(
+            neo4j_uri="bolt://localhost:7687",
+            neo4j_user="neo4j",
+            neo4j_password="test-password",
+            backend="nams",
+        )
+
+        assert len(created_settings) == 1
+        nams_config = created_settings[0].kwargs["nams"]
+        assert nams_config.kwargs["endpoint"] == "https://memory.example.test/v1"
+        assert nams_config.kwargs["api_key"].get_secret_value() == "nams_from_env"

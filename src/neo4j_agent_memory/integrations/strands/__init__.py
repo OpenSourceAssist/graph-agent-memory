@@ -54,10 +54,12 @@ try:
     from neo4j_agent_memory.integrations.strands.tools import (
         clear_client_cache,
         context_graph_tools,
+        nams_context_graph_tools,
     )
 
     __all__ = [
         "context_graph_tools",
+        "nams_context_graph_tools",
         "clear_client_cache",
         "StrandsConfig",
         "BEDROCK_EMBEDDING_MODELS",

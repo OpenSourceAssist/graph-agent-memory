@@ -1,0 +1,136 @@
+name: NAMS Integration
+
+# Runs the NAMS integration test suite against the live sandbox.
+#
+# Uses the NAMS_SANDBOX_KEY repo secret. When the secret is absent
+# (e.g. on PRs from forks), the tests inside the workflow skip cleanly
+# via the env-gate in tests/integration/nams/conftest.py — but we also
+# pre-check the secret and short-circuit the whole job to keep CI logs
+# tidy.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Nightly at 06:00 UTC — surfaces endpoint drift in NAMS itself
+    # within 24 hours.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  nams-integration:
+    runs-on: ubuntu-latest
+    # Skip on PRs from forks (secrets are unavailable there).
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --group dev --all-extras
+
+      - name: Verify NAMS_SANDBOX_KEY is configured
+        env:
+          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+        run: |
+          if [ -z "$NAMS_SANDBOX_KEY" ]; then
+            echo "::warning::NAMS_SANDBOX_KEY secret is not set. NAMS integration tests will be skipped."
+            echo "skip_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "NAMS_SANDBOX_KEY is set; running live integration tests."
+          fi
+        id: check-secret
+
+      # Smoke test first — fails fast if the basic flow is broken.
+      - name: NAMS smoke test
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        run: |
+          uv run pytest tests/integration/nams/test_smoke.py \
+            -v --tb=short --timeout=120
+
+      # Auth / lifecycle tests — also fast and foundational.
+      - name: NAMS auth + lifecycle tests
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        run: |
+          uv run pytest tests/integration/nams/test_auth.py \
+            -v --tb=short --timeout=120
+
+      # Full TCK conformance + error suite — collect *all* failures (no -x)
+      # so we see every endpoint mismatch in one run.
+      - name: NAMS TCK conformance (Bronze)
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        run: |
+          uv run pytest tests/integration/nams/test_tck_bronze.py \
+            -v --tb=short --timeout=180
+        continue-on-error: true
+
+      - name: NAMS TCK conformance (Silver)
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        run: |
+          uv run pytest tests/integration/nams/test_tck_silver.py \
+            -v --tb=short --timeout=180
+        continue-on-error: true
+
+      - name: NAMS TCK conformance (Gold)
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        run: |
+          uv run pytest tests/integration/nams/test_tck_gold.py \
+            -v --tb=short --timeout=180
+        continue-on-error: true
+
+      - name: NAMS TCK conformance (Platinum)
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        run: |
+          uv run pytest tests/integration/nams/test_tck_platinum.py \
+            -v --tb=short --timeout=180
+        continue-on-error: true
+
+      - name: NAMS error-path tests
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        run: |
+          uv run pytest tests/integration/nams/test_errors.py \
+            -v --tb=short --timeout=180
+        continue-on-error: true
+
+      # Final consolidated run so the workflow exit code reflects overall pass/fail.
+      # ``--no-header`` keeps the summary tidy. Skipping it would mean the
+      # tier-specific steps above could all fail and the workflow would still
+      # report success.
+      - name: Consolidated pass/fail check
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        run: |
+          uv run pytest tests/integration/nams/ \
+            -v --tb=line --timeout=300 \
+            --no-header --quiet

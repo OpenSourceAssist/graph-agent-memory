@@ -393,7 +393,58 @@ export NAM_GEOCODING__ENABLED=true
 export NAM_GEOCODING__PROVIDER=nominatim
 ----
 
+== NAMS (v0.4)
+
+The hosted-backend selection variables.
+
+[cols="1,2,1",options="header"]
+|===
+| Variable | Purpose | Default
+
+| `MEMORY_API_KEY`
+| NAMS API key. When set and `NAM_BACKEND` is unspecified, the backend
+defaults to NAMS. Falls back to bolt when unset.
+| _unset_
+
+| `MEMORY_ENDPOINT`
+| NAMS endpoint base URL. REST mode when the URL contains `/v\d+`.
+| `https://memory.neo4jlabs.com/v1`
+
+| `NAM_BACKEND`
+| Force the backend: `bolt` or `nams`. Overrides the
+`MEMORY_API_KEY`-based default.
+| _unset_ (auto-resolved)
+
+| `NAM_NAMS__TIMEOUT`
+| HTTP request timeout in seconds.
+| `30.0`
+
+| `NAM_NAMS__MAX_RETRIES`
+| Retry budget for 429 / 5xx / network errors.
+| `3`
+
+| `NAM_NAMS__VALIDATE_ON_CONNECT`
+| If `true`, `connect()` makes a fail-fast authenticated probe request.
+| `true`
+
+| `NAM_NAMS__TRANSPORT_MODE`
+| Force wire protocol: `auto`, `rest`, or `bridge`.
+| `auto`
+|===
+
+**Example:**
+
+[source,bash]
+----
+export MEMORY_API_KEY=nams_xxxxxxxxxxxxxxxx
+
+# Optional overrides:
+export MEMORY_ENDPOINT=https://nams.internal/v1
+export NAM_NAMS__TIMEOUT=60
+----
+
 == See Also
 
 * xref:reference/configuration.adoc[Configuration Reference] - Full Python configuration API
+* xref:how-to/use-nams.adoc[Use NAMS] - NAMS backend setup
 * xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Extraction pipeline setup
