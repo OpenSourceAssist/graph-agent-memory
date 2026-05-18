@@ -49,6 +49,16 @@ _SPEC_GET_CONVERSATION = EndpointSpec(
     bridge_method="get_conversation",
 )
 
+# Live NAMS doesn't inline messages in GET /conversations/{id} — messages
+# are fetched separately. This spec is used by ``get_conversation`` to
+# back-fill the ``messages`` list when the conversation header response
+# arrives without them.
+_SPEC_LIST_CONVERSATION_MESSAGES = EndpointSpec(
+    rest_method="GET",
+    rest_path="/conversations/{session_id}/messages",
+    bridge_method="list_conversation_messages",
+)
+
 _SPEC_SEARCH_MESSAGES = EndpointSpec(
     rest_method="POST",
     rest_path="/messages/search",
@@ -219,18 +229,54 @@ class NamsShortTermMemory:
         session_id: str,
         **kwargs: Any,
     ) -> Conversation:
-        """Return the conversation + its messages."""
+        """Return the conversation + its messages.
+
+        Live NAMS splits this across two endpoints — ``GET /conversations/{id}``
+        returns header-only data (no inline messages), and
+        ``GET /conversations/{id}/messages`` returns the message list.
+        This method does both calls and reassembles them client-side so
+        the user-facing contract matches the SPEC (single call → full
+        Conversation with messages).
+        """
         params: dict[str, Any] = {}
         if (limit := kwargs.get("limit")) is not None:
             params["limit"] = limit
-        payload = await self._transport.request(
+        raw_header = await self._transport.request(
             _SPEC_GET_CONVERSATION,
             path_params={"session_id": session_id},
             params=params or None,
         )
-        # NAMS may return a minimal {"id": "..."} body; inject required defaults
-        # (session_id, created_at, messages) so Pydantic parsing succeeds.
-        payload = _conversation_with_defaults(payload, session_id=session_id)
+        # Detect whether NAMS embedded messages inline (some deployments may).
+        # We check the raw response *before* default-injection, since the
+        # helper synthesizes ``messages: []`` when absent.
+        has_inline_messages = isinstance(raw_header, dict) and raw_header.get("messages")
+        payload = _conversation_with_defaults(raw_header, session_id=session_id)
+
+        if not has_inline_messages:
+            # Back-fill messages from the dedicated endpoint. Best-effort:
+            # if the messages endpoint isn't supported (404 / NotSupported),
+            # fall through with the empty list rather than failing the
+            # whole call.
+            from neo4j_agent_memory.core.exceptions import (
+                MemoryError as _ME,
+            )
+            from neo4j_agent_memory.core.exceptions import (
+                NotSupportedError as _NSE,
+            )
+
+            try:
+                msgs_payload = await self._transport.request(
+                    _SPEC_LIST_CONVERSATION_MESSAGES,
+                    path_params={"session_id": session_id},
+                    params=params or None,
+                )
+                if isinstance(msgs_payload, list):
+                    payload["messages"] = msgs_payload
+                elif isinstance(msgs_payload, dict) and "messages" in msgs_payload:
+                    # Some servers wrap the list in an envelope.
+                    payload["messages"] = msgs_payload["messages"]
+            except (_ME, _NSE):
+                pass  # Endpoint not available; fall through with [].
         return payload_to_model(payload, Conversation)
 
     async def search_messages(
