@@ -35,7 +35,10 @@ def long_term(transport) -> NamsLongTermMemory:
 SAMPLE_ENTITY = {
     "id": "00000000-0000-0000-0000-000000000001",
     "name": "Alice",
-    "type": "PERSON",
+    # NAMS returns lowercase type values from its restricted set
+    # (person/organization/location/concept/tool/custom). NamsLongTermMemory
+    # uppercases on the way back so package consumers see POLE+O-style types.
+    "type": "person",
     "description": "Test entity",
     "confidence": 0.95,
     "sourceStage": "extraction",
@@ -56,9 +59,12 @@ class TestAddEntity:
         entity = await long_term.add_entity("Alice", "PERSON", description="Test entity")
         assert isinstance(entity, Entity)
         assert entity.name == "Alice"
+        # Round-trip: package sends POLE+O "PERSON"; NAMS returns lowercase
+        # "person"; NamsLongTermMemory uppercases it before parsing.
         assert entity.type == "PERSON"
         body = json.loads(route.calls[0].request.content)
-        assert body == {"name": "Alice", "type": "PERSON", "description": "Test entity"}
+        # Outbound type is mapped to NAMS' lowercase enum.
+        assert body == {"name": "Alice", "type": "person", "description": "Test entity"}
 
     @respx.mock
     async def test_bolt_only_kwargs_dropped(self, long_term):
@@ -89,7 +95,8 @@ class TestSearchEntities:
         assert len(results) == 1
         assert isinstance(results[0], Entity)
         body = json.loads(route.calls[0].request.content)
-        assert body == {"query": "Alice", "type": "PERSON", "limit": 5}
+        # Filter type is mapped to NAMS' lowercase enum.
+        assert body == {"query": "Alice", "type": "person", "limit": 5}
 
 
 class TestGetEntityByName:
@@ -282,3 +289,34 @@ class TestGetContext:
         # NAMS doesn't expose long-term context. Returns "".
         result = await long_term.get_context("anything")
         assert result == ""
+
+
+class TestTypeMapping:
+    """POLE+O uppercase types → NAMS' lowercase enum.
+
+    NAMS accepts only: person, organization, location, concept, tool, custom.
+    POLE+O OBJECT/EVENT have no first-class NAMS analog → fall back to custom.
+    """
+
+    @pytest.mark.parametrize(
+        ("package_type", "nams_type"),
+        [
+            ("PERSON", "person"),
+            ("ORGANIZATION", "organization"),
+            ("LOCATION", "location"),
+            ("OBJECT", "custom"),  # no NAMS analog
+            ("EVENT", "custom"),  # no NAMS analog
+            ("CONCEPT", "concept"),
+            ("TOOL", "tool"),
+            ("CUSTOM", "custom"),
+            ("Person", "person"),  # case-insensitive
+            ("PERSON:INDIVIDUAL", "person"),  # subtype stripped
+            ("Whatever", "custom"),  # unknown → custom
+        ],
+    )
+    @respx.mock
+    async def test_add_entity_maps_type(self, long_term, package_type, nams_type):
+        route = respx.post("https://memory.test/v1/entities").respond(201, json=SAMPLE_ENTITY)
+        await long_term.add_entity("X", package_type)
+        body = json.loads(route.calls[0].request.content)
+        assert body["type"] == nams_type

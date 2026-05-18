@@ -100,6 +100,46 @@ _SPEC_GET_ENTITY_PROVENANCE = EndpointSpec(
 # -----------------------------------------------------------------------------
 
 
+# NAMS accepts only this set of entity types (lowercase) per the live spec:
+#   person, organization, location, concept, tool, custom
+# Our package uses uppercase POLE+O types: PERSON, ORGANIZATION, LOCATION,
+# OBJECT, EVENT. We map POLE+O → NAMS for outbound writes/searches and
+# uppercase NAMS types on the way back for round-trip consistency.
+_NAMS_TYPES = {"person", "organization", "location", "concept", "tool", "custom"}
+_POLEO_TO_NAMS = {
+    "PERSON": "person",
+    "ORGANIZATION": "organization",
+    "LOCATION": "location",
+    # OBJECT / EVENT have no first-class NAMS analog — fall through to custom.
+    "OBJECT": "custom",
+    "EVENT": "custom",
+    "CONCEPT": "concept",
+    "TOOL": "tool",
+    "CUSTOM": "custom",
+}
+
+
+def _to_nams_type(entity_type: str | None) -> str | None:
+    """Map a package entity type to a NAMS-accepted lowercase value.
+
+    Strips off any subtype suffix (``PERSON:INDIVIDUAL`` → ``PERSON``),
+    uppercases for lookup, and falls back to ``custom`` for unknown
+    types. ``None`` passes through.
+    """
+    if entity_type is None:
+        return None
+    base = entity_type.split(":", 1)[0].strip()
+    if not base:
+        return "custom"
+    upper = base.upper()
+    if upper in _POLEO_TO_NAMS:
+        return _POLEO_TO_NAMS[upper]
+    lower = base.lower()
+    if lower in _NAMS_TYPES:
+        return lower
+    return "custom"
+
+
 def _drop_none(d: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in d.items() if v is not None}
 
@@ -115,6 +155,8 @@ def _normalize_entity(payload: dict[str, Any] | None) -> dict[str, Any]:
     sourceStage, createdAt, updatedAt`` (camelCase). The bolt Entity
     model adds ``aliases``, ``attributes``, ``subtype`` which NAMS
     doesn't provide — we default them so Pydantic parsing succeeds.
+    NAMS types come back lowercase; uppercase them so package-side
+    consumers see the same type values they sent.
     """
     from datetime import datetime, timezone
 
@@ -127,6 +169,8 @@ def _normalize_entity(payload: dict[str, Any] | None) -> dict[str, Any]:
         data["aliases"] = []
     if "attributes" not in data:
         data["attributes"] = {}
+    if isinstance(data.get("type"), str):
+        data["type"] = data["type"].upper()
     return data
 
 
@@ -164,7 +208,7 @@ class NamsLongTermMemory:
         body = _drop_none(
             {
                 "name": name,
-                "type": entity_type,
+                "type": _to_nams_type(entity_type),
                 "description": kwargs.get("description"),
             }
         )
@@ -217,7 +261,7 @@ class NamsLongTermMemory:
         body = _drop_none(
             {
                 "query": query,
-                "type": kwargs.get("entity_type") or kwargs.get("type"),
+                "type": _to_nams_type(kwargs.get("entity_type") or kwargs.get("type")),
                 "limit": kwargs.get("limit"),
             }
         )
