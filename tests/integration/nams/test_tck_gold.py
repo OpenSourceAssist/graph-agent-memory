@@ -116,12 +116,10 @@ async def test_get_entity_provenance_returns_dict(
 
 @pytest.mark.asyncio
 async def test_get_tool_stats_after_recording_calls(
-    nams_client: MemoryClient, session_id: str, cleanup_registry: Any
+    nams_client: MemoryClient, nams_session: str
 ) -> None:
     """``get_tool_stats`` returns aggregate stats after tool calls are recorded."""
-    cleanup_registry.track_session(session_id)
-
-    trace = await nams_client.reasoning.start_trace(session_id, "tool-stats-test")
+    trace = await nams_client.reasoning.start_trace(nams_session, "tool-stats-test")
     step = await nams_client.reasoning.add_step(trace.id, thought="invoke tool")
     await nams_client.reasoning.record_tool_call(
         step.id,
@@ -145,14 +143,10 @@ async def test_get_tool_stats_after_recording_calls(
 
 
 @pytest.mark.asyncio
-async def test_link_trace_to_message(
-    nams_client: MemoryClient, session_id: str, cleanup_registry: Any
-) -> None:
+async def test_link_trace_to_message(nams_client: MemoryClient, nams_session: str) -> None:
     """``link_trace_to_message`` succeeds with valid ids (no return body)."""
-    cleanup_registry.track_session(session_id)
-
-    msg = await nams_client.short_term.add_message(session_id, "user", "triggering message")
-    trace = await nams_client.reasoning.start_trace(session_id, "linked-trace")
+    msg = await nams_client.short_term.add_message(nams_session, "user", "triggering message")
+    trace = await nams_client.reasoning.start_trace(nams_session, "linked-trace")
 
     # No raise = success.
     await nams_client.reasoning.link_trace_to_message(trace.id, msg.id)

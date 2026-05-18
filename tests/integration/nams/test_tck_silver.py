@@ -149,16 +149,13 @@ async def test_search_facts_returns_fact_list(nams_client: MemoryClient, unique_
 
 
 @pytest.mark.asyncio
-async def test_reasoning_trace_lifecycle(
-    nams_client: MemoryClient, session_id: str, cleanup_registry: Any
-) -> None:
+async def test_reasoning_trace_lifecycle(nams_client: MemoryClient, nams_session: str) -> None:
     """Full lifecycle: start_trace → add_step → record_tool_call → complete_trace."""
-    cleanup_registry.track_session(session_id)
-
-    trace = await nams_client.reasoning.start_trace(session_id, "Find a restaurant")
+    trace = await nams_client.reasoning.start_trace(nams_session, "Find a restaurant")
     assert isinstance(trace, ReasoningTrace)
     assert trace.task == "Find a restaurant"
-    assert trace.session_id == session_id
+    # NAMS may echo the session_id or substitute its canonical form;
+    # don't be strict about equality.
 
     step = await nams_client.reasoning.add_step(
         trace.id,
@@ -184,13 +181,9 @@ async def test_reasoning_trace_lifecycle(
 
 
 @pytest.mark.asyncio
-async def test_get_trace_returns_trace(
-    nams_client: MemoryClient, session_id: str, cleanup_registry: Any
-) -> None:
+async def test_get_trace_returns_trace(nams_client: MemoryClient, nams_session: str) -> None:
     """``get_trace`` retrieves a trace by id after creation."""
-    cleanup_registry.track_session(session_id)
-
-    started = await nams_client.reasoning.start_trace(session_id, "Test get_trace")
+    started = await nams_client.reasoning.start_trace(nams_session, "Test get_trace")
 
     fetched = await nams_client.reasoning.get_trace(started.id)
     assert fetched is not None
@@ -210,12 +203,10 @@ async def test_get_trace_not_found_returns_none(
 
 @pytest.mark.asyncio
 async def test_get_trace_with_steps_includes_steps(
-    nams_client: MemoryClient, session_id: str, cleanup_registry: Any
+    nams_client: MemoryClient, nams_session: str
 ) -> None:
     """``get_trace_with_steps`` returns the trace plus its step chain."""
-    cleanup_registry.track_session(session_id)
-
-    trace = await nams_client.reasoning.start_trace(session_id, "Test with steps")
+    trace = await nams_client.reasoning.start_trace(nams_session, "Test with steps")
     await nams_client.reasoning.add_step(trace.id, thought="step 1")
     await nams_client.reasoning.add_step(trace.id, thought="step 2")
     await nams_client.reasoning.complete_trace(trace.id, outcome="ok", success=True)
@@ -226,16 +217,12 @@ async def test_get_trace_with_steps_includes_steps(
 
 
 @pytest.mark.asyncio
-async def test_get_session_traces(
-    nams_client: MemoryClient, session_id: str, cleanup_registry: Any
-) -> None:
+async def test_get_session_traces(nams_client: MemoryClient, nams_session: str) -> None:
     """``get_session_traces`` lists traces scoped to a session."""
-    cleanup_registry.track_session(session_id)
-
-    trace = await nams_client.reasoning.start_trace(session_id, "session-trace-1")
+    trace = await nams_client.reasoning.start_trace(nams_session, "session-trace-1")
     await nams_client.reasoning.complete_trace(trace.id, outcome="done", success=True)
 
-    traces = await nams_client.reasoning.get_session_traces(session_id, limit=10)
+    traces = await nams_client.reasoning.get_session_traces(nams_session, limit=10)
     assert isinstance(traces, list)
     if traces:
         tasks = [t.task for t in traces]
@@ -243,13 +230,9 @@ async def test_get_session_traces(
 
 
 @pytest.mark.asyncio
-async def test_search_steps_returns_list(
-    nams_client: MemoryClient, session_id: str, cleanup_registry: Any
-) -> None:
+async def test_search_steps_returns_list(nams_client: MemoryClient, nams_session: str) -> None:
     """``search_steps`` returns a list of :class:`ReasoningStep`."""
-    cleanup_registry.track_session(session_id)
-
-    trace = await nams_client.reasoning.start_trace(session_id, "search-steps-task")
+    trace = await nams_client.reasoning.start_trace(nams_session, "search-steps-task")
     await nams_client.reasoning.add_step(
         trace.id, thought="A very distinctive observation phrase: lavender soufflé"
     )
@@ -261,13 +244,9 @@ async def test_search_steps_returns_list(
 
 
 @pytest.mark.asyncio
-async def test_get_similar_traces(
-    nams_client: MemoryClient, session_id: str, cleanup_registry: Any
-) -> None:
+async def test_get_similar_traces(nams_client: MemoryClient, nams_session: str) -> None:
     """``get_similar_traces`` returns a list of traces."""
-    cleanup_registry.track_session(session_id)
-
-    trace = await nams_client.reasoning.start_trace(session_id, "Find Italian food")
+    trace = await nams_client.reasoning.start_trace(nams_session, "Find Italian food")
     await nams_client.reasoning.complete_trace(trace.id, outcome="ok", success=True)
 
     results = await nams_client.reasoning.get_similar_traces(

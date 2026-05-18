@@ -187,3 +187,62 @@ async def cleanup_registry(nams_client: MemoryClient) -> AsyncIterator[_CleanupR
         yield reg
     finally:
         await reg.run()
+
+
+@pytest_asyncio.fixture
+async def nams_session(
+    nams_client: MemoryClient,
+    session_id: str,
+    cleanup_registry: _CleanupRegistry,
+) -> str:
+    """A pre-created NAMS conversation. Yields the canonical conversation id.
+
+    NAMS (unlike bolt) does **not** auto-create conversations on the
+    first ``add_message`` — see ``test_smoke.py`` for the discovery.
+    This fixture handles the Platinum-tier ``create_conversation`` dance
+    so individual tests don't repeat it.
+
+    Behavior:
+
+    * Tries ``create_conversation(session_id)``. If the SPEC method
+      isn't available or 4xx-rejects, falls back to the raw
+      ``session_id`` — the test will then either succeed (server
+      auto-creates on POST) or surface the failure as a normal
+      assertion.
+    * Returns whatever id NAMS expects for subsequent calls — preferring
+      the returned ``conv.id`` (UUID) over the original session_id
+      string, since NAMS may generate its own canonical id.
+    * Registers the canonical id with ``cleanup_registry``.
+
+    Use this fixture in tests that need to round-trip messages through
+    NAMS. Tests that don't need a pre-existing conversation (e.g.
+    entity-only or fact-only tests) can keep using the bare
+    ``session_id`` fixture.
+    """
+    canonical_id = session_id
+    try:
+        conv = await nams_client.short_term.create_conversation(
+            session_id,
+            user_identifier=session_id,
+            title="Integration test conversation",
+        )
+        # NAMS may return a Conversation with a generated UUID *or* echo
+        # the supplied session_id. Prefer whatever id field looks
+        # canonical, fall back to session_id.
+        if conv.id is not None:
+            canonical_id = str(conv.id)
+        elif conv.session_id:
+            canonical_id = conv.session_id
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "create_conversation failed (%s); using bare session_id and "
+            "hoping for auto-create. If the test then 404s on read, NAMS "
+            "needs an explicit conversation creation step.",
+            e,
+        )
+
+    cleanup_registry.track_session(canonical_id)
+    # Also track the original session_id in case NAMS dual-keyed it.
+    if canonical_id != session_id:
+        cleanup_registry.track_session(session_id)
+    return canonical_id
