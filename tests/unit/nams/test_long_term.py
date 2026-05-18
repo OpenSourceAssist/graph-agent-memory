@@ -1,4 +1,10 @@
-"""Tests for nams/long_term.py — NamsLongTermMemory."""
+"""Tests for nams/long_term.py — NamsLongTermMemory.
+
+Endpoint shapes verified against the live NAMS OpenAPI spec.
+
+NAMS provides entity endpoints only. Preferences, facts, and
+relationship writes raise :class:`NotSupportedError`.
+"""
 
 from __future__ import annotations
 
@@ -7,13 +13,10 @@ import json
 import pytest
 import respx
 
+from neo4j_agent_memory.core.exceptions import NotSupportedError
 from neo4j_agent_memory.core.protocols import LongTermProtocol
-from neo4j_agent_memory.memory.long_term import Entity, Fact, Preference, Relationship
+from neo4j_agent_memory.memory.long_term import Entity, Relationship
 from neo4j_agent_memory.nams import HttpTransport, NamsLongTermMemory, StaticApiKeyAuth
-
-# -----------------------------------------------------------------------------
-# Fixtures
-# -----------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -33,37 +36,12 @@ SAMPLE_ENTITY = {
     "id": "00000000-0000-0000-0000-000000000001",
     "name": "Alice",
     "type": "PERSON",
-    "subtype": "INDIVIDUAL",
-    "created_at": "2026-05-17T12:00:00Z",
-    "metadata": {},
-    "aliases": [],
-    "attributes": {},
+    "description": "Test entity",
     "confidence": 0.95,
+    "sourceStage": "extraction",
+    "createdAt": "2026-05-17T12:00:00Z",
+    "updatedAt": "2026-05-17T12:00:00Z",
 }
-
-SAMPLE_PREFERENCE = {
-    "id": "00000000-0000-0000-0000-00000000aaaa",
-    "category": "food",
-    "preference": "loves italian",
-    "created_at": "2026-05-17T12:00:00Z",
-    "metadata": {},
-    "confidence": 1.0,
-}
-
-SAMPLE_FACT = {
-    "id": "00000000-0000-0000-0000-00000000bbbb",
-    "subject": "Alice",
-    "predicate": "works_at",
-    "object": "Acme",
-    "created_at": "2026-05-17T12:00:00Z",
-    "metadata": {},
-    "confidence": 0.9,
-}
-
-
-# -----------------------------------------------------------------------------
-# Protocol conformance
-# -----------------------------------------------------------------------------
 
 
 class TestProtocolConformance:
@@ -71,312 +49,236 @@ class TestProtocolConformance:
         assert isinstance(long_term, LongTermProtocol)
 
 
-# -----------------------------------------------------------------------------
-# Bronze — writes
-# -----------------------------------------------------------------------------
-
-
 class TestAddEntity:
     @respx.mock
     async def test_basic_returns_entity_only(self, long_term):
-        """NAMS returns just Entity (no DeduplicationResult tuple)."""
-        route = respx.post("https://memory.test/v1/entities").respond(200, json=SAMPLE_ENTITY)
-        result = await long_term.add_entity("Alice", "PERSON", subtype="INDIVIDUAL")
-        assert isinstance(result, Entity)
-        assert result.name == "Alice"
-        assert result.type == "PERSON"
-        # Sanity: result is the Entity directly, not a tuple.
-        assert not isinstance(result, tuple)
+        route = respx.post("https://memory.test/v1/entities").respond(201, json=SAMPLE_ENTITY)
+        entity = await long_term.add_entity("Alice", "PERSON", description="Test entity")
+        assert isinstance(entity, Entity)
+        assert entity.name == "Alice"
+        assert entity.type == "PERSON"
         body = json.loads(route.calls[0].request.content)
-        assert body["name"] == "Alice"
-        assert body["type"] == "PERSON"
-        assert body["subtype"] == "INDIVIDUAL"
+        assert body == {"name": "Alice", "type": "PERSON", "description": "Test entity"}
 
     @respx.mock
-    async def test_bolt_only_kwargs_ignored(self, long_term):
-        route = respx.post("https://memory.test/v1/entities").respond(200, json=SAMPLE_ENTITY)
+    async def test_bolt_only_kwargs_dropped(self, long_term):
+        route = respx.post("https://memory.test/v1/entities").respond(201, json=SAMPLE_ENTITY)
         await long_term.add_entity(
             "Alice",
             "PERSON",
-            # Bolt-only kwargs:
+            subtype="INDIVIDUAL",
+            aliases=["Al"],
+            attributes={"role": "lead"},
+            confidence=0.8,
             deduplicate=True,
             geocode=True,
-            enrich=True,
-            resolve=False,
-            generate_embedding=True,
         )
         body = json.loads(route.calls[0].request.content)
-        for k in (
-            "deduplicate",
-            "geocode",
-            "enrich",
-            "resolve",
-            "generate_embedding",
-        ):
+        # NAMS accepts only name/type/description.
+        for k in ("subtype", "aliases", "attributes", "confidence", "deduplicate", "geocode"):
             assert k not in body
-
-
-class TestAddPreference:
-    @respx.mock
-    async def test_basic(self, long_term):
-        route = respx.post("https://memory.test/v1/preferences").respond(
-            200, json=SAMPLE_PREFERENCE
-        )
-        pref = await long_term.add_preference("food", "loves italian", confidence=0.9)
-        assert isinstance(pref, Preference)
-        body = json.loads(route.calls[0].request.content)
-        assert body == {
-            "category": "food",
-            "preference": "loves italian",
-            "confidence": 0.9,
-        }
-
-
-class TestAddFact:
-    @respx.mock
-    async def test_basic(self, long_term):
-        respx.post("https://memory.test/v1/facts").respond(200, json=SAMPLE_FACT)
-        f = await long_term.add_fact("Alice", "works_at", "Acme")
-        assert isinstance(f, Fact)
-        assert f.as_triple == ("Alice", "works_at", "Acme")
-
-
-class TestAddRelationship:
-    @respx.mock
-    async def test_basic(self, long_term):
-        route = respx.post("https://memory.test/v1/relationships").respond(204)
-        await long_term.add_relationship(
-            "00000000-0000-0000-0000-000000000001",
-            "WORKS_AT",
-            "00000000-0000-0000-0000-000000000002",
-            properties={"since": "2020"},
-        )
-        body = json.loads(route.calls[0].request.content)
-        assert body["source_id"] == "00000000-0000-0000-0000-000000000001"
-        assert body["target_id"] == "00000000-0000-0000-0000-000000000002"
-        assert body["type"] == "WORKS_AT"
-        assert body["properties"] == {"since": "2020"}
-
-
-# -----------------------------------------------------------------------------
-# Bronze — reads
-# -----------------------------------------------------------------------------
 
 
 class TestSearchEntities:
     @respx.mock
-    async def test_basic(self, long_term):
+    async def test_with_envelope(self, long_term):
         route = respx.post("https://memory.test/v1/entities/search").respond(
-            200, json=[SAMPLE_ENTITY]
+            200, json={"entities": [SAMPLE_ENTITY], "searchType": "vector"}
         )
         results = await long_term.search_entities("Alice", entity_type="PERSON", limit=5)
         assert len(results) == 1
         assert isinstance(results[0], Entity)
         body = json.loads(route.calls[0].request.content)
-        # Accept both ``entity_type`` and ``type`` kwargs; NAMS sees ``type``.
         assert body == {"query": "Alice", "type": "PERSON", "limit": 5}
-
-
-class TestSearchPreferences:
-    @respx.mock
-    async def test_basic(self, long_term):
-        respx.post("https://memory.test/v1/preferences/search").respond(
-            200, json=[SAMPLE_PREFERENCE]
-        )
-        results = await long_term.search_preferences("food", category="food")
-        assert len(results) == 1
-        assert isinstance(results[0], Preference)
-
-
-class TestSearchFacts:
-    @respx.mock
-    async def test_basic(self, long_term):
-        respx.post("https://memory.test/v1/facts/search").respond(200, json=[SAMPLE_FACT])
-        results = await long_term.search_facts("Acme")
-        assert len(results) == 1
-        assert isinstance(results[0], Fact)
 
 
 class TestGetEntityByName:
     @respx.mock
-    async def test_returns_entity_when_found(self, long_term):
-        respx.get("https://memory.test/v1/entities").respond(200, json=SAMPLE_ENTITY)
-        e = await long_term.get_entity_by_name("Alice")
-        assert isinstance(e, Entity)
-
-    @respx.mock
-    async def test_returns_none_on_404(self, long_term):
-        respx.get("https://memory.test/v1/entities").respond(
-            404, json={"error": "entity not found"}
+    async def test_uses_search_internally(self, long_term):
+        respx.post("https://memory.test/v1/entities/search").respond(
+            200, json={"entities": [SAMPLE_ENTITY], "searchType": "vector"}
         )
-        assert await long_term.get_entity_by_name("Missing") is None
+        result = await long_term.get_entity_by_name("Alice")
+        assert result is not None
+        assert result.name == "Alice"
 
     @respx.mock
-    async def test_returns_first_when_list(self, long_term):
-        respx.get("https://memory.test/v1/entities").respond(200, json=[SAMPLE_ENTITY])
-        e = await long_term.get_entity_by_name("Alice")
-        assert isinstance(e, Entity)
-
-    @respx.mock
-    async def test_returns_none_on_empty_list(self, long_term):
-        respx.get("https://memory.test/v1/entities").respond(200, json=[])
-        assert await long_term.get_entity_by_name("Missing") is None
-
-
-# -----------------------------------------------------------------------------
-# Silver
-# -----------------------------------------------------------------------------
-
-
-class TestGetRelatedEntities:
-    @respx.mock
-    async def test_basic_list_response(self, long_term):
-        route = respx.get(
-            "https://memory.test/v1/entities/00000000-0000-0000-0000-000000000001/related"
-        ).respond(200, json=[SAMPLE_ENTITY])
-        related = await long_term.get_related_entities(
-            "00000000-0000-0000-0000-000000000001", depth=2
+    async def test_returns_none_when_no_match(self, long_term):
+        respx.post("https://memory.test/v1/entities/search").respond(
+            200, json={"entities": [], "searchType": "vector"}
         )
-        assert len(related) == 1
-        assert isinstance(related[0], Entity)
-        assert route.calls[0].request.url.params["depth"] == "2"
+        result = await long_term.get_entity_by_name("Missing")
+        assert result is None
 
     @respx.mock
-    async def test_envelope_response_passes_through(self, long_term):
-        """If NAMS returns ``{entities:[], relationships:[]}``, pass through as dict."""
-        respx.get(
-            "https://memory.test/v1/entities/00000000-0000-0000-0000-000000000001/related"
-        ).respond(
+    async def test_returns_none_when_only_inexact_matches(self, long_term):
+        """Search returns hits but none with exact name match."""
+        respx.post("https://memory.test/v1/entities/search").respond(
             200,
-            json={"entities": [SAMPLE_ENTITY], "relationships": []},
+            json={
+                "entities": [{**SAMPLE_ENTITY, "name": "Alice Different"}],
+                "searchType": "vector",
+            },
         )
-        result = await long_term.get_related_entities("00000000-0000-0000-0000-000000000001")
-        assert isinstance(result, dict)
-        assert "entities" in result
-
-
-class TestGetPreferencesFor:
-    @respx.mock
-    async def test_filters_by_category_and_user(self, long_term):
-        route = respx.get("https://memory.test/v1/preferences").respond(
-            200, json=[SAMPLE_PREFERENCE]
-        )
-        prefs = await long_term.get_preferences_for(category="food", user_identifier="alice")
-        assert len(prefs) == 1
-        assert route.calls[0].request.url.params["category"] == "food"
-        assert route.calls[0].request.url.params["userId"] == "alice"
-
-
-class TestSupersedePreference:
-    @respx.mock
-    async def test_basic(self, long_term):
-        route = respx.post(
-            "https://memory.test/v1/preferences/00000000-0000-0000-0000-000000000001/supersede"
-        ).respond(204)
-        await long_term.supersede_preference("00000000-0000-0000-0000-000000000001")
-        assert route.called
-
-
-class TestGetFactsAbout:
-    @respx.mock
-    async def test_basic(self, long_term):
-        respx.get("https://memory.test/v1/entities/Alice/facts").respond(200, json=[SAMPLE_FACT])
-        facts = await long_term.get_facts_about("Alice")
-        assert len(facts) == 1
-        assert isinstance(facts[0], Fact)
-
-
-class TestGetEntityRelationships:
-    @respx.mock
-    async def test_basic(self, long_term):
-        respx.get(
-            "https://memory.test/v1/entities/00000000-0000-0000-0000-000000000001/relationships"
-        ).respond(
-            200,
-            json=[
-                {
-                    "id": "00000000-0000-0000-0000-00000000cccc",
-                    "source_id": "00000000-0000-0000-0000-000000000001",
-                    "target_id": "00000000-0000-0000-0000-000000000002",
-                    "type": "WORKS_AT",
-                    "created_at": "2026-05-17T12:00:00Z",
-                    "metadata": {},
-                    "confidence": 1.0,
-                    "attributes": {},
-                }
-            ],
-        )
-        rels = await long_term.get_entity_relationships("00000000-0000-0000-0000-000000000001")
-        assert len(rels) == 1
-        assert isinstance(rels[0], Relationship)
-
-
-class TestGetContext:
-    @respx.mock
-    async def test_string_response(self, long_term):
-        respx.post("https://memory.test/v1/long-term/context").respond(
-            200, json="assembled long-term context"
-        )
-        ctx = await long_term.get_context("query")
-        assert ctx == "assembled long-term context"
-
-    @respx.mock
-    async def test_dict_response(self, long_term):
-        respx.post("https://memory.test/v1/long-term/context").respond(
-            200, json={"context": "long-term"}
-        )
-        ctx = await long_term.get_context("query")
-        assert ctx == "long-term"
-
-
-# -----------------------------------------------------------------------------
-# Gold + Platinum
-# -----------------------------------------------------------------------------
-
-
-class TestGetEntityProvenance:
-    @respx.mock
-    async def test_basic(self, long_term):
-        respx.get(
-            "https://memory.test/v1/entities/00000000-0000-0000-0000-000000000001/provenance"
-        ).respond(
-            200,
-            json={"sources": [{"message_id": "m1"}], "extractors": []},
-        )
-        prov = await long_term.get_entity_provenance("00000000-0000-0000-0000-000000000001")
-        assert "sources" in prov
-        assert prov["sources"][0]["message_id"] == "m1"
+        result = await long_term.get_entity_by_name("Alice")
+        assert result is None
 
 
 class TestSetEntityFeedback:
     @respx.mock
-    async def test_basic(self, long_term):
-        route = respx.post(
-            "https://memory.test/v1/entities/00000000-0000-0000-0000-000000000001/feedback"
-        ).respond(204)
-        await long_term.set_entity_feedback(
-            "00000000-0000-0000-0000-000000000001",
-            "positive",
-            user_identifier="alice",
+    async def test_positive_maps_to_user_score_and_confirmed(self, long_term):
+        route = respx.put("https://memory.test/v1/entities/eid/feedback").respond(
+            200, json={"id": "eid", "updated": True}
         )
+        await long_term.set_entity_feedback("eid", "positive")
         body = json.loads(route.calls[0].request.content)
-        assert body == {"feedback": "positive", "userId": "alice"}
+        assert body == {"userScore": 1.0, "confirmed": True}
+
+    @respx.mock
+    async def test_negative_maps_to_zero_and_false(self, long_term):
+        route = respx.put("https://memory.test/v1/entities/eid/feedback").respond(
+            200, json={"id": "eid", "updated": True}
+        )
+        await long_term.set_entity_feedback("eid", "negative")
+        body = json.loads(route.calls[0].request.content)
+        assert body == {"userScore": 0.0, "confirmed": False}
+
+    @respx.mock
+    async def test_explicit_user_score_kwarg(self, long_term):
+        route = respx.put("https://memory.test/v1/entities/eid/feedback").respond(
+            200, json={"id": "eid", "updated": True}
+        )
+        await long_term.set_entity_feedback("eid", "", user_score=0.75, confirmed=True)
+        body = json.loads(route.calls[0].request.content)
+        assert body == {"userScore": 0.75, "confirmed": True}
 
 
 class TestGetEntityHistory:
     @respx.mock
-    async def test_basic(self, long_term):
-        respx.get(
-            "https://memory.test/v1/entities/00000000-0000-0000-0000-000000000001/history"
-        ).respond(
+    async def test_returns_mentions(self, long_term):
+        respx.get("https://memory.test/v1/entities/eid/history").respond(
             200,
-            json=[
-                {"conversation_id": "c1", "mention_count": 3},
-                {"conversation_id": "c2", "mention_count": 1},
-            ],
+            json={
+                "entityId": "eid",
+                "mentions": [{"conversationId": "c1", "mentionCount": 3}],
+            },
         )
-        history = await long_term.get_entity_history(
-            "00000000-0000-0000-0000-000000000001", limit=10
+        history = await long_term.get_entity_history("eid")
+        assert len(history) == 1
+
+
+class TestGetEntityProvenance:
+    """Entity provenance lives under /v1/reasoning/provenance/{entityId}."""
+
+    @respx.mock
+    async def test_basic(self, long_term):
+        respx.get("https://memory.test/v1/reasoning/provenance/eid").respond(
+            200,
+            json={"entityId": "eid", "steps": [{"id": "s1", "reasoning": "..."}]},
         )
-        assert len(history) == 2
-        assert history[0]["mention_count"] == 3
+        prov = await long_term.get_entity_provenance("eid")
+        assert "steps" in prov
+        assert len(prov["steps"]) == 1
+
+
+class TestNotSupportedMethods:
+    """Preferences, facts, relationships, related-entities, get_facts_about
+    have no NAMS endpoints — all raise NotSupportedError."""
+
+    async def test_add_preference(self, long_term):
+        with pytest.raises(NotSupportedError):
+            await long_term.add_preference("food", "italian")
+
+    async def test_search_preferences(self, long_term):
+        with pytest.raises(NotSupportedError):
+            await long_term.search_preferences("food")
+
+    async def test_get_preferences_for(self, long_term):
+        with pytest.raises(NotSupportedError):
+            await long_term.get_preferences_for(category="food")
+
+    async def test_supersede_preference(self, long_term):
+        with pytest.raises(NotSupportedError):
+            await long_term.supersede_preference("pref-id")
+
+    async def test_add_fact(self, long_term):
+        with pytest.raises(NotSupportedError):
+            await long_term.add_fact("Alice", "works_at", "Acme")
+
+    async def test_search_facts(self, long_term):
+        with pytest.raises(NotSupportedError):
+            await long_term.search_facts("Acme")
+
+    async def test_get_facts_about(self, long_term):
+        with pytest.raises(NotSupportedError):
+            await long_term.get_facts_about("Alice")
+
+    async def test_add_relationship(self, long_term):
+        with pytest.raises(NotSupportedError):
+            await long_term.add_relationship(
+                "00000000-0000-0000-0000-0000000000e1",
+                "WORKS_AT",
+                "00000000-0000-0000-0000-0000000000e2",
+            )
+
+
+class TestGetEntityRelationships:
+    @respx.mock
+    async def test_returns_inline_relationships(self, long_term):
+        """NAMS GET /v1/entities/{id} returns relationships inline."""
+        respx.get("https://memory.test/v1/entities/00000000-0000-0000-0000-0000000000e1").respond(
+            200,
+            json={
+                **SAMPLE_ENTITY,
+                "relationships": [
+                    {
+                        "relType": "WORKS_AT",
+                        "targetId": "00000000-0000-0000-0000-0000000000e2",
+                        "targetName": "Acme",
+                        "targetType": "ORGANIZATION",
+                    }
+                ],
+            },
+        )
+        rels = await long_term.get_entity_relationships("00000000-0000-0000-0000-0000000000e1")
+        assert len(rels) == 1
+        assert isinstance(rels[0], Relationship)
+        assert rels[0].type == "WORKS_AT"
+        assert str(rels[0].target_id) == "00000000-0000-0000-0000-0000000000e2"
+
+    @respx.mock
+    async def test_empty_when_no_relationships(self, long_term):
+        respx.get("https://memory.test/v1/entities/00000000-0000-0000-0000-0000000000e1").respond(
+            200, json=SAMPLE_ENTITY
+        )
+        rels = await long_term.get_entity_relationships("00000000-0000-0000-0000-0000000000e1")
+        assert rels == []
+
+
+class TestGetRelatedEntities:
+    @respx.mock
+    async def test_returns_relationships_as_dicts(self, long_term):
+        respx.get("https://memory.test/v1/entities/00000000-0000-0000-0000-0000000000e1").respond(
+            200,
+            json={
+                **SAMPLE_ENTITY,
+                "relationships": [
+                    {
+                        "relType": "KNOWS",
+                        "targetId": "00000000-0000-0000-0000-0000000000e2",
+                        "targetName": "Bob",
+                        "targetType": "PERSON",
+                    },
+                ],
+            },
+        )
+        related = await long_term.get_related_entities("00000000-0000-0000-0000-0000000000e1")
+        assert isinstance(related, list)
+        assert len(related) == 1
+
+
+class TestGetContext:
+    async def test_returns_empty_string(self, long_term):
+        # NAMS doesn't expose long-term context. Returns "".
+        result = await long_term.get_context("anything")
+        assert result == ""

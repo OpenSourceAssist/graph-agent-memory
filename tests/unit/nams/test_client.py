@@ -84,20 +84,22 @@ class TestSharedTransport:
 class TestProbe:
     @respx.mock
     async def test_probe_succeeds_on_200(self, nams_config):
-        respx.get("https://memory.test/v1/sessions").respond(200, json=[])
+        respx.get("https://memory.test/v1/conversations").respond(200, json=[])
         async with NamsBackend.from_config(nams_config) as backend:
             await backend.probe()  # no raise
 
     @respx.mock
     async def test_probe_raises_on_401(self, nams_config):
-        respx.get("https://memory.test/v1/sessions").respond(401, json={"error": "invalid key"})
+        respx.get("https://memory.test/v1/conversations").respond(
+            401, json={"error": "invalid key"}
+        )
         async with NamsBackend.from_config(nams_config) as backend:
             with pytest.raises(AuthenticationError):
                 await backend.probe()
 
     @respx.mock
     async def test_probe_raises_on_403(self, nams_config):
-        respx.get("https://memory.test/v1/sessions").respond(403, json={"error": "forbidden"})
+        respx.get("https://memory.test/v1/conversations").respond(403, json={"error": "forbidden"})
         async with NamsBackend.from_config(nams_config) as backend:
             with pytest.raises(AuthenticationError):
                 await backend.probe()
@@ -106,7 +108,7 @@ class TestProbe:
     async def test_probe_raises_on_network_failure(self, nams_config):
         import httpx
 
-        respx.get("https://memory.test/v1/sessions").mock(
+        respx.get("https://memory.test/v1/conversations").mock(
             side_effect=httpx.ConnectError("net down")
         )
         async with NamsBackend.from_config(nams_config) as backend:
@@ -115,7 +117,7 @@ class TestProbe:
 
     @respx.mock
     async def test_probe_uses_limit_1(self, nams_config):
-        route = respx.get("https://memory.test/v1/sessions").respond(200, json=[])
+        route = respx.get("https://memory.test/v1/conversations").respond(200, json=[])
         async with NamsBackend.from_config(nams_config) as backend:
             await backend.probe()
         assert route.calls[0].request.url.params["limit"] == "1"
@@ -129,7 +131,7 @@ class TestProbe:
 class TestBridgeMode:
     @respx.mock
     async def test_probe_in_bridge_mode(self, bridge_config):
-        route = respx.post("https://memory.test/list_sessions").respond(200, json=[])
+        route = respx.post("https://memory.test/list_conversations").respond(200, json=[])
         async with NamsBackend.from_config(bridge_config) as backend:
             await backend.probe()
         assert route.called

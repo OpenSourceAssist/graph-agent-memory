@@ -122,12 +122,13 @@ class NamsBackend:
         :class:`TransportError` for network failures *at connect time*,
         before any user-visible request fires.
 
-        We call ``list_sessions(limit=1)`` rather than a dedicated
-        ``/health`` endpoint because every NAMS-conformant impl supports
-        it (Bronze tier). If the SPEC adds a cheaper probe route later,
-        update this method.
+        We call ``list_conversations(limit=1)`` rather than a dedicated
+        ``/health`` endpoint because every NAMS deployment supports it.
+        (Older draft impls used ``list_sessions``, but that endpoint
+        doesn't exist in the live NAMS spec — sessions are not a
+        first-class concept.)
         """
-        await self._short_term.list_sessions(limit=1)
+        await self._short_term.list_conversations(limit=1)
 
 
 __all__ = ["NamsBackend"]

@@ -1,14 +1,30 @@
 """NAMS implementation of :class:`LongTermProtocol`.
 
-Endpoint mappings inferred from plan §G. Bolt-only deduplication
-features (``find_potential_duplicates``, ``merge_duplicate_entities``,
-``review_duplicate``, etc.) are NOT on this class — NAMS handles
-deduplication server-side and exposes ``set_entity_feedback`` instead.
-Same for geocoding, enrichment, and extractor provenance.
+Endpoint mappings verified against the live NAMS OpenAPI spec.
 
-Note: :meth:`add_entity` returns just :class:`Entity` here (matching the
-SPEC), unlike bolt's ``(Entity, DeduplicationResult)`` tuple. Portable
-code that needs to support both should branch on the return type.
+NAMS provides first-class **Entity** endpoints only. Preferences,
+facts, and entity relationships are NOT exposed as dedicated REST
+endpoints — those features must go through the Cypher console
+(``client.query.cypher``) or are out of scope on NAMS entirely.
+
+Methods that raise :class:`NotSupportedError`:
+
+* ``add_preference``, ``search_preferences``, ``get_preferences_for``,
+  ``supersede_preference``
+* ``add_fact``, ``search_facts``, ``get_facts_about``
+* ``add_relationship``, ``get_entity_relationships``,
+  ``get_related_entities``
+
+NAMS-specific endpoint shapes vs. our Protocol:
+
+* Entity create body is ``{name, type, description?}`` — no subtype,
+  aliases, attributes, confidence (those are bolt-only).
+* Entity search returns ``{"entities": [...], "searchType": ...}``
+  envelope.
+* Entity feedback is **PUT** not POST, body
+  ``{userScore?, confirmed?}`` (no free-form ``feedback`` string).
+* Entity provenance lives under ``/v1/reasoning/provenance/{entityId}``
+  (not ``/v1/entities/{id}/provenance``).
 """
 
 from __future__ import annotations
@@ -16,13 +32,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from neo4j_agent_memory.core.exceptions import NotSupportedError
 from neo4j_agent_memory.memory.long_term import (
     Entity,
     Fact,
     Preference,
     Relationship,
 )
-from neo4j_agent_memory.nams._serialization import payload_to_model
+from neo4j_agent_memory.nams._serialization import payload_to_model, snakeize_keys
 from neo4j_agent_memory.nams.endpoints import EndpointSpec
 
 if TYPE_CHECKING:
@@ -30,73 +47,26 @@ if TYPE_CHECKING:
 
 
 # -----------------------------------------------------------------------------
-# Endpoint registry
+# Endpoint registry — verified against live NAMS OpenAPI spec.
 # -----------------------------------------------------------------------------
 
+_SPEC_LIST_ENTITIES = EndpointSpec(
+    rest_method="GET", rest_path="/entities", bridge_method="list_entities"
+)
 _SPEC_ADD_ENTITY = EndpointSpec(
     rest_method="POST", rest_path="/entities", bridge_method="add_entity"
 )
-_SPEC_ADD_PREFERENCE = EndpointSpec(
-    rest_method="POST", rest_path="/preferences", bridge_method="add_preference"
+_SPEC_GET_ENTITY = EndpointSpec(
+    rest_method="GET", rest_path="/entities/{entity_id}", bridge_method="get_entity"
 )
-_SPEC_ADD_FACT = EndpointSpec(rest_method="POST", rest_path="/facts", bridge_method="add_fact")
-_SPEC_ADD_RELATIONSHIP = EndpointSpec(
-    rest_method="POST", rest_path="/relationships", bridge_method="add_relationship"
+_SPEC_UPDATE_ENTITY = EndpointSpec(
+    rest_method="PUT", rest_path="/entities/{entity_id}", bridge_method="update_entity"
 )
-
-_SPEC_SEARCH_ENTITIES = EndpointSpec(
-    rest_method="POST", rest_path="/entities/search", bridge_method="search_entities"
-)
-_SPEC_SEARCH_PREFERENCES = EndpointSpec(
-    rest_method="POST",
-    rest_path="/preferences/search",
-    bridge_method="search_preferences",
-)
-_SPEC_SEARCH_FACTS = EndpointSpec(
-    rest_method="POST", rest_path="/facts/search", bridge_method="search_facts"
-)
-
-_SPEC_GET_ENTITY_BY_NAME = EndpointSpec(
-    rest_method="GET", rest_path="/entities", bridge_method="get_entity_by_name"
-)
-_SPEC_GET_RELATED_ENTITIES = EndpointSpec(
-    rest_method="GET",
-    rest_path="/entities/{entity_id}/related",
-    bridge_method="get_related_entities",
-)
-_SPEC_GET_PREFERENCES_FOR = EndpointSpec(
-    rest_method="GET", rest_path="/preferences", bridge_method="get_preferences_for"
-)
-# TODO(nams-spec): verify supersede route shape.
-_SPEC_SUPERSEDE_PREFERENCE = EndpointSpec(
-    rest_method="POST",
-    rest_path="/preferences/{preference_id}/supersede",
-    bridge_method="supersede_preference",
-)
-_SPEC_GET_FACTS_ABOUT = EndpointSpec(
-    rest_method="GET",
-    rest_path="/entities/{entity_name}/facts",
-    bridge_method="get_facts_about",
-)
-_SPEC_GET_ENTITY_RELATIONSHIPS = EndpointSpec(
-    rest_method="GET",
-    rest_path="/entities/{entity_id}/relationships",
-    bridge_method="get_entity_relationships",
-)
-# TODO(nams-spec): verify long-term get_context shape vs short-term.
-_SPEC_GET_CONTEXT = EndpointSpec(
-    rest_method="POST",
-    rest_path="/long-term/context",
-    bridge_method="get_context",
-)
-
-_SPEC_GET_ENTITY_PROVENANCE = EndpointSpec(
-    rest_method="GET",
-    rest_path="/entities/{entity_id}/provenance",
-    bridge_method="get_entity_provenance",
+_SPEC_DELETE_ENTITY = EndpointSpec(
+    rest_method="DELETE", rest_path="/entities/{entity_id}", bridge_method="delete_entity"
 )
 _SPEC_SET_ENTITY_FEEDBACK = EndpointSpec(
-    rest_method="POST",
+    rest_method="PUT",  # NAMS uses PUT for feedback
     rest_path="/entities/{entity_id}/feedback",
     bridge_method="set_entity_feedback",
 )
@@ -105,6 +75,29 @@ _SPEC_GET_ENTITY_HISTORY = EndpointSpec(
     rest_path="/entities/{entity_id}/history",
     bridge_method="get_entity_history",
 )
+_SPEC_MERGE_ENTITIES = EndpointSpec(
+    rest_method="POST",
+    rest_path="/entities/{entity_id}/merge",
+    bridge_method="merge_entities",
+)
+_SPEC_ENTITY_GRAPH = EndpointSpec(
+    rest_method="GET", rest_path="/entities/graph", bridge_method="entity_graph"
+)
+_SPEC_SEARCH_ENTITIES = EndpointSpec(
+    rest_method="POST", rest_path="/entities/search", bridge_method="search_entities"
+)
+
+# Entity provenance is under the reasoning namespace per verified spec.
+_SPEC_GET_ENTITY_PROVENANCE = EndpointSpec(
+    rest_method="GET",
+    rest_path="/reasoning/provenance/{entity_id}",
+    bridge_method="get_entity_provenance",
+)
+
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
 
 
 def _drop_none(d: dict[str, Any]) -> dict[str, Any]:
@@ -115,8 +108,40 @@ def _to_str(value: UUID | str) -> str:
     return str(value)
 
 
+def _normalize_entity(payload: dict[str, Any] | None) -> dict[str, Any]:
+    """Map NAMS Entity response → bolt Pydantic shape.
+
+    NAMS Entity fields: ``id, name, type, description, confidence,
+    sourceStage, createdAt, updatedAt`` (camelCase). The bolt Entity
+    model adds ``aliases``, ``attributes``, ``subtype`` which NAMS
+    doesn't provide — we default them so Pydantic parsing succeeds.
+    """
+    from datetime import datetime, timezone
+
+    data = snakeize_keys(payload) if isinstance(payload, dict) else {}
+    if "created_at" not in data:
+        data["created_at"] = datetime.now(timezone.utc).isoformat()
+    if "metadata" not in data:
+        data["metadata"] = {}
+    if "aliases" not in data:
+        data["aliases"] = []
+    if "attributes" not in data:
+        data["attributes"] = {}
+    return data
+
+
+# -----------------------------------------------------------------------------
+# NamsLongTermMemory
+# -----------------------------------------------------------------------------
+
+
 class NamsLongTermMemory:
-    """Long-term memory backed by the NAMS HTTP service."""
+    """Long-term memory backed by the NAMS HTTP service.
+
+    Provides entity operations only (NAMS exposes no first-class
+    preference / fact / relationship endpoints). Other Protocol methods
+    raise :class:`NotSupportedError`.
+    """
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
@@ -129,68 +154,42 @@ class NamsLongTermMemory:
         entity_type: str,
         **kwargs: Any,
     ) -> Entity:
-        """Create or upsert an entity. Returns just :class:`Entity` (no dedup tuple)."""
+        """Create an entity on NAMS.
+
+        NAMS accepts only ``{name, type, description?}`` per spec.
+        Bolt-only kwargs (``subtype``, ``aliases``, ``attributes``,
+        ``confidence``, ``deduplicate``, ``geocode``, ``enrich``, etc.)
+        are silently dropped.
+        """
         body = _drop_none(
             {
                 "name": name,
                 "type": entity_type,
-                "subtype": kwargs.get("subtype"),
                 "description": kwargs.get("description"),
-                "aliases": kwargs.get("aliases"),
-                "attributes": kwargs.get("attributes"),
-                "confidence": kwargs.get("confidence"),
-                "metadata": kwargs.get("metadata"),
-                "userId": kwargs.get("user_identifier"),
             }
         )
         payload = await self._transport.request(_SPEC_ADD_ENTITY, json=body)
-        return payload_to_model(payload, Entity)
+        return payload_to_model(_normalize_entity(payload), Entity)
 
-    async def add_preference(
-        self,
-        category: str,
-        preference: str,
-        **kwargs: Any,
-    ) -> Preference:
-        """Record a user preference."""
-        body = _drop_none(
-            {
-                "category": category,
-                "preference": preference,
-                "context": kwargs.get("context"),
-                "confidence": kwargs.get("confidence"),
-                "metadata": kwargs.get("metadata"),
-                "userId": kwargs.get("user_identifier"),
-                "applies_to": kwargs.get("applies_to"),
-            }
+    async def add_preference(self, category: str, preference: str, **kwargs: Any) -> Preference:
+        raise NotSupportedError(
+            backend="nams",
+            method="LongTermMemory.add_preference",
+            message="NAMS does not expose a preferences endpoint.",
+            workaround=(
+                "Store preferences via client.query.cypher with an explicit "
+                "MERGE (:Preference {category, value}) — but note NAMS is "
+                "read-only for Cypher. For full preference support, use bolt."
+            ),
         )
-        payload = await self._transport.request(_SPEC_ADD_PREFERENCE, json=body)
-        return payload_to_model(payload, Preference)
 
-    async def add_fact(
-        self,
-        subject: str,
-        predicate: str,
-        object: str,  # noqa: A002 — SPEC name; shadows builtin
-        **kwargs: Any,
-    ) -> Fact:
-        """Record a subject-predicate-object fact."""
-        body = _drop_none(
-            {
-                "subject": subject,
-                "predicate": predicate,
-                "object": object,
-                "confidence": kwargs.get("confidence"),
-                "source_id": (
-                    _to_str(kwargs["source_id"]) if kwargs.get("source_id") is not None else None
-                ),
-                "valid_from": kwargs.get("valid_from"),
-                "valid_until": kwargs.get("valid_until"),
-                "metadata": kwargs.get("metadata"),
-            }
+    async def add_fact(self, subject: str, predicate: str, object: str, **kwargs: Any) -> Fact:  # noqa: A002
+        raise NotSupportedError(
+            backend="nams",
+            method="LongTermMemory.add_fact",
+            message="NAMS does not expose a facts endpoint.",
+            workaround="For full facts support, use the bolt backend.",
         )
-        payload = await self._transport.request(_SPEC_ADD_FACT, json=body)
-        return payload_to_model(payload, Fact)
 
     async def add_relationship(
         self,
@@ -199,181 +198,168 @@ class NamsLongTermMemory:
         target_id: UUID | str,
         **kwargs: Any,
     ) -> None:
-        """Create a typed relationship between two entities."""
-        body = _drop_none(
-            {
-                "source_id": _to_str(source_id),
-                "target_id": _to_str(target_id),
-                "type": relationship_type,
-                "properties": kwargs.get("properties"),
-            }
+        raise NotSupportedError(
+            backend="nams",
+            method="LongTermMemory.add_relationship",
+            message=(
+                "NAMS does not expose a relationships endpoint. Relationships "
+                "are accessible read-only via get_entity(id) which inlines "
+                "them in the response."
+            ),
+            workaround="For write-side relationship support, use the bolt backend.",
         )
-        await self._transport.request(_SPEC_ADD_RELATIONSHIP, json=body)
 
     async def search_entities(self, query: str, **kwargs: Any) -> list[Entity]:
-        """Vector/keyword search across entities."""
+        """Vector/keyword search across entities.
+
+        NAMS response: ``{"entities": [...], "searchType": "vector"|"text"}``.
+        """
         body = _drop_none(
             {
                 "query": query,
                 "type": kwargs.get("entity_type") or kwargs.get("type"),
                 "limit": kwargs.get("limit"),
-                "threshold": kwargs.get("threshold"),
             }
         )
         payload = await self._transport.request(_SPEC_SEARCH_ENTITIES, json=body)
-        return [payload_to_model(item, Entity) for item in (payload or [])]
+        items: list[Any]
+        if isinstance(payload, dict) and "entities" in payload:
+            items = payload["entities"]
+        elif isinstance(payload, list):
+            items = payload
+        else:
+            items = []
+        return [payload_to_model(_normalize_entity(item), Entity) for item in items]
 
     async def search_preferences(self, query: str, **kwargs: Any) -> list[Preference]:
-        """Vector/keyword search across preferences."""
-        body = _drop_none(
-            {
-                "query": query,
-                "category": kwargs.get("category"),
-                "limit": kwargs.get("limit"),
-                "threshold": kwargs.get("threshold"),
-            }
+        raise NotSupportedError(
+            backend="nams",
+            method="LongTermMemory.search_preferences",
+            message="NAMS does not expose a preferences endpoint.",
         )
-        payload = await self._transport.request(_SPEC_SEARCH_PREFERENCES, json=body)
-        return [payload_to_model(item, Preference) for item in (payload or [])]
 
     async def search_facts(self, query: str, **kwargs: Any) -> list[Fact]:
-        """Vector/keyword search across facts."""
-        body = _drop_none(
-            {
-                "query": query,
-                "limit": kwargs.get("limit"),
-                "threshold": kwargs.get("threshold"),
-            }
+        raise NotSupportedError(
+            backend="nams",
+            method="LongTermMemory.search_facts",
+            message="NAMS does not expose a facts endpoint.",
         )
-        payload = await self._transport.request(_SPEC_SEARCH_FACTS, json=body)
-        return [payload_to_model(item, Fact) for item in (payload or [])]
 
     async def get_entity_by_name(self, name: str) -> Entity | None:
-        """Look up an entity by exact (canonical) name.
+        """Look up an entity by name.
 
-        Returns ``None`` if the server reports 404 (mapped to
-        :class:`MemoryError` with "not found" message by the transport).
-        Other errors propagate.
+        NAMS doesn't expose a ``GET /entities?name=`` filter — we use
+        ``POST /entities/search`` with the name as the query and return
+        the first hit whose name matches exactly. Returns ``None`` if
+        no match is found.
         """
-        from neo4j_agent_memory.core.exceptions import MemoryError as _ME
-
-        try:
-            payload = await self._transport.request(
-                _SPEC_GET_ENTITY_BY_NAME,
-                params={"name": name},
-            )
-        except _ME as e:
-            if "not found" in str(e).lower():
-                return None
-            raise
-        if payload is None:
-            return None
-        # NAMS may return a single object or a list (``GET /entities?name=``).
-        if isinstance(payload, list):
-            return payload_to_model(payload[0], Entity) if payload else None
-        return payload_to_model(payload, Entity)
+        results = await self.search_entities(name, limit=20)
+        for e in results:
+            if e.name == name:
+                return e
+        return None
 
     # ------------------------------------------------------------------ Silver
 
-    async def get_related_entities(
-        self,
-        entity_id: UUID | str,
-        **kwargs: Any,
-    ) -> Any:
-        """Return entities related to ``entity_id`` (graph traversal)."""
-        params = _drop_none(
-            {
-                "depth": kwargs.get("depth"),
-                "limit": kwargs.get("limit"),
-                "relationship_type": kwargs.get("relationship_type"),
-            }
-        )
+    async def get_related_entities(self, entity_id: UUID | str, **kwargs: Any) -> Any:
+        """Return entities related to ``entity_id``.
+
+        NAMS exposes inline relationships on ``GET /entities/{id}`` —
+        we fetch the entity and return the ``relationships`` array.
+        Each relationship has ``{relType, targetId, targetName, targetType}``.
+        """
         payload = await self._transport.request(
-            _SPEC_GET_RELATED_ENTITIES,
+            _SPEC_GET_ENTITY,
             path_params={"entity_id": _to_str(entity_id)},
-            params=params or None,
         )
-        if payload is None:
+        if not isinstance(payload, dict):
             return []
-        # NAMS may return a flat list of entities or a structured envelope
-        # ``{"entities": [...], "relationships": [...]}``. Pass through dicts
-        # untouched so callers can branch; convert plain lists.
-        if isinstance(payload, list):
-            return [payload_to_model(item, Entity) for item in payload]
-        return payload
+        # camelCase → snake_case for the wrapper, but keep relationships verbatim
+        # for the caller — they're identifying refs, not full Entity objects.
+        rels = payload.get("relationships") or []
+        return list(rels)
 
     async def get_preferences_for(self, **kwargs: Any) -> list[Preference]:
-        """Return preferences filtered by category and/or user."""
-        params = _drop_none(
-            {
-                "category": kwargs.get("category"),
-                "userId": kwargs.get("user_identifier"),
-                "active_only": kwargs.get("active_only"),
-                "limit": kwargs.get("limit"),
-            }
+        raise NotSupportedError(
+            backend="nams",
+            method="LongTermMemory.get_preferences_for",
+            message="NAMS does not expose a preferences endpoint.",
         )
-        payload = await self._transport.request(_SPEC_GET_PREFERENCES_FOR, params=params or None)
-        return [payload_to_model(item, Preference) for item in (payload or [])]
 
-    async def supersede_preference(
-        self,
-        preference_id: UUID | str,
-        **kwargs: Any,
-    ) -> None:
-        """Mark a preference as superseded (close its validity window)."""
-        body = _drop_none(
-            {
-                "valid_until": kwargs.get("valid_until"),
-            }
-        )
-        await self._transport.request(
-            _SPEC_SUPERSEDE_PREFERENCE,
-            path_params={"preference_id": _to_str(preference_id)},
-            json=body or None,
+    async def supersede_preference(self, preference_id: UUID | str, **kwargs: Any) -> None:
+        raise NotSupportedError(
+            backend="nams",
+            method="LongTermMemory.supersede_preference",
+            message="NAMS does not expose a preferences endpoint.",
         )
 
     async def get_facts_about(self, entity_name: str) -> list[Fact]:
-        """Return facts where the entity is the subject."""
-        payload = await self._transport.request(
-            _SPEC_GET_FACTS_ABOUT,
-            path_params={"entity_name": entity_name},
+        raise NotSupportedError(
+            backend="nams",
+            method="LongTermMemory.get_facts_about",
+            message="NAMS does not expose a facts endpoint.",
         )
-        return [payload_to_model(item, Fact) for item in (payload or [])]
 
-    async def get_entity_relationships(
-        self,
-        entity_id: UUID | str,
-    ) -> list[Relationship]:
-        """Return outgoing relationships from an entity."""
+    async def get_entity_relationships(self, entity_id: UUID | str) -> list[Relationship]:
+        """Return relationships from an entity (inline on NAMS).
+
+        NAMS returns relationships inline on ``GET /v1/entities/{id}``
+        with shape ``{relType, targetId, targetName, targetType}``.
+        These don't carry full :class:`Relationship` fields
+        (``source_id``, ``confidence``, ``valid_from``, etc.), so we
+        synthesize what we can — the result is a list of
+        :class:`Relationship` with bolt-flavored field names where
+        the source field is the entity_id parameter.
+        """
+        from datetime import datetime, timezone
+
         payload = await self._transport.request(
-            _SPEC_GET_ENTITY_RELATIONSHIPS,
+            _SPEC_GET_ENTITY,
             path_params={"entity_id": _to_str(entity_id)},
         )
-        return [payload_to_model(item, Relationship) for item in (payload or [])]
+        if not isinstance(payload, dict):
+            return []
+        rels = payload.get("relationships") or []
+        now_iso = datetime.now(timezone.utc).isoformat()
+        out: list[Relationship] = []
+        for r in rels:
+            if not isinstance(r, dict):
+                continue
+            from uuid import uuid4
+
+            normalized = {
+                "id": str(uuid4()),
+                "source_id": _to_str(entity_id),
+                "target_id": r.get("targetId") or r.get("target_id") or "",
+                "type": r.get("relType") or r.get("rel_type") or r.get("type") or "RELATED_TO",
+                "created_at": now_iso,
+                "metadata": {},
+                "attributes": {
+                    "target_name": r.get("targetName") or r.get("target_name"),
+                    "target_type": r.get("targetType") or r.get("target_type"),
+                },
+            }
+            out.append(payload_to_model(normalized, Relationship))
+        return out
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
-        """Return assembled context text from long-term memory."""
-        body = _drop_none(
-            {
-                "query": query,
-                "max_items": kwargs.get("max_items"),
-                "userId": kwargs.get("user_identifier"),
-            }
-        )
-        payload = await self._transport.request(_SPEC_GET_CONTEXT, json=body)
-        if isinstance(payload, str):
-            return payload
-        if isinstance(payload, dict):
-            return str(payload.get("context") or payload.get("text") or "")
+        """Long-term context — not exposed by NAMS as a dedicated endpoint.
+
+        Returns an empty string. Use ``client.long_term.search_entities``
+        and ``client.short_term.get_context`` to assemble context yourself,
+        or use the bolt backend.
+        """
         return ""
 
     # -------------------------------------------------------------------- Gold
 
-    async def get_entity_provenance(
-        self,
-        entity_id: UUID | str,
-    ) -> dict[str, Any]:
-        """Return source messages + extractors that produced this entity."""
+    async def get_entity_provenance(self, entity_id: UUID | str) -> dict[str, Any]:
+        """Return source-of-truth provenance for an entity.
+
+        Per verified spec, this is under the reasoning namespace:
+        ``GET /v1/reasoning/provenance/{entityId}``. Response:
+        ``{entityId, steps: [...]}``.
+        """
         payload = await self._transport.request(
             _SPEC_GET_ENTITY_PROVENANCE,
             path_params={"entity_id": _to_str(entity_id)},
@@ -388,13 +374,38 @@ class NamsLongTermMemory:
         feedback: str,
         **kwargs: Any,
     ) -> None:
-        """Record user feedback ('positive'/'negative') on an entity."""
-        body = _drop_none(
-            {
-                "feedback": feedback,
-                "userId": kwargs.get("user_identifier"),
-            }
-        )
+        """Record feedback on an entity.
+
+        Per verified spec, NAMS uses **PUT** (not POST) at
+        ``/v1/entities/{id}/feedback`` with body
+        ``{userScore?, confirmed?}``. There is no free-form
+        ``feedback`` string field — we map the Protocol's
+        ``feedback`` parameter to ``userScore``:
+
+        * ``"positive"`` → ``userScore=1.0, confirmed=True``
+        * ``"negative"`` → ``userScore=0.0, confirmed=False``
+        * float-stringed (e.g. ``"0.75"``) → ``userScore=<float>``
+
+        Pass ``user_score=`` and ``confirmed=`` kwargs to override.
+        """
+        # Priority: explicit kwargs > derived from feedback string.
+        user_score: float | None = kwargs.get("user_score")
+        confirmed: bool | None = kwargs.get("confirmed")
+
+        if user_score is None and confirmed is None:
+            # Derive from feedback string.
+            feedback_lc = (feedback or "").lower()
+            if feedback_lc == "positive":
+                user_score, confirmed = 1.0, True
+            elif feedback_lc == "negative":
+                user_score, confirmed = 0.0, False
+            else:
+                try:
+                    user_score = float(feedback)
+                except (TypeError, ValueError):
+                    pass
+
+        body = _drop_none({"userScore": user_score, "confirmed": confirmed})
         await self._transport.request(
             _SPEC_SET_ENTITY_FEEDBACK,
             path_params={"entity_id": _to_str(entity_id)},
@@ -406,14 +417,18 @@ class NamsLongTermMemory:
         entity_id: UUID | str,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
-        """Return the edit/mention history for an entity."""
-        params = _drop_none({"limit": kwargs.get("limit")})
+        """Return mention/edit history for an entity.
+
+        NAMS response: ``{entityId, mentions: [...]}``. We return the
+        ``mentions`` array.
+        """
         payload = await self._transport.request(
             _SPEC_GET_ENTITY_HISTORY,
             path_params={"entity_id": _to_str(entity_id)},
-            params=params or None,
         )
-        return list(payload or [])
+        if isinstance(payload, dict) and "mentions" in payload:
+            return list(payload["mentions"])
+        return []
 
 
 __all__ = ["NamsLongTermMemory"]

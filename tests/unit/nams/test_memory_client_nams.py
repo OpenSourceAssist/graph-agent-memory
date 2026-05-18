@@ -81,7 +81,7 @@ class TestLifecycle:
 
     @respx.mock
     async def test_validate_on_connect_runs_probe(self):
-        route = respx.get("https://memory.test/v1/sessions").respond(200, json=[])
+        route = respx.get("https://memory.test/v1/conversations").respond(200, json=[])
         async with MemoryClient(_make_nams_settings(validate_on_connect=True)):
             pass
         assert route.called
@@ -89,7 +89,9 @@ class TestLifecycle:
 
     @respx.mock
     async def test_probe_failure_propagates_at_connect_time(self):
-        respx.get("https://memory.test/v1/sessions").respond(401, json={"error": "invalid key"})
+        respx.get("https://memory.test/v1/conversations").respond(
+            401, json={"error": "invalid key"}
+        )
         client = MemoryClient(_make_nams_settings(validate_on_connect=True))
         with pytest.raises(AuthenticationError):
             await client.connect()
@@ -138,7 +140,7 @@ class TestAccessorDispatch:
 
     @respx.mock
     async def test_end_to_end_query_cypher(self):
-        respx.post("https://memory.test/v1/cypher").respond(200, json=[{"n": 1}])
+        respx.post("https://memory.test/v1/query").respond(200, json=[{"n": 1}])
         async with MemoryClient(_make_nams_settings()) as client:
             rows = await client.query.cypher("MATCH (n) RETURN n LIMIT 1")
         assert rows == [{"n": 1}]

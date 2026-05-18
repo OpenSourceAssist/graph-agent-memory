@@ -1,4 +1,11 @@
-"""Tests for nams/reasoning.py — NamsReasoningMemory."""
+"""Tests for nams/reasoning.py — NamsReasoningMemory.
+
+Endpoint shapes verified against the live NAMS OpenAPI spec.
+
+NAMS has no Trace entity. The Protocol's start_trace/complete_trace
+are synthesized client-side via an in-memory cache; add_step and
+record_tool_call make real HTTP calls.
+"""
 
 from __future__ import annotations
 
@@ -7,18 +14,14 @@ import json
 import pytest
 import respx
 
+from neo4j_agent_memory.core.exceptions import NotSupportedError
 from neo4j_agent_memory.core.protocols import ReasoningProtocol
 from neo4j_agent_memory.memory.reasoning import (
     ReasoningStep,
     ReasoningTrace,
     ToolCall,
-    ToolStats,
 )
 from neo4j_agent_memory.nams import HttpTransport, NamsReasoningMemory, StaticApiKeyAuth
-
-# -----------------------------------------------------------------------------
-# Fixtures
-# -----------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -34,40 +37,26 @@ def reasoning(transport) -> NamsReasoningMemory:
     return NamsReasoningMemory(transport)
 
 
-SAMPLE_TRACE = {
-    "id": "00000000-0000-0000-0000-000000000001",
-    "session_id": "s1",
-    "task": "find restaurants",
-    "steps": [],
-    "started_at": "2026-05-17T12:00:00Z",
-    "created_at": "2026-05-17T12:00:00Z",
-    "metadata": {},
-}
-
+# NAMS step response shape (camelCase, NAMS-side field names).
 SAMPLE_STEP = {
     "id": "00000000-0000-0000-0000-00000000aaaa",
-    "trace_id": "00000000-0000-0000-0000-000000000001",
-    "step_number": 1,
-    "thought": "searching",
-    "tool_calls": [],
-    "created_at": "2026-05-17T12:00:00Z",
-    "metadata": {},
+    "conversationId": "cid",
+    "reasoning": "thinking about it",
+    "actionTaken": "search",
+    "result": "found 3 results",
+    "createdAt": "2026-05-17T12:00:00Z",
 }
 
 SAMPLE_TOOL_CALL = {
     "id": "00000000-0000-0000-0000-00000000bbbb",
-    "tool_name": "search",
-    "arguments": {"query": "italian"},
+    "stepId": "00000000-0000-0000-0000-00000000aaaa",
+    "toolName": "search",
     "status": "success",
-    "result": ["restaurant1"],
-    "created_at": "2026-05-17T12:00:00Z",
-    "metadata": {},
+    "input": '{"q": "italian"}',
+    "output": '["r1"]',
+    "durationMs": 42,
+    "createdAt": "2026-05-17T12:00:00Z",
 }
-
-
-# -----------------------------------------------------------------------------
-# Protocol conformance
-# -----------------------------------------------------------------------------
 
 
 class TestProtocolConformance:
@@ -75,280 +64,196 @@ class TestProtocolConformance:
         assert isinstance(reasoning, ReasoningProtocol)
 
 
-# -----------------------------------------------------------------------------
-# Bronze tier
-# -----------------------------------------------------------------------------
-
-
 class TestStartTrace:
-    @respx.mock
-    async def test_basic(self, reasoning):
-        route = respx.post("https://memory.test/v1/traces").respond(200, json=SAMPLE_TRACE)
-        trace = await reasoning.start_trace("s1", "find restaurants")
+    """start_trace is client-side only — no HTTP."""
+
+    async def test_returns_trace_with_uuid(self, reasoning):
+        trace = await reasoning.start_trace("cid", "find restaurants")
         assert isinstance(trace, ReasoningTrace)
-        assert trace.session_id == "s1"
         assert trace.task == "find restaurants"
-        body = json.loads(route.calls[0].request.content)
-        assert body == {"session_id": "s1", "task": "find restaurants"}
+        assert trace.session_id == "cid"
+        # Trace_id is cached client-side.
+        assert str(trace.id) in reasoning._traces
 
-    @respx.mock
-    async def test_with_triggered_by_message_id(self, reasoning):
-        from uuid import UUID
-
-        route = respx.post("https://memory.test/v1/traces").respond(200, json=SAMPLE_TRACE)
-        msg_id = UUID(int=42)
-        await reasoning.start_trace(
-            "s1",
-            "task",
-            triggered_by_message_id=msg_id,
-            user_identifier="alice",
-        )
-        body = json.loads(route.calls[0].request.content)
-        assert body["triggered_by_message_id"] == str(msg_id)
-        assert body["userId"] == "alice"
+    async def test_no_http_called(self, reasoning):
+        with respx.mock(assert_all_called=False) as router:
+            await reasoning.start_trace("cid", "task")
+            assert len(router.calls) == 0
 
 
 class TestAddStep:
     @respx.mock
-    async def test_basic(self, reasoning):
-        route = respx.post(
-            "https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001/steps"
-        ).respond(200, json=SAMPLE_STEP)
+    async def test_maps_field_names(self, reasoning):
+        trace = await reasoning.start_trace("cid", "task")
+        route = respx.post("https://memory.test/v1/reasoning/steps").respond(201, json=SAMPLE_STEP)
         step = await reasoning.add_step(
-            "00000000-0000-0000-0000-000000000001",
+            trace.id,
             thought="thinking",
             action="search",
-            observation="results found",
+            observation="results",
         )
         assert isinstance(step, ReasoningStep)
         body = json.loads(route.calls[0].request.content)
         assert body == {
-            "thought": "thinking",
-            "action": "search",
-            "observation": "results found",
+            "conversationId": "cid",
+            "reasoning": "thinking",
+            "actionTaken": "search",
+            "result": "results",
         }
 
     @respx.mock
-    async def test_partial_step_fields(self, reasoning):
-        """Only thought set → other fields omitted from body."""
-        respx.post(
-            "https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001/steps"
-        ).respond(200, json=SAMPLE_STEP)
-        await reasoning.add_step("00000000-0000-0000-0000-000000000001", thought="just thinking")
+    async def test_partial_step_fields_get_placeholders(self, reasoning):
+        """NAMS requires reasoning + actionTaken; we default empties to a space."""
+        trace = await reasoning.start_trace("cid", "task")
+        route = respx.post("https://memory.test/v1/reasoning/steps").respond(201, json=SAMPLE_STEP)
+        await reasoning.add_step(trace.id, thought="just thinking")
+        body = json.loads(route.calls[0].request.content)
+        assert body["reasoning"] == "just thinking"
+        assert body["actionTaken"] == " "
+
+    async def test_unknown_trace_id_raises(self, reasoning):
+        with pytest.raises(ValueError, match="Unknown trace_id"):
+            await reasoning.add_step("00000000-0000-0000-0000-deadbeefcafe", thought="x")
 
 
 class TestRecordToolCall:
     @respx.mock
-    async def test_success(self, reasoning):
-        route = respx.post(
-            "https://memory.test/v1/steps/00000000-0000-0000-0000-00000000aaaa/tool-calls"
-        ).respond(200, json=SAMPLE_TOOL_CALL)
+    async def test_maps_args_to_input_string(self, reasoning):
+        route = respx.post("https://memory.test/v1/reasoning/tool-calls").respond(
+            201, json=SAMPLE_TOOL_CALL
+        )
         tc = await reasoning.record_tool_call(
-            "00000000-0000-0000-0000-00000000aaaa",
+            "00000000-0000-0000-0000-0000000aaaaa",
             "search",
-            {"query": "italian"},
+            {"q": "italian"},
             result=["r1"],
             status="success",
             duration_ms=42,
         )
         assert isinstance(tc, ToolCall)
         body = json.loads(route.calls[0].request.content)
-        assert body == {
-            "tool_name": "search",
-            "arguments": {"query": "italian"},
-            "result": ["r1"],
-            "status": "success",
-            "duration_ms": 42,
-        }
+        # input + output are JSON-encoded strings; toolName camelCase.
+        assert body["toolName"] == "search"
+        assert json.loads(body["input"]) == {"q": "italian"}
+        assert body["stepId"] == "00000000-0000-0000-0000-0000000aaaaa"
+        assert body["status"] == "success"
+        assert json.loads(body["output"]) == ["r1"]
+        assert body["durationMs"] == 42
 
     @respx.mock
-    async def test_error(self, reasoning):
-        respx.post(
-            "https://memory.test/v1/steps/00000000-0000-0000-0000-00000000aaaa/tool-calls"
-        ).respond(200, json={**SAMPLE_TOOL_CALL, "status": "error", "error": "boom"})
-        tc = await reasoning.record_tool_call(
-            "00000000-0000-0000-0000-00000000aaaa",
-            "search",
-            {},
-            status="error",
-            error="boom",
+    async def test_decodes_input_and_output(self, reasoning):
+        respx.post("https://memory.test/v1/reasoning/tool-calls").respond(
+            201, json=SAMPLE_TOOL_CALL
         )
-        assert tc.error == "boom"
+        tc = await reasoning.record_tool_call(
+            "00000000-0000-0000-0000-0000000aaaaa", "search", {"q": "italian"}
+        )
+        # Response input/output JSON-decoded back into dict/list.
+        assert tc.arguments == {"q": "italian"}
+        assert tc.result == ["r1"]
 
 
 class TestCompleteTrace:
-    @respx.mock
-    async def test_basic(self, reasoning):
-        route = respx.post(
-            "https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001:complete"
-        ).respond(204)
-        await reasoning.complete_trace(
-            "00000000-0000-0000-0000-000000000001",
-            outcome="found 3 restaurants",
-            success=True,
-        )
-        body = json.loads(route.calls[0].request.content)
-        assert body == {"outcome": "found 3 restaurants", "success": True}
+    async def test_updates_cache_no_http(self, reasoning):
+        trace = await reasoning.start_trace("cid", "task")
+        await reasoning.complete_trace(trace.id, outcome="done", success=True)
+        cached = reasoning._traces[str(trace.id)]
+        assert cached["outcome"] == "done"
+        assert cached["success"] is True
+        assert cached["completed_at"] is not None
 
-
-# -----------------------------------------------------------------------------
-# Silver tier
-# -----------------------------------------------------------------------------
-
-
-class TestSearchSteps:
-    @respx.mock
-    async def test_basic(self, reasoning):
-        respx.post("https://memory.test/v1/steps/search").respond(200, json=[SAMPLE_STEP])
-        steps = await reasoning.search_steps("search", session_id="s1", limit=5)
-        assert len(steps) == 1
-        assert isinstance(steps[0], ReasoningStep)
-
-
-class TestGetSimilarTraces:
-    @respx.mock
-    async def test_basic(self, reasoning):
-        route = respx.post("https://memory.test/v1/traces/similar").respond(
-            200, json=[SAMPLE_TRACE]
-        )
-        traces = await reasoning.get_similar_traces("find food", limit=3, success_only=True)
-        assert len(traces) == 1
-        body = json.loads(route.calls[0].request.content)
-        assert body["query"] == "find food"
-        assert body["limit"] == 3
-        assert body["success_only"] is True
+    async def test_unknown_trace_id_is_no_op(self, reasoning):
+        # Idempotent for unknown trace_ids.
+        await reasoning.complete_trace("00000000-0000-0000-0000-cccccccccccc")
 
 
 class TestGetTrace:
-    @respx.mock
-    async def test_found(self, reasoning):
-        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(
-            200, json=SAMPLE_TRACE
-        )
-        t = await reasoning.get_trace("00000000-0000-0000-0000-000000000001")
-        assert isinstance(t, ReasoningTrace)
+    async def test_returns_cached_trace(self, reasoning):
+        started = await reasoning.start_trace("cid", "task")
+        fetched = await reasoning.get_trace(started.id)
+        assert fetched is not None
+        assert fetched.task == "task"
 
-    @respx.mock
-    async def test_not_found_returns_none(self, reasoning):
-        # Intentionally use a bare 404 so we exercise status-based detection.
-        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(404)
-        assert await reasoning.get_trace("00000000-0000-0000-0000-000000000001") is None
+    async def test_unknown_returns_none(self, reasoning):
+        result = await reasoning.get_trace("00000000-0000-0000-0000-aaaaaaaaaaaa")
+        assert result is None
 
 
 class TestGetTraceWithSteps:
     @respx.mock
-    async def test_found_includes_steps(self, reasoning):
-        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(
+    async def test_assembles_steps_from_reasoning_trace_endpoint(self, reasoning):
+        started = await reasoning.start_trace("cid", "task")
+        respx.get("https://memory.test/v1/reasoning/trace/cid").respond(
             200,
-            json={**SAMPLE_TRACE, "steps": [SAMPLE_STEP]},
+            json={
+                "conversationId": "cid",
+                "steps": [SAMPLE_STEP],
+                "toolCalls": [SAMPLE_TOOL_CALL],
+            },
         )
-        t = await reasoning.get_trace_with_steps("00000000-0000-0000-0000-000000000001")
-        assert t is not None
-        assert len(t.steps) == 1
+        trace = await reasoning.get_trace_with_steps(started.id)
+        assert trace is not None
+        assert len(trace.steps) == 1
+        # Tool calls attached to the matching step.
+        assert len(trace.steps[0].tool_calls) == 1
 
-    @respx.mock
-    async def test_not_found_returns_none(self, reasoning):
-        # Intentionally use a bare 404 so we exercise status-based detection.
-        respx.get("https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001").respond(404)
-        result = await reasoning.get_trace_with_steps("00000000-0000-0000-0000-000000000001")
+    async def test_unknown_returns_none(self, reasoning):
+        result = await reasoning.get_trace_with_steps("00000000-0000-0000-0000-eeeeeeeeeeee")
         assert result is None
 
 
 class TestGetSessionTraces:
     @respx.mock
-    async def test_basic(self, reasoning):
-        route = respx.get("https://memory.test/v1/traces").respond(200, json=[SAMPLE_TRACE])
-        traces = await reasoning.get_session_traces("s1", limit=20)
-        assert len(traces) == 1
-        assert route.calls[0].request.url.params["session_id"] == "s1"
-
-
-class TestListTraces:
-    @respx.mock
-    async def test_basic(self, reasoning):
-        respx.get("https://memory.test/v1/traces").respond(200, json=[SAMPLE_TRACE])
-        traces = await reasoning.list_traces(limit=50)
-        assert len(traces) == 1
-
-
-class TestGetContext:
-    @respx.mock
-    async def test_dict_response(self, reasoning):
-        route = respx.post("https://memory.test/v1/reasoning/context").respond(
-            200, json={"context": "reasoning summary"}
-        )
-        ctx = await reasoning.get_context("query")
-        assert ctx == "reasoning summary"
-        assert json.loads(route.calls[0].request.content) == {"query": "query"}
-
-    @respx.mock
-    async def test_max_traces_zero_is_preserved(self, reasoning):
-        route = respx.post("https://memory.test/v1/reasoning/context").respond(
-            200, json={"context": "reasoning summary"}
-        )
-        await reasoning.get_context("query", max_traces=0, max_items=10)
-        assert json.loads(route.calls[0].request.content) == {"query": "query", "max_traces": 0}
-
-
-# -----------------------------------------------------------------------------
-# Gold tier
-# -----------------------------------------------------------------------------
-
-
-class TestGetToolStats:
-    @respx.mock
-    async def test_returns_list(self, reasoning):
-        """NAMS shape: ``list[ToolStats]`` (bolt returns dict)."""
-        respx.get("https://memory.test/v1/tools/stats").respond(
+    async def test_aggregates_to_single_trace(self, reasoning):
+        respx.get("https://memory.test/v1/reasoning/trace/cid").respond(
             200,
-            json=[
-                {
-                    "name": "search",
-                    "total_calls": 10,
-                    "successful_calls": 9,
-                    "failed_calls": 1,
-                    "success_rate": 0.9,
-                }
-            ],
+            json={
+                "conversationId": "cid",
+                "steps": [SAMPLE_STEP],
+                "toolCalls": [],
+            },
         )
-        stats = await reasoning.get_tool_stats()
-        assert isinstance(stats, list)
-        assert len(stats) == 1
-        assert isinstance(stats[0], ToolStats)
-        assert stats[0].name == "search"
-        assert stats[0].success_rate == 0.9
+        traces = await reasoning.get_session_traces("cid")
+        assert len(traces) == 1
+        assert traces[0].session_id == "cid"
 
     @respx.mock
-    async def test_filter_by_tool_name(self, reasoning):
-        route = respx.get("https://memory.test/v1/tools/stats").respond(200, json=[])
-        await reasoning.get_tool_stats(tool_name="search")
-        assert route.calls[0].request.url.params["tool_name"] == "search"
+    async def test_empty_returns_empty_list(self, reasoning):
+        respx.get("https://memory.test/v1/reasoning/trace/cid").respond(
+            200, json={"conversationId": "cid", "steps": [], "toolCalls": []}
+        )
+        traces = await reasoning.get_session_traces("cid")
+        assert traces == []
+
+
+class TestNotSupportedMethods:
+    """search_steps, get_similar_traces, list_traces, get_tool_stats — no NAMS endpoint."""
+
+    async def test_search_steps(self, reasoning):
+        with pytest.raises(NotSupportedError):
+            await reasoning.search_steps("query")
+
+    async def test_get_similar_traces(self, reasoning):
+        with pytest.raises(NotSupportedError):
+            await reasoning.get_similar_traces("query")
+
+    async def test_list_traces(self, reasoning):
+        with pytest.raises(NotSupportedError):
+            await reasoning.list_traces()
+
+    async def test_get_tool_stats(self, reasoning):
+        with pytest.raises(NotSupportedError):
+            await reasoning.get_tool_stats()
 
 
 class TestLinkTraceToMessage:
-    @respx.mock
-    async def test_basic(self, reasoning):
-        route = respx.post(
-            "https://memory.test/v1/traces/00000000-0000-0000-0000-000000000001/messages/00000000-0000-0000-0000-00000000aaaa"
-        ).respond(204)
-        await reasoning.link_trace_to_message(
-            "00000000-0000-0000-0000-000000000001",
-            "00000000-0000-0000-0000-00000000aaaa",
-        )
-        assert route.called
+    async def test_no_op(self, reasoning):
+        """link_trace_to_message is a no-op on NAMS — steps are already conversation-scoped."""
+        result = await reasoning.link_trace_to_message("trace-id", "msg-id")
+        assert result is None
 
 
-# -----------------------------------------------------------------------------
-# Bridge protocol routing
-# -----------------------------------------------------------------------------
-
-
-class TestBridgeRouting:
-    @respx.mock
-    async def test_start_trace_bridge_path(self, bridge_config):
-        auth = StaticApiKeyAuth.from_config(bridge_config)
-        route = respx.post("https://memory.test/start_trace").respond(200, json=SAMPLE_TRACE)
-        async with HttpTransport.from_config(bridge_config, auth=auth) as t:
-            r = NamsReasoningMemory(t)
-            await r.start_trace("s1", "task")
-        assert route.called
+class TestGetContext:
+    async def test_returns_empty_string(self, reasoning):
+        result = await reasoning.get_context("anything")
+        assert result == ""

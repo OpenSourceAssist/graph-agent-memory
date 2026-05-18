@@ -106,10 +106,69 @@ def parse_uuid(value: str | UUID) -> UUID:
     return UUID(value)
 
 
+def _to_camel(snake: str) -> str:
+    """Convert ``snake_case`` to ``camelCase``.
+
+    Empty parts (from leading/trailing underscores) are kept as-is.
+    ``"id"`` → ``"id"``. ``"session_id"`` → ``"sessionId"``.
+    ``"_private"`` → ``"_private"``.
+    """
+    if "_" not in snake:
+        return snake
+    parts = snake.split("_")
+    return parts[0] + "".join(p[:1].upper() + p[1:] for p in parts[1:] if p)
+
+
+def _to_snake(camel: str) -> str:
+    """Convert ``camelCase`` to ``snake_case``.
+
+    ``"sessionId"`` → ``"session_id"``. ``"id"`` → ``"id"``.
+    """
+    out: list[str] = []
+    for i, ch in enumerate(camel):
+        if ch.isupper() and i > 0 and not camel[i - 1].isupper():
+            out.append("_")
+        out.append(ch.lower())
+    return "".join(out)
+
+
+def camelize_keys(value: Any) -> Any:
+    """Recursively convert dict keys from snake_case to camelCase.
+
+    Used for outbound request bodies — Pydantic models emit snake_case;
+    NAMS expects camelCase end-to-end (verified against the live spec).
+    Values that are not dicts pass through. Lists are recursed.
+    """
+    if isinstance(value, dict):
+        return {
+            _to_camel(k) if isinstance(k, str) else k: camelize_keys(v) for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [camelize_keys(v) for v in value]
+    return value
+
+
+def snakeize_keys(value: Any) -> Any:
+    """Recursively convert dict keys from camelCase to snake_case.
+
+    Used for inbound responses — NAMS emits camelCase; our Pydantic
+    models expect snake_case.
+    """
+    if isinstance(value, dict):
+        return {
+            _to_snake(k) if isinstance(k, str) else k: snakeize_keys(v) for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [snakeize_keys(v) for v in value]
+    return value
+
+
 __all__ = [
     "json_safe",
     "model_to_payload",
     "payload_to_model",
     "parse_datetime",
     "parse_uuid",
+    "camelize_keys",
+    "snakeize_keys",
 ]
