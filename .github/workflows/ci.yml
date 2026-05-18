@@ -130,8 +130,11 @@ jobs:
           done
 
       - name: Run integration tests with coverage
+        # NAMS integration tests have a dedicated workflow
+        # (.github/workflows/nams-integration.yml) so we exclude them here.
         run: |
           uv run pytest tests/integration -v \
+            --ignore=tests/integration/nams \
             --tb=short \
             --timeout=300 \
             -x \
@@ -206,8 +209,11 @@ jobs:
           done
 
       - name: Run integration tests
+        # NAMS integration tests run in their own workflow
+        # (.github/workflows/nams-integration.yml).
         run: |
           uv run pytest tests/integration \
+            --ignore=tests/integration/nams \
             -v \
             --tb=short \
             --timeout=600 \
@@ -236,6 +242,7 @@ jobs:
       - name: Run integration tests with testcontainers
         run: |
           uv run pytest tests/integration \
+            --ignore=tests/integration/nams \
             -v \
             --tb=short \
             --timeout=600

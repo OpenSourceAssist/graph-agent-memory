@@ -1,42 +1,47 @@
-"""End-to-end NAMS smoke test against a real sandbox or TCK reference impl.
+"""Live-NAMS integration smoke — one happy path through all three memory types.
 
-Skips cleanly when neither is reachable.
+If this fails, something is fundamentally wrong with the v0.4 client.
+The TCK tier suites (``test_tck_bronze.py`` onwards) exercise each method
+individually for diagnostic value; this file is the single overall
+"does anything work at all" smoke.
 """
 
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import pytest
 
-from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory import MemoryClient
+
+pytestmark = pytest.mark.integration
 
 
-@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_smoke_full_flow(nams_config) -> None:
-    """Connect, store short-term + long-term + reasoning, read it back."""
-    settings = MemorySettings(backend="nams", nams=nams_config)
-    session_id = f"nams-smoke-{uuid.uuid4().hex[:8]}"
+async def test_smoke_full_flow(
+    nams_client: MemoryClient, session_id: str, cleanup_registry: Any
+) -> None:
+    """Connect → short-term + long-term + reasoning + cypher → cleanup."""
+    cleanup_registry.track_session(session_id)
 
-    async with MemoryClient(settings) as client:
-        # Probe
-        await client._nams_backend.probe()  # type: ignore[union-attr]
+    # Short-term
+    msg = await nams_client.short_term.add_message(session_id, "user", "Smoke test hello")
+    assert msg.content == "Smoke test hello"
 
-        # Short-term
-        msg = await client.short_term.add_message(session_id, "user", "Hello, NAMS!")
-        assert msg.content == "Hello, NAMS!"
+    conv = await nams_client.short_term.get_conversation(session_id)
+    assert len(conv.messages) >= 1
 
-        conv = await client.short_term.get_conversation(session_id)
-        assert len(conv.messages) >= 1
+    # Long-term
+    entity_name = f"SmokeTest-{uuid.uuid4().hex[:8]}"
+    entity = await nams_client.long_term.add_entity(entity_name, "PERSON")
+    entity = entity[0] if isinstance(entity, tuple) else entity
+    assert entity.name == entity_name
 
-        # Long-term
-        entity = await client.long_term.add_entity(f"SmokeTest-{uuid.uuid4().hex[:6]}", "PERSON")
-        assert entity.name.startswith("SmokeTest-")
+    # Reasoning
+    trace = await nams_client.reasoning.start_trace(session_id, "smoke task")
+    await nams_client.reasoning.complete_trace(trace.id, outcome="ok", success=True)
 
-        # Reasoning
-        trace = await client.reasoning.start_trace(session_id, "smoke test task")
-        await client.reasoning.complete_trace(trace.id, outcome="ok", success=True)
-
-        # Cleanup
-        await client.short_term.clear_session(session_id)
+    # Cypher
+    rows = await nams_client.query.cypher("MATCH (n) RETURN count(n) AS n LIMIT 1")
+    assert isinstance(rows, list)
