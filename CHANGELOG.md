@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Repository
+
+- The repository at `neo4j-labs/agent-memory` is now polyglot. A
+  TypeScript SDK (`@neo4j-labs/agent-memory`, in `typescript/`) ships
+  alongside the Python SDK with the same memory model and the same NAMS
+  backend. _For the TypeScript SDK changelog see
+  [`typescript/CHANGELOG.md`](typescript/CHANGELOG.md)._
+- Python release tags are now namespaced as `python-v*` (e.g.
+  `python-v0.4.1`) so they cannot collide with TypeScript tags
+  (`typescript-v*`). The publish workflow has been renamed from
+  `release.yml` to `publish-python.yml`.
+- The CI workflow has been renamed from `ci.yml` to `ci-python.yml` and
+  is now path-filtered. TypeScript-only PRs no longer trigger the
+  Python test matrix.
+
 ## [0.4.0] - 2026-05-17
 
 The "hosted backend" release. Headline feature is **NAMS (Neo4j Agent Memory Service) backend support** — write once against `MemoryClient`, choose between local bolt-to-Neo4j or the hosted REST service at config time. The change is purely additive — existing v0.3.x code keeps working unchanged on bolt.

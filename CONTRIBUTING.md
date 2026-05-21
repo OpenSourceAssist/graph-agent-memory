@@ -143,8 +143,13 @@ This project uses GitHub Actions for continuous integration and deployment.
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| **CI** (`ci.yml`) | Push to `main`, PRs | Linting, type checking, tests, build validation |
-| **Release** (`release.yml`) | Git tags (`v*`) | Build and publish to PyPI, create GitHub releases |
+| **Python CI** (`ci-python.yml`) | Push to `main`, PRs touching `src/**`, `tests/**`, `docs/**`, etc. | Linting, type checking, tests, build validation |
+| **TypeScript CI** (`ci-typescript.yml`) | Push to `main`, PRs touching `typescript/**` | Lint, vitest (unit + integration), build, packed-artifact check |
+| **Publish Python** (`publish-python.yml`) | Git tags `python-v*` | Build and publish to PyPI, create GitHub releases |
+| **Publish TypeScript** (`publish-typescript.yml`) | Git tags `typescript-v*` | Build and publish to npm with provenance |
+| **TypeDoc** (`docs-typedoc.yml`) | Push to `main` (TS docs paths) or `typescript-v*` tags | Build TypeDoc API reference, deploy to GitHub Pages |
+| **TCK Conformance** (`tck-conformance.yml`) | Nightly + workflow_dispatch | Run agent-memory-tck Bronze suite against the published `@neo4j-labs/agent-memory` package |
+| **NAMS Integration** (`nams-integration.yml`) | Push, PR, nightly | Run NAMS sandbox integration tests |
 
 ### CI Jobs
 
@@ -196,15 +201,108 @@ All PRs must pass these checks before merging:
 5. Commit with descriptive messages
 6. Push and open a PR against `main`
 
-## Publishing to PyPI
+## Publishing
+
+This repo ships two independently versioned packages. Each has its own
+tag prefix and publish workflow.
+
+### Python (neo4j-agent-memory → PyPI)
 
 1. Update version in `pyproject.toml`
-2. Create and push a tag:
+2. Create and push a tag with the **`python-v`** prefix:
    ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag python-v0.4.1
+   git push origin python-v0.4.1
    ```
-3. GitHub Actions will automatically build and publish to PyPI
+3. `publish-python.yml` builds and publishes to PyPI, then creates a
+   GitHub Release.
+
+### TypeScript (@neo4j-labs/agent-memory → npm)
+
+1. Update version in `typescript/package.json`
+2. Update `typescript/CHANGELOG.md`
+3. Create and push a tag with the **`typescript-v`** prefix:
+   ```bash
+   git tag typescript-v0.3.0
+   git push origin typescript-v0.3.0
+   ```
+4. `publish-typescript.yml` builds and publishes to npm with provenance,
+   then creates a GitHub Release.
+
+> Tag prefixes are enforced by the publish workflows. Plain `v*` tags
+> will not trigger a publish.
+
+## TypeScript Contributions
+
+The TypeScript SDK lives at [`typescript/`](typescript/). It is a thin
+HTTP client over the NAMS REST API and ships five framework integrations
+(Vercel AI SDK, MCP, LangChain JS, Mastra, AWS Strands).
+
+### Setup
+
+Requires Node.js 20+.
+
+```bash
+cd typescript
+npm ci
+```
+
+### Common commands
+
+```bash
+# From the repo root
+make ts-install       # cd typescript && npm ci
+make ts-build         # cd typescript && npm run build
+make ts-test          # cd typescript && npm test
+make ts-test-unit     # cd typescript && npm run test:unit
+make ts-lint          # cd typescript && npm run lint
+make ts-docs          # cd typescript && npm run docs:api (TypeDoc)
+make ts-conformance   # cd typescript && npm run conformance:server (TCK bridge)
+
+# Or directly inside typescript/
+npm run lint
+npm run test:unit
+npm run test:integration
+npm run test:tck         # In-tree TCK Bronze conformance (RUN_TCK_BRIDGE=1)
+npm run build
+npm pack --dry-run       # Verify the publishable artifact
+```
+
+### TCK conformance
+
+The TypeScript SDK is verified against the cross-language
+[`agent-memory-tck`](https://github.com/neo4j-labs/agent-memory-tck)
+behavioral spec. The in-tree suite at `typescript/test/tck/` runs in
+`ci-typescript.yml` on every PR. A nightly job
+(`tck-conformance.yml`) runs the TCK against the **published** npm
+package to catch packaging regressions.
+
+To run the bridge server locally for cross-language testing:
+
+```bash
+make ts-conformance    # or: cd typescript && npm run conformance:server
+# Bridge listens on TCK_BRIDGE_PORT (default 3001)
+```
+
+### Code style (TypeScript)
+
+- **Formatter / Linter**: `tsc --noEmit` + `eslint src/` (run via
+  `npm run lint`)
+- **Tests**: vitest (`test/unit`, `test/integration`, `test/e2e`,
+  `test/tck`)
+- **Build**: tsup → `dist/` (CJS + ESM + type declarations)
+- **Engines**: Node 20+, but written to run on Bun, Deno, Cloudflare
+  Workers, and Vercel Edge
+
+### Adding a new framework integration
+
+1. Add `src/integrations/<name>.ts`
+2. Wire a subpath export in `typescript/package.json` under `exports`
+3. Add a runnable example at `typescript/examples/<name>/`
+4. Add a how-to guide at `docs/modules/ROOT/pages/how-to/typescript/<name>.adoc`
+5. Add a row to the integrations table in
+   `docs/modules/ROOT/pages/sdks/typescript.adoc` and in
+   `typescript/README.md`
 
 ## Documentation Guidelines (Diataxis Framework)
 

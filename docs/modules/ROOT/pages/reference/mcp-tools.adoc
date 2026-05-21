@@ -479,3 +479,9 @@ neo4j-agent-memory mcp serve [OPTIONS]
 | `false`
 | Disable automatic preference detection.
 |===
+
+== See Also
+
+* xref:how-to/typescript/mcp.adoc[Wire the same tools into the TypeScript SDK]
+* xref:reference/rest-api.adoc[NAMS REST API] - HTTP surface backing the MCP tools
+* link:https://github.com/neo4j-labs/agent-memory-tck/blob/main/docs/reference/mcp-tools.adoc[MCP tools spec in the TCK] - Cross-language behavioral contract

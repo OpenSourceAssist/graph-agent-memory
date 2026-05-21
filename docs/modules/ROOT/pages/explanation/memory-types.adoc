@@ -256,3 +256,5 @@ trace = await client.reasoning.start_trace(
 * xref:how-to/entities.adoc[Work with Entities] - Long-term memory operations
 * xref:how-to/reasoning-traces.adoc[Record Reasoning Traces] - Reasoning memory operations
 * xref:reference/api/memory-client.adoc[MemoryClient API] - Full API reference
+* xref:explanation/multi-agent-sharing.adoc[Cross-Agent Memory Sharing] - How multiple agents share one memory graph
+* link:https://github.com/neo4j-labs/agent-memory-tck/blob/main/docs/explanation/memory-model.adoc[Memory model in the TCK spec] - The cross-language spec author's framing

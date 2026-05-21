@@ -46,6 +46,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# TypeScript SDK (typescript/)
+typescript/node_modules/
+typescript/dist/
+typescript/.tsbuildinfo
+typescript/docs-api/
+
 # Build outputs
 *.log
 

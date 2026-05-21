@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws test-nams-unit test-nams-integration test-nams coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws test-nams-unit test-nams-integration test-nams coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent ts-install ts-build ts-test ts-test-unit ts-test-integration ts-lint ts-docs ts-conformance ts-pack ts-clean
 
 # Default target
 help:
@@ -593,3 +593,53 @@ chat-agent:
 
 # Start Neo4j and run backend (convenience target)
 chat-agent-backend-with-neo4j: neo4j-start neo4j-wait chat-agent-backend
+
+# ============================================================================
+# TypeScript SDK (typescript/)
+#
+# The TypeScript SDK is a sibling package — @neo4j-labs/agent-memory on npm.
+# It has its own package.json, vitest config, and dependencies. These targets
+# delegate to npm scripts inside typescript/.
+# ============================================================================
+
+TS_DIR := typescript
+
+# Install TS dependencies (npm ci, reproducible from package-lock.json)
+ts-install:
+	cd $(TS_DIR) && npm ci
+
+# Build the TS package (tsup → dist/)
+ts-build:
+	cd $(TS_DIR) && npm run build
+
+# Run all TS tests (unit + integration)
+ts-test:
+	cd $(TS_DIR) && npm test
+
+# Run TS unit tests only (no Neo4j or NAMS sandbox required)
+ts-test-unit:
+	cd $(TS_DIR) && npm run test:unit
+
+# Run TS integration tests
+ts-test-integration:
+	cd $(TS_DIR) && npm run test:integration
+
+# Lint TS code (tsc --noEmit + eslint)
+ts-lint:
+	cd $(TS_DIR) && npm run lint
+
+# Build TypeDoc API reference (outputs to typescript/docs-api/)
+ts-docs:
+	cd $(TS_DIR) && npm run docs:api
+
+# Start the TCK bridge conformance server (default port 3001)
+ts-conformance:
+	cd $(TS_DIR) && npm run conformance:server
+
+# Inspect what would be published to npm
+ts-pack:
+	cd $(TS_DIR) && npm pack --dry-run
+
+# Remove TS build artifacts
+ts-clean:
+	rm -rf $(TS_DIR)/dist $(TS_DIR)/docs-api $(TS_DIR)/.tsbuildinfo
