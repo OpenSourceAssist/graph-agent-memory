@@ -61,7 +61,7 @@
     "test:watch": "vitest",
     "test:tck": "RUN_TCK_BRIDGE=1 vitest run test/tck",
     "tck:bronze": "RUN_TCK_BRIDGE=1 vitest run test/tck --grep Bronze",
-    "lint": "tsc --noEmit && eslint src/",
+    "lint": "tsc --noEmit",
     "docs:api": "typedoc",
     "conformance:server": "tsx conformance/server.ts",
     "prepublishOnly": "npm run build"

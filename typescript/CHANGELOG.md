@@ -24,6 +24,15 @@ appear in minor versions with a callout in this file.
 - Release tags are now namespaced as `typescript-v*` (e.g.
   `typescript-v0.3.0`); the Python SDK uses `python-v*`.
 
+### Fixed
+
+- `npm run lint` now invokes only `tsc --noEmit`. The previous script
+  chained `eslint src/` but `eslint` was never in `devDependencies` and
+  no `.eslintrc*` / `eslint.config.*` ever existed — the second half
+  silently failed on TCK CI and now blocks the new TypeScript CI. Adding
+  eslint properly (config + rule choices + likely codebase touch-ups) is
+  deferred to a follow-up PR.
+
 ## 0.3.0 — Beta launch
 
 Beta launch release for the hosted-service-first TypeScript client.
