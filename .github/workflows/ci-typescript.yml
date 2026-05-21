@@ -12,6 +12,9 @@ on:
       - 'typescript/**'
       - '.github/workflows/ci-typescript.yml'
 
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: typescript
