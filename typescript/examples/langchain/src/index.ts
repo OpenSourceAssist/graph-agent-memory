@@ -22,7 +22,7 @@ async function main() {
 
   console.log("Persisting messages via Neo4jChatMessageHistory ...");
   await history.addUserMessage("Tell me about graph databases.");
-  await history.addAIMessage(
+  await history.addAIChatMessage(
     "Graph databases store data as nodes and relationships, making path queries fast.",
   );
   await history.addUserMessage("How does that compare to relational?");
@@ -37,7 +37,7 @@ async function main() {
   await memory.longTerm.addEntity("Neo4j", "concept", {
     description: "Graph database; mentioned in this demo.",
   });
-  const retriever = new Neo4jEntityRetriever(memory, { limit: 3 });
+  const retriever = new Neo4jEntityRetriever(memory, { topK: 3 });
   const docs = await retriever.invoke("graph database");
   console.log(`Found ${docs.length} entity-shaped documents.`);
   for (const d of docs) {

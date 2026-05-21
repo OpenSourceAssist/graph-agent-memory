@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws test-nams-unit test-nams-integration test-nams coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent ts-install ts-build ts-test ts-test-unit ts-test-integration ts-lint ts-docs ts-conformance ts-pack ts-clean
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws test-nams-unit test-nams-integration test-nams coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent ts-install ts-build ts-test ts-test-unit ts-test-integration ts-lint ts-docs ts-conformance ts-pack ts-clean ts-test-examples
 
 # Default target
 help:
@@ -643,3 +643,14 @@ ts-pack:
 # Remove TS build artifacts
 ts-clean:
 	rm -rf $(TS_DIR)/dist $(TS_DIR)/docs-api $(TS_DIR)/.tsbuildinfo
+
+# Type-check every TS example against the freshly built SDK. Catches
+# API drift between examples and the SDK without needing API keys.
+# Mirrors the ci-typescript.yml type-check-examples matrix.
+ts-test-examples:
+	cd $(TS_DIR) && npm ci && npm run build
+	@for ex in langchain mastra mcp strands vercel-ai; do \
+		echo "=== Type-checking $$ex ==="; \
+		(cd $(TS_DIR)/examples/$$ex && npm install --no-package-lock && npx tsc --noEmit) || exit 1; \
+	done
+	@echo "All TS examples type-check cleanly."

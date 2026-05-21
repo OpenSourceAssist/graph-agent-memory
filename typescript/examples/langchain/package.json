@@ -7,10 +7,11 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@neo4j-labs/agent-memory": "file:.."
+    "@neo4j-labs/agent-memory": "file:../.."
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "tsx": "^4.0.0",
-    "@types/node": "^20.0.0"
+    "typescript": "^5.9.3"
   }
 }

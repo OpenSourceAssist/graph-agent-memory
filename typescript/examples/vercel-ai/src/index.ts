@@ -7,7 +7,11 @@
  * second run remember the first.
  */
 
-import { generateText, experimental_wrapLanguageModel as wrapModel } from "ai";
+import {
+  generateText,
+  experimental_wrapLanguageModel as wrapModel,
+  type LanguageModelV1Middleware,
+} from "ai";
 import { openai } from "@ai-sdk/openai";
 import { MemoryClient } from "@neo4j-labs/agent-memory";
 import { agentMemoryMiddleware } from "@neo4j-labs/agent-memory/middleware/vercel-ai";
@@ -22,9 +26,15 @@ async function main() {
     metadata: { source: "vercel-ai-example" },
   });
 
+  // The middleware is duck-typed against Vercel AI v4's
+  // `LanguageModelV1Middleware`; the cast is safe at runtime — see
+  // src/middleware/vercel-ai.ts. Tighten the SDK-side type in a future
+  // release to drop this.
   const model = wrapModel({
     model: openai("gpt-4o-mini"),
-    middleware: agentMemoryMiddleware(memory, { conversationId: conv.id }),
+    middleware: agentMemoryMiddleware(memory, {
+      conversationId: conv.id,
+    }) as unknown as LanguageModelV1Middleware,
   });
 
   const turns = [

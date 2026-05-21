@@ -51,6 +51,8 @@ typescript/node_modules/
 typescript/dist/
 typescript/.tsbuildinfo
 typescript/docs-api/
+typescript/examples/*/node_modules/
+typescript/examples/*/package-lock.json
 
 # Build outputs
 *.log
