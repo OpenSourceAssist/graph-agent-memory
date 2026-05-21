@@ -1,0 +1,89 @@
+name: TypeScript E2E
+
+# Runs the TypeScript SDK's e2e suite (test/e2e/) against the live
+# NAMS hosted service.
+#
+# Mirrors nams-integration.yml on the Python side. Uses the same
+# MEMORY_API_KEY repo secret (set in repo Settings → Secrets and
+# variables → Actions). When the secret is absent (e.g. forks),
+# the workflow short-circuits cleanly to keep CI logs tidy — the
+# test files themselves also self-skip via `describe.skip` when
+# MEMORY_API_KEY is empty.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'typescript/**'
+      - '.github/workflows/e2e-typescript.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'typescript/**'
+      - '.github/workflows/e2e-typescript.yml'
+  schedule:
+    # 06:30 UTC — staggered 30 min after nams-integration.yml so the two
+    # don't hit the sandbox simultaneously.
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    # Skip on PRs from forks (secrets are unavailable there).
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: typescript
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: typescript/package-lock.json
+
+      - name: Verify MEMORY_API_KEY is configured
+        env:
+          MEMORY_API_KEY: ${{ secrets.MEMORY_API_KEY }}
+        id: check-secret
+        run: |
+          if [ -z "$MEMORY_API_KEY" ]; then
+            echo "::warning::MEMORY_API_KEY secret is not set. TypeScript e2e tests will be skipped."
+            echo "skip_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "MEMORY_API_KEY is set; running live e2e tests."
+          fi
+
+      - name: Install dependencies
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        run: npm ci
+
+      - name: Build SDK
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        run: npm run build
+
+      # Hosted-service suite — covers the full memory surface against
+      # NAMS. Individual tests self-skip on 403 when the key lacks a scope.
+      - name: Hosted service e2e
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          MEMORY_API_KEY: ${{ secrets.MEMORY_API_KEY }}
+          MEMORY_ENDPOINT: ${{ vars.MEMORY_ENDPOINT || 'https://memory.neo4jlabs.com/v1' }}
+        run: npx vitest run test/e2e/hosted-service.test.ts --reporter=verbose
+
+      # Strands integration e2e — exercises the conversation-manager,
+      # session-storage, and reasoning-hook plumbing against the live
+      # service. No OPENAI_API_KEY needed (uses mocked model wrapping).
+      - name: Strands integration e2e
+        if: steps.check-secret.outputs.skip_tests != 'true'
+        env:
+          MEMORY_API_KEY: ${{ secrets.MEMORY_API_KEY }}
+          MEMORY_ENDPOINT: ${{ vars.MEMORY_ENDPOINT || 'https://memory.neo4jlabs.com/v1' }}
+        run: npx vitest run test/e2e/strands.test.ts --reporter=verbose
