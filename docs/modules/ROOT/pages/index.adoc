@@ -18,19 +18,48 @@ icon:flask[] *Neo4j Labs* · icon:database[] Graph-native memory for AI agents
 [.lead]
 Your agents forget everything. *Fix that.*
 
-Store conversations, build knowledge graphs, and let your agents learn from their own reasoning — all backed by Neo4j.
+Production-grade memory for single- and multi-agent systems. Three memory layers — conversations, entities, reasoning — in one graph. Available as a *hosted service* (zero infra, just an API key) or run against your own Neo4j. Python + TypeScript SDKs that interoperate.
 
 [NOTE]
 ====
 *Experimental · Community Supported*
 ====
 
+== Pick your install
+
+[cols="1,3", options="header"]
+|===
+|Path |Get started in ~30 seconds
+
+|*Hosted service (recommended for new projects)* +
+Sign up at link:https://memory.neo4jlabs.com[memory.neo4jlabs.com], get an API key, install one of the SDKs. No Neo4j to run.
+a|
+[source,bash]
+----
+# Python
+pip install neo4j-agent-memory
+export MEMORY_API_KEY=nams_...
+
+# TypeScript
+npm install @neo4j-labs/agent-memory
+export MEMORY_API_KEY=nams_...
+----
+
+See xref:tutorials/nams-quickstart.adoc[NAMS Quickstart (Python)] or xref:tutorials/hosted-quickstart-typescript.adoc[Hosted Quickstart (TypeScript)].
+
+|*Self-hosted Neo4j* +
+Bring your own Neo4j (Aura, Docker, Desktop). Full schema control, write-Cypher access, geospatial features.
+a|
 [source,bash]
 ----
 pip install neo4j-agent-memory
+# Point at bolt://your-neo4j:7687
 ----
 
-xref:tutorials/first-agent-memory.adoc[Get Started] | https://github.com/neo4j-labs/agent-memory[GitHub] | https://pypi.org/project/neo4j-agent-memory/[PyPI]
+See xref:tutorials/first-agent-memory.adoc[Build Your First Memory-Enabled Agent].
+|===
+
+xref:tutorials/first-agent-memory.adoc[Get Started] · xref:sdks/python.adoc[Python SDK] · xref:sdks/typescript.adoc[TypeScript SDK] · link:https://github.com/neo4j-labs/agent-memory[GitHub] · link:https://pypi.org/project/neo4j-agent-memory/[PyPI] · link:https://www.npmjs.com/package/@neo4j-labs/agent-memory[npm]
 
 == Three Memory Types, One Graph
 
@@ -74,6 +103,29 @@ async with MemoryClient(settings) as memory:
     context = await memory.get_context("restaurant recommendation", session_id=session_id)
 ----
 
+== Multi-Agent Ready
+
+Multiple agents — even in different languages — can read and write the same memory graph. Conversations stay private per session; entities, preferences, and facts are shared.
+
+[cols="1,2", options="header"]
+|===
+|Capability |How it works
+
+|icon:users[] *Shared knowledge graph*
+|Every agent in the system reads the same `Entity`, `Preference`, and `Fact` nodes. When Agent A learns something new, Agent B sees it on the next query — no manual sync.
+
+|icon:lock[] *Per-session isolation*
+|`session_id` (or `user_identifier=` for multi-tenant) keeps each agent's conversations and reasoning traces separate. One agent never reads another's chat history by accident.
+
+|icon:exchange[] *Cross-language by design*
+|A Python agent (PydanticAI, LangChain, CrewAI, Google ADK, AWS Strands) and a TypeScript agent (Vercel AI SDK, LangChain JS, Mastra, MCP) on the same NAMS endpoint share memory transparently. Both SDKs implement the same xref:reference/rest-api.adoc[NAMS REST contract].
+
+|icon:shield[] *Multi-tenant scoping*
+|Pass `user_identifier=` on any operation to scope writes and reads per end-user. One backend, many tenants — see xref:how-to/multi-tenancy.adoc[Multi-tenant memory].
+|===
+
+See xref:explanation/multi-agent-sharing.adoc[Cross-Agent Memory Sharing] for the conceptual model and xref:tutorials/nams-quickstart.adoc[NAMS Quickstart] for the deployment shape.
+
 == What Makes This Different
 
 [cols="1,3", options="header"]
@@ -96,7 +148,10 @@ async with MemoryClient(settings) as memory:
 |Entities are automatically enriched with *Wikipedia descriptions, images, and Wikidata IDs*. Location entities get coordinates for geospatial queries. All in the background.
 
 |icon:plug[] *Framework Agnostic*
-|Works with *LangChain, PydanticAI, LlamaIndex, and CrewAI*. Or use the client directly. Your agent framework, your choice — the memory layer stays the same.
+|Python: *LangChain, PydanticAI, LlamaIndex, CrewAI, OpenAI Agents, AWS Strands, Google ADK, Microsoft Agent Framework, AgentCore*. TypeScript: *Vercel AI SDK, LangChain JS, Mastra, AWS Strands, MCP tools*. Or use the client directly.
+
+|icon:cloud[] *Hosted or Self-Hosted*
+|Use the link:https://memory.neo4jlabs.com[NAMS hosted service] for zero-infra deployments, or run the same SDK against your own Neo4j (Aura, Desktop, Docker) when you need write-Cypher, geospatial, or air-gapped operation. See xref:explanation/backends.adoc[Bolt vs NAMS].
 |===
 
 == Demos
@@ -199,6 +254,8 @@ Combine extractors in a configurable pipeline. 5 merge strategies. 8 domain sche
 
 == Framework Integrations
 
+=== Python (`neo4j-agent-memory`)
+
 [cols="1,2,1"]
 |===
 |Framework |Integration |Guide
@@ -219,13 +276,52 @@ Combine extractors in a configurable pipeline. 5 merge strategies. 8 domain sche
 |Crew memory
 |xref:how-to/integrations/crewai.adoc[CrewAI guide]
 
+|*OpenAI Agents*
+|Session memory
+|xref:how-to/integrations/openai-agents.adoc[OpenAI Agents guide]
+
 |*AWS Strands*
 |Agent tools
 |xref:how-to/integrations/aws-strands.adoc[Strands guide]
 
 |*Google ADK*
 |MemoryService
-|xref:tutorials/first-agent-memory.adoc[ADK tutorial]
+|xref:how-to/integrations/google-cloud.adoc[Google Cloud guide]
+
+|*Microsoft Agent Framework*
+|ContextProvider + GDS
+|xref:how-to/integrations/microsoft-agent.adoc[Microsoft Agent guide]
+
+|*AWS AgentCore*
+|HybridMemoryProvider
+|xref:how-to/integrations/aws-hybrid-memory.adoc[AgentCore guide]
+|===
+
+=== TypeScript (`@neo4j-labs/agent-memory`)
+
+[cols="1,2,1"]
+|===
+|Framework |Integration |Guide
+
+|*Vercel AI SDK*
+|Middleware (3-tier context injection + auto-persist)
+|xref:how-to/typescript/vercel-ai.adoc[Vercel AI guide]
+
+|*LangChain JS*
+|`Neo4jChatMessageHistory`, `Neo4jEntityRetriever`
+|xref:how-to/typescript/langchain.adoc[LangChain JS guide]
+
+|*Mastra*
+|`Neo4jMastraMemory` provider
+|xref:how-to/typescript/mastra.adoc[Mastra guide]
+
+|*AWS Strands (JS)*
+|Session storage + conversation manager
+|xref:how-to/typescript/strands.adoc[Strands guide]
+
+|*MCP tools*
+|12 standard tools + dispatcher (Node, Bun, Deno, Workers, Edge)
+|xref:how-to/typescript/mcp.adoc[MCP guide]
 |===
 
 == Architecture
@@ -279,6 +375,13 @@ image::diagrams/architecture-overview.png[Architecture overview: MemoryClient wi
 
 == Requirements
 
-* Python 3.10+
-* Neo4j 5.20+ (with APOC plugin recommended)
-* OpenAI API key (for embeddings and LLM extraction)
+[cols="1,2", options="header"]
+|===
+|If you use… |You need…
+
+|*NAMS (hosted)*
+|Python 3.10+ *or* Node.js 20+. An API key from link:https://memory.neo4jlabs.com[memory.neo4jlabs.com]. _No Neo4j to run._
+
+|*Self-hosted (Bolt)*
+|Python 3.10+. Neo4j 5.20+ (Aura, Desktop, or Docker — APOC plugin recommended). Optional OpenAI/Anthropic/Bedrock/Vertex key for client-side embeddings and LLM extraction.
+|===

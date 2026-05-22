@@ -12,10 +12,15 @@
 :page-ad-underline-role: button
 :page-ad-underline: Enroll now
 
-A step-by-step tutorial to build your first AI agent with persistent memory and a context graph.
+A step-by-step tutorial to build your first AI agent with persistent memory and a context graph, running against your own Neo4j.
 
 [.lead]
 In this tutorial, we'll build a simple agent that remembers conversations, learns user preferences, and uses a context graph to provide personalized responses. By the end, you'll have a working memory system that persists across sessions.
+
+[TIP]
+====
+*Don't want to run Neo4j?* If you'd rather skip the database setup, the hosted xref:tutorials/nams-quickstart.adoc[NAMS Quickstart] gets you to the same place in ~10 minutes with just an API key — same SDK, same code, no infrastructure. Come back here when you need write-Cypher, geospatial queries, or to layer agent memory onto an existing Neo4j graph. See xref:explanation/backends.adoc[Bolt vs NAMS] for the trade-offs.
+====
 
 == What You'll Learn
 

@@ -1,141 +1,186 @@
 = Cross-Agent Memory Sharing
+:page-product: agent-memory
 :toc:
 :toclevels: 2
 
-One of the TCK's core goals is enabling agents written in different languages and frameworks to share the same Neo4j memory graph. This document explains how that works and why the TCK makes it possible.
+How multiple agents — written in different languages, using different frameworks, deployed as separate services — read and write the same memory graph.
 
-== The Problem
+[.lead]
+**Conversations are private. Knowledge is shared.** That's the design contract that makes Neo4j Agent Memory natural for multi-agent systems.
 
-Without a shared specification:
+== The capability in one sentence
 
-* A Python agent using PydanticAI writes entities with one property naming convention.
-* A TypeScript agent using Vercel AI SDK writes entities with a different convention.
-* A Go agent writes reasoning traces with an incompatible structure.
-* An R agent writes statistical traces with yet another format.
+If two agents point at the same backend (NAMS API key, or the same Neo4j cluster), an entity created by Agent A is queryable by Agent B as soon as the write returns — with no copy step, no message bus, no cache invalidation.
 
-When all three connect to the same Neo4j Aura instance, their writes are *silently incompatible*. The Python agent can't read what the TypeScript agent wrote.
+== The two namespaces
 
-== The Solution: Schema Compatibility via TCK
+Every memory operation lives in one of two namespaces:
 
-The TCK defines the *exact graph schema* that all implementations must produce:
-
-* Node labels: `Conversation`, `Message`, `Entity`, `Preference`, `Fact`, `ReasoningTrace`, `ReasoningStep`, `ToolCall`
-* Property names: `id`, `session_id`, `role`, `content`, `timestamp`, `entity_type`, `step_number`, etc.
-* Relationship types: `HAS_MESSAGE`, `NEXT_MESSAGE`, `WORKS_AT`, `KNOWS`, `HAS_STEP`, `HAS_TOOL_CALL`, etc.
-
-If two implementations both pass the TCK, their graph writes are guaranteed to be compatible.
-
-== Namespace Model
-
-The TCK supports two namespace concepts:
-
-=== Session Namespace (Per-Agent Isolation)
-
-Each agent uses its own session IDs:
-
-----
-Lenny: session_id = "lenny-task-001"
-Scout: session_id = "scout-search-042"
-Forge: session_id = "forge-enrich-007"
-Atlas: session_id = "atlas-synth-003"
-Sage:  session_id = "sage-audit-012"
-Rune:  session_id = "rune-analysis-001"
-----
-
-**Conversations and reasoning traces are isolated by session.** Lenny's conversation history is not visible when querying Scout's session.
-
-=== Entity Namespace (Shared Knowledge)
-
-Entities, preferences, and facts are *shared across all sessions*:
-
-----
-Lenny creates: Entity("Alice Johnson", PERSON)
-Scout can read: get_entity_by_name("Alice Johnson") → Entity found!
-Forge enriches: add_fact("Alice Johnson", "ROLE", "CTO")
-Atlas queries: search_entities("Alice") → Entity with all enrichments
-----
-
-This is the fundamental value proposition: **conversations are private, knowledge is shared.**
-
-== TCK Verification
-
-The Gold tier includes tests that verify this sharing model:
-
-[cols="1,3"]
+[cols="1,2,3", options="header"]
 |===
-|Test |What It Verifies
+|Namespace |Scoped by |What's in it
 
-|`test_entity_enriched_across_sessions`
-|Entity created in session A is retrievable from session B context
+|*Conversation namespace* (private)
+|`session_id` (and optionally `user_identifier=`)
+|`Conversation`, `Message`, `ReasoningTrace`, `ReasoningStep`, `ToolCall`. Each agent sees only the sessions it wrote to. One agent's chat history is invisible to another by default.
 
-|`test_reasoning_traces_isolated_by_session`
-|Traces are filterable by session — each agent sees only its own traces
-
-|`test_conversations_isolated_but_entities_shared`
-|Two sessions have separate conversations but both see the same entity
+|*Entity namespace* (shared)
+|Global (within a backend / workspace)
+|`Entity` (POLE+O), `Preference`, `Fact`, `Relationship` between entities. Any agent on the same backend reads what any other agent wrote.
 |===
 
-== The Multi-Agent Demo
+This split is the load-bearing design choice. It mirrors how human teams work: individual notebooks (conversations) plus a shared wiki (knowledge).
 
-The repository includes a six-agent demo proving this architecture:
+== Multi-tenant scoping with `user_identifier`
 
-[cols="1,1,1,2"]
+For SaaS-style deployments where one backend serves many end-users, every memory call accepts a `user_identifier=` kwarg:
+
+[source,python]
+----
+# Agent code, identical for every end-user
+async def handle_request(user_id: str, message: str):
+    async with MemoryClient() as memory:
+        await memory.short_term.add_message(
+            session_id=f"chat-{user_id}",
+            role="user",
+            content=message,
+            user_identifier=user_id,  # scopes the write
+        )
+        # Subsequent reads with the same user_identifier only see this user's data
+        prefs = await memory.long_term.search_preferences(
+            "communication style",
+            user_identifier=user_id,
+        )
+----
+
+`user_identifier` is stored as a property on every node and used as a WHERE filter on every read. See xref:how-to/multi-tenancy.adoc[Multi-tenant memory] for the full pattern.
+
+== Cross-language sharing: same contract, different SDKs
+
+The Python SDK (`neo4j-agent-memory`) and the TypeScript SDK (`@neo4j-labs/agent-memory`) both implement the same xref:reference/rest-api.adoc[NAMS REST contract]. So an agent in either language can read what an agent in the other wrote.
+
+Example: a Python ingestion agent and a TypeScript chat agent sharing entities:
+
+[source,python]
+----
+# ingestion-agent (Python) — runs on a cron, scrapes podcasts
+async with MemoryClient() as memory:
+    entity, _ = await memory.long_term.add_entity(
+        "Alice Johnson", "PERSON",
+        description="Former CTO of Acme, speaker on Lenny's podcast Ep. 42",
+    )
+----
+
+[source,typescript]
+----
+// chat-agent (TypeScript) — runs on Cloudflare Workers
+const memory = new MemoryClient();
+const matches = await memory.longTerm.searchEntities("Alice Johnson", { topK: 3 });
+// matches[0].description includes the entity the Python agent created.
+----
+
+Both SDKs write nodes with the same labels, property names, and relationship types. The graph doesn't know which language produced it.
+
+== A typical multi-agent architecture
+
+[cols="1,3", options="header"]
 |===
-|Agent |Language |Framework |Role
+|Layer |Responsibility
 
-|*Lenny*
+|*Backend* (NAMS or Neo4j)
+|Single source of truth for the memory graph. NAMS is the natural choice when you don't want to operate Neo4j; self-hosted Bolt is the choice when you need write-Cypher or geospatial features.
+
+|*Agents* (any language, any framework)
+|Each agent is a separate process or service. Each holds its own `MemoryClient` pointed at the same backend. Each owns its session IDs but reads the shared entity graph.
+
+|*Orchestrator* (optional)
+|A coordinating agent that reads all sub-agents' reasoning traces, queries the shared entity graph, and synthesizes a response. Can be a workflow engine (LangGraph, Mastra) or a simple supervisor agent.
+|===
+
+When agents are independent services (containerized, on different runtimes), NAMS removes the "who runs Neo4j?" question — every service just needs an API key.
+
+== Worked example: ingestion + chat + analytics
+
+Three agents that never talk to each other directly but cooperate via shared memory:
+
+[cols="1,1,1,3", options="header"]
+|===
+|Agent |Language |Framework |What it does
+
+|**Ingestion**
 |Python
 |PydanticAI
-|Podcast research — creates Person and Organization entities from transcripts
+|Cron job. Reads podcast transcripts, extracts `Person`/`Organization` entities, writes them to long-term memory.
 
-|*Scout*
+|**Chat**
 |TypeScript
-|Vercel AI SDK
-|Web search — reads shared entities, enriches with web results
+|Vercel AI SDK on Cloudflare Workers
+|User-facing chat. On every turn, reads relevant entities and preferences from the shared graph, persists the conversation in its own session namespace.
 
-|*Forge*
-|Go
-|Custom HTTP
-|Data pipeline — adds structured properties (role, company, domain) as facts
-
-|*Atlas*
+|**Analytics**
 |Python
-|LangGraph
-|Orchestrator — reads all agents' reasoning traces, produces cross-agent synthesis
-
-|*Sage*
-|C#
-|Semantic Kernel
-|Knowledge validation — detects conflicts, audits graph integrity
-
-|*Rune*
-|R
-|ellmer
-|Statistical analysis — runs regressions, correlations, clustering on graph entities
+|Plain script + `client.query.cypher(...)`
+|Nightly. Reads all entities, computes co-mention graphs, surfaces trends.
 |===
 
-=== Data Flow
+Each agent is its own deployment. None imports the others. They cooperate solely through reads and writes against the shared backend.
 
+== When agents collide: avoiding write conflicts
+
+Because the entity namespace is shared, two agents *can* try to create the same entity at the same time. Neo4j Agent Memory handles this with:
+
+* **Entity deduplication on ingest** — `add_entity()` checks for embedding-similar and fuzzy-name matches before creating a new node. Above the `auto_merge_threshold` (default 0.95), the new write merges into the existing node and the name is added as an alias.
+* **`SAME_AS` flagged pairs** — between `flag_threshold` (0.85) and the auto-merge threshold, the new entity is created but linked via a `SAME_AS` relationship for human review.
+* **Server-side dedup on NAMS** — the hosted backend performs dedup transparently.
+
+See xref:how-to/deduplication.adoc[Handle duplicates] for the configuration knobs.
+
+== Reasoning trace isolation
+
+While entities are shared, reasoning traces are per-session by design:
+
+[source,python]
 ----
-Lenny (Python) ──creates──> Entity("Alice Johnson", PERSON)
-                                    │
-Scout (TypeScript) ──reads──────────┤──enriches──> Fact("Alice Johnson", ENRICHED_BY, "...")
-                                    │
-Forge (Go) ──reads──────────────────┤──enriches──> Fact("Alice Johnson", ROLE, "CTO")
-                                    │
-Rune (R) ──reads────────────────────┤──analyzes───> ReasoningTrace(correlation r=0.72, p=0.028)
-                                    │
-Atlas (Python) ──reads all traces───┴──synthesizes──> Summary of all agents' work
+# Agent A starts a trace
+trace_a = await memory.reasoning.start_trace(
+    session_id="agent-a-session-1",
+    task="Plan a trip",
+)
+
+# Agent B in the same process — its traces don't show up in A's session
+trace_b = await memory.reasoning.start_trace(
+    session_id="agent-b-session-1",
+    task="Book a flight",
+)
+
+# A's get_session_traces returns only A's traces
+await memory.reasoning.get_session_traces("agent-a-session-1")
 ----
 
-Each agent runs as a separate service (Cloud Run or Docker container), all connecting to the same Neo4j instance. The TCK guarantees that Lenny's Python writes are readable by Scout's TypeScript reads, Forge's Go reads, Sage's C# reads, and Rune's R reads — because they all implement the same schema.
+But if an orchestrator wants cross-agent visibility for audit, it can query Cypher (Bolt) or the read-only Cypher endpoint (NAMS Platinum):
 
-== Why This Matters
+[source,cypher]
+----
+// All traces created in the last hour, across all sessions and agents
+MATCH (t:ReasoningTrace)
+WHERE t.created_at > datetime() - duration('PT1H')
+RETURN t.session_id, t.task, t.outcome, t.success
+ORDER BY t.created_at DESC
+----
 
-The polyglot memory architecture addresses the most common skepticism about multi-language agent systems:
+See xref:how-to/audit-reasoning.adoc[Audit reasoning with TOUCHED edges] for the full audit pattern.
 
-> "Will the TypeScript SDK really produce graph structures compatible with what the Python SDK writes?"
+== Why this matters for AI engineering
 
-The TCK's answer: **yes, by definition.** If both pass the TCK, they are compatible. The multi-agent demo proves it live.
+The hardest problem in multi-agent systems is not coordination — it's coherence. Two agents that "know" different things will give the user contradictory answers. A shared memory graph keeps every agent's worldview in sync without bolting on a separate state management layer.
 
-This is the same principle behind the openCypher TCK: a query written for one Cypher engine is portable to another because they both pass the same compatibility suite.
+The architecture also degrades gracefully: a single-agent prototype written against `MemoryClient` becomes a multi-agent system by adding more agents that point at the same backend. No refactor.
+
+== See Also
+
+* xref:explanation/memory-types.adoc[Understanding the Three Memory Types] — what conversations, entities, and traces are
+* xref:explanation/backends.adoc[Bolt vs NAMS] — which backend to pick
+* xref:how-to/multi-tenancy.adoc[Multi-tenant memory] — `user_identifier=` patterns
+* xref:how-to/use-nams.adoc[Use NAMS] — the hosted-service operational guide
+* xref:tutorials/nams-quickstart.adoc[NAMS Quickstart] — end-to-end deployment
+* xref:reference/rest-api.adoc[NAMS REST API] — the wire-level contract both SDKs implement
