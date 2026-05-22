@@ -38,5 +38,5 @@ To point Claude Desktop at it, add this to your Claude Desktop config:
 
 ## See also
 
-- [How-to: MCP tools](../../../../docs/how-to/mcp.adoc)
+- [How-to: MCP tools](https://neo4j.com/labs/agent-memory/how-to/typescript/mcp)
 - [Model Context Protocol spec](https://modelcontextprotocol.io)

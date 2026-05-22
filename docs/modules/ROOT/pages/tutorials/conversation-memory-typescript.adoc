@@ -1,0 +1,299 @@
+= Add Conversation Memory to a Chatbot (TypeScript)
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+A step-by-step tutorial to build a memory-augmented chatbot in TypeScript using the Vercel AI SDK and the hosted NAMS service.
+
+[.lead]
+In this tutorial we will build a shopping-assistant chatbot that remembers users across sessions, learns their brand and size preferences, and uses that knowledge to make better recommendations. By the end, the assistant will recall context from prior sessions just by reusing the same conversation id — no manual state management.
+
+== What You'll Learn
+
+* How to wire `@neo4j-labs/agent-memory` into a Vercel AI SDK `generateText` call.
+* How to persist user messages and assistant replies automatically via middleware.
+* How to read three-tier context (reflections, observations, recent messages) before generation.
+* How to add long-term entities and preferences alongside the chat.
+* How to verify that memory survives across runs.
+
+== Prerequisites
+
+* Node.js 20 or later.
+* An OpenAI API key (`OPENAI_API_KEY`).
+* A NAMS API key (`MEMORY_API_KEY`) — get one at link:https://memory.neo4jlabs.com[memory.neo4jlabs.com].
+* Basic familiarity with TypeScript and async/await.
+
+No Neo4j to install. NAMS hosts the graph.
+
+== Time Required
+
+About 20 minutes.
+
+== What We're Building
+
+A shopping assistant for an athletic-shoes retailer. It will:
+
+1. Greet the user and remember who they are across sessions.
+2. Capture brand and size preferences as the conversation progresses.
+3. Make recommendations grounded in stored preferences and prior chat history.
+4. Persist everything — re-running with the same user id picks up where we left off.
+
+== Step 1: Project setup
+
+[source,bash]
+----
+mkdir shopping-assistant && cd shopping-assistant
+npm init -y
+npm install @neo4j-labs/agent-memory ai @ai-sdk/openai
+npm install --save-dev typescript tsx @types/node
+----
+
+Create a `tsconfig.json`:
+
+[source,json]
+----
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
+}
+----
+
+Mark the package as ESM in `package.json`:
+
+[source,json]
+----
+{
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/chat.ts"
+  }
+}
+----
+
+Set the two environment variables:
+
+[source,bash]
+----
+export OPENAI_API_KEY=sk-...
+export MEMORY_API_KEY=nams_...
+----
+
+== Step 2: Create the memory client and middleware
+
+Create `src/chat.ts`:
+
+[source,typescript]
+----
+import {
+  generateText,
+  experimental_wrapLanguageModel as wrapModel,
+  type LanguageModelV1Middleware,
+} from "ai";
+import { openai } from "@ai-sdk/openai";
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+import { agentMemoryMiddleware } from "@neo4j-labs/agent-memory/middleware/vercel-ai";
+
+const USER_ID = process.env.USER_ID ?? "demo-user";
+
+async function main() {
+  // Zero-config: reads MEMORY_API_KEY from env, targets NAMS.
+  const memory = new MemoryClient();
+
+  // One conversation per user. Reuse the same id across runs to see
+  // the assistant recall context from prior sessions.
+  const conv = await memory.shortTerm.createConversation({
+    userId: USER_ID,
+    metadata: { source: "shopping-assistant" },
+  });
+
+  console.log(`Conversation id: ${conv.id}\n`);
+
+  // The middleware injects three-tier context before each model call
+  // and persists both the user input and the assistant reply.
+  const middleware = agentMemoryMiddleware(memory, {
+    conversationId: conv.id,
+    userId: USER_ID,
+  }) as unknown as LanguageModelV1Middleware;
+
+  const model = wrapModel({
+    model: openai("gpt-4o-mini"),
+    middleware,
+  });
+
+  // ...turn loop goes here in Step 3...
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+----
+
+The middleware is the load-bearing piece: it reads `getContext(conv.id)` before each call and writes the resulting user message + assistant reply after each call. We never have to manage messages by hand.
+
+== Step 3: Drive a multi-turn conversation
+
+Replace the `// ...turn loop...` comment with:
+
+[source,typescript]
+----
+const turns = [
+  "Hi! I'm shopping for running shoes. I usually wear Nike, size 10.",
+  "What's a good option for marathon training?",
+  "What about something more affordable in the same brand?",
+];
+
+const system = `You are a helpful shopping assistant for an athletic-shoes
+retailer. Use any preferences and prior conversation history you receive
+from memory to personalize recommendations. Cite the user's stated brand
+and size when relevant.`;
+
+for (const userMessage of turns) {
+  process.stdout.write(`\n[user] ${userMessage}\n[assistant] `);
+  const { text } = await generateText({
+    model,
+    system,
+    messages: [{ role: "user", content: userMessage }],
+  });
+  process.stdout.write(`${text}\n`);
+}
+----
+
+Run it:
+
+[source,bash]
+----
+npm start
+----
+
+Expected output (the exact wording will differ by model run):
+
+[listing]
+----
+Conversation id: 38f1c2e0-...
+
+[user] Hi! I'm shopping for running shoes. I usually wear Nike, size 10.
+[assistant] Great — Nike size 10 noted. Are you running on roads, trails,
+or a mix?
+
+[user] What's a good option for marathon training?
+[assistant] For marathon training in Nike size 10, the ZoomX Vaporfly is
+a great choice — light carbon plate, breathable upper. Want me to find
+similar but for higher mileage?
+
+[user] What about something more affordable in the same brand?
+[assistant] Sticking with Nike size 10, the Pegasus 41 is the budget-
+friendly daily trainer ...
+----
+
+Notice the assistant carries "Nike, size 10" forward without us explicitly passing it in each turn. The middleware fetched it from memory.
+
+== Step 4: Capture preferences as long-term knowledge
+
+Conversation memory is great for "what did we just say", but we want preferences to survive separately from this conversation so that any agent on the same backend can use them. Add this after the turn loop:
+
+[source,typescript]
+----
+// Distill the conversation into a long-term preference.
+await memory.longTerm.addPreference(
+  "brand",
+  "Prefers Nike for running shoes",
+  { context: `From conversation ${conv.id}` },
+);
+
+await memory.longTerm.addPreference(
+  "size",
+  "Wears US men's size 10 in athletic shoes",
+  { context: `From conversation ${conv.id}` },
+);
+
+console.log(
+  `\nPreferences persisted. Re-run with USER_ID=${USER_ID} to see them recalled.`,
+);
+----
+
+Run again with the same `USER_ID` — the second run starts with two preferences already in long-term memory. The middleware picks them up via `getContext()` before the first turn.
+
+== Step 5: Test persistence across sessions
+
+Open a new shell (or stop and restart the process). Reuse the same user id:
+
+[source,bash]
+----
+USER_ID=demo-user npm start
+----
+
+This run will create a *new* conversation (one per process), but the previously stored preferences and prior conversation observations are visible in the three-tier context. Try asking:
+
+[listing]
+----
+[user] What size do I wear again?
+[assistant] You wear US men's size 10 — that's what we noted last time.
+----
+
+The assistant didn't see "size 10" in the current conversation. It read it from long-term memory via the middleware.
+
+== Step 6: Verify memory state
+
+Add a quick post-run diagnostic block:
+
+[source,typescript]
+----
+// Inspect what's persisted
+const recent = await memory.shortTerm.listConversations({
+  userId: USER_ID,
+  limit: 5,
+});
+console.log(`\nRecent conversations for ${USER_ID}:`);
+for (const c of recent) {
+  console.log(`  ${c.id} — ${c.messages?.length ?? 0} messages`);
+}
+
+const prefs = await memory.longTerm.searchPreferences(
+  "running shoes",
+  { limit: 5 },
+);
+console.log(`\nStored preferences:`);
+for (const p of prefs) {
+  console.log(`  [${p.category}] ${p.preference}`);
+}
+----
+
+Output should show each prior conversation and both preferences accumulating across runs.
+
+== What You've Built
+
+A chatbot with:
+
+* Automatic per-turn context injection via Vercel AI SDK middleware.
+* Per-user conversation scoping via `createConversation({ userId })`.
+* Long-term preferences that persist across sessions and are reusable by other agents on the same backend.
+* Zero state-management code — `MemoryClient` handles persistence and retrieval.
+
+== Extending the Assistant
+
+* **Add entities.** When the user mentions a specific product, persist it: `await memory.longTerm.addEntity("Nike ZoomX Vaporfly", "product")`.
+* **Record reasoning.** Wrap recommendation logic in a `startTrace` / `addStep` / `recordToolCall` / `completeTrace` block to capture *how* the assistant chose what to recommend. See xref:how-to/reasoning-traces.adoc[Record Reasoning Traces].
+* **Deploy to the edge.** The `fetch`-only transport runs on Cloudflare Workers and Vercel Edge — see xref:how-to/typescript/edge-runtime.adoc[Edge Runtime Deployment].
+* **Wire MCP.** Surface the same memory through MCP tools so Claude Desktop or Cursor can read the same graph — see xref:tutorials/mcp-server-typescript.adoc[Connect Claude Desktop to Your Memory (TypeScript)].
+
+== Next Steps
+
+* xref:tutorials/knowledge-graph-typescript.adoc[Build a Knowledge Graph from Documents (TypeScript)] — populate entities and relationships from a document corpus.
+* xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK middleware reference] — every option on `agentMemoryMiddleware`.
+* xref:reference/typescript-api.adoc[TypeScript SDK API reference] — full method surface.
+
+== See Also
+
+* xref:explanation/memory-types.adoc[Understanding the Three Memory Types]
+* xref:explanation/multi-agent-sharing.adoc[Cross-Agent Memory Sharing] — how this chatbot's preferences are visible to other agents on the same backend.
+* link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/vercel-ai[Runnable example in `typescript/examples/vercel-ai/`]

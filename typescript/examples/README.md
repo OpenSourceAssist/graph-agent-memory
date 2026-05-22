@@ -33,9 +33,16 @@ Each example's own README has the full step-by-step.
 
 ## Notes
 
-- These examples use `"file:.."` to depend on the local client package
-  during development. When using the examples as a template for your own
-  project, replace that with a pinned version like
-  `"@neo4j-labs/agent-memory": "^0.3.0"`.
-- Examples are **not** exercised by CI — they're documentation. If you
-  find one broken, please open an issue.
+- These examples use `"@neo4j-labs/agent-memory": "file:../.."` to
+  depend on the in-tree SDK during development — so contributors can
+  iterate on both without an npm publish round-trip. When using one of
+  these examples as a template for your own project, replace the
+  `file:` path with a published version:
+  ```
+  "@neo4j-labs/agent-memory": "^0.3.0"
+  ```
+- Each example is **type-checked in CI** by the `type-check-examples`
+  matrix in `.github/workflows/ci-typescript.yml` — drift between an
+  example and the SDK's public API fails the PR that introduces it.
+  Runtime execution (`npm start`) still needs API keys you provide
+  locally.

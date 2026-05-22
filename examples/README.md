@@ -151,7 +151,7 @@ The quick suite catches the most common drift — missing imports, renamed APIs,
 1. Add a directory under `examples/` (or a single `.py` for a script).
 2. Include a README following the [Neo4j Labs guidelines](https://github.com/neo4j-labs) — Labs badge, status badge, community support badge, disclaimer, support section, "verified against" footer.
 3. Add a smoke test under `tests/examples/`. Mirror an existing one such as [`tests/examples/test_buffered_writes_example.py`](../tests/examples/test_buffered_writes_example.py) for the structure.
-4. Register the test in `.github/workflows/ci.yml` under `example-tests-quick` (no Neo4j) or `example-tests` (with Neo4j).
+4. Register the test in `.github/workflows/ci-python.yml` under `example-tests-quick` (no Neo4j) or `example-tests` (with Neo4j).
 5. Add a row to the index above.
 
 ## Support
@@ -166,4 +166,4 @@ Apache 2.0 — see the main `neo4j-agent-memory` repository for details.
 
 ---
 
-_This index reflects the state of the `adopt-existing-graph` branch as of 2026-05-03 (current package version v0.1.2; v0.2 surface in development)._
+_This index reflects `main` as of 2026-05-22. Current PyPI release: `neo4j-agent-memory` v0.4.x (NAMS hosted-backend support shipped in v0.4.0). The TypeScript SDK [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory) is published on npm and lives in [`../typescript/`](../typescript/)._

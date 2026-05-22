@@ -8,6 +8,60 @@
 
 How to create, search, and manage entities in long-term memory.
 
+[NOTE]
+====
+This page's prose targets the **Python SDK against a Bolt-connected
+Neo4j**. The canonical entity operations port to the **TypeScript SDK
+against NAMS** — the cheat-sheet below maps them and the `[tabs]`
+block on the first example shows both side-by-side. For TS-only
+patterns (entity retriever, knowledge-graph tutorials) see
+xref:how-to/index.adoc[the TypeScript SDK section of the how-to index] and
+xref:reference/typescript-api.adoc[the TypeScript API reference].
+====
+
+== TypeScript equivalents at a glance
+
+[cols="2,2,2", options="header"]
+|===
+|Operation |Python (Bolt) |TypeScript (NAMS)
+
+|Add an entity
+|`client.long_term.add_entity(name, entity_type)`
+|`memory.longTerm.addEntity(name, entityType)`
+
+|Get an entity by name
+|`client.long_term.get_entity_by_name(name)`
+|`memory.longTerm.getEntityByName(name)`
+
+|Search entities (semantic)
+|`client.long_term.search_entities(query, entity_types=, limit=)`
+|`memory.longTerm.searchEntities(query, { type, limit })`
+
+|Walk related entities
+|`client.long_term.get_related_entities(entity_id, relationship_type=)`
+|`memory.longTerm.getRelatedEntities(entityId, { relationshipType, depth })`
+
+|Add a relationship
+|`client.long_term.add_relationship(source_id, target_id, relationship_type)`
+|`memory.longTerm.addRelationship(sourceId, targetId, relationshipType)`
+
+|Merge duplicates
+|`client.long_term.merge_duplicate_entities(source_id, target_id)`
+|`memory.longTerm.mergeDuplicateEntities(sourceId, targetId)`
+
+|Rich entity attributes
+|`add_entity(..., attributes={...})`
+|`addEntity(name, type, { description })` + update via `updateEntity` with `metadata`. NAMS uses lowercase types (`"person"`, `"organization"`, ...) vs Bolt's POLE+O (`"PERSON"`, ...).
+
+|Entity provenance
+|`client.long_term.get_entity_provenance(entity_id)`
+|`memory.reasoning.getEntityProvenance(entityId)` _(NAMS Platinum)_
+
+|Entity history / audit
+|_(not exposed)_
+|`memory.longTerm.getEntityHistory(entityId)` _(NAMS Platinum)_
+|===
+
 == Prerequisites
 
 * Neo4j database running with vector index support
@@ -20,6 +74,10 @@ How to create, search, and manage entities in long-term memory.
 
 Create entities with name and type:
 
+[tabs]
+======
+Python (Bolt)::
++
 [source,python]
 ----
 from neo4j_agent_memory import MemoryClient, MemorySettings
@@ -30,7 +88,7 @@ settings = MemorySettings(
 
 client = MemoryClient(settings)
 
-# Add a customer entity
+# Add a customer entity. Python add_entity returns (entity, dedup_result).
 entity, _ = await client.long_term.add_entity(
     name="John Smith",
     entity_type="PERSON",
@@ -38,6 +96,24 @@ entity, _ = await client.long_term.add_entity(
 
 print(f"Created entity: {entity.id}")
 ----
+
+TypeScript (NAMS)::
++
+[source,typescript]
+----
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+
+const memory = new MemoryClient();  // reads MEMORY_API_KEY
+
+// NAMS uses lowercase entity types: "person", "organization", "location",
+// "concept", "tool", "custom". Server-side dedup is automatic.
+const entity = await memory.longTerm.addEntity("John Smith", "person", {
+  description: "Customer who ordered SKU-NKE-AM90 on 2026-04-01",
+});
+
+console.log(`Created entity: ${entity.id}`);
+----
+======
 
 === Entity with Properties
 

@@ -4,11 +4,11 @@
 ![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)
 ![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)
 
-> **New home:** this package moved from
-> [`neo4j-labs/agent-memory-tck`](https://github.com/neo4j-labs/agent-memory-tck)
-> to [`neo4j-labs/agent-memory`](https://github.com/neo4j-labs/agent-memory),
-> alongside the Python SDK. Install path, package name, and exports are
-> unchanged — `npm install @neo4j-labs/agent-memory`.
+> **Now on npm.** Install with `npm install @neo4j-labs/agent-memory`
+> ([package page](https://www.npmjs.com/package/@neo4j-labs/agent-memory)).
+> Source lives alongside the Python SDK at
+> [`neo4j-labs/agent-memory`](https://github.com/neo4j-labs/agent-memory)
+> (relocated from `neo4j-labs/agent-memory-tck`).
 
 > TypeScript client for the Neo4j Agent Memory Service — short-term,
 > long-term, and reasoning memory for AI agents, backed by Neo4j.

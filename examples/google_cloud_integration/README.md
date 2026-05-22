@@ -273,4 +273,4 @@ neo4j-agent-memory mcp serve --transport stdio 2>&1 | tee mcp.log
 
 ---
 
-_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03. Stale `await memory_client.initialize()` snippet in `adk_memory_service.py` was corrected to `await memory_client.connect()` during this verification pass._
+_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03 (current PyPI release: v0.4.x with NAMS support). Stale `await memory_client.initialize()` snippet in `adk_memory_service.py` was corrected to `await memory_client.connect()` during this verification pass._

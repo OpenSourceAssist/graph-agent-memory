@@ -33,5 +33,5 @@ const agent = new Agent({
 
 ## See also
 
-- [How-to: Mastra](../../../../docs/how-to/mastra.adoc)
+- [How-to: Mastra](https://neo4j.com/labs/agent-memory/how-to/typescript/mastra)
 - [Mastra docs](https://mastra.ai)

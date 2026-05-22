@@ -10,6 +10,65 @@ How to store conversation messages and retrieve them using semantic search.
 
 image::diagrams/message-chain.png[Message chain: Conversation linked to Messages via FIRST_MESSAGE and NEXT_MESSAGE, with MENTIONS edges to entities,width=600,align=left]
 
+[NOTE]
+====
+This page's prose and the deeper examples (custom summaries,
+metadata-filtered search, time-range search, batch import) target the
+**Python SDK against a Bolt-connected Neo4j**. The canonical operations
+(add message, search, list sessions, get conversation, delete) port
+cleanly to the **TypeScript SDK against NAMS** — `[tabs]` blocks below
+show both. For TypeScript-specific patterns (Vercel AI middleware,
+edge runtime) see xref:how-to/index.adoc[the TypeScript SDK section of the how-to index]
+and xref:reference/typescript-api.adoc[the TypeScript API reference].
+====
+
+== TypeScript equivalents at a glance
+
+[cols="2,2,2", options="header"]
+|===
+|Operation |Python (Bolt) |TypeScript (NAMS)
+
+|Add a message
+|`client.short_term.add_message(session_id, role, content)`
+|`memory.shortTerm.addMessage(conversationId, role, content)`
+
+|Search messages
+|`client.short_term.search_messages(query, limit=)`
+|`memory.shortTerm.searchMessages(query, { limit })`
+
+|List sessions/conversations
+|`client.short_term.list_sessions()`
+|`memory.shortTerm.listConversations({ userId })`
+
+|Get a conversation
+|`client.short_term.get_conversation(session_id)`
+|`memory.shortTerm.getConversation(conversationId)`
+
+|Delete a session/conversation
+|`client.short_term.delete_session(session_id)`
+|`memory.shortTerm.clearSession(conversationId)` _or_ `deleteConversation(id)`
+
+|Three-tier context (recent + observations + reflections)
+|`client.get_context(query, session_id=)`
+|`memory.shortTerm.getContext(conversationId)`
+
+|Bulk-load messages
+|`client.short_term.add_messages_batch(messages, session_id)`
+|`memory.shortTerm.bulkAddMessages(conversationId, messages)`
+
+|Metadata-filtered search
+|`client.short_term.search_messages(query, metadata_filter={...})`
+|_Not built-in. Use `client.query.cypher(...)` against NAMS Cypher endpoint, or fetch + filter in JS._
+
+|Time-range search (`after=`)
+|`client.short_term.search_messages(query, after=ts)`
+|_Not built-in. Filter client-side on `message.timestamp` from `getConversation()` result._
+
+|Auto-summarize
+|`client.short_term.summarize_session(session_id)`
+|_Not exposed. NAMS surfaces inline observations and reflections via `getObservations()` / `getReflections()` — see "Generate summaries" below._
+|===
+
 == Prerequisites
 
 * Neo4j database running with vector index support (Neo4j 5.13+)
@@ -22,6 +81,10 @@ image::diagrams/message-chain.png[Message chain: Conversation linked to Messages
 
 Store a single message with automatic embedding generation:
 
+[tabs]
+======
+Python (Bolt)::
++
 [source,python]
 ----
 from neo4j_agent_memory import MemoryClient, MemorySettings
@@ -41,6 +104,30 @@ message = await client.short_term.add_message(
 
 print(f"Stored message: {message.id}")
 ----
+
+TypeScript (NAMS)::
++
+[source,typescript]
+----
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+
+// Reads MEMORY_API_KEY from env; targets NAMS by default.
+const memory = new MemoryClient();
+
+// Create a conversation up front (NAMS pattern).
+const conv = await memory.shortTerm.createConversation({
+  userId: "support-user-001",
+});
+
+const message = await memory.shortTerm.addMessage(
+  conv.id,
+  "user",
+  "I'd like to return the Nike Air Max shoes I ordered last week. Order #12345.",
+);
+
+console.log(`Stored message: ${message.id}`);
+----
+======
 
 === Store with Metadata
 
@@ -121,6 +208,10 @@ await client.short_term.add_messages_batch(
 
 Find messages by meaning, not just keywords:
 
+[tabs]
+======
+Python (Bolt)::
++
 [source,python]
 ----
 # Find discussions about portfolio allocation
@@ -133,6 +224,23 @@ for msg in results:
     print(f"[{msg.role}] {msg.content[:100]}...")
     print(f"  Session: {msg.session_id}, Score: {msg.score:.3f}")
 ----
+
+TypeScript (NAMS)::
++
+[source,typescript]
+----
+// Find discussions about portfolio allocation
+const results = await memory.shortTerm.searchMessages(
+  "client wants to adjust investment allocation",
+  { limit: 10 },
+);
+
+for (const msg of results) {
+  console.log(`[${msg.role}] ${msg.content.slice(0, 100)}...`);
+  console.log(`  Conversation: ${msg.conversationId}`);
+}
+----
+======
 
 === Filter by Session
 
@@ -220,6 +328,10 @@ for session in sessions:
 
 Retrieve all messages in a session:
 
+[tabs]
+======
+Python (Bolt)::
++
 [source,python]
 ----
 # Get full conversation history
@@ -231,6 +343,19 @@ messages = conversation.messages
 for msg in messages:
     print(f"[{msg.timestamp}] {msg.role}: {msg.content}")
 ----
+
+TypeScript (NAMS)::
++
+[source,typescript]
+----
+// Get full conversation history
+const conversation = await memory.shortTerm.getConversation(conv.id);
+
+for (const msg of conversation.messages) {
+  console.log(`[${msg.timestamp}] ${msg.role}: ${msg.content}`);
+}
+----
+======
 
 === Delete Sessions
 
@@ -304,6 +429,10 @@ Combine message history with other memory types for rich context:
 
 === Get Combined Context
 
+[tabs]
+======
+Python (Bolt)::
++
 [source,python]
 ----
 # Get comprehensive context for agent response
@@ -329,6 +458,37 @@ print("\nRelevant entities:")
 for entity in context.entities:
     print(f"  {entity.name} ({entity.type})")
 ----
+
+TypeScript (NAMS)::
++
+[source,typescript]
+----
+// NAMS returns a structured three-tier window: reflections, observations,
+// recentMessages. Entities and preferences are fetched separately.
+const context = await memory.shortTerm.getContext(conv.id);
+
+console.log("Reflections (higher-level summaries):");
+for (const r of context.reflections) {
+  console.log(`  ${r.content}`);
+}
+
+console.log("\nObservations (inline notes):");
+for (const o of context.observations) {
+  console.log(`  ${o.content}`);
+}
+
+console.log("\nRecent messages:");
+for (const msg of context.recentMessages) {
+  console.log(`  [${msg.role}]: ${msg.content.slice(0, 80)}...`);
+}
+
+// Fetch entities and preferences separately if needed
+const entities = await memory.longTerm.searchEntities(
+  "running shoes",
+  { limit: 5 },
+);
+----
+======
 
 === Format for LLM
 

@@ -26,5 +26,5 @@ prior turns. Re-run the script to see context recalled across sessions
 
 ## See also
 
-- [How-to: Vercel AI middleware](../../../../docs/how-to/vercel-ai.adoc)
+- [How-to: Vercel AI middleware](https://neo4j.com/labs/agent-memory/how-to/typescript/vercel-ai)
 - [Vercel AI SDK docs](https://sdk.vercel.ai)

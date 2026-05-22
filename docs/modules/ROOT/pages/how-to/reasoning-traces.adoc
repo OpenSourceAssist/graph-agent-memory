@@ -8,6 +8,60 @@
 
 How to record agent reasoning traces and use them to improve future decisions through the context graph.
 
+[NOTE]
+====
+The core trace operations (start, add step, record tool call, complete)
+port cleanly to the **TypeScript SDK against NAMS** — see the cheat-sheet
+below and the `[tabs]` blocks on the canonical examples. The
+`:TOUCHED` audit-edge pattern is **Python+Bolt only**; the NAMS
+equivalent is `memory.reasoning.getEntityProvenance(entityId)` which
+returns the same "which steps touched this entity" answer from a
+different schema.
+====
+
+== TypeScript equivalents at a glance
+
+[cols="2,2,2", options="header"]
+|===
+|Operation |Python (Bolt) |TypeScript (NAMS)
+
+|Start a trace
+|`client.reasoning.start_trace(session_id, task, metadata=)`
+|`memory.reasoning.startTrace(sessionId, task)`
+
+|Add a step (thought / action)
+|`client.reasoning.add_step(trace_id, thought=, action=)`
+|`memory.reasoning.addStep(traceId, { thought, action, observation })`
+
+|Record a tool call
+|`client.reasoning.record_tool_call(step_id, tool_name, arguments=, result=, status=, duration_ms=)`
+|`memory.reasoning.recordToolCall(stepId, toolName, args, { result, status, durationMs, error })`
+
+|Complete a trace
+|`client.reasoning.complete_trace(trace_id, outcome=, success=, summary=)`
+|`memory.reasoning.completeTrace(traceId, { outcome, success })`
+
+|Get trace with steps
+|`client.reasoning.get_trace_with_steps(trace_id)`
+|`memory.reasoning.getTraceWithSteps(traceId)`
+
+|Find similar past traces
+|`client.reasoning.get_similar_traces(task, success_only=, limit=)`
+|`memory.reasoning.getSimilarTraces(task, { successOnly, limit })`
+
+|Tool usage stats
+|`client.reasoning.get_tool_stats(tool_name=)`
+|`memory.reasoning.getToolStats(toolName)`
+
+|Audit "which steps touched entity X"
+|`MATCH (e:Entity)<-[:TOUCHED]-(s)<-[:HAS_STEP]-(t)` Cypher; or `client.long_term.get_entity_provenance(id)`
+|`memory.reasoning.getEntityProvenance(entityId)` _(NAMS Platinum)_
+
+|Custom trace metadata
+|`start_trace(..., metadata={...})`
+|_Not exposed directly. Attach via the conversation/session level instead._
+|===
+
 == Overview
 
 Reasoning traces capture the step-by-step thought process of agents, including tool calls, decisions, and outcomes. Stored in the context graph, traces enable agents to learn from past experiences and improve over time.
@@ -26,6 +80,10 @@ image::diagrams/reasoning-trace-graph.png[Reasoning trace graph: Message trigger
 
 Begin recording when an agent task starts:
 
+[tabs]
+======
+Python (Bolt)::
++
 [source,python]
 ----
 from neo4j_agent_memory import MemoryClient, MemorySettings
@@ -48,6 +106,24 @@ async with MemoryClient(settings) as client:
 
 print(f"Started trace: {trace.id}")
 ----
+
+TypeScript (NAMS)::
++
+[source,typescript]
+----
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+
+const memory = new MemoryClient();
+
+// sessionId is typically the conversation id from createConversation
+const trace = await memory.reasoning.startTrace(
+  "shopping-session-001",
+  "Find running shoes matching customer preferences",
+);
+
+console.log(`Started trace: ${trace.id}`);
+----
+======
 
 === Record Reasoning Steps
 
