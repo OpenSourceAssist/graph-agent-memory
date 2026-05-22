@@ -126,4 +126,4 @@ async with MemoryClient(settings) as client:
 
 ---
 
-_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03 (structure & import tests; end-to-end run requires ADK environment)._
+_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03 (current PyPI release: v0.4.x with NAMS support) (structure & import tests; end-to-end run requires ADK environment)._

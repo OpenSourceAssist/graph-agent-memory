@@ -655,4 +655,4 @@ This example is part of the neo4j-agent-memory project and is licensed under the
 
 ---
 
-_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03 (105 unit tests pass; full end-to-end run requires Google API key and `[google-adk,vertex-ai]` extras)._
+_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03 (current PyPI release: v0.4.x with NAMS support) (105 unit tests pass; full end-to-end run requires Google API key and `[google-adk,vertex-ai]` extras)._

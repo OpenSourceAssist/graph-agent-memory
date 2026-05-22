@@ -45,5 +45,5 @@ Then set `AWS_REGION` and AWS credentials in your environment.
 
 ## See also
 
-- [How-to: Strands integration](../../../../docs/how-to/strands.adoc)
+- [How-to: Strands integration](https://neo4j.com/labs/agent-memory/how-to/typescript/strands)
 - [Strands Agents SDK docs](https://strandsagents.com)

@@ -39,5 +39,5 @@ const memoryChain = new RunnableWithMessageHistory({
 
 ## See also
 
-- [How-to: LangChain JS](../../../../docs/how-to/langchain.adoc)
+- [How-to: LangChain JS](https://neo4j.com/labs/agent-memory/how-to/typescript/langchain)
 - [LangChain JS docs](https://js.langchain.com)

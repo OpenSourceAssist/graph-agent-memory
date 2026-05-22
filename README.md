@@ -26,7 +26,7 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 
 **Plus:** multi-stage entity extraction (spaCy / GLiNER / LLM), relationship extraction (GLiREL), background enrichment (Wikipedia / Diffbot), geospatial queries, [MCP server](#mcp-server) with 16 tools, and integrations with [LangChain, Pydantic AI, Google ADK, Strands, CrewAI, and more](#framework-integrations).
 
-**New in v0.2** _(in development on the `adopt-existing-graph` branch)_: adopt an existing Neo4j graph as long-term memory (`client.schema.adopt_existing_graph(...)`), multi-tenant scoping (`user_identifier=`), fire-and-forget [buffered writes](examples/buffered-writes/) (`client.buffered.submit(...)`), [consolidation primitives](examples/audit-trail/) (`client.consolidation.dedupe_entities(...)`), an [eval harness](examples/eval-harness/) (`client.eval.run(suite)`), and explicit `:TOUCHED` audit edges from reasoning steps to entities.
+**v0.2**: adopt an existing Neo4j graph as long-term memory (`client.schema.adopt_existing_graph(...)`), multi-tenant scoping (`user_identifier=`), fire-and-forget [buffered writes](examples/buffered-writes/) (`client.buffered.submit(...)`), [consolidation primitives](examples/audit-trail/) (`client.consolidation.dedupe_entities(...)`), an [eval harness](examples/eval-harness/) (`client.eval.run(suite)`), and explicit `:TOUCHED` audit edges from reasoning steps to entities.
 
 **New in v0.3** _(pluggable providers)_: bring your own model. `MemorySettings.embedding` and `MemorySettings.llm` now accept a provider-string shorthand (`"anthropic/claude-3-5-sonnet-latest"`, `"BAAI/bge-small-en-v1.5"`) or a Provider instance. Native adapters for OpenAI, Anthropic, Bedrock, Vertex AI, and sentence-transformers; LiteLLM universal fallback covers 100+ providers (Cohere, Voyage, Groq, Together, Mistral, Ollama, ...). Existing `EmbeddingConfig`/`LLMConfig` users keep working with a one-time deprecation warning — full migration guide at [migrate-to-v0.3](https://neo4j.com/labs/agent-memory/how-to/migrate-to-v0.3.html).
 
@@ -240,7 +240,7 @@ See [`examples/README.md`](examples/README.md) for the full index. Highlights:
 | [Google Cloud Integration](examples/google_cloud_integration/) | Google ADK | Progressive tutorial: Vertex AI, ADK, MCP server, and MemoryIntegration with session strategies |
 | [Google ADK Demo](examples/google_adk_demo/) | Google ADK | Standalone demo of Neo4jMemoryService with session storage, search, and preferences |
 
-Examples currently pin `neo4j-agent-memory>=0.1.0`. The v0.2 demos use APIs that ship in v0.2 (in development on the `adopt-existing-graph` branch); pins will move to `>=0.2.0` once that release lands.
+Most examples pin `neo4j-agent-memory>=0.4.0` (the NAMS-capable release). TypeScript examples pin `@neo4j-labs/agent-memory@^0.3.0`. See each example's `pyproject.toml` / `package.json` for the exact pin.
 
 ## Documentation
 

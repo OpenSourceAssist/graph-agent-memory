@@ -60,9 +60,9 @@ This is the flagship demo application for the `neo4j-agent-memory` library. It d
 | **Entity Enrichment** | Wikipedia/Wikimedia API |
 | **Observability** | OpenTelemetry / Opik tracing support |
 
-## neo4j-agent-memory v0.1.0 Features
+## neo4j-agent-memory Features
 
-This example showcases several features from neo4j-agent-memory v0.1.0:
+This example showcases several features from neo4j-agent-memory:
 
 - **`ExtractionConfig`** with `gliner_schema="podcast"` -- uses the podcast-optimized domain schema for entity extraction
 - **`DeduplicationConfig`** -- auto-merges entities at 95%+ similarity, flags for review at 85%+, with fuzzy string matching
@@ -1256,4 +1256,4 @@ This example is part of the [neo4j-agent-memory](https://github.com/neo4j-labs/a
 
 ---
 
-_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03. During this verification pass, two phantom-method calls in `scripts/load_transcripts.py` (`get_messages` → `get_conversation`) and `backend/src/api/routes/threads.py` (`delete_conversation` → `clear_session`) were corrected. Full UI/end-to-end smoke not re-run; library-side wiring is current._
+_Verified against `neo4j-agent-memory` v0.1.2 / v0.2-dev on 2026-05-03 (current PyPI release: v0.4.x with NAMS support). During this verification pass, two phantom-method calls in `scripts/load_transcripts.py` (`get_messages` → `get_conversation`) and `backend/src/api/routes/threads.py` (`delete_conversation` → `clear_session`) were corrected. Full UI/end-to-end smoke not re-run; library-side wiring is current._
