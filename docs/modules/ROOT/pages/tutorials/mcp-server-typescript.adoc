@@ -1,0 +1,308 @@
+= Connect Claude Desktop to Your Memory (TypeScript MCP Server)
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+A step-by-step tutorial to run a TypeScript MCP server that exposes the 12 standard memory tools to Claude Desktop, Cursor, or any MCP-aware client — backed by the hosted NAMS service.
+
+[.lead]
+In this tutorial we will stand up an MCP server in ~50 lines of TypeScript, register it with Claude Desktop, and watch Claude store entities, recall preferences, and add reasoning traces during a normal chat — all backed by your NAMS account.
+
+[TIP]
+====
+**Do you actually need to self-host?** NAMS itself exposes the same 12 tools at `https://memory.neo4jlabs.com/mcp` directly. If you just want to wire Claude Desktop to your memory, point it at that URL with your API key — see xref:tutorials/mcp-server.adoc[the Python MCP-server tutorial]'s "use the hosted MCP endpoint" section.
+
+Self-hosting an MCP server is the right choice when you want to **wrap, filter, or log tool calls** before they hit NAMS — for example, to redact PII, add custom tools alongside the standard 12, or proxy traffic from a network that can't reach `memory.neo4jlabs.com` directly. That's what this tutorial covers.
+====
+
+== What You'll Learn
+
+* How to use `@neo4j-labs/agent-memory/mcp` to register the 12 standard memory tools with an MCP server.
+* How to wire that server to Claude Desktop via stdio.
+* How to verify memory operations from a Claude chat.
+* How to add a custom tool alongside the standard 12.
+
+== Prerequisites
+
+* Node.js 20 or later.
+* Claude Desktop (latest version).
+* `MEMORY_API_KEY` — get one at link:https://memory.neo4jlabs.com[memory.neo4jlabs.com].
+
+== Time Required
+
+About 15 minutes.
+
+== Step 1: Project setup
+
+[source,bash]
+----
+mkdir my-memory-mcp && cd my-memory-mcp
+npm init -y
+npm install @neo4j-labs/agent-memory @modelcontextprotocol/sdk
+npm install --save-dev typescript tsx @types/node
+----
+
+Add `"type": "module"` and a build script to `package.json`:
+
+[source,json]
+----
+{
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts"
+  }
+}
+----
+
+== Step 2: Write the MCP server
+
+Create `src/server.ts`:
+
+[source,typescript]
+----
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+import {
+  createMemoryTools,
+  handleMemoryToolCall,
+} from "@neo4j-labs/agent-memory/mcp";
+
+async function main() {
+  // Reads MEMORY_API_KEY from the environment Claude Desktop passes in.
+  const memory = new MemoryClient();
+
+  const tools = createMemoryTools();
+
+  const server = new Server(
+    { name: "my-memory-mcp", version: "0.1.0" },
+    { capabilities: { tools: {} } },
+  );
+
+  // Tell Claude what tools we expose.
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema,
+    })),
+  }));
+
+  // Route every tool call through `handleMemoryToolCall`, which dispatches
+  // to the right MemoryClient method based on the tool name.
+  server.setRequestHandler(CallToolRequestSchema, async (req) => {
+    const result = await handleMemoryToolCall(
+      memory,
+      req.params.name,
+      (req.params.arguments ?? {}) as Record<string, unknown>,
+    );
+    return {
+      content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+  });
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("my-memory-mcp listening on stdio");
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+----
+
+That's the whole server. The two `setRequestHandler` calls cover the entire MCP tool protocol; everything memory-specific is inside `handleMemoryToolCall`.
+
+== Step 3: Test the server locally
+
+[source,bash]
+----
+MEMORY_API_KEY=nams_xxx npm start
+----
+
+The process should print `my-memory-mcp listening on stdio` to stderr and then sit waiting for JSON-RPC over stdin/stdout. Press Ctrl+C to stop it.
+
+If you see an error from `MemoryClient` about a missing key, double-check the env var.
+
+== Step 4: Register the server with Claude Desktop
+
+Locate `claude_desktop_config.json`:
+
+* **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+* **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+* **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+Add (or merge) the server config:
+
+[source,json]
+----
+{
+  "mcpServers": {
+    "neo4j-memory": {
+      "command": "npx",
+      "args": ["tsx", "/absolute/path/to/my-memory-mcp/src/server.ts"],
+      "env": {
+        "MEMORY_API_KEY": "nams_..."
+      }
+    }
+  }
+}
+----
+
+Use the **absolute path** to `src/server.ts`. Relative paths don't work — Claude Desktop launches the process from its own working directory.
+
+Restart Claude Desktop.
+
+== Step 5: Verify the connection
+
+In Claude Desktop, click the hammer icon (or "tools" indicator) near the message input. You should see 12 tools listed under `neo4j-memory`:
+
+[listing]
+----
+memory_create_conversation
+memory_add_messages
+memory_get_context
+memory_search_messages
+memory_search_entities
+memory_get_entity
+memory_add_entity
+memory_get_entity_history
+memory_record_step
+memory_record_tool_call
+memory_get_trace
+memory_explain_decision
+----
+
+If the indicator is missing or shows an error, check Claude Desktop's MCP log: **Settings → Developer → Open MCP Logs**. The most common issues:
+
+* Wrong absolute path in `args`.
+* Missing or invalid `MEMORY_API_KEY` in `env`.
+* Node not on the PATH that Claude Desktop sees — try `"command": "/usr/local/bin/node"` (or your Node path) and `"args": ["/path/to/tsx", "..."]` instead.
+
+== Step 6: Have a memory-aware conversation
+
+In a fresh Claude conversation, paste this:
+
+[listing]
+----
+I'm Alice. I work at Acme Corp as a software engineer. I love writing Rust
+and I'm allergic to peanuts.
+
+Please remember this and confirm what you stored.
+----
+
+Claude will call several memory tools and respond with something like:
+
+[listing]
+----
+I've stored the following in your memory:
+
+- **Entity**: Alice (person) — software engineer at Acme Corp
+- **Entity**: Acme Corp (organization)
+- **Preference** (programming): Loves writing Rust
+- **Preference** (dietary): Allergic to peanuts
+
+You can ask me to recall any of this in a future conversation.
+----
+
+Open a *new* Claude conversation (so the chat history is empty) and ask:
+
+[listing]
+----
+What do you remember about me?
+----
+
+Claude will call `memory_search_entities` and `memory_search_messages`, see the entities and preferences from the prior chat, and recite them back.
+
+== Step 7: Verify in your NAMS dashboard
+
+Open link:https://memory.neo4jlabs.com[memory.neo4jlabs.com] and navigate to **Entities**. You should see Alice and Acme Corp. Navigate to **Preferences** to see the Rust and peanut entries. Both will be timestamped with this session.
+
+== Step 8: Add a custom tool
+
+The standard 12 tools cover memory, but you can register additional tools that live alongside them. Add a "current time" tool — useful for grounding the assistant when it needs to reason about temporal context:
+
+[source,typescript]
+----
+// In src/server.ts, replace the ListToolsRequestSchema handler with:
+
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: [
+    ...tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema,
+    })),
+    {
+      name: "current_time",
+      description: "Returns the current UTC time as an ISO 8601 string.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  ],
+}));
+
+// Update the CallToolRequestSchema handler:
+
+server.setRequestHandler(CallToolRequestSchema, async (req) => {
+  if (req.params.name === "current_time") {
+    return {
+      content: [{ type: "text", text: new Date().toISOString() }],
+    };
+  }
+  const result = await handleMemoryToolCall(
+    memory,
+    req.params.name,
+    (req.params.arguments ?? {}) as Record<string, unknown>,
+  );
+  return {
+    content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+  };
+});
+----
+
+Restart Claude Desktop. The tool count should now be 13. Ask Claude:
+
+[listing]
+----
+What's the current UTC time, and store it as a fact for me.
+----
+
+Claude will call `current_time`, get the timestamp, then call `memory_add_entity` (or a fact-storage tool) to persist it. You've just extended the MCP surface without touching the SDK.
+
+== What You've Built
+
+* An MCP server that exposes 12 (or 13) tools backed by NAMS memory.
+* A wired-up Claude Desktop that reads and writes that memory automatically.
+* A pattern for adding custom tools alongside the standard memory surface — useful for redaction, observability, or organization-specific tools.
+
+== Extending the Server
+
+* **Wrap tool calls with logging.** Add a `console.error` (which Claude Desktop captures into its MCP log) before each `handleMemoryToolCall`.
+* **Filter what gets stored.** Inspect the arguments before calling through — e.g., refuse `memory_add_entity` calls whose name looks like a credit card number.
+* **Add per-tenant scoping.** Set `MEMORY_API_KEY` per Claude Desktop profile via different `mcpServers` entries — each profile reads/writes its own subgraph.
+* **Switch to a streamable HTTP transport.** The MCP spec supports a streamable HTTP transport — replace `StdioServerTransport` with `StreamableHTTPServerTransport` to run the server out-of-process (e.g., on Cloud Run) and have multiple clients share it.
+
+== Next Steps
+
+* xref:tutorials/conversation-memory-typescript.adoc[Add Conversation Memory to a Chatbot (TypeScript)] — build an in-app chatbot using the same memory.
+* xref:tutorials/knowledge-graph-typescript.adoc[Build a Knowledge Graph from Documents (TypeScript)] — populate the entity graph that Claude will then search via MCP.
+* xref:how-to/typescript/mcp.adoc[MCP tools how-to] — every option for `createMemoryTools()` and `handleMemoryToolCall()`.
+
+== See Also
+
+* xref:reference/mcp-tools.adoc[MCP tools reference] — the 12 standard tool definitions.
+* xref:reference/typescript-api.adoc[TypeScript SDK API reference]
+* link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/mcp[Runnable example in `typescript/examples/mcp/`]
+* link:https://modelcontextprotocol.io[Model Context Protocol spec]

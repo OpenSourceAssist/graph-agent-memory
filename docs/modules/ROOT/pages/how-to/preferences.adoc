@@ -8,6 +8,46 @@
 
 How to store, retrieve, and use user preferences to personalize agent interactions using the context graph.
 
+[NOTE]
+====
+The basics (add a preference, search by category) port cleanly to the
+**TypeScript SDK against NAMS**. The advanced bits (per-user scoping via
+`user_identifier=`, time-travel via `supersede_preference`, bi-temporal
+`as_of` queries) are **Python+Bolt only** — see
+xref:how-to/multi-tenancy.adoc#typescript-counterpart[TypeScript multi-tenancy counterpart].
+====
+
+== TypeScript equivalents at a glance
+
+[cols="2,2,2", options="header"]
+|===
+|Operation |Python (Bolt) |TypeScript (NAMS)
+
+|Add a preference
+|`client.long_term.add_preference(category, preference)`
+|`memory.longTerm.addPreference(category, preference, { context })`
+
+|Search preferences
+|`client.long_term.search_preferences(query, category=, limit=)`
+|`memory.longTerm.searchPreferences(query, { category, limit })`
+
+|Per-user-scoped preferences
+|`add_preference(..., user_identifier=)`
+|_Not directly. Use `createConversation({ userId })` + scope by conversation. See xref:how-to/multi-tenancy.adoc#typescript-counterpart[TS multi-tenancy]._
+
+|Supersede a preference
+|`supersede_preference(old_id, new_id)`
+|_Not exposed. Add a new preference; rely on recency in retrieval._
+
+|Time-travel (`as_of=`)
+|`get_preferences_for(identifier, as_of=)`
+|_Not exposed on NAMS. Use `client.query.cypher(...)` if you really need it._
+
+|`applies_to=[EntityRef(...)]`
+|`add_preference(..., applies_to=[...])`
+|_Not exposed. Embed the relation in the preference text or in `context`._
+|===
+
 == Overview
 
 Preferences are structured knowledge about user likes, dislikes, and behavioral patterns stored in the context graph. They enable agents to provide personalized responses without asking the same questions repeatedly.
@@ -26,6 +66,10 @@ image::diagrams/preference-aware-context-graph.png[Preference-aware context grap
 
 Store explicit preferences stated by users:
 
+[tabs]
+======
+Python (Bolt)::
++
 [source,python]
 ----
 from neo4j_agent_memory import MemoryClient, MemorySettings
@@ -43,6 +87,25 @@ async with MemoryClient(settings) as client:
 
 print(f"Stored preference: {preference.id}")
 ----
+
+TypeScript (NAMS)::
++
+[source,typescript]
+----
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+
+const memory = new MemoryClient();
+
+// Store a preference. `context` is optional metadata explaining the source.
+const preference = await memory.longTerm.addPreference(
+  "brand",
+  "Prefers Nike brand for running shoes",
+  { context: "Stated in conversation conv-2026-05-22" },
+);
+
+console.log(`Stored preference: ${preference.id}`);
+----
+======
 
 === Categorized Preferences
 

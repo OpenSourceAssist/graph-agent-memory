@@ -1,0 +1,458 @@
+= TypeScript SDK API Reference
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 3
+:sectanchors:
+:icons: font
+:source-highlighter: highlight.js
+
+The shape of `@neo4j-labs/agent-memory`'s public surface, with deep links into the auto-generated TypeDoc reference for each symbol.
+
+[NOTE]
+====
+**Full method-level reference** lives in the TypeDoc-generated site at
+link:https://neo4j-labs.github.io/agent-memory/typescript/[`neo4j-labs.github.io/agent-memory/typescript/`].
+That site has every parameter, every property, every overload. This page
+is the **map** — what the SDK exposes and which TypeDoc symbol to open.
+
+The TypeDoc site is regenerated on every `typescript-v*` tag (see
+`.github/workflows/docs-typedoc.yml`) and on every push to `main` that
+touches `typescript/src/**`.
+====
+
+== Installation
+
+[source,bash]
+----
+npm install @neo4j-labs/agent-memory
+# pnpm add @neo4j-labs/agent-memory
+# bun add @neo4j-labs/agent-memory
+----
+
+Requires Node.js 20+. Works in Bun, Deno, Cloudflare Workers, and Vercel Edge — the transport is `fetch`-only.
+
+== `MemoryClient`
+
+The root class. Holds five subclients (`shortTerm`, `longTerm`, `reasoning`, `query`, `auth`) and the underlying `Transport`.
+
+[source,typescript]
+----
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+
+// Zero-config: reads MEMORY_API_KEY from environment, targets hosted NAMS.
+const memory = new MemoryClient();
+
+// With options
+const memory = new MemoryClient({
+  endpoint: "https://memory.neo4jlabs.com/v1",
+  apiKey: process.env.MEMORY_API_KEY,
+  timeout: 30_000,
+  headers: { "X-Trace-Id": traceId },
+  logger: (event) => console.log(event),
+});
+----
+
+=== `MemoryClientOptions`
+
+[cols="1,2,3,2", options="header"]
+|===
+|Field |Type |Description |Default
+
+|`endpoint`
+|`string`
+|The NAMS REST endpoint. Auto-selects REST transport when ending in `/v\d+`.
+|`https://memory.neo4jlabs.com/v1`
+
+|`apiKey`
+|`string`
+|Bearer token for `Authorization` header.
+|`process.env.MEMORY_API_KEY`
+
+|`tokenProvider`
+|`() => string \| Promise<string>`
+|Dynamic token source (OAuth refresh, AWS STS, etc.). Overrides `apiKey`.
+|—
+
+|`transport`
+|`"auto" \| "bridge" \| "rest"`
+|Force the wire protocol. `"auto"` selects based on endpoint shape.
+|`"auto"`
+
+|`timeout`
+|`number`
+|Per-request timeout in milliseconds.
+|`30000`
+
+|`headers`
+|`Record<string, string>`
+|Extra request headers (User-Agent, trace headers, etc.).
+|—
+
+|`logger`
+|`(event: LogEvent) => void`
+|Receives `request` / `response` / `error` events for observability.
+|—
+|===
+
+TypeDoc: link:https://neo4j-labs.github.io/agent-memory/typescript/classes/MemoryClient.html[`MemoryClient`] · link:https://neo4j-labs.github.io/agent-memory/typescript/interfaces/MemoryClientOptions.html[`MemoryClientOptions`]
+
+== `client.shortTerm` — short-term memory
+
+Conversations, messages, three-tier context.
+
+[cols="2,3", options="header"]
+|===
+|Method |Purpose
+
+|`addMessage(sessionId, role, content, options?)`
+|Append a message to a conversation. Returns the persisted `Message`.
+
+|`getConversation(sessionId, options?)`
+|Fetch a conversation by id, with its messages.
+
+|`searchMessages(query, options?)`
+|Semantic + filter search across stored messages.
+
+|`listSessions(options?)`
+|Enumerate session ids (with message counts and timestamps).
+
+|`deleteMessage(messageId)`
+|Remove a single message.
+
+|`clearSession(sessionId)`
+|Delete the whole conversation.
+
+|`createConversation(options)` _(hosted)_
+|Explicitly create a conversation with metadata (title, userId, workspace).
+
+|`listConversations(options?)` _(hosted)_
+|Enumerate full conversation objects.
+
+|`getConversationMetadata(conversationId)` _(hosted)_
+|Conversation header without the message list.
+
+|`deleteConversation(conversationId)` _(hosted)_
+|Delete an entire conversation.
+
+|`getContext(conversationId)` _(hosted)_
+|Three-tier window: reflections, observations, recent messages — designed to be dropped into an LLM prompt.
+
+|`bulkAddMessages(conversationId, messages)` _(hosted)_
+|Persist many messages in one HTTP round-trip.
+
+|`getObservations(conversationId, options?)` _(hosted)_
+|Inline observations extracted from the conversation so far.
+
+|`getReflections(conversationId)` _(hosted)_
+|Higher-level reflections generated when accumulated context crosses the compression threshold.
+|===
+
+**Returned types**: `Message`, `Conversation`, `ConversationContext`, `SessionInfo`, `Observation`, `Reflection`.
+
+**Hosted vs bridge**: methods marked _(hosted)_ require a NAMS REST endpoint (default). The bridge transport (for TCK conformance) raises `NotSupportedError` for these.
+
+TypeDoc: link:https://neo4j-labs.github.io/agent-memory/typescript/classes/ShortTermMemory.html[`ShortTermMemory`]
+
+== `client.longTerm` — long-term memory
+
+Entities (POLE+O), preferences, facts, relationships.
+
+[cols="2,3", options="header"]
+|===
+|Method |Purpose
+
+|`addEntity(name, entityType, options?)`
+|Create an entity. Returns the persisted `Entity`.
+
+|`addPreference(category, preference, options?)`
+|Record a preference (food, communication, dietary, etc.).
+
+|`addFact(subject, predicate, object)`
+|Store a typed subject-predicate-object triple.
+
+|`searchEntities(query, options?)`
+|Semantic search over entities, with optional type filter and `topK`.
+
+|`searchPreferences(query, options?)`
+|Semantic search over preferences, with optional category filter.
+
+|`getEntityByName(name)`
+|Look up an entity by exact name (returns `null` if not found).
+
+|`getRelatedEntities(entityId, options?)`
+|Walk relationships outward from a given entity.
+
+|`addRelationship(sourceId, targetId, relationshipType, options?)`
+|Create a typed relationship between two entities.
+
+|`mergeDuplicateEntities(sourceId, targetId, options?)`
+|Merge `source` into `target`; aliases the source name onto target.
+
+|`listEntities(options?)` _(hosted)_
+|Enumerate entities, optionally filtered by type, with pagination.
+
+|`getEntity(entityId)` _(hosted)_
+|Fetch an entity by id.
+
+|`updateEntity(entityId, options)` _(hosted)_
+|Patch an entity's description, type, or metadata.
+
+|`deleteEntity(entityId)` _(hosted)_
+|Remove an entity.
+
+|`setEntityFeedback(entityId, options)` _(hosted)_
+|Record positive/negative feedback that signals dedup/merge intent.
+
+|`getEntityHistory(entityId)` _(hosted)_
+|Audit log of changes to an entity.
+
+|`mergeEntities(sourceId, targetId)` _(hosted)_
+|Server-side merge with conflict resolution.
+
+|`getEntityGraph()` _(hosted)_
+|Snapshot of the entity graph (nodes + edges) for visualization.
+|===
+
+**Returned types**: `Entity`, `Preference`, `Fact`, `Relationship`, `EntityHistory`, `EntityGraph`.
+
+**Entity types**: hosted service uses lowercase strings — `"person"`, `"organization"`, `"location"`, `"concept"`, `"tool"`, `"custom"`. The bridge protocol uses POLE+O uppercase — `"PERSON"`, `"ORGANIZATION"`, `"LOCATION"`, `"EVENT"`, `"OBJECT"`. The SDK normalizes both directions.
+
+TypeDoc: link:https://neo4j-labs.github.io/agent-memory/typescript/classes/LongTermMemory.html[`LongTermMemory`]
+
+== `client.reasoning` — reasoning memory
+
+Reasoning traces, steps, tool calls.
+
+[cols="2,3", options="header"]
+|===
+|Method |Purpose
+
+|`startTrace(sessionId, task)`
+|Begin a reasoning trace. Returns a `ReasoningTrace` with a `traceId`.
+
+|`addStep(traceId, options?)`
+|Add a step (thought / action / observation) to a trace.
+
+|`recordToolCall(stepId, toolName, args, options?)`
+|Persist a tool call: name, arguments, result, status, duration.
+
+|`completeTrace(traceId, options?)`
+|Mark the trace finished with an outcome and `success: boolean`.
+
+|`getTraceWithSteps(traceId)`
+|Fetch a trace including its steps and tool calls.
+
+|`listTraces(options?)`
+|Enumerate traces (filter by session, success, time range).
+
+|`getToolStats(toolName?)`
+|Per-tool aggregate stats: success rate, average duration.
+
+|`getSimilarTraces(task, options?)`
+|"What did I do last time I tried something like this?" Semantic search over past traces.
+
+|`recordStep(input)` _(hosted)_
+|Record a "step" event for the hosted agent-trace surface.
+
+|`listSteps(conversationId)` _(hosted)_
+|All steps recorded against a conversation.
+
+|`explainStep(stepId)` _(hosted)_
+|Server-generated explanation of why an agent did what it did.
+
+|`getTraceByConversation(conversationId)` _(hosted)_
+|Pull the full reasoning trace tied to a conversation.
+
+|`getEntityProvenance(entityId)` _(hosted)_
+|"Which reasoning steps touched this entity?" — audit query.
+|===
+
+**Returned types**: `ReasoningTrace`, `ReasoningStep`, `ToolCall`, `ToolStats`, `AgentStep`, `ConversationTrace`, `EntityProvenance`.
+
+**Status values for `ToolCall`**: `"pending"`, `"success"`, `"failure"`, `"error"`, `"timeout"`, `"cancelled"`.
+
+TypeDoc: link:https://neo4j-labs.github.io/agent-memory/typescript/classes/ReasoningMemory.html[`ReasoningMemory`]
+
+== `client.query` — read-only Cypher (hosted only)
+
+[cols="2,3", options="header"]
+|===
+|Method |Purpose
+
+|`cypher({ cypher, params? })`
+|Run a **read-only** Cypher query against the NAMS-managed graph. Returns `{ columns, rows, stats? }`. Write queries are rejected server-side.
+|===
+
+TypeDoc: link:https://neo4j-labs.github.io/agent-memory/typescript/classes/QueryConsole.html[`QueryConsole`]
+
+== `client.auth` — API key + OAuth (hosted only)
+
+[cols="2,3", options="header"]
+|===
+|Method |Purpose
+
+|`listApiKeys(workspaceId)`
+|Enumerate keys in a workspace.
+
+|`createApiKey(input)`
+|Mint a new key. The plaintext key is **only** returned at creation — store it then.
+
+|`revokeApiKey(keyId)`
+|Permanently revoke a key.
+
+|`revealApiKey(keyId, workspaceId)`
+|Re-reveal a stored key (one-time, if your account has the scope).
+
+|`refreshAccessToken(refreshToken)`
+|Exchange a refresh token for a fresh access token pair.
+|===
+
+TypeDoc: link:https://neo4j-labs.github.io/agent-memory/typescript/classes/AuthClient.html[`AuthClient`]
+
+== Errors
+
+Every error extends `MemoryError` and carries an optional `requestId` for correlation with server logs.
+
+[cols="1,3", options="header"]
+|===
+|Class |Raised when
+
+|`MemoryError`
+|Base class. Catch this if you want everything.
+
+|`ConnectionError`
+|Network failure — DNS, refused, TLS handshake. Wraps the underlying `fetch` error.
+
+|`AuthenticationError`
+|HTTP 401 / 403. Missing, expired, or scope-restricted API key.
+
+|`NotFoundError`
+|HTTP 404. Conversation, entity, or trace id does not exist.
+
+|`ValidationError`
+|HTTP 400. Required field missing or value out of range. `details` carries the server's per-field complaint.
+
+|`TransportError`
+|HTTP 5xx after retries exhausted, OR any non-mapped status. Carries `statusCode` and `responseBody`.
+
+|`RateLimitError`
+|HTTP 429 after retries exhausted. Honors `Retry-After` header during retry.
+
+|`NotSupportedError`
+|Method exists on the SDK but the current transport doesn't implement it (e.g., calling hosted-only methods over a TCK bridge).
+|===
+
+[source,typescript]
+----
+import {
+  MemoryClient,
+  MemoryError,
+  AuthenticationError,
+  RateLimitError,
+} from "@neo4j-labs/agent-memory";
+
+try {
+  await memory.shortTerm.addMessage(sessionId, "user", text);
+} catch (err) {
+  if (err instanceof AuthenticationError) {
+    // rotate the key
+  } else if (err instanceof RateLimitError) {
+    // back off; err.retryAfter is in seconds
+  } else if (err instanceof MemoryError) {
+    console.error("memory failure", { requestId: err.requestId, err });
+  }
+}
+----
+
+TypeDoc: link:https://neo4j-labs.github.io/agent-memory/typescript/classes/MemoryError.html[`MemoryError`] and subclasses
+
+== Subpath exports
+
+The package exposes six subpath exports beyond the root. Each is independently importable to keep tree-shaking honest on edge runtimes.
+
+[cols="2,3,3", options="header"]
+|===
+|Import |Exports |Use it for
+
+|`@neo4j-labs/agent-memory`
+|`MemoryClient`, types, errors, `VERSION`
+|Standard application code.
+
+|`@neo4j-labs/agent-memory/middleware/vercel-ai`
+|`agentMemoryMiddleware`, `AgentMemoryLanguageModelMiddleware`
+|Wire memory into a Vercel AI SDK `generateText` / `streamText` call. See xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK middleware].
+
+|`@neo4j-labs/agent-memory/mcp`
+|`createMemoryTools`, `handleMemoryToolCall`, `McpToolDefinition`
+|Register the 12 standard memory tools with an MCP server. See xref:how-to/typescript/mcp.adoc[MCP tools].
+
+|`@neo4j-labs/agent-memory/integrations/langchain`
+|`Neo4jChatMessageHistory`, `Neo4jEntityRetriever`
+|LangChain JS — duck-typed against `BaseChatMessageHistory` and `BaseRetriever`. See xref:how-to/typescript/langchain.adoc[LangChain JS].
+
+|`@neo4j-labs/agent-memory/integrations/mastra`
+|`Neo4jMastraMemory`
+|Mastra agent framework. See xref:how-to/typescript/mastra.adoc[Mastra].
+
+|`@neo4j-labs/agent-memory/integrations/strands`
+|`Neo4jSessionStorage`, `Neo4jConversationManager`, `registerReasoningHooks`, `connectMemoryToAgent`
+|AWS Strands Agents SDK (JS). See xref:how-to/typescript/strands.adoc[Strands].
+
+|`@neo4j-labs/agent-memory/testing`
+|`BridgeTransport`, `BridgeTransportOptions`
+|TCK conformance testing against a local bridge server. Production code should not import from here.
+|===
+
+TypeDoc: each subpath's exports are listed under the matching module in the link:https://neo4j-labs.github.io/agent-memory/typescript/[TypeDoc index].
+
+== Observability
+
+The `logger` constructor option receives typed `LogEvent`s for every transport call:
+
+[source,typescript]
+----
+import { MemoryClient, type LogEvent } from "@neo4j-labs/agent-memory";
+
+const memory = new MemoryClient({
+  logger: (event: LogEvent) => {
+    if (event.kind === "error") {
+      console.error("memory.error", event);
+    }
+  },
+});
+----
+
+[cols="1,3", options="header"]
+|===
+|`event.kind` |Fields
+
+|`"request"`
+|`method`, `url`, `httpMethod?`
+
+|`"response"`
+|`method`, `url`, `status`, `requestId?`, `durationMs`
+
+|`"error"`
+|`method`, `url`, `status?`, `requestId?`, `durationMs`, `message`
+|===
+
+See xref:how-to/typescript/observability.adoc[How-to: enable observability] for the full pattern including OpenTelemetry forwarding.
+
+== Versioning
+
+The TypeScript SDK follows SemVer:
+
+* **Major** — backwards-incompatible API change (rare; expect a migration guide).
+* **Minor** — new methods, new options. Existing code keeps working.
+* **Patch** — bug fixes, no API change.
+
+Release tags are namespaced `typescript-v<X.Y.Z>` so they don't collide with the Python SDK's `python-v<X.Y.Z>` tags. The current published version is in
+link:https://github.com/neo4j-labs/agent-memory/blob/main/typescript/CHANGELOG.md[`typescript/CHANGELOG.md`].
+
+== See also
+
+* xref:sdks/typescript.adoc[TypeScript SDK landing page] — install + quickstart
+* xref:reference/rest-api.adoc[NAMS REST API] — the wire-level contract the SDK implements
+* xref:explanation/multi-agent-sharing.adoc[Cross-Agent Memory Sharing] — how this SDK interoperates with the Python SDK
+* link:https://neo4j-labs.github.io/agent-memory/typescript/[TypeDoc] — method-level reference
+* link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript[Source on GitHub] — `typescript/src/`

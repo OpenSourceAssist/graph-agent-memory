@@ -18,6 +18,9 @@
 *** TypeScript
 **** xref:tutorials/first-agent-memory-typescript.adoc[First Agent Memory (TypeScript)]
 **** xref:tutorials/hosted-quickstart-typescript.adoc[Hosted Quickstart]
+**** xref:tutorials/conversation-memory-typescript.adoc[Conversation Memory (TypeScript)]
+**** xref:tutorials/knowledge-graph-typescript.adoc[Knowledge Graph from Documents (TypeScript)]
+**** xref:tutorials/mcp-server-typescript.adoc[MCP Server (TypeScript)]
 
 ** xref:how-to/index.adoc[How-To Guides]
 
@@ -90,6 +93,7 @@
 *** xref:reference/cli.adoc[CLI]
 *** xref:reference/mcp-tools.adoc[MCP Tools]
 *** xref:reference/rest-api.adoc[NAMS REST API]
+*** xref:reference/typescript-api.adoc[TypeScript SDK API]
 *** xref:reference/deployment.adoc[Deployment]
 *** xref:reference/extractors.adoc[Extractors]
 *** xref:reference/schemas.adoc[Schemas]
