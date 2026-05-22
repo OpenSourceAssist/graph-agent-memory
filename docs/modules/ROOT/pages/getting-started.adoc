@@ -12,19 +12,109 @@
 :page-ad-underline-role: button
 :page-ad-underline: Enroll now
 
-This guide walks you through installing neo4j-agent-memory, connecting to Neo4j, and performing your first memory operations.
+This guide walks you through installing the Neo4j Agent Memory SDK, connecting to a backend, and performing your first memory operations.
 
-== Prerequisites
+[TIP]
+====
+*Two ways to run.* Pick the one that matches your goal:
 
-Before you begin, ensure you have:
+* **Hosted (NAMS)** — A managed REST service at link:https://memory.neo4jlabs.com[memory.neo4jlabs.com]. You provide an API key; Neo4j is operated for you. Fastest path to a working agent. Best for prototypes, demos, and multi-tenant SaaS deployments.
+* **Self-hosted (Bolt)** — Bring your own Neo4j (Aura, Desktop, or Docker). You get full schema control, write-Cypher access, geospatial features, and air-gapped operation. Best when you already operate Neo4j or need bolt-only features.
 
-* **Python 3.10+** installed
-* **Neo4j 5.20+** running (local or cloud)
-* **OpenAI API key** (optional, for embeddings and LLM extraction)
+The SDK surface is the same for both — `client.short_term`, `client.long_term`, `client.reasoning`. See xref:explanation/backends.adoc[Bolt vs NAMS] for the trade-offs and xref:how-to/migrate-to-nams.adoc[Migrate to NAMS] for porting between them.
+====
 
-== Installation
+== Path A: Hosted (NAMS) — fastest start
 
-=== Basic Installation
+If you don't already operate Neo4j, start here. There is nothing to install or run beyond the SDK and an API key.
+
+=== 1. Get an API key
+
+Sign up at link:https://memory.neo4jlabs.com[memory.neo4jlabs.com] and copy your `nams_...` key.
+
+=== 2. Install the SDK
+
+[tabs]
+======
+Python::
++
+[source,bash]
+----
+pip install neo4j-agent-memory
+export MEMORY_API_KEY=nams_...
+----
+
+TypeScript::
++
+[source,bash]
+----
+npm install @neo4j-labs/agent-memory
+export MEMORY_API_KEY=nams_...
+----
+======
+
+=== 3. First operations
+
+[tabs]
+======
+Python::
++
+[source,python]
+----
+import asyncio, os
+from neo4j_agent_memory import MemoryClient
+
+async def main():
+    # Reads MEMORY_API_KEY from env; backend auto-selects NAMS.
+    async with MemoryClient() as memory:
+        await memory.short_term.add_message(
+            session_id="user-123", role="user",
+            content="I love Italian food!",
+        )
+        await memory.long_term.add_preference(
+            category="food", preference="Loves Italian cuisine",
+        )
+        ctx = await memory.get_context(
+            "restaurant recommendation", session_id="user-123",
+        )
+        print(ctx)
+
+asyncio.run(main())
+----
+
+TypeScript::
++
+[source,typescript]
+----
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+
+const memory = new MemoryClient();  // reads MEMORY_API_KEY
+
+const conv = await memory.shortTerm.createConversation({ userId: "alice" });
+await memory.shortTerm.addMessage(conv.id, "user", "I love Italian food!");
+
+await memory.longTerm.addPreference("food", {
+  preference: "Loves Italian cuisine",
+});
+
+const ctx = await memory.shortTerm.getContext(conv.id);
+console.log(ctx.recentMessages, ctx.observations, ctx.reflections);
+----
+======
+
+Then continue with xref:tutorials/nams-quickstart.adoc[NAMS Quickstart] (Python) or xref:tutorials/hosted-quickstart-typescript.adoc[Hosted Quickstart] (TypeScript).
+
+== Path B: Self-hosted Neo4j (Bolt)
+
+If you already run Neo4j or need bolt-only features (write-Cypher, geospatial, `adopt_existing_graph`), follow this path. _Python only — the TypeScript SDK is NAMS-only._
+
+=== Prerequisites
+
+* Python 3.10+
+* Neo4j 5.20+ (local or cloud)
+* Optional: OpenAI / Anthropic / Bedrock / Vertex key for embeddings and LLM extraction
+
+=== Basic install
 
 Install the core package with pip:
 
@@ -33,7 +123,7 @@ Install the core package with pip:
 pip install neo4j-agent-memory
 ----
 
-=== Installation with Extras
+=== Install with extras
 
 Choose the extras that match your needs:
 

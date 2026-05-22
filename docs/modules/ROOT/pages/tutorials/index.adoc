@@ -16,15 +16,27 @@ Tutorials are *learning-oriented*. They take you by the hand through a series of
 
 == Getting Started
 
-Start here if you're new to neo4j-agent-memory:
+Pick the path that matches your stack:
 
 [cols="1,2,1", options="header"]
 |===
 | Tutorial | What You'll Build | Time
 
-| xref:tutorials/first-agent-memory.adoc[Build Your First Memory-Enabled Agent]
-| A working memory system that stores conversations, extracts entities automatically, and enables semantic search. You'll see your context graph in Neo4j Browser.
+| xref:tutorials/nams-quickstart.adoc[NAMS Quickstart (Python)]
+| The hosted-service path. Get an API key, install the SDK, run your first memory operations — no Neo4j to operate. Ideal for prototypes and SaaS deployments.
+| ~10 min
+
+| xref:tutorials/hosted-quickstart-typescript.adoc[Hosted Quickstart (TypeScript)]
+| Same hosted-service path, TypeScript flavor. Works on Node, Bun, Deno, Cloudflare Workers, and Vercel Edge.
+| ~10 min
+
+| xref:tutorials/first-agent-memory.adoc[Build Your First Memory-Enabled Agent (Self-Hosted)]
+| A working memory system against your own Neo4j. Stores conversations, extracts entities automatically, enables semantic search. You'll see your context graph in Neo4j Browser.
 | ~30 min
+
+| xref:tutorials/first-agent-memory-typescript.adoc[First Agent Memory (TypeScript, hosted)]
+| TypeScript end-to-end: NAMS + Vercel AI SDK middleware, multi-turn chat with three-tier context recall.
+| ~20 min
 |===
 
 == Building Real Applications
@@ -72,11 +84,17 @@ Each tutorial includes examples for common enterprise use cases:
 
 == Before You Start
 
-Each tutorial assumes you have:
+The Python tutorials assume:
 
 * Python 3.10 or later installed
 * Basic familiarity with Python and async programming
-* Access to a Neo4j database (tutorials include setup instructions)
+* Either an API key from link:https://memory.neo4jlabs.com[NAMS] (hosted path) **or** access to a Neo4j database (self-hosted path; setup instructions included)
+
+The TypeScript tutorials assume:
+
+* Node.js 20 or later
+* An API key from link:https://memory.neo4jlabs.com[NAMS]
+* Basic familiarity with TypeScript and async/await
 
 == Tutorial Philosophy
 

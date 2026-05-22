@@ -306,7 +306,9 @@ class TestSnippetCoverage:
             if tutorial.name == "index.adoc":
                 continue
             content = tutorial.read_text(encoding="utf-8")
-            assert "[source,python]" in content, f"{tutorial.name} has no Python code snippets"
+            assert "[source,python]" in content or "[source,typescript]" in content, (
+                f"{tutorial.name} has no Python or TypeScript code snippets"
+            )
 
     def test_howto_guides_have_code_snippets(self, docs_dir: Path):
         """Each how-to guide should have code snippets."""

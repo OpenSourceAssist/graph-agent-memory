@@ -5,8 +5,10 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 [![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)](https://neo4j.com/labs/)
 [![Status: Experimental](https://img.shields.io/badge/Status-Experimental-F59E0B)](https://neo4j.com/labs/)
 [![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)](https://community.neo4j.com)
-[![CI](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci.yml)
+[![Python CI](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci-python.yml/badge.svg)](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci-python.yml)
+[![TypeScript CI](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci-typescript.yml/badge.svg)](https://github.com/neo4j-labs/agent-memory/actions/workflows/ci-typescript.yml)
 [![PyPI version](https://badge.fury.io/py/neo4j-agent-memory.svg)](https://badge.fury.io/py/neo4j-agent-memory)
+[![npm version](https://img.shields.io/npm/v/@neo4j-labs/agent-memory.svg)](https://www.npmjs.com/package/@neo4j-labs/agent-memory)
 [![Python versions](https://img.shields.io/pypi/pyversions/neo4j-agent-memory.svg)](https://pypi.org/project/neo4j-agent-memory/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -27,6 +29,26 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 **New in v0.2** _(in development on the `adopt-existing-graph` branch)_: adopt an existing Neo4j graph as long-term memory (`client.schema.adopt_existing_graph(...)`), multi-tenant scoping (`user_identifier=`), fire-and-forget [buffered writes](examples/buffered-writes/) (`client.buffered.submit(...)`), [consolidation primitives](examples/audit-trail/) (`client.consolidation.dedupe_entities(...)`), an [eval harness](examples/eval-harness/) (`client.eval.run(suite)`), and explicit `:TOUCHED` audit edges from reasoning steps to entities.
 
 **New in v0.3** _(pluggable providers)_: bring your own model. `MemorySettings.embedding` and `MemorySettings.llm` now accept a provider-string shorthand (`"anthropic/claude-3-5-sonnet-latest"`, `"BAAI/bge-small-en-v1.5"`) or a Provider instance. Native adapters for OpenAI, Anthropic, Bedrock, Vertex AI, and sentence-transformers; LiteLLM universal fallback covers 100+ providers (Cohere, Voyage, Groq, Together, Mistral, Ollama, ...). Existing `EmbeddingConfig`/`LLMConfig` users keep working with a one-time deprecation warning — full migration guide at [migrate-to-v0.3](https://neo4j.com/labs/agent-memory/how-to/migrate-to-v0.3.html).
+
+## SDKs
+
+`neo4j-labs/agent-memory` ships two SDKs with the same memory model, both
+backed by the [NAMS](https://neo4j.com/labs/agent-memory/reference/rest-api)
+hosted service. Pick the one that matches your stack — mixed Python +
+TypeScript agents read and write the same memory.
+
+| Language | Package | Install | Docs |
+|---|---|---|---|
+| Python | [`neo4j-agent-memory`](https://pypi.org/project/neo4j-agent-memory/) | `pip install neo4j-agent-memory` | [Python SDK docs](https://neo4j.com/labs/agent-memory/sdks/python) |
+| TypeScript | [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory) | `npm install @neo4j-labs/agent-memory` | [TypeScript SDK docs](https://neo4j.com/labs/agent-memory/sdks/typescript) |
+
+The Python SDK lives at the repo root (`src/neo4j_agent_memory/`,
+`examples/`); the TypeScript SDK lives at `typescript/`. The two SDKs are
+versioned and released independently — `python-v*` tags publish to PyPI,
+`typescript-v*` tags publish to npm. Cross-language behavioral conformance
+is enforced by the
+[`agent-memory-tck`](https://github.com/neo4j-labs/agent-memory-tck)
+spec suite, which consumes both SDKs as external dependencies.
 
 ## Quick Start
 
@@ -252,4 +274,4 @@ Apache License 2.0
 
 ---
 
-This is a [Neo4j Labs](https://neo4j.com/labs/) project -- community supported, not officially backed by Neo4j. [Community Forum](https://community.neo4j.com) | [GitHub Issues](https://github.com/neo4j-labs/agent-memory/issues) | [Documentation](https://neo4j.com/labs/agent-memory/)
+This is a [Neo4j Labs](https://neo4j.com/labs/) project -- community supported, not officially backed by Neo4j. [Community Forum](https://community.neo4j.com) | [GitHub Issues](https://github.com/neo4j-labs/agent-memory/issues) | [Documentation](https://neo4j.com/labs/agent-memory/) | [TypeScript SDK](typescript/README.md)

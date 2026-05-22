@@ -1,0 +1,87 @@
+name: TypeScript CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'typescript/**'
+      - '.github/workflows/ci-typescript.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'typescript/**'
+      - '.github/workflows/ci-typescript.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lint-test:
+    name: Lint + Test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: typescript
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+          cache-dependency-path: typescript/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify packed artifact
+        run: npm pack --dry-run
+
+  type-check-examples:
+    name: Type-check example (${{ matrix.example }})
+    runs-on: ubuntu-latest
+    needs: lint-test
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [langchain, mastra, mcp, strands, vercel-ai]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: typescript/package-lock.json
+
+      - name: Build SDK (populates typescript/dist for file: deps)
+        working-directory: typescript
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install example dependencies
+        working-directory: typescript/examples/${{ matrix.example }}
+        run: npm install --no-package-lock
+
+      - name: Type-check example
+        working-directory: typescript/examples/${{ matrix.example }}
+        run: npx tsc --noEmit

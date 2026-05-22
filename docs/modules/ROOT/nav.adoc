@@ -1,15 +1,23 @@
 * xref:index.adoc[Agent Memory]
 ** xref:getting-started.adoc[Getting Started]
 
+** SDKs
+*** xref:sdks/python.adoc[Python SDK — neo4j-agent-memory]
+*** xref:sdks/typescript.adoc[TypeScript SDK — @neo4j-labs/agent-memory]
+
 ** xref:tutorials/index.adoc[Tutorials]
-*** xref:tutorials/first-agent-memory.adoc[First Agent Memory]
-*** xref:tutorials/conversation-memory.adoc[Conversation Memory]
-*** xref:tutorials/knowledge-graph.adoc[Knowledge Graphs]
-*** xref:tutorials/anthropic-and-local-embeddings.adoc[Anthropic + Local Embeddings]
-*** xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Quickstart]
-*** xref:tutorials/mcp-server.adoc[MCP Server for Claude Desktop]
-*** xref:tutorials/microsoft-agent-memory.adoc[Microsoft Agent Memory]
-*** xref:tutorials/nams-quickstart.adoc[NAMS Quickstart (v0.4)]
+*** Python
+**** xref:tutorials/first-agent-memory.adoc[First Agent Memory]
+**** xref:tutorials/conversation-memory.adoc[Conversation Memory]
+**** xref:tutorials/knowledge-graph.adoc[Knowledge Graphs]
+**** xref:tutorials/anthropic-and-local-embeddings.adoc[Anthropic + Local Embeddings]
+**** xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Quickstart]
+**** xref:tutorials/mcp-server.adoc[MCP Server for Claude Desktop]
+**** xref:tutorials/microsoft-agent-memory.adoc[Microsoft Agent Memory]
+**** xref:tutorials/nams-quickstart.adoc[NAMS Quickstart (v0.4)]
+*** TypeScript
+**** xref:tutorials/first-agent-memory-typescript.adoc[First Agent Memory (TypeScript)]
+**** xref:tutorials/hosted-quickstart-typescript.adoc[Hosted Quickstart]
 
 ** xref:how-to/index.adoc[How-To Guides]
 
@@ -63,11 +71,25 @@
 **** xref:how-to/integrations/microsoft-agent.adoc[Microsoft Agent Framework]
 **** xref:how-to/create-context-graph-mcp.adoc[MCP + create-context-graph]
 
+*** TypeScript
+**** xref:how-to/typescript/edge-runtime.adoc[Edge Runtime Deployment]
+**** xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK]
+**** xref:how-to/typescript/mcp.adoc[MCP Tools]
+**** xref:how-to/typescript/langchain.adoc[LangChain JS]
+**** xref:how-to/typescript/mastra.adoc[Mastra]
+**** xref:how-to/typescript/strands.adoc[Strands Agents]
+**** xref:how-to/typescript/observability.adoc[Observability]
+**** xref:how-to/typescript/authenticate.adoc[Authentication]
+**** xref:how-to/typescript/handle-errors.adoc[Error Handling]
+**** xref:how-to/typescript/troubleshooting.adoc[Troubleshooting]
+**** xref:how-to/typescript/integrations-overview.adoc[Framework Integrations Overview]
+
 ** xref:reference/index.adoc[Reference]
 *** xref:reference/configuration.adoc[Configuration]
 *** xref:reference/environment-variables.adoc[Environment Variables]
 *** xref:reference/cli.adoc[CLI]
 *** xref:reference/mcp-tools.adoc[MCP Tools]
+*** xref:reference/rest-api.adoc[NAMS REST API]
 *** xref:reference/deployment.adoc[Deployment]
 *** xref:reference/extractors.adoc[Extractors]
 *** xref:reference/schemas.adoc[Schemas]
@@ -91,6 +113,7 @@
 *** xref:explanation/structured-extraction.adoc[Structured Extraction]
 *** xref:explanation/framework-comparison.adoc[Framework Comparison]
 *** xref:explanation/backends.adoc[Bolt vs NAMS (v0.4)]
+*** xref:explanation/multi-agent-sharing.adoc[Cross-Agent Memory Sharing]
 
 ** xref:glossary.adoc[Glossary]
 ** xref:faq.adoc[FAQ]

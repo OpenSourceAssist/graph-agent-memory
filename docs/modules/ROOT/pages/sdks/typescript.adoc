@@ -1,0 +1,82 @@
+= TypeScript SDK — @neo4j-labs/agent-memory
+:description: Install, configure, and use the TypeScript SDK for Neo4j Agent Memory.
+
+The TypeScript SDK is a thin HTTP client over the
+xref:reference/rest-api.adoc[NAMS] hosted service. It runs on Node 20+,
+Bun, Deno, Cloudflare Workers, and Vercel Edge.
+
+== Install
+
+[source,bash]
+----
+npm install @neo4j-labs/agent-memory
+# or
+pnpm add @neo4j-labs/agent-memory
+bun add @neo4j-labs/agent-memory
+----
+
+Requires Node.js 20+.
+
+== Quick start
+
+Get an API key from link:https://memory.neo4jlabs.com[memory.neo4jlabs.com],
+set `MEMORY_API_KEY`, then:
+
+[source,typescript]
+----
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+
+const client = new MemoryClient();
+
+const conv = await client.shortTerm.createConversation({ userId: "alice" });
+await client.shortTerm.addMessage(conv.id, "user", "Hello!");
+
+const entity = await client.longTerm.addEntity("Alice Johnson", "person", {
+  description: "Software engineer working on graph memory.",
+});
+
+const ctx = await client.shortTerm.getContext(conv.id);
+console.log(ctx.recentMessages, ctx.observations, ctx.reflections);
+----
+
+For edge runtimes (Cloudflare Workers, Vercel Edge), pass the API key
+explicitly — see xref:how-to/typescript/edge-runtime.adoc[Edge Runtime].
+
+== Framework integrations
+
+All five ship as subpath exports.
+
+[cols="1,2,1", options="header"]
+|===
+| Integration | Import | Guide
+
+| Vercel AI SDK | `@neo4j-labs/agent-memory/middleware/vercel-ai` | xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK]
+| MCP tools | `@neo4j-labs/agent-memory/mcp` | xref:how-to/typescript/mcp.adoc[MCP Tools]
+| LangChain JS | `@neo4j-labs/agent-memory/integrations/langchain` | xref:how-to/typescript/langchain.adoc[LangChain JS]
+| Mastra | `@neo4j-labs/agent-memory/integrations/mastra` | xref:how-to/typescript/mastra.adoc[Mastra]
+| AWS Strands | `@neo4j-labs/agent-memory/integrations/strands` | xref:how-to/typescript/strands.adoc[Strands]
+|===
+
+== Where to go next
+
+* xref:tutorials/first-agent-memory-typescript.adoc[Tutorial: First agent memory (TypeScript)]
+* xref:tutorials/hosted-quickstart-typescript.adoc[Tutorial: Hosted quickstart]
+* xref:how-to/typescript/authenticate.adoc[How-to: authenticate]
+* xref:how-to/typescript/edge-runtime.adoc[How-to: deploy to edge runtimes]
+* xref:how-to/typescript/observability.adoc[How-to: enable observability]
+* xref:how-to/typescript/handle-errors.adoc[How-to: handle errors]
+* xref:how-to/typescript/troubleshooting.adoc[Troubleshooting]
+* link:https://neo4j-labs.github.io/agent-memory/typescript/[Full API reference (TypeDoc)]
+
+== Source and releases
+
+* Package: link:https://www.npmjs.com/package/@neo4j-labs/agent-memory[`@neo4j-labs/agent-memory` on npm]
+* Source: link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript[`typescript/` in the agent-memory repo]
+* Release tags: `typescript-v*` (e.g. `typescript-v0.3.0`)
+* Changelog: link:https://github.com/neo4j-labs/agent-memory/blob/main/typescript/CHANGELOG.md[typescript/CHANGELOG.md]
+
+== Looking for the Python SDK?
+
+See xref:sdks/python.adoc[Python SDK]. The two SDKs share the same memory
+model and back onto the same NAMS service. Mixed Python + TypeScript agents
+can read and write the same memory.

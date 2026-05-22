@@ -14,6 +14,45 @@ Practical guides for accomplishing specific tasks with neo4j-agent-memory.
 [.lead]
 How-to guides are *task-oriented*. They take you through the steps required to solve a real-world problem. They assume you already know the basics and focus on building your **context graph**—the personalized knowledge structure that makes your agents intelligent.
 
+== Deployment & Backend
+
+Decide how to run agent memory: hosted service or self-hosted Neo4j.
+
+[cols="1,2", options="header"]
+|===
+| Guide | What You'll Accomplish
+
+| xref:how-to/use-nams.adoc[Use NAMS (Hosted Service)]
+| Run agent memory with zero infrastructure. Get an API key, point `MemoryClient` at the hosted endpoint, and skip operating Neo4j entirely.
+
+| xref:how-to/migrate-to-nams.adoc[Migrate from Bolt to NAMS]
+| Port an existing self-hosted deployment to the hosted service. Includes the full `NotSupportedError` reference for bolt-only methods.
+
+| xref:how-to/multi-tenancy.adoc[Multi-Tenant Memory]
+| Use `user_identifier=` to scope writes and reads per end-user. Required for SaaS-style deployments where one backend serves many users.
+|===
+
+== Multi-Agent Patterns
+
+When two or more agents share a memory graph — whether across languages, frameworks, or services.
+
+[cols="1,2", options="header"]
+|===
+| Guide | What You'll Accomplish
+
+| xref:explanation/multi-agent-sharing.adoc[Cross-Agent Memory Sharing] _(concept)_
+| Understand the conversation-vs-entity namespace split, how Python and TypeScript agents share the same graph, and the typical multi-agent architecture.
+
+| xref:how-to/multi-tenancy.adoc[Scope by `user_identifier`]
+| The per-user scoping primitive that keeps tenants isolated on a shared backend.
+
+| xref:how-to/audit-reasoning.adoc[Audit Cross-Agent Reasoning]
+| Query `:TOUCHED` edges to answer "which agent affected which entity, and when?" One-hop traversal across the shared graph.
+
+| xref:how-to/create-context-graph-mcp.adoc[Wire MCP into Multi-Agent Stacks]
+| Expose the memory surface as MCP tools so any MCP-aware agent (Claude Desktop, Cursor, custom dispatchers) shares the same graph.
+|===
+
 == Core Context Graph Operations
 
 Build and query your context graph—the foundation for personalized agent interactions.
@@ -87,6 +126,45 @@ Connect neo4j-agent-memory to popular agent frameworks for persistent, shared co
 
 | xref:how-to/create-context-graph-mcp.adoc[Add MCP Server to create-context-graph Projects]
 | Connect Claude Desktop to scaffolded projects. Query domain-specific knowledge graphs through natural conversation.
+|===
+
+== TypeScript SDK (`@neo4j-labs/agent-memory`)
+
+The TypeScript SDK targets the hosted NAMS service. It runs on Node 20+, Bun, Deno, Cloudflare Workers, and Vercel Edge.
+
+[cols="1,2", options="header"]
+|===
+| Guide | What You'll Accomplish
+
+| xref:how-to/typescript/authenticate.adoc[Authenticate]
+| API key handling, OAuth refresh, scope management for the TypeScript SDK.
+
+| xref:how-to/typescript/edge-runtime.adoc[Deploy to Edge Runtimes]
+| Run agent memory on Cloudflare Workers or Vercel Edge — the `fetch`-only transport works everywhere.
+
+| xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK Middleware]
+| Three-tier context injection + automatic persistence as a `LanguageModelV1Middleware`.
+
+| xref:how-to/typescript/mcp.adoc[MCP Tools]
+| Wire the standard 12-tool memory surface into Claude Desktop, Cursor, or any MCP-aware client.
+
+| xref:how-to/typescript/langchain.adoc[LangChain JS]
+| `Neo4jChatMessageHistory` and `Neo4jEntityRetriever` duck-typed against LangChain JS.
+
+| xref:how-to/typescript/mastra.adoc[Mastra]
+| `Neo4jMastraMemory` provider for the Mastra agent framework.
+
+| xref:how-to/typescript/strands.adoc[AWS Strands Agents (JS)]
+| Session storage + conversation manager + reasoning hooks for the Strands JS SDK.
+
+| xref:how-to/typescript/observability.adoc[Observability]
+| Request/response logging, request-id correlation, OpenTelemetry-compatible event stream.
+
+| xref:how-to/typescript/handle-errors.adoc[Handle Errors]
+| The TS exception hierarchy, retry policy, and request-id propagation.
+
+| xref:how-to/typescript/troubleshooting.adoc[Troubleshooting]
+| Common failure modes and how to diagnose them.
 |===
 
 == Enterprise Use Cases

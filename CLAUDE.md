@@ -2,6 +2,73 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Polyglot Layout
+
+This repository ships **two SDKs** with the same memory model and the
+same NAMS backend:
+
+- **Python SDK** (`neo4j-agent-memory` on PyPI) — lives at the repo
+  root: source in `src/neo4j_agent_memory/`, tests in `tests/`,
+  examples in `examples/`, build config in `pyproject.toml`.
+- **TypeScript SDK** (`@neo4j-labs/agent-memory` on npm) — lives at
+  `typescript/`: source, tests, examples, and `package.json` are all
+  contained inside that subtree.
+
+The two packages **share no build tooling**. There is no pnpm
+workspace, no Turborepo, no Nx, no `uv` workspace clause. Each package
+is built and released independently.
+
+### Release tagging
+
+Releases are tag-namespaced so they cannot collide:
+
+- `python-v*` (e.g. `python-v0.4.1`) → publishes to PyPI via
+  `.github/workflows/publish-python.yml`
+- `typescript-v*` (e.g. `typescript-v0.3.0`) → publishes to npm via
+  `.github/workflows/publish-typescript.yml`
+
+Plain `v*` tags do not trigger any publish.
+
+### CI is path-filtered
+
+- `.github/workflows/ci-python.yml` fires on changes under `src/**`,
+  `tests/**`, `benchmarks/**`, `examples/**`, `docs/**`, `scripts/**`,
+  and Python config files. **TypeScript-only PRs do not trigger Python
+  CI.**
+- `.github/workflows/ci-typescript.yml` fires on changes under
+  `typescript/**`. **Python-only PRs do not trigger TypeScript CI.**
+
+If you touch a cross-cutting file (e.g. `.gitignore`, top-level
+`README.md`), expect neither workflow to fire — surface the change in
+the PR description.
+
+### Working in the TypeScript subtree
+
+From the repo root:
+
+```bash
+make ts-install       # cd typescript && npm ci
+make ts-test          # cd typescript && npm test
+make ts-lint
+make ts-build
+make ts-conformance   # start the TCK bridge server (port 3001)
+```
+
+Or directly: `cd typescript && npm <script>`. The
+`typescript/package.json` `scripts` field is the source of truth for TS
+commands.
+
+### TCK conformance
+
+The cross-language behavioral spec lives in
+[`neo4j-labs/agent-memory-tck`](https://github.com/neo4j-labs/agent-memory-tck).
+The TCK certifies clients against Bronze, Silver, Gold, and Platinum
+tiers. After the relocation, the TCK consumes the published
+`@neo4j-labs/agent-memory` npm package as an external dependency. An
+in-tree TCK suite (`typescript/test/tck/`) runs in TS CI on every PR;
+the nightly `tck-conformance.yml` workflow runs the full TCK against
+the published package to catch packaging regressions.
+
 ## Project Overview
 
 `neo4j-agent-memory` is a Python package that provides a comprehensive memory system for AI agents using Neo4j as the backend. It implements a three-layer memory architecture:

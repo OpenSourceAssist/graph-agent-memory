@@ -398,4 +398,6 @@ However, most enterprise agent use cases benefit from the combination of graph, 
 * xref:explanation/memory-types.adoc[Understanding the Three Memory Types]
 * xref:explanation/poleo-model.adoc[The POLE+O Data Model]
 * xref:reference/configuration.adoc[Configuration Reference]
+* xref:reference/rest-api.adoc[NAMS REST API] - The hosted-service surface both SDKs target
 * xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
+* link:https://github.com/neo4j-labs/agent-memory-tck/blob/main/docs/explanation/architecture.adoc[Architecture in the TCK spec] - The cross-language spec author's framing

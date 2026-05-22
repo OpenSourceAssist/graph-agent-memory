@@ -1,0 +1,63 @@
+= Python SDK — neo4j-agent-memory
+:description: Install, configure, and use the Python SDK for Neo4j Agent Memory.
+
+The Python SDK is the original implementation of the agent-memory contract.
+It can talk to Neo4j directly over Bolt or to the hosted
+xref:reference/rest-api.adoc[NAMS] service over HTTP.
+
+== Install
+
+[source,bash]
+----
+pip install neo4j-agent-memory
+# or, with uv:
+uv add neo4j-agent-memory
+----
+
+Optional extras (extractors, framework integrations, embeddings):
+
+[source,bash]
+----
+pip install "neo4j-agent-memory[all]"
+----
+
+== Quick start
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+
+settings = MemorySettings(
+    neo4j={"uri": "bolt://localhost:7687", "password": "password"}
+)
+
+async with MemoryClient(settings) as client:
+    msg = await client.short_term.add_message("session-1", "user", "Hello")
+    await client.long_term.add_entity("Alice", "PERSON")
+    context = await client.get_context("hello")
+----
+
+For the hosted service, swap the `neo4j={...}` config for
+`nams={"api_key": "nams_..."}` — see xref:tutorials/nams-quickstart.adoc[NAMS Quickstart].
+
+== Where to go next
+
+* xref:tutorials/first-agent-memory.adoc[Tutorial: First agent memory]
+* xref:tutorials/conversation-memory.adoc[Tutorial: Add memory to a chatbot]
+* xref:how-to/index.adoc[How-To Guides] — entity extraction, batch processing,
+  framework integrations, deduplication, and more.
+* xref:reference/configuration.adoc[Configuration reference]
+* xref:reference/cli.adoc[CLI reference]
+
+== Source and releases
+
+* Package: link:https://pypi.org/project/neo4j-agent-memory/[neo4j-agent-memory on PyPI]
+* Source: link:https://github.com/neo4j-labs/agent-memory[github.com/neo4j-labs/agent-memory]
+* Release tags: `python-v*` (e.g. `python-v0.4.1`)
+* Changelog: link:https://github.com/neo4j-labs/agent-memory/blob/main/CHANGELOG.md[CHANGELOG.md]
+
+== Looking for the TypeScript SDK?
+
+See xref:sdks/typescript.adoc[TypeScript SDK]. The two SDKs share the same
+memory model and back onto the same NAMS service, so a Python and a TypeScript
+agent can read and write the same memory.

@@ -1,9 +1,9 @@
-name: Release
+name: Publish Python
 
 on:
   push:
     tags:
-      - "v*"
+      - "python-v*"
 
 permissions:
   contents: write
