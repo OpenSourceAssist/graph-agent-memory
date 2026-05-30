@@ -114,14 +114,14 @@ class TestGet:
 class TestGetActive:
     @respx.mock
     async def test_get_active_composes_validation_mode(self, ontology):
-        respx.get(f"{BASE}/ontologies/active").respond(
-            200, json={"ontology": DOC, "version": None}
-        )
+        respx.get(f"{BASE}/ontologies/active").respond(200, json={"ontology": DOC, "version": None})
         respx.get(f"{BASE}/ontologies").respond(200, json={"ontologies": [SUMMARY]})
         respx.get(f"{BASE}/ontologies/ont_1").respond(
             200,
-            json={"record": {"id": "ont_1", "name": "legal-clone"},
-                  "versions": [_version(1, "permissive"), _version(2, "strict")]},
+            json={
+                "record": {"id": "ont_1", "name": "legal-clone"},
+                "versions": [_version(1, "permissive"), _version(2, "strict")],
+            },
         )
         active = await ontology.get_active()
         assert isinstance(active, ActiveOntology)
@@ -191,8 +191,10 @@ class TestBackendGuards:
     @respx.mock
     async def test_bridge_transport_raises_not_supported(self):
         config = NamsConfig(
-            endpoint="https://memory.test", api_key=SecretStr("k"),  # bridge shape (no /vN)
-            transport_mode="bridge", validate_on_connect=False,
+            endpoint="https://memory.test",
+            api_key=SecretStr("k"),  # bridge shape (no /vN)
+            transport_mode="bridge",
+            validate_on_connect=False,
         )
         async with HttpTransport.from_config(
             config, auth=StaticApiKeyAuth.from_config(config)
@@ -203,7 +205,8 @@ class TestBackendGuards:
     async def test_bolt_sentinel_raises(self):
         # On bolt, client.ontology is a sentinel that raises on method call.
         sentinel = _NamsUnsupported(
-            accessor="ontology", message="NAMS capability.",
+            accessor="ontology",
+            message="NAMS capability.",
             workaround="SchemaModel.CUSTOM",
         )
         with pytest.raises(NotSupportedError, match="ontology"):

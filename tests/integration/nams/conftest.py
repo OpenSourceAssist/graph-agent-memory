@@ -73,9 +73,7 @@ def _resolve_credentials() -> tuple[str, str, str | None] | None:
     deployment.
     """
     key = os.environ.get("NAMS_SANDBOX_KEY") or os.environ.get("MEMORY_API_KEY")
-    workspace = os.environ.get("NAMS_SANDBOX_WORKSPACE_ID") or os.environ.get(
-        "MEMORY_WORKSPACE_ID"
-    )
+    workspace = os.environ.get("NAMS_SANDBOX_WORKSPACE_ID") or os.environ.get("MEMORY_WORKSPACE_ID")
     if key:
         url = (
             os.environ.get("NAMS_SANDBOX_URL")

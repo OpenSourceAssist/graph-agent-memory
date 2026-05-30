@@ -43,7 +43,9 @@ async def _captured_request(config: NamsConfig) -> httpx.Request:
 @pytest.mark.asyncio
 async def test_workspace_id_sets_header() -> None:
     config = NamsConfig(
-        endpoint=REST_ENDPOINT, api_key=SecretStr("k"), workspace_id=WS,
+        endpoint=REST_ENDPOINT,
+        api_key=SecretStr("k"),
+        workspace_id=WS,
         validate_on_connect=False,
     )
     req = await _captured_request(config)
@@ -60,8 +62,10 @@ async def test_no_workspace_no_header() -> None:
 @pytest.mark.asyncio
 async def test_explicit_header_overrides_workspace_id() -> None:
     config = NamsConfig(
-        endpoint=REST_ENDPOINT, api_key=SecretStr("k"),
-        workspace_id=WS, headers={"X-Workspace-Id": "explicit-override"},
+        endpoint=REST_ENDPOINT,
+        api_key=SecretStr("k"),
+        workspace_id=WS,
+        headers={"X-Workspace-Id": "explicit-override"},
         validate_on_connect=False,
     )
     req = await _captured_request(config)

@@ -42,7 +42,10 @@ async def test_search_is_conversation_scoped_no_crash(
             "id": cid,
             "messages": [
                 {"role": "user", "content": "Tell me about Marie Curie and radioactivity."},
-                {"role": "assistant", "content": "Marie Curie pioneered research on radioactivity."},
+                {
+                    "role": "assistant",
+                    "content": "Marie Curie pioneered research on radioactivity.",
+                },
             ],
         }
     )

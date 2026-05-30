@@ -211,9 +211,7 @@ class NamsLongTermMemory:
         """
         et = entity_type or kwargs.get("type") or kwargs.get("label")
         if et is None:
-            raise TypeError(
-                "add_entity requires entity_type (aliases: type, label)."
-            )
+            raise TypeError("add_entity requires entity_type (aliases: type, label).")
         body = _drop_none(
             {
                 "name": name,

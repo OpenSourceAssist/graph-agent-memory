@@ -204,7 +204,9 @@ def _parse_version(raw: dict[str, Any]) -> OntologyVersion:
 # Endpoint specs (REST-only — ontology is a hosted-NAMS capability).
 # -----------------------------------------------------------------------------
 
-_SPEC_LIST = EndpointSpec(rest_method="GET", rest_path="/ontologies", bridge_method="list_ontologies")
+_SPEC_LIST = EndpointSpec(
+    rest_method="GET", rest_path="/ontologies", bridge_method="list_ontologies"
+)
 _SPEC_GET = EndpointSpec(
     rest_method="GET", rest_path="/ontologies/{id}", bridge_method="get_ontology"
 )
@@ -273,7 +275,9 @@ class NamsOntology:
         payload = await self._transport.request(_SPEC_GET, path_params={"id": ontology_id})
         payload = payload or {}
         record = payload.get("record") or {}
-        versions = [_parse_version(v) for v in (payload.get("versions") or []) if isinstance(v, dict)]
+        versions = [
+            _parse_version(v) for v in (payload.get("versions") or []) if isinstance(v, dict)
+        ]
         return Ontology(record=OntologyRecord.model_validate(record), versions=versions)
 
     async def get_active(self) -> ActiveOntology:
@@ -316,9 +320,7 @@ class NamsOntology:
     async def clone(self, template_name: str) -> OntologyVersion:
         """Clone a system template into an editable workspace copy (revision 1)."""
         self._guard_rest()
-        payload = await self._transport.request(
-            _SPEC_CLONE, path_params={"name": template_name}
-        )
+        payload = await self._transport.request(_SPEC_CLONE, path_params={"name": template_name})
         return _parse_version(payload or {})
 
     async def create(
@@ -361,9 +363,7 @@ class NamsOntology:
     async def activate(self, version_id: str) -> OntologyVersion:
         """Bind a version; subsequent entity writes validate against it."""
         self._guard_rest()
-        payload = await self._transport.request(
-            _SPEC_ACTIVATE, json={"version_id": version_id}
-        )
+        payload = await self._transport.request(_SPEC_ACTIVATE, json={"version_id": version_id})
         return _parse_version(payload or {})
 
     async def delete(self, ontology_id: str) -> None:

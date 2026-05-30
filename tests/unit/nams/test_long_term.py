@@ -76,8 +76,10 @@ class TestWaitForExtraction:
             200, json={"entities": [SAMPLE_ENTITY], "searchType": "vector"}
         )
         ok = await long_term.wait_for_extraction(
-            query="Alice", predicate=lambda ents: any(e.name == "Alice" for e in ents),
-            timeout=2, interval=0.01,
+            query="Alice",
+            predicate=lambda ents: any(e.name == "Alice" for e in ents),
+            timeout=2,
+            interval=0.01,
         )
         assert ok is True
 

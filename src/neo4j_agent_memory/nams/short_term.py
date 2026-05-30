@@ -218,7 +218,6 @@ def _resolve_conversation_id(
     return conv
 
 
-
 class NamsShortTermMemory:
     """Short-term memory backed by the NAMS HTTP service.
 
