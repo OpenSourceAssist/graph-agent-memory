@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws test-nams-unit test-nams-integration test-nams coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent ts-install ts-build ts-test ts-test-unit ts-test-integration ts-lint ts-docs ts-conformance ts-pack ts-clean ts-test-examples
+.PHONY: help install install-all install-dev lint format typecheck test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws test-nams-unit test-nams-integration test-nams-staging test-nams-sandbox test-nams-local test-nams coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-docs test-docs-syntax test-docs-build test-docs-links neo4j-start neo4j-stop neo4j-logs clean build publish docs docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate example-basic example-resolution example-langchain example-pydantic examples chat-agent-install chat-agent-backend chat-agent-frontend chat-agent ts-install ts-build ts-test ts-test-unit ts-test-integration ts-lint ts-docs ts-conformance ts-pack ts-clean ts-test-examples
 
 # Default target
 help:
@@ -149,6 +149,17 @@ test-nams-unit:
 test-nams-integration:
 	@echo "Running NAMS integration tests..."
 	uv run pytest tests/integration/nams -v --timeout=300
+
+# NAMS integration against a named environment preset (see conftest
+# _NAMS_ENV_PRESETS). A raw NAMS_SANDBOX_URL still overrides if exported.
+test-nams-staging:
+	NAMS_ENV=staging $(MAKE) test-nams-integration
+
+test-nams-sandbox:
+	NAMS_ENV=sandbox $(MAKE) test-nams-integration
+
+test-nams-local:
+	NAMS_ENV=local $(MAKE) test-nams-integration
 
 # All NAMS tests (unit + integration)
 test-nams: test-nams-unit test-nams-integration

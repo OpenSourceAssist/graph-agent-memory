@@ -47,6 +47,47 @@ SAMPLE_ENTITY = {
 }
 
 
+class TestWaitForExtraction:
+    """A.4 — extraction-readiness helper over async entity search."""
+
+    @respx.mock
+    async def test_returns_true_when_expected_name_appears(self, long_term):
+        respx.post("https://memory.test/v1/entities/search").respond(
+            200, json={"entities": [SAMPLE_ENTITY], "searchType": "vector"}
+        )
+        ok = await long_term.wait_for_extraction(
+            query="Alice", expected_names=["Alice"], timeout=2, interval=0.01
+        )
+        assert ok is True
+
+    @respx.mock
+    async def test_returns_false_on_timeout(self, long_term):
+        respx.post("https://memory.test/v1/entities/search").respond(
+            200, json={"entities": [SAMPLE_ENTITY], "searchType": "vector"}
+        )
+        ok = await long_term.wait_for_extraction(
+            query="x", expected_names=["NeverAppears"], timeout=0.05, interval=0.01
+        )
+        assert ok is False
+
+    @respx.mock
+    async def test_predicate_path(self, long_term):
+        respx.post("https://memory.test/v1/entities/search").respond(
+            200, json={"entities": [SAMPLE_ENTITY], "searchType": "vector"}
+        )
+        ok = await long_term.wait_for_extraction(
+            query="Alice",
+            predicate=lambda ents: any(e.name == "Alice" for e in ents),
+            timeout=2,
+            interval=0.01,
+        )
+        assert ok is True
+
+    async def test_requires_a_signal(self, long_term):
+        with pytest.raises(ValueError, match="query.*expected_names.*predicate|requires"):
+            await long_term.wait_for_extraction(timeout=0.01)
+
+
 class TestProtocolConformance:
     def test_satisfies_long_term_protocol(self, long_term):
         assert isinstance(long_term, LongTermProtocol)

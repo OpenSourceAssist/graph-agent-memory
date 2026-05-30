@@ -34,7 +34,13 @@ The same `MemoryClient` API runs against two completely different storage backen
 | Not exposed
 | Multi-tenancy
 | `user_identifier` kwarg
-| `user_identifier` (sent as `userId`) + workspace via API key
+| `user_identifier` (sent as `userId`) + workspace via API key or `workspace_id`
+| Workspace addressing
+| n/a
+| `workspace_id` → `X-Workspace-Id` header (for header-scoped deployments)
+| Ontologies
+| `NotSupportedError` (use `SchemaModel.CUSTOM`)
+| `client.ontology` — typed, versioned, validated domain schemas
 | Embeddings / extraction
 | Client-side (your config)
 | Server-side (managed)

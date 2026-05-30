@@ -1,0 +1,93 @@
+= Ontology API reference
+:description: The client.ontology method surface, document schema, REST endpoints, and system templates.
+
+NAMS-backend only. All methods raise `NotSupportedError` on bolt.
+
+== Methods
+
+[cols="1,1,3",options="header"]
+|===
+| Python | TypeScript | Semantics
+
+| `ontology.list()` | `ontology.list()`
+| System templates + workspace-owned ontologies; the active one is flagged (`is_active`).
+| `ontology.get(id)` | `ontology.get(id)`
+| One ontology with its full revision history (`{record, versions[]}`).
+| `ontology.get_active()` | `ontology.getActive()`
+| Active version's parsed document + composed `validation_mode` / `revision` / `version_id`.
+| `ontology.clone(template_name)` | `ontology.clone(templateName)`
+| Editable workspace copy of a system template; returns the rev-1 version.
+| `ontology.create(name, schema, validation_mode=None)` | `ontology.create({name, schema, validationMode?})`
+| New workspace ontology from a schema document; returns the rev-1 version.
+| `ontology.update(id, schema, validation_mode=None)` | `ontology.update({id, schema, validationMode?})`
+| New immutable revision (n+1); returns it.
+| `ontology.activate(version_id)` | `ontology.activate(versionId)`
+| Bind a version; subsequent entity writes validate against it.
+| `ontology.delete(id)` | `ontology.delete(id)`
+| Delete a workspace-owned ontology.
+|===
+
+== Return types
+
+`list()` returns `OntologySummary[]`. `get()` returns `Ontology` (`{record,
+versions[]}`). `get_active()` returns `ActiveOntology`. `clone` / `create` /
+`update` / `activate` return an `OntologyVersion`.
+
+== Ontology document schema
+
+[cols="1,2,2",options="header"]
+|===
+| Field | Shape | Notes
+
+| `domain` | `{id, name, description?, tagline?, emoji?}` | Identity + display metadata.
+| `entity_types[]` | `{label, pole_type, subtype?, color?, icon?, properties[]}` | `pole_type` ∈ PERSON / ORGANIZATION / LOCATION / EVENT / OBJECT.
+| `…properties[]` | `{name, type, required?, unique?, enum?}` | `type` ∈ string / datetime / date / float / integer.
+| `relationships[]` | `{type, source, target}` | `type` is UPPER_SNAKE; `source`/`target` are entity labels.
+|===
+
+The `OntologyVersion` carries `id`, `ontology_id`, `revision`,
+`validation_mode` (`permissive` | `strict`), the parsed `document`,
+`schema_hash`, `created_at`, and `message`.
+
+== REST endpoints
+
+The SDK targets these workspace-scoped endpoints (under the versioned base, e.g.
+`/v1`). They are *not* in the published OpenAPI spec; the shapes are verified
+against the staging deployment. Request bodies use snake_case.
+
+[cols="1,3,2",options="header"]
+|===
+| Method | Path | Maps to
+
+| GET | `/ontologies` | `list()`
+| GET | `/ontologies/{id}` | `get()`
+| GET | `/ontologies/active` | `get_active()`
+| POST | `/ontologies/{name}/clone` | `clone()`
+| POST | `/ontologies` — body `{ontology, validation_mode?}` | `create()`
+| PUT | `/ontologies/{id}` — body `{ontology, validation_mode?}` | `update()`
+| POST | `/ontologies/active` — body `{version_id}` | `activate()`
+| DELETE | `/ontologies/{id}` | `delete()`
+|===
+
+== Errors
+
+[cols="1,2",options="header"]
+|===
+| Condition | Exception
+| Strict-mode validation rejection | `ValidationError` (carries the offending detail)
+| Ontology method on the bolt backend | `NotSupportedError` (workaround: `SchemaModel.CUSTOM`)
+| No active ontology bound | `NotSupportedError`
+|===
+
+== System templates
+
+~28 system templates ship on the service (each `is_system = true`, revision 1).
+`nams-default` is bound until a workspace activates its own:
+
+`agent-memory`, `conservation`, `cybersecurity`, `data-journalism`,
+`digital-twin`, `education`, `financial-services`, `gaming`, `genai-llm-ops`,
+`gis-cartography`, `golf-sports`, `government`, `healthcare`, `hospitality`,
+`legal`, `manufacturing`, `nams-default`, `oil-gas`, `options-intelligence`,
+`personal-knowledge`, `product-management`, `real-estate`, `retail-ecommerce`,
+`scientific-research`, `software-engineering`, `trip-planning`,
+`vacation-industry`, `wildlife-management`.

@@ -1,0 +1,108 @@
+= Use ontologies
+:description: List, clone, customize, activate, and validate against NAMS domain ontologies from the SDK.
+
+Drive the NAMS ontology engine through the `client.ontology` accessor. This is a
+xref:how-to/use-nams.adoc[NAMS-backend] feature; on bolt the methods raise
+`NotSupportedError`.
+
+== List the catalog
+
+[tabs]
+======
+Python::
++
+[source,python]
+----
+async with MemoryClient(settings) as client:
+    catalog = await client.ontology.list()   # ~28 templates + workspace-owned
+    for o in catalog:
+        flag = " (active)" if o.is_active else ""
+        print(f"{o.name}{flag}  rev={o.current_revision}  system={o.is_system}")
+----
+TypeScript::
++
+[source,typescript]
+----
+const catalog = await client.ontology.list();
+for (const o of catalog) {
+  console.log(`${o.name}${o.isActive ? " (active)" : ""}  rev=${o.currentRevision}`);
+}
+----
+======
+
+== Clone a template, customize, activate
+
+`clone` returns a *version* (revision 1). Edit its `document`, push a new
+revision with `update`, then `activate` the version you want bound.
+
+[tabs]
+======
+Python::
++
+[source,python]
+----
+v = await client.ontology.clone("healthcare")          # editable copy, rev 1
+# (optionally edit v.document, then create rev 2:)
+v2 = await client.ontology.update(v.ontology_id, v.document, validation_mode="strict")
+await client.ontology.activate(v2.id)                   # bind the version
+
+active = await client.ontology.get_active()
+print(active.document.domain.name, active.validation_mode)   # Healthcare strict
+----
+TypeScript::
++
+[source,typescript]
+----
+const v = await client.ontology.clone("healthcare");
+const v2 = await client.ontology.update({
+  id: v.ontologyId, schema: v.document!, validationMode: "strict",
+});
+await client.ontology.activate(v2.id);
+const active = await client.ontology.getActive();
+console.log(active.document.domain.name, active.validationMode);
+----
+======
+
+[IMPORTANT]
+====
+`clone` returns an `OntologyVersion`, so activate `v.id` (a version id, `ov_…`).
+Use `v.ontology_id` (`ont_…`) when calling `update`/`delete`.
+====
+
+== Choose a validation mode
+
+Pass `validation_mode` (Python) / `validationMode` (TS) to `create` or `update`.
+Omit it to inherit the server default (`permissive`). Under `strict`, a
+non-conforming entity write surfaces as `ValidationError` carrying the offending
+detail.
+
+== Verify with `get_active()`
+
+`get_active()` returns the parsed schema *plus* the active version's
+`validation_mode`, `revision`, and `version_id` (composed via a second lookup,
+since the service's active-ontology response carries no version metadata).
+
+== Await asynchronous extraction
+
+Extraction runs in a background pipeline, so entities are not searchable the
+instant a write returns. Await consistency explicitly:
+
+[source,python]
+----
+await client.long_term.add_entity("Jane Doe", entity_type="Patient")
+ready = await client.long_term.wait_for_extraction(
+    query="Jane Doe", expected_names=["Jane Doe"], timeout=30
+)
+----
+
+[NOTE]
+====
+On NAMS, entity search is vector / nearest-neighbor, so a `min_results`
+threshold is satisfied almost immediately on a non-empty workspace. Prefer
+`expected_names` (or a `predicate`) to confirm a *specific* extraction landed.
+====
+
+== See also
+
+* xref:explanation/ontologies.adoc[Explanation: Ontologies]
+* xref:reference/ontology-api.adoc[Reference: Ontology API]

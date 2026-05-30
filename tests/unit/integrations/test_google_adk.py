@@ -1,6 +1,7 @@
 """Unit tests for Google ADK integration."""
 
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -426,3 +427,95 @@ class TestNeo4jMemoryService:
         messages = memory_service._extract_messages(mock_session)
 
         assert len(messages) == 2
+
+
+class TestIssue130Regression:
+    """Regression coverage for #130 — ADK/NAMS incompatibility.
+
+    Three defects:
+      1. Unscoped message search hard-rejected by NAMS.
+      2. Tool objects (FunctionCall/FunctionResponse) stringified into the
+         entity pipeline, producing empty knowledge graphs.
+      3. (doc/signature — covered by NAMS short_term alias tests.)
+    """
+
+    @pytest.fixture
+    def service_factory(self):
+        from neo4j_agent_memory.integrations.google_adk.memory_service import (
+            Neo4jMemoryService,
+        )
+
+        def _make(backend: str):
+            client = MagicMock()
+            client.backend = backend
+            client.short_term = MagicMock()
+            client.long_term = MagicMock()
+            client.short_term.search_messages = AsyncMock(return_value=[])
+            client.long_term.search_entities = AsyncMock(return_value=[])
+            client.long_term.search_preferences = AsyncMock(return_value=[])
+            return Neo4jMemoryService(memory_client=client), client
+
+        return _make
+
+    # --- Defect 2: tool-event filtering --------------------------------------
+
+    def test_extract_text_ignores_tool_only_parts(self, service_factory):
+        service, _ = service_factory("nams")
+
+        text_part = SimpleNamespace(text="real user text")
+        tool_call_part = SimpleNamespace(text=None, function_call={"name": "search"})
+        mixed = SimpleNamespace(parts=[text_part, tool_call_part])
+        assert service._extract_text_from_content(mixed) == "real user text"
+
+        tool_only = SimpleNamespace(parts=[tool_call_part])
+        assert service._extract_text_from_content(tool_only) == ""  # never str(content)
+
+    def test_tool_only_event_produces_no_message(self, service_factory):
+        service, _ = service_factory("nams")
+        tool_event = SimpleNamespace(
+            content=SimpleNamespace(parts=[SimpleNamespace(text=None, function_call={"n": 1})]),
+            author="model",
+        )
+        text_event = SimpleNamespace(
+            content=SimpleNamespace(parts=[SimpleNamespace(text="hello")]),
+            author="user",
+        )
+        session = SimpleNamespace(events=[tool_event, text_event])
+        messages = service._extract_messages(session)
+        assert len(messages) == 1
+        assert messages[0].content == "hello"
+
+    # --- Defect 1: conversation-scoped search --------------------------------
+
+    @pytest.mark.asyncio
+    async def test_search_scopes_to_tracked_session_on_nams(self, service_factory):
+        service, client = service_factory("nams")
+        await service.add_session_to_memory({"id": "sess-7", "messages": []})
+        await service.search_memory("q")
+        # search_messages must be called WITH the tracked session_id.
+        client.short_term.search_messages.assert_awaited_once()
+        assert client.short_term.search_messages.await_args.kwargs["session_id"] == "sess-7"
+
+    @pytest.mark.asyncio
+    async def test_search_skips_messages_when_no_session_on_nams(self, service_factory):
+        service, client = service_factory("nams")
+        await service.search_memory("q")  # no session ever tracked
+        # Never calls the unscoped search that NAMS rejects...
+        client.short_term.search_messages.assert_not_awaited()
+        # ...but entity + preference recall still runs (cross-session).
+        client.long_term.search_entities.assert_awaited_once()
+        client.long_term.search_preferences.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_search_unscoped_on_bolt(self, service_factory):
+        service, client = service_factory("bolt")
+        await service.search_memory("q")
+        client.short_term.search_messages.assert_awaited_once()
+        assert "session_id" not in client.short_term.search_messages.await_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_search_kwarg_session_overrides_tracked(self, service_factory):
+        service, client = service_factory("nams")
+        await service.add_session_to_memory({"id": "tracked", "messages": []})
+        await service.search_memory("q", session_id="explicit")
+        assert client.short_term.search_messages.await_args.kwargs["session_id"] == "explicit"

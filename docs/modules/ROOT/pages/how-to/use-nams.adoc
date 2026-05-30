@@ -76,6 +76,14 @@ async with MemoryClient(settings) as client:
 | `None`
 | Your NAMS API key (`SecretStr`). `MemorySettings()` can lift `MEMORY_API_KEY`
   into this field when the backend is resolved from the environment.
+| `workspace_id`
+| `None`
+| NAMS workspace id. When set, transmitted as the `X-Workspace-Id` header on
+  every request — required by deployments that scope by header (e.g. the
+  development/staging service) instead of encoding the workspace in the API key
+  (production). Optional and harmless when unset. `MemorySettings()` can lift
+  `MEMORY_WORKSPACE_ID` into this field. An explicit `X-Workspace-Id` entry in
+  `headers` overrides it.
 | `timeout`
 | `30.0`
 | HTTP request timeout in seconds.
@@ -106,6 +114,9 @@ async with MemoryClient(settings) as client:
 | NAMS API key. When set and `backend` is unspecified, the backend defaults to NAMS.
 | `MEMORY_ENDPOINT`
 | Override the default endpoint URL.
+| `MEMORY_WORKSPACE_ID`
+| NAMS workspace id, sent as the `X-Workspace-Id` header. Required by
+  header-scoped deployments (staging); harmless on production.
 | `NAM_BACKEND`
 | Force the backend (`bolt` or `nams`). Overrides the env-based default.
 | `NAM_NAMS__*`

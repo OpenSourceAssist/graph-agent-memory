@@ -1,0 +1,62 @@
+= Google ADK memory service
+:description: Use neo4j-agent-memory as a Google ADK MemoryService, on local bolt or hosted NAMS.
+
+`Neo4jMemoryService` implements the Google Agent Development Kit (ADK)
+`BaseMemoryService` interface, backing an ADK agent's memory with
+neo4j-agent-memory — on either the bolt or the NAMS backend.
+
+== Setup
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
+
+settings = MemorySettings(backend="nams", nams={"api_key": "nams_...",
+                                                "workspace_id": "your-workspace-id"})
+
+async with MemoryClient(settings) as client:
+    memory = Neo4jMemoryService(memory_client=client, extract_on_store=True)
+
+    await memory.add_session_to_memory(session)        # stores messages, extracts entities
+    results = await memory.search_memory("user preferences")
+----
+
+== Conversation scoping on NAMS
+
+NAMS message search is *conversation-scoped*; ADK's `search_memory()` does not
+carry a session id. `Neo4jMemoryService` handles this for you:
+
+* It tracks the active session whenever you call `add_session_to_memory` or
+  `add_memory`, and scopes `search_memory` to it.
+* You can override per call: `search_memory(query, session_id=...)`.
+* When no session is known on NAMS, it *skips* message search (rather than
+  issuing the unscoped search NAMS rejects) and still returns entity and
+  preference recall, which are workspace-scoped and genuinely cross-session.
+
+On bolt, search is unscoped as before.
+
+== Tool-event filtering
+
+ADK events may carry tool calls (`FunctionCall` / `FunctionResponse`) that have
+no text. The service ingests *only* text parts; tool-only events produce no
+message and never reach the entity-extraction pipeline. This keeps the knowledge
+graph clean — tool JSON is not stringified into it.
+
+== Parameter naming
+
+* `session_id` is the canonical short-term parameter; `conversation_id` is
+  accepted as an alias (`session_id` wins).
+* `add_entity` takes `entity_type` (aliases: `type`, `label`).
+
+[NOTE]
+====
+This integration is community-supported and tracks issue
+https://github.com/neo4j-labs/agent-memory/issues/130[#130]. A staging-backed
+e2e suite guards the NAMS compatibility described here.
+====
+
+== See also
+
+* xref:how-to/integrations/google-cloud.adoc[Google Cloud (Vertex AI, ADK)]
+* xref:how-to/use-nams.adoc[Use NAMS]

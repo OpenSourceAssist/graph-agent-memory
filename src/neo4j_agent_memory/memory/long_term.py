@@ -1051,6 +1051,18 @@ class LongTermMemory(BaseMemory[Entity]):
 
         return entities
 
+    async def wait_for_extraction(self, **kwargs: Any) -> bool:
+        """No-op readiness check — bolt extraction is synchronous.
+
+        On the bolt backend, entity extraction completes inline with the
+        write, so entities are searchable immediately. This method exists
+        for parity with the NAMS backend (where extraction is async); it
+        always returns ``True`` without polling. See
+        ``NamsLongTermMemory.wait_for_extraction`` for the parameters it
+        accepts on NAMS.
+        """
+        return True
+
     async def search_preferences(
         self,
         query: str,

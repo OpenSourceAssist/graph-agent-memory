@@ -29,6 +29,9 @@ NAMS-specific endpoint shapes vs. our Protocol:
 
 from __future__ import annotations
 
+import asyncio
+import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -195,20 +198,24 @@ class NamsLongTermMemory:
     async def add_entity(
         self,
         name: str,
-        entity_type: str,
+        entity_type: str | None = None,
         **kwargs: Any,
     ) -> Entity:
         """Create an entity on NAMS.
 
-        NAMS accepts only ``{name, type, description?}`` per spec.
-        Bolt-only kwargs (``subtype``, ``aliases``, ``attributes``,
-        ``confidence``, ``deduplicate``, ``geocode``, ``enrich``, etc.)
-        are silently dropped.
+        ``entity_type`` is canonical; ``type`` and ``label`` are accepted
+        as aliases (``entity_type`` wins). NAMS accepts only
+        ``{name, type, description?}`` per spec. Bolt-only kwargs
+        (``subtype``, ``aliases``, ``attributes``, ``confidence``,
+        ``deduplicate``, ``geocode``, ``enrich``, etc.) are silently dropped.
         """
+        et = entity_type or kwargs.get("type") or kwargs.get("label")
+        if et is None:
+            raise TypeError("add_entity requires entity_type (aliases: type, label).")
         body = _drop_none(
             {
                 "name": name,
-                "type": _to_nams_type(entity_type),
+                "type": _to_nams_type(et),
                 "description": kwargs.get("description"),
             }
         )
@@ -261,7 +268,9 @@ class NamsLongTermMemory:
         body = _drop_none(
             {
                 "query": query,
-                "type": _to_nams_type(kwargs.get("entity_type") or kwargs.get("type")),
+                "type": _to_nams_type(
+                    kwargs.get("entity_type") or kwargs.get("type") or kwargs.get("label")
+                ),
                 "limit": kwargs.get("limit"),
             }
         )
@@ -274,6 +283,70 @@ class NamsLongTermMemory:
         else:
             items = []
         return [payload_to_model(_normalize_entity(item), Entity) for item in items]
+
+    async def wait_for_extraction(
+        self,
+        *,
+        query: str | None = None,
+        expected_names: list[str] | None = None,
+        min_results: int = 1,
+        predicate: Callable[[list[Entity]], bool] | None = None,
+        timeout: float = 30.0,
+        interval: float = 1.0,
+        session_id: str | None = None,  # noqa: ARG002 — reserved; see below
+        **kwargs: Any,
+    ) -> bool:
+        """Poll entity search until extraction has caught up, or time out.
+
+        NAMS extracts entities in a background pipeline, so writes return
+        before the entities are searchable. This helper lets application
+        and test code await consistency explicitly instead of racing a
+        fixed sleep.
+
+        Provide one of:
+
+        * ``predicate`` — called with the current search results; return
+          ``True`` when satisfied.
+        * ``expected_names`` — succeed once every name appears in results
+          (case-insensitive). **Recommended** on NAMS.
+        * otherwise — succeed once at least ``min_results`` entities match.
+          Note: NAMS entity search is vector/nearest-neighbor and returns
+          the top-k existing entities regardless of relevance, so on a
+          non-empty workspace ``min_results=1`` is satisfied almost
+          immediately. Prefer ``expected_names`` or ``predicate`` when you
+          need to confirm a *specific* extraction landed.
+
+        ``query`` is the search string to poll; if omitted, the first of
+        ``expected_names`` is used. Returns ``True`` if satisfied within
+        ``timeout`` seconds, ``False`` otherwise (it does **not** raise,
+        so callers can branch or skip gracefully).
+
+        ``session_id`` is accepted but reserved: NAMS entity search is
+        workspace-scoped, not conversation-scoped, so it currently has no
+        effect. It is part of the signature for forward-compatibility.
+        """
+        q = query if query is not None else (expected_names[0] if expected_names else None)
+        if q is None and predicate is None:
+            raise ValueError(
+                "wait_for_extraction requires one of: query, expected_names, or predicate."
+            )
+        want = [n.lower() for n in (expected_names or [])]
+        fetch = max(min_results, len(want), kwargs.get("limit") or 10)
+        deadline = time.monotonic() + timeout
+        while True:
+            results = await self.search_entities(query=q or "", limit=fetch)
+            if predicate is not None:
+                ok = predicate(results)
+            elif want:
+                found = {e.name.lower() for e in results}
+                ok = all(name in found for name in want)
+            else:
+                ok = len(results) >= min_results
+            if ok:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            await asyncio.sleep(interval)
 
     async def search_preferences(self, query: str, **kwargs: Any) -> list[Preference]:
         raise NotSupportedError(

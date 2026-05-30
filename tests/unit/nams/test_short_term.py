@@ -55,6 +55,46 @@ SAMPLE_CONVERSATION = {
 }
 
 
+class TestConversationIdAlias:
+    """A.3 — conversation_id accepted as an alias for session_id (NAMS)."""
+
+    @respx.mock
+    async def test_add_message_via_conversation_id_alias(self, short_term):
+        route = respx.post("https://memory.test/v1/conversations/conv-9/messages").respond(
+            200, json=SAMPLE_MESSAGE
+        )
+        await short_term.add_message(conversation_id="conv-9", role="user", content="hi")
+        assert route.called
+
+    @respx.mock
+    async def test_session_id_wins_when_both_supplied(self, short_term):
+        # Route only matches the session_id path; if conversation_id were used
+        # instead, the request would 404 against an unmocked path.
+        route = respx.post("https://memory.test/v1/conversations/real-sess/messages").respond(
+            200, json=SAMPLE_MESSAGE
+        )
+        await short_term.add_message(
+            session_id="real-sess", conversation_id="BOGUS", role="user", content="hi"
+        )
+        assert route.called
+
+    async def test_add_message_neither_raises_type_error(self, short_term):
+        with pytest.raises(TypeError, match="session_id.*conversation_id|conversation_id"):
+            await short_term.add_message(role="user", content="hi")
+
+    async def test_search_messages_neither_raises_value_error(self, short_term):
+        with pytest.raises(ValueError, match="session_id"):
+            await short_term.search_messages("q")
+
+    @respx.mock
+    async def test_search_messages_via_conversation_id_alias(self, short_term):
+        route = respx.post("https://memory.test/v1/conversations/conv-7/search").respond(
+            200, json={"messages": [], "searchType": "vector"}
+        )
+        await short_term.search_messages("q", conversation_id="conv-7")
+        assert route.called
+
+
 class TestProtocolConformance:
     def test_satisfies_short_term_protocol(self, short_term):
         assert isinstance(short_term, ShortTermProtocol)

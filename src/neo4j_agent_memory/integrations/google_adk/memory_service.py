@@ -118,6 +118,10 @@ class Neo4jMemoryService(BaseMemoryService):
         self._include_entities = include_entities
         self._include_preferences = include_preferences
         self._extract_on_store = extract_on_store
+        # Last session written/added to. ADK's search_memory() carries no
+        # session id, but NAMS message search is conversation-scoped — we
+        # thread this through so searches stay scoped on NAMS (issue #130).
+        self._current_session_id: str | None = None
 
     @property
     def user_id(self) -> str | None:
@@ -155,6 +159,10 @@ class Neo4jMemoryService(BaseMemoryService):
                 session_id = session.get("id", "default")
             else:
                 session_id = "default"
+
+        # Remember the active session so search_memory() can scope to it
+        # (NAMS message search is conversation-scoped — issue #130).
+        self._current_session_id = session_id
 
         # Extract messages from session
         messages = self._extract_messages(session)
@@ -207,15 +215,39 @@ class Neo4jMemoryService(BaseMemoryService):
         """
         results: list[MemoryEntry] = []
 
+        # Resolve a session to scope message search. NAMS requires it; bolt
+        # treats it as an optional filter. Caller-supplied kwarg wins over the
+        # tracked session (issue #130, defect 1).
+        session_id = kwargs.get("session_id") or self._current_session_id
+
         try:
-            # Search messages
-            messages = await self._client.short_term.search_messages(
-                query=query,
-                limit=limit,
-                threshold=threshold,
-            )
-            for msg in messages:
-                results.append(message_to_memory_entry(msg))
+            # Search messages — conversation-scoped on NAMS.
+            if session_id is not None:
+                messages = await self._client.short_term.search_messages(
+                    query=query,
+                    session_id=session_id,
+                    limit=limit,
+                    threshold=threshold,
+                )
+                for msg in messages:
+                    results.append(message_to_memory_entry(msg))
+            elif self._client.backend == "nams":
+                # No session context and NAMS can't do unscoped message search.
+                # Skip messages and rely on entity/preference recall (which are
+                # workspace-scoped and genuinely cross-session).
+                logger.debug(
+                    "search_memory: no session id on NAMS — skipping message "
+                    "search; entities/preferences still searched."
+                )
+            else:
+                # Bolt: unscoped message search is supported.
+                messages = await self._client.short_term.search_messages(
+                    query=query,
+                    limit=limit,
+                    threshold=threshold,
+                )
+                for msg in messages:
+                    results.append(message_to_memory_entry(msg))
 
             # Search entities if enabled
             if self._include_entities:
@@ -319,6 +351,7 @@ class Neo4jMemoryService(BaseMemoryService):
         """
         try:
             if memory_type == "message":
+                self._current_session_id = session_id
                 msg = await self._client.short_term.add_message(
                     session_id=session_id,
                     role=role,
@@ -364,23 +397,24 @@ class Neo4jMemoryService(BaseMemoryService):
         """Extract plain text from ADK Content/Parts objects or strings.
 
         ADK v1.x uses google.genai.types.Content objects with a `.parts` list,
-        where each Part may have `.text`, `.function_call`, etc.
+        where each Part may carry `.text`, `.function_call`, `.function_response`,
+        etc. We ingest **only** the text parts. Tool events (function calls /
+        responses) carry no `.text`, so they yield an empty string and the
+        caller skips them — they must never be ``str()``-ified into the entity
+        pipeline, where the JSON noise breaks server-side extraction and yields
+        empty knowledge graphs (issue #130, defect 2).
 
         Args:
             content: A string, Content object, or other content type.
 
         Returns:
-            Extracted text as a string.
+            The joined text parts, or ``""`` when there is no text to ingest.
         """
         if isinstance(content, str):
             return content
-        if hasattr(content, "parts"):
-            texts = []
-            for part in content.parts:
-                if hasattr(part, "text") and part.text:
-                    texts.append(part.text)
-            return "\n".join(texts) if texts else str(content)
-        return str(content)
+        parts = getattr(content, "parts", None) or []
+        texts = [part.text for part in parts if getattr(part, "text", None)]
+        return "\n".join(texts)
 
     def _extract_messages(self, session: Any) -> list[SessionMessage]:
         """Extract messages from various session formats.
@@ -425,6 +459,10 @@ class Neo4jMemoryService(BaseMemoryService):
             for msg in session.messages:
                 if hasattr(msg, "role") and hasattr(msg, "content"):
                     text = self._extract_text_from_content(msg.content)
+                    if not text:
+                        # Tool-only event (function call/response) — skip so its
+                        # JSON noise never reaches the entity pipeline (#130).
+                        continue
                     role_val = msg.role
                     role = str(role_val.value) if hasattr(role_val, "value") else str(role_val)
                     messages.append(

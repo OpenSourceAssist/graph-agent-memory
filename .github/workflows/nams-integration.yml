@@ -2,11 +2,23 @@ name: NAMS Integration
 
 # Runs the NAMS integration test suite against the live sandbox.
 #
-# Uses the NAMS_SANDBOX_KEY repo secret. When the secret is absent
-# (e.g. on PRs from forks), the tests inside the workflow skip cleanly
-# via the env-gate in tests/integration/nams/conftest.py — but we also
-# pre-check the secret and short-circuit the whole job to keep CI logs
-# tidy.
+# Configuration (Settings → Secrets and variables → Actions):
+#   * NAMS_SANDBOX_KEY          (Secret)   — API key. Required; job skips if unset.
+#   * NAMS_SANDBOX_URL          (Variable) — endpoint, e.g.
+#                                            https://nams.development.neo4jsandbox.com/v1
+#                                            Unset → falls back to the suite default below.
+#   * NAMS_SANDBOX_WORKSPACE_ID (Variable) — sent as X-Workspace-Id. Required by
+#                                            header-scoped deployments (e.g.
+#                                            memory.neo4jlabs.com), else 503
+#                                            workspace_not_provisioned.
+#
+# The "Preflight" step resolves and PRINTS the effective config, then makes one
+# authenticated request. It fails fast with a clear message on a bad key
+# (401/403), an unprovisioned workspace (503), or an unreachable endpoint — so a
+# misconfiguration surfaces as an explicit error here rather than a confusing
+# stack trace inside pytest. KEY and WORKSPACE come from job-level env; the
+# resolved URL is exported to $GITHUB_ENV so every later step inherits the SAME
+# endpoint with no per-step `|| fallback` that could silently mask an unset var.
 
 on:
   push:
@@ -25,6 +37,14 @@ jobs:
     # Skip on PRs from forks (secrets are unavailable there).
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 20
+    # Inherited by every step. URL is intentionally NOT here — the Preflight
+    # step resolves it (variable → suite default) and exports it to $GITHUB_ENV
+    # so a misconfigured variable can be detected instead of silently masked.
+    env:
+      NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+      NAMS_SANDBOX_WORKSPACE_ID: ${{ vars.NAMS_SANDBOX_WORKSPACE_ID }}
+      # Suite default used only when the NAMS_SANDBOX_URL variable is unset.
+      NAMS_DEFAULT_URL: https://nams.development.neo4jsandbox.com/v1
     steps:
       - uses: actions/checkout@v4
 
@@ -37,34 +57,107 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --all-extras
 
-      - name: Verify NAMS_SANDBOX_KEY is configured
+      # Resolve config, make it visible, and validate auth/connectivity up front.
+      - name: Preflight — resolve & validate NAMS config
+        id: preflight
         env:
-          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
+          NAMS_URL_VAR: ${{ vars.NAMS_SANDBOX_URL }}
         run: |
-          if [ -z "$NAMS_SANDBOX_KEY" ]; then
-            echo "::warning::NAMS_SANDBOX_KEY secret is not set. NAMS integration tests will be skipped."
+          set -uo pipefail
+
+          # 1. Key gate — skip cleanly (don't fail) when no key is configured,
+          #    e.g. on branches/forks without the secret.
+          if [ -z "${NAMS_SANDBOX_KEY:-}" ]; then
+            echo "::warning::NAMS_SANDBOX_KEY secret is not set. Skipping NAMS integration tests."
             echo "skip_tests=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "NAMS_SANDBOX_KEY is set; running live integration tests."
+            exit 0
           fi
-        id: check-secret
+
+          # 2. Resolve endpoint: NAMS_SANDBOX_URL variable wins; else suite default.
+          if [ -z "${NAMS_URL_VAR:-}" ]; then
+            echo "::notice::NAMS_SANDBOX_URL variable is not set — using suite default: ${NAMS_DEFAULT_URL}"
+            URL="${NAMS_DEFAULT_URL}"
+          else
+            URL="${NAMS_URL_VAR}"
+          fi
+          # Export for every later step (single source of truth, no fallback masking).
+          echo "NAMS_SANDBOX_URL=${URL}" >> "$GITHUB_ENV"
+
+          # 3. Print the effective config so it's never a mystery in the logs.
+          if [ -n "${NAMS_SANDBOX_WORKSPACE_ID:-}" ]; then WS="set"; else WS="<empty>"; fi
+          echo "::notice::NAMS endpoint   : ${URL}"
+          echo "::notice::NAMS api key    : set (masked)"
+          echo "::notice::NAMS workspace  : ${WS}"
+
+          # 3a. Workspace gate. Both deployments this workflow targets (staging
+          #     nams.development.neo4jsandbox.com and sandbox memory.neo4jlabs.com)
+          #     are workspace-scoped: reads may tolerate a missing workspace but
+          #     writes reject it ('400 workspace_id required' / '503
+          #     workspace_not_provisioned'). A GET probe alone won't catch that,
+          #     so fail now with an actionable message rather than mid-test.
+          if [ -z "${NAMS_SANDBOX_WORKSPACE_ID:-}" ]; then
+            echo "::error::NAMS_SANDBOX_WORKSPACE_ID is not set, but ${URL} is workspace-scoped and rejects writes without it (you saw '400 workspace_id required'). Set the NAMS_SANDBOX_WORKSPACE_ID repository variable (Settings → Secrets and variables → Actions → Variables tab) to a valid workspace id for this environment."
+            exit 1
+          fi
+
+          # 4. One authenticated request — fail fast with an actionable message.
+          #    Mirrors the client probe: GET /conversations?limit=1 with
+          #    Authorization: Bearer <key> and optional X-Workspace-Id. Two
+          #    explicit branches (no array) keep this portable under `set -u`.
+          if [ -n "${NAMS_SANDBOX_WORKSPACE_ID:-}" ]; then
+            CODE=$(curl -sS -o /tmp/nams_probe.txt -w '%{http_code}' \
+              -H "Authorization: Bearer ${NAMS_SANDBOX_KEY}" \
+              -H "X-Workspace-Id: ${NAMS_SANDBOX_WORKSPACE_ID}" \
+              "${URL}/conversations?limit=1" || echo "000")
+          else
+            CODE=$(curl -sS -o /tmp/nams_probe.txt -w '%{http_code}' \
+              -H "Authorization: Bearer ${NAMS_SANDBOX_KEY}" \
+              "${URL}/conversations?limit=1" || echo "000")
+          fi
+          BODY=$(cat /tmp/nams_probe.txt 2>/dev/null || true)
+          echo "Probe: GET ${URL}/conversations?limit=1 -> ${CODE}"
+
+          case "${CODE}" in
+            2*)
+              echo "::notice::NAMS auth + connectivity OK (${CODE})."
+              ;;
+            401|403)
+              echo "::error::NAMS rejected the API key (${CODE}) at ${URL}. The key in NAMS_SANDBOX_KEY and the endpoint NAMS_SANDBOX_URL must be from the SAME environment (a staging key only works against the staging URL). Response: ${BODY}"
+              exit 1
+              ;;
+            503)
+              if echo "${BODY}" | grep -q "workspace_not_provisioned"; then
+                echo "::error::Workspace not provisioned at ${URL}. Set the NAMS_SANDBOX_WORKSPACE_ID repo variable to a provisioned workspace (currently: ${WS}). Response: ${BODY}"
+                exit 1
+              fi
+              echo "::warning::NAMS returned 503 at probe — backend may be transiently down. Letting the suite run so it reports per-test. Response: ${BODY}"
+              ;;
+            000)
+              echo "::error::Could not reach ${URL} (DNS/network failure). Check the NAMS_SANDBOX_URL variable."
+              exit 1
+              ;;
+            400)
+              if echo "${BODY}" | grep -qi "workspace"; then
+                echo "::error::${URL} rejected the workspace (HTTP 400). NAMS_SANDBOX_WORKSPACE_ID may be invalid or not provisioned for this environment. Response: ${BODY}"
+                exit 1
+              fi
+              echo "::warning::Probe returned 400 at ${URL}; continuing so the suite reports detail. Response: ${BODY}"
+              ;;
+            *)
+              echo "::warning::Unexpected probe status ${CODE} at ${URL}; continuing so the suite reports detail. Response: ${BODY}"
+              ;;
+          esac
 
       # Smoke test first — fails fast if the basic flow is broken.
       - name: NAMS smoke test
-        if: steps.check-secret.outputs.skip_tests != 'true'
-        env:
-          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
-          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        if: steps.preflight.outputs.skip_tests != 'true'
         run: |
           uv run pytest tests/integration/nams/test_smoke.py \
             -v --tb=short --timeout=120
 
       # Auth / lifecycle tests — also fast and foundational.
       - name: NAMS auth + lifecycle tests
-        if: steps.check-secret.outputs.skip_tests != 'true'
-        env:
-          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
-          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        if: steps.preflight.outputs.skip_tests != 'true'
         run: |
           uv run pytest tests/integration/nams/test_auth.py \
             -v --tb=short --timeout=120
@@ -72,50 +165,35 @@ jobs:
       # Full TCK conformance + error suite — collect *all* failures (no -x)
       # so we see every endpoint mismatch in one run.
       - name: NAMS TCK conformance (Bronze)
-        if: steps.check-secret.outputs.skip_tests != 'true'
-        env:
-          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
-          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        if: steps.preflight.outputs.skip_tests != 'true'
         run: |
           uv run pytest tests/integration/nams/test_tck_bronze.py \
             -v --tb=short --timeout=180
         continue-on-error: true
 
       - name: NAMS TCK conformance (Silver)
-        if: steps.check-secret.outputs.skip_tests != 'true'
-        env:
-          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
-          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        if: steps.preflight.outputs.skip_tests != 'true'
         run: |
           uv run pytest tests/integration/nams/test_tck_silver.py \
             -v --tb=short --timeout=180
         continue-on-error: true
 
       - name: NAMS TCK conformance (Gold)
-        if: steps.check-secret.outputs.skip_tests != 'true'
-        env:
-          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
-          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        if: steps.preflight.outputs.skip_tests != 'true'
         run: |
           uv run pytest tests/integration/nams/test_tck_gold.py \
             -v --tb=short --timeout=180
         continue-on-error: true
 
       - name: NAMS TCK conformance (Platinum)
-        if: steps.check-secret.outputs.skip_tests != 'true'
-        env:
-          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
-          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        if: steps.preflight.outputs.skip_tests != 'true'
         run: |
           uv run pytest tests/integration/nams/test_tck_platinum.py \
             -v --tb=short --timeout=180
         continue-on-error: true
 
       - name: NAMS error-path tests
-        if: steps.check-secret.outputs.skip_tests != 'true'
-        env:
-          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
-          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        if: steps.preflight.outputs.skip_tests != 'true'
         run: |
           uv run pytest tests/integration/nams/test_errors.py \
             -v --tb=short --timeout=180
@@ -126,10 +204,7 @@ jobs:
       # tier-specific steps above could all fail and the workflow would still
       # report success.
       - name: Consolidated pass/fail check
-        if: steps.check-secret.outputs.skip_tests != 'true'
-        env:
-          NAMS_SANDBOX_KEY: ${{ secrets.NAMS_SANDBOX_KEY }}
-          NAMS_SANDBOX_URL: ${{ vars.NAMS_SANDBOX_URL || 'https://memory.neo4jlabs.com/v1' }}
+        if: steps.preflight.outputs.skip_tests != 'true'
         run: |
           uv run pytest tests/integration/nams/ \
             -v --tb=line --timeout=300 \

@@ -68,6 +68,13 @@ const memory = new MemoryClient({
 |Bearer token for `Authorization` header.
 |`process.env.MEMORY_API_KEY`
 
+|`workspaceId`
+|`string`
+|NAMS workspace id, sent as the `X-Workspace-Id` header on every request.
+Required by header-scoped deployments (e.g. staging); harmless on production.
+An explicit `X-Workspace-Id` entry in `headers` overrides it.
+|`process.env.MEMORY_WORKSPACE_ID`
+
 |`tokenProvider`
 |`() => string \| Promise<string>`
 |Dynamic token source (OAuth refresh, AWS STS, etc.). Overrides `apiKey`.
@@ -308,6 +315,41 @@ TypeDoc: link:https://neo4j-labs.github.io/agent-memory/typescript/classes/Query
 |===
 
 TypeDoc: link:https://neo4j-labs.github.io/agent-memory/typescript/classes/AuthClient.html[`AuthClient`]
+
+== `client.ontology` — domain ontologies (hosted only)
+
+Typed, versioned, validated domain schemas. See
+xref:reference/ontology-api.adoc[Ontology API] and
+xref:how-to/use-ontologies.adoc[Use Ontologies].
+
+[cols="2,3", options="header"]
+|===
+|Method |Purpose
+
+|`list()`
+|System templates + workspace-owned ontologies (active flagged).
+
+|`get(id)`
+|One ontology with its full revision history.
+
+|`getActive()`
+|Active version's parsed document + composed `validationMode` / `revision` / `versionId`.
+
+|`clone(templateName)`
+|Editable workspace copy of a system template (rev 1).
+
+|`create({ name, schema, validationMode? })`
+|New workspace ontology from a schema document.
+
+|`update({ id, schema, validationMode? })`
+|New immutable revision.
+
+|`activate(versionId)`
+|Bind a version; subsequent entity writes validate against it.
+
+|`delete(id)`
+|Delete a workspace-owned ontology.
+|===
 
 == Errors
 

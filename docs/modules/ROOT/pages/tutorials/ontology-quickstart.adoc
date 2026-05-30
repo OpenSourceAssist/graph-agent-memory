@@ -1,0 +1,93 @@
+= Tutorial: Ontology quickstart
+:description: Clone the healthcare ontology, activate it strict, write a Patient, and watch typed extraction and a validation rejection.
+
+In this tutorial we will clone a domain ontology, activate it, and observe how
+the active schema shapes — and validates — what lands in the graph. We will use
+the hosted NAMS backend throughout.
+
+== Before you begin
+
+You need a NAMS endpoint, an API key, and (for header-scoped deployments) a
+workspace id. See xref:tutorials/nams-quickstart.adoc[NAMS Quickstart].
+
+[source,python]
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.nams import NamsConfig
+
+settings = MemorySettings(
+    backend="nams",
+    nams=NamsConfig(
+        endpoint="https://nams.development.neo4jsandbox.com/v1",
+        api_key="nams_...",
+        workspace_id="your-workspace-id",
+    ),
+)
+----
+
+== Step 1 — Clone the healthcare template
+
+[source,python]
+----
+async with MemoryClient(settings) as client:
+    version = await client.ontology.clone("healthcare")
+    print(version.revision, len(version.document.entity_types))   # 1, e.g. 12
+----
+
+Cloning creates a workspace-owned `healthcare-clone` at revision 1.
+
+== Step 2 — Make it strict and activate it
+
+[source,python]
+----
+    strict = await client.ontology.update(
+        version.ontology_id, version.document, validation_mode="strict"
+    )
+    await client.ontology.activate(strict.id)
+
+    active = await client.ontology.get_active()
+    print(active.document.domain.name, active.validation_mode)    # Healthcare strict
+----
+
+== Step 3 — Write a Patient and watch typed extraction
+
+[source,python]
+----
+    await client.long_term.add_entity("Jane Doe", entity_type="Patient")
+    await client.long_term.wait_for_extraction(
+        query="Jane Doe", expected_names=["Jane Doe"], timeout=30
+    )
+    results = await client.long_term.search_entities("Jane Doe")
+    print(results[0].type)        # Patient — snapped to the typed schema
+----
+
+== Step 4 — Observe a validation rejection under strict
+
+Under `strict`, a write that violates the active schema is rejected:
+
+[source,python]
+----
+    from neo4j_agent_memory.core.exceptions import ValidationError
+    try:
+        await client.long_term.add_entity("Acme Clinic", entity_type="NotInSchema")
+    except ValidationError as e:
+        print("rejected:", e)
+----
+
+== Step 5 — Clean up
+
+[source,python]
+----
+    # Restore the default and remove the clone.
+    # (Re-activate whatever was active before, then delete.)
+    await client.ontology.delete(version.ontology_id)
+----
+
+== What you learned
+
+* Cloning a system template creates an editable, versioned, workspace-owned copy.
+* `activate` binds a *version*; `get_active()` reports its `validation_mode`.
+* Under `strict`, the service enforces the schema and the SDK raises
+  `ValidationError`.
+
+Next: xref:reference/ontology-api.adoc[the full Ontology API reference].

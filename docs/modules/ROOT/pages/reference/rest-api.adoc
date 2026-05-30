@@ -9,6 +9,15 @@ Bridge-method names are what the link:https://github.com/neo4j-labs/agent-memory
 cross-language conformance suite uses. SDK methods take language-idiomatic
 casing.
 
+== Request headers
+
+Every request carries `Authorization: Bearer <api_key>`. Deployments that scope
+by header (e.g. the development/staging service) additionally require
+`X-Workspace-Id: <workspace_id>`; the SDK sends it automatically when
+`workspace_id` / `workspaceId` (or `MEMORY_WORKSPACE_ID`) is configured. On
+production the workspace is encoded in the API key and the header is optional.
+See xref:how-to/use-nams.adoc[Use NAMS].
+
 == Conversations
 
 [cols="2,3,1,1,1,1,1"]
@@ -72,6 +81,26 @@ casing.
 | `DELETE` | `/auth/api-keys/{id}` | `revoke_api_key` | `auth.revokeApiKey` | `Auth.RevokeAPIKey` | `auth.revoke_api_key` | `Auth.RevokeApiKeyAsync`
 | `GET` | `/auth/api-keys/{id}/reveal` | `reveal_api_key` | `auth.revealApiKey` | `Auth.RevealAPIKey` | `auth.reveal_api_key` | `Auth.RevealApiKeyAsync`
 | `POST` | `/auth/refresh` | `refresh_access_token` | `auth.refreshAccessToken` | `Auth.RefreshAccessToken` | `auth.refresh_access_token` | `Auth.RefreshAccessTokenAsync`
+|===
+
+== Ontologies
+
+Typed, versioned domain schemas. Workspace-scoped via `X-Workspace-Id`. Request
+bodies are snake_case. See xref:reference/ontology-api.adoc[Ontology API] for the
+document schema and validation modes.
+
+[cols="2,4,2,2"]
+|===
+| HTTP | Path | Python | TypeScript
+
+| `GET` | `/ontologies` | `ontology.list` | `ontology.list`
+| `GET` | `/ontologies/{id}` | `ontology.get` | `ontology.get`
+| `GET` | `/ontologies/active` | `ontology.get_active` | `ontology.getActive`
+| `POST` | `/ontologies/{name}/clone` | `ontology.clone` | `ontology.clone`
+| `POST` | `/ontologies` | `ontology.create` | `ontology.create`
+| `PUT` | `/ontologies/{id}` | `ontology.update` | `ontology.update`
+| `POST` | `/ontologies/active` | `ontology.activate` | `ontology.activate`
+| `DELETE` | `/ontologies/{id}` | `ontology.delete` | `ontology.delete`
 |===
 
 == Wire format differences

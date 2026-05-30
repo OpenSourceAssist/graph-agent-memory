@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Workspace addressing for NAMS.** `NamsConfig.workspace_id` (and the
+  `MEMORY_WORKSPACE_ID` environment variable) is transmitted automatically
+  as the `X-Workspace-Id` header on every request. This is required by
+  deployments that scope by header (e.g. the development/staging service)
+  rather than encoding the workspace in the API key (production, unchanged).
+  An explicit `X-Workspace-Id` entry in `headers` still wins. The
+  `validate_on_connect` probe sends the header so misconfiguration fails fast.
+- **Ontology surface (`client.ontology`).** Drive the NAMS domain-ontology
+  engine from the SDK: `list()`, `get()`, `get_active()`, `clone()`,
+  `create()`, `update()`, `activate()`, `delete()` over the ~28 system
+  templates, versioned revisions, and `permissive`/`strict` validation modes.
+  Returns typed Pydantic models (`OntologySummary`, `OntologyVersion`,
+  `OntologyDocument`, `EntityTypeDef`, …); `get_active()` surfaces the active
+  version's `validation_mode`. On the bolt backend the accessor raises
+  `NotSupportedError` (define a custom schema with `SchemaModel.CUSTOM`).
+- **`conversation_id` alias** accepted across NAMS short-term methods
+  (`add_message`, `get_conversation`, `search_messages`, `clear_session`,
+  `create_conversation`, `bulk_add_messages`, …) as an alias for `session_id`.
+  `session_id` wins when both are supplied; a clear error names both when
+  neither is. `entity_type` gains `type`/`label` aliases on `add_entity`.
+- **`long_term.wait_for_extraction(...)`** — await the asynchronous NAMS
+  extraction pipeline explicitly (polls entity search for `expected_names` /
+  a `predicate`; returns a boolean, no raise). A no-op returning `True` on
+  bolt, where extraction is synchronous.
+
+### Fixed
+
+- **Google ADK `Neo4jMemoryService` is now NAMS-compatible (#130).**
+  `search_memory()` is conversation-scoped on NAMS (it threads the active
+  session id and skips message search gracefully when none is known, instead
+  of crashing with the unscoped-search `ValueError`); tool events
+  (`FunctionCall`/`FunctionResponse`) are filtered out of the entity pipeline
+  rather than stringified into it, so they no longer produce empty knowledge
+  graphs. Documentation parameter names are reconciled (`session_id` /
+  `conversation_id`, `entity_type` / `type`). `MemoryClient` gains `backend`
+  and `is_nams` properties.
+
 ### Repository
 
 - The repository at `neo4j-labs/agent-memory` is now polyglot. A
