@@ -9,6 +9,15 @@ appear in minor versions with a callout in this file.
 
 ## [Unreleased]
 
+## 0.4.0 — NAMS alignment
+
+Adds workspace addressing, a first-class ontology surface
+(`client.ontology`), a `conversationId` alias on the short-term methods,
+and an explicit `longTerm.waitForExtraction(...)` await for the
+asynchronous NAMS extraction pipeline. First release cut from the
+polyglot `neo4j-labs/agent-memory` repository, published under
+namespaced `typescript-v*` tags.
+
 ### Added
 
 - **Workspace addressing.** `MemoryClientOptions.workspaceId` (and the
