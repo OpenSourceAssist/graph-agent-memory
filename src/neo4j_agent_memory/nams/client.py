@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 from neo4j_agent_memory.config.settings import NamsConfig
 from neo4j_agent_memory.nams.auth import AuthProvider, StaticApiKeyAuth
 from neo4j_agent_memory.nams.long_term import NamsLongTermMemory
+from neo4j_agent_memory.nams.ontology import NamsOntology
 from neo4j_agent_memory.nams.query import NamsCypherQuery
 from neo4j_agent_memory.nams.reasoning import NamsReasoningMemory
 from neo4j_agent_memory.nams.short_term import NamsShortTermMemory
@@ -47,6 +48,7 @@ class NamsBackend:
         self._long_term = NamsLongTermMemory(transport)
         self._reasoning = NamsReasoningMemory(transport)
         self._query = NamsCypherQuery(transport)
+        self._ontology = NamsOntology(transport)
 
     # ------------------------------------------------------------------ ctors
 
@@ -110,6 +112,11 @@ class NamsBackend:
     def query(self) -> NamsCypherQuery:
         """Read-only Cypher accessor (NAMS Platinum ``POST /v1/query``)."""
         return self._query
+
+    @property
+    def ontology(self) -> NamsOntology:
+        """Ontology lifecycle accessor (``client.ontology``)."""
+        return self._ontology
 
     # ----------------------------------------------------------------- probe
 

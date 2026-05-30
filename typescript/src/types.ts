@@ -311,6 +311,15 @@ export interface MemoryClientOptions {
   /** API key for authentication. */
   apiKey?: string;
 
+  /**
+   * NAMS workspace id. When set, transmitted as the `X-Workspace-Id` header on
+   * every request — required by deployments that scope by header (e.g. the
+   * development/staging service) rather than encoding the workspace in the API
+   * key (production). Optional and harmless when unset. Falls back to the
+   * `MEMORY_WORKSPACE_ID` environment variable.
+   */
+  workspaceId?: string;
+
   /** Override transport selection. Default: "auto" (REST if endpoint contains /v1). */
   transport?: TransportMode;
 
@@ -340,16 +349,27 @@ export interface MemoryClientOptions {
 
 export interface AddMessageOptions {
   metadata?: Record<string, unknown>;
+  /** Alias for the positional `sessionId` (NAMS is conversation-scoped). */
+  conversationId?: string;
 }
 
 export interface GetConversationOptions {
   limit?: number;
+  /** Alias for the positional `sessionId`. */
+  conversationId?: string;
 }
 
 export interface SearchMessagesOptions {
   sessionId?: string;
+  /** Alias for `sessionId` (NAMS is conversation-scoped). `sessionId` wins. */
+  conversationId?: string;
   limit?: number;
   threshold?: number;
+}
+
+export interface ClearSessionOptions {
+  /** Alias for the positional `sessionId`. */
+  conversationId?: string;
 }
 
 export interface ListSessionsOptions {
@@ -359,6 +379,23 @@ export interface ListSessionsOptions {
 export interface SearchEntitiesOptions {
   limit?: number;
   type?: string;
+}
+
+export interface WaitForExtractionOptions {
+  /** Search string to poll. Defaults to the first of `expectedNames`. */
+  query?: string;
+  /** Succeed once every name appears in results (case-insensitive). */
+  expectedNames?: string[];
+  /** Succeed once at least this many entities match. Default 1. */
+  minResults?: number;
+  /** Custom predicate over the current results. */
+  predicate?: (entities: Entity[]) => boolean;
+  /** Max entities to fetch per poll. */
+  limit?: number;
+  /** Overall timeout in milliseconds. Default 30000. */
+  timeoutMs?: number;
+  /** Poll interval in milliseconds. Default 1000. */
+  intervalMs?: number;
 }
 
 export interface SearchPreferencesOptions {

@@ -37,6 +37,9 @@ import {
 
 const API_KEY = (process.env.MEMORY_API_KEY ?? "").trim();
 const ENDPOINT = process.env.MEMORY_ENDPOINT ?? "https://memory.neo4jlabs.com/v1";
+// Workspace id for header-scoped (staging) deployments; transmitted as
+// X-Workspace-Id by the client. Unset/empty is harmless on production.
+const WORKSPACE_ID = (process.env.MEMORY_WORKSPACE_ID ?? "").trim() || undefined;
 const HAS_KEY = API_KEY.length > 0;
 
 const describeOrSkip = HAS_KEY ? describe : describe.skip;
@@ -80,7 +83,7 @@ describeOrSkip("hosted service e2e", () => {
   const cleanupEntities: string[] = [];
 
   beforeAll(async () => {
-    client = new MemoryClient({ endpoint: ENDPOINT, apiKey: API_KEY });
+    client = new MemoryClient({ endpoint: ENDPOINT, apiKey: API_KEY, workspaceId: WORKSPACE_ID });
     await client.connect();
   });
 

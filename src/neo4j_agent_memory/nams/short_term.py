@@ -193,6 +193,32 @@ def _normalize_conversation(
 # -----------------------------------------------------------------------------
 
 
+def _resolve_conversation_id(
+    session_id: str | None,
+    conversation_id: str | None,
+    *,
+    method: str,
+    error_type: type[Exception] = TypeError,
+) -> str:
+    """Resolve the conversation/session id for a NAMS short-term call.
+
+    NAMS is conversation-scoped (the REST API addresses
+    ``/conversations/{id}``). The SDK's canonical parameter is
+    ``session_id``; ``conversation_id`` is accepted as an alias. When both
+    are supplied, ``session_id`` wins. When neither is supplied, a single
+    clear error naming both is raised — ``TypeError`` for write CRUD,
+    ``ValueError`` for search/context (preserving the historical contract).
+    """
+    conv = session_id if session_id is not None else conversation_id
+    if conv is None:
+        raise error_type(
+            f"{method} requires session_id (alias: conversation_id) on NAMS — the "
+            "API is conversation-scoped. Pass session_id=... to scope the call."
+        )
+    return conv
+
+
+
 class NamsShortTermMemory:
     """Short-term memory backed by the NAMS HTTP service.
 
@@ -209,44 +235,53 @@ class NamsShortTermMemory:
 
     async def add_message(
         self,
-        session_id: str,
-        role: str,
-        content: str,
+        session_id: str | None = None,
+        role: str = "user",
+        content: str = "",
+        *,
+        conversation_id: str | None = None,
         **kwargs: Any,
     ) -> Message:
         """Append a message to a NAMS conversation.
 
+        ``session_id`` is the canonical parameter; ``conversation_id`` is
+        accepted as an alias (``session_id`` wins when both are given).
         Per verified spec, NAMS accepts only ``{content, role}`` — other
-        kwargs (``metadata``, ``user_identifier``, ``conversation_id``,
-        bolt-only knobs) are silently dropped.
+        kwargs (``metadata``, ``user_identifier``, bolt-only knobs) are
+        silently dropped.
         """
+        conv = _resolve_conversation_id(session_id, conversation_id, method="add_message")
         body = {"content": content, "role": role}
         payload = await self._transport.request(
             _SPEC_ADD_MESSAGE,
-            path_params={"conversation_id": session_id},
+            path_params={"conversation_id": conv},
             json=body,
         )
         return payload_to_model(_normalize_message(payload or {}), Message)
 
-    async def get_conversation(self, session_id: str, **kwargs: Any) -> Conversation:
+    async def get_conversation(
+        self, session_id: str | None = None, *, conversation_id: str | None = None, **kwargs: Any
+    ) -> Conversation:
         """Return the conversation + its messages.
 
+        ``session_id`` is canonical; ``conversation_id`` is an alias.
         NAMS splits this across two endpoints — ``GET /conversations/{id}``
         returns header data and ``GET /conversations/{id}/messages``
         returns the message list (envelope ``{"messages": [...]}``).
         We assemble them client-side so the user-facing contract matches
         the Protocol (single call → full :class:`Conversation`).
         """
+        conv = _resolve_conversation_id(session_id, conversation_id, method="get_conversation")
         limit = kwargs.get("limit")
         header = await self._transport.request(
             _SPEC_GET_CONVERSATION,
-            path_params={"conversation_id": session_id},
+            path_params={"conversation_id": conv},
         )
 
         params = _drop_none({"limit": limit})
         msgs_payload = await self._transport.request(
             _SPEC_LIST_MESSAGES,
-            path_params={"conversation_id": session_id},
+            path_params={"conversation_id": conv},
             params=params or None,
         )
         if isinstance(msgs_payload, dict) and "messages" in msgs_payload:
@@ -257,7 +292,7 @@ class NamsShortTermMemory:
             messages = []
 
         return payload_to_model(
-            _normalize_conversation(header, session_id=session_id, messages=messages),
+            _normalize_conversation(header, session_id=conv, messages=messages),
             Conversation,
         )
 
@@ -265,20 +300,19 @@ class NamsShortTermMemory:
         """Vector/keyword search across messages within a conversation.
 
         Per verified spec, NAMS's search is **conversation-scoped** —
-        ``POST /v1/conversations/{id}/search``. A ``session_id`` kwarg
-        is required; if absent, the call raises.
+        ``POST /v1/conversations/{id}/search``. A ``session_id`` (alias
+        ``conversation_id``) kwarg is required; if absent, the call raises.
         """
-        session_id = kwargs.get("session_id")
-        if not session_id:
-            raise ValueError(
-                "search_messages requires session_id on NAMS — the API is "
-                "conversation-scoped (POST /v1/conversations/{id}/search). "
-                "Pass session_id=... to scope the search."
-            )
+        conv = _resolve_conversation_id(
+            kwargs.get("session_id"),
+            kwargs.get("conversation_id"),
+            method="search_messages",
+            error_type=ValueError,
+        )
         body = _drop_none({"query": query, "limit": kwargs.get("limit")})
         payload = await self._transport.request(
             _SPEC_SEARCH_MESSAGES,
-            path_params={"conversation_id": session_id},
+            path_params={"conversation_id": conv},
             json=body,
         )
         # Response: {"messages": [...], "searchType": "vector"|"text"}
@@ -311,11 +345,17 @@ class NamsShortTermMemory:
             workaround="Use clear_session(session_id) to clear an entire conversation.",
         )
 
-    async def clear_session(self, session_id: str) -> None:
-        """Delete the entire conversation (NAMS ``DELETE /conversations/{id}``)."""
+    async def clear_session(
+        self, session_id: str | None = None, *, conversation_id: str | None = None
+    ) -> None:
+        """Delete the entire conversation (NAMS ``DELETE /conversations/{id}``).
+
+        ``session_id`` is canonical; ``conversation_id`` is an alias.
+        """
+        conv = _resolve_conversation_id(session_id, conversation_id, method="clear_session")
         await self._transport.request(
             _SPEC_DELETE_CONVERSATION,
-            path_params={"conversation_id": session_id},
+            path_params={"conversation_id": conv},
         )
 
     async def get_context(self, query: str, **kwargs: Any) -> str:
@@ -330,16 +370,15 @@ class NamsShortTermMemory:
         Returns a formatted text block assembled client-side from the
         three response sections.
         """
-        session_id = kwargs.get("session_id")
-        if not session_id:
-            raise ValueError(
-                "get_context requires session_id on NAMS — the context "
-                "endpoint is conversation-scoped "
-                "(GET /v1/conversations/{id}/context)."
-            )
+        conv = _resolve_conversation_id(
+            kwargs.get("session_id"),
+            kwargs.get("conversation_id"),
+            method="get_context",
+            error_type=ValueError,
+        )
         payload = await self._transport.request(
             _SPEC_GET_CONTEXT,
-            path_params={"conversation_id": session_id},
+            path_params={"conversation_id": conv},
         )
         if not isinstance(payload, dict):
             return ""
@@ -378,15 +417,18 @@ class NamsShortTermMemory:
 
     # -------------------------------------------------------------------- Gold
 
-    async def create_conversation(self, session_id: str, **kwargs: Any) -> Conversation:
+    async def create_conversation(
+        self, session_id: str | None = None, *, conversation_id: str | None = None, **kwargs: Any
+    ) -> Conversation:
         """Create a new conversation on NAMS.
 
-        Per verified spec, NAMS accepts ``{userId?, metadata?}`` only —
-        no ``session_id`` or ``title`` in the body (those are
-        client-side concepts). The ``session_id`` argument is used to
-        populate the returned ``Conversation.session_id`` field for
-        Pydantic compatibility.
+        ``session_id`` is canonical; ``conversation_id`` is an alias. Per
+        verified spec, NAMS accepts ``{userId?, metadata?}`` only — no
+        ``session_id`` or ``title`` in the body (those are client-side
+        concepts). The resolved id populates the returned
+        ``Conversation.session_id`` field for Pydantic compatibility.
         """
+        conv = _resolve_conversation_id(session_id, conversation_id, method="create_conversation")
         body = _drop_none(
             {
                 "userId": kwargs.get("user_identifier"),
@@ -395,7 +437,7 @@ class NamsShortTermMemory:
         )
         payload = await self._transport.request(_SPEC_CREATE_CONVERSATION, json=body)
         return payload_to_model(
-            _normalize_conversation(payload, session_id=session_id),
+            _normalize_conversation(payload, session_id=conv),
             Conversation,
         )
 
@@ -428,21 +470,25 @@ class NamsShortTermMemory:
 
     async def bulk_add_messages(
         self,
-        session_id: str,
-        messages: list[dict[str, Any]],
+        session_id: str | None = None,
+        messages: list[dict[str, Any]] | None = None,
+        *,
+        conversation_id: str | None = None,
         **kwargs: Any,
     ) -> list[Message]:
         """Bulk-insert messages (max 100 per call per NAMS spec).
 
+        ``session_id`` is canonical; ``conversation_id`` is an alias.
         Request: ``{"messages": [{"content", "role"}, ...]}``.
         Response: ``{"messages": [...]}``.
         """
+        conv = _resolve_conversation_id(session_id, conversation_id, method="bulk_add_messages")
         # Strip any extra kwargs each message might carry (bolt-only fields).
-        clean_batch = [{"content": m["content"], "role": m["role"]} for m in messages]
+        clean_batch = [{"content": m["content"], "role": m["role"]} for m in (messages or [])]
         body = {"messages": clean_batch}
         payload = await self._transport.request(
             _SPEC_BULK_ADD_MESSAGES,
-            path_params={"conversation_id": session_id},
+            path_params={"conversation_id": conv},
             json=body,
         )
         items: list[Any]
@@ -454,11 +500,16 @@ class NamsShortTermMemory:
             items = []
         return [payload_to_model(_normalize_message(m), Message) for m in items]
 
-    async def get_observations(self, session_id: str, **kwargs: Any) -> list[dict[str, Any]]:
+    async def get_observations(
+        self, session_id: str | None = None, **kwargs: Any
+    ) -> list[dict[str, Any]]:
         """Return inline observations extracted from a conversation."""
+        conv = _resolve_conversation_id(
+            session_id, kwargs.get("conversation_id"), method="get_observations"
+        )
         payload = await self._transport.request(
             _SPEC_GET_OBSERVATIONS,
-            path_params={"conversation_id": session_id},
+            path_params={"conversation_id": conv},
         )
         if isinstance(payload, dict) and "observations" in payload:
             return list(payload["observations"])
@@ -466,11 +517,16 @@ class NamsShortTermMemory:
             return list(payload)
         return []
 
-    async def get_reflections(self, session_id: str, **kwargs: Any) -> list[dict[str, Any]]:
+    async def get_reflections(
+        self, session_id: str | None = None, **kwargs: Any
+    ) -> list[dict[str, Any]]:
         """Return LLM-generated reflections for a conversation."""
+        conv = _resolve_conversation_id(
+            session_id, kwargs.get("conversation_id"), method="get_reflections"
+        )
         payload = await self._transport.request(
             _SPEC_GET_REFLECTIONS,
-            path_params={"conversation_id": session_id},
+            path_params={"conversation_id": conv},
         )
         if isinstance(payload, dict) and "reflections" in payload:
             return list(payload["reflections"])

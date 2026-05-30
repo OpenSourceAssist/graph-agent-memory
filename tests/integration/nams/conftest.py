@@ -56,27 +56,51 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
-def _resolve_endpoint_and_key() -> tuple[str, str] | None:
-    """Return (endpoint, api_key) if a sandbox or TCK is reachable, else None."""
-    if (key := os.environ.get("NAMS_SANDBOX_KEY")) and (
-        url := os.environ.get("NAMS_SANDBOX_URL", "https://memory.neo4jlabs.com/v1")
-    ):
-        return url, key
+# Default staging/development endpoint this suite targets. Override with
+# NAMS_SANDBOX_URL (or MEMORY_ENDPOINT) to point elsewhere.
+_DEFAULT_SANDBOX_URL = "https://nams.development.neo4jsandbox.com/v1"
+
+
+def _resolve_credentials() -> tuple[str, str, str | None] | None:
+    """Return (endpoint, api_key, workspace_id) if reachable, else None.
+
+    Recognizes the integration-test env family
+    ``NAMS_SANDBOX_URL`` / ``NAMS_SANDBOX_KEY`` / ``NAMS_SANDBOX_WORKSPACE_ID``
+    and the user-facing aliases ``MEMORY_ENDPOINT`` / ``MEMORY_API_KEY`` /
+    ``MEMORY_WORKSPACE_ID``. The workspace is resolved into the
+    ``X-Workspace-Id`` header by the client itself (no manual header
+    injection in fixtures) — required by the header-scoped staging
+    deployment.
+    """
+    key = os.environ.get("NAMS_SANDBOX_KEY") or os.environ.get("MEMORY_API_KEY")
+    workspace = os.environ.get("NAMS_SANDBOX_WORKSPACE_ID") or os.environ.get(
+        "MEMORY_WORKSPACE_ID"
+    )
+    if key:
+        url = (
+            os.environ.get("NAMS_SANDBOX_URL")
+            or os.environ.get("MEMORY_ENDPOINT")
+            or _DEFAULT_SANDBOX_URL
+        )
+        return url, key, workspace
     if (url := os.environ.get("NAMS_TCK_URL")) and (
         key := os.environ.get("NAMS_TCK_KEY", "test-tck-key")
     ):
-        return url, key
+        # TCK reference implementation scopes by key, not header.
+        return url, key, None
     return None
 
 
 @pytest.fixture(scope="session")
-def nams_credentials() -> tuple[str, str]:
-    """Sandbox / TCK endpoint + key. Skips the whole module if unset."""
-    creds = _resolve_endpoint_and_key()
+def nams_credentials() -> tuple[str, str, str | None]:
+    """Sandbox / TCK endpoint + key + workspace. Skips the module if unset."""
+    creds = _resolve_credentials()
     if creds is None:
         pytest.skip(
             "No NAMS sandbox or TCK reachable. Set NAMS_SANDBOX_KEY (and "
-            "optionally NAMS_SANDBOX_URL) or NAMS_TCK_URL to enable these tests."
+            "optionally NAMS_SANDBOX_URL / NAMS_SANDBOX_WORKSPACE_ID), or the "
+            "MEMORY_API_KEY / MEMORY_ENDPOINT / MEMORY_WORKSPACE_ID aliases, or "
+            "NAMS_TCK_URL to enable these tests."
         )
     return creds
 
@@ -87,13 +111,18 @@ def nams_credentials() -> tuple[str, str]:
 
 
 @pytest.fixture
-def nams_config(nams_credentials: tuple[str, str]) -> NamsConfig:
+def nams_config(nams_credentials: tuple[str, str, str | None]) -> NamsConfig:
     """Per-test NamsConfig pointing at the sandbox. ``validate_on_connect`` off
-    so individual tests can opt into the probe (or skip it for write-only flows)."""
-    endpoint, api_key = nams_credentials
+    so individual tests can opt into the probe (or skip it for write-only flows).
+
+    The workspace is supplied as ``workspace_id`` — the client transmits it as
+    ``X-Workspace-Id`` automatically. No manual header injection.
+    """
+    endpoint, api_key, workspace_id = nams_credentials
     return NamsConfig(
         endpoint=endpoint,
         api_key=SecretStr(api_key),
+        workspace_id=workspace_id,
         validate_on_connect=False,
         max_retries=2,
         retry_backoff_seconds=0.5,

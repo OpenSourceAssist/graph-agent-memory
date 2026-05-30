@@ -507,6 +507,15 @@ class NamsConfig(BaseModel):
         description="NAMS API key (format 'nams_...'). When constructed via "
         "MemorySettings, an unset value may be populated from MEMORY_API_KEY.",
     )
+    workspace_id: str | None = Field(
+        default=None,
+        description="NAMS workspace id. When set, transmitted as the 'X-Workspace-Id' "
+        "header on every request — required by deployments that scope by header "
+        "(e.g. the development/staging service) rather than encoding the workspace "
+        "in the API key (production). Optional and harmless when unset. When "
+        "constructed via MemorySettings, an unset value may be populated from "
+        "MEMORY_WORKSPACE_ID.",
+    )
     timeout: float = Field(default=30.0, gt=0, description="HTTP request timeout in seconds.")
     max_retries: int = Field(
         default=3,
@@ -759,6 +768,10 @@ class MemorySettings(BaseSettings):
         env_endpoint = os.environ.get("MEMORY_ENDPOINT")
         if env_endpoint and "endpoint" not in self.nams.model_fields_set:
             self.nams.endpoint = env_endpoint
+
+        env_workspace = os.environ.get("MEMORY_WORKSPACE_ID")
+        if env_workspace and self.nams.workspace_id is None:
+            self.nams.workspace_id = env_workspace
 
         # Step 2 & 3: resolve backend if user didn't pin it.
         if self.backend is None:

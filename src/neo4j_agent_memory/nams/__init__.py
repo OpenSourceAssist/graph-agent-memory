@@ -28,6 +28,19 @@ from neo4j_agent_memory.nams.endpoints import (
     expand_path,
 )
 from neo4j_agent_memory.nams.long_term import NamsLongTermMemory
+from neo4j_agent_memory.nams.ontology import (
+    ActiveOntology,
+    DomainInfo,
+    EntityTypeDef,
+    NamsOntology,
+    Ontology,
+    OntologyDocument,
+    OntologyRecord,
+    OntologySummary,
+    OntologyVersion,
+    PropertyDef,
+    RelationshipDef,
+)
 from neo4j_agent_memory.nams.query import NamsCypherQuery
 from neo4j_agent_memory.nams.reasoning import NamsReasoningMemory
 from neo4j_agent_memory.nams.short_term import NamsShortTermMemory
@@ -53,4 +66,16 @@ __all__ = [
     "NamsReasoningMemory",
     # Cypher accessor (v0.4 Phase 4)
     "NamsCypherQuery",
+    # Ontology surface (v0.5)
+    "NamsOntology",
+    "Ontology",
+    "OntologySummary",
+    "OntologyVersion",
+    "OntologyRecord",
+    "OntologyDocument",
+    "ActiveOntology",
+    "DomainInfo",
+    "EntityTypeDef",
+    "PropertyDef",
+    "RelationshipDef",
 ]

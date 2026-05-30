@@ -410,6 +410,13 @@ defaults to NAMS. Falls back to bolt when unset.
 | NAMS endpoint base URL. REST mode when the URL contains `/v\d+`.
 | `https://memory.neo4jlabs.com/v1`
 
+| `MEMORY_WORKSPACE_ID`
+| NAMS workspace id. Lifted into `NamsConfig.workspace_id` and sent as the
+`X-Workspace-Id` header on every request. Required by header-scoped
+deployments (e.g. staging); harmless on production (which encodes the
+workspace in the API key).
+| _unset_
+
 | `NAM_BACKEND`
 | Force the backend: `bolt` or `nams`. Overrides the
 `MEMORY_API_KEY`-based default.

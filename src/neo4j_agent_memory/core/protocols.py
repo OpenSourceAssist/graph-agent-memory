@@ -219,6 +219,16 @@ class LongTermProtocol(Protocol):
         """Vector/keyword search across entities."""
         ...
 
+    async def wait_for_extraction(self, **kwargs: Any) -> bool:
+        """Await async entity extraction (NAMS) or no-op (bolt).
+
+        Returns ``True`` once extraction has caught up (or immediately on
+        bolt), ``False`` on timeout. See the NAMS implementation for the
+        full keyword surface (``query``, ``expected_names``, ``min_results``,
+        ``predicate``, ``timeout``, ``interval``).
+        """
+        ...
+
     async def search_preferences(
         self,
         query: str,

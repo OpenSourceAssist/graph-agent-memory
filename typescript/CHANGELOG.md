@@ -9,6 +9,26 @@ appear in minor versions with a callout in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Workspace addressing.** `MemoryClientOptions.workspaceId` (and the
+  `MEMORY_WORKSPACE_ID` environment variable) is transmitted automatically as
+  the `X-Workspace-Id` header on every request — required by header-scoped
+  deployments (e.g. the development/staging service). An explicit
+  `X-Workspace-Id` entry in `headers` wins; unset is harmless on production.
+- **Ontology surface (`client.ontology`).** `list()`, `get()`, `getActive()`,
+  `clone()`, `create()`, `update()`, `activate()`, `delete()` over the NAMS
+  domain-ontology engine, with typed models (`OntologySummary`,
+  `OntologyVersion`, `OntologyDocument`, …) and `permissive`/`strict`
+  validation modes. `getActive()` surfaces the active version's
+  `validationMode`.
+- **`conversationId` alias** on short-term methods (`addMessage`,
+  `getConversation`, `searchMessages`, `clearSession`) as an alias for
+  `sessionId` (`sessionId` wins).
+- **`longTerm.waitForExtraction(...)`** — await the asynchronous NAMS
+  extraction pipeline explicitly (polls entity search for `expectedNames` /
+  a `predicate`; returns a boolean).
+
 ### Changed
 
 - Repository moved from

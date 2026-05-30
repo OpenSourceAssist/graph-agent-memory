@@ -79,6 +79,13 @@ interface RestCall {
   queryParams?: string[];
   /** GET/DELETE → no body. */
   hasBody?: boolean;
+  /**
+   * Send the verbatim object passed as the `body` param as the request body,
+   * bypassing the snake→camel key conversion. Required for the ontology
+   * sub-API, which (unlike the rest of the hosted REST surface) speaks
+   * snake_case for request bodies (`entity_types`, `version_id`, …).
+   */
+  snakeBody?: boolean;
   /** Optional response shaper for endpoints whose payload doesn't match bridge wire. */
   shape?: (raw: unknown, camelParams: Record<string, unknown>) => unknown;
 }
@@ -337,6 +344,32 @@ const ROUTES: Record<string, RestCall | "noop" | "unsupported"> = {
     path: "/auth/refresh",
     hasBody: true,
   },
+
+  // Ontologies — snake_case sub-API (verified against staging; absent from the
+  // OpenAPI spec). Bodies are sent verbatim via `snakeBody`.
+  list_ontologies: { method: "GET", path: "/ontologies" },
+  get_ontology: { method: "GET", path: "/ontologies/{id}", pathParams: ["id"] },
+  get_active_ontology: { method: "GET", path: "/ontologies/active" },
+  clone_ontology: {
+    method: "POST",
+    path: "/ontologies/{name}/clone",
+    pathParams: ["name"],
+  },
+  create_ontology: { method: "POST", path: "/ontologies", hasBody: true, snakeBody: true },
+  update_ontology: {
+    method: "PUT",
+    path: "/ontologies/{id}",
+    pathParams: ["id"],
+    hasBody: true,
+    snakeBody: true,
+  },
+  activate_ontology: {
+    method: "POST",
+    path: "/ontologies/active",
+    hasBody: true,
+    snakeBody: true,
+  },
+  delete_ontology: { method: "DELETE", path: "/ontologies/{id}", pathParams: ["id"] },
 };
 
 export class RestTransport implements Transport {
@@ -492,13 +525,18 @@ export class RestTransport implements Transport {
     // Build body (anything not consumed)
     let body: string | undefined;
     if (route.hasBody) {
-      const bodyObj: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(camelParams)) {
-        if (!consumed.has(k) && v !== undefined && v !== null) {
-          bodyObj[k] = v;
+      if (route.snakeBody) {
+        // Send the caller-supplied `body` object verbatim (snake_case).
+        body = JSON.stringify((original as { body?: unknown }).body ?? {});
+      } else {
+        const bodyObj: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(camelParams)) {
+          if (!consumed.has(k) && v !== undefined && v !== null) {
+            bodyObj[k] = v;
+          }
         }
+        body = JSON.stringify(bodyObj);
       }
-      body = JSON.stringify(bodyObj);
     }
 
     const url = `${this.endpoint}${path}${query}`;

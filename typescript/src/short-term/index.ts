@@ -5,10 +5,12 @@
  * Hosted methods speak the Volume 5 / Platinum tier hosted service operations.
  */
 
+import { ValidationError } from "../errors.js";
 import type { Transport } from "../transport/index.js";
 import type {
   AddMessageOptions,
   BulkMessageInput,
+  ClearSessionOptions,
   Conversation,
   ConversationContext,
   CreateConversationOptions,
@@ -22,6 +24,26 @@ import type {
   SearchMessagesOptions,
   SessionInfo,
 } from "../types.js";
+
+/**
+ * Resolve the conversation/session id for a NAMS-scoped short-term call.
+ * `sessionId` is canonical; `conversationId` is an alias. `sessionId` wins when
+ * both are supplied; a clear error names both when neither is.
+ */
+function resolveConversationId(
+  sessionId: string | undefined,
+  conversationId: string | undefined,
+  method: string,
+): string {
+  const resolved = sessionId ?? conversationId;
+  if (resolved === undefined) {
+    throw new ValidationError(
+      `${method} requires sessionId (alias: conversationId) — the NAMS API is ` +
+        `conversation-scoped.`,
+    );
+  }
+  return resolved;
+}
 
 /** Wire format from the bridge protocol (snake_case). */
 interface WireMessage {
@@ -141,13 +163,14 @@ export class ShortTermMemory {
   // ---- Bronze tier (bridge) ----------------------------------------------
 
   async addMessage(
-    sessionId: string,
+    sessionId: string | undefined,
     role: MessageRole,
     content: string,
     options?: AddMessageOptions,
   ): Promise<Message> {
+    const conv = resolveConversationId(sessionId, options?.conversationId, "addMessage");
     const wire = await this.transport.request<WireMessage>("add_message", {
-      session_id: sessionId,
+      session_id: conv,
       role,
       content,
       metadata: options?.metadata,
@@ -156,20 +179,26 @@ export class ShortTermMemory {
   }
 
   async getConversation(
-    sessionId: string,
+    sessionId: string | undefined,
     options?: GetConversationOptions,
   ): Promise<Conversation> {
+    const conv = resolveConversationId(sessionId, options?.conversationId, "getConversation");
     const wire = await this.transport.request<WireConversation>("get_conversation", {
-      session_id: sessionId,
+      session_id: conv,
       limit: options?.limit,
     });
     return toConversation(wire);
   }
 
   async searchMessages(query: string, options?: SearchMessagesOptions): Promise<Message[]> {
+    // `sessionId` is canonical, `conversationId` an alias (sessionId wins).
+    // Unlike the conversation-mutating methods, search may be unscoped on the
+    // bridge/TCK backend, so an absent id is passed through (NAMS rejects it
+    // server-side) rather than throwing client-side.
+    const conv = options?.sessionId ?? options?.conversationId;
     const wire = await this.transport.request<WireMessage[]>("search_messages", {
       query,
-      session_id: options?.sessionId,
+      session_id: conv,
       limit: options?.limit ?? 10,
       threshold: options?.threshold ?? 0.7,
     });
@@ -190,8 +219,12 @@ export class ShortTermMemory {
     return result.deleted;
   }
 
-  async clearSession(sessionId: string): Promise<void> {
-    await this.transport.request("clear_session", { session_id: sessionId });
+  async clearSession(
+    sessionId: string | undefined,
+    options?: ClearSessionOptions,
+  ): Promise<void> {
+    const conv = resolveConversationId(sessionId, options?.conversationId, "clearSession");
+    await this.transport.request("clear_session", { session_id: conv });
   }
 
   // ---- Volume 5 / hosted-native methods -----------------------------------

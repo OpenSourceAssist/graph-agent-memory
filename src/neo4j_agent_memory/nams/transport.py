@@ -93,6 +93,7 @@ class HttpTransport:
         max_retries: int = 3,
         retry_backoff_seconds: float = 0.5,
         headers: dict[str, str] | None = None,
+        workspace_id: str | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         self._endpoint = endpoint.rstrip("/")
@@ -102,6 +103,7 @@ class HttpTransport:
         self._max_retries = max_retries
         self._backoff = retry_backoff_seconds
         self._user_headers: dict[str, str] = dict(headers or {})
+        self._workspace_id = workspace_id
         self._tracer = tracer
         self._client: httpx.AsyncClient | None = None
 
@@ -122,6 +124,7 @@ class HttpTransport:
             max_retries=config.max_retries,
             retry_backoff_seconds=config.retry_backoff_seconds,
             headers=dict(config.headers),
+            workspace_id=config.workspace_id,
             tracer=tracer,
         )
 
@@ -194,8 +197,12 @@ class HttpTransport:
 
         http_method, url = spec.resolve(self._endpoint, self._protocol, path_params)
 
-        # Prepare headers: user-supplied + auth + json default.
+        # Prepare headers: user-supplied + workspace + auth + json default.
+        # Precedence for X-Workspace-Id: an explicit entry in user headers wins
+        # (the documented escape hatch); otherwise the configured workspace_id.
         headers: dict[str, str] = dict(self._user_headers)
+        if self._workspace_id and "X-Workspace-Id" not in headers:
+            headers["X-Workspace-Id"] = self._workspace_id
         if json is not None and "Content-Type" not in headers:
             headers["Content-Type"] = "application/json"
         headers = await self._auth.apply(headers)

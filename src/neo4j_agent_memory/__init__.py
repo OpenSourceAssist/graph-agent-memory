@@ -402,6 +402,11 @@ class MemoryClient:
         self._reasoning: ReasoningProtocol | None = None
         self._query: CypherQueryProtocol | None = None
 
+        # Ontology accessor. Real (``NamsOntology``) on NAMS; a
+        # ``_NamsUnsupported`` sentinel on bolt (ontologies are a NAMS
+        # capability). Wired in connect().
+        self._ontology: Any = None
+
         # Bolt-only accessors. On NAMS these are replaced by ``_NamsUnsupported``
         # sentinels — but the declared type stays as the bolt class so user
         # code that type-checks against e.g. ``UserMemory`` continues to work
@@ -553,6 +558,17 @@ class MemoryClient:
 
         self._query = BoltCypherQuery(self._client)
 
+        # Ontologies are a NAMS capability — sentinel on bolt.
+        from neo4j_agent_memory.nams._unsupported import _NamsUnsupported
+
+        self._ontology = _NamsUnsupported(
+            accessor="ontology",
+            message="Ontologies (typed, validated, versioned domain schemas) are a "
+            "NAMS capability.",
+            workaround="On bolt, define a custom schema with SchemaModel.CUSTOM "
+            "(see client.schema / SchemaManager).",
+        )
+
     async def _connect_nams(self) -> None:
         """Connect to the hosted NAMS service via HTTP transport.
 
@@ -587,6 +603,7 @@ class MemoryClient:
         self._long_term = self._nams_backend.long_term
         self._reasoning = self._nams_backend.reasoning
         self._query = self._nams_backend.query
+        self._ontology = self._nams_backend.ontology
 
         # Bolt-only accessors → sentinels that raise on method call.
         self._users = _NamsUnsupported(
@@ -709,6 +726,20 @@ class MemoryClient:
         if self._nams_backend is not None:
             return self._nams_backend.transport.is_open
         return self._client is not None and self._client.is_connected
+
+    @property
+    def backend(self) -> str:
+        """The resolved storage backend — ``"bolt"`` or ``"nams"``.
+
+        Useful for backend-aware integration code (e.g. the Google ADK
+        memory service, which scopes searches differently on NAMS).
+        """
+        return self._settings.backend or "bolt"
+
+    @property
+    def is_nams(self) -> bool:
+        """``True`` when the hosted NAMS backend is active."""
+        return self._settings.backend == "nams"
 
     @property
     def short_term(self) -> ShortTermMemory:
@@ -867,6 +898,32 @@ class MemoryClient:
         if self._query is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
         return self._query
+
+    @property
+    def ontology(self) -> Any:
+        """Ontology lifecycle accessor — **NAMS only**.
+
+        Returns the :class:`~neo4j_agent_memory.nams.ontology.NamsOntology`
+        accessor on NAMS, exposing ``list``, ``get``, ``get_active``,
+        ``clone``, ``create``, ``update``, ``activate``, and ``delete``.
+
+        On bolt, returns a sentinel whose method calls raise
+        :class:`NotSupportedError` (define a custom schema with
+        ``SchemaModel.CUSTOM`` instead).
+
+        Example::
+
+            async with MemoryClient(settings) as client:
+                v = await client.ontology.clone("healthcare")
+                await client.ontology.activate(v.id)
+                active = await client.ontology.get_active()
+
+        Raises:
+            NotConnectedError: If client is not connected.
+        """
+        if self._ontology is None:
+            raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
+        return self._ontology
 
     @property
     def graph(self) -> "Neo4jClient":

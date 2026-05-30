@@ -15,6 +15,7 @@
 **** xref:tutorials/mcp-server.adoc[MCP Server for Claude Desktop]
 **** xref:tutorials/microsoft-agent-memory.adoc[Microsoft Agent Memory]
 **** xref:tutorials/nams-quickstart.adoc[NAMS Quickstart (v0.4)]
+**** xref:tutorials/ontology-quickstart.adoc[Ontology Quickstart]
 *** TypeScript
 **** xref:tutorials/first-agent-memory-typescript.adoc[First Agent Memory (TypeScript)]
 **** xref:tutorials/hosted-quickstart-typescript.adoc[Hosted Quickstart]
@@ -34,6 +35,7 @@
 *** Hosted Backend (v0.4)
 **** xref:how-to/use-nams.adoc[Use NAMS]
 **** xref:how-to/migrate-to-nams.adoc[Migrate to NAMS]
+**** xref:how-to/use-ontologies.adoc[Use Ontologies]
 
 *** Core Operations
 **** xref:how-to/messages.adoc[Store & Search Messages]
@@ -68,6 +70,7 @@
 **** xref:how-to/integrations/crewai.adoc[CrewAI]
 **** xref:how-to/integrations/openai-agents.adoc[OpenAI Agents]
 **** xref:how-to/integrations/google-cloud.adoc[Google Cloud]
+**** xref:how-to/integrations/google-adk.adoc[Google ADK]
 **** xref:how-to/integrations/aws-strands.adoc[AWS Strands Agents]
 **** xref:how-to/integrations/aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
 **** xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory]
@@ -93,6 +96,7 @@
 *** xref:reference/cli.adoc[CLI]
 *** xref:reference/mcp-tools.adoc[MCP Tools]
 *** xref:reference/rest-api.adoc[NAMS REST API]
+*** xref:reference/ontology-api.adoc[Ontology API]
 *** xref:reference/typescript-api.adoc[TypeScript SDK API]
 *** xref:reference/deployment.adoc[Deployment]
 *** xref:reference/extractors.adoc[Extractors]
@@ -110,6 +114,7 @@
 ** xref:explanation/index.adoc[Concepts]
 *** xref:explanation/memory-types.adoc[Memory Types]
 *** xref:explanation/poleo-model.adoc[POLE+O Model]
+*** xref:explanation/ontologies.adoc[Ontologies]
 *** xref:explanation/graph-architecture.adoc[Graph Architecture]
 *** xref:explanation/extraction-pipeline.adoc[Extraction Pipeline]
 *** xref:explanation/resolution-deduplication.adoc[Resolution & Deduplication]

@@ -20,6 +20,7 @@
 import { AuthClient } from "./auth/index.js";
 import { ValidationError } from "./errors.js";
 import { LongTermMemory } from "./long-term/index.js";
+import { OntologyClient } from "./ontology/index.js";
 import { QueryConsole } from "./query/index.js";
 import { ReasoningMemory } from "./reasoning/index.js";
 import { ShortTermMemory } from "./short-term/index.js";
@@ -46,6 +47,9 @@ export class MemoryClient {
   /** API-key & OAuth management (hosted service only). */
   readonly auth: AuthClient;
 
+  /** Ontology lifecycle — typed domain schemas (hosted service only). */
+  readonly ontology: OntologyClient;
+
   private readonly transport: Transport;
 
   constructor(options?: MemoryClientOptions);
@@ -62,6 +66,7 @@ export class MemoryClient {
     this.reasoning = new ReasoningMemory(this.transport);
     this.query = new QueryConsole(this.transport);
     this.auth = new AuthClient(this.transport);
+    this.ontology = new OntologyClient(this.transport);
   }
 
   async connect(): Promise<void> {
@@ -100,9 +105,38 @@ function resolveApiKey(option: string | undefined): string | undefined {
   return process.env.MEMORY_API_KEY;
 }
 
+/**
+ * Resolve the workspace id from explicit option or MEMORY_WORKSPACE_ID env var.
+ * Mirrors {@link resolveApiKey}.
+ */
+function resolveWorkspaceId(option: string | undefined): string | undefined {
+  if (option !== undefined) return option;
+  if (typeof process === "undefined" || !process.env) return undefined;
+  return process.env.MEMORY_WORKSPACE_ID;
+}
+
+/**
+ * Merge the `X-Workspace-Id` header into a headers map. An explicit
+ * `X-Workspace-Id` entry (any casing) in `headers` wins — the documented
+ * escape hatch — so the workspace id only fills the gap.
+ */
+function withWorkspaceHeader(
+  headers: Record<string, string> | undefined,
+  workspaceId: string | undefined,
+): Record<string, string> | undefined {
+  if (!workspaceId) return headers;
+  const hasExplicit =
+    headers !== undefined &&
+    Object.keys(headers).some((k) => k.toLowerCase() === "x-workspace-id");
+  if (hasExplicit) return headers;
+  return { ...(headers ?? {}), "X-Workspace-Id": workspaceId };
+}
+
 function createTransport(options: MemoryClientOptions): Transport {
   const endpoint = options.endpoint;
   const apiKey = resolveApiKey(options.apiKey);
+  const workspaceId = resolveWorkspaceId(options.workspaceId);
+  const headers = withWorkspaceHeader(options.headers, workspaceId);
 
   const choice = pickTransport(endpoint ?? DEFAULT_ENDPOINT, options.transport);
   if (choice === "rest") {
@@ -111,7 +145,7 @@ function createTransport(options: MemoryClientOptions): Transport {
       apiKey,
       tokenProvider: options.tokenProvider,
       timeout: options.timeout,
-      headers: options.headers,
+      headers,
       logger: options.logger,
     });
   }
@@ -122,7 +156,7 @@ function createTransport(options: MemoryClientOptions): Transport {
     endpoint,
     apiKey,
     timeout: options.timeout,
-    headers: options.headers,
+    headers,
     logger: options.logger,
   });
 }

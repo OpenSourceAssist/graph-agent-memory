@@ -5,6 +5,7 @@
  * entity feedback, history, merge-by-id, graph view, and provenance.
  */
 
+import { ValidationError } from "../errors.js";
 import type { Transport } from "../transport/index.js";
 import type {
   AddRelationshipOptions,
@@ -26,6 +27,7 @@ import type {
   SearchPreferencesOptions,
   SetEntityFeedbackOptions,
   UpdateEntityOptions,
+  WaitForExtractionOptions,
 } from "../types.js";
 
 interface WireEntity {
@@ -227,6 +229,60 @@ export class LongTermMemory {
       limit: options?.limit ?? 10,
     });
     return wire.map(toEntity);
+  }
+
+  /**
+   * Poll entity search until async extraction has caught up, or time out.
+   *
+   * NAMS extracts entities in a background pipeline, so writes return before
+   * the entities are searchable. This helper lets application and test code
+   * await consistency explicitly instead of racing a fixed delay.
+   *
+   * Provide one of:
+   * - `predicate` — called with the current results; return true when satisfied.
+   * - `expectedNames` — succeed once every name appears (case-insensitive).
+   *   **Recommended**: NAMS entity search is vector/nearest-neighbor, so a
+   *   `minResults` threshold is satisfied almost immediately on a non-empty
+   *   workspace; prefer `expectedNames`/`predicate` to confirm a *specific*
+   *   extraction landed.
+   * - otherwise — succeed once at least `minResults` entities match.
+   *
+   * Returns `true` if satisfied within `timeoutMs`, `false` otherwise (it does
+   * not throw, so callers can branch or skip gracefully).
+   */
+  async waitForExtraction(options: WaitForExtractionOptions): Promise<boolean> {
+    const {
+      query,
+      expectedNames,
+      minResults = 1,
+      predicate,
+      timeoutMs = 30_000,
+      intervalMs = 1_000,
+    } = options;
+    const q = query ?? (expectedNames && expectedNames.length > 0 ? expectedNames[0] : undefined);
+    if (q === undefined && predicate === undefined) {
+      throw new ValidationError(
+        "waitForExtraction requires one of: query, expectedNames, or predicate.",
+      );
+    }
+    const want = (expectedNames ?? []).map((n) => n.toLowerCase());
+    const fetch = Math.max(minResults, want.length, options.limit ?? 10);
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const results = await this.searchEntities(q ?? "", { limit: fetch });
+      let ok: boolean;
+      if (predicate !== undefined) {
+        ok = predicate(results);
+      } else if (want.length > 0) {
+        const found = new Set(results.map((e) => e.name.toLowerCase()));
+        ok = want.every((n) => found.has(n));
+      } else {
+        ok = results.length >= minResults;
+      }
+      if (ok) return true;
+      if (Date.now() >= deadline) return false;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
   }
 
   async searchPreferences(

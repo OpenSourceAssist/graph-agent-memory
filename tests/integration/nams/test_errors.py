@@ -153,7 +153,7 @@ async def test_cypher_rejects_write_keywords(nams_client: MemoryClient) -> None:
 
 @pytest.mark.asyncio
 async def test_warning_when_extraction_explicitly_configured(
-    nams_credentials: tuple[str, str],
+    nams_credentials: tuple[str, str, str | None],
 ) -> None:
     """Setting ``extraction=`` explicitly with NAMS emits a single ``UserWarning``."""
     import warnings as _w
@@ -163,12 +163,13 @@ async def test_warning_when_extraction_explicitly_configured(
     from neo4j_agent_memory import MemorySettings, NamsConfig
     from neo4j_agent_memory.config.settings import ExtractionConfig
 
-    endpoint, api_key = nams_credentials
+    endpoint, api_key, workspace_id = nams_credentials
     settings = MemorySettings(
         backend="nams",
         nams=NamsConfig(
             endpoint=endpoint,
             api_key=SecretStr(api_key),
+            workspace_id=workspace_id,
             validate_on_connect=False,
         ),
         extraction=ExtractionConfig(),  # explicit → in model_fields_set

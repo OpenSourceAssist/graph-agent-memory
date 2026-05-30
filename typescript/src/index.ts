@@ -100,6 +100,21 @@ export { LongTermMemory } from "./long-term/index.js";
 export { ReasoningMemory } from "./reasoning/index.js";
 export { QueryConsole } from "./query/index.js";
 export { AuthClient } from "./auth/index.js";
+export { OntologyClient } from "./ontology/index.js";
+export type {
+  Ontology,
+  OntologySummary,
+  OntologyVersion,
+  OntologyRecord,
+  OntologyDocument,
+  ActiveOntology,
+  DomainInfo,
+  EntityTypeDef,
+  PropertyDef,
+  RelationshipDef,
+  CreateOntologyOptions,
+  UpdateOntologyOptions,
+} from "./ontology/index.js";
 
 // Errors
 export {
