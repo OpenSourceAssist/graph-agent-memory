@@ -24,13 +24,33 @@ sandbox using the `NAMS_SANDBOX_KEY` repo secret.
 
 ```bash
 export NAMS_SANDBOX_KEY=nams_sandbox_xxxxx
-# Optional: override the endpoint (defaults to https://memory.neo4jlabs.com/v1)
-# export NAMS_SANDBOX_URL=https://nams.sandbox.internal/v1
 
 make test-nams-integration
 
 # Or run a single tier:
 uv run pytest tests/integration/nams/test_tck_bronze.py -v
+```
+
+#### Selecting an environment
+
+The endpoint defaults to **staging** (`https://nams.development.neo4jsandbox.com/v1`).
+Choose a different one without memorizing URLs via the `NAMS_ENV` preset:
+
+| `NAMS_ENV` | Endpoint |
+|---|---|
+| `staging` (default) / `development` | `https://nams.development.neo4jsandbox.com/v1` |
+| `sandbox` | `https://memory.neo4jlabs.com/v1` |
+| `local` | `http://localhost:8765` |
+
+```bash
+# Named preset — env var or dedicated make target:
+NAMS_ENV=staging make test-nams-integration
+make test-nams-staging
+make test-nams-sandbox
+
+# Raw URL override always wins over the preset:
+export NAMS_SANDBOX_URL=https://nams.internal/v1
+make test-nams-integration
 ```
 
 ### Against a local TCK reference impl

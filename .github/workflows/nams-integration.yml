@@ -25,6 +25,13 @@ jobs:
     # Skip on PRs from forks (secrets are unavailable there).
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 20
+    # Job-level env inherited by every step. The memory.neo4jlabs.com
+    # deployment is header-scoped: requests must carry an X-Workspace-Id
+    # (the client derives it from NAMS_SANDBOX_WORKSPACE_ID). Without it the
+    # server returns 503 workspace_not_provisioned. Set the repo variable
+    # NAMS_SANDBOX_WORKSPACE_ID to the provisioned sandbox workspace.
+    env:
+      NAMS_SANDBOX_WORKSPACE_ID: ${{ vars.NAMS_SANDBOX_WORKSPACE_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,6 +53,9 @@ jobs:
             echo "skip_tests=true" >> "$GITHUB_OUTPUT"
           else
             echo "NAMS_SANDBOX_KEY is set; running live integration tests."
+            if [ -z "$NAMS_SANDBOX_WORKSPACE_ID" ]; then
+              echo "::warning::NAMS_SANDBOX_WORKSPACE_ID variable is not set. The header-scoped memory.neo4jlabs.com deployment will likely return 503 workspace_not_provisioned. Set the repo variable NAMS_SANDBOX_WORKSPACE_ID to the provisioned sandbox workspace."
+            fi
           fi
         id: check-secret
 

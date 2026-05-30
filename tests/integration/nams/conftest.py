@@ -56,9 +56,50 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 
-# Default staging/development endpoint this suite targets. Override with
-# NAMS_SANDBOX_URL (or MEMORY_ENDPOINT) to point elsewhere.
-_DEFAULT_SANDBOX_URL = "https://nams.development.neo4jsandbox.com/v1"
+# Named environment presets. Select one with ``NAMS_ENV=<name>`` instead of
+# memorizing a URL. An explicit ``NAMS_SANDBOX_URL`` / ``MEMORY_ENDPOINT``
+# always wins over the preset.
+_NAMS_ENV_PRESETS = {
+    "staging": "https://nams.development.neo4jsandbox.com/v1",
+    "development": "https://nams.development.neo4jsandbox.com/v1",  # alias of staging
+    "sandbox": "https://memory.neo4jlabs.com/v1",
+    "local": "http://localhost:8765",
+}
+
+# Default environment when neither NAMS_SANDBOX_URL nor NAMS_ENV is set.
+_DEFAULT_NAMS_ENV = "staging"
+
+# Default endpoint this suite targets. Override with NAMS_SANDBOX_URL /
+# MEMORY_ENDPOINT (raw URL), or NAMS_ENV=<name> (named preset).
+_DEFAULT_SANDBOX_URL = _NAMS_ENV_PRESETS[_DEFAULT_NAMS_ENV]
+
+
+def _resolve_endpoint() -> str:
+    """Resolve the NAMS endpoint URL with this precedence:
+
+    1. Explicit raw URL — ``NAMS_SANDBOX_URL`` or ``MEMORY_ENDPOINT``.
+    2. Named preset — ``NAMS_ENV`` mapped through ``_NAMS_ENV_PRESETS``
+       (e.g. ``staging``, ``sandbox``, ``local``).
+    3. The default preset (``staging``).
+
+    An unrecognized ``NAMS_ENV`` value fails loudly rather than silently
+    falling back, so a typo can't quietly target the wrong environment.
+    """
+    explicit = os.environ.get("NAMS_SANDBOX_URL") or os.environ.get("MEMORY_ENDPOINT")
+    if explicit:
+        return explicit
+    env = os.environ.get("NAMS_ENV")
+    if env:
+        key = env.strip().lower()
+        if key not in _NAMS_ENV_PRESETS:
+            valid = ", ".join(sorted(_NAMS_ENV_PRESETS))
+            pytest.fail(
+                f"Unknown NAMS_ENV={env!r}. Valid presets: {valid}. "
+                f"Or set NAMS_SANDBOX_URL to a raw endpoint URL.",
+                pytrace=False,
+            )
+        return _NAMS_ENV_PRESETS[key]
+    return _DEFAULT_SANDBOX_URL
 
 
 def _resolve_credentials() -> tuple[str, str, str | None] | None:
@@ -67,20 +108,16 @@ def _resolve_credentials() -> tuple[str, str, str | None] | None:
     Recognizes the integration-test env family
     ``NAMS_SANDBOX_URL`` / ``NAMS_SANDBOX_KEY`` / ``NAMS_SANDBOX_WORKSPACE_ID``
     and the user-facing aliases ``MEMORY_ENDPOINT`` / ``MEMORY_API_KEY`` /
-    ``MEMORY_WORKSPACE_ID``. The workspace is resolved into the
-    ``X-Workspace-Id`` header by the client itself (no manual header
-    injection in fixtures) — required by the header-scoped staging
-    deployment.
+    ``MEMORY_WORKSPACE_ID``. The endpoint can also be chosen by named
+    preset via ``NAMS_ENV`` (see ``_resolve_endpoint``). The workspace is
+    resolved into the ``X-Workspace-Id`` header by the client itself (no
+    manual header injection in fixtures) — required by the header-scoped
+    staging deployment.
     """
     key = os.environ.get("NAMS_SANDBOX_KEY") or os.environ.get("MEMORY_API_KEY")
     workspace = os.environ.get("NAMS_SANDBOX_WORKSPACE_ID") or os.environ.get("MEMORY_WORKSPACE_ID")
     if key:
-        url = (
-            os.environ.get("NAMS_SANDBOX_URL")
-            or os.environ.get("MEMORY_ENDPOINT")
-            or _DEFAULT_SANDBOX_URL
-        )
-        return url, key, workspace
+        return _resolve_endpoint(), key, workspace
     if (url := os.environ.get("NAMS_TCK_URL")) and (
         key := os.environ.get("NAMS_TCK_KEY", "test-tck-key")
     ):
