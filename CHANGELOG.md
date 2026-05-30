@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-30
+
+The NAMS-alignment release. Adds workspace addressing, a first-class
+ontology surface (`client.ontology`), `conversation_id`/`type` parameter
+aliases across the NAMS methods, and an explicit
+`long_term.wait_for_extraction(...)` await for the asynchronous NAMS
+extraction pipeline. Also makes the Google ADK `Neo4jMemoryService`
+NAMS-compatible (#130). This is the first release cut from the polyglot
+repository, published under namespaced `python-v*` tags.
+
 ### Added
 
 - **Workspace addressing for NAMS.** `NamsConfig.workspace_id` (and the
@@ -495,6 +505,8 @@ The v0.2 feature drop. Headline feature is **adopting an existing Neo4j graph** 
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Schema Persistence**: Store and version custom entity schemas in Neo4j
 
+[0.5.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/python-v0.5.0
+[0.4.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.4.0
 [0.1.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.1.0
 [0.0.5]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.5
 [0.0.4]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.0.4
