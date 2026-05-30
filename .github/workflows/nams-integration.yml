@@ -89,6 +89,17 @@ jobs:
           echo "::notice::NAMS api key    : set (masked)"
           echo "::notice::NAMS workspace  : ${WS}"
 
+          # 3a. Workspace gate. Both deployments this workflow targets (staging
+          #     nams.development.neo4jsandbox.com and sandbox memory.neo4jlabs.com)
+          #     are workspace-scoped: reads may tolerate a missing workspace but
+          #     writes reject it ('400 workspace_id required' / '503
+          #     workspace_not_provisioned'). A GET probe alone won't catch that,
+          #     so fail now with an actionable message rather than mid-test.
+          if [ -z "${NAMS_SANDBOX_WORKSPACE_ID:-}" ]; then
+            echo "::error::NAMS_SANDBOX_WORKSPACE_ID is not set, but ${URL} is workspace-scoped and rejects writes without it (you saw '400 workspace_id required'). Set the NAMS_SANDBOX_WORKSPACE_ID repository variable (Settings → Secrets and variables → Actions → Variables tab) to a valid workspace id for this environment."
+            exit 1
+          fi
+
           # 4. One authenticated request — fail fast with an actionable message.
           #    Mirrors the client probe: GET /conversations?limit=1 with
           #    Authorization: Bearer <key> and optional X-Workspace-Id. Two
@@ -124,6 +135,13 @@ jobs:
             000)
               echo "::error::Could not reach ${URL} (DNS/network failure). Check the NAMS_SANDBOX_URL variable."
               exit 1
+              ;;
+            400)
+              if echo "${BODY}" | grep -qi "workspace"; then
+                echo "::error::${URL} rejected the workspace (HTTP 400). NAMS_SANDBOX_WORKSPACE_ID may be invalid or not provisioned for this environment. Response: ${BODY}"
+                exit 1
+              fi
+              echo "::warning::Probe returned 400 at ${URL}; continuing so the suite reports detail. Response: ${BODY}"
               ;;
             *)
               echo "::warning::Unexpected probe status ${CODE} at ${URL}; continuing so the suite reports detail. Response: ${BODY}"
