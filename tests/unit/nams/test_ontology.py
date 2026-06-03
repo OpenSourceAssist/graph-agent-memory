@@ -209,7 +209,12 @@ class TestImportDiffMigrate:
             json={
                 "from_revision": 1,
                 "to_revision": 2,
-                "entity_types": {"added": [{"label": "Widget"}], "removed": [], "renamed": [], "modified": []},
+                "entity_types": {
+                    "added": [{"label": "Widget"}],
+                    "removed": [],
+                    "renamed": [],
+                    "modified": [],
+                },
                 "relationships": {"added": [], "removed": [], "renamed": [], "modified": []},
             },
         )

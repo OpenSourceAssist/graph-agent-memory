@@ -525,9 +525,7 @@ class NamsOntology:
         :meth:`get_migration`.
         """
         self._guard_rest()
-        mappings = [
-            m if isinstance(m, dict) else {"from": m[0], "to": m[1]} for m in type_mappings
-        ]
+        mappings = [m if isinstance(m, dict) else {"from": m[0], "to": m[1]} for m in type_mappings]
         spec: dict[str, Any] = {
             "from_version_id": from_version_id,
             "to_version_id": to_version_id,

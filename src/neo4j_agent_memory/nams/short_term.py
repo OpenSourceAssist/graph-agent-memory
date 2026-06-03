@@ -249,9 +249,7 @@ class ExtractionStatus(BaseModel):
     @property
     def is_complete(self) -> bool:
         """``True`` when no message is still pending/in-flight extraction."""
-        return not any(
-            self.summary.get(s, 0) > 0 for s in _NONTERMINAL_EXTRACTION_STATUSES
-        )
+        return not any(self.summary.get(s, 0) > 0 for s in _NONTERMINAL_EXTRACTION_STATUSES)
 
     @property
     def pending_count(self) -> int:
@@ -584,9 +582,7 @@ class NamsShortTermMemory:
         check :attr:`ExtractionStatus.is_complete`. ``session_id`` is canonical;
         ``conversation_id`` is accepted as an alias.
         """
-        conv = _resolve_conversation_id(
-            session_id, conversation_id, method="get_extraction_status"
-        )
+        conv = _resolve_conversation_id(session_id, conversation_id, method="get_extraction_status")
         payload = await self._transport.request(
             _SPEC_EXTRACTION_STATUS, path_params={"conversation_id": conv}
         )

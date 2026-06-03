@@ -100,9 +100,7 @@ class NamsAuth:
 
     async def list_api_keys(self, workspace_id: str) -> list[ApiKey]:
         """List a workspace's API keys (metadata only — no plaintext)."""
-        payload = await self._transport.request(
-            _SPEC_LIST, params={"workspace_id": workspace_id}
-        )
+        payload = await self._transport.request(_SPEC_LIST, params={"workspace_id": workspace_id})
         return [ApiKey.model_validate(k) for k in _coerce_keys(payload)]
 
     async def create_api_key(
