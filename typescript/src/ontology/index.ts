@@ -114,6 +114,72 @@ export interface UpdateOntologyOptions {
   validationMode?: string;
 }
 
+export interface ImportWarning {
+  code?: string;
+  message?: string;
+  path?: string;
+}
+
+/** A non-persisted ontology draft converted from an external format. */
+export interface OntologyImportResult {
+  document?: OntologyDocument;
+  warnings: ImportWarning[];
+  detectedFormat?: string;
+  suggestedName?: string;
+}
+
+export interface ImportOntologyOptions {
+  /** Inline source document. Mutually exclusive with `url`. */
+  content?: string;
+  /** URL fetched server-side (https only, SSRF-guarded). Mutually exclusive with `content`. */
+  url?: string;
+  /** Explicit converter id (e.g. "arrows", "rdf") or "auto"/undefined to detect. */
+  format?: string;
+}
+
+/** Structural diff between two ontology revisions. */
+export interface OntologyDiff {
+  fromRevision?: number;
+  toRevision?: number;
+  /** `{ added, removed, renamed, modified }` — passed through. */
+  entityTypes: Record<string, unknown>;
+  relationships: Record<string, unknown>;
+  modeChange?: Record<string, unknown> | null;
+}
+
+export interface TypeMapping {
+  from: string;
+  to: string;
+}
+
+export interface MigrateOptions {
+  fromVersionId: string;
+  toVersionId: string;
+  typeMappings: TypeMapping[];
+  /** Report counts without mutating the graph. */
+  dryRun?: boolean;
+  /** Per-transaction node cap (0 → server default 1000). */
+  batchSize?: number;
+}
+
+/** An asynchronous label-rename migration job. */
+export interface MigrationJob {
+  id: string;
+  ontologyId?: string;
+  workspaceId?: string;
+  status?: string; // pending | running | completed | failed | paused
+  total?: number;
+  processed?: number;
+  errored?: number;
+  errorMessage?: string;
+  spec?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdBy?: string;
+}
+
 // ---- snake_case wire shapes (responses are snake_case) ----------------------
 
 interface WireProperty {
@@ -250,6 +316,57 @@ function docToWire(doc: OntologyDocument): WireDocument {
   };
 }
 
+interface WireImportResult {
+  ontology?: WireDocument | null;
+  warnings?: { code?: string; message?: string; path?: string }[] | null;
+  detected_format?: string;
+  suggested_name?: string;
+}
+
+interface WireDiff {
+  from_revision?: number;
+  to_revision?: number;
+  entity_types?: Record<string, unknown> | null;
+  relationships?: Record<string, unknown> | null;
+  mode_change?: Record<string, unknown> | null;
+}
+
+interface WireMigrationJob {
+  id: string;
+  ontology_id?: string;
+  workspace_id?: string;
+  status?: string;
+  total?: number;
+  processed?: number;
+  errored?: number;
+  error_message?: string;
+  spec?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  created_by?: string;
+}
+
+function toMigrationJob(raw: WireMigrationJob): MigrationJob {
+  return {
+    id: raw.id,
+    ontologyId: raw.ontology_id,
+    workspaceId: raw.workspace_id,
+    status: raw.status,
+    total: raw.total,
+    processed: raw.processed,
+    errored: raw.errored,
+    errorMessage: raw.error_message,
+    spec: raw.spec,
+    createdAt: raw.created_at,
+    updatedAt: raw.updated_at,
+    startedAt: raw.started_at,
+    completedAt: raw.completed_at,
+    createdBy: raw.created_by,
+  };
+}
+
 export class OntologyClient {
   constructor(private readonly transport: Transport) {}
 
@@ -340,6 +457,78 @@ export class OntologyClient {
 
   async delete(id: string): Promise<void> {
     await this.transport.request("delete_ontology", { id });
+  }
+
+  /**
+   * Convert an external graph/ontology document (Arrows / Neo4j Data Importer /
+   * RDF / GraphQL / Cypher / LinkML / native) into a non-persisted draft.
+   * Supply exactly one of `content` or `url`. Persist via {@link create}
+   * (pass `result.document`). Extraction-backed formats and URL fetches are
+   * rate-limited per workspace.
+   */
+  async import(options: ImportOntologyOptions): Promise<OntologyImportResult> {
+    if (!options.content && !options.url) {
+      throw new Error("import requires either content or url.");
+    }
+    const body: Record<string, unknown> = {};
+    if (options.format !== undefined) body.format = options.format;
+    if (options.content !== undefined) body.content = options.content;
+    if (options.url !== undefined) body.url = options.url;
+    const raw = await this.transport.request<WireImportResult>("import_ontology", { body });
+    return {
+      document: toDocument(raw.ontology),
+      warnings: (raw.warnings ?? []).map((w) => ({
+        code: w.code,
+        message: w.message,
+        path: w.path,
+      })),
+      detectedFormat: raw.detected_format,
+      suggestedName: raw.suggested_name,
+    };
+  }
+
+  /** Diff two revisions of an ontology (added / removed / renamed / modified). */
+  async diff(id: string, fromRevision: number, toRevision: number): Promise<OntologyDiff> {
+    const raw = await this.transport.request<WireDiff>("diff_ontology", {
+      id,
+      from: fromRevision,
+      to: toRevision,
+    });
+    return {
+      fromRevision: raw.from_revision,
+      toRevision: raw.to_revision,
+      entityTypes: raw.entity_types ?? {},
+      relationships: raw.relationships ?? {},
+      modeChange: raw.mode_change ?? null,
+    };
+  }
+
+  /**
+   * Enqueue an asynchronous label-rename migration; returns the job. Poll
+   * {@link getMigration} for status. With `dryRun: true` the job reports
+   * counts without mutating the graph.
+   */
+  async migrate(id: string, options: MigrateOptions): Promise<MigrationJob> {
+    const spec: Record<string, unknown> = {
+      from_version_id: options.fromVersionId,
+      to_version_id: options.toVersionId,
+      type_mappings: options.typeMappings.map((m) => ({ from: m.from, to: m.to })),
+      dry_run: options.dryRun ?? false,
+    };
+    if (options.batchSize !== undefined) spec.batch_size = options.batchSize;
+    const raw = await this.transport.request<WireMigrationJob>("migrate_ontology", {
+      id,
+      body: { spec },
+    });
+    return toMigrationJob(raw);
+  }
+
+  /** Return one migration job's current status. */
+  async getMigration(jobId: string): Promise<MigrationJob> {
+    const raw = await this.transport.request<WireMigrationJob>("get_ontology_migration", {
+      jobId,
+    });
+    return toMigrationJob(raw);
   }
 }
 

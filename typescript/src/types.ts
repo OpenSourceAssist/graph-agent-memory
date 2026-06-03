@@ -157,6 +157,12 @@ export interface EntityGraph {
   edges: EntityGraphEdge[];
 }
 
+/** A 1-hop graph fragment from `longTerm.expandGraph` — viz-oriented shape. */
+export interface ExpandedGraph {
+  nodes: Array<{ id: string; labels?: string[]; properties?: Record<string, unknown> }>;
+  edges: Array<Record<string, unknown>>;
+}
+
 export interface EntityFeedbackResult {
   id: string;
   updated: boolean;

@@ -175,6 +175,73 @@ class ActiveOntology(_Lenient):
     version_id: str | None = None
 
 
+class _AllowExtra(BaseModel):
+    """Base for shapes we pass through faithfully (server-defined, deep)."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class ImportWarning(_Lenient):
+    """A non-fatal conversion warning from :meth:`NamsOntology.import_`."""
+
+    code: str | None = None
+    message: str | None = None
+    path: str | None = None
+
+
+class OntologyImportResult(_Lenient):
+    """A *non-persisted* ontology draft converted from an external format.
+
+    Returned by :meth:`NamsOntology.import_`. The service converts an
+    Arrows / Neo4j Data Importer / RDF / GraphQL / Cypher / LinkML / native
+    document into a native ontology body but does **not** save it — persist
+    via :meth:`create` (pass ``result.document``).
+    """
+
+    document: OntologyDocument | None = None
+    warnings: list[ImportWarning] = Field(default_factory=list)
+    detected_format: str | None = None
+    suggested_name: str | None = None
+
+
+class OntologyDiff(_AllowExtra):
+    """Structural diff between two ontology revisions.
+
+    ``entity_types`` and ``relationships`` carry ``added`` / ``removed`` /
+    ``renamed`` / ``modified`` lists; they are passed through as dicts since
+    their leaf shapes mirror the full ontology type system.
+    """
+
+    from_revision: int | None = None
+    to_revision: int | None = None
+    entity_types: dict[str, Any] = Field(default_factory=dict)
+    relationships: dict[str, Any] = Field(default_factory=dict)
+    mode_change: dict[str, Any] | None = None
+
+
+class MigrationJob(_Lenient):
+    """An asynchronous label-rename migration job.
+
+    Enqueued by :meth:`NamsOntology.migrate`; poll :meth:`get_migration`
+    for ``status`` / ``processed`` / ``total`` until it completes.
+    """
+
+    id: str
+    ontology_id: str | None = None
+    workspace_id: str | None = None
+    status: str | None = None  # pending | running | completed | failed | paused
+    total: int | None = None
+    processed: int | None = None
+    errored: int | None = None
+    error_message: str | None = None
+    spec: dict[str, Any] | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    created_by: str | None = None
+
+
 # -----------------------------------------------------------------------------
 # Parsing helpers
 # -----------------------------------------------------------------------------
@@ -227,6 +294,20 @@ _SPEC_ACTIVATE = EndpointSpec(
 )
 _SPEC_DELETE = EndpointSpec(
     rest_method="DELETE", rest_path="/ontologies/{id}", bridge_method="delete_ontology"
+)
+_SPEC_IMPORT = EndpointSpec(
+    rest_method="POST", rest_path="/ontologies/import", bridge_method="import_ontology"
+)
+_SPEC_DIFF = EndpointSpec(
+    rest_method="GET", rest_path="/ontologies/{id}/diff", bridge_method="diff_ontology"
+)
+_SPEC_MIGRATE = EndpointSpec(
+    rest_method="POST", rest_path="/ontologies/{id}/migrate", bridge_method="migrate_ontology"
+)
+_SPEC_MIGRATION_STATUS = EndpointSpec(
+    rest_method="GET",
+    rest_path="/ontologies/migrations/{job_id}",
+    bridge_method="get_ontology_migration",
 )
 
 
@@ -371,6 +452,103 @@ class NamsOntology:
         self._guard_rest()
         await self._transport.request(_SPEC_DELETE, path_params={"id": ontology_id})
 
+    async def import_(
+        self,
+        *,
+        content: str | None = None,
+        url: str | None = None,
+        format: str | None = None,  # noqa: A002 — mirrors the wire field name
+    ) -> OntologyImportResult:
+        """Convert an external graph/ontology document into a native draft.
+
+        Supply exactly one source:
+
+        * ``content`` — the raw document inline (Arrows / Neo4j Data Importer
+          / RDF / GraphQL / Cypher / LinkML / native JSON or YAML).
+        * ``url`` — fetched server-side (https only, SSRF-guarded, size-capped).
+
+        ``format`` is an explicit converter id (e.g. ``"arrows"``, ``"rdf"``)
+        or ``None``/``"auto"`` to detect from the content. The result is a
+        **non-persisted** draft plus conversion warnings; persist it with
+        :meth:`create` (pass ``result.document``). Extraction-backed formats
+        (e.g. ``rdf``) and URL fetches are rate-limited per workspace.
+        """
+        self._guard_rest()
+        if not content and not url:
+            raise ValueError("import_ requires either content= or url=.")
+        body: dict[str, Any] = {}
+        if format is not None:
+            body["format"] = format
+        if content is not None:
+            body["content"] = content
+        if url is not None:
+            body["url"] = url
+        payload = await self._transport.request(_SPEC_IMPORT, json=body)
+        payload = payload or {}
+        document = _parse_document(payload.get("ontology"))
+        return OntologyImportResult(
+            document=document,
+            warnings=[
+                ImportWarning.model_validate(w)
+                for w in (payload.get("warnings") or [])
+                if isinstance(w, dict)
+            ],
+            detected_format=payload.get("detected_format"),
+            suggested_name=payload.get("suggested_name"),
+        )
+
+    async def diff(self, ontology_id: str, from_revision: int, to_revision: int) -> OntologyDiff:
+        """Diff two revisions of an ontology (added / removed / renamed / modified)."""
+        self._guard_rest()
+        payload = await self._transport.request(
+            _SPEC_DIFF,
+            path_params={"id": ontology_id},
+            params={"from": from_revision, "to": to_revision},
+        )
+        return OntologyDiff.model_validate(payload or {})
+
+    async def migrate(
+        self,
+        ontology_id: str,
+        *,
+        from_version_id: str,
+        to_version_id: str,
+        type_mappings: list[tuple[str, str]] | list[dict[str, str]],
+        dry_run: bool = False,
+        batch_size: int | None = None,
+    ) -> MigrationJob:
+        """Enqueue an async label-rename migration; returns the job (poll it).
+
+        ``type_mappings`` are ``(from_label, to_label)`` pairs (or
+        ``{"from": ..., "to": ...}`` dicts). With ``dry_run=True`` the job
+        reports counts without mutating the graph. Track progress with
+        :meth:`get_migration`.
+        """
+        self._guard_rest()
+        mappings = [
+            m if isinstance(m, dict) else {"from": m[0], "to": m[1]} for m in type_mappings
+        ]
+        spec: dict[str, Any] = {
+            "from_version_id": from_version_id,
+            "to_version_id": to_version_id,
+            "type_mappings": mappings,
+            "dry_run": dry_run,
+        }
+        if batch_size is not None:
+            spec["batch_size"] = batch_size
+        payload = await self._transport.request(
+            _SPEC_MIGRATE, path_params={"id": ontology_id}, json={"spec": spec}
+        )
+        return MigrationJob.model_validate(payload or {})
+
+    async def get_migration(self, job_id: str) -> MigrationJob:
+        """Return one migration job's current status."""
+        self._guard_rest()
+        payload = await self._transport.request(
+            _SPEC_MIGRATION_STATUS, path_params={"job_id": job_id}
+        )
+        return MigrationJob.model_validate(payload or {})
+
 
 def _current_version(ontology: Ontology, revision: int | None) -> OntologyVersion | None:
     if not ontology.versions:
@@ -400,4 +578,8 @@ __all__ = [
     "EntityTypeDef",
     "PropertyDef",
     "RelationshipDef",
+    "OntologyImportResult",
+    "ImportWarning",
+    "OntologyDiff",
+    "MigrationJob",
 ]

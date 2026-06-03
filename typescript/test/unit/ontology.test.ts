@@ -109,4 +109,77 @@ describe("OntologyClient", () => {
     await o.activate("ov_2");
     expect(t.request.mock.calls[0]?.[1]).toMatchObject({ body: { version_id: "ov_2" } });
   });
+
+  it("import sends content/format and parses the draft + warnings", async () => {
+    const t = mockTransport(() => ({
+      ontology: DOC,
+      warnings: [{ code: "unmapped", message: "no pole_type for :Widget", path: "Widget" }],
+      detected_format: "arrows",
+      suggested_name: "Legal",
+    }));
+    const o = new OntologyClient(t as never);
+    const result = await o.import({ content: '{"nodes":[]}', format: "arrows" });
+    expect(t.request.mock.calls[0]?.[0]).toBe("import_ontology");
+    expect(t.request.mock.calls[0]?.[1].body).toMatchObject({ content: '{"nodes":[]}', format: "arrows" });
+    expect(result.document?.entityTypes[0].label).toBe("Case");
+    expect(result.detectedFormat).toBe("arrows");
+    expect(result.suggestedName).toBe("Legal");
+    expect(result.warnings[0].code).toBe("unmapped");
+  });
+
+  it("import requires content or url", async () => {
+    const o = new OntologyClient(mockTransport(() => ({})) as never);
+    await expect(o.import({})).rejects.toThrow(/content or url/);
+  });
+
+  it("diff passes from/to and maps revisions", async () => {
+    const t = mockTransport(() => ({
+      from_revision: 1,
+      to_revision: 2,
+      entity_types: { added: [{ label: "Widget" }], removed: [], renamed: [], modified: [] },
+      relationships: { added: [], removed: [], renamed: [], modified: [] },
+    }));
+    const o = new OntologyClient(t as never);
+    const d = await o.diff("ont_1", 1, 2);
+    expect(t.request.mock.calls[0]?.[1]).toMatchObject({ id: "ont_1", from: 1, to: 2 });
+    expect(d.fromRevision).toBe(1);
+    expect(d.toRevision).toBe(2);
+    expect((d.entityTypes.added as unknown[]).length).toBe(1);
+  });
+
+  it("migrate sends snake_case spec and maps the job", async () => {
+    const t = mockTransport(() => ({
+      id: "mig_1",
+      ontology_id: "ont_1",
+      status: "pending",
+      total: 0,
+      error_message: "",
+    }));
+    const o = new OntologyClient(t as never);
+    const job = await o.migrate("ont_1", {
+      fromVersionId: "ov_1",
+      toVersionId: "ov_2",
+      typeMappings: [{ from: "Widget", to: "Gadget" }],
+      dryRun: true,
+    });
+    const body = t.request.mock.calls[0]?.[1].body as { spec: Record<string, unknown> };
+    expect(body.spec).toMatchObject({
+      from_version_id: "ov_1",
+      to_version_id: "ov_2",
+      type_mappings: [{ from: "Widget", to: "Gadget" }],
+      dry_run: true,
+    });
+    expect(job.id).toBe("mig_1");
+    expect(job.ontologyId).toBe("ont_1");
+    expect(job.status).toBe("pending");
+  });
+
+  it("getMigration passes jobId and maps the job", async () => {
+    const t = mockTransport(() => ({ id: "mig_1", status: "running", processed: 5, total: 10 }));
+    const o = new OntologyClient(t as never);
+    const job = await o.getMigration("mig_1");
+    expect(t.request.mock.calls[0]?.[1]).toMatchObject({ jobId: "mig_1" });
+    expect(job.processed).toBe(5);
+    expect(job.total).toBe(10);
+  });
 });

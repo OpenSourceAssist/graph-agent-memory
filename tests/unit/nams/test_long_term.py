@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 
+import httpx
 import pytest
 import respx
 
@@ -57,6 +58,60 @@ class TestWaitForExtraction:
         )
         ok = await long_term.wait_for_extraction(
             query="Alice", expected_names=["Alice"], timeout=2, interval=0.01
+        )
+        assert ok is True
+
+    @respx.mock
+    async def test_session_id_uses_extraction_status_endpoint(self, long_term):
+        # Authoritative path: a conversation with no pending messages is done,
+        # and no entity search is performed when only session_id is given.
+        status = respx.get(
+            "https://memory.test/v1/conversations/conv-1/extraction-status"
+        ).respond(200, json={"messages": [], "summary": {"completed": 3}})
+        search = respx.post("https://memory.test/v1/entities/search")
+        ok = await long_term.wait_for_extraction(
+            session_id="conv-1", timeout=2, interval=0.01
+        )
+        assert ok is True
+        assert status.called
+        assert not search.called  # no search needed — status is authoritative
+
+    @respx.mock
+    async def test_session_id_polls_until_no_pending(self, long_term):
+        route = respx.get(
+            "https://memory.test/v1/conversations/conv-1/extraction-status"
+        )
+        route.side_effect = [
+            httpx.Response(200, json={"summary": {"pending": 2, "completed": 1}}),
+            httpx.Response(200, json={"summary": {"completed": 3}}),
+        ]
+        ok = await long_term.wait_for_extraction(
+            session_id="conv-1", timeout=2, interval=0.01
+        )
+        assert ok is True
+        assert route.call_count == 2
+
+    @respx.mock
+    async def test_session_id_times_out_while_pending(self, long_term):
+        respx.get(
+            "https://memory.test/v1/conversations/conv-1/extraction-status"
+        ).respond(200, json={"summary": {"pending": 1}})
+        ok = await long_term.wait_for_extraction(
+            session_id="conv-1", timeout=0.05, interval=0.01
+        )
+        assert ok is False
+
+    @respx.mock
+    async def test_session_id_then_entity_confirmation(self, long_term):
+        # status completes, then expected_names is confirmed via search.
+        respx.get(
+            "https://memory.test/v1/conversations/conv-1/extraction-status"
+        ).respond(200, json={"summary": {"completed": 1}})
+        respx.post("https://memory.test/v1/entities/search").respond(
+            200, json={"entities": [SAMPLE_ENTITY], "searchType": "vector"}
+        )
+        ok = await long_term.wait_for_extraction(
+            session_id="conv-1", expected_names=["Alice"], timeout=2, interval=0.01
         )
         assert ok is True
 
@@ -361,3 +416,29 @@ class TestTypeMapping:
         await long_term.add_entity("X", package_type)
         body = json.loads(route.calls[0].request.content)
         assert body["type"] == nams_type
+
+
+class TestExpandGraph:
+    @respx.mock
+    async def test_expand_graph_sends_camel_body_and_returns_fragment(self, long_term):
+        route = respx.post("https://memory.test/v1/graph/expand").respond(
+            200,
+            json={
+                "nodes": [{"id": "n1", "labels": ["Entity"], "properties": {"name": "Alice"}}],
+                "edges": [{"id": "e1", "source": "n1", "target": "n2", "type": "KNOWS"}],
+            },
+        )
+        result = await long_term.expand_graph("n1", loaded_ids=["n0"])
+        body = json.loads(route.calls.last.request.content)
+        assert body == {"nodeId": "n1", "loadedIds": ["n0"]}
+        assert result["nodes"][0]["id"] == "n1"
+        assert result["edges"][0]["type"] == "KNOWS"
+
+    @respx.mock
+    async def test_expand_graph_defaults_loaded_ids(self, long_term):
+        route = respx.post("https://memory.test/v1/graph/expand").respond(
+            200, json={"nodes": [], "edges": []}
+        )
+        await long_term.expand_graph("n1")
+        body = json.loads(route.calls.last.request.content)
+        assert body == {"nodeId": "n1", "loadedIds": []}

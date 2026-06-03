@@ -14,6 +14,7 @@ import type {
   EntityGraph,
   EntityGraphEdge,
   EntityGraphNode,
+  ExpandedGraph,
   EntityHistory,
   EntityMention,
   EntityMergeResult,
@@ -437,6 +438,22 @@ export class LongTermMemory {
     return {
       nodes: (wire.nodes ?? []).map(toGraphNode),
       edges: (wire.edges ?? []).map(toGraphEdge),
+    };
+  }
+
+  /**
+   * Expand one entity's 1-hop neighborhood for graph visualization. Returns the
+   * canonical-resolved neighbors of `nodeId`, excluding any ids in `loadedIds`
+   * (pass the ids already on screen to fetch only the delta).
+   */
+  async expandGraph(nodeId: string, loadedIds: string[] = []): Promise<ExpandedGraph> {
+    const raw = await this.transport.request<{ nodes?: unknown[]; edges?: unknown[] }>(
+      "expand_graph",
+      { body: { nodeId, loadedIds } },
+    );
+    return {
+      nodes: (raw.nodes ?? []) as ExpandedGraph["nodes"],
+      edges: (raw.edges ?? []) as ExpandedGraph["edges"],
     };
   }
 }

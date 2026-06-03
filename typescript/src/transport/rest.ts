@@ -281,6 +281,11 @@ const ROUTES: Record<string, RestCall | "noop" | "unsupported"> = {
     method: "GET",
     path: "/entities/graph",
   },
+  expand_graph: {
+    method: "POST",
+    path: "/graph/expand",
+    hasBody: true,
+  },
   explain_step: {
     method: "GET",
     path: "/reasoning/explain/{stepId}",
@@ -339,6 +344,11 @@ const ROUTES: Record<string, RestCall | "noop" | "unsupported"> = {
     pathParams: ["keyId"],
     queryParams: ["workspace_id"],
   },
+  rotate_api_key: {
+    method: "POST",
+    path: "/auth/api-keys/{keyId}/rotate",
+    pathParams: ["keyId"],
+  },
   refresh_access_token: {
     method: "POST",
     path: "/auth/refresh",
@@ -370,6 +380,25 @@ const ROUTES: Record<string, RestCall | "noop" | "unsupported"> = {
     snakeBody: true,
   },
   delete_ontology: { method: "DELETE", path: "/ontologies/{id}", pathParams: ["id"] },
+  import_ontology: { method: "POST", path: "/ontologies/import", hasBody: true, snakeBody: true },
+  diff_ontology: {
+    method: "GET",
+    path: "/ontologies/{id}/diff",
+    pathParams: ["id"],
+    queryParams: ["from", "to"],
+  },
+  migrate_ontology: {
+    method: "POST",
+    path: "/ontologies/{id}/migrate",
+    pathParams: ["id"],
+    hasBody: true,
+    snakeBody: true,
+  },
+  get_ontology_migration: {
+    method: "GET",
+    path: "/ontologies/migrations/{jobId}",
+    pathParams: ["jobId"],
+  },
 };
 
 export class RestTransport implements Transport {

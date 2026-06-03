@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Ontology `import` / `diff` / `migrate` on `client.ontology`.** Closes the gap
+  where these shipped server-side + REST but weren't reachable from the SDK.
+  `import_(content=/url=, format=)` converts an external graph/ontology document
+  (Arrows / Neo4j Data Importer / RDF / GraphQL / Cypher / LinkML / native) into a
+  non-persisted draft; `diff(id, from_revision, to_revision)` returns a structural
+  diff; `migrate(id, ...)` enqueues an async label-rename job and `get_migration(job_id)`
+  polls it. New models: `OntologyImportResult`, `ImportWarning`, `OntologyDiff`,
+  `MigrationJob`. Mirrored in the TypeScript SDK (`OntologyClient.import/diff/migrate/getMigration`).
+- **`client.auth` — API-key management (NAMS).** New Python accessor mirroring the
+  TypeScript `AuthClient`: `list_api_keys`, `create_api_key`, `reveal_api_key`,
+  `rotate_api_key`, `revoke_api_key`, and `refresh_access_token`, with `ApiKey` /
+  `AccessTokenPair` models. On bolt it is a `NotSupportedError` sentinel. Also adds
+  `rotateApiKey` to the TypeScript `AuthClient` (was missing).
+- **`short_term.get_extraction_status(...)`** — the authoritative per-conversation
+  extraction rollup (`ExtractionStatus` with `is_complete` / `pending_count`),
+  backed by `GET /v1/conversations/{id}/extraction-status`.
+- **`long_term.expand_graph(node_id, loaded_ids=...)`** — 1-hop entity-neighborhood
+  expansion (`POST /v1/graph/expand`) for graph visualization; mirrored in the
+  TypeScript SDK as `longTerm.expandGraph(nodeId, loadedIds)`.
+
+### Changed
+
+- **`long_term.wait_for_extraction(...)` now uses the authoritative extraction-status
+  endpoint** when a `session_id` / `conversation_id` is supplied (polls until no
+  message is pending), instead of only the workspace-scoped entity-search heuristic.
+  When entity-level assertions (`expected_names` / `predicate` / `query`) are also
+  given, it waits for the conversation to finish *then* confirms via search. Fully
+  backward-compatible: the search-only path is unchanged when no conversation id is
+  passed.
+
+> **Docs note:** when this ships, flip the "REST-only / no SDK method" notes in
+> `reference/rest-api.adoc`, `reference/ontology-api.adoc`, and
+> `reference/authentication.adoc`, and the Python↔TS parity note in
+> `reference/typescript-api.adoc`, to reflect the new SDK surface.
+
 ## [0.5.0] - 2026-05-30
 
 The NAMS-alignment release. Adds workspace addressing, a first-class

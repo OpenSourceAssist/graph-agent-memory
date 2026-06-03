@@ -17,9 +17,12 @@ from neo4j_agent_memory.core.exceptions import NotSupportedError
 from neo4j_agent_memory.nams import (
     ActiveOntology,
     HttpTransport,
+    MigrationJob,
     NamsOntology,
     Ontology,
+    OntologyDiff,
     OntologyDocument,
+    OntologyImportResult,
     OntologySummary,
     OntologyVersion,
     StaticApiKeyAuth,
@@ -172,6 +175,84 @@ class TestWriteOps:
         route = respx.delete(f"{BASE}/ontologies/ont_1").respond(204)
         await ontology.delete("ont_1")
         assert route.called
+
+
+class TestImportDiffMigrate:
+    @respx.mock
+    async def test_import_sends_body_and_parses_draft(self, ontology):
+        route = respx.post(f"{BASE}/ontologies/import").respond(
+            200,
+            json={
+                "ontology": DOC,
+                "warnings": [{"code": "unmapped", "message": "no pole_type", "path": "Widget"}],
+                "detected_format": "arrows",
+                "suggested_name": "Legal",
+            },
+        )
+        result = await ontology.import_(content='{"nodes":[]}', format="arrows")
+        body = json.loads(route.calls.last.request.content)
+        assert body == {"format": "arrows", "content": '{"nodes":[]}'}
+        assert isinstance(result, OntologyImportResult)
+        assert result.document.entity_types[0].label == "Case"
+        assert result.detected_format == "arrows"
+        assert result.suggested_name == "Legal"
+        assert result.warnings[0].code == "unmapped"
+
+    async def test_import_requires_content_or_url(self, ontology):
+        with pytest.raises(ValueError, match="content= or url="):
+            await ontology.import_()
+
+    @respx.mock
+    async def test_diff_passes_query_params(self, ontology):
+        route = respx.get(f"{BASE}/ontologies/ont_1/diff").respond(
+            200,
+            json={
+                "from_revision": 1,
+                "to_revision": 2,
+                "entity_types": {"added": [{"label": "Widget"}], "removed": [], "renamed": [], "modified": []},
+                "relationships": {"added": [], "removed": [], "renamed": [], "modified": []},
+            },
+        )
+        diff = await ontology.diff("ont_1", 1, 2)
+        assert dict(route.calls.last.request.url.params) == {"from": "1", "to": "2"}
+        assert isinstance(diff, OntologyDiff)
+        assert diff.from_revision == 1
+        assert diff.to_revision == 2
+        assert diff.entity_types["added"][0]["label"] == "Widget"
+
+    @respx.mock
+    async def test_migrate_sends_spec_and_parses_job(self, ontology):
+        route = respx.post(f"{BASE}/ontologies/ont_1/migrate").respond(
+            202,
+            json={"id": "mig_1", "ontology_id": "ont_1", "status": "pending", "total": 0},
+        )
+        job = await ontology.migrate(
+            "ont_1",
+            from_version_id="ov_1",
+            to_version_id="ov_2",
+            type_mappings=[("Widget", "Gadget")],
+            dry_run=True,
+        )
+        body = json.loads(route.calls.last.request.content)
+        assert body["spec"] == {
+            "from_version_id": "ov_1",
+            "to_version_id": "ov_2",
+            "type_mappings": [{"from": "Widget", "to": "Gadget"}],
+            "dry_run": True,
+        }
+        assert isinstance(job, MigrationJob)
+        assert job.id == "mig_1"
+        assert job.ontology_id == "ont_1"
+        assert job.status == "pending"
+
+    @respx.mock
+    async def test_get_migration(self, ontology):
+        respx.get(f"{BASE}/ontologies/migrations/mig_1").respond(
+            200, json={"id": "mig_1", "status": "running", "processed": 5, "total": 10}
+        )
+        job = await ontology.get_migration("mig_1")
+        assert job.processed == 5
+        assert job.total == 10
 
 
 class TestModelResilience:
