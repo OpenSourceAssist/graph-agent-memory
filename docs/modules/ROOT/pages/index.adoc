@@ -18,7 +18,7 @@ icon:flask[] *Neo4j Labs* · icon:database[] Graph-native memory for AI agents
 [.lead]
 Your agents forget everything. *Fix that.*
 
-Production-grade memory for single- and multi-agent systems. Three memory layers — conversations, entities, reasoning — in one graph. Available as a *hosted service* (zero infra, just an API key) or run against your own Neo4j. Python + TypeScript SDKs that interoperate.
+Graph-native memory for single- and multi-agent systems. Three memory layers — conversations, entities, reasoning — in one graph. Available as a *hosted service* (zero infra, just an API key) or run against your own Neo4j. Python + TypeScript SDKs that interoperate.
 
 [NOTE]
 ====

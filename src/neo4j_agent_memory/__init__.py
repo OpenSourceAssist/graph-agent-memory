@@ -407,6 +407,10 @@ class MemoryClient:
         # capability). Wired in connect().
         self._ontology: Any = None
 
+        # API-key management accessor. Real (``NamsAuth``) on NAMS; a
+        # ``_NamsUnsupported`` sentinel on bolt. Wired in connect().
+        self._auth: Any = None
+
         # Bolt-only accessors. On NAMS these are replaced by ``_NamsUnsupported``
         # sentinels — but the declared type stays as the bolt class so user
         # code that type-checks against e.g. ``UserMemory`` continues to work
@@ -569,6 +573,13 @@ class MemoryClient:
             "(see client.schema / SchemaManager).",
         )
 
+        self._auth = _NamsUnsupported(
+            accessor="auth",
+            message="API-key management is a NAMS capability — bolt authenticates "
+            "to your own Neo4j with NEO4J_PASSWORD, not a NAMS API key.",
+            workaround="Manage NAMS keys from the dashboard at memory.neo4jlabs.com.",
+        )
+
     async def _connect_nams(self) -> None:
         """Connect to the hosted NAMS service via HTTP transport.
 
@@ -604,6 +615,7 @@ class MemoryClient:
         self._reasoning = self._nams_backend.reasoning
         self._query = self._nams_backend.query
         self._ontology = self._nams_backend.ontology
+        self._auth = self._nams_backend.auth
 
         # Bolt-only accessors → sentinels that raise on method call.
         self._users = _NamsUnsupported(
@@ -924,6 +936,26 @@ class MemoryClient:
         if self._ontology is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
         return self._ontology
+
+    @property
+    def auth(self) -> Any:
+        """API-key management accessor — **NAMS only**.
+
+        Returns the :class:`~neo4j_agent_memory.nams.auth_keys.NamsAuth`
+        accessor on NAMS, exposing ``list_api_keys``, ``create_api_key``,
+        ``reveal_api_key``, ``rotate_api_key``, ``revoke_api_key``, and
+        ``refresh_access_token``.
+
+        On bolt, returns a sentinel whose method calls raise
+        :class:`NotSupportedError` (bolt authenticates to your own Neo4j; manage
+        NAMS keys from the dashboard at memory.neo4jlabs.com).
+
+        Raises:
+            NotConnectedError: If client is not connected.
+        """
+        if self._auth is None:
+            raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
+        return self._auth
 
     @property
     def graph(self) -> "Neo4jClient":

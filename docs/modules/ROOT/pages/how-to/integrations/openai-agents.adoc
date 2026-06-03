@@ -24,7 +24,7 @@ Install with OpenAI support:
 pip install neo4j-agent-memory[openai-agents]
 ----
 
-== Pass-through your Agents model (v0.3+)
+== Pass-through your Agents model
 
 The OpenAI Agents SDK uses bare model strings (`"gpt-4o-mini"`, `"gpt-4o"`) or `AsyncOpenAI` clients. `llm_provider_from_openai_agents` accepts both:
 
@@ -45,7 +45,7 @@ settings = MemorySettings(
 )
 ----
 
-Equivalent to `MemorySettings(llm="openai/gpt-4o-mini")` — the helper is for parity with the other integration packages' pass-through API. See xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5].
+Equivalent to `MemorySettings(llm="openai/gpt-4o-mini")` — the helper is for parity with the other integration packages' pass-through API. See xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers — Pattern 5].
 
 == Basic Usage
 

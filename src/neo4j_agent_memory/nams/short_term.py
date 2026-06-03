@@ -33,6 +33,8 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from neo4j_agent_memory.core.exceptions import NotSupportedError
 from neo4j_agent_memory.memory.short_term import (
     Conversation,
@@ -111,6 +113,18 @@ _SPEC_GET_REFLECTIONS = EndpointSpec(
     rest_method="GET",
     rest_path="/conversations/{conversation_id}/reflections",
     bridge_method="get_reflections",
+)
+
+_SPEC_EXTRACTION_STATUS = EndpointSpec(
+    rest_method="GET",
+    rest_path="/conversations/{conversation_id}/extraction-status",
+    bridge_method="get_extraction_status",
+)
+
+# Per-message extraction statuses that are *not* terminal — while any message
+# is in one of these, the conversation's extraction is still in flight.
+_NONTERMINAL_EXTRACTION_STATUSES = frozenset(
+    {"pending", "processing", "running", "in_progress", "queued"}
 )
 
 
@@ -216,6 +230,31 @@ def _resolve_conversation_id(
             "API is conversation-scoped. Pass session_id=... to scope the call."
         )
     return conv
+
+
+class ExtractionStatus(BaseModel):
+    """Coarse extraction-status rollup for a conversation.
+
+    NAMS extracts entities from messages in a background pipeline. This is the
+    authoritative per-conversation signal: ``summary`` maps each per-message
+    extraction status (``pending`` / ``completed`` / ``failed`` / …) to a count,
+    and ``messages`` lists the per-message detail.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    messages: list[dict[str, Any]] = Field(default_factory=list)
+    summary: dict[str, int] = Field(default_factory=dict)
+
+    @property
+    def is_complete(self) -> bool:
+        """``True`` when no message is still pending/in-flight extraction."""
+        return not any(self.summary.get(s, 0) > 0 for s in _NONTERMINAL_EXTRACTION_STATUSES)
+
+    @property
+    def pending_count(self) -> int:
+        """Number of messages still awaiting extraction."""
+        return sum(self.summary.get(s, 0) for s in _NONTERMINAL_EXTRACTION_STATUSES)
 
 
 class NamsShortTermMemory:
@@ -533,5 +572,25 @@ class NamsShortTermMemory:
             return list(payload)
         return []
 
+    async def get_extraction_status(
+        self, session_id: str | None = None, *, conversation_id: str | None = None
+    ) -> ExtractionStatus:
+        """Return the coarse extraction-status rollup for a conversation.
 
-__all__ = ["NamsShortTermMemory"]
+        Because NAMS extraction is asynchronous, this is the authoritative way
+        to tell whether a conversation's messages have finished extraction —
+        check :attr:`ExtractionStatus.is_complete`. ``session_id`` is canonical;
+        ``conversation_id`` is accepted as an alias.
+        """
+        conv = _resolve_conversation_id(session_id, conversation_id, method="get_extraction_status")
+        payload = await self._transport.request(
+            _SPEC_EXTRACTION_STATUS, path_params={"conversation_id": conv}
+        )
+        payload = payload if isinstance(payload, dict) else {}
+        return ExtractionStatus(
+            messages=list(payload.get("messages") or []),
+            summary={k: int(v) for k, v in (payload.get("summary") or {}).items()},
+        )
+
+
+__all__ = ["NamsShortTermMemory", "ExtractionStatus"]

@@ -87,7 +87,8 @@ async def main() -> None:
         )
         print(f"Completed reasoning trace: {trace.task}")
 
-        # 4. Unified Cypher accessor (Platinum, NAMS-only — also works on bolt).
+        # 4. Unified read-only Cypher accessor (works on both backends; on NAMS
+        #    writes are rejected server-side).
         try:
             rows = await client.query.cypher(
                 "MATCH (e:Entity {name: $name}) RETURN e.name AS name LIMIT 1",

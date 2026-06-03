@@ -58,7 +58,7 @@ a|
 pip install neo4j-agent-memory langchain langchain-openai
 ----
 
-== Pass-through your LangChain model (v0.3+)
+== Pass-through your LangChain model
 
 To avoid double-declaring the same model on the agent side and the memory side, use `llm_provider_from_langchain` to feed your LangChain `BaseChatModel` directly into `MemorySettings`:
 
@@ -89,7 +89,7 @@ settings = MemorySettings(
 
 The helper introspects the model's class name and attributes (`model_name`, `anthropic_api_key`, `openai_api_key`, `openai_api_base`, …) and routes via `from_provider`. `ChatAnthropic` resolves to `AnthropicProvider`; `ChatOpenAI` to `OpenAIProvider`; everything else falls through to LiteLLM.
 
-For the full pattern across all integrations, see xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5].
+For the full pattern across all integrations, see xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers — Pattern 5].
 
 == Message History Integration
 

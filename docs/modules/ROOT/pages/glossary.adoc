@@ -39,6 +39,35 @@ MERGEs on `(:Entity {name, type})` for deduplication.
 properties (`id`, `type`, `name`) to nodes from a pre-existing domain
 graph, so the library's writes link to the existing nodes instead of
 duplicating them. See xref:how-to/adopt-existing-graph.adoc[].
+
+| Backend
+| Which storage `MemoryClient` talks to: *bolt* (your own Neo4j, the
+historical default) or *NAMS* (the hosted service). Selected at config
+time; the high-level API is identical. See
+xref:explanation/backends.adoc[Bolt vs NAMS].
+
+| NAMS
+| Neo4j Agent Memory Service — the hosted, multi-tenant backend at
+link:https://memory.neo4jlabs.com[memory.neo4jlabs.com]. A managed REST
+API; you bring an API key, not a database.
+
+| Workspace
+| The unit of hard isolation on NAMS — its own graph, bound to an API key
+(production) or selected per request via the `X-Workspace-Id` header.
+The `user_identifier=` axis sub-divides users within a workspace. See
+xref:explanation/backends.adoc#tenancy[Tenancy & scoping].
+
+| Bridge protocol
+| The non-REST wire format (`POST /{snake_case_method}`) used by the
+cross-language link:https://github.com/neo4j-labs/agent-memory-tck[TCK]
+reference clients. The SDK transport auto-selects REST (for `/v{n}`
+endpoints) or bridge; override with `NamsConfig(transport_mode=...)`.
+
+| Provider string
+| A shorthand for an LLM or embedding model — `"anthropic/claude-3-5-sonnet-latest"`,
+`"openai/text-embedding-3-small"` — resolved to a native adapter or
+LiteLLM. Used on the bolt backend; on NAMS, embedding runs server-side.
+See xref:how-to/bring-your-own-model.adoc[Bring Your Own Model].
 |===
 
 == Industry-glossary alignment

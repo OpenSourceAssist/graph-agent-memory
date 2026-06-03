@@ -61,7 +61,7 @@ a|
 pip install neo4j-agent-memory crewai crewai-tools
 ----
 
-== Pass-through your CrewAI LLM (v0.3+)
+== Pass-through your CrewAI LLM
 
 CrewAI uses LiteLLM under the hood, so a CrewAI `LLM` exposes a `model` attribute that's already provider-prefixed. `llm_provider_from_crewai` plugs the same model into memory extraction:
 
@@ -92,7 +92,7 @@ settings = MemorySettings(
 )
 ----
 
-See xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5] for the full pass-through pattern matrix.
+See xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers — Pattern 5] for the full pass-through pattern matrix.
 
 == Basic Integration
 

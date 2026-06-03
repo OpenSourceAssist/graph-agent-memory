@@ -156,7 +156,7 @@ async def main() -> None:
             trace.id, outcome="Done", success=True
         )
 
-        # Read-only Cypher (Platinum)
+        # Read-only Cypher
         rows = await client.query.cypher(
             "MATCH (e:Entity) RETURN e.name AS name LIMIT 5"
         )

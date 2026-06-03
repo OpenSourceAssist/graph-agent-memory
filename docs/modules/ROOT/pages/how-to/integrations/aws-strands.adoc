@@ -36,7 +36,7 @@ The Strands integration provides four memory tools that agents can use:
 pip install neo4j-agent-memory[aws,strands]
 ----
 
-== Pass-through your Strands model (v0.3+)
+== Pass-through your Strands model
 
 Strands agents typically use Bedrock model strings (e.g. `"anthropic.claude-sonnet-4-20250514-v1:0"`). `llm_provider_from_strands` accepts either a bare string or a model object and prepends `bedrock/` when no provider prefix is present:
 

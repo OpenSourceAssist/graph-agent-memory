@@ -37,7 +37,7 @@ settings = MemorySettings(
 )
 ----
 
-=== `embedding` and `llm` — three accepted shapes (v0.3+)
+=== `embedding` and `llm` — three accepted shapes
 
 As of v0.3 both fields accept a discriminated union:
 
@@ -70,7 +70,7 @@ settings = MemorySettings(
 )
 ----
 
-For the full migration guide, see xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3].
+For the full migration guide, see xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers].
 
 == Neo4j Configuration
 

@@ -2,16 +2,47 @@
 :description: Hosted-service REST endpoints mapped to client SDK methods in each language.
 
 The hosted service at `https://memory.neo4jlabs.com/v1` exposes a REST API.
-This page maps every endpoint to its bridge-protocol equivalent and the
-corresponding method on each language client.
+This page is a curated companion to the machine-readable contract — it maps
+every endpoint to its bridge-protocol equivalent and the corresponding method
+on each language client.
+
+[TIP]
+====
+The *authoritative, always-current contract* is the OpenAPI document at
+link:https://memory.neo4jlabs.com/openapi.json[memory.neo4jlabs.com/openapi.json]
+(production). Request/response schemas live there; this page covers the
+cross-cutting rules — auth, versioning, errors, pagination — and the
+SDK-method mapping the spec doesn't show.
+====
 
 Bridge-method names are what the link:https://github.com/neo4j-labs/agent-memory-tck[agent-memory-tck]
 cross-language conformance suite uses. SDK methods take language-idiomatic
 casing.
 
+== Base URL & versioning
+
+All endpoints are served under a major-version prefix: the production base URL
+is `https://memory.neo4jlabs.com/v1`. The SDK appends paths to the configured
+`MEMORY_ENDPOINT` (default the URL above). The `/v{n}` prefix also selects the
+REST transport; endpoints without it use the TCK bridge protocol (see
+xref:explanation/backends.adoc[Bolt vs NAMS]).
+
+[NOTE]
+====
+The active workspace is resolved from the API key (and/or the `X-Workspace-Id`
+header), not from the URL path — so endpoints like read-only Cypher are
+`POST /v1/query`, scoped to the caller's workspace. Treat
+link:https://memory.neo4jlabs.com/openapi.json[the OpenAPI spec] as the source of
+truth for exact paths, and prefer the SDK accessors (e.g. `client.query.cypher(...)`)
+over hand-built URLs.
+====
+
 == Request headers
 
-Every request carries `Authorization: Bearer <api_key>`. Deployments that scope
+Every request carries `Authorization: Bearer <token>`, where the token is either
+your API key (`nams_...`) used directly, or a short-lived JWT obtained from the
+Auth0 exchange endpoints (`POST /v1/auth/exchange`, `POST /v1/auth/refresh`).
+Deployments that scope
 by header (e.g. the development/staging service) additionally require
 `X-Workspace-Id: <workspace_id>`; the SDK sends it automatically when
 `workspace_id` / `workspaceId` (or `MEMORY_WORKSPACE_ID`) is configured. On
@@ -83,6 +114,15 @@ See xref:how-to/use-nams.adoc[Use NAMS].
 | `POST` | `/auth/refresh` | `refresh_access_token` | `auth.refreshAccessToken` | `Auth.RefreshAccessToken` | `auth.refresh_access_token` | `Auth.RefreshAccessTokenAsync`
 |===
 
+[NOTE]
+====
+The per-language method names above follow the bridge-protocol/conformance
+naming. *The Python SDK does not currently expose API-key-management methods* —
+it consumes a key you provide and manages nothing. Create / reveal / rotate /
+revoke keys from the dashboard or by calling these REST endpoints directly. See
+xref:reference/authentication.adoc[Authentication & API Keys].
+====
+
 == Ontologies
 
 Typed, versioned domain schemas. Workspace-scoped via `X-Workspace-Id`. Request
@@ -101,7 +141,49 @@ document schema and validation modes.
 | `PUT` | `/ontologies/{id}` | `ontology.update` | `ontology.update`
 | `POST` | `/ontologies/active` | `ontology.activate` | `ontology.activate`
 | `DELETE` | `/ontologies/{id}` | `ontology.delete` | `ontology.delete`
+| `POST` | `/ontologies/import` | — (REST only) | — (REST only)
+| `GET` | `/ontologies/{id}/diff` | — (REST only) | — (REST only)
+| `POST` | `/ontologies/{id}/migrate` | — (REST only) | — (REST only)
 |===
+
+[NOTE]
+====
+`import`, `diff`, and `migrate` are available over REST but are *not yet exposed*
+on the `client.ontology` SDK accessor in any language. Call them directly (e.g.
+with `httpx` / `fetch`) using a `Bearer` token and `X-Workspace-Id` until SDK
+methods land. The preview/dry-run path of `import` is rate-limited (see
+xref:reference/nams-limits.adoc[NAMS Limits & Behavior]).
+====
+
+[#errors]
+== Errors
+
+Error responses use standard HTTP status codes with a JSON body of the shape
+`{"error": "<message>"}`. Some errors carry extra fields (e.g. `message`,
+`limit` on quota errors). The SDK maps them to typed exceptions:
+
+[cols="1,2,2",options="header"]
+|===
+| Status | Meaning | Python SDK exception
+
+| `400` | Invalid request, write Cypher attempted, validation failure | `ValidationError` (carries `details`)
+| `401`, `403` | Missing/invalid token, or workspace not accessible | `AuthenticationError`
+| `404` | Resource not found | `MemoryError` (base class)
+| `405`, `501` | Operation not available on this backend | `NotSupportedError`
+| `429` | Rate limited | `RateLimitError` (carries `retry_after`; honors `Retry-After`)
+| `5xx` | Service error | `TransportError` (after retries exhausted)
+| Other 4xx (e.g. `409`, `410`, `413`, `422`) | Conflict, gone, payload too large, semantic validation | `TransportError`
+|===
+
+All SDK exceptions subclass `MemoryError`. The SDK retries `429`, `5xx`, and
+network errors with exponential backoff, honoring any `Retry-After` header. See xref:reference/nams-limits.adoc[NAMS Limits & Behavior]
+for rate-limit and quota specifics.
+
+== Pagination
+
+List endpoints accept `limit` and `offset` query parameters for offset-based
+pagination (e.g. `GET /v1/conversations?limit=50&offset=100`). Defaults are
+service-configured; pass an explicit `limit` for deterministic page sizes.
 
 == Wire format differences
 

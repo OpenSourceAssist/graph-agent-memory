@@ -1,0 +1,85 @@
+= Authentication & API Keys
+:page-product: agent-memory
+:toclevels: 2
+:icons: font
+
+How the hosted NAMS backend authenticates requests, where API keys come from, and how to handle them safely. This page is language-neutral; for SDK-specific setup see xref:how-to/use-nams.adoc[Use NAMS] (Python) and xref:how-to/typescript/authenticate.adoc[Authentication] (TypeScript).
+
+[NOTE]
+====
+Authentication applies to the *NAMS (hosted)* backend only. The self-hosted *bolt* backend authenticates to your own Neo4j with `NEO4J_PASSWORD` and never uses a NAMS API key.
+====
+
+== Methods
+
+NAMS accepts three kinds of credential:
+
+[cols="1,3",options="header"]
+|===
+| Method | Use
+
+| **API key** (`nams_…`) | Programmatic access from the SDKs, REST clients, and the MCP server. Sent directly as a Bearer token. *This is what you'll use in code.*
+| **Auth0 JWT** | Dashboard / browser sessions. An Auth0 login is exchanged for a short-lived (≈1 h, RS256) internal JWT via `POST /v1/auth/exchange`. Validate against the JWKS at `/.well-known/jwks.json`.
+| **MCP OAuth** | Interactive MCP clients (e.g. Claude Desktop) authenticate with an OAuth 2.0 Authorization-Code + PKCE flow. See xref:how-to/typescript/mcp.adoc[MCP Tools].
+|===
+
+== Key format & the wire
+
+API keys are prefixed `nams_`. Send the key as a Bearer token on every request:
+
+[source,http]
+----
+Authorization: Bearer nams_xxxxxxxxxxxxxxxxxxxx
+X-Workspace-Id: ws_xxxxxxxx          # required by header-scoped deployments
+----
+
+API keys are **user-owned, not workspace-bound**. The target workspace is resolved per request:
+
+* **Production** — the workspace is encoded in the key; the `X-Workspace-Id` header is optional.
+* **Header-scoped deployments** (e.g. development / staging) — you must send `X-Workspace-Id`. The SDK sends it automatically when `workspace_id` / `workspaceId` (or `MEMORY_WORKSPACE_ID`) is configured.
+
+The service checks that the key's owner is a member of the resolved workspace; non-members get `403`. See xref:explanation/backends.adoc#tenancy[Tenancy & scoping].
+
+== Configuring the SDK
+
+The SDKs consume an existing key — set it once and the backend auto-selects NAMS:
+
+[cols="1,3",options="header"]
+|===
+| Variable | Purpose
+
+| `MEMORY_API_KEY` | Your `nams_…` key. When set (and `NAM_BACKEND` is unspecified) the backend defaults to NAMS.
+| `MEMORY_ENDPOINT` | Override the service URL (default `https://memory.neo4jlabs.com/v1`).
+| `MEMORY_WORKSPACE_ID` | Workspace id, lifted into `NamsConfig.workspace_id` and sent as `X-Workspace-Id`.
+| `NAM_BACKEND` | Force `bolt` or `nams`.
+| `NAM_NAMS__*` | Nested `NamsConfig` overrides (timeout, retries, …).
+|===
+
+See xref:reference/environment-variables.adoc[Environment Variables] and xref:reference/configuration.adoc[Configuration] for the full list.
+
+== Key lifecycle
+
+Keys are created and managed from the dashboard at link:https://memory.neo4jlabs.com[memory.neo4jlabs.com] or directly over REST:
+
+[cols="2,3",options="header"]
+|===
+| Operation | REST
+
+| Create | `POST /v1/auth/api-keys` — returns the raw key once; also stored encrypted-at-rest so it can be revealed later.
+| List | `GET /v1/auth/api-keys`
+| Reveal | `GET /v1/auth/api-keys/{id}/reveal` — owner-only (non-owners get `404`; revoked or pre-encryption keys get `410`).
+| Rotate | `POST /v1/auth/api-keys/{id}/rotate` — mints a new key and revokes the old one.
+| Revoke | `DELETE /v1/auth/api-keys/{id}` — added to a blocklist for 30 days; effective on the next request.
+|===
+
+[IMPORTANT]
+====
+**Key management is dashboard/REST-only.** The Python SDK attaches a key you provide (via `MEMORY_API_KEY` / `NamsConfig(api_key=...)`) but does **not** expose `create` / `reveal` / `rotate` / `revoke` methods on `client`. Manage keys from the dashboard or by calling the REST endpoints above directly.
+====
+
+== Handling keys safely
+
+* **Never commit a key.** Keep `nams_…` values in environment variables or a secrets manager; commit only `nams_xxxx` placeholders in examples and `.env.example` files.
+* **Scope per environment.** Use separate keys (and workspaces) for dev, staging, and production so one leak is contained.
+* **Rotate on exposure.** If a key leaks, `rotate` (or `revoke` + create); revocation is effectively immediate via the blocklist.
+* **Prefer short-lived tokens for browser contexts.** Use the Auth0 JWT exchange for dashboard/user sessions rather than embedding a long-lived API key in a client.

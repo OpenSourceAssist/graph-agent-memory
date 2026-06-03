@@ -31,6 +31,8 @@ Every memory operation lives in one of two namespaces:
 
 This split is the load-bearing design choice. It mirrors how human teams work: individual notebooks (conversations) plus a shared wiki (knowledge).
 
+On **NAMS**, the shared boundary is the **workspace** (bound to your API key): every agent using the same workspace shares the entity graph, while different workspaces are fully isolated from one another. On **bolt**, the shared boundary is the Neo4j database. Either way, `user_identifier=` sub-divides users *within* that boundary. See xref:explanation/backends.adoc#tenancy[Tenancy & scoping].
+
 == Multi-tenant scoping with `user_identifier`
 
 For SaaS-style deployments where one backend serves many end-users, every memory call accepts a `user_identifier=` kwarg:
@@ -157,7 +159,7 @@ trace_b = await memory.reasoning.start_trace(
 await memory.reasoning.get_session_traces("agent-a-session-1")
 ----
 
-But if an orchestrator wants cross-agent visibility for audit, it can query Cypher (Bolt) or the read-only Cypher endpoint (NAMS Platinum):
+But if an orchestrator wants cross-agent visibility for audit, it can query Cypher (Bolt) or the read-only Cypher endpoint (NAMS):
 
 [source,cypher]
 ----

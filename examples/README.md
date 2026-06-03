@@ -14,6 +14,7 @@ Runnable examples for [`neo4j-agent-memory`](https://github.com/neo4j-labs/agent
 
 | If you want to… | Start here |
 |---|---|
+| Run against the hosted service with just an API key (no Neo4j) | [`nams-quickstart/`](#hosted-backend-nams) |
 | See the smallest possible memory hello-world | [`basic_usage.py`](#basic-usage) |
 | Lay the library on top of a graph you already have in production | [`existing-graph/`](#existing-graph) |
 | Stop blocking the user-visible response on Neo4j writes | [`buffered-writes/`](#buffered-writes) |
@@ -27,6 +28,25 @@ Runnable examples for [`neo4j-agent-memory`](https://github.com/neo4j-labs/agent
 | Wire it to Google Cloud (Vertex AI, ADK, MCP) | [`google_cloud_integration/`](#google-cloud-integration) |
 | Resolve duplicate entities | [`entity_resolution.py`](#entity-resolution) |
 | Enrich entities with Wikipedia/Diffbot data | [`enrichment_example.py`](#enrichment) |
+
+---
+
+## Hosted backend (NAMS)
+
+Run against the hosted [NAMS](https://memory.neo4jlabs.com) service — no Neo4j to operate and no LLM/embedding key required (extraction and embeddings run server-side). Set `MEMORY_API_KEY` and the backend auto-selects NAMS.
+
+| Example | Description |
+|---|---|
+| [`nams-quickstart/`](nams-quickstart/) | Minimal end-to-end flow over the unified `MemoryClient` — messages, an entity, a reasoning trace, and a read-only Cypher round-trip. The same script body runs on bolt by flipping `backend`. |
+| [`nams-fastapi/`](nams-fastapi/) | NAMS-backed memory inside a FastAPI service. |
+| [`nams-langchain/`](nams-langchain/) | NAMS-backed memory wired into a LangChain agent. |
+
+```bash
+export MEMORY_API_KEY=nams_xxxxxxxxxxxxxxxx
+uv run python examples/nams-quickstart/main.py
+```
+
+See [Use NAMS](https://neo4j.com/labs/agent-memory/how-to/use-nams) and [Bolt vs NAMS](https://neo4j.com/labs/agent-memory/explanation/backends) for the trade-offs.
 
 ---
 
@@ -166,4 +186,4 @@ Apache 2.0 — see the main `neo4j-agent-memory` repository for details.
 
 ---
 
-_This index reflects `main` as of 2026-05-22. Current PyPI release: `neo4j-agent-memory` v0.4.x (NAMS hosted-backend support shipped in v0.4.0). The TypeScript SDK [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory) is published on npm and lives in [`../typescript/`](../typescript/)._
+_Current PyPI release: `neo4j-agent-memory` v0.5.0 (NAMS hosted-backend support shipped in v0.4.0; workspace addressing and the ontology surface in v0.5.0). The TypeScript SDK [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory) is published on npm and lives in [`../typescript/`](../typescript/)._

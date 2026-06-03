@@ -37,7 +37,7 @@ This installs:
 * `agent-framework>=1.0.0b` - Microsoft Agent Framework
 * Required Neo4j dependencies
 
-== Pass-through your Agent Framework client (v0.3+)
+== Pass-through your Agent Framework client
 
 The Microsoft Agent Framework wraps Azure OpenAI and OpenAI clients. `llm_provider_from_microsoft_agent` introspects the client (reading `deployment_name` for Azure or `model` for OpenAI) and routes via `from_provider`:
 
@@ -62,7 +62,7 @@ settings = MemorySettings(
 )
 ----
 
-See xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5] for the pattern across other integrations.
+See xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers — Pattern 5] for the pattern across other integrations.
 
 == Quick Start
 

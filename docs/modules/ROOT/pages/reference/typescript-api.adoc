@@ -10,6 +10,13 @@ The shape of `@neo4j-labs/agent-memory`'s public surface, with deep links into t
 
 [NOTE]
 ====
+**NAMS-only, and at parity with Python.** The TypeScript SDK targets the hosted xref:reference/rest-api.adoc[NAMS] service exclusively — there is no bolt backend. It implements the *same memory model* as the xref:sdks/python.adoc[Python SDK]; cross-language behavioral parity is enforced by the link:https://github.com/neo4j-labs/agent-memory-tck[agent-memory-tck] conformance suite, which is the source of truth for parity claims.
+
+Known surface differences (not behavioral): the TypeScript SDK exposes `client.auth` for API-key + OAuth management, whereas the Python SDK manages keys via the dashboard/REST (see xref:reference/authentication.adoc[Authentication]). Both SDKs share the same `shortTerm` / `longTerm` / `reasoning` / `query` / `ontology` surface; ontology `import` / `diff` / `migrate` are REST-only in both.
+====
+
+[NOTE]
+====
 **Full method-level reference** lives in the TypeDoc-generated site at
 link:https://neo4j-labs.github.io/agent-memory/typescript/[`neo4j-labs.github.io/agent-memory/typescript/`].
 That site has every parameter, every property, every overload. This page

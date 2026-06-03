@@ -11,6 +11,8 @@
 
 Why agent memory is divided into short-term, long-term, and reasoning layers, and how they work together.
 
+NOTE: The three-layer model is identical on both backends. See xref:explanation/backends.adoc[Bolt vs NAMS] for what differs operationally.
+
 == The Problem with Stateless Agents
 
 Most AI agents today are stateless. Each conversation starts fresh. The agent doesn't remember:

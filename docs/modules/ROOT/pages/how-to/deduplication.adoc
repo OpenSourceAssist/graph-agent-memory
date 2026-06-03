@@ -6,6 +6,8 @@
 :icons: font
 :source-highlighter: highlight.js
 
+include::partial$backend-bolt-only.adoc[]
+
 How to configure and manage entity deduplication to maintain a clean context graph.
 
 == Overview

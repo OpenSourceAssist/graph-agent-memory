@@ -165,7 +165,7 @@ What raises on each backend, with workarounds:
 | Provenance is server-managed; query via `get_entity_provenance(entity_id)`.
 | `client.short_term.add_messages_batch(...)`
 | Not on `NamsShortTermMemory`
-| Use Platinum `client.short_term.bulk_add_messages(session_id, messages)`.
+| Use `client.short_term.bulk_add_messages(session_id, messages)`.
 | `client.short_term.extract_entities_from_session(...)`
 | Not on `NamsShortTermMemory`
 | NAMS extracts server-side. Just call `add_message` and the entities appear in subsequent searches.
@@ -192,7 +192,7 @@ What raises on each backend, with workarounds:
 | No NAMS equivalent — geospatial features are bolt-only.
 |===
 
-=== `backend="bolt"` — Platinum-tier methods raise
+=== `backend="bolt"` — NAMS-only methods raise
 
 These methods exist on `NamsLongTermMemory` / `NamsShortTermMemory` but not on the bolt classes:
 
@@ -254,7 +254,7 @@ These methods exist on `NamsLongTermMemory` / `NamsShortTermMemory` but not on t
 == Deprecation timeline
 
 * **v0.4** (this release) — `client.graph.execute_read` emits one-time `DeprecationWarning` per process on bolt.
-* **v0.5** (planned) — More NAMS Platinum surface (additional tools, batched operations).
+* **v0.5** (planned) — More NAMS surface (additional tools, batched operations).
 * **v0.6** (planned) — Remove `client.graph` entirely. `client.query.cypher` becomes the only path for raw Cypher.
 
 == Need help?

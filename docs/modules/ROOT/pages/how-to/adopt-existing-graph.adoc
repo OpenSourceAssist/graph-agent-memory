@@ -3,6 +3,8 @@
 :page-pagination:
 :toclevels: 2
 
+include::partial$backend-bolt-only.adoc[]
+
 How to layer `neo4j-agent-memory` on top of a Neo4j graph that already
 exists in production, so that library writes (entity extraction, MENTIONS
 edges, relation writes) link to your existing nodes instead of creating

@@ -64,7 +64,7 @@ settings = MemorySettings(
 )
 ----
 
-Pass-through helpers exist for every supported integration. See xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5] for the full list.
+Pass-through helpers exist for every supported integration. See xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers — Pattern 5] for the full list.
 
 == Use no LLM at all
 

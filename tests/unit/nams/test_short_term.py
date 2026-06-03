@@ -350,6 +350,35 @@ class TestGetReflections:
         assert len(refs) == 1
 
 
+class TestGetExtractionStatus:
+    @respx.mock
+    async def test_parses_summary_and_completeness(self, short_term):
+        respx.get(
+            "https://memory.test/v1/conversations/00000000-0000-0000-0000-0000000c1d00/extraction-status"
+        ).respond(
+            200,
+            json={
+                "messages": [{"id": "m1", "status": "completed"}],
+                "summary": {"completed": 2, "failed": 1},
+            },
+        )
+        status = await short_term.get_extraction_status("00000000-0000-0000-0000-0000000c1d00")
+        assert status.summary == {"completed": 2, "failed": 1}
+        assert status.pending_count == 0
+        assert status.is_complete is True
+
+    @respx.mock
+    async def test_pending_is_not_complete(self, short_term):
+        respx.get(
+            "https://memory.test/v1/conversations/00000000-0000-0000-0000-0000000c1d00/extraction-status"
+        ).respond(200, json={"summary": {"pending": 3, "completed": 1}})
+        status = await short_term.get_extraction_status(
+            conversation_id="00000000-0000-0000-0000-0000000c1d00"
+        )
+        assert status.pending_count == 3
+        assert status.is_complete is False
+
+
 class TestBridgeRouting:
     """Bridge protocol = ``POST /<snake_case_method>`` (no path templating)."""
 

@@ -1,6 +1,8 @@
 = Use ontologies
 :description: List, clone, customize, activate, and validate against NAMS domain ontologies from the SDK.
 
+include::partial$backend-nams-only.adoc[]
+
 Drive the NAMS ontology engine through the `client.ontology` accessor. This is a
 xref:how-to/use-nams.adoc[NAMS-backend] feature; on bolt the methods raise
 `NotSupportedError`.

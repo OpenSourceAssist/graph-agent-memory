@@ -38,6 +38,7 @@ export type {
   EntityHistory,
   EntityMention,
   EntityGraph,
+  ExpandedGraph,
   EntityGraphNode,
   EntityGraphEdge,
   EntityFeedbackResult,
@@ -114,6 +115,13 @@ export type {
   RelationshipDef,
   CreateOntologyOptions,
   UpdateOntologyOptions,
+  ImportOntologyOptions,
+  OntologyImportResult,
+  ImportWarning,
+  OntologyDiff,
+  MigrateOptions,
+  TypeMapping,
+  MigrationJob,
 } from "./ontology/index.js";
 
 // Errors

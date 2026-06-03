@@ -62,6 +62,12 @@ export class AuthClient {
     await this.transport.request("revoke_api_key", { key_id: keyId });
   }
 
+  /** Rotate a key: mint a replacement and revoke the old one. Plaintext returned once. */
+  async rotateApiKey(keyId: string): Promise<ApiKey> {
+    const wire = await this.transport.request<WireApiKey>("rotate_api_key", { key_id: keyId });
+    return toApiKey(wire);
+  }
+
   /** Reveal the plaintext value of a stored API key. */
   async revealApiKey(keyId: string, workspaceId: string): Promise<ApiKey> {
     const wire = await this.transport.request<WireApiKey>("reveal_api_key", {

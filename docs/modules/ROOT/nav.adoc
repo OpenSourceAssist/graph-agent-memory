@@ -14,7 +14,7 @@
 **** xref:tutorials/strands-agent-quickstart.adoc[Strands Agent Quickstart]
 **** xref:tutorials/mcp-server.adoc[MCP Server for Claude Desktop]
 **** xref:tutorials/microsoft-agent-memory.adoc[Microsoft Agent Memory]
-**** xref:tutorials/nams-quickstart.adoc[NAMS Quickstart (v0.4)]
+**** xref:tutorials/nams-quickstart.adoc[NAMS Quickstart]
 **** xref:tutorials/ontology-quickstart.adoc[Ontology Quickstart]
 *** TypeScript
 **** xref:tutorials/first-agent-memory-typescript.adoc[First Agent Memory (TypeScript)]
@@ -25,14 +25,14 @@
 
 ** xref:how-to/index.adoc[How-To Guides]
 
-*** Pluggable Providers (v0.3)
+*** Pluggable Providers
 **** xref:how-to/bring-your-own-model.adoc[Bring Your Own Model]
 **** xref:how-to/configure-llm-provider.adoc[Configure LLM Provider]
 **** xref:how-to/configure-embedding-provider.adoc[Configure Embedding Provider]
-**** xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3]
+**** xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers]
 **** xref:how-to/migrate-embedding-model.adoc[Migrate Embedding Model]
 
-*** Hosted Backend (v0.4)
+*** Hosted Backend
 **** xref:how-to/use-nams.adoc[Use NAMS]
 **** xref:how-to/migrate-to-nams.adoc[Migrate to NAMS]
 **** xref:how-to/use-ontologies.adoc[Use Ontologies]
@@ -95,7 +95,9 @@
 *** xref:reference/environment-variables.adoc[Environment Variables]
 *** xref:reference/cli.adoc[CLI]
 *** xref:reference/mcp-tools.adoc[MCP Tools]
+*** xref:reference/authentication.adoc[Authentication & API Keys]
 *** xref:reference/rest-api.adoc[NAMS REST API]
+*** xref:reference/nams-limits.adoc[NAMS Limits & Behavior]
 *** xref:reference/ontology-api.adoc[Ontology API]
 *** xref:reference/typescript-api.adoc[TypeScript SDK API]
 *** xref:reference/deployment.adoc[Deployment]
@@ -121,7 +123,7 @@
 *** xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?]
 *** xref:explanation/structured-extraction.adoc[Structured Extraction]
 *** xref:explanation/framework-comparison.adoc[Framework Comparison]
-*** xref:explanation/backends.adoc[Bolt vs NAMS (v0.4)]
+*** xref:explanation/backends.adoc[Bolt vs NAMS]
 *** xref:explanation/multi-agent-sharing.adoc[Cross-Agent Memory Sharing]
 
 ** xref:glossary.adoc[Glossary]

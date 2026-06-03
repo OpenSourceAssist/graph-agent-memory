@@ -59,7 +59,7 @@ a|
 pip install neo4j-agent-memory llama-index llama-index-llms-openai
 ----
 
-== Pass-through your LlamaIndex LLM (v0.3+)
+== Pass-through your LlamaIndex LLM
 
 LlamaIndex `LLM` instances expose `model` (and provider-specific class names like `OpenAI`, `Anthropic`). Convert the same model you wired into the index into an `LLMProvider` for memory extraction:
 
@@ -81,7 +81,7 @@ settings = MemorySettings(
 )
 ----
 
-The shared introspector reads `llm.model` and detects `anthropic` from the class module path. For the equivalent pattern across other integrations see xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5].
+The shared introspector reads `llm.model` and detects `anthropic` from the class module path. For the equivalent pattern across other integrations see xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers — Pattern 5].
 
 == Chat Memory Integration
 

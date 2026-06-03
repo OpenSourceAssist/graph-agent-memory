@@ -6,6 +6,8 @@
 :icons: font
 :source-highlighter: highlight.js
 
+include::partial$backend-both.adoc[]
+
 How to efficiently process large document collections to build your context graph.
 
 == Overview

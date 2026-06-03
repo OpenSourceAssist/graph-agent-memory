@@ -44,6 +44,10 @@ from neo4j_agent_memory.memory.long_term import (
 )
 from neo4j_agent_memory.nams._serialization import payload_to_model, snakeize_keys
 from neo4j_agent_memory.nams.endpoints import EndpointSpec
+from neo4j_agent_memory.nams.short_term import (
+    _NONTERMINAL_EXTRACTION_STATUSES,
+    _SPEC_EXTRACTION_STATUS,
+)
 
 if TYPE_CHECKING:
     from neo4j_agent_memory.nams.transport import HttpTransport
@@ -85,6 +89,9 @@ _SPEC_MERGE_ENTITIES = EndpointSpec(
 )
 _SPEC_ENTITY_GRAPH = EndpointSpec(
     rest_method="GET", rest_path="/entities/graph", bridge_method="entity_graph"
+)
+_SPEC_EXPAND_GRAPH = EndpointSpec(
+    rest_method="POST", rest_path="/graph/expand", bridge_method="expand_graph"
 )
 _SPEC_SEARCH_ENTITIES = EndpointSpec(
     rest_method="POST", rest_path="/entities/search", bridge_method="search_entities"
@@ -293,46 +300,65 @@ class NamsLongTermMemory:
         predicate: Callable[[list[Entity]], bool] | None = None,
         timeout: float = 30.0,
         interval: float = 1.0,
-        session_id: str | None = None,  # noqa: ARG002 — reserved; see below
+        session_id: str | None = None,
         **kwargs: Any,
     ) -> bool:
-        """Poll entity search until extraction has caught up, or time out.
+        """Await NAMS' asynchronous extraction pipeline catching up, or time out.
 
         NAMS extracts entities in a background pipeline, so writes return
-        before the entities are searchable. This helper lets application
-        and test code await consistency explicitly instead of racing a
-        fixed sleep.
+        before the entities are searchable. This helper lets application and
+        test code await consistency explicitly instead of racing a fixed sleep.
 
-        Provide one of:
+        Two readiness signals, used in order:
 
-        * ``predicate`` — called with the current search results; return
-          ``True`` when satisfied.
-        * ``expected_names`` — succeed once every name appears in results
-          (case-insensitive). **Recommended** on NAMS.
-        * otherwise — succeed once at least ``min_results`` entities match.
-          Note: NAMS entity search is vector/nearest-neighbor and returns
-          the top-k existing entities regardless of relevance, so on a
-          non-empty workspace ``min_results=1`` is satisfied almost
-          immediately. Prefer ``expected_names`` or ``predicate`` when you
-          need to confirm a *specific* extraction landed.
+        1. **Authoritative (conversation-scoped).** When ``session_id`` (alias
+           ``conversation_id``) is given, poll the conversation's
+           ``/extraction-status`` until no message is still pending — the real
+           pipeline signal. If no entity-level assertion is also requested, a
+           completed status returns ``True``.
+        2. **Entity-level confirmation (workspace-scoped search).** When
+           ``predicate`` / ``expected_names`` / ``query`` is given, additionally
+           confirm those entities are searchable:
 
-        ``query`` is the search string to poll; if omitted, the first of
-        ``expected_names`` is used. Returns ``True`` if satisfied within
-        ``timeout`` seconds, ``False`` otherwise (it does **not** raise,
-        so callers can branch or skip gracefully).
+           * ``predicate`` — called with the current search results; return
+             ``True`` when satisfied.
+           * ``expected_names`` — succeed once every name appears (case-insensitive).
+           * otherwise — succeed once at least ``min_results`` entities match.
+             (NAMS entity search is nearest-neighbor and returns top-k existing
+             entities regardless of relevance, so ``min_results=1`` is satisfied
+             almost immediately on a non-empty workspace — prefer
+             ``expected_names``/``predicate`` to confirm a *specific* extraction.)
 
-        ``session_id`` is accepted but reserved: NAMS entity search is
-        workspace-scoped, not conversation-scoped, so it currently has no
-        effect. It is part of the signature for forward-compatibility.
+        Returns ``True`` if satisfied within ``timeout`` seconds, ``False``
+        otherwise (it does **not** raise, so callers can branch or skip).
         """
+        conv = session_id if session_id is not None else kwargs.get("conversation_id")
         q = query if query is not None else (expected_names[0] if expected_names else None)
-        if q is None and predicate is None:
+        if conv is None and q is None and predicate is None:
             raise ValueError(
-                "wait_for_extraction requires one of: query, expected_names, or predicate."
+                "wait_for_extraction requires one of: session_id (alias "
+                "conversation_id), query, expected_names, or predicate."
             )
+        deadline = time.monotonic() + timeout
+
+        # 1. Authoritative per-conversation status when a conversation is known.
+        if conv is not None:
+            while True:
+                if await self._extraction_complete(conv):
+                    break
+                if time.monotonic() >= deadline:
+                    return False
+                await asyncio.sleep(interval)
+            # Conversation-only wait: completion is the answer.
+            if predicate is None and not expected_names and query is None:
+                return True
+
+        # 2. Entity-level confirmation via search (also the bolt-free fallback
+        #    when no conversation id was supplied).
+        if q is None and predicate is None:
+            return True
         want = [n.lower() for n in (expected_names or [])]
         fetch = max(min_results, len(want), kwargs.get("limit") or 10)
-        deadline = time.monotonic() + timeout
         while True:
             results = await self.search_entities(query=q or "", limit=fetch)
             if predicate is not None:
@@ -347,6 +373,34 @@ class NamsLongTermMemory:
             if time.monotonic() >= deadline:
                 return False
             await asyncio.sleep(interval)
+
+    async def _extraction_complete(self, conversation_id: str) -> bool:
+        """Return ``True`` when the conversation has no pending extraction."""
+        payload = await self._transport.request(
+            _SPEC_EXTRACTION_STATUS, path_params={"conversation_id": conversation_id}
+        )
+        summary = (payload or {}).get("summary") if isinstance(payload, dict) else None
+        summary = summary or {}
+        return not any(int(summary.get(s, 0)) > 0 for s in _NONTERMINAL_EXTRACTION_STATUSES)
+
+    async def expand_graph(
+        self, node_id: str, *, loaded_ids: list[str] | None = None
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Expand one entity's 1-hop neighborhood for graph visualization.
+
+        Returns ``{"nodes": [...], "edges": [...]}`` — the canonical-resolved
+        neighbors of ``node_id``, excluding any ids in ``loaded_ids`` (pass the
+        ids already on screen to fetch only the delta).
+        """
+        payload = await self._transport.request(
+            _SPEC_EXPAND_GRAPH,
+            json={"nodeId": node_id, "loadedIds": loaded_ids or []},
+        )
+        payload = payload if isinstance(payload, dict) else {}
+        return {
+            "nodes": list(payload.get("nodes") or []),
+            "edges": list(payload.get("edges") or []),
+        }
 
     async def search_preferences(self, query: str, **kwargs: Any) -> list[Preference]:
         raise NotSupportedError(

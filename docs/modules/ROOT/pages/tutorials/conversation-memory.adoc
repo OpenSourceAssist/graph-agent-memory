@@ -647,7 +647,7 @@ Ideas for enhancement:
 == Next Steps
 
 * xref:tutorials/knowledge-graph.adoc[Build a Knowledge Graph from Documents] - Extract knowledge from documents
-* xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Build production-grade agents
+* xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Build robust agents
 
 == See Also
 
