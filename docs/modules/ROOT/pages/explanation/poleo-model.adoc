@@ -8,6 +8,8 @@
 
 The POLE+O data model is the default entity classification system in neo4j-agent-memory. It provides a structured, extensible framework for categorizing entities extracted from text.
 
+NOTE: POLE+O applies to both backends. On the bolt backend you can also define custom schemas (`SchemaModel.CUSTOM`); on NAMS, typed domain ontologies are managed server-side via xref:how-to/use-ontologies.adoc[`client.ontology`].
+
 image::diagrams/poleo-model.png[POLE+O entity model: Person, Object, Location, Event, and Organization node types with their subtypes,width=600,align=left]
 
 == What is POLE+O?

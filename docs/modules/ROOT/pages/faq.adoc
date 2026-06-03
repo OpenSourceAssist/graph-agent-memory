@@ -45,11 +45,21 @@ The package extends this with optional subtypes (e.g., `OBJECT:VEHICLE`, `LOCATI
 See xref:explanation/poleo-model.adoc[POLE+O Data Model] for complete documentation.
 
 [[need-neo4j]]
-=== Do I need Neo4j to use this package?
+=== Do I need my own Neo4j to use this package?
 
-Yes, Neo4j is required for storing and querying memory data.
+No — you have two options. Use the hosted **NAMS** backend (sign up at link:https://memory.neo4jlabs.com[memory.neo4jlabs.com], set `MEMORY_API_KEY`, and there's nothing to run), or run your own Neo4j and use the **bolt** backend. The `MemoryClient` API is identical either way; see xref:explanation/backends.adoc[Bolt vs NAMS].
 
-However, you can use the **entity extraction features independently** without Neo4j -- the extraction pipeline works standalone and returns Python objects.
+You can also use the **entity extraction features independently** without any backend — the bolt-side extraction pipeline works standalone and returns Python objects.
+
+[[whats-not-on-nams]]
+=== What's not available on the NAMS backend?
+
+NAMS runs embedding, extraction, resolution, and enrichment server-side, so the client-side configs for those are ignored. A handful of bolt-only accessors raise `NotSupportedError` on NAMS: `client.users`, `client.buffered`, `client.consolidation`, `client.graph`, `schema.adopt_existing_graph()`, the geospatial methods, and the manual dedup-review methods. See the xref:explanation/backends.adoc#capability-matrix[capability matrix] for the full list and what NAMS does instead.
+
+[[which-sdk]]
+=== Which SDK should I use — Python or TypeScript?
+
+Both share the same memory model and the same NAMS backend, so pick by stack. The **Python SDK** supports *both* backends (bolt and NAMS) and the full extraction/enrichment pipeline. The **TypeScript SDK** is **NAMS-only** (a `fetch`-based HTTP client) and ideal for Node, Bun, Deno, Cloudflare Workers, and Vercel Edge. Mixed Python + TypeScript agents can read and write the same memory on a shared workspace. See xref:sdks/python.adoc[Python SDK] and xref:sdks/typescript.adoc[TypeScript SDK].
 
 [[neo4j-versions]]
 === Which Neo4j versions are supported?

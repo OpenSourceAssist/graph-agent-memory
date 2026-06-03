@@ -255,7 +255,7 @@ settings = MemorySettings(
 )
 ```
 
-See `docs/.../how-to/migrate-to-v0.3.adoc` for the full migration cookbook, including embedding-dimension migration when changing models.
+See `docs/.../how-to/migrate-to-providers.adoc` for the full migration cookbook, including embedding-dimension migration when changing models.
 
 ### Backward compatibility
 

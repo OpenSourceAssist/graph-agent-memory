@@ -1,0 +1,4 @@
+[NOTE]
+====
+icon:cloud[] *Available on NAMS: Yes* — with backend-specific differences (some steps run server-side on NAMS, and a few sub-features are bolt-only). See the xref:explanation/backends.adoc#capability-matrix[capability matrix] for the details.
+====

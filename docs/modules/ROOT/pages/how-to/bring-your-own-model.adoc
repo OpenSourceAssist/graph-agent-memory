@@ -144,7 +144,7 @@ settings = MemorySettings(
 )
 ----
 
-See xref:how-to/migrate-to-v0.3.adoc[the migration guide] for the full list of `llm_provider_from_<framework>` helpers.
+See xref:how-to/migrate-to-providers.adoc[the migration guide] for the full list of `llm_provider_from_<framework>` helpers.
 
 == Embedding models — the dimension gotcha
 
@@ -283,4 +283,4 @@ See xref:reference/cli.adoc[CLI Reference] for the full flag set.
 * xref:how-to/configure-llm-provider.adoc[Configure LLM Provider].
 * xref:how-to/configure-embedding-provider.adoc[Configure Embedding Provider].
 * xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.
-* xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3] — backward compat and side-by-side examples.
+* xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers] — backward compat and side-by-side examples.

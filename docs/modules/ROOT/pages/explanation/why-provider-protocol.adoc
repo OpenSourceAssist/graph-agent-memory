@@ -113,7 +113,7 @@ Two reasons:
 . **Backward compatibility is non-negotiable.** Removing the types in v0.3 would break every v0.2.x user. The plan is v0.3 deprecates, v0.4 escalates to `FutureWarning`, v0.5 removes.
 . **The new surface is strictly better.** Provider strings are shorter, easier to type, easier to switch. Provider instances offer more control than the legacy enum allowed (api_base override, batch_size, prompt caching). There's no reason to keep the legacy path long-term.
 
-The migration cost is minimal — see xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3] for side-by-side examples — and the warning fires exactly once per `MemoryClient` construction.
+The migration cost is minimal — see xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers] for side-by-side examples — and the warning fires exactly once per `MemoryClient` construction.
 
 == What we deliberately did not build
 
@@ -148,5 +148,5 @@ The Python protocol module is small (`llm/protocol.py` is ~80 lines), has no SDK
 == Related
 
 * xref:how-to/bring-your-own-model.adoc[Bring Your Own Model] — the task-oriented version of this page.
-* xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3].
+* xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers].
 * xref:explanation/extraction-pipeline.adoc[Extraction Pipeline] — how the entity extractor uses the Protocol.

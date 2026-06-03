@@ -6,6 +6,8 @@
 :icons: font
 :source-highlighter: highlight.js
 
+include::partial$backend-both.adoc[]
+
 How to create, search, and manage entities in long-term memory.
 
 [NOTE]
@@ -55,11 +57,11 @@ xref:reference/typescript-api.adoc[the TypeScript API reference].
 
 |Entity provenance
 |`client.long_term.get_entity_provenance(entity_id)`
-|`memory.reasoning.getEntityProvenance(entityId)` _(NAMS Platinum)_
+|`memory.reasoning.getEntityProvenance(entityId)` _(NAMS only)_
 
 |Entity history / audit
 |_(not exposed)_
-|`memory.longTerm.getEntityHistory(entityId)` _(NAMS Platinum)_
+|`memory.longTerm.getEntityHistory(entityId)` _(NAMS only)_
 |===
 
 == Prerequisites

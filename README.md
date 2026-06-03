@@ -26,9 +26,9 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 
 **Plus:** multi-stage entity extraction (spaCy / GLiNER / LLM), relationship extraction (GLiREL), background enrichment (Wikipedia / Diffbot), geospatial queries, [MCP server](#mcp-server) with 16 tools, and integrations with [LangChain, Pydantic AI, Google ADK, Strands, CrewAI, and more](#framework-integrations).
 
-**v0.2**: adopt an existing Neo4j graph as long-term memory (`client.schema.adopt_existing_graph(...)`), multi-tenant scoping (`user_identifier=`), fire-and-forget [buffered writes](examples/buffered-writes/) (`client.buffered.submit(...)`), [consolidation primitives](examples/audit-trail/) (`client.consolidation.dedupe_entities(...)`), an [eval harness](examples/eval-harness/) (`client.eval.run(suite)`), and explicit `:TOUCHED` audit edges from reasoning steps to entities.
+**Production features:** adopt an existing Neo4j graph as long-term memory (`client.schema.adopt_existing_graph(...)`), multi-tenant scoping (`user_identifier=`), fire-and-forget [buffered writes](examples/buffered-writes/) (`client.buffered.submit(...)`), [consolidation primitives](examples/audit-trail/) (`client.consolidation.dedupe_entities(...)`), an [eval harness](examples/eval-harness/) (`client.eval.run(suite)`), and explicit `:TOUCHED` audit edges from reasoning steps to entities.
 
-**New in v0.3** _(pluggable providers)_: bring your own model. `MemorySettings.embedding` and `MemorySettings.llm` now accept a provider-string shorthand (`"anthropic/claude-3-5-sonnet-latest"`, `"BAAI/bge-small-en-v1.5"`) or a Provider instance. Native adapters for OpenAI, Anthropic, Bedrock, Vertex AI, and sentence-transformers; LiteLLM universal fallback covers 100+ providers (Cohere, Voyage, Groq, Together, Mistral, Ollama, ...). Existing `EmbeddingConfig`/`LLMConfig` users keep working with a one-time deprecation warning — full migration guide at [migrate-to-v0.3](https://neo4j.com/labs/agent-memory/how-to/migrate-to-v0.3.html).
+**Bring your own model:** `MemorySettings.embedding` and `MemorySettings.llm` accept a provider-string shorthand (`"anthropic/claude-3-5-sonnet-latest"`, `"BAAI/bge-small-en-v1.5"`) or a Provider instance. Native adapters for OpenAI, Anthropic, Bedrock, Vertex AI, and sentence-transformers; LiteLLM universal fallback covers 100+ providers (Cohere, Voyage, Groq, Together, Mistral, Ollama, ...). See the [provider migration guide](https://neo4j.com/labs/agent-memory/how-to/migrate-to-providers.html). _(These configure the **self-hosted** backend; on NAMS, embedding and extraction run server-side.)_
 
 ## SDKs
 
@@ -52,9 +52,43 @@ spec suite, which consumes both SDKs as external dependencies.
 
 ## Quick Start
 
-**Prerequisites:** A running Neo4j instance ([Neo4j Desktop](https://neo4j.com/download/), [Docker](https://hub.docker.com/_/neo4j), or [Neo4j Aura](https://neo4j.com/cloud/) for a free cloud database).
+The fastest path is the hosted **NAMS** service — sign up, set one API key, and there's no database to run. Already operate Neo4j, or need write-Cypher / geospatial / air-gapped? Use the [self-hosted (bolt) path](#option-c-self-hosted-neo4j-bolt). The `MemoryClient` API is identical either way; see [Bolt vs NAMS](https://neo4j.com/labs/agent-memory/explanation/backends) for the trade-offs.
 
-### Option A: MCP Server (zero code)
+### Option A: Hosted (NAMS) — zero infrastructure
+
+1. Sign up at [memory.neo4jlabs.com](https://memory.neo4jlabs.com) and copy your `nams_...` API key.
+2. Install the SDK and export the key:
+
+```bash
+pip install "neo4j-agent-memory[nams]"
+export MEMORY_API_KEY=nams_...
+```
+
+3. The backend auto-selects NAMS when `MEMORY_API_KEY` is set — same API, no Neo4j to manage:
+
+```python
+import asyncio
+from neo4j_agent_memory import MemoryClient
+
+async def main():
+    # Reads MEMORY_API_KEY from the environment; backend auto-selects NAMS.
+    async with MemoryClient() as memory:
+        await memory.short_term.add_message(
+            session_id="user-123", role="user",
+            content="Hi, I'm John and I love Italian food!",
+        )
+        await memory.long_term.add_entity("John", "PERSON")
+        context = await memory.get_context(
+            "What restaurant should I recommend?", session_id="user-123",
+        )
+        print(context)
+
+asyncio.run(main())
+```
+
+> On NAMS, entity extraction runs server-side and is asynchronous — call `await memory.long_term.wait_for_extraction(...)` before asserting on freshly-extracted entities. See [Use NAMS](https://neo4j.com/labs/agent-memory/how-to/use-nams).
+
+### Option B: MCP Server (zero code)
 
 Give any MCP-compatible AI assistant (Claude Desktop, Claude Code, Cursor, VS Code Copilot) persistent memory backed by a knowledge graph:
 
@@ -88,7 +122,9 @@ claude mcp add neo4j-agent-memory -- \
 }
 ```
 
-### Option B: Python API
+### Option C: Self-hosted Neo4j (bolt)
+
+Prefer to run your own database? Point the client at any Neo4j instance ([Desktop](https://neo4j.com/download/), [Docker](https://hub.docker.com/_/neo4j), or [Aura](https://neo4j.com/cloud/)). This path unlocks bolt-only features: write-Cypher, geospatial queries, `adopt_existing_graph`, and air-gapped operation.
 
 ![The memory abstractions exposed by the Neo4j Agent Memory package](img/memory-types.png)
 
@@ -104,10 +140,10 @@ import asyncio
 from neo4j_agent_memory import MemoryClient, MemorySettings
 
 async def main():
-    # v0.3+: pass the model as a provider-prefixed string. Swap in
+    # Pass the model as a provider-prefixed string. Swap in
     # "openai/...", "bedrock/...", "vertex_ai/...", or any of the 100+
     # LiteLLM-supported providers. Defaults to a working OpenAI setup
-    # when llm/embedding are omitted, for v0.2 compatibility.
+    # when llm/embedding are omitted.
     settings = MemorySettings(
         neo4j={"uri": "bolt://localhost:7687", "password": "your-password"},
         llm="anthropic/claude-3-5-sonnet-latest",
@@ -137,9 +173,9 @@ async def main():
 asyncio.run(main())
 ```
 
-> Already using `EmbeddingConfig`/`LLMConfig`? It still works — you'll just see a one-time `DeprecationWarning` at construction. See the [v0.3 migration guide](https://neo4j.com/labs/agent-memory/how-to/migrate-to-v0.3.html).
+> Already using `EmbeddingConfig`/`LLMConfig`? It still works — you'll just see a one-time `DeprecationWarning` at construction. See the [provider migration guide](https://neo4j.com/labs/agent-memory/how-to/migrate-to-providers.html).
 
-### Option C: Full-Stack App with create-context-graph
+### Option D: Full-Stack App with create-context-graph
 
 Scaffold a complete full-stack AI application with built-in context graph memory:
 

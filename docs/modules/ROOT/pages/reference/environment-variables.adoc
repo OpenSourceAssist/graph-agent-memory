@@ -11,7 +11,7 @@ Environment variables use the `NAM_` prefix (Neo4j Agent Memory) and follow a ne
 
 Example: `NAM_NEO4J__URI` maps to `settings.neo4j.uri`
 
-== Provider strings (v0.3+)
+== Provider strings
 
 The MCP CLI also reads two top-level provider env vars that bypass the legacy nested structure:
 
@@ -393,7 +393,7 @@ export NAM_GEOCODING__ENABLED=true
 export NAM_GEOCODING__PROVIDER=nominatim
 ----
 
-== NAMS (v0.4)
+== NAMS
 
 The hosted-backend selection variables.
 

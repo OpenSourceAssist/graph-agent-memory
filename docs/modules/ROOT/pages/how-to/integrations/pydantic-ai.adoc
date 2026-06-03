@@ -58,7 +58,7 @@ a|
 pip install neo4j-agent-memory pydantic-ai
 ----
 
-== Pass-through your PydanticAI model (v0.3+)
+== Pass-through your PydanticAI model
 
 PydanticAI models expose `model_name` and a provider-specific class (`OpenAIModel`, `AnthropicModel`, `GeminiModel`, …). `llm_provider_from_pydantic_ai` converts a configured model directly into an `LLMProvider` so the same model is used by both your agent and the memory client:
 
@@ -85,7 +85,7 @@ settings = MemorySettings(
 
 The helper introspects the model — class name `AnthropicModel` triggers the `anthropic/` prefix, `model_name` becomes the model id. `OpenAIModel` resolves to `OpenAIProvider`, and so on.
 
-For the equivalent pattern across other integrations, see xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 — Pattern 5].
+For the equivalent pattern across other integrations, see xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers — Pattern 5].
 
 == Basic Integration
 

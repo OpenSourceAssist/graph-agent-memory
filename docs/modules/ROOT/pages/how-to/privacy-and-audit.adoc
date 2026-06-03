@@ -2,6 +2,8 @@
 :page-product: agent-memory
 :toclevels: 2
 
+include::partial$backend-both.adoc[]
+
 How to record audit trails for sensitive memory reads, archive expired
 conversations, and plug in at-rest encryption for `Message.content`.
 

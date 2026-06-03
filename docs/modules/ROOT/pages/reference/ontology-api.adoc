@@ -67,7 +67,18 @@ against the staging deployment. Request bodies use snake_case.
 | PUT | `/ontologies/{id}` — body `{ontology, validation_mode?}` | `update()`
 | POST | `/ontologies/active` — body `{version_id}` | `activate()`
 | DELETE | `/ontologies/{id}` | `delete()`
+| POST | `/ontologies/import` | — (REST only, no SDK method)
+| GET | `/ontologies/{id}/diff` | — (REST only, no SDK method)
+| POST | `/ontologies/{id}/migrate` | — (REST only, no SDK method)
 |===
+
+[NOTE]
+====
+`import`, `diff`, and `migrate` exist on the service but are *not* exposed on the
+`client.ontology` accessor in any SDK yet — call them directly over REST. The
+preview/dry-run path of `import` is rate-limited (see
+xref:reference/nams-limits.adoc[NAMS Limits & Behavior]).
+====
 
 == Errors
 

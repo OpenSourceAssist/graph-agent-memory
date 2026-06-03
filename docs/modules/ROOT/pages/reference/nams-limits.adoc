@@ -1,0 +1,76 @@
+= NAMS Limits & Behavior
+:page-product: agent-memory
+:toclevels: 2
+:icons: font
+
+Operational limits, quotas, and runtime behavior for the hosted NAMS backend. These describe what to expect as a client — not internal service metrics. For the wire contract see xref:reference/rest-api.adoc[NAMS REST API]; for setup see xref:how-to/use-nams.adoc[Use NAMS].
+
+[NOTE]
+====
+**Conformance tiers ≠ access tiers.** Bronze / Silver / Gold / Platinum are link:https://github.com/neo4j-labs/agent-memory-tck[agent-memory-tck] cross-language _conformance_ levels (how complete a client SDK is), **not** a NAMS pricing or access tier. Every capability listed as available in xref:explanation/backends.adoc#capability-matrix[the capability matrix] is reachable by any authenticated workspace.
+====
+
+== Client defaults (`NamsConfig`)
+
+These are SDK-side defaults you can override; they are not server limits.
+
+[cols="2,1,3",options="header"]
+|===
+| Setting | Default | Notes
+
+| `timeout` | `30s` | Per-request HTTP timeout.
+| `max_retries` | `3` | Retries on network errors, 5xx, and 429.
+| `retry_backoff` | `0.5s` | Base for exponential backoff. `Retry-After` is honored on 429.
+| `validate_on_connect` | `true` | Sends a probe (with `X-Workspace-Id` when set) so misconfiguration fails fast.
+| `transport_mode` | `auto` | `rest` for `/v{n}` endpoints, `bridge` otherwise.
+|===
+
+== Rate limits
+
+NAMS applies per-workspace rate limiting. When you exceed a limit the service returns `429 Too Many Requests`; the SDK raises `RateLimitError` (carrying `retry_after`) after retries are exhausted, and honors any `Retry-After` header.
+
+Specific documented guards:
+
+[cols="2,2,2",options="header"]
+|===
+| Operation | Limit | On exceed
+
+| Ontology preview (`POST /v1/ontologies/import` dry-run / preview) | 30 requests / hour / workspace | `429` `{"error":"preview rate limit exceeded (30/hour)"}`
+| OAuth dynamic client registration (`/oauth/register`, MCP) | Per-source-IP sliding window | `429` with `Retry-After: 600`
+| All other endpoints | Per-workspace sliding window | `429`; retry after backoff
+|===
+
+[TIP]
+====
+Treat `429` as normal backpressure: the SDK already retries with backoff. For bulk ingestion prefer `bulk_add_messages(...)` over many single `add_message(...)` calls.
+====
+
+== Quotas
+
+[cols="2,3",options="header"]
+|===
+| Quota | Behavior
+
+| Managed workspaces per user | Capped (operator-configured via `MAX_MANAGED_WORKSPACES_PER_USER`). Creating one past the cap returns a `workspace_limit_reached` error with the current `limit`. Workspaces backed by your own database (external / BYOD) are **not** counted against this cap.
+| Request payload size | Oversized requests return `413 Request Entity Too Large`. The exact byte ceiling is service-configured.
+|===
+
+[NOTE]
+====
+Whether additional usage quotas vary by workspace plan is **not currently documented** — confirm with the NAMS team before relying on plan-specific limits.
+====
+
+== Runtime behavior
+
+Extraction is **asynchronous** on NAMS::
+When you add messages, entity/relationship extraction runs server-side. Writes are accepted immediately (`202 Accepted`); extracted entities become queryable a short time later. Poll `GET /v1/conversations/{id}/extraction-status`, or call `long_term.wait_for_extraction(...)` from the SDK, before asserting on extracted results. (On bolt, extraction is synchronous and `wait_for_extraction` is a no-op returning `True`.)
+
+Read-only Cypher::
+`client.query.cypher(...)` runs against the workspace graph in Neo4j READ access mode. Write statements are rejected server-side (`400`). This is available to any authenticated workspace — it is not gated behind a tier.
+
+Eventual consistency::
+Because extraction and resolution are asynchronous, a just-written message and its derived entities are not guaranteed to be visible in the same instant. Delete operations likewise propagate asynchronously.
+
+== Status codes & errors
+
+The service uses standard HTTP status codes; error bodies are JSON of the shape `{"error": "..."}` (some carry additional fields such as `message` and `limit`). See xref:reference/rest-api.adoc#errors[REST API → Errors] for the full mapping to SDK exceptions.

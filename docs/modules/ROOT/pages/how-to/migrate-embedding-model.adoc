@@ -184,5 +184,5 @@ The validation is skipped silently on Neo4j < 5.11 (the `SHOW VECTOR INDEXES` sy
 
 == Related
 
-* xref:how-to/migrate-to-v0.3.adoc[Migrate to v0.3 (Pluggable Providers)] — for the broader v0.3 migration.
+* xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers] — for the broader v0.3 migration.
 * xref:reference/configuration.adoc[Configuration] — embedding settings reference.

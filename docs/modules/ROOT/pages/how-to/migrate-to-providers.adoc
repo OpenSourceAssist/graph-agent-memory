@@ -1,4 +1,4 @@
-= Migrate to v0.3 (Pluggable Providers)
+= Migrate to Pluggable Providers
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

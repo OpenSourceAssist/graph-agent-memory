@@ -2,8 +2,10 @@
 :page-product: agent-memory
 :toclevels: 2
 
+include::partial$backend-bolt-only.adoc[]
+
 How to keep the agent's user-facing response from blocking on Neo4j
-round-trips. v0.4 introduces an opt-in fire-and-forget write API.
+round-trips, using an opt-in fire-and-forget write API.
 
 [.lead]
 Default behavior is sync — every write awaits a Neo4j round-trip. In

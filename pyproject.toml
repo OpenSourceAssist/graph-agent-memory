@@ -2,7 +2,7 @@
 name = "neo4j-agent-memory"
 version = "0.5.0"
 description = "A comprehensive memory system for AI agents using Neo4j"
-readme = "README.md"
+readme = "README-pypi.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 authors = [
@@ -124,7 +124,7 @@ neo4j-agent-memory = "neo4j_agent_memory.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/neo4j-labs/agent-memory"
-Documentation = "https://neo4j-agent-memory.vercel.app/"
+Documentation = "https://neo4j.com/labs/agent-memory"
 Repository = "https://github.com/neo4j-labs/agent-memory"
 Issues = "https://github.com/neo4j-labs/agent-memory/issues"
 Changelog = "https://github.com/neo4j-labs/agent-memory/releases"
@@ -163,6 +163,7 @@ packages = ["src/neo4j_agent_memory"]
 only-include = [
     "src",
     "pyproject.toml",
+    "README-pypi.md",
     "README.md",
     "LICENSE",
 ]

@@ -55,7 +55,7 @@ different schema.
 
 |Audit "which steps touched entity X"
 |`MATCH (e:Entity)<-[:TOUCHED]-(s)<-[:HAS_STEP]-(t)` Cypher; or `client.long_term.get_entity_provenance(id)`
-|`memory.reasoning.getEntityProvenance(entityId)` _(NAMS Platinum)_
+|`memory.reasoning.getEntityProvenance(entityId)` _(NAMS only)_
 
 |Custom trace metadata
 |`start_trace(..., metadata={...})`

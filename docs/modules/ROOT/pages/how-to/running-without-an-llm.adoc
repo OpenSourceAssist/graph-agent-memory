@@ -6,6 +6,8 @@
 :icons: font
 :source-highlighter: highlight.js
 
+include::partial$backend-both.adoc[]
+
 How to use `neo4j-agent-memory` with no LLM provider — useful for air-gapped deployments, environments without an `OPENAI_API_KEY`, or when you want fully deterministic, free, local extraction.
 
 == Overview

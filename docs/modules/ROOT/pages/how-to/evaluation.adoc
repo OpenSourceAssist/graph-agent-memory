@@ -2,8 +2,10 @@
 :page-product: agent-memory
 :toclevels: 2
 
+include::partial$backend-both.adoc[]
+
 How to run labeled regression tests against your memory graph using the
-v0.2 evaluation harness.
+evaluation harness.
 
 [.lead]
 The harness is a *scaffold*, not a benchmark — three dimensions, simple

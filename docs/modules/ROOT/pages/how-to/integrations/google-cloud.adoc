@@ -44,7 +44,7 @@ pip install neo4j-agent-memory[mcp]
 pip install neo4j-agent-memory[google,mcp]
 ----
 
-== Pass-through your Google ADK / Gemini model (v0.3+)
+== Pass-through your Google ADK / Gemini model
 
 `llm_provider_from_google_adk` accepts a Gemini model string or a configured client. Bare strings short-circuit to `from_provider` with the `vertex_ai/` prefix added:
 

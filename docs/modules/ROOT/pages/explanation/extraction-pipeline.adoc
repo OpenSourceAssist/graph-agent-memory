@@ -5,6 +5,8 @@
 
 Understanding the multi-stage extraction pipeline, trade-offs between speed and accuracy, and how extractors work together.
 
+NOTE: This page describes the *client-side* extraction pipeline used by the *bolt* backend, which you configure (spaCy / GLiNER / LLM). On *NAMS*, extraction runs server-side and is not client-configurable — your extraction settings are ignored. See xref:explanation/backends.adoc#capability-matrix[Bolt vs NAMS].
+
 == The Challenge
 
 Entity extraction from natural language is hard. Consider this text:

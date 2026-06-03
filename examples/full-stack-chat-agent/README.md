@@ -58,7 +58,7 @@ EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Then install the matching extras: `uv sync --extra anthropic --extra sentence-transformers`. See the [v0.3 migration guide](https://neo4j.com/labs/agent-memory/how-to/migrate-to-v0.3.html) for the full provider matrix.
+Then install the matching extras: `uv sync --extra anthropic --extra sentence-transformers`. See the [provider migration guide](https://neo4j.com/labs/agent-memory/how-to/migrate-to-providers.html) for the full provider matrix.
 
 ## Quick Start
 

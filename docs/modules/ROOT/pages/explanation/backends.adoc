@@ -6,7 +6,7 @@
 :icons: font
 :source-highlighter: highlight.js
 
-A conceptual look at the two storage backends `MemoryClient` supports as of v0.4 — when to pick which, what's different at the operational layer, and what trade-offs each makes.
+A conceptual look at the two storage backends `MemoryClient` supports — when to pick which, what's different at the operational layer, and what trade-offs each makes.
 
 [.lead]
 The same `MemoryClient` API runs against two completely different storage backends: direct-bolt-to-Neo4j (the historical default) and the hosted Neo4j Agent Memory Service (NAMS). For task-oriented setup, see xref:how-to/use-nams.adoc[Use NAMS]. For porting, see xref:how-to/migrate-to-nams.adoc[Migrate to NAMS].
@@ -70,7 +70,15 @@ The same `MemoryClient` API runs against two completely different storage backen
 
 `MemoryClient` is backend-monomorphic per-instance — one client holds one backend. But you can construct two clients in the same process if you want hybrid setups (e.g. bolt for domain data + NAMS for agent memory).
 
+[#capability-matrix]
 == Feature matrix
+
+This is the canonical capability reference. Backend-sensitive how-to pages link here from their _Available on NAMS_ badge.
+
+[NOTE]
+====
+**"Tiers" are about conformance, not access.** The Bronze / Silver / Gold / Platinum labels used elsewhere in the project are link:https://github.com/neo4j-labs/agent-memory-tck[agent-memory-tck] cross-language _conformance_ levels — they describe how much of the memory model a client SDK implements, **not** a NAMS pricing or access tier. Every capability marked _Yes_ below is available to any authenticated NAMS workspace. For real usage limits, see xref:reference/nams-limits.adoc[NAMS limits & behavior].
+====
 
 [cols="2,1,1",options="header"]
 |===
@@ -81,15 +89,15 @@ The same `MemoryClient` API runs against two completely different storage backen
 | `client.short_term.list_sessions` / `list_conversations`
 | Yes | Bolt-only / Yes
 | `client.short_term.create_conversation` / `bulk_add_messages`
-| (synthesized) | Yes (Platinum)
+| (synthesized) | Yes
 | `client.short_term.get_observations` / `get_reflections`
-| No | Yes (Platinum)
+| No | Yes
 | `client.long_term.add_entity` / `search_entities`
 | Yes (with dedup) | Yes (server-side dedup)
 | `client.long_term.set_entity_feedback` / `get_entity_history`
-| No | Yes (Platinum)
+| No | Yes
 | `client.long_term.get_entity_provenance`
-| Yes | Yes (Gold)
+| Yes | Yes
 | `client.long_term.geocode_locations` / `search_locations_near`
 | Yes | No
 | `client.long_term.find_potential_duplicates` / `merge_duplicate_entities`
@@ -97,7 +105,7 @@ The same `MemoryClient` API runs against two completely different storage backen
 | `client.reasoning.start_trace` / `add_step` / `record_tool_call`
 | Yes | Yes
 | `client.reasoning.get_tool_stats`
-| Yes (`dict`) | No (use `client.query.cypher` if your NAMS tier exposes query access)
+| Yes (`dict`) | No (use `client.query.cypher`)
 | `client.users` (UserMemory)
 | Yes | No (use `user_identifier=` on calls)
 | `client.buffered` (BufferedWriter)
@@ -107,20 +115,42 @@ The same `MemoryClient` API runs against two completely different storage backen
 | `client.eval` (evaluation harness)
 | Yes | Yes (audit dimension is bolt-only)
 | `client.query.cypher` (read-only)
-| Yes | Yes (Platinum)
+| Yes | Yes
 | `client.graph` (raw `Neo4jClient`)
 | Yes (deprecated, removal v0.6.0) | No (use `client.query.cypher`)
 | `client.schema.adopt_existing_graph`
 | Yes | No (server-managed schema)
 | MCP server
-| Yes (16 tools) | Yes (16 tools + 4 Platinum)
+| Yes (16 tools) | Yes (16 tools + 4 NAMS extras)
 | LangChain, LlamaIndex, CrewAI, OpenAI Agents, Microsoft Agent, Google ADK
 | Yes | Yes (transparent — no code changes)
 | Pydantic AI
-| Yes | Yes + `nams_memory_tools()` for Platinum extras
+| Yes | Yes + `nams_memory_tools()` for NAMS extras
 | Strands / AgentCore (AWS)
-| Yes | Yes + `nams_context_graph_tools()` for Platinum extras
+| Yes | Yes + `nams_context_graph_tools()` for NAMS extras
 |===
+
+[#tenancy]
+== Tenancy & scoping
+
+"How do I isolate one tenant's memory from another's?" The answer has **two independent axes**, and which ones you use depends on the backend.
+
+[cols="1,2,2",options="header"]
+|===
+| Axis | Bolt (direct Neo4j) | NAMS (hosted)
+
+| **User** — separate one end-user's conversations, entities, and preferences from another's
+| `user_identifier=` kwarg on `add_message`, `start_trace`, `add_entity`, … (requires `memory.multi_tenant=True`). First-class `:User` nodes via `client.users`.
+| `user_identifier=` on the same calls, forwarded to the service as `userId`. (`client.users` is not available — scoping is per-call only.)
+
+| **Workspace** — separate whole projects / customers / environments, each with its own graph
+| Not a built-in concept — run separate databases or separate `MemoryClient` instances.
+| The unit of isolation. A workspace is bound to your API key (production), or selected per-request via `workspace_id` → the `X-Workspace-Id` header (header-scoped deployments). Different key/workspace = different graph.
+|===
+
+In short: on **bolt** you scope by `user_identifier` (and operate separate databases for hard isolation); on **NAMS** the **workspace** (key- or header-bound) is the hard boundary and `user_identifier` sub-divides users within it. There is no `workspace_id` argument on memory calls — workspace is established at connect time, not per operation.
+
+For the task-oriented walkthrough see xref:how-to/multi-tenancy.adoc[Multi-Tenant Memory] (bolt) and xref:how-to/use-nams.adoc[Use NAMS] (workspace setup). Sharing one workspace across several agents is covered in xref:explanation/multi-agent-sharing.adoc[Cross-Agent Memory Sharing].
 
 == Operational model
 
@@ -176,7 +206,7 @@ Code written against these Protocols (or their concrete bolt classes, which stru
 
 == What's not on either backend
 
-Some v0.2 / v0.3 features are bolt-only by design (the underlying server doesn't expose them):
+Some features are bolt-only by design (the underlying service doesn't expose them):
 
 * `client.users` (first-class `User` nodes)
 * `client.buffered.submit(...)` (background write queue)
@@ -198,7 +228,7 @@ On NAMS these accessors return a `_NamsUnsupported` sentinel — property access
 | Bulk `add_messages_batch(100)`
 | ~10ms | (bolt-only)
 | `bulk_add_messages(100)`
-| (Platinum) | ~80ms
+| (NAMS only) | ~80ms
 | `search_messages` (vector)
 | ~5-50ms (index size) | ~50-100ms
 | `client.query.cypher` (small read)
@@ -210,7 +240,7 @@ NAMS is dominated by HTTPS round-trip cost. For high-throughput workloads, bolt 
 == Migration is one env var away
 
 ```python
-# Existing v0.3 bolt code:
+# Existing bolt code:
 async with MemoryClient(MemorySettings(neo4j={"password": "..."})) as client:
     await client.short_term.add_message(...)
 ```

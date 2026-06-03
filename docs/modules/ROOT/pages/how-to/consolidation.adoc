@@ -2,7 +2,9 @@
 :page-product: agent-memory
 :toclevels: 2
 
-How to keep your memory graph clean over time. v0.5 ships four
+include::partial$backend-bolt-only.adoc[]
+
+How to keep your memory graph clean over time. The library ships four
 dry-runnable consolidation primitives — entity dedupe, long-trace
 flagging, preference supersede detection, and conversation TTL
 archival.
