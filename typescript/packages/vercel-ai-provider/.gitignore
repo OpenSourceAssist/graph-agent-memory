@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# npm pack output
+*.tgz
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Caches
+.cache/
+.turbo/
+.vite/
+.vitest/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Editor & OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
