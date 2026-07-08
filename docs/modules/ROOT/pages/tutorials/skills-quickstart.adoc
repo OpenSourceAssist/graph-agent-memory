@@ -114,6 +114,41 @@ _execution_ is dry-run planning only and gated off by default — the loading
 agent is responsible for actually performing the procedure.
 ====
 
+== Prefer to script it?
+
+There is no `client.skill` SDK method yet, but the REST API is easy to drive from
+code. The same generate-then-poll loop in Python with `httpx`:
+
+[source,python]
+----
+import asyncio
+import httpx
+
+NAMS = "https://memory.neo4jlabs.com/v1"
+HEADERS = {"Authorization": "Bearer nams_xxxxxxxxxxxxxxxxxxxx"}
+
+
+async def distil_skill() -> str:
+    async with httpx.AsyncClient(base_url=NAMS, headers=HEADERS) as http:
+        started = await http.post(
+            "/skills/generate",
+            json={"name": "refund-procedure", "scope": {"type": "workspace"}},
+        )
+        run_id = started.json()["runId"]
+
+        while True:
+            run = (await http.get(f"/skills/runs/{run_id}")).json()
+            if run["status"] != "running":
+                return run.get("skillId", "")
+            await asyncio.sleep(2.0)
+
+
+skill_id = asyncio.run(distil_skill())
+----
+
+For agent-driven use, the xref:reference/nams-mcp.adoc[hosted MCP tools]
+(`skill_generate`, `skill_run_status`, …) expose the same flow.
+
 == Next steps
 
 * xref:explanation/skills.adoc[Agent Skills] — the provenance model and lifecycle.
