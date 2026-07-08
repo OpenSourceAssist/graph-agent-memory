@@ -39,3 +39,8 @@ export interface StoreInput {
 }
 
 export type GraphExtractor = (client: MemoryClient, input: StoreInput) => Promise<void>;
+
+export interface ClientState {
+  convCache: Map<string, string>;
+  logger: NamsLogger;
+}

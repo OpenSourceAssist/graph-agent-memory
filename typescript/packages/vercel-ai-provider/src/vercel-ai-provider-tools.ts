@@ -20,7 +20,7 @@ import {
 } from './vercel-ai-provider-client';
 import { createGraphExtractor } from './vercel-ai-provider-extract';
 
-// ─── Schemas
+//Schemas
 
 const querySchema = z.object({
   query: z.string().describe('Keywords or phrase to search in memory'),
@@ -44,7 +44,7 @@ export type StoreInput = z.infer<typeof storeSchema>;
 export type QueryOutput = { found: boolean; count?: number; message?: string; memories: MemoryHit[] };
 export type StoreOutput = { stored: boolean; type: string; preview: string; message: string };
 
-// ─── Options
+//Options
 
 export interface NamsToolsOptions extends NamsConfig, NamsScope {
   extractionModel?: LanguageModel;

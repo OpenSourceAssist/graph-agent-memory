@@ -1,5 +1,5 @@
 import { MemoryClient } from '@neo4j-labs/agent-memory';
-import { DEFAULT_ENDPOINT, NamsConfig, NamsScope, NamsLogger, MemoryHit, StoreInput, GraphExtractor } from './vercel-ai-provider-types';
+import { DEFAULT_ENDPOINT, NamsConfig, NamsScope, NamsLogger, MemoryHit, StoreInput, GraphExtractor, ClientState } from './vercel-ai-provider-types';
 
 export type { NamsConfig, NamsScope, NamsLogger, MemoryHit, StoreInput, GraphExtractor };
 
@@ -14,11 +14,6 @@ const defaultLogger: NamsLogger = {
 // createNams / createNamsProvider / tools factory call). Nothing is shared
 // across instances, so warm serverless workers can hold multiple providers
 // for different users without cross-talk.
-
-interface ClientState {
-  convCache: Map<string, string>;
-  logger: NamsLogger;
-}
 
 const stateByClient = new WeakMap<MemoryClient, ClientState>();
 

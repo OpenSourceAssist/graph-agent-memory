@@ -170,7 +170,6 @@ const buildMiddleware = (
             const id = chunk.toolCallId as string;
             pendingToolArgs.set(id, (pendingToolArgs.get(id) ?? '') + (chunk.argsTextDelta ?? ''));
           } else if (chunk?.type === 'tool-call') {
-            // Full tool calls supersede any streamed deltas for the same id.
             pendingToolArgs.set((chunk.toolCallId ?? chunk.id) as string, toolCallInput(chunk));
           }
           controller.enqueue(chunk);
