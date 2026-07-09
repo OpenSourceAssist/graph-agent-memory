@@ -264,6 +264,6 @@ export async function storeMemory(
   if (entity?.id && input.confidence !== undefined) {
     await client.longTerm
       .setEntityFeedback(entity.id, { userScore: input.confidence, confirmed: input.confidence >= 0.8 })
-      .catch(() => { });
+      .catch((e: unknown) => getLogger(client).warn('setEntityFeedback failed', e));
   }
 }
