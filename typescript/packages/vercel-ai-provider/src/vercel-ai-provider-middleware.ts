@@ -135,7 +135,14 @@ const buildMiddleware = (
 
       originalUserText.set(params as object, userText);
 
-      const convId = await getConvId();
+      let convId: string;
+      try {
+        convId = await getConvId();
+      } catch (e) {
+        log.warn('resolveConversation failed', e);
+        return params;
+      }
+
       const memories = await retrieveMemories(client, scope, convId, userText, injectLimit)
         .catch(e => { log.warn('retrieve failed', e); return [] as MemoryHit[]; });
 
