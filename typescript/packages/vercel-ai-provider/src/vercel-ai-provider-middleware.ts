@@ -82,7 +82,7 @@ const lastUserText = (prompt: any[]): string => {
       return msg.content
         .filter((p: any) => p?.type === 'text')
         .map((p: any) => p.text as string)
-        .join(' ')
+        .join('')
         .trim();
   }
   return '';
