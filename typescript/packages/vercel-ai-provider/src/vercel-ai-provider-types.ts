@@ -1,4 +1,4 @@
-import { MemoryClient } from "@neo4j-labs/agent-memory";
+import type { MemoryClient } from '@neo4j-labs/agent-memory';
 
 export const DEFAULT_ENDPOINT = 'https://memory.neo4jlabs.com/v1';
 

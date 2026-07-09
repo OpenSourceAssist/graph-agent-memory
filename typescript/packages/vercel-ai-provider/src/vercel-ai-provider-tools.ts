@@ -82,11 +82,16 @@ export function createNamsMemoryTools(options: NamsToolsOptions) {
       'Call this FIRST every turn before answering.',
     inputSchema: zodSchema(querySchema),
     execute: async ({ query, limit }) => {
-      const convId = await getConvId();
-      const memories = await retrieveMemories(client, scope, convId, query, limit);
-      if (memories.length === 0)
-        return { found: false, message: 'No relevant memories found.', memories: [] };
-      return { found: true, count: memories.length, memories };
+      try {
+        const convId = await getConvId();
+        const memories = await retrieveMemories(client, scope, convId, query, limit);
+        if (memories.length === 0)
+          return { found: false, message: 'No relevant memories found.', memories: [] };
+        return { found: true, count: memories.length, memories };
+      } catch (err) {
+        getLogger(client).error('query_memory failed', err);
+        return { found: false, message: 'Memory lookup failed.', memories: [] };
+      }
     },
   });
 

@@ -114,9 +114,11 @@ const buildMiddleware = (
     const userText = originalUserText.get(params as object) ?? lastUserText(params.prompt);
     if (userText && userText !== lastPersistedUserText) {
       lastPersistedUserText = userText;
-      await client.shortTerm.addMessage(convId, 'user', userText).catch(() => { });
+      await client.shortTerm.addMessage(convId, 'user', userText)
+        .catch(e => log.warn('persist user message failed', e));
     }
-    if (assistantText) await client.shortTerm.addMessage(convId, 'assistant', assistantText).catch(() => { });
+    if (assistantText) await client.shortTerm.addMessage(convId, 'assistant', assistantText)
+      .catch(e => log.warn('persist assistant message failed', e));
     if (extractor && (userText || assistantText)) {
       const combined = `User: ${userText}\nAssistant: ${assistantText}`.trim();
       await extractor(client, { content: combined, type: 'interaction' })
