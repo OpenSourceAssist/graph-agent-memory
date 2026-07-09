@@ -101,8 +101,8 @@ export function createNamsMemoryTools(options: NamsToolsOptions) {
       'Call this AFTER your response to save facts, preferences, and patterns.',
     inputSchema: zodSchema(storeSchema),
     execute: async ({ content, type, confidence, tags }) => {
-      const convId = await getConvId();
       try {
+        const convId = await getConvId();
         await storeMemory(client, convId, { content, type, confidence, tags }, { extractor });
         return {
           stored: true,
