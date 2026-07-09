@@ -9,6 +9,6 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   treeshake: true,
-  // Peer dependencies (including the optional @ai-sdk/mcp) are externalized
-  // automatically by tsup — no explicit list needed.
+  // Keep peer deps external to avoid bundling duplicates into dist.
+  external: ['ai', '@ai-sdk/provider', '@neo4j-labs/agent-memory', 'zod', '@ai-sdk/mcp'],
 });
