@@ -31,6 +31,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Fixed: `neo4j-agent-memory schemas show` crashed with `AttributeError`.** The
+  command called `EntitySchemaConfig.to_dict()`, which does not exist on the
+  Pydantic v2 model — so every `schemas show` invocation raised before producing
+  JSON or YAML output. Now uses `model_dump()`. Surfaced by the Phase 2 typing
+  pass. (Type-safety effort, spec §6 Phase 2.)
+- **`ReasoningMemory.add_step()` / `complete_trace()` accept `trace_id: UUID | str`.**
+  Both are `str(trace_id)`-normalized internally for the Cypher match, so the strict
+  `UUID`-only parameter was widened to `UUID | str` for parity with the sibling id
+  parameters (`link_trace_to_message`, `record_tool_call`, `start_trace`'s
+  `triggered_by_message_id`). This lets the MCP `memory_record_step` /
+  `memory_complete_trace` tools forward the caller-supplied id directly instead of
+  requiring UUID-formatted ids. Backward compatible (a `UUID` is still accepted).
+  (Type-safety effort, spec §6 Phase 2.)
+- **Fixed: `MemoryIntegration.add_fact()` parses `valid_from` / `valid_until`.**
+  These public parameters accept ISO date strings but were forwarded as `str`
+  straight into `LongTermMemory.add_fact`, which expects `datetime | None` — a
+  silent type mismatch surfaced by the Phase 2 typing pass. They are now parsed
+  with `datetime.fromisoformat()` (a malformed string now raises `ValueError` at
+  the call site instead of corrupting the stored value). (Type-safety effort, spec §6 Phase 2.)
 - **Fixed: `LongTermMemory.add()` now returns `Entity`** (per its `BaseMemory[Entity]`
   contract) instead of a `tuple[Entity, DeduplicationResult]`. The tuple return was a
   latent contract violation surfaced by the Phase 1 typing pass; no in-tree caller
