@@ -1,5 +1,7 @@
 """Async Neo4j client wrapper."""
 
+from __future__ import annotations
+
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
@@ -74,7 +76,7 @@ class Neo4jClient:
             await self._driver.close()
             self._driver = None
 
-    async def __aenter__(self) -> "Neo4jClient":
+    async def __aenter__(self) -> Neo4jClient:
         """Async context manager entry."""
         await self.connect()
         return self
@@ -118,7 +120,7 @@ class Neo4jClient:
 
             @unit_of_work(metadata={"app": f"neo4j-agent-memory_v{self._package_version}"})
             async def execute_read_tx(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-                result = await tx.run(query, parameters or {})
+                result = await tx.run(query, parameters or {})  # ty: ignore[invalid-argument-type]  # neo4j stubs type the query as LiteralString; ours is a runtime str (pre-built Cypher, never raw user input)
                 data = await result.data()
                 return data
 
@@ -144,7 +146,7 @@ class Neo4jClient:
 
             @unit_of_work(metadata={"app": f"neo4j-agent-memory_v{self._package_version}"})
             async def execute_write_tx(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-                result = await tx.run(query, parameters or {})
+                result = await tx.run(query, parameters or {})  # ty: ignore[invalid-argument-type]  # neo4j stubs type the query as LiteralString; ours is a runtime str (pre-built Cypher, never raw user input)
                 data = await result.data()
                 return data
 
