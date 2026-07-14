@@ -90,7 +90,7 @@ import {
 } from 'ai';
 
 const agent = new ToolLoopAgent({
-  model:        openai('gpt-4o-mini'),
+  model:        openai('gpt-5.4-mini'),
   instructions: 'You are a helpful assistant.',
   stopWhen:     stepCountIs(10),
 });
@@ -123,7 +123,7 @@ const nams = createNamsProvider({
 });
 
 const agent = new ToolLoopAgent({
-  model:        nams.languageModel('gpt-4o-mini'),  // ← only change
+  model:        nams.languageModel('gpt-5.4-mini'),  // ← only change
   instructions: 'You are a helpful assistant.',
   stopWhen:     stepCountIs(10),
 });
@@ -189,7 +189,7 @@ const nams = createNamsProvider({
 });
 
 const agent = new ToolLoopAgent({
-  model:        nams.languageModel('gpt-4o-mini'),
+  model:        nams.languageModel('gpt-5.4-mini'),
   instructions: 'You are a helpful assistant.',
   stopWhen:     stepCountIs(1),       // no tools needed in provider mode
 });
@@ -218,7 +218,7 @@ const registry = createRegistry({
 });
 
 const agent = new ToolLoopAgent({
-  model:    registry.languageModel('nams:gpt-4o-mini'),
+  model:    registry.languageModel('nams:gpt-5.4-mini'),
   stopWhen: stepCountIs(1),
 });
 ```
@@ -240,7 +240,7 @@ import {
 } from 'ai';
 
 const nams  = createNams({ apiKey: process.env.MEMORY_API_KEY! });
-const model = nams.wrap(openai('gpt-4o-mini'), { userId: session.userId });
+const model = nams.wrap(openai('gpt-5.4-mini'), { userId: session.userId });
 
 const agent = new ToolLoopAgent({ model, stopWhen: stepCountIs(1) });
 
@@ -274,7 +274,7 @@ const nams  = createNams({ apiKey: process.env.MEMORY_API_KEY! });
 const tools = nams.tools({ userId: session.userId });
 
 const agent = new ToolLoopAgent({
-  model:        openai('gpt-4o-mini'),
+  model:        openai('gpt-5.4-mini'),
   instructions: 'Always call query_memory first. Call store_memory after responding.',
   tools,
   stopWhen:     stepCountIs(10),
@@ -311,7 +311,7 @@ const { tools, close } = await nams.toolsWithMcp(
 );
 
 const agent = new ToolLoopAgent({
-  model: openai('gpt-4o-mini'),
+  model: openai('gpt-5.4-mini'),
   tools, // query_memory + store_memory + all MCP server tools
   stopWhen: stepCountIs(10),
 });
@@ -326,6 +326,14 @@ try {
 
 When the MCP config is omitted, `toolsWithMcp(scope)` behaves exactly like
 `tools(scope)` with a no-op `close`.
+
+> **Merging is for complementary tools, not overlapping ones.** This is meant
+> to pair NAMS memory with *unrelated* tooling from an MCP server (search,
+> filesystem, domain APIs, etc.) — not another memory implementation. If the
+> MCP server happens to expose a tool named `query_memory` or `store_memory`,
+> its tool silently takes precedence (`{ ...namsTools, ...mcpTools }`), and a
+> warning is logged via the configured `logger` so the collision doesn't go
+> unnoticed.
 
 ---
 
@@ -342,7 +350,7 @@ createNamsProvider({
   endpoint?:            string,   // Default: https://memory.neo4jlabs.com/v1
   workspaceId?:         string,
   logger?:              NamsLogger, // warn/error sink for non-fatal errors. Default: console
-  injectLimit?:         number,   // Max memories injected per turn (capped at 12). Default: 6
+  maxMemories?:         number,   // Max memories retrieved and injected into the prompt per turn (capped at 12). Default: 6
   persistInteractions?: boolean,  // Save each turn. Default: true
   extractionModel?:     LanguageModel, // Enables graph entity extraction
 });
@@ -359,6 +367,7 @@ variables:
 | `MEMORY_API_KEY` | yes | NAMS API key — pass it as `apiKey` (the examples and snippets read it from the environment) |
 | `OPENAI_API_KEY` | yes* | Read by `@ai-sdk/openai`; *swap for whichever `@ai-sdk/*` provider key your base model needs |
 | `NAMS_DEMO_USER` | no | Overrides the demo `userId` in the [runnable examples](./examples) |
+| `NAMS_DEMO_MODEL` | no | Overrides the demo model id (default: `gpt-5.4-mini`) in the [runnable examples](./examples) |
 
 ---
 
@@ -371,7 +380,7 @@ const nams = createNamsProvider({
   apiKey:          process.env.MEMORY_API_KEY!,
   baseProvider:    openai,
   scope:           { userId },
-  extractionModel: openai('gpt-4o-mini'),
+  extractionModel: openai('gpt-5.4-mini'),
 });
 ```
 

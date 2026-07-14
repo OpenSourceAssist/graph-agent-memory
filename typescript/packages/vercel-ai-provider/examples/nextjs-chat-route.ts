@@ -14,6 +14,8 @@ import { createNamsProvider } from '../src/index';
 
 export const maxDuration = 30;
 
+const model = process.env.NAMS_DEMO_MODEL ?? 'gpt-5.4-mini';
+
 export async function POST(req: Request): Promise<Response> {
   const { messages, userId }: { messages: UIMessage[]; userId: string } = await req.json();
 
@@ -25,7 +27,7 @@ export async function POST(req: Request): Promise<Response> {
   });
 
   const agent = new ToolLoopAgent({
-    model: nams.languageModel('gpt-4o-mini'),
+    model: nams.languageModel(model),
     instructions: 'You are a helpful assistant.',
     stopWhen: stepCountIs(1), // no tools needed in provider mode
   });

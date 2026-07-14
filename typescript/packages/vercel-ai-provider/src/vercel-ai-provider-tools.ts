@@ -11,6 +11,7 @@ import { z } from 'zod';
 import {
   makeClient,
   getLogger,
+  resolveLogger,
   resolveConversation,
   retrieveMemories,
   storeMemory,
@@ -137,6 +138,13 @@ export async function createNamsTools(options: NamsToolsWithMcpOptions): Promise
   });
 
   const mcpTools = await mcpClient.tools();
+
+  const collisions = Object.keys(mcpTools).filter(name => name in namsTools);
+  if (collisions.length > 0) {
+    resolveLogger(options).warn(
+      `MCP tool(s) [${collisions.join(', ')}] share a name with NAMS memory tools and will override them`,
+    );
+  }
 
   return {
     tools: { ...namsTools, ...mcpTools },

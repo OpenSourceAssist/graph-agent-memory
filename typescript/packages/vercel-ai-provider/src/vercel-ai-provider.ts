@@ -18,8 +18,8 @@ export interface NamsProviderOptions extends NamsConfig {
    * Create one provider instance per user session.
    */
   scope: NamsScope;
-  /** Max memories injected per turn (default: 6). */
-  injectLimit?: number;
+  /** Max memories retrieved and injected into the prompt per turn (default: 6). Does not affect storage. */
+  maxMemories?: number;
   /** Persist each turn to NAMS short-term memory (default: true). */
   persistInteractions?: boolean;
   /** When set, builds a real entity graph per stored turn (one extra model call). */

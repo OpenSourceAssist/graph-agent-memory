@@ -18,8 +18,8 @@ import { createGraphExtractor } from './vercel-ai-provider-extract';
 import { GraphExtractor, MemoryHit, NamsConfig, NamsScope } from './vercel-ai-provider-types';
 
 export interface NamsMemoryConfig extends NamsConfig {
-  /** Max memories injected per turn (default: 6). */
-  injectLimit?: number;
+  /** Max memories retrieved and injected into the prompt per turn (default: 6). Does not affect storage. */
+  maxMemories?: number;
   /** Persist each turn to NAMS short-term memory (default: true). */
   persistInteractions?: boolean;
   /** When set, build a real entity graph per stored turn (one extra model call). */
@@ -92,7 +92,7 @@ const buildMiddleware = (
   config: NamsMemoryConfig,
   scope: NamsScope,
   extractor: GraphExtractor | undefined,
-  injectLimit: number,
+  maxMemories: number,
   persist: boolean,
 ): LanguageModelV3Middleware => {
   const client = makeClient(config);
@@ -115,10 +115,10 @@ const buildMiddleware = (
     if (userText && userText !== lastPersistedUserText) {
       lastPersistedUserText = userText;
       await client.shortTerm.addMessage(convId, 'user', userText)
-        .catch(e => log.warn('persist user message failed', e));
+        .catch(e => log.error('persist user message failed', e));
     }
     if (assistantText) await client.shortTerm.addMessage(convId, 'assistant', assistantText)
-      .catch(e => log.warn('persist assistant message failed', e));
+      .catch(e => log.error('persist assistant message failed', e));
     if (extractor && (userText || assistantText)) {
       const combined = `User: ${userText}\nAssistant: ${assistantText}`.trim();
       await extractor(client, { content: combined, type: 'interaction' })
@@ -143,7 +143,7 @@ const buildMiddleware = (
         return params;
       }
 
-      const memories = await retrieveMemories(client, scope, convId, userText, injectLimit)
+      const memories = await retrieveMemories(client, scope, convId, userText, maxMemories)
         .catch(e => { log.warn('retrieve failed', e); return [] as MemoryHit[]; });
 
       if (memories.length === 0) return params;
@@ -203,12 +203,12 @@ const buildMiddleware = (
  */
 export function createNamsMemory(config: NamsMemoryConfig) {
   const extractor = config.extractionModel ? createGraphExtractor(config.extractionModel) : undefined;
-  const injectLimit = config.injectLimit ?? 6;
+  const maxMemories = config.maxMemories ?? 6;
   const persist = config.persistInteractions ?? true;
 
   return {
     wrap(model: LanguageModelV3, scope: NamsScope, providerId?: string): LanguageModelV3 {
-      const middleware = buildMiddleware(config, scope, extractor, injectLimit, persist);
+      const middleware = buildMiddleware(config, scope, extractor, maxMemories, persist);
       return wrapLanguageModel({ model, middleware, ...(providerId && { providerId }) });
     },
   };

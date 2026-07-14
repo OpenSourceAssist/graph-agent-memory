@@ -22,13 +22,14 @@ import { ToolLoopAgent, stepCountIs } from 'ai';
 import { createNams } from '../src/index';
 
 const userId = process.env.NAMS_DEMO_USER ?? 'demo-user-tools-chat';
+const model = process.env.NAMS_DEMO_MODEL ?? 'gpt-5.4-mini';
 
 async function main(): Promise<void> {
   const nams = createNams({ apiKey: process.env.MEMORY_API_KEY! });
   const tools = nams.tools({ userId });
 
   const agent = new ToolLoopAgent({
-    model: openai('gpt-4o-mini'),
+    model: openai(model),
     instructions:
       'Always call query_memory first to check what you know about the user. ' +
       'After answering, call store_memory to save anything worth remembering.',

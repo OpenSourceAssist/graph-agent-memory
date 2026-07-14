@@ -25,6 +25,7 @@ import { ToolLoopAgent, stepCountIs } from 'ai';
 import { createNamsProvider } from '../src/index';
 
 const userId = process.env.NAMS_DEMO_USER ?? 'demo-user-basic-chat';
+const model = process.env.NAMS_DEMO_MODEL ?? 'gpt-5.4-mini';
 
 async function session(label: string, message: string): Promise<void> {
   // One provider instance per user session — memory is transparent.
@@ -35,7 +36,7 @@ async function session(label: string, message: string): Promise<void> {
   });
 
   const agent = new ToolLoopAgent({
-    model: nams.languageModel('gpt-4o-mini'),
+    model: nams.languageModel(model),
     instructions: 'You are a helpful assistant.',
     stopWhen: stepCountIs(1), // no tools needed in provider mode
   });

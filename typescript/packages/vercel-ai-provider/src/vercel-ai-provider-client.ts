@@ -31,13 +31,18 @@ export function getLogger(client: MemoryClient): NamsLogger {
   return getState(client).logger;
 }
 
+/** Resolve the configured logger without needing a live client instance. */
+export function resolveLogger(config: NamsConfig): NamsLogger {
+  return config.logger ?? defaultLogger;
+}
+
 export function makeClient(config: NamsConfig): MemoryClient {
   const client = new MemoryClient({
     endpoint: config.endpoint ?? DEFAULT_ENDPOINT,
     apiKey: config.apiKey,
     workspaceId: config.workspaceId,
   });
-  stateByClient.set(client, { convCache: new Map(), logger: config.logger ?? defaultLogger });
+  stateByClient.set(client, { convCache: new Map(), logger: resolveLogger(config) });
   return client;
 }
 
@@ -119,6 +124,7 @@ const RETRIEVAL = {
   crossThreshold: 0.4,
   maxReasoning: 6,
   maxTotal: 12,
+  maxLongterm:5
 };
 
 function deduplicatePush(hits: MemoryHit[], seen: Set<string>, hit: MemoryHit): void {
@@ -187,7 +193,7 @@ export async function retrieveMemories(
     client.shortTerm
       .searchMessages(query, { sessionId: convId, limit, threshold: RETRIEVAL.currentThreshold })
       .catch((e: unknown) => { log.warn('searchMessages failed', e); return [] as any[]; }),
-    client.longTerm.searchEntities(query, { limit: 5 })
+    client.longTerm.searchEntities(query, { limit: RETRIEVAL.maxLongterm })
       .catch((e: unknown) => { log.warn('searchEntities failed', e); return [] as any[]; }),
     client.reasoning.listSteps(convId)
       .catch((e: unknown) => { log.warn('listSteps failed', e); return [] as any[]; }),

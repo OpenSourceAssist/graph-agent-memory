@@ -3,6 +3,9 @@
  *
  * Unlike provider mode there is no ProviderV3 registration: you keep whatever
  * model you already configured and decorate it with `createNams().wrap()`.
+ * MEMORY_API_KEY authenticates with NAMS; OPENAI_API_KEY authenticates the
+ * base model call made by `@ai-sdk/openai` (swap for another provider's key
+ * if you use a different `baseProvider`). 
  * Run with:
  *
  *   MEMORY_API_KEY=sk-nams-... OPENAI_API_KEY=sk-... npx tsx examples/middleware-chat.ts
@@ -26,14 +29,15 @@ import { ToolLoopAgent, stepCountIs } from 'ai';
 import { createNams } from '../src/index';
 
 const userId = process.env.NAMS_DEMO_USER ?? 'demo-user-middleware-chat';
+const model = process.env.NAMS_DEMO_MODEL ?? 'gpt-5.4-mini';
 
 async function turn(label: string, message: string): Promise<void> {
   // A fresh wrapped model per turn — memory continuity comes from NAMS.
   const nams = createNams({ apiKey: process.env.MEMORY_API_KEY! });
-  const model = nams.wrap(openai('gpt-4o-mini'), { userId });
+  const wrappedModel = nams.wrap(openai(model), { userId });
 
   const agent = new ToolLoopAgent({
-    model,
+    model: wrappedModel,
     instructions: 'You are a helpful assistant.',
     stopWhen: stepCountIs(1), // no tools needed in middleware mode
   });

@@ -13,7 +13,7 @@
  * @example
  * ```ts
  * const nams  = createNams({ apiKey: process.env.MEMORY_API_KEY! });
- * const model = nams.wrap(openai('gpt-4o-mini'), { userId });
+ * const model = nams.wrap(openai('gpt-5.4-mini'), { userId });
  * ```
  */
 
@@ -45,7 +45,7 @@ export type NamsMode = 'provider' | 'middleware' | 'tools';
 
 export interface NamsFactoryConfig extends NamsConfig {
   extractionModel?: LanguageModel;
-  injectLimit?: number;
+  maxMemories?: number;
   persistInteractions?: boolean;
 }
 
@@ -64,7 +64,7 @@ export function createNams(config: NamsFactoryConfig) {
     workspaceId: config.workspaceId,
     logger: config.logger,
     extractionModel: config.extractionModel,
-    injectLimit: config.injectLimit,
+    maxMemories: config.maxMemories,
     persistInteractions: config.persistInteractions,
   };
 
