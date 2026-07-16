@@ -83,13 +83,16 @@ class TestLongTermProtocol:
             assert required in names
 
     def test_silver_methods_present(self):
+        # supersede_preference / get_entity_relationships are intentionally
+        # absent: bolt and NAMS disagree on arity/return type for both (not
+        # just an optional extra), so no single signature is honest for
+        # both backends without an implementation change. See
+        # LongTermProtocol's class-level comment and task-3-report.md.
         names = _method_names(LongTermProtocol)
         for required in (
             "get_related_entities",
             "get_preferences_for",
-            "supersede_preference",
             "get_facts_about",
-            "get_entity_relationships",
             "get_context",
         ):
             assert required in names
@@ -132,9 +135,13 @@ class TestReasoningProtocol:
             assert required in names
 
     def test_gold_methods_present(self):
+        # get_tool_stats is intentionally absent: it's a bolt-only
+        # capability (NAMS raises NotSupportedError unconditionally, and
+        # bolt/NAMS disagree on the aggregate-stats shape). It belongs on
+        # a bolt-specific sub-protocol in a later task, not the base
+        # contract. See task-4-report.md.
         names = _method_names(ReasoningProtocol)
-        for required in ("get_tool_stats", "link_trace_to_message"):
-            assert required in names
+        assert "link_trace_to_message" in names
 
 
 class TestCypherQueryProtocol:

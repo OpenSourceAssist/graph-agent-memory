@@ -40,9 +40,10 @@ Example usage:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, cast, overload
 
 from pydantic import BaseModel, Field
+from typing_extensions import Self, TypeVar
 
 if TYPE_CHECKING:
     from neo4j_agent_memory.core.protocols import (
@@ -60,10 +61,18 @@ if TYPE_CHECKING:
     from neo4j_agent_memory.memory.eval import EvalMemory
     from neo4j_agent_memory.memory.users import UserMemory
     from neo4j_agent_memory.nams.client import NamsBackend
+
+    # NAMS concrete classes are needed only as static type arguments for
+    # NamsMemoryClient below — importing them unconditionally would make
+    # httpx (the `nams` extra) a hard runtime dependency of this module.
+    from neo4j_agent_memory.nams.long_term import NamsLongTermMemory
+    from neo4j_agent_memory.nams.reasoning import NamsReasoningMemory
+    from neo4j_agent_memory.nams.short_term import NamsShortTermMemory
     from neo4j_agent_memory.resolution.base import EntityResolver
     from neo4j_agent_memory.services.geocoder import Geocoder
 
 from neo4j_agent_memory.config.settings import (
+    BoltSettings,
     EmbeddingConfig,
     EmbeddingProvider,
     EnrichmentConfig,
@@ -77,6 +86,7 @@ from neo4j_agent_memory.config.settings import (
     MemoryConfig,
     MemorySettings,
     NamsConfig,
+    NamsSettings,
     Neo4jConfig,
     ResolutionConfig,
     ResolverStrategy,
@@ -104,6 +114,12 @@ from neo4j_agent_memory.core.protocols import (
     ReasoningProtocol,
     ShortTermProtocol,
 )
+
+# Bound + defaulted (PEP 696) so bare `MemoryClient` still type-checks under
+# `disallow_any_generics` — it defaults to the base Protocols.
+_ST = TypeVar("_ST", bound=ShortTermProtocol, default=ShortTermProtocol)
+_LT = TypeVar("_LT", bound=LongTermProtocol, default=LongTermProtocol)
+_RT = TypeVar("_RT", bound=ReasoningProtocol, default=ReasoningProtocol)
 
 
 class GraphNode(BaseModel):
@@ -219,11 +235,16 @@ __version__ = "0.5.0"
 __all__ = [
     # Main client
     "MemoryClient",
+    "BoltMemoryClient",
+    "NamsMemoryClient",
     # Integration layer
     "MemoryIntegration",
     "SessionStrategy",
     # Settings
     "MemorySettings",
+    "BoltSettings",
+    "NamsSettings",
+    "connect",
     "Neo4jConfig",
     "NamsConfig",
     "EmbeddingConfig",
@@ -346,7 +367,7 @@ class _DeprecatedGraphProxy:
         return f"_DeprecatedGraphProxy({self._client!r})"
 
 
-class MemoryClient:
+class MemoryClient(Generic[_ST, _LT, _RT]):
     """
     Main client for interacting with the Neo4j Agent Memory system.
 
@@ -354,6 +375,11 @@ class MemoryClient:
     - short_term: Conversation history and experiences
     - long_term: Facts, preferences, and entities
     - reasoning: Reasoning traces and tool usage
+
+    Generic over its three backend memory types so a backend-typed alias
+    (``BoltMemoryClient``, ``NamsMemoryClient``) exposes that backend's
+    methods precisely; bare ``MemoryClient`` defaults to the shared
+    Protocol surface.
 
     Example:
         async with MemoryClient(settings) as client:
@@ -405,9 +431,9 @@ class MemoryClient:
 
         # Memory accessors (Protocol-typed so either backend's impl satisfies
         # the contract). Initialized in connect().
-        self._short_term: ShortTermProtocol | None = None
-        self._long_term: LongTermProtocol | None = None
-        self._reasoning: ReasoningProtocol | None = None
+        self._short_term: _ST | None = None
+        self._long_term: _LT | None = None
+        self._reasoning: _RT | None = None
         self._query: CypherQueryProtocol | None = None
 
         # Ontology accessor. Real (``NamsOntology``) on NAMS; a
@@ -428,7 +454,7 @@ class MemoryClient:
         self._consolidation: ConsolidationMemory | Any = None
         self._eval: EvalMemory | None = None
 
-    async def __aenter__(self) -> MemoryClient:
+    async def __aenter__(self) -> Self:
         """Async context manager entry."""
         await self.connect()
         return self
@@ -519,24 +545,21 @@ class MemoryClient:
         default_llm_provider = (
             self._settings.llm if isinstance(self._settings.llm, _LLMProvider) else None
         )
-        # The bolt impls implement every Protocol *method* (short-term
-        # conformance is asserted in tests/unit/nams/test_protocols.py;
-        # Platinum-only methods raise NotSupportedError), but their concrete
-        # signatures are narrower than the intentionally-permissive
-        # ``**kwargs`` Protocol signatures (e.g. bolt ``list_sessions(*,
-        # prefix, limit, …)`` vs Protocol ``list_sessions(**kwargs)``), so
-        # mypy does not treat them as structural subtypes. They still hold
-        # the full behavior; the property getters re-narrow to the concrete
-        # bolt type. The NAMS path (below) fills the same fields with the
-        # hosted impls, which is why the field type is the Protocol.
-        self._short_term = ShortTermMemory(  # type: ignore[assignment]
+        # ShortTermMemory, LongTermMemory, and ReasoningMemory all
+        # structurally satisfy their base Protocols (conformance asserted in
+        # tests/typing/; Platinum-only methods raise NotSupportedError). The
+        # cast is needed because the concrete type built here is chosen by
+        # the runtime backend, not derived from the caller's static _ST/_LT/_RT
+        # — mypy can't otherwise relate an invariant TypeVar to a subtype.
+        short_term_impl = ShortTermMemory(
             self._client,
             self._embedder,
             self._extractor,
             multi_tenant=multi_tenant,
             default_llm_provider=default_llm_provider,
         )
-        self._long_term = LongTermMemory(  # type: ignore[assignment]
+        self._short_term = cast(_ST, short_term_impl)
+        long_term_impl = LongTermMemory(
             self._client,
             self._embedder,
             self._extractor,
@@ -545,11 +568,13 @@ class MemoryClient:
             self._enrichment_service,
             multi_tenant=multi_tenant,
         )
-        self._reasoning = ReasoningMemory(  # type: ignore[assignment]
+        self._long_term = cast(_LT, long_term_impl)
+        reasoning_impl = ReasoningMemory(
             self._client,
             self._embedder,
             multi_tenant=multi_tenant,
         )
+        self._reasoning = cast(_RT, reasoning_impl)
         from neo4j_agent_memory.memory.users import UserMemory
 
         self._users = UserMemory(self._client)
@@ -627,9 +652,10 @@ class MemoryClient:
             await self._nams_backend.probe()
 
         # Bind the protocol-typed accessors to the NAMS implementations.
-        self._short_term = self._nams_backend.short_term
-        self._long_term = self._nams_backend.long_term
-        self._reasoning = self._nams_backend.reasoning
+        # Cast rationale: see the bolt assignments in _connect_bolt above.
+        self._short_term = cast(_ST, self._nams_backend.short_term)
+        self._long_term = cast(_LT, self._nams_backend.long_term)
+        self._reasoning = cast(_RT, self._nams_backend.reasoning)
         self._query = self._nams_backend.query
         self._ontology = self._nams_backend.ontology
         self._auth = self._nams_backend.auth
@@ -771,59 +797,49 @@ class MemoryClient:
         return self._settings.backend == "nams"
 
     @property
-    def short_term(self) -> ShortTermMemory:
+    def short_term(self) -> _ST:
         """
         Access short-term memory (conversations, messages).
 
         Returns:
-            ShortTermMemory instance
+            The backend's short-term memory instance.
 
         Raises:
             NotConnectedError: If client is not connected
         """
         if self._short_term is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        # The field is Protocol-typed (it holds the bolt impl or the NAMS
-        # impl), but the property advertises the concrete bolt class so bolt
-        # users get type-checked access to bolt-only methods (geocoding,
-        # dedup, provenance, …). Returning the Protocol-typed field as the
-        # concrete class is an intentional downcast; on NAMS the runtime type
-        # is NamsShortTermMemory, which implements ShortTermProtocol.
-        return self._short_term  # type: ignore[return-value]
+        return self._short_term
 
     @property
-    def long_term(self) -> LongTermMemory:
+    def long_term(self) -> _LT:
         """
         Access long-term memory (entities, preferences, facts).
 
         Returns:
-            LongTermMemory instance
+            The backend's long-term memory instance.
 
         Raises:
             NotConnectedError: If client is not connected
         """
         if self._long_term is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        # Intentional Protocol-field → concrete-class downcast; see the
-        # short_term property above for the rationale.
-        return self._long_term  # type: ignore[return-value]
+        return self._long_term
 
     @property
-    def reasoning(self) -> ReasoningMemory:
+    def reasoning(self) -> _RT:
         """
         Access reasoning memory (reasoning traces, tool usage).
 
         Returns:
-            ReasoningMemory instance
+            The backend's reasoning memory instance.
 
         Raises:
             NotConnectedError: If client is not connected
         """
         if self._reasoning is None:
             raise NotConnectedError("Client not connected. Use 'async with' or call connect().")
-        # Intentional Protocol-field → concrete-class downcast; see the
-        # short_term property above for the rationale.
-        return self._reasoning  # type: ignore[return-value]
+        return self._reasoning
 
     @property
     def eval(self) -> EvalMemory:
@@ -1716,3 +1732,96 @@ class MemoryClient:
         )
         await service.start()
         return service
+
+
+# Backend-typed aliases: parameterized with the concrete backend classes
+# directly (not sub-Protocols) so e.g. `BoltMemoryClient.long_term` exposes
+# bolt-only methods (geocoding, dedup, provenance, ...) precisely.
+BoltMemoryClient = MemoryClient[ShortTermMemory, LongTermMemory, ReasoningMemory]
+
+if TYPE_CHECKING:
+    # NAMS concrete classes are only needed as static type arguments here;
+    # importing them for real would make httpx (the `nams` extra) a hard
+    # runtime dependency of this module. See the TYPE_CHECKING import above.
+    NamsMemoryClient = MemoryClient[NamsShortTermMemory, NamsLongTermMemory, NamsReasoningMemory]
+else:
+    NamsMemoryClient = MemoryClient
+
+
+# Backend-typed construction. An overloaded `MemoryClient.__new__` returning
+# `BoltMemoryClient` / `NamsMemoryClient` was tried first (it would have kept
+# the `async with MemoryClient(settings) as client:` idiom); both mypy
+# --strict and ty reject specializing a generic's return type through an
+# overloaded `__new__` — the caller-visible type is always the widened
+# `MemoryClient[Any, Any, Any]`, regardless of which `__new__` overload
+# matched. A module-level overloaded factory does not have this limitation,
+# since ordinary function overload resolution (not `__new__` return-type
+# specialization) picks the branch. This is the shipped mechanism.
+@overload
+async def connect(
+    settings: BoltSettings,
+    *,
+    embedder: Embedder | None = None,
+    extractor: EntityExtractor | None = None,
+    resolver: EntityResolver | None = None,
+    geocoder: Geocoder | None = None,
+    enrichment_provider: _EnrichmentProviderProtocol | None = None,
+) -> BoltMemoryClient: ...
+@overload
+async def connect(
+    settings: NamsSettings,
+    *,
+    embedder: Embedder | None = None,
+    extractor: EntityExtractor | None = None,
+    resolver: EntityResolver | None = None,
+    geocoder: Geocoder | None = None,
+    enrichment_provider: _EnrichmentProviderProtocol | None = None,
+) -> NamsMemoryClient: ...
+@overload
+async def connect(
+    settings: MemorySettings,
+    *,
+    embedder: Embedder | None = None,
+    extractor: EntityExtractor | None = None,
+    resolver: EntityResolver | None = None,
+    geocoder: Geocoder | None = None,
+    enrichment_provider: _EnrichmentProviderProtocol | None = None,
+) -> MemoryClient[Any, Any, Any]: ...
+async def connect(
+    settings: MemorySettings,
+    *,
+    embedder: Embedder | None = None,
+    extractor: EntityExtractor | None = None,
+    resolver: EntityResolver | None = None,
+    geocoder: Geocoder | None = None,
+    enrichment_provider: _EnrichmentProviderProtocol | None = None,
+) -> MemoryClient[Any, Any, Any]:
+    """Construct, connect, and return a backend-typed ``MemoryClient``.
+
+    ``await connect(BoltSettings(...))`` statically returns
+    ``BoltMemoryClient``; ``await connect(NamsSettings(...))`` returns
+    ``NamsMemoryClient``; a plain ``MemorySettings`` returns the
+    base-Protocol-typed ``MemoryClient``.
+
+    Equivalent to::
+
+        client = MemoryClient(settings, ...)
+        await client.connect()
+
+    minus the free static narrowing a bare constructor call can't provide
+    (see the module comment above). Callers own the connection lifecycle —
+    call ``await client.close()`` when done — since this returns an
+    already-connected instance rather than a context manager. Use
+    ``async with MemoryClient(settings) as client:`` instead when you don't
+    need the backend-typed return value.
+    """
+    client: MemoryClient[Any, Any, Any] = MemoryClient(
+        settings,
+        embedder=embedder,
+        extractor=extractor,
+        resolver=resolver,
+        geocoder=geocoder,
+        enrichment_provider=enrichment_provider,
+    )
+    await client.connect()
+    return client

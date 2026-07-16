@@ -52,6 +52,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`MemoryClient` is now generic over its backend memory types**
+  (`MemoryClient[ST, LT, RT]`, PEP 696 defaults). `client.short_term` /
+  `.long_term` / `.reasoning` return the base `ShortTermProtocol` /
+  `LongTermProtocol` / `ReasoningProtocol` (the backend-agnostic contract) by
+  default. **Public-API typing change** (runtime unchanged): for bolt-only
+  methods (geospatial, geocoding, dedup, provenance, tool-usage stats,
+  `add_messages_batch`, `extract_entities_from_session`) obtain a bolt-typed
+  client — `await connect(BoltSettings(...))` → `BoltMemoryClient`, or
+  `connect(NamsSettings(...))` → `NamsMemoryClient`. `connect()` returns an
+  already-connected client (call `await client.close()`; not a context
+  manager); `async with MemoryClient(settings)` is unchanged. New exports:
+  `connect`, `BoltMemoryClient`, `NamsMemoryClient`, `BoltSettings`,
+  `NamsSettings`.
+- **NAMS honors a subset of the agnostic surface.** `add_message(metadata=)`
+  and `add_entity(subtype=/aliases=/metadata=)` are not persisted on NAMS;
+  `extract_entities=` / `generate_embedding=` are no-ops there (done
+  server-side). `supersede_preference` and `get_entity_relationships` are not
+  on the base Protocol (backend contracts diverge); `add_fact`'s third
+  parameter is `obj`, `get_similar_traces` takes `task`.
+- **`ToolCallStatus` moved to `core.memory`** (re-exported from
+  `memory.reasoning`; no import break); added `typing-extensions>=4.4` runtime
+  dependency (PEP 696 defaults).
 - **Type safety: the Python SDK is now `mypy --strict` + `ty` clean and enforced in
   CI.** Both checkers run as blocking CI steps (and via `make check` / `make
   pre-commit`) over `src/`, `benchmarks/`, and the `examples/*.py` demos, kept at zero

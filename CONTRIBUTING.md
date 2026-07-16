@@ -101,6 +101,26 @@ Follow these conventions when adding or changing code:
    Neo4j record dicts, and heterogeneous dispatch tables. Anything else is a
    defect — replacing `Any` with a suppression is a regression, not a fix.
 
+### Backend-typed clients
+
+The base Protocols (`ShortTermProtocol` / `LongTermProtocol` /
+`ReasoningProtocol` in `core/protocols.py`) are the backend-agnostic contract —
+every method is honored by both the self-hosted (bolt) and hosted (NAMS)
+backends. `MemoryClient` is generic over them (PEP 696 defaults), so
+`MemoryClient(settings)` (and `async with MemoryClient(settings)`) types
+`client.short_term` / `.long_term` / `.reasoning` as the base Protocols.
+Framework integrations are written against this agnostic `MemoryClient` and
+must stay agnostic — do not add an `integrations/` call only one backend
+supports.
+
+For bolt-only functionality (geospatial, geocoding, dedup, provenance,
+tool-usage stats, `add_messages_batch`, `extract_entities_from_session`), get a
+backend-typed client rather than casting: `await connect(BoltSettings(...))` →
+`BoltMemoryClient` (its `.short_term`/`.long_term`/`.reasoning` are the concrete
+bolt classes), `await connect(NamsSettings(...))` → `NamsMemoryClient`.
+`connect()` returns an already-connected client (not a context manager — call
+`await client.close()`).
+
 ## Running Examples
 
 Examples are located in `examples/` and demonstrate various features:

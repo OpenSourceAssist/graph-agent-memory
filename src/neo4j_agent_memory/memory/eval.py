@@ -109,7 +109,7 @@ class EvalReport(BaseModel):
 class EvalMemory:
     """``client.eval`` — runs a labeled :class:`EvalSuite`."""
 
-    def __init__(self, client: MemoryClient):
+    def __init__(self, client: MemoryClient[Any, Any, Any]):
         self._client = client
 
     async def run(
@@ -212,7 +212,7 @@ class EvalMemory:
         scores: list[float] = []
         for case in cases:
             prefs = await self._client.long_term.get_preferences_for(
-                case.user_identifier, active_only=True
+                user_identifier=case.user_identifier, active_only=True
             )
             actual_ids = {str(p.id) for p in prefs}
             # Use F1 — either over- or under-returning hurts.
