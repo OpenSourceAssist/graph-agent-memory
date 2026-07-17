@@ -15,7 +15,7 @@ export OPENAI_API_KEY=sk-...
 |---------|------|-----|
 | [`basic-chat.ts`](./basic-chat.ts) | Provider (transparent memory) — teaches a fact in session 1, recalls it in session 2 | `npx tsx examples/basic-chat.ts` |
 | [`middleware-chat.ts`](./middleware-chat.ts) | Middleware — wraps an existing model instance; a fresh model in turn 2 recalls turn 1 | `npx tsx examples/middleware-chat.ts` |
-| [`tools-chat.ts`](./tools-chat.ts) | Tools (model-driven) — `query_memory` / `store_memory` visible as tool calls | `npx tsx examples/tools-chat.ts` |
+| [`tools-chat.ts`](./tools-chat.ts) | Tools (model-driven) — `query_memory` / `store_memory` visible as tool calls; retrieval guaranteed via `enforceQueryMemory()` | `npx tsx examples/tools-chat.ts` |
 | [`nextjs-chat-route.ts`](./nextjs-chat-route.ts) | Provider inside a Next.js App Router endpoint — copy into `app/api/chat/route.ts` | n/a (template) |
 
 Each script's header comment shows the **expected output**, so you can compare

@@ -18,7 +18,23 @@ vi.mock('@neo4j-labs/agent-memory', () => ({
   MemoryClient: vi.fn().mockImplementation(() => holder.client),
 }));
 
-import { createNamsMemoryTools } from '../src/vercel-ai-provider-tools';
+const mcpHolder = vi.hoisted(() => ({
+  tools: {} as Record<string, unknown>,
+  close: vi.fn(),
+}));
+
+vi.mock('@ai-sdk/mcp', () => ({
+  createMCPClient: vi.fn().mockResolvedValue({
+    tools: () => Promise.resolve(mcpHolder.tools),
+    close: mcpHolder.close,
+  }),
+}));
+
+import {
+  createNamsMemoryTools,
+  createNamsTools,
+  enforceQueryMemory,
+} from '../src/vercel-ai-provider-tools';
 import type { QueryOutput, StoreOutput } from '../src/vercel-ai-provider-tools';
 
 let fake: FakeClient;
@@ -186,5 +202,79 @@ describe('store_memory', () => {
 
     expect(out.stored).toBe(false);
     expect(out.message).toMatch(/failed/i);
+  });
+});
+
+describe('enforceQueryMemory', () => {
+  const stepOptions = (stepNumber: number, toolNames: string[][] = []) => ({
+    stepNumber,
+    steps: toolNames.map(names => ({ toolCalls: names.map(toolName => ({ toolName })) })) as never,
+    model: {} as never,
+    messages: [],
+    experimental_context: undefined,
+  });
+
+  it('requires a tool call while query_memory has not been executed', async () => {
+    const prepareStep = enforceQueryMemory();
+    expect(await prepareStep(stepOptions(0))).toEqual({ toolChoice: 'required' });
+    // Other tools ran, but query_memory still hasn't → still constrained.
+    expect(await prepareStep(stepOptions(2, [['read_file'], ['mcp_search']])))
+      .toEqual({ toolChoice: 'required' });
+  });
+
+  it('forces query_memory directly once the grace window is exhausted', async () => {
+    const prepareStep = enforceQueryMemory();  // default graceSteps: 3
+    expect(await prepareStep(stepOptions(3, [['read_file'], ['mcp_search'], ['read_file']])))
+      .toEqual({ toolChoice: { type: 'tool', toolName: 'query_memory' } });
+  });
+
+  it('drops all constraints once query_memory has been executed', async () => {
+    const prepareStep = enforceQueryMemory();
+    expect(await prepareStep(stepOptions(2, [['read_file'], ['query_memory']]))).toBeUndefined();
+    // Parallel call in the same step counts too.
+    expect(await prepareStep(stepOptions(1, [['read_file', 'query_memory']]))).toBeUndefined();
+    // Even past the grace window, no constraint once queried.
+    expect(await prepareStep(stepOptions(4, [['read_file'], ['query_memory'], ['read_file']])))
+      .toBeUndefined();
+  });
+
+  it('graceSteps: 0 forces query_memory as the very first step', async () => {
+    const prepareStep = enforceQueryMemory({ graceSteps: 0 });
+    expect(await prepareStep(stepOptions(0)))
+      .toEqual({ toolChoice: { type: 'tool', toolName: 'query_memory' } });
+    expect(await prepareStep(stepOptions(1, [['query_memory']]))).toBeUndefined();
+  });
+});
+
+describe('createNamsTools with MCP', () => {
+  it('prefixes MCP tool names when toolPrefix is set', async () => {
+    mcpHolder.tools = { search: { description: 'mcp search' }, query_memory: { description: 'mcp memory' } };
+
+    const { tools } = await createNamsTools({
+      apiKey: 'k',
+      userId: freshUser(),
+      mcp: { url: 'https://mcp.example.com/mcp', toolPrefix: 'mcp_' },
+    });
+
+    expect(Object.keys(tools).sort()).toEqual(
+      ['mcp_query_memory', 'mcp_search', 'query_memory', 'store_memory'],
+    );
+    // NAMS query_memory is intact, not shadowed by the MCP tool of the same name.
+    expect((tools.query_memory as { description?: string }).description).toMatch(/NAMS/);
+  });
+
+  it('warns on collision when no prefix is set and MCP tool wins', async () => {
+    mcpHolder.tools = { query_memory: { description: 'mcp memory' } };
+    const warn = vi.fn();
+
+    const { tools } = await createNamsTools({
+      apiKey: 'k',
+      userId: freshUser(),
+      logger: { warn, error: vi.fn() },
+      mcp: { url: 'https://mcp.example.com/mcp' },
+    });
+
+    expect((tools.query_memory as { description?: string }).description).toBe('mcp memory');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('toolPrefix'));
   });
 });

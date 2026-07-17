@@ -29,7 +29,8 @@ export type { NamsProviderOptions } from './vercel-ai-provider';
 export { makeClient, getLogger, resolveConversation, findExistingConversation, retrieveMemories, storeMemory } from './vercel-ai-provider-client';
 export { createGraphExtractor } from './vercel-ai-provider-extract';
 export { createNamsMemory } from './vercel-ai-provider-middleware';
-export { createNamsMemoryTools, createNamsTools, NamsMemoryTools } from './vercel-ai-provider-tools';
+export { createNamsMemoryTools, createNamsTools, enforceQueryMemory, NamsMemoryTools } from './vercel-ai-provider-tools';
+export type { EnforceQueryMemoryOptions } from './vercel-ai-provider-tools';
 export { createNamsProvider } from './vercel-ai-provider';
 
 import type { LanguageModel } from 'ai';

@@ -157,6 +157,9 @@ There are three ways to integrate NAMS depending on how much control you want:
 
 Switching modes is purely a code-level choice — all three use the same API key
 and environment variables (see [Environment variables](#environment-variables)).
+Middleware and tools modes can also be
+[combined on one agent](#combining-tools-mode-with-middleware-hybrid) —
+injected baseline context plus explicit memory tools.
 
 > **How does this relate to `@neo4j-labs/agent-memory/middleware/vercel-ai`?**
 > The core SDK ships a minimal middleware for the AI SDK v4-era
@@ -261,7 +264,7 @@ return createUIMessageStreamResponse({ stream });
 Expose `query_memory` and `store_memory` as explicit AI SDK tools. The model decides when to call them, and the calls are visible in your UI — useful for debugging or when you want the user to see memory activity:
 
 ```ts
-import { createNams } from '@neo4j-labs/nams-ai-provider';
+import { createNams, enforceQueryMemory } from '@neo4j-labs/nams-ai-provider';
 import { openai } from '@ai-sdk/openai';
 import {
   ToolLoopAgent,
@@ -275,8 +278,12 @@ const tools = nams.tools({ userId: session.userId });
 
 const agent = new ToolLoopAgent({
   model:        openai('gpt-5.4-mini'),
-  instructions: 'Always call query_memory first. Call store_memory after responding.',
+  instructions:
+    'Before answering, consult memory with query_memory. When the conversation ' +
+    'contains facts or preferences worth remembering, call store_memory before ' +
+    'giving your final answer.',
   tools,
+  prepareStep:  enforceQueryMemory(),
   stopWhen:     stepCountIs(10),
 });
 
@@ -290,6 +297,21 @@ const stream = createUIMessageStream({
 return createUIMessageStreamResponse({ stream });
 ```
 
+Tool descriptions and instructions are advisory — models routinely skip
+"bookkeeping" tool calls. `enforceQueryMemory()` makes retrieval mechanical
+instead: it checks the executed tool calls each step and, until `query_memory`
+has run, holds the model at `toolChoice: 'required'` — it can still call other
+tools in any order, but cannot finish with a text-only answer before querying
+memory. After `graceSteps` steps (default: 3) without a query, the next step
+forces `query_memory` directly, so the loop can never exhaust its budget
+without the query having run; `{ graceSteps: 0 }` forces it as the literal
+first step. Keep `graceSteps` at least two below your `stopWhen` budget so the
+forced query and the final answer both fit. There is no equivalent forcing
+hook for `store_memory` (the loop ends when the model emits final text) — if
+persistence must be guaranteed, check `steps` in `onFinish` and call
+`store_memory.execute()` yourself, or use provider / middleware mode where
+both directions happen unconditionally in code.
+
 ### Tools Mode with MCP (optional)
 
 Still tools mode — not a separate mode. `toolsWithMcp()` connects to an MCP
@@ -299,7 +321,7 @@ remember *and* use external tooling. Requires the optional peer `@ai-sdk/mcp`
 passed.
 
 ```ts
-import { createNams } from '@neo4j-labs/nams-ai-provider';
+import { createNams, enforceQueryMemory } from '@neo4j-labs/nams-ai-provider';
 import { openai } from '@ai-sdk/openai';
 import { ToolLoopAgent, stepCountIs } from 'ai';
 
@@ -307,13 +329,18 @@ const nams = createNams({ apiKey: process.env.MEMORY_API_KEY! });
 
 const { tools, close } = await nams.toolsWithMcp(
   { userId: session.userId },
-  { url: 'https://mcp.example.com/mcp', headers: { Authorization: `Bearer ${token}` } },
+  {
+    url:        'https://mcp.example.com/mcp',
+    headers:    { Authorization: `Bearer ${token}` },
+    toolPrefix: 'mcp_',
+  },
 );
 
 const agent = new ToolLoopAgent({
-  model: openai('gpt-5.4-mini'),
-  tools, // query_memory + store_memory + all MCP server tools
-  stopWhen: stepCountIs(10),
+  model:       openai('gpt-5.4-mini'),
+  tools,       // query_memory + store_memory + mcp_* server tools
+  prepareStep: enforceQueryMemory(),  // memory queried before answering, MCP tools in any order
+  stopWhen:    stepCountIs(10),
 });
 
 try {
@@ -327,13 +354,30 @@ try {
 When the MCP config is omitted, `toolsWithMcp(scope)` behaves exactly like
 `tools(scope)` with a no-op `close`.
 
-> **Merging is for complementary tools, not overlapping ones.** This is meant
-> to pair NAMS memory with *unrelated* tooling from an MCP server (search,
-> filesystem, domain APIs, etc.) — not another memory implementation. If the
-> MCP server happens to expose a tool named `query_memory` or `store_memory`,
-> its tool silently takes precedence (`{ ...namsTools, ...mcpTools }`), and a
-> warning is logged via the configured `logger` so the collision doesn't go
-> unnoticed.
+### Combining tools mode with middleware (hybrid)
+
+Middleware and tools modes are not mutually exclusive — one `createNams`
+instance can serve both. The middleware-wrapped model injects baseline memory
+context on every call, while the tools let the model run targeted searches and
+explicit writes on top. This mirrors the "core memory injected each turn +
+memory tool for on-demand search" pattern from the
+[AI SDK custom memory tool guide](https://ai-sdk.dev/cookbook/guides/custom-memory-tool):
+
+```ts
+const nams  = createNams({ apiKey: process.env.MEMORY_API_KEY! });
+const scope = { userId: session.userId };
+
+const agent = new ToolLoopAgent({
+  model:    nams.wrap(openai('gpt-5.4-mini'), scope), // baseline context injected every call
+  tools:    nams.tools(scope),                        // targeted search + explicit writes
+  stopWhen: stepCountIs(10),
+});
+```
+
+In this setup, skip `enforceQueryMemory()` — the middleware already guarantees
+retrieval unconditionally in code, so forcing `query_memory` as well would
+just spend an extra step re-fetching similar context. The enforcement hook is
+for pure tools mode, where the tool call is the *only* retrieval path.
 
 ---
 

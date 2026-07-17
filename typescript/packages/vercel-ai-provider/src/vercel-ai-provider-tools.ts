@@ -6,7 +6,14 @@
  * (an optional extension of tools mode, not a separate mode).
  */
 
-import { tool, zodSchema, type LanguageModel, type ToolSet } from 'ai';
+import {
+  tool,
+  zodSchema,
+  type LanguageModel,
+  type PrepareStepFunction,
+  type Tool,
+  type ToolSet,
+} from 'ai';
 import { z } from 'zod';
 import {
   makeClient,
@@ -55,6 +62,8 @@ export interface NamsToolsOptions extends NamsConfig, NamsScope {
 export interface McpConfig {
   url: string;
   headers?: Record<string, string>;
+  /** Prepended to every MCP tool name (e.g. `'mcp_'`), namespacing them away from `query_memory`/`store_memory`. */
+  toolPrefix?: string;
 }
 
 export interface NamsToolsWithMcpOptions extends NamsToolsOptions {
@@ -80,7 +89,7 @@ export function createNamsMemoryTools(options: NamsToolsOptions) {
   const query_memory = tool<QueryInput, QueryOutput>({
     description:
       'Search NAMS (Neo4j Agent Memory System) for context relevant to the current message. ' +
-      'Call this FIRST every turn before answering.',
+      'Call this before answering, every turn.',
     inputSchema: zodSchema(querySchema),
     execute: async ({ query, limit }) => {
       try {
@@ -99,7 +108,8 @@ export function createNamsMemoryTools(options: NamsToolsOptions) {
   const store_memory = tool<StoreInput, StoreOutput>({
     description:
       'Persist important information to NAMS (Neo4j graph). ' +
-      'Call this AFTER your response to save facts, preferences, and patterns.',
+      'Call this BEFORE giving your final answer whenever the conversation ' +
+      'contains facts, preferences, or patterns worth remembering.',
     inputSchema: zodSchema(storeSchema),
     execute: async ({ content, type, confidence, tags }) => {
       try {
@@ -121,6 +131,51 @@ export function createNamsMemoryTools(options: NamsToolsOptions) {
   return { query_memory, store_memory };
 }
 
+export interface EnforceQueryMemoryOptions {
+  /**
+   * How many steps the model may spend on other tools before `query_memory`
+   * is forced directly. During the grace window a text-only answer is blocked
+   * (`toolChoice: 'required'`) but the model picks which tools to call; once
+   * the window is exhausted the next step forces `query_memory` itself, so
+   * the loop can never end without the query having run. `0` forces
+   * `query_memory` as the very first step. Default: 3.
+   *
+   * Keep this at least two below the agent's `stopWhen` step budget so the
+   * forced query and the final answer both still fit.
+   */
+  graceSteps?: number;
+}
+
+/**
+ * prepareStep hook that guarantees `query_memory` runs before the final
+ * answer, without dictating tool order. While `query_memory` is absent from
+ * the executed tool calls, each step requires *some* tool call (the model may
+ * read files, hit MCP tools, etc.), so it cannot finish with a text-only
+ * answer; after `graceSteps` steps it is forced to call `query_memory`
+ * directly. Once `query_memory` has run, all constraints drop.
+ *
+ * ```ts
+ * const agent = new ToolLoopAgent({
+ *   model, tools,
+ *   prepareStep: enforceQueryMemory(),
+ *   stopWhen: stepCountIs(10),
+ * });
+ * ```
+ */
+export function enforceQueryMemory<
+  TOOLS extends ToolSet & { query_memory: Tool },
+>(options: EnforceQueryMemoryOptions = {}): PrepareStepFunction<TOOLS> {
+  const graceSteps = options.graceSteps ?? 3;
+  return ({ stepNumber, steps }) => {
+    const queried = steps.some(step =>
+      step.toolCalls.some(call => call.toolName === 'query_memory'));
+    if (queried) return undefined;
+    return stepNumber < graceSteps
+      ? { toolChoice: 'required' }
+      : { toolChoice: { type: 'tool', toolName: 'query_memory' as Extract<keyof TOOLS, string> } };
+  };
+}
+
 /**
  * Async variant of createNamsMemoryTools. Optionally connects to an MCP
  * server and merges its tools with the NAMS memory tools.
@@ -137,12 +192,17 @@ export async function createNamsTools(options: NamsToolsWithMcpOptions): Promise
     transport: { type: 'http', url: options.mcp.url, headers: options.mcp.headers },
   });
 
-  const mcpTools = await mcpClient.tools();
+  const rawMcpTools = await mcpClient.tools();
+  const prefix = options.mcp.toolPrefix;
+  const mcpTools: ToolSet = prefix
+    ? Object.fromEntries(Object.entries(rawMcpTools).map(([name, t]) => [`${prefix}${name}`, t]))
+    : rawMcpTools;
 
   const collisions = Object.keys(mcpTools).filter(name => name in namsTools);
   if (collisions.length > 0) {
     resolveLogger(options).warn(
-      `MCP tool(s) [${collisions.join(', ')}] share a name with NAMS memory tools and will override them`,
+      `MCP tool(s) [${collisions.join(', ')}] share a name with NAMS memory tools and will override them` +
+      (prefix ? '' : ' — set mcp.toolPrefix to namespace MCP tools and avoid this'),
     );
   }
 
