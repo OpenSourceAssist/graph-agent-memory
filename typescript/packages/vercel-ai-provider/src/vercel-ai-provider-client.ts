@@ -134,6 +134,87 @@ function deduplicatePush(hits: MemoryHit[], seen: Set<string>, hit: MemoryHit): 
   hits.push(hit);
 }
 
+// Keyword + case-variant fallback
+//
+// Verified live against the hosted NAMS API: searchEntities/searchMessages do a
+// literal, case-sensitive substring match 
+
+function titleCase(word: string): string {
+  return word.length ? word[0].toUpperCase() + word.slice(1) : word;
+}
+
+/** Significant query words (own case + Title Case), longest-first, capped. */
+function fallbackTerms(query: string, maxWords = 4): string[] {
+  const words = query
+    .split(/\s+/)
+    .filter(w => w.replace(/[^\p{L}\p{N}]/gu, '').length >= 3);
+  const significant = [...new Set(words)]
+    .sort((a, b) => b.length - a.length)
+    .slice(0, maxWords);
+
+  const variants = new Set<string>();
+  for (const w of significant) {
+    variants.add(w);
+    variants.add(titleCase(w));
+  }
+  return [...variants];
+}
+
+function tokenize(text: string): Set<string> {
+  return new Set(
+    text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean),
+  );
+}
+
+/** Rank candidates by case-insensitive word overlap with the original query. */
+function rankByOverlap<T>(candidates: T[], query: string, contentOf: (item: T) => string | undefined): T[] {
+  const queryTokens = tokenize(query);
+  const overlap = (item: T) => {
+    const tokens = tokenize(contentOf(item) ?? '');
+    let n = 0;
+    for (const t of tokens) if (queryTokens.has(t)) n++;
+    return n;
+  };
+  return [...candidates].sort((a, b) => overlap(b) - overlap(a));
+}
+
+/**
+ * Try `query` as-is first; if NAMS's literal substring match finds nothing,
+ * retry with individual query words (own case + Title Case), merge, dedupe,
+ * and rank the result by word overlap with the original query.
+ */
+async function searchWithFallback<T>(
+  query: string,
+  search: (q: string) => Promise<T[]>,
+  contentOf: (item: T) => string | undefined,
+  log: NamsLogger,
+  label: string,
+): Promise<T[]> {
+  const direct = await search(query).catch((e: unknown) => { log.warn(`${label} failed`, e); return [] as T[]; });
+  if (direct.length > 0) return direct;
+
+  const terms = fallbackTerms(query);
+  if (terms.length === 0) return direct;
+
+  const perTerm = await Promise.all(
+    terms.map(t => search(t).catch((e: unknown) => {
+      log.warn(`${label} fallback ("${t}") failed`, e);
+      return [] as T[];
+    })),
+  );
+
+  const seen = new Set<string>();
+  const merged: T[] = [];
+  for (const item of perTerm.flat()) {
+    const key = contentOf(item)?.trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+
+  return rankByOverlap(merged, query, contentOf);
+}
+
 async function searchPastConversations(
   client: MemoryClient,
   userId: string,
@@ -190,11 +271,20 @@ export async function retrieveMemories(
 ): Promise<MemoryHit[]> {
   const log = getLogger(client);
   const [shortHits, longHits, reasoningSteps, crossHits] = await Promise.all([
-    client.shortTerm
-      .searchMessages(query, { sessionId: convId, limit, threshold: RETRIEVAL.currentThreshold })
-      .catch((e: unknown) => { log.warn('searchMessages failed', e); return [] as any[]; }),
-    client.longTerm.searchEntities(query, { limit: RETRIEVAL.maxLongterm })
-      .catch((e: unknown) => { log.warn('searchEntities failed', e); return [] as any[]; }),
+    searchWithFallback(
+      query,
+      (q) => client.shortTerm.searchMessages(q, { sessionId: convId, limit, threshold: RETRIEVAL.currentThreshold }),
+      (m) => m.content,
+      log,
+      'searchMessages',
+    ),
+    searchWithFallback(
+      query,
+      (q) => client.longTerm.searchEntities(q, { limit: RETRIEVAL.maxLongterm }),
+      (e) => e.description ?? e.name,
+      log,
+      'searchEntities',
+    ),
     client.reasoning.listSteps(convId)
       .catch((e: unknown) => { log.warn('listSteps failed', e); return [] as any[]; }),
     searchPastConversations(client, scope.userId, convId, query),
