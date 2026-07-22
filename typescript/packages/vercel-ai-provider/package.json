@@ -1,0 +1,77 @@
+{
+  "name": "@neo4j-labs/nams-ai-provider",
+  "version": "0.1.0",
+  "description": "Neo4j Agent Memory (NAMS) provider for the Vercel AI SDK \u2014 persistent cross-session memory backed by Neo4j",
+  "keywords": [
+    "ai",
+    "ai-sdk",
+    "vercel-ai",
+    "provider",
+    "neo4j",
+    "memory",
+    "agent-memory",
+    "nams",
+    "langchain",
+    "llm"
+  ],
+  "homepage": "https://github.com/neo4j-labs/agent-memory/tree/main/typescript/packages/vercel-ai-provider",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neo4j-labs/agent-memory.git",
+    "directory": "typescript/packages/vercel-ai-provider"
+  },
+  "license": "Apache-2.0",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@ai-sdk/mcp": "~1.0.0",
+    "@ai-sdk/provider": "~3.0.0",
+    "@neo4j-labs/agent-memory": "~0.4.0",
+    "ai": "~6.0.0",
+    "zod": "~3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/mcp": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@ai-sdk/mcp": "^1.0.0",
+    "@ai-sdk/openai": "^3.0.0",
+    "@ai-sdk/provider": "^3.0.0",
+    "@neo4j-labs/agent-memory": "^0.4.0",
+    "@types/node": "^20",
+    "ai": "^6.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0",
+    "zod": "^3.0.0"
+  }
+}
