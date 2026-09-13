@@ -6,6 +6,7 @@ No provider requests, model downloads, or database connections are made here.
 import ast
 import importlib
 import inspect
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ import pytest
 
 from neo4j_agent_memory.core.query import BoltCypherQuery
 from neo4j_agent_memory.extraction.base import ExtractedEntity, ExtractedRelation, ExtractionResult
+from neo4j_agent_memory.graph import queries
 from neo4j_agent_memory.memory.long_term import Entity, LongTermMemory, Preference
 from neo4j_agent_memory.memory.reasoning import ReasoningMemory
 from neo4j_agent_memory.memory.short_term import Conversation, Message, ShortTermMemory
@@ -108,6 +110,79 @@ def client_double():
         reasoning=create_autospec(ReasoningMemory, instance=True),
         query=create_autospec(BoltCypherQuery, instance=True),
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "example", ["first_agent_memory", "core_memory_recipes", "knowledge_graph"]
+)
+async def test_explicit_relationship_reads_match_the_actual_sdk_write_property(example):
+    """Compare authored Cypher with the real write path, without fake read rows."""
+    graph = SimpleNamespace(execute_write=AsyncMock())
+    store = LongTermMemory(graph)
+    await store.add_relationship(uuid4(), uuid4(), "WORKS_AT")
+    graph.execute_write.assert_awaited_once()
+    write_query, parameters = graph.execute_write.await_args.args
+    assert write_query == queries.CREATE_ENTITY_RELATIONSHIP
+    assert parameters["relation_type"] == "WORKS_AT"
+    stored_property = re.search(
+        r"\[r:RELATED_TO\s*\{\s*(\w+)\s*:\s*\$relation_type\s*\}", write_query
+    )
+    assert stored_property, "Identify the actual property bound to relationship_type"
+
+    # Python's AST joins adjacent literals, so this checks the full executable
+    # query rather than a comment, method signature or independently canned row.
+    read_queries = [
+        node.value
+        for node in ast.walk(ast.parse((EXAMPLES / f"{example}.py").read_text()))
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and "MATCH " in node.value
+        and "RELATED_TO" in node.value
+    ]
+    assert len(read_queries) == 1
+    read_property = re.search(r"\br\.(\w+)\s+(?:=\s*'WORKS_AT'|AS\s+relation\b)", read_queries[0])
+    assert read_property, "Identify the logical name read by the example's Cypher"
+    assert read_property[1] == stored_property[1], (
+        f"{example} reads r.{read_property[1]}, but add_relationship writes r.{stored_property[1]}"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_relation", [None, "", "   ", 0])
+async def test_knowledge_graph_inspection_rejects_any_empty_or_invalid_relation(
+    lessons, invalid_relation, capsys
+):
+    lesson = lessons["knowledge_graph"]
+    client = client_double()
+    client.short_term.get_conversation.return_value = Conversation(
+        session_id=lesson.SESSION,
+        messages=[Message(role="user", content=text) for text in lesson.DOCUMENTS.values()],
+    )
+    client.query.cypher.side_effect = [
+        [{"name": "Maya"}, {"name": "Northstar"}],
+        [
+            {"source": "Maya", "relation": "works_at", "target": "Northstar"},
+            {"source": "Maya", "relation": invalid_relation, "target": "Northstar"},
+        ],
+    ]
+    with pytest.raises(AssertionError, match="Expected nonempty logical relationship names"):
+        await lesson.inspect_graph(client)
+    assert "Verified:" not in capsys.readouterr().out
+
+
+@pytest.mark.asyncio
+async def test_knowledge_graph_inspection_returns_nonempty_stored_triples(lessons, capsys):
+    lesson = lessons["knowledge_graph"]
+    client = client_double()
+    messages = [Message(role="user", content=text) for text in lesson.DOCUMENTS.values()]
+    client.short_term.get_conversation.return_value = Conversation(
+        session_id=lesson.SESSION, messages=messages
+    )
+    rows = [{"source": "Maya", "relation": "works_at", "target": "Northstar"}]
+    client.query.cypher.side_effect = [[{"name": "Maya"}, {"name": "Northstar"}], rows]
+    assert await lesson.inspect_graph(client) == (rows, messages)
+    assert "Maya --works_at--> Northstar" in capsys.readouterr().out
 
 
 @pytest.mark.asyncio

@@ -8,13 +8,14 @@ We will store a short conversation, a relationship between two entities, and an 
 
 image::diagrams/message-chain.svg["A conversation linked to an ordered chain of messages",width=100%,link=self]
 
-This lesson uses the Python SDK from the current repository checkout and a dedicated local Bolt database. The complete programs below are maintained as Antora examples. Offline contract tests exercise their assembly and control flow; provider and database success still need to be observed in your environment.
+This lesson uses the Python SDK from the current repository checkout and a dedicated local Bolt database. The complete programs below are maintained as Antora examples. We will use the seed, verification, and search commands to check provider access and persisted data in this environment.
 
 anchor:_prerequisites[]
 
 == Before you begin
 
-* Python 3.10 or newer, Git, and a running Docker engine.
+* Python 3.10 or newer, Git, and a running local Docker engine.
+* A POSIX shell, such as Bash or Zsh, for the commands below.
 * An OpenAI API key with access to `text-embedding-3-small`.
 * Free local ports 7474 and 7687. Stop the database from an earlier lesson before starting this one.
 
@@ -44,7 +45,7 @@ anchor:_step_2_set_up_neo4j[]
 [source,bash]
 ----
 docker run -d --name neo4j-docs-first \
-  -p 7474:7474 -p 7687:7687 \
+  -p 127.0.0.1:7474:7474 -p 127.0.0.1:7687:7687 \
   -e NEO4J_AUTH=neo4j/docs-local-password \
   neo4j:5.26-community
 python docs/modules/ROOT/examples/wait_for_tutorial_neo4j.py neo4j-docs-first
@@ -71,7 +72,7 @@ The maintained helper `docs/modules/ROOT/examples/core_memory_settings.py` is im
 include::example$core_memory_settings.py[]
 ----
 
-The helper explicitly selects Bolt, disables automatic extraction and enrichment, and selects the embedding adapter. This makes manual storage and explicit extraction separate operations. After reading it, confirm both files exist with the run command in the next step; no code fragments need to be spliced together.
+The helper explicitly selects Bolt, disables automatic extraction and enrichment, and selects the embedding adapter. This lesson stores the supplied entities directly. The next step runs the complete program from the checkout.
 
 anchor:_step_4_create_your_first_memory_client[]
 
@@ -102,6 +103,8 @@ python docs/modules/ROOT/examples/first_agent_memory.py verify
 
 Expected: `Verified: stored history, preference, and relationship survived restart`, followed by the two stored messages, `Preference: Use concise answers`, and `Maya Chen works at Northstar Robotics`.
 
+This command starts a new Python process. Neo4j continues running between the two commands.
+
 The history lookup uses the known session ID, and preference retrieval uses the known user identifier. These identifiers organize data; your application must authorize the caller before choosing them. The small demonstration database has a single application user.
 
 anchor:_step_8_search_your_context_graph[]
@@ -124,10 +127,10 @@ Open `http://localhost:7474` and sign in as `neo4j` with `docs-local-password`. 
 [source,cypher]
 ----
 MATCH (person:Entity {name: 'Maya Chen'})-[r:RELATED_TO]->(company:Entity)
-RETURN person.name, r.relation_type, company.name
+RETURN person.name, r.type, company.name
 ----
 
-Expected: Maya Chen, WORKS_AT, and Northstar Robotics. The SDK stores the logical relationship name as `relation_type` on a `RELATED_TO` relationship.
+Expected: Maya Chen, WORKS_AT, and Northstar Robotics. The explicit `add_relationship()` call stores the logical relationship name as `type` on a `RELATED_TO` relationship.
 
 anchor:_what_youve_built[]
 
@@ -143,10 +146,10 @@ Remove only the database created for this lesson:
 
 [source,bash]
 ----
-docker rm -f neo4j-docs-first
+docker rm -fv neo4j-docs-first
 ----
 
-Expected: Docker prints `neo4j-docs-first`. This container has no mounted persistent volume, so removing it deletes this lesson's database. Keep the checkout and virtual environment for the next lesson.
+Expected: Docker prints `neo4j-docs-first`. The `-v` option also removes the anonymous data and log volumes created by the Neo4j image. This deletes the dedicated lesson database. Keep the checkout and virtual environment. With this environment still active and the repository root as your working directory, continue at xref:tutorials/conversation-memory.adoc#_step_2_set_up_neo4j[step 2 of the next lesson] after checking its additional chat-model prerequisite.
 
 anchor:_troubleshooting[]
 

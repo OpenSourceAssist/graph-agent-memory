@@ -57,7 +57,7 @@ async def verify(client):
     rows = await client.query.cypher(
         "MATCH (person:Entity {name: $person})-[r:RELATED_TO]->"
         "(company:Entity {name: $company}) "
-        "WHERE r.relation_type = 'WORKS_AT' "
+        "WHERE r.type = 'WORKS_AT' "
         "RETURN person.name AS person, company.name AS company",
         {"person": "Maya Chen", "company": "Northstar Robotics"},
     )

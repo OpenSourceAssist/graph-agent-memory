@@ -37,7 +37,7 @@ SCHEMA = DomainSchema(
 EDGES_QUERY = (
     "MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity) "
     "WHERE a.name IN $names AND b.name IN $names "
-    "RETURN a.name AS source, r.relation_type AS relation, b.name AS target"
+    "RETURN a.name AS source, r.type AS relation, b.name AS target"
 )
 
 
@@ -140,7 +140,10 @@ async def inspect_graph(client):
     )
     rows = await client.query.cypher(EDGES_QUERY, {"names": [r["name"] for r in provenance]})
     assert provenance, "Expected EXTRACTED_FROM provenance"
-    assert rows, "Expected RELATED_TO edges with relation_type properties"
+    assert rows, "Expected RELATED_TO edges"
+    assert all(isinstance(row["relation"], str) and row["relation"].strip() for row in rows), (
+        "Expected nonempty logical relationship names in RELATED_TO.type"
+    )
     for row in rows:
         print(f"{row['source']} --{row['relation']}--> {row['target']}")
     print(

@@ -55,7 +55,7 @@ anchor:_create_relationships[]
 
 == Preserve relationship and source meaning
 
-The SDK stores `RELATED_TO` relationships with `relation_type` as a property. The current `add_relationship` write does not persist its `attributes` argument; do not depend on a provenance attribute surviving that call. Use `link_entity_to_message` for `EXTRACTED_FROM` links and `get_entity_provenance` for inspection. The xref:tutorials/knowledge-graph.adoc[document tutorial] demonstrates complete extraction and provenance storage.
+Explicit `add_relationship` calls store the logical relationship name in `RELATED_TO.type`; automatic message extraction uses the separate `RELATED_TO.relation_type` property. The current `add_relationship` write does not persist its `attributes` argument; do not depend on a provenance attribute surviving that call. Use `link_entity_to_message` for `EXTRACTED_FROM` links and `get_entity_provenance` for inspection. The xref:tutorials/knowledge-graph.adoc[document tutorial] demonstrates complete extraction and provenance storage.
 
 anchor:_update_entities[]
 anchor:_delete_entities[]

@@ -137,10 +137,10 @@ Expected: both source messages linked to extracted entities. Then inspect relati
 [source,cypher]
 ----
 MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity)
-RETURN a.name, r.relation_type, b.name, r.confidence
+RETURN a.name, r.type, b.name, r.confidence
 ----
 
-Expected: the same stored triples printed by `inspect`. The SDK uses `RELATED_TO` with a logical `relation_type` property; it does not create a physical `works_at` relationship type. `attributes` passed to `add_relationship` are currently not persisted by this write path, so provenance is stored through the dedicated message link instead.
+Expected: the same stored triples printed by `inspect`, each with a nonempty logical relationship name. This lesson saves extracted candidates through explicit `add_relationship` calls, which store that name in `RELATED_TO.type`; they do not create a physical `works_at` relationship type. Automatic message extraction uses the separate `RELATED_TO.relation_type` property. `attributes` passed to `add_relationship` are currently not persisted by this write path, so provenance is stored through the dedicated message link instead.
 
 anchor:_step_6_use_the_knowledge_graph_with_an_agent[]
 

@@ -66,7 +66,7 @@ async def entities(client, run_id):
     assert fact.as_triple == (person.name, "works_at", company.name)
     rows = await client.query.cypher(
         "MATCH (a:Entity {id: $source})-[r:RELATED_TO {id: $edge}]->(b:Entity) "
-        "RETURN a.name AS source, r.relation_type AS relation, b.name AS target",
+        "RETURN a.name AS source, r.type AS relation, b.name AS target",
         {"source": str(person.id), "edge": str(edge.id)},
     )
     assert rows == [{"source": person.name, "relation": "WORKS_AT", "target": company.name}]
