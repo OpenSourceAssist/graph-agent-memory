@@ -204,7 +204,7 @@ Equivalent `make` targets: `make test-examples-quick` and `make test-examples`. 
 
 1. Add a directory under `examples/` (or a single `.py` for a script).
 2. Pin the library as `neo4j-agent-memory[...]>=0.5.0,<0.7` in `requirements.txt` or `pyproject.toml`, and read every model id from an environment variable with a current default.
-3. Include a README following the [Neo4j Labs guidelines](https://github.com/neo4j-labs) — Labs badge, status badge, community support badge, disclaimer, prerequisites, run steps, expected output, support section, and a "verified against" footer naming the library version, the framework versions you tested, and the date.
+3. Include a README following the [Neo4j Labs guidelines](https://github.com/neo4j-labs) — Labs badge, status badge, community support badge, disclaimer, prerequisites, run steps, expected output, support section, and a verification note naming the exact source commit, installed SDK/framework artifacts, checks run, and date. Keep prior reports explicitly historical and distinguish mocked checks from live-service results.
 4. Add a smoke test under `tests/examples/`. Mirror an existing one such as [`tests/examples/test_buffered_writes_example.py`](../tests/examples/test_buffered_writes_example.py) for the structure, and mark the classes that need a database with `@pytest.mark.requires_neo4j`.
 5. Register the test in `.github/workflows/ci-python.yml` under `example-tests-quick` if it needs no Neo4j (`example-tests` picks up the whole directory automatically).
 6. Add a row to the index above — `tests/examples/test_examples_registry.py` enforces it.
@@ -229,4 +229,6 @@ Apache 2.0 — see the main `neo4j-agent-memory` repository for details.
 
 ---
 
-_Verified against `neo4j-agent-memory` 0.6.0-dev (in-tree; NAMS hosted-backend support shipped in v0.4.0, workspace addressing and the ontology surface in v0.5.0) and [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory) 0.4.1 on npm, on 2026-09-10. Examples pinning unreleased surface say so in their own footers._
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+
+> _Verified against `neo4j-agent-memory` 0.6.0-dev (in-tree; NAMS hosted-backend support shipped in v0.4.0, workspace addressing and the ontology surface in v0.5.0) and [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory) 0.4.1 on npm, on 2026-09-10. Examples pinning unreleased surface say so in their own footers._

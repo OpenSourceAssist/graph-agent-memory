@@ -1,4 +1,4 @@
-= Team Memory in Your Editor
+= Share team memory with an editor
 :page-product: agent-memory
 :toclevels: 2
 :icons: font
@@ -20,9 +20,15 @@ seeds the workspace, and diagnoses the wiring.
 ====
 **Runnable example:**
 link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/claude-code-team-memory[`examples/claude-code-team-memory/`]
-ships the config files, the three scripts, and a `WALKTHROUGH.md` that proves
-persistence across quitting the editor.
+ships configuration templates, scripts and a `WALKTHROUGH.md` for testing persistence across quitting the editor. The walkthrough is not a live-service certification.
 ====
+
+== Prerequisites
+
+* This SDK checkout with `uv sync --extra nams --extra mcp` completed. The current factory helpers are absent from the selected PyPI 0.5.0 wheel.
+* An intended shared workspace, a workspace administrator for key creation, and a separate data-plane key for each editor that uses key authentication.
+* An installed MCP host. Its configuration and OAuth support must be checked against the installed version.
+* Agreement about what the team will share; user metadata and session naming do not enforce all memory search boundaries.
 
 == Pick a server
 
@@ -45,8 +51,8 @@ The two servers are not the same tool surface. Decide once:
 | `NEO4J_PASSWORD`, or `MEMORY_API_KEY` for `--backend nams`
 
 | Tools
-| **47**, scope-gated — `tools/list` returns only what the principal's scopes permit
-| **6** with `--profile core`, **16** with `--profile extended`
+| Scope-dependent; inspect the authenticated `tools/list` result
+| **6** registered with `--profile core`; extended registers **16** on Bolt or **20** on NAMS. Backend support still applies.
 
 | Operate
 | Nothing to run
@@ -57,84 +63,40 @@ Use the hosted server unless you need memory to stay inside a boundary it cannot
 reach. Details: xref:reference/nams-mcp.adoc[Hosted NAMS MCP Server] and
 xref:reference/mcp-tools.adoc[MCP Tools].
 
-== Step 1: one key per developer
+// Retain former section URLs at the current related topic.
+== Step 1: create one workspace key per developer
 
-A single key shared by four laptops cannot be revoked for one of them, and the
-audit trail says "the team". Mint one each with `client.auth` (NAMS only; on bolt
-the accessor is a `NotSupportedError` sentinel):
+anchor:_step_1_one_key_per_developer[]
 
-[source,python]
-----
-from neo4j_agent_memory import NamsSettings, connect
-
-client = await connect(NamsSettings())          # reads MEMORY_API_KEY
-
-key = await client.auth.create_api_key("alice-laptop", scopes=["memory:read", "memory:write"])
-print(key.key)                                   # plaintext, returned exactly once
-
-for existing in await client.auth.list_api_keys("ws_123"):
-    print(existing.id, existing.label, existing.created_at)   # metadata only
-
-rotated = await client.auth.rotate_api_key(key.id)   # mints a replacement, revokes the old
-await client.auth.revoke_api_key(old_key_id)         # effective on the next request
-----
+Key management requires an administrator credential or user token. The editor itself needs a *workspace* key with the intended data-plane scopes, bound to the team's workspace. Create it in the https://memory.neo4jlabs.com[NAMS dashboard] and store it in that editor's environment. A separate key per developer allows individual revocation.
 
 [IMPORTANT]
 ====
-`create_api_key()` does not send a `category`, and NAMS defaults an
-un-categorised create to an **admin** key — account-wide, all scopes, not bound
-to a workspace. The per-developer editor credential you want is a *workspace*
-key: data-plane scopes only, permanently bound to one workspace, unable to mint
-more keys. Create it from the dashboard, or `POST /v1/auth/api-keys` with
-`category: "workspace"`. See xref:reference/authentication.adoc[Authentication &
-API Keys].
+The current Python `create_api_key()` accessor does not send `category`. Do not use it to provision a workspace editor key: an uncategorized service request defaults to an admin key. If using REST provisioning, explicitly send `category: "workspace"` and `workspaceId` as described in xref:reference/authentication.adoc[key categories]. Verify service-side category/scope behavior before provisioning a team.
 ====
 
-Key management itself requires an admin key or a user token, and keys are
-owner-private: only their creator can list, reveal, rotate or revoke them. Static
-keys expire roughly 90 days after creation.
+== Step 2: seed a synthetic conversation and retain its ID
 
-== Step 2: seed what the editors should already know
+The maintained example defines its full `DECISIONS` transcript and handles the client lifecycle. From the repository root:
 
-An empty workspace answers nothing on day one. Write the team's decisions as a
-conversation and let server-side extraction build the entity graph:
-
-[source,python]
+[source,bash]
 ----
-conversation = await client.short_term.create_conversation("team-decisions")
-conversation_id = str(conversation.id)
-
-await client.short_term.bulk_add_messages(conversation_id, DECISIONS)   # ≤100 per call
-
-# NAMS extracts in a background pipeline: a read straight after the write can
-# legitimately come back empty. Await the pipeline instead of sleeping.
-status = await client.short_term.get_extraction_status(conversation_id)
-settled = await client.long_term.wait_for_extraction(
-    session_id=conversation_id,
-    expected_names=["Alice Nakamura", "Atlas"],
-    timeout=60.0,
-)
-entities = await client.long_term.search_entities("architecture decision", limit=10)
+uv run python examples/claude-code-team-memory/seed_workspace.py --dry-run
+uv run python examples/claude-code-team-memory/seed_workspace.py
 ----
 
-Prefer `expected_names` over `min_results`: NAMS entity search is
-nearest-neighbour and returns top-k whether or not anything actually matched.
+The first command prints fictional fixture decisions without writes. Review them before running the second command, which creates a conversation in the configured workspace and waits for extraction. Keep the printed conversation ID. A timeout exits unsuccessfully; do not treat a generic nonempty entity search as proof that this seed completed.
 
-[NOTE]
-====
-`add_preference` and `add_fact` raise `NotSupportedError` on NAMS — there is no
-preferences or facts endpoint. Carry that information in entity descriptions, or
-point the self-hosted server at your own Neo4j, where the `memory_add_preference`
-and `memory_add_fact` tools work. See
-xref:explanation/backends.adoc#capability-matrix[the capability matrix].
-====
+The fixture contains example architecture choices and invented benchmark anecdotes, not recommendations or measurements for your system. Replace it with approved team content only when ready. Preferences and facts are Bolt-only records; recording the same prose as a message does not recreate those APIs on NAMS.
 
+// Retain former section URLs at the current related topic.
 == Step 3: wire the editors
+
+anchor:_step_2_seed_what_the_editors_should_already_know[]
 
 === Claude Code — `.mcp.json` at the project root
 
-Project scope, so it is committed and every teammate gets it. `${VAR}` and
-`${VAR:-default}` are expanded from the environment, so no secret lands in git.
+This is a project-scoped template. Configure the hosted or self-hosted entry you selected; do not assume both address the same storage. Confirm environment substitution in your installed host before using `$\{VAR}` placeholders.
 
 [source,json]
 ----
@@ -165,7 +127,7 @@ including a workspace-selector step.
 
 === Claude Desktop — `claude_desktop_config.json`
 
-Desktop speaks stdio, so a remote server goes through the `mcp-remote` shim:
+For a desktop host configuration that launches stdio commands, a remote server can use an explicitly selected `mcp-remote` bridge:
 
 [source,json]
 ----
@@ -179,15 +141,11 @@ Desktop speaks stdio, so a remote server goes through the `mcp-remote` shim:
 }
 ----
 
-Desktop does not inherit your shell environment and does not expand `${VAR}`, so
-values for a self-hosted entry go in the file — keep it out of git, or install the
-`.mcpb` bundle instead (`deploy/mcpb/manifest.json`; the example's
-`bundle/build.sh` packages it), which makes Desktop prompt for `NEO4J_PASSWORD`
-rather than storing it in JSON.
+GUI hosts may have a different environment from your shell. Use the installed host's supported secret mechanism and verify the executable path. The example also includes an MCP bundle; inspect its manifest and build instructions before installing it.
 
 === Cursor — `.cursor/mcp.json`
 
-Same `mcpServers` shape. If your build does not expand `${VAR}`, paste the key
+Same `mcpServers` shape. If your build does not expand `$\{VAR}`, paste the key
 into the `Authorization` header and keep the file untracked.
 
 == Step 4: diagnose before you debug
@@ -200,13 +158,13 @@ extraction has settled for the seeded conversation.
 
 [source,bash]
 ----
-uv run python doctor.py --configs-only    # offline: no key, no network
-uv run python doctor.py                   # + live NAMS checks
+uv run python examples/claude-code-team-memory/doctor.py --configs-only    # offline: no key, no network
+uv run python examples/claude-code-team-memory/doctor.py --conversation-id RETURNED_ID
 ----
 
 Rather than hard-coding the tool counts, it registers each profile on a throwaway
 `FastMCP` instance with the library's own registrar and lists what came back — so
-the "6 and 16" claim in this page cannot drift away from the code. Read
+the local Bolt core/extended counts can be checked against this checkout. This does not enumerate an authenticated hosted server. Read
 `check_tool_surface()` in `doctor.py` for the dozen lines that do it.
 
 == Choosing a profile
@@ -216,25 +174,32 @@ the "6 and 16" claim in this page cannot drift away from the code. Read
 | Profile | Use it when
 
 | `core` (6)
-| Day-to-day coding. The full read/write cycle — search, context, store message,
-add entity/preference/fact — and nothing else competing for context window.
+| A smaller tool inventory. Preferences/facts are usable with Bolt only; NAMS callers must also avoid unsupported preference searches in default context paths.
 
-| `extended` (16)
+| `extended` (16 Bolt / 20 NAMS registrations)
 | Investigating memory itself: `graph_query` for ad-hoc read-only Cypher, the
 reasoning-trace trio, `memory_export_graph`, session browsing.
 
-| Hosted NAMS (47)
+| Hosted NAMS (scope-dependent)
 | Ontology editing, entity review, Skills, workspace administration. Scopes —
 not a flag — decide what a given key sees.
 |===
 
 `--session-strategy per_day` gives the self-hosted server one session id per user
-per day (`"{user_id}-YYYY-MM-DD"`), so a day's work is one recallable thread
+per day (`"\{user_id}-YYYY-MM-DD"`), so a day's work is one recallable thread
 instead of a new one per editor restart. Set `MCP_USER_ID` to distinguish people.
+
+== Verify sharing after an editor restart
+
+. Use the retained conversation ID to request its messages through the selected server's actual tool schema. Confirm an exact sentence from the seeded fixture.
+. Quit the editor, reopen it and repeat that read without pasting the sentence into the new prompt.
+. Confirm another authorized team editor can read the same workspace/conversation. Test access to an unauthorized workspace separately; shared user names or matching session strategies are not evidence of authorization.
+
+If the host does not expose a conversation read for your scopes, inspect `tools/list` and use an authorized SDK readback instead of claiming successful recall.
 
 == See also
 
-* xref:reference/nams-mcp.adoc[Hosted NAMS MCP Server] — the 47-tool surface, OAuth endpoints, the two hostnames.
+* xref:reference/nams-mcp.adoc[Hosted NAMS MCP Server] — scope-dependent tools and documented service authentication.
 * xref:reference/mcp-tools.adoc[MCP Tools] — every self-hosted tool, resource and prompt.
 * xref:tutorials/mcp-server.adoc[Connect Claude Desktop to Your Knowledge Graph] — the self-hosted path end to end.
 * xref:reference/authentication.adoc[Authentication & API Keys] — workspace vs admin keys.

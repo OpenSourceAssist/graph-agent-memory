@@ -120,4 +120,6 @@ One more difference is invisible here but worth knowing: on bolt `add_entity` re
 
 ---
 
-_Verified against `neo4j-agent-memory` 0.6.0-dev (branch `examples-updates`) **and** the released 0.5.0 that the PEP 723 header resolves from PyPI; Python 3.12, uv 0.11.29, Neo4j 5.26-community, sentence-transformers 6.x embeddings on bolt, NAMS transport mocked (`tests/examples/test_hello_memory_example.py`) — 2026-09-10. Unlike the other examples, this one uses only released surface on purpose, so a stranger can run it before cloning anything; add `--with-editable .` to the `uv run` command to exercise the working tree instead._
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+
+> _Verified against `neo4j-agent-memory` 0.6.0-dev (branch `examples-updates`) **and** the released 0.5.0 that the PEP 723 header resolves from PyPI; Python 3.12, uv 0.11.29, Neo4j 5.26-community, sentence-transformers 6.x embeddings on bolt, NAMS transport mocked (`tests/examples/test_hello_memory_example.py`) — 2026-09-10. Unlike the other examples, this one uses only released surface on purpose, so a stranger can run it before cloning anything; add `--with-editable .` to the `uv run` command to exercise the working tree instead._

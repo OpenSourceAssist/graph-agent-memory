@@ -6,11 +6,19 @@ on:
     paths:
       - 'typescript/**'
       - '.github/workflows/ci-typescript.yml'
+      - 'docs/modules/ROOT/pages/tutorials/*typescript.adoc'
+      - 'docs/modules/ROOT/pages/how-to/typescript/**'
+      - 'docs/modules/ROOT/pages/reference/typescript-api.adoc'
+      - 'docs/modules/ROOT/pages/sdks/typescript.adoc'
   pull_request:
     branches: [main]
     paths:
       - 'typescript/**'
       - '.github/workflows/ci-typescript.yml'
+      - 'docs/modules/ROOT/pages/tutorials/*typescript.adoc'
+      - 'docs/modules/ROOT/pages/how-to/typescript/**'
+      - 'docs/modules/ROOT/pages/reference/typescript-api.adoc'
+      - 'docs/modules/ROOT/pages/sdks/typescript.adoc'
 
 permissions:
   contents: read

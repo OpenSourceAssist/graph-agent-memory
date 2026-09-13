@@ -1,156 +1,119 @@
-= Skills Quickstart (Preview)
+= Distil and download a skill from a recorded procedure
 :page-product: agent-memory
 :page-pagination:
-:toclevels: 3
+:toclevels: 2
 :sectanchors:
-:icons: font
-:source-highlighter: highlight.js
 
-[NOTE]
-====
-icon:flask[] *Preview.* Agent Skills is a NAMS feature in preview, reachable over
-REST and MCP only (no SDK method yet). This walkthrough uses `curl`; the same
-steps are available as xref:reference/nams-mcp.adoc[MCP tools]
-(`skill_generate`, `skill_run_status`, …) for agent-driven use.
-====
+We will seed one simulated refund-decision procedure in an empty test workspace, request distillation, inspect the generated procedure and its provenance, then explicitly publish and download a ZIP if the service creates a skill. We will verify that the ZIP contains `SKILL.md`; loading or executing it in another agent is outside this lesson.
 
-[.lead]
-Distil a workspace's accumulated memory into a portable, provenance-grounded
-Agent Skill, then review, publish, and download it — end to end against the
-hosted NAMS service.
+NOTE: Agent Skills is a NAMS preview feature exposed through REST and MCP, not a skill-specific SDK accessor. A run can be withheld or fail. This lesson's local checks do not establish that a live workspace will pass the service's quality gates.
 
-== What you'll need
+This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
 
-* A NAMS API key with the `skills:read` and `skills:write` scopes (a workspace
-key carries these). https://memory.neo4jlabs.com[Sign up here].
-* A workspace that already holds some memory — ideally a handful of reasoning
-traces for a *single, repeatable procedure* (see xref:explanation/skills.adoc[Agent Skills]
-on why narrow scopes distil best).
-* `curl` and a JSON tool like `jq`.
+[[_what_youll_need]]
+== Before you begin
 
-Set your key and base URL once:
+* Python 3.10 or newer and Git.
+* A dedicated NAMS test workspace and its *workspace key*, using `https://memory.neo4jlabs.com/v1`.
+* Permission to create tutorial records in that workspace. Keep the same workspace key throughout the lesson.
+
+See xref:reference/authentication.adoc[Authentication] for obtaining the key before beginning. This path uses a workspace key; admin keys and custom deployments belong in xref:how-to/use-nams.adoc[the NAMS guide].
+
+Use an *empty* workspace reserved for this fixture, with `skills:read` and `skills:write` permission. The only distillation scope in this lesson is that workspace. All orders and refund decisions are simulated; the fixture never issues a payment.
 
 [source,bash]
 ----
-export NAMS_KEY="nams_xxxxxxxxxxxxxxxxxxxx"
-export NAMS="https://memory.neo4jlabs.com/v1"
-auth=(-H "Authorization: Bearer $NAMS_KEY" -H "Content-Type: application/json")
+git clone https://github.com/neo4j-labs/agent-memory.git
+cd agent-memory
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[nams]'
+python -c "import neo4j_agent_memory; print('SDK import verified')"
 ----
 
-== 1. Start a distillation run
-
-Kick off a run over a scope. `scope.type` is required — start with `workspace`,
-or narrow to a single `entity` / `ontology_class` for a cleaner result.
+Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
 
 [source,bash]
 ----
-curl -s "${auth[@]}" -X POST "$NAMS/skills/generate" \
-  -d '{"name": "refund-procedure", "scope": {"type": "workspace"}}'
-# => 202 {"runId": "run_123", "status": "queued"}
+export MEMORY_API_KEY="replace-with-your-workspace-key"
+export MEMORY_ENDPOINT="https://memory.neo4jlabs.com/v1"
+unset MEMORY_WORKSPACE_ID
+python -c "from neo4j_agent_memory import NamsSettings; s=NamsSettings(); print(s.backend, s.nams.endpoint)"
 ----
 
-== 2. Poll the run
+Expected: `nams https://memory.neo4jlabs.com/v1`. This validates configuration only; it does not authenticate or write data.
 
-Distillation is asynchronous (scope → snapshot → grounded synthesis → quality
-gates → package). Poll until it settles:
+[[_1_start_a_distillation_run]]
+== 1. Seed the exact procedure
 
-[source,bash]
-----
-curl -s "${auth[@]}" "$NAMS/skills/runs/run_123" | jq '{status, outcome, skillId}'
-----
-
-A run resolves to one of three outcomes:
-
-* `Created` — a skill draft passed the grounding and coverage gates.
-* `Withheld` — the scope held more than one procedure (or grounding was too low);
-the response suggests splitting it. This is normal for a broad `workspace` scope.
-* `Failed` — the run errored.
-
-If you get `Withheld`, re-run with a narrower scope.
-
-== 3. Inspect provenance
-
-Every claim and step is grounded in specific source nodes. Confirm the skill is
-_auditable, not invented_:
-
-[source,bash]
-----
-curl -s "${auth[@]}" "$NAMS/skills/{skillId}/explain-provenance" | jq
-----
-
-== 4. Review, then publish
-
-A skill must be approved before it can be published:
-
-[source,bash]
-----
-curl -s "${auth[@]}" -X POST "$NAMS/skills/{skillId}/review"  -d '{"decision": "approve"}'
-curl -s "${auth[@]}" -X POST "$NAMS/skills/{skillId}/publish"
-----
-
-Publishing signs a detached-JWS attestation. Verify it (or let any consumer
-verify offline against `/.well-known/skill-attest-jwks.json`):
-
-[source,bash]
-----
-curl -s "${auth[@]}" "$NAMS/skills/{skillId}/verify" | jq
-----
-
-== 5. Download and load the skill
-
-Download the `SKILL.md` package (a ZIP with `SKILL.md`, `provenance.json`, and
-`references/`) and hand it to an agent like any other
-link:https://agentskills.io[agentskills.io] skill:
-
-[source,bash]
-----
-curl -s "${auth[@]}" "$NAMS/skills/{skillId}/download" -o refund-procedure.zip
-----
-
-[IMPORTANT]
-====
-NAMS distils, reviews, and publishes skills; it does **not** run them. Skill
-_execution_ is dry-run planning only and gated off by default — the loading
-agent is responsible for actually performing the procedure.
-====
-
-== Prefer to script it?
-
-There is no `client.skill` SDK method yet, but the REST API is easy to drive from
-code. The same generate-then-poll loop in Python with `httpx`:
+The maintained script records three instances of the same three-step procedure: look up an order, check the return policy, and record a decision. It saves the returned conversation ID in `skills-tutorial-state.json`, then verifies the nine recorded steps before allowing distillation.
 
 [source,python]
 ----
-import asyncio
-import httpx
-
-NAMS = "https://memory.neo4jlabs.com/v1"
-HEADERS = {"Authorization": "Bearer nams_xxxxxxxxxxxxxxxxxxxx"}
-
-
-async def distil_skill() -> str:
-    async with httpx.AsyncClient(base_url=NAMS, headers=HEADERS) as http:
-        started = await http.post(
-            "/skills/generate",
-            json={"name": "refund-procedure", "scope": {"type": "workspace"}},
-        )
-        run_id = started.json()["runId"]
-
-        while True:
-            run = (await http.get(f"/skills/runs/{run_id}")).json()
-            if run["status"] != "running":
-                return run.get("skillId", "")
-            await asyncio.sleep(2.0)
-
-
-skill_id = asyncio.run(distil_skill())
+include::example$skills_quickstart.py[]
 ----
 
-For agent-driven use, the xref:reference/nams-mcp.adoc[hosted MCP tools]
-(`skill_generate`, `skill_run_status`, …) expose the same flow.
+[source,bash]
+----
+python docs/modules/ROOT/examples/skills_quickstart.py seed
+----
 
+Expected: `Verified fixture: conversation ...; 9 recorded steps`. The count can be higher only if the service returns additional records; inspect them before proceeding. A partial seed keeps its state file and stops instead of silently creating another fixture.
+
+[[_2_poll_the_run]]
+== 2. Generate and poll with real IDs
+
+anchor:_prefer_to_script_it[]
+
+[source,bash]
+----
+python docs/modules/ROOT/examples/skills_quickstart.py generate
+python docs/modules/ROOT/examples/skills_quickstart.py inspect
+----
+
+The first command saves the response's `runId`. The second polls that exact run for at most two minutes, with bounded HTTP requests. Both `queued` and `running` remain pending. A `Created` outcome must include `skillId`; `Withheld` and `Failed` stop without publication. Unknown states, HTTP errors, and missing IDs are errors, not success.
+
+Expected on creation: `Inspect skills-tutorial-review.json before running publish`. If the outcome is withheld, inspect the recorded response and stop this lesson; do not substitute a made-up skill ID or automatically retry a broader scope.
+
+[[_3_inspect_provenance]]
+== 3. Inspect the procedure and evidence
+
+[source,bash]
+----
+python -m json.tool skills-tutorial-review.json
+----
+
+Check that the generated procedure is limited to the simulated three-step workflow, carries the return-window and damage conditions, and does not claim that a payment was issued. Compare its provenance with the fixture conversation and steps. Provenance makes the result reviewable; it is not a truth guarantee.
+
+Do not continue to publication if the procedure misstates the fixture or requires additional review.
+
+[[_4_review_then_publish]]
+== 4. Publish only the reviewed result
+
+[source,bash]
+----
+python docs/modules/ROOT/examples/skills_quickstart.py publish
+----
+
+This command submits approval and publication for the saved `skillId`. Expected: `Published skill ID:` followed by that ID. The command is separate so reading or generating a draft does not silently approve it.
+
+[[_5_download_and_load_the_skill]]
+== 5. Download and inspect the package
+
+[source,bash]
+----
+python docs/modules/ROOT/examples/skills_quickstart.py download
+python -m zipfile -l simulated-refund-skill.zip
+python -m json.tool skills-tutorial-attestation.json
+----
+
+Expected: `Verified ZIP contains SKILL.md; saved simulated-refund-skill.zip`, followed by the archive listing. The separate attestation response must be inspected: a valid ZIP is not a verified signature, and a service without attestation configured may return an unsigned result. This lesson saves the archive without extracting arbitrary paths.
+
+The package is not loaded into an agent and no procedure is executed. Retain the state/review files for audit, then remove the exercise records using the workspace's supported management interface. There is no documented blanket delete endpoint assumed here.
+
+[[_next_steps]]
 == Next steps
 
-* xref:explanation/skills.adoc[Agent Skills] — the provenance model and lifecycle.
-* xref:reference/skills-api.adoc[Skills API] — the full REST + MCP surface.
-* xref:reference/nams-mcp.adoc[Hosted NAMS MCP Server] — drive these steps from an agent.
+* xref:explanation/skills.adoc[Agent Skills concepts and limits]
+* xref:reference/skills-api.adoc[Skills REST contract]
+* xref:reference/nams-mcp.adoc[Hosted MCP tools]

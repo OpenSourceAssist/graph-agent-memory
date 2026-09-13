@@ -6,13 +6,13 @@
 :icons: font
 :source-highlighter: highlight.js
 
-include::partial$backend-both.adoc[]
+include::partial$backend-bolt-only.adoc[]
 
-How to use `neo4j-agent-memory` with no LLM provider — useful for air-gapped deployments, environments without an `OPENAI_API_KEY`, or when you want fully deterministic, free, local extraction.
+How to use `neo4j-agent-memory` with no LLM provider — useful for air-gapped deployments, environments without an `OPENAI_API_KEY`, or when you want local extraction without hosted LLM calls.
 
 == Overview
 
-`MemorySettings.llm` is `Optional[LLMConfig]`. Set it to `None` to opt out of all LLM construction. Combine that with a local embedder (sentence-transformers) and a local extractor (spaCy and/or GLiNER) to get a working `MemoryClient` that never imports `openai`.
+`MemorySettings.llm` accepts a legacy config, a provider string, a provider instance, or `None`. Set it to `None` to opt out of all LLM construction. Combine that with a local embedder (sentence-transformers) and a local extractor (spaCy and/or GLiNER) to get a client that does not construct an LLM provider. A local embedding provider is a separate requirement; `llm=None` alone does not disable cloud embedding calls.
 
 == Prerequisites
 
@@ -22,9 +22,9 @@ pip install "neo4j-agent-memory[extraction,sentence-transformers]"
 python -m spacy download en_core_web_sm
 ----
 
-You also need a running Neo4j instance.
+You also need a running Neo4j instance and the local models downloaded into the deployment cache. Local model inference has compute costs and does not guarantee identical outputs across hardware or dependency versions.
 
-== Configuration
+== 1. Configure local providers
 
 [source,python]
 ----
@@ -61,12 +61,12 @@ This configuration is self-hosted (bolt) only. On the hosted service (NAMS) extr
 ====
 
 [[validation]]
-== Validation rules
+== 2. Check configuration validation
 
 `MemorySettings` raises a `ValidationError` at construction time if you set `llm=None` together with extraction settings that require an LLM:
 
 * `extraction.extractor_type == ExtractorType.LLM`, or
-* `extraction.enable_llm_fallback is True`.
+* `extraction.extractor_type == ExtractorType.PIPELINE` and `extraction.enable_llm_fallback is True`.
 
 The error message names both fields and points at the minimal fix.
 
@@ -80,7 +80,7 @@ If you _omit_ the `llm` field altogether (rather than passing `None`), the packa
 
 | `llm=None` + `extractor_type=SPACY/GLINER/NONE`, `enable_llm_fallback=False`
 | No
-| Fully local; `openai` is never imported.
+| No LLM construction. Use a local embedding provider as well to avoid cloud embedding calls.
 
 | `llm=None` + LLM-dependent extractor
 | —
@@ -95,7 +95,7 @@ If you _omit_ the `llm` field altogether (rather than passing `None`), the packa
 | Validator skips the auto-fill since no LLM stage is enabled.
 |===
 
-== Worked example
+== 3. Verify the local run
 
 A runnable script lives at `examples/no_llm/main.py` in the repository. It exercises all three memory layers with no LLM and fails fast when the local extraction stack is incomplete:
 
@@ -104,3 +104,10 @@ A runnable script lives at `examples/no_llm/main.py` in the repository. It exerc
 make neo4j-start
 uv run python examples/no_llm/main.py
 ----
+
+Confirm the example stores and retrieves messages, entities, and reasoning traces. Repeat after disabling outbound model-service access with all required models cached. Missing local model files are a setup failure, not evidence that a hosted fallback is required.
+
+// Preserve historical section links after the procedure was reorganized.
+anchor:_configuration[]
+anchor:_validation_rules[]
+anchor:_worked_example[]

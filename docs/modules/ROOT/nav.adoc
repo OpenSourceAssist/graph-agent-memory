@@ -1,5 +1,5 @@
 * xref:index.adoc[Agent Memory]
-** xref:getting-started.adoc[Getting Started]
+** xref:getting-started.adoc[Getting started]
 
 ** SDKs
 *** xref:sdks/python.adoc[Python SDK — neo4j-agent-memory]
@@ -24,7 +24,7 @@
 **** xref:tutorials/knowledge-graph-typescript.adoc[Knowledge Graph from Documents (TypeScript)]
 **** xref:tutorials/mcp-server-typescript.adoc[MCP Server (TypeScript)]
 
-** xref:how-to/index.adoc[How-To Guides]
+** xref:how-to/index.adoc[How-to guides]
 
 *** Pluggable Providers
 **** xref:how-to/bring-your-own-model.adoc[Bring Your Own Model]
@@ -54,7 +54,7 @@
 **** xref:how-to/reasoning-traces.adoc[Record Reasoning Traces]
 **** xref:how-to/audit-reasoning.adoc[Audit with TOUCHED Edges]
 
-*** Production Features
+*** Operational features
 **** xref:how-to/multi-tenancy.adoc[Multi-Tenant Memory]
 **** xref:how-to/buffered-writes.adoc[Buffered Writes]
 **** xref:how-to/consolidation.adoc[Memory Consolidation]
@@ -94,6 +94,7 @@
 **** xref:how-to/typescript/integrations-overview.adoc[Framework Integrations Overview]
 
 ** xref:reference/index.adoc[Reference]
+*** xref:reference/backend-capabilities.adoc[Backend capabilities and data scope]
 *** xref:reference/configuration.adoc[Configuration]
 *** xref:reference/environment-variables.adoc[Environment Variables]
 *** xref:reference/cli.adoc[CLI]

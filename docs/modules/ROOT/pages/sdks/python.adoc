@@ -1,71 +1,52 @@
-= Python SDK — neo4j-agent-memory
-:description: Install, configure, and use the Python SDK for Neo4j Agent Memory.
+= Python SDK
+:description: Select a Python SDK artifact or checkout, then choose Bolt or NAMS setup.
 
-The Python SDK is the original implementation of the agent-memory contract.
-It can talk to Neo4j directly over Bolt or to the hosted
-xref:reference/rest-api.adoc[NAMS] service over HTTP.
+The Python SDK connects directly to Neo4j over Bolt or to NAMS over HTTP. Supported methods, result shapes and data scope differ; see xref:reference/backend-capabilities.adoc[backend capabilities].
 
-== Install
+== Select a release or a checkout
 
-[source,bash]
-----
-pip install neo4j-agent-memory
-# or, with uv:
-uv add neo4j-agent-memory
-----
+The public PyPI package and this source checkout can have different APIs even when their version strings match. On 13 September 2026, PyPI's latest wheel was `0.5.0`; its exports did not include the current `connect`, `BoltSettings` or `NamsSettings` factory entry points. These docs' factory examples therefore require the checkout until a matching artifact is verified.
 
-Optional extras (extractors, framework integrations, embeddings):
+To install a selected release:
 
 [source,bash]
 ----
-pip install "neo4j-agent-memory[all]"
+python -m pip install 'neo4j-agent-memory==0.5.0'
 ----
 
+Use that release's documentation and inspect its available extras/API. To run the maintained source lessons, clone this repository and follow the lesson's `uv sync` commands. Install the named provider/framework extra; `[all]` does not include every local model dependency.
+
+// Retain former section URLs at the current related topic.
 == Quick start
 
-[source,python]
-----
-from neo4j_agent_memory import MemoryClient, MemorySettings
+anchor:_install[]
 
-settings = MemorySettings(
-    neo4j={"uri": "bolt://localhost:7687", "password": "password"}
-)
+Choose one complete lesson with setup, named files and observable verification:
 
-async with MemoryClient(settings) as client:
-    msg = await client.short_term.add_message("session-1", "user", "Hello")
-    await client.long_term.add_entity("Alice", "PERSON")
-    context = await client.get_context("hello")
-----
+* xref:tutorials/first-agent-memory.adoc[Store and retrieve memory in your Neo4j database].
+* xref:tutorials/nams-quickstart.adoc[Store and retrieve hosted memory through NAMS].
+* xref:tutorials/conversation-memory.adoc[Pass stored context to a conversation model].
 
-For the hosted service, swap the `neo4j={...}` config for
-`nams={"api_key": "nams_..."}` — see xref:tutorials/nams-quickstart.adoc[NAMS Quickstart].
+A complete lesson is the maintained starting point. A constructor change alone does not migrate data, configure every provider or guarantee backend parity.
 
 == Where to go next
 
-* xref:tutorials/first-agent-memory.adoc[Tutorial: First agent memory]
-* xref:tutorials/conversation-memory.adoc[Tutorial: Add memory to a chatbot]
-* xref:how-to/index.adoc[How-To Guides] — entity extraction, batch processing,
-  framework integrations, deduplication, and more.
+* xref:how-to/index.adoc[Complete a memory task]
+* xref:reference/api/memory-client.adoc[MemoryClient operations and lifecycle]
+* xref:reference/api/factory.adoc[Current source factory and typed settings]
 * xref:reference/configuration.adoc[Configuration reference]
 * xref:reference/cli.adoc[CLI reference]
 
 == Source and releases
 
-* Package: link:https://pypi.org/project/neo4j-agent-memory/[neo4j-agent-memory on PyPI]
-* Source: link:https://github.com/neo4j-labs/agent-memory[github.com/neo4j-labs/agent-memory]
-* Release tags: `python-v*` (e.g. `python-v0.5.0`)
-* Changelog: link:https://github.com/neo4j-labs/agent-memory/blob/main/CHANGELOG.md[CHANGELOG.md]
+* Package: https://pypi.org/project/neo4j-agent-memory/[neo4j-agent-memory on PyPI]
+* Source: https://github.com/neo4j-labs/agent-memory[neo4j-labs/agent-memory]
+* Release tags: `python-v*`; https://github.com/neo4j-labs/agent-memory/blob/main/CHANGELOG.md[changelog]
 
 == Looking for the TypeScript SDK?
 
-See xref:sdks/typescript.adoc[TypeScript SDK]. The two SDKs share the same
-memory model and back onto the same NAMS service, so a Python and a TypeScript
-agent can read and write the same memory.
+See xref:sdks/typescript.adoc[TypeScript SDK]. Python and TypeScript applications can share supported NAMS data in the same authorized workspace. This does not imply identical local APIs or automatic cross-process conversation recall.
 
 == Runnable examples
 
-link:https://github.com/neo4j-labs/agent-memory/tree/main/examples[`examples/`] holds twenty-five examples, from
-link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/hello-memory[`hello-memory/`] (one PEP 723 file, no checkout)
-through the framework integrations to four full-stack reference apps. The
-hosted-backend group starts at
-link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/nams-quickstart[`nams-quickstart/`].
+The https://github.com/neo4j-labs/agent-memory/tree/main/examples[examples directory] contains small scripts, framework integrations and full applications. Use each README's dependency, backend and source-versus-release requirements. Application test fakes do not establish hosted service support for every demonstrated business operation.

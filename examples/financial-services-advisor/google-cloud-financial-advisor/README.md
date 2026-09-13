@@ -21,7 +21,7 @@ An intelligent compliance assistant powered by **Google ADK** (Agent Development
 
 ## Overview
 
-This example application showcases the Google Cloud-Neo4j integration through a production-ready architecture for financial services compliance. It demonstrates how AI agents can leverage graph-based memory for explainable, auditable decision-making.
+This example application showcases the Google Cloud-Neo4j integration through a example architecture for financial services compliance. It demonstrates how AI agents can use graph memory for explainable, auditable decision-making.
 
 ### Key Features
 
@@ -61,7 +61,7 @@ Before you begin, ensure you have the following installed:
 
 - **Python 3.11+** - [Download Python](https://www.python.org/downloads/)
 - **uv** - Fast Python package manager: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-- **Node.js 18+** - [Download Node.js](https://nodejs.org/)
+- **Node.js 22.13+ on the 22 release line, or Node.js 24** for the frontend development toolchain - [Download Node.js](https://nodejs.org/)
 - **Google Cloud CLI** - [Install gcloud](https://cloud.google.com/sdk/docs/install)
 - **Docker Desktop** (optional, only if running Neo4j locally via Docker) - [Download Docker](https://www.docker.com/products/docker-desktop/)
 
@@ -763,5 +763,7 @@ This example is part of the neo4j-agent-memory project and is licensed under the
 
 ---
 
-_Verified against `neo4j-agent-memory` 0.6.0-dev (PyPI floor `>=0.5.0,<0.7`), google-adk 2.9.0, google-genai 2.23.0, google-cloud-aiplatform 2.1.0, FastAPI 0.141.1, neo4j 6.3.0 on Python 3.12 — 2026-09-10._
-_Checked: `uv sync`, `uv run ruff check src/ tests/`, `uv run pytest` (42 offline tests), `docker build ./backend`. A full end-to-end investigation additionally needs Gemini credentials and a GCP project with the Vertex AI API enabled._
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+
+> _Verified against `neo4j-agent-memory` 0.6.0-dev (PyPI floor `>=0.5.0,<0.7`), google-adk 2.9.0, google-genai 2.23.0, google-cloud-aiplatform 2.1.0, FastAPI 0.141.1, neo4j 6.3.0 on Python 3.12 — 2026-09-10._
+> _Checked: `uv sync`, `uv run ruff check src/ tests/`, `uv run pytest` (42 offline tests), `docker build ./backend`. A full end-to-end investigation additionally needs Gemini credentials and a GCP project with the Vertex AI API enabled._

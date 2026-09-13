@@ -14,43 +14,43 @@ Neo4j Agent Memory provides official integrations for five popular agent framewo
 
 | xref:how-to/integrations/langchain.adoc[LangChain]
 | Chains and agents with conversation memory
-| ✅ Production Ready
+| Experimental · Community supported
 
 | xref:how-to/integrations/pydantic-ai.adoc[PydanticAI]
 | Modern type-safe agents with automatic tracing
-| ✅ Production Ready
+| Experimental · Community supported
 
 | xref:how-to/integrations/llamaindex.adoc[LlamaIndex]
 | RAG applications with document + graph retrieval
-| ✅ Production Ready
+| Experimental · Community supported
 
 | xref:how-to/integrations/crewai.adoc[CrewAI]
 | Multi-agent systems with shared memory
-| ✅ Production Ready
+| Experimental · Community supported
 
 | xref:how-to/integrations/openai-agents.adoc[OpenAI Agents SDK]
 | OpenAI function calling with persistent memory
-| ✅ Production Ready
+| Experimental · Community supported
 
 | xref:how-to/integrations/google-cloud.adoc[Google Cloud]
 | Vertex AI embeddings, ADK agents, MCP server
-| ✅ Production Ready
+| Experimental · Community supported
 
 | xref:how-to/integrations/aws-strands.adoc[AWS Strands Agents]
 | AWS Strands SDK with Bedrock and Context Graph tools
-| ✅ Production Ready
+| Experimental · Community supported
 
 | xref:how-to/integrations/aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
 | Titan and Cohere embeddings via Bedrock
-| ✅ Production Ready
+| Experimental · Community supported
 
 | xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory]
 | AgentCore + Context Graphs combined
-| ✅ Production Ready
+| Experimental · Community supported
 
 | xref:how-to/integrations/microsoft-agent.adoc[Microsoft Agent Framework]
 | Context providers, GDS algorithms, and graph-enhanced memory
-| ✅ Production Ready
+| Experimental · Community supported
 |===
 
 == Quick Start

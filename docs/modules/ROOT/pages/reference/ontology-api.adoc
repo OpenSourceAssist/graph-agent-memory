@@ -94,24 +94,24 @@ request/response shapes.
 | Method | Path | Maps to
 
 | GET | `/ontologies` | `list()`
-| GET | `/ontologies/{id}` | `get()`
+| GET | `/ontologies/\{id}` | `get()`
 | GET | `/ontologies/active` | `get_active()`
-| POST | `/ontologies/{name}/clone` | `clone()`
+| POST | `/ontologies/\{name}/clone` | `clone()`
 | POST | `/ontologies` — body `{ontology, validation_mode?}` | `create()`
-| PUT | `/ontologies/{id}` — body `{ontology, validation_mode?}` | `update()`
-| POST | `/ontologies/active` — body `{version_id}` | `activate()`
-| DELETE | `/ontologies/{id}` | `delete()`
+| PUT | `/ontologies/\{id}` — body `{ontology, validation_mode?}` | `update()`
+| POST | `/ontologies/active` — body `\{version_id}` | `activate()`
+| DELETE | `/ontologies/\{id}` | `delete()`
 | POST | `/ontologies/import` — body `{content?, url?, format?}` | `import_()` / `import()`
-| GET | `/ontologies/{id}/diff?from={n}&to={m}` | `diff()`
-| POST | `/ontologies/{id}/migrate` | `migrate()`
-| GET | `/ontologies/migrations/{job_id}` | `get_migration()`
+| GET | `/ontologies/\{id}/diff?from=\{n}&to=\{m}` | `diff()`
+| POST | `/ontologies/\{id}/migrate` | `migrate()`
+| GET | `/ontologies/migrations/\{job_id}` | `get_migration()`
 |===
 
 [NOTE]
 ====
-`migrate` runs *asynchronously*: `POST /ontologies/{id}/migrate` returns a
+`migrate` runs *asynchronously*: `POST /ontologies/\{id}/migrate` returns a
 `MigrationJob` you poll with `get_migration()` (the service also exposes
-`/migrations/{job_id}/pause` and `/resume`). The preview/dry-run path of `import`
+`/migrations/\{job_id}/pause` and `/resume`). The preview/dry-run path of `import`
 is rate-limited to 30 requests/hour/workspace (see
 xref:reference/nams-limits.adoc[NAMS Limits & Behavior]).
 ====

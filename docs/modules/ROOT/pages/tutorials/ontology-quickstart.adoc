@@ -1,102 +1,70 @@
-= Tutorial: Ontology quickstart
-:description: Clone the healthcare ontology, activate it strict, write a Patient, and watch typed extraction and a validation rejection.
+= Activate and restore a NAMS ontology
+:page-product: agent-memory
+:page-pagination:
+:toclevels: 2
+:sectanchors:
 
-In this tutorial we will clone a domain ontology, activate it, and observe how
-the active schema shapes — and validates — what lands in the graph. We will use
-the hosted NAMS backend throughout.
+We will clone the healthcare template, activate a strict revision, inspect the active schema, and attempt a deliberately invalid entity write. Finally, we will restore the exact version that was active before the exercise and delete only the clone.
 
+This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
+
+[[_before_you_begin]]
 == Before you begin
 
-You need a NAMS endpoint, an API key, and (for header-scoped deployments) a
-workspace id. See xref:tutorials/nams-quickstart.adoc[NAMS Quickstart].
+* Python 3.10 or newer and Git.
+* A dedicated NAMS test workspace and its *workspace key*, using `https://memory.neo4jlabs.com/v1`.
+* Permission to create tutorial records in that workspace. Keep the same workspace key throughout the lesson.
+
+See xref:reference/authentication.adoc[Authentication] for obtaining the key before beginning. This path uses a workspace key; admin keys and custom deployments belong in xref:how-to/use-nams.adoc[the NAMS guide].
+
+Complete the xref:tutorials/nams-quickstart.adoc[NAMS lesson] first, retaining its checkout and virtual environment. This exercise also requires a `healthcare` template and an active ontology with a resolvable version ID. If either is absent, the program stops before changing the active schema. Do not run it concurrently with another ontology editor.
+
+[[_step_1_clone_the_healthcare_template]]
+== 1. Inspect the restoration guard
+
+The helper below captures `version_id` before cloning. Missing prior-version metadata stops the exercise; it does not guess a default ontology. Its `finally` block restores and reads back the previous version before deleting the clone.
 
 [source,python]
 ----
-from neo4j_agent_memory import MemoryClient, MemorySettings
-from neo4j_agent_memory.nams import NamsConfig
-
-settings = MemorySettings(
-    backend="nams",
-    nams=NamsConfig(
-        endpoint="https://nams.development.neo4jsandbox.com/v1",
-        api_key="nams_...",
-        workspace_id="your-workspace-id",
-    ),
-)
+include::example$hosted_tutorial_helpers.py[]
 ----
 
-== Step 1 — Clone the healthcare template
+[[_step_2_make_it_strict_and_activate_it]]
+== 2. Read the complete exercise
+
+anchor:_step_3_write_a_patient_and_watch_typed_extraction[]anchor:_step_4_observe_a_validation_rejection_under_strict[]
+
+The program uses actual clone, revision, and entity IDs returned by the SDK. It reads the template's labels instead of assuming a particular number of types or required Patient properties. This lesson demonstrates activation and rejection; it does not assert that a particular extracted Patient record was produced.
 
 [source,python]
 ----
-async with MemoryClient(settings) as client:
-    version = await client.ontology.clone("healthcare")
-    print(version.revision, len(version.document.entity_types))   # 1, e.g. 12
+include::example$ontology_quickstart.py[]
 ----
 
-Cloning creates a workspace-owned `healthcare-clone` at revision 1.
+[[_step_5_clean_up]]
+== 3. Run and check restoration
 
-== Step 2 — Make it strict and activate it
-
-[source,python]
+[source,bash]
 ----
-    strict = await client.ontology.update(
-        version.ontology_id, version.document, validation_mode="strict"
-    )
-    await client.ontology.activate(strict.id)
-
-    active = await client.ontology.get_active()
-    print(active.document.domain.name, active.validation_mode)    # Healthcare strict
+python docs/modules/ROOT/examples/ontology_quickstart.py
 ----
 
-== Step 3 — Write a Patient and watch typed extraction
+Expected milestones:
 
-[source,python]
-----
-    await client.long_term.add_entity("Jane Doe", entity_type="Patient")
-    await client.long_term.wait_for_extraction(
-        query="Jane Doe", expected_names=["Jane Doe"], timeout=30
-    )
-    results = await client.long_term.search_entities("Jane Doe")
-    print(results[0].type)        # Patient — snapped to the typed schema
-----
+. `Previous active version:` and `Exercise clone:` show the captured version and the new ontology ID.
+. `Strict schema entity labels:` displays the active template's actual labels.
+. `Verified: strict validation rejected the unknown type` confirms the observed rejection. If the service accepts the write, the program fails and prints its entity ID for inspection.
+. `Restored active version:` matches the first version ID.
+. `Deleted exercise clone:` matches the clone ID, after restoration was verified.
 
-== Step 4 — Observe a validation rejection under strict
+Restoration also runs if the exercise fails after cloning. If restoring or verifying the prior version fails, the clone is retained and the error propagates; use the printed IDs to inspect the workspace. Removing the clone alone would not restore the prior active version.
 
-Under `strict`, a write that violates the active schema is rejected:
+[[_what_you_learned]]
+== What we learned
 
-[source,python]
-----
-    from neo4j_agent_memory.core.exceptions import ValidationError
-    try:
-        await client.long_term.add_entity("Acme Clinic", entity_type="NotInSchema")
-    except ValidationError as e:
-        print("rejected:", e)
-----
+A schema version and its active binding are separate resources. Strict validation is a service behavior that must be observed, and schema cleanup is a state-restoration operation. The fixture does not delete unrelated entities or reset the workspace.
 
-== Step 5 — Clean up
+[[_runnable_examples]]
+== Continue with a full lifecycle
 
-[source,python]
-----
-    # Restore the default and remove the clone.
-    # (Re-activate whatever was active before, then delete.)
-    await client.ontology.delete(version.ontology_id)
-----
-
-== What you learned
-
-* Cloning a system template creates an editable, versioned, workspace-owned copy.
-* `activate` binds a *version*; `get_active()` reports its `validation_mode`.
-* Under `strict`, the service enforces the schema and the SDK raises
-  `ValidationError`.
-
-Next: xref:reference/ontology-api.adoc[the full Ontology API reference].
-
-== Runnable examples
-
-Both SDKs ship the full revision cycle this tutorial stops short of — import an
-Arrows diagram, ingest under the schema, diff two revisions, then migrate the
-already-extracted entities onto a renamed type:
-
-* link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/ontology-lifecycle[`examples/ontology-lifecycle/`] (Python)
-* link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/ontology-lifecycle[`typescript/examples/ontology-lifecycle/`] (TypeScript)
+The larger https://github.com/neo4j-labs/agent-memory/tree/main/examples/ontology-lifecycle[ontology lifecycle example] covers import, revision diff, and migration. Review its separate prerequisites and cleanup before running it. See xref:reference/ontology-api.adoc[Ontology API] and xref:how-to/use-ontologies.adoc[Use ontologies] for those operations.

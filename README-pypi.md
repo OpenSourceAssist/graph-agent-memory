@@ -1,6 +1,6 @@
 # Neo4j Agent Memory (Python SDK)
 
-A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and let your agents learn from their own reasoning — backed either by the hosted **NAMS** service (zero infrastructure) or your own Neo4j.
+A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and record and retrieve application-supplied reasoning — backed either by the hosted **NAMS** service (zero infrastructure) or your own Neo4j.
 
 [![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)](https://neo4j.com/labs/)
 [![Status: Experimental](https://img.shields.io/badge/Status-Experimental-F59E0B)](https://neo4j.com/labs/)
@@ -11,24 +11,30 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 
 > This is the Python SDK. A TypeScript SDK with the same memory model ships from the same repository as [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory).
 
-## What It Does
+> **Neo4j Labs project**
+>
+> This project is part of Neo4j Labs and is actively maintained, but not officially supported. There are no SLAs or guarantees around backwards compatibility and deprecation. For questions and support, please use the [Neo4j Community Forum](https://community.neo4j.com).
+
+## What it does
 
 | Short-Term Memory | Long-Term Memory | Reasoning Memory |
 |---|---|---|
 | Conversations & messages | Entities, preferences, facts | Reasoning traces & tool usage |
-| Per-session history | Knowledge graph ([POLE+O model](https://neo4j.com/labs/agent-memory/explanation/poleo-model)) | Learn from past decisions |
+| Per-session history | Knowledge graph ([POLE+O model](https://neo4j.com/labs/agent-memory/explanation/poleo-model)) | Retrieve recorded decisions |
 | Vector + text search | Entity resolution & dedup | Similar task retrieval |
 
-**Plus:** multi-stage entity extraction (spaCy / GLiNER / LLM), relationship extraction (GLiREL), background enrichment (Wikipedia / Diffbot), geospatial queries, an MCP server with 16 tools, and integrations with LangChain, Pydantic AI, Google ADK, Strands, CrewAI, and more.
+**Plus:** multi-stage entity extraction (spaCy / GLiNER / LLM), relationship extraction (GLiREL), background enrichment (Wikipedia / Diffbot), geospatial queries, an MCP server with 16 extended-profile tools on Bolt (20 registered on NAMS; backend limitations apply), and integrations with LangChain, Pydantic AI, Google ADK, Strands, CrewAI, and more.
 
-## Two backends, one API
+## Backend capabilities
 
-The same `MemoryClient` runs against either backend — pick at config time. See [Bolt vs NAMS](https://neo4j.com/labs/agent-memory/explanation/backends) for the full capability matrix.
+Select the backend at configuration time, then use its supported operations. Preferences, facts, client-created relationships and extraction configuration are Bolt-only. See [Bolt vs NAMS](https://neo4j.com/labs/agent-memory/explanation/backends) for the full capability matrix.
 
-- **Hosted (NAMS)** — a managed REST service. Just an API key; embedding, extraction, and dedup run server-side. Best for prototypes, demos, and multi-tenant SaaS.
-- **Self-hosted (bolt)** — your own Neo4j (Aura, Desktop, Docker). Unlocks write-Cypher, geospatial queries, `adopt_existing_graph`, and air-gapped operation.
+- **Hosted (NAMS)** — a managed REST service. Just an API key; embedding, extraction, and dedup run server-side. Use workspace authentication for the tenancy boundary; conversation user metadata is distinct.
+- **Self-hosted (bolt)** — your own Neo4j (Aura, Desktop, Docker). Unlocks write-Cypher, geospatial queries, `adopt_existing_graph`, and deployments with locally configured providers.
 
-## Quick Start — Hosted (NAMS)
+> **Source and releases:** This README follows the current checkout. On 13 September 2026, PyPI 0.5.0 and npm 0.4.1 exposed older APIs than this source. The factory-based Python lessons and V4 TypeScript middleware lessons require their documented source setup until a matching release is verified. Select a package artifact deliberately; the version string alone does not establish compatibility.
+
+## Quick start — Hosted (NAMS)
 
 The fastest path: no database to run.
 
@@ -49,22 +55,22 @@ from neo4j_agent_memory import MemoryClient
 async def main():
     # Reads MEMORY_API_KEY from the environment; backend auto-selects NAMS.
     async with MemoryClient() as memory:
+        conversation = await memory.short_term.create_conversation("quickstart")
+        conversation_id = str(conversation.id)
         await memory.short_term.add_message(
-            session_id="user-123", role="user",
+            session_id=conversation_id, role="user",
             content="Hi, I'm John and I love Italian food!",
         )
-        await memory.long_term.add_entity("John", "PERSON")
-        context = await memory.get_context(
-            "What restaurant should I recommend?", session_id="user-123",
-        )
-        print(context)
+        saved = await memory.short_term.get_conversation(conversation_id)
+        print(saved.messages[-1].content)
+        print("Save this conversation ID to resume it:", conversation_id)
 
 asyncio.run(main())
 ```
 
 > `neo4j-agent-memory` is **async-only** — every operation is a coroutine. On NAMS, extraction is asynchronous; call `await memory.long_term.wait_for_extraction(...)` before asserting on freshly-extracted entities. See [Use NAMS](https://neo4j.com/labs/agent-memory/how-to/use-nams).
 
-## Quick Start — Self-hosted (bolt)
+## Quick start — Self-hosted (bolt)
 
 Point the client at any Neo4j instance and pass your model as a provider-prefixed string:
 

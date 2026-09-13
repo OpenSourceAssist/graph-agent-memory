@@ -42,7 +42,7 @@ A complete example demonstrating `neo4j-agent-memory` integration with a Pydanti
 ## Prerequisites
 
 - Python 3.10+ and [uv](https://docs.astral.sh/uv/)
-- Node.js 18+
+- Node.js 22.13+ on the 22 release line, or Node.js 24, for the frontend development toolchain
 - Docker (for Neo4j)
 - An OpenAI API key (or another provider — see [Bring Your Own Model](https://neo4j.com/labs/agent-memory/how-to/bring-your-own-model.html))
 
@@ -352,4 +352,6 @@ Apache 2.0 — see the main `neo4j-agent-memory` repository for details.
 
 ---
 
-_Verified against `neo4j-agent-memory` 0.5.0 (editable `0.6.0-dev` surface in-repo), PydanticAI 2.42, FastAPI 0.128, neo4j driver 6.1, Neo4j 5.26 on 2026-09-10. Backend lint, strict mypy and the route smoke tests pass; the frontend is covered by the frontend agent's pass._
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+
+> _Verified against `neo4j-agent-memory` 0.5.0 (editable `0.6.0-dev` surface in-repo), PydanticAI 2.42, FastAPI 0.128, neo4j driver 6.1, Neo4j 5.26 on 2026-09-10. Backend lint, strict mypy and the route smoke tests pass; the frontend is covered by the frontend agent's pass._

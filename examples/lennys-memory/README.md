@@ -23,7 +23,7 @@ A full-stack AI agent application that turns a podcast transcript corpus (the or
 
 ## What This Demo Shows
 
-This is the flagship demo application for the `neo4j-agent-memory` library. It demonstrates how to build a production-grade AI agent that:
+This is the flagship demo application for the `neo4j-agent-memory` library. It demonstrates an AI agent that:
 
 - **Remembers conversations** across sessions using short-term memory
 - **Builds a knowledge graph** of people, companies, locations, and concepts extracted from unstructured text
@@ -121,7 +121,7 @@ The right sidebar displays static agent configuration info:
 ### Prerequisites
 
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
-- Node.js 18+
+- Node.js 22.13+ on the 22 release line, or Node.js 24, for the frontend development toolchain
 - Docker (for Neo4j)
 - OpenAI API key
 
@@ -1322,13 +1322,15 @@ This example is part of the [neo4j-agent-memory](https://github.com/neo4j-labs/a
 
 ---
 
-_Verified against `neo4j-agent-memory` 0.6.0-dev (editable checkout; manifest pins `>=0.5.0,<0.7`), PydanticAI 2.42, FastAPI 0.141, sse-starlette 3.4, Neo4j driver 6.1, Neo4j 5.26, on 2026-09-10._
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
 
-_What was exercised in this pass: the backend's 77 unit tests (including new
-regression tests for the four broken agent tools, the two empty location routes
-and the preference-delete stub); `load_transcripts.py` ingest +
-`--embeddings-only` + `--repair-links`, `backfill_embeddings.py`,
-`enrich_entities.py` and `geocode_locations.py` against a throwaway Neo4j 5.26;
-`uv lock --check` in `backend/`. Not re-run: the Next.js frontend end-to-end, a
-live chat turn against a real LLM, `backfill_relationships.py`'s GLiREL
-inference (its `--status` path was verified), and the full 299-episode load._
+> _Verified against `neo4j-agent-memory` 0.6.0-dev (editable checkout; manifest pins `>=0.5.0,<0.7`), PydanticAI 2.42, FastAPI 0.141, sse-starlette 3.4, Neo4j driver 6.1, Neo4j 5.26, on 2026-09-10._
+>
+> _What was exercised in this pass: the backend's 77 unit tests (including new
+> regression tests for the four broken agent tools, the two empty location routes
+> and the preference-delete stub); `load_transcripts.py` ingest +
+> `--embeddings-only` + `--repair-links`, `backfill_embeddings.py`,
+> `enrich_entities.py` and `geocode_locations.py` against a throwaway Neo4j 5.26;
+> `uv lock --check` in `backend/`. Not re-run: the Next.js frontend end-to-end, a
+> live chat turn against a real LLM, `backfill_relationships.py`'s GLiREL
+> inference (its `--status` path was verified), and the full 299-episode load._

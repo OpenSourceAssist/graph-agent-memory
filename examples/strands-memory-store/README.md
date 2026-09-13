@@ -158,7 +158,9 @@ agent = Agent(
 
 ---
 
-_Verified against `neo4j-agent-memory` 0.6.0-dev (branch `examples-updates`),
-`strands-agents` 1.55.1, `sentence-transformers` 6.0.1 and Neo4j 5.26
-(Docker, with APOC) on 2026-09-10. `Neo4jMemoryStore` is unreleased — it is
-not in PyPI 0.5.0._
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+
+> _Verified against `neo4j-agent-memory` 0.6.0-dev (branch `examples-updates`),
+> `strands-agents` 1.55.1, `sentence-transformers` 6.0.1 and Neo4j 5.26
+> (Docker, with APOC) on 2026-09-10. `Neo4jMemoryStore` is unreleased — it is
+> not in PyPI 0.5.0._
