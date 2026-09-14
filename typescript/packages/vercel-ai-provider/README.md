@@ -535,6 +535,107 @@ example, or run it side by side with the other modes via
 
 ---
 
+## Lifecycle Hooks
+
+`loadSession` / `onFinish` cover the transcript. Lifecycle hooks cover
+everything around it: gate a prompt, deny a tool call, rewrite tool arguments,
+redact a memory write, add context for the next turn. The model uses — events, matcher groups, and decision fields — with plain
+functions in place of shell commands, so there is no stdin JSON and no exit
+codes.
+
+```ts
+const session = nams.hooks({
+  userId,
+  hooks: {
+    // A bare function matches every occurrence.
+    SessionStart: [({ reason }) => ({ additionalContext: `Session ${reason}.` })],
+
+    // A group adds a matcher: a plain name, `a|b`, or a regex.
+    PreToolUse: [{
+      matcher: 'delete_account|drop_table',
+      hooks: [() => ({
+        permissionDecision: 'deny',
+        permissionDecisionReason: 'Destructive tools are disabled.',
+      })],
+    }],
+
+    // Redact before anything reaches the graph.
+    PreMemoryWrite: [({ turns }) => ({
+      updatedTurns: turns.map(t => ({ ...t, content: redact(t.content) })),
+    })],
+  },
+});
+```
+
+### Events
+
+| Event | Fires | Matches on | Can |
+|-------|-------|-----------|-----|
+| `SessionStart` | First `prepare()` for a scope | `created` \| `resumed` | add context |
+| `UserPromptSubmit` | Inside `prepare()`, before history loads | — | **block**, rewrite the prompt, add context |
+| `PreToolUse` | Before a wrapped tool runs | tool name | **deny**, rewrite the arguments, add context |
+| `PostToolUse` | After the tool returns | tool name | rewrite the result, add context |
+| `PostToolUseFailure` | After the tool throws | tool name | ask for one retry, add context |
+| `PreMemoryWrite` | Inside `onFinish()`, before saving | — | **block** the write, rewrite the turns |
+| `Stop` | After the turn is saved | — | add context |
+| `SessionEnd` | `session.end()` | your reason string | add context |
+
+Every handler can also return `systemMessage`, which goes to `onSystemMessage`
+or the logger.
+
+### Wiring
+
+| Method | Runs | Notes |
+|--------|------|-------|
+| `session.prepare({ userId, prompt })` | `SessionStart`, `UserPromptSubmit`, then `loadSession` | Returns `{ messages, instructions, prompt, blocked, blockReason }`. Check `blocked` before calling the model. |
+| `session.withHooks(tools)` | `PreToolUse`, `PostToolUse`, `PostToolUseFailure` | Wraps an AI SDK tool set. Returns it untouched when no tool hooks are registered. |
+| `session.onFinish()` | `PreMemoryWrite`, then `Stop` | Unchanged otherwise. |
+| `session.end({ reason })` | `SessionEnd` | Also forgets the scope, so the next `prepare()` is a new session. |
+
+Hook context reaches the model through `instructions`:
+
+```ts
+const prepared = await session.prepare({ userId, prompt });
+if (prepared.blocked) return prepared.blockReason;
+
+const { text } = await agent.generate({
+  messages: prepared.messages,
+  options: { userId, prompt: prepared.prompt, memoryContext: prepared.instructions },
+});
+
+// ...and in the agent, prepareCall folds it into the instructions:
+prepareCall: ({ options, ...settings }) => ({
+  ...settings,
+  instructions: [MY_INSTRUCTIONS, options?.memoryContext].filter(Boolean).join('\n\n'),
+  runtimeContext: options,
+}),
+```
+
+### Rules
+
+- **Matchers** omitted or `*` matches everything, plain
+  names match exactly, `|` separates alternatives, anything else is a regular
+  expression. A bad expression is reported at startup and never matches.
+- **Rewrites chain.** Each handler sees the previous handler's replacement, and
+  the final value is what the tool, the model, or the write actually gets.
+- **The first deny wins** and skips the handlers after it.
+- **A hook can never break a generation.** One that throws is logged and
+  skipped; one that outruns its timeout, 30 seconds by default, is abandoned.
+- **`additionalContext` comes back as `instructions`,** never as a message. The
+  AI SDK rejects system messages inside `messages`, so `prepare()` hands you the
+  text to append to your own instructions. Context from a tool hook is queued
+  for the scope and arrives on the next `prepare()`, capped at the 20 most
+  recent entries. Ignore the field and that context is dropped.
+- **A denied tool returns `{ blocked: true, toolName, reason }`** to the model
+  rather than throwing, so the loop continues and the model can explain itself.
+- **`Stop` cannot block.** The generation is already finished when `onFinish`
+  runs. Use `UserPromptSubmit` or `PreToolUse` for control.
+
+See [`examples/advanced-hooks-chat.ts`](examples/advanced-hooks-chat.ts) for a
+runnable example covering every event.
+
+---
+
 ## Configuration
 
 ```ts

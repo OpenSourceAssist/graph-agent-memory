@@ -1,19 +1,12 @@
 /**
- * retrieveMemories — fallback for NAMS's literal, case-sensitive substring
- * search (verified live: "Delh"/"elhi" both match "Delhi" as a pure substring,
- * but a lowercase query never matches capitalized stored text, and a query
- * broken across word boundaries that aren't contiguous in the source matches
- * nothing). A natural-language question is almost never a literal substring of
- * the fact it's asking about.
+ * retrieveMemories search fallback. NAMS search is a case-sensitive substring
+ * match, so a full question rarely matches.
  *
- * Contract points:
- *  - a direct phrase search that already finds something is used as-is; no
- *    fallback calls happen
- *  - a direct phrase search that finds nothing retries with the query's
- *    significant words, in both their given case and Title Case
- *  - the merged fallback candidates are ranked by word overlap with the
- *    original query, so the most relevant hit isn't lost under the result cap
- *  - fallback failures are swallowed, not thrown
+ * Checks:
+ *  - a direct search with results is used as-is
+ *  - an empty direct search retries each word, as typed and in Title Case
+ *  - fallback results are sorted by word overlap with the query
+ *  - fallback errors are swallowed
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -49,7 +42,7 @@ describe('retrieveMemories — substring-search fallback', () => {
     const hits = await retrieveMemories(fake as any, scope, 'conv-1', 'where do i live delhi', 5);
 
     expect(fake.longTerm.searchEntities).toHaveBeenCalledWith('where do i live delhi', expect.anything());
-    // lowercase "delhi" as typed AND its Title-Case variant are both tried.
+    // Both "delhi" and "Delhi" are tried.
     expect(fake.longTerm.searchEntities).toHaveBeenCalledWith('delhi', expect.anything());
     expect(fake.longTerm.searchEntities).toHaveBeenCalledWith('Delhi', expect.anything());
     expect(hits).toContainEqual(expect.objectContaining({ content: 'Fact — User is from Delhi.' }));
@@ -58,8 +51,7 @@ describe('retrieveMemories — substring-search fallback', () => {
   it('ranks noisy fallback candidates by word overlap with the original query', async () => {
     fake.longTerm.searchEntities.mockImplementation(async (q: string) => {
       if (q !== 'User') return [];
-      // A liberal substring match returns several "User..." entities — the one
-      // that shares the most words with the query should be ranked first.
+      // Several "User..." entities match. The one sharing the most query words comes first.
       return [
         { name: 'e1', description: "User's name is Alex.", type: 'fact' },
         { name: 'e2', description: 'User is from Delhi.', type: 'fact' },
@@ -90,10 +82,8 @@ describe('retrieveMemories — substring-search fallback', () => {
 });
 
 /**
- * An entity's name is the fact; its description is only the entity's role
- * ("Preferred language", "City where the user works"). A hit that carries the
- * description alone cannot answer "which language do I prefer?" — the model
- * either reports the memory as incomplete or invents a fragment of the name.
+ * An entity's name holds the fact. Its description is only its role
+ * ("Preferred language"), so a hit must include the name.
  */
 describe('retrieveMemories — long-term hits carry the entity name', () => {
   it('renders name and description together', async () => {

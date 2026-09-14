@@ -1,6 +1,5 @@
 /**
- * Graph extraction — entities and relationships extracted from a stored
- * memory must land in the long-term graph via the real SDK API:
+ * Graph extraction. Extracted entities and relationships are saved with
  * addEntity(name, type, options) and addRelationship(sourceId, targetId, type).
  */
 
@@ -63,9 +62,8 @@ describe('createGraphExtractor', () => {
   });
 
   /**
-   * The hosted REST API has no relationship endpoint, so every extracted edge
-   * fails identically. Now that extraction actually runs, an unsuppressed log
-   * would emit one line per edge per stored memory forever.
+   * The hosted API has no relationship endpoint, so every edge fails the same
+   * way. It should log once, not once per edge.
    */
   it('logs an unsupported relationship backend once, not once per edge', async () => {
     const warn = vi.fn();
@@ -210,10 +208,7 @@ describe('createGraphExtractor — self-referential guard', () => {
     expect(fake.longTerm.addEntity).not.toHaveBeenCalled();
   });
 
-  /**
-   * The guard keys on proper-vs-common noun, so a script that has no case must
-   * make it decline rather than reject every entity in that language.
-   */
+  /** Names in scripts without letter case must not be rejected as common nouns. */
   it('does not reject entities written in caseless scripts', async () => {
     mockedGenerateText.mockResolvedValue(graphResult([
       { name: '北京', type: 'Location' },

@@ -1,12 +1,10 @@
 /**
- * Middleware mode — transparent memory, no tool calls.
+ * Middleware mode. `createNamsMemory(config).wrap(model, scope)` returns a model
+ * that adds relevant memories before each call and saves the turn after.
+ * Provider mode uses this too.
  *
- * createNamsMemory(config).wrap(model, scope) returns a LanguageModel that
- * injects relevant memories before every call and persists each turn after.
- * This middleware also underpins provider mode (see vercel-ai-provider.ts).
- *
- * No entity extraction here — turns are persisted as short-term messages and
- * NAMS extracts those server-side. Use tools mode for long-term memory.
+ * No entity extraction here. NAMS extracts saved turns server-side. Use tools
+ * mode for long-term memory.
  */
 
 import { wrapLanguageModel } from 'ai';
@@ -20,9 +18,9 @@ import {
 import { MemoryHit, NamsConfig, NamsScope } from './vercel-ai-provider-types';
 
 export interface NamsMemoryConfig extends NamsConfig {
-  /** Max memories retrieved and injected into the prompt per turn (default: 6). Does not affect storage. */
+  /** Max memories added to the prompt per turn (default: 6). */
   maxMemories?: number;
-  /** Persist each turn to NAMS short-term memory (default: true). */
+  /** Save each turn to NAMS (default: true). */
   persistInteractions?: boolean;
 }
 
@@ -34,9 +32,7 @@ const lastUserIndex = (prompt: any[]): number => {
   return -1;
 }
 
-/**
- * Return a copy of the prompt with `block` prepended to its last user message.
- */
+/** Copy the prompt, with `block` added to the start of the last user message. */
 const withMemoryBlock = (prompt: any[], block: string): any[] => {
   const i = lastUserIndex(prompt);
   if (i < 0) return prompt;
@@ -59,8 +55,7 @@ const toolCallInput = (part: any): string => {
   try { return JSON.stringify(args) ?? ''; } catch { return ''; }
 }
 
-// Extract assistant text from a generate result. Falls back to serialized
-// tool-call input so structured responses (e.g. generateObject) still persist.
+// Assistant text from a result. Falls back to tool-call input (e.g. generateObject).
 const textFromResult = (result: any): string => {
   if (typeof result?.text === 'string' && result.text) return result.text;
   if (Array.isArray(result?.content)) {
@@ -84,7 +79,7 @@ const formatMemoryBlock = (memories: MemoryHit[]): string => {
   );
 }
 
-// Text of the most recent user message in the prompt.
+// Text of the last user message.
 const lastUserText = (prompt: any[]): string => {
   const i = lastUserIndex(prompt);
   if (i < 0) return '';
@@ -114,8 +109,7 @@ const buildMiddleware = (
 
   const originalUserText = new WeakMap<object, string>();
 
-  // In a multi-step tool loop every step carries the same last user message —
-  // remember what was persisted so it is stored once per turn, not per step.
+  // Every step of a tool loop repeats the user message. Track it so it is saved once.
   let lastPersistedUserText: string | undefined;
 
   async function persistTurn(params: any, assistantText: string): Promise<void> {
@@ -133,7 +127,7 @@ const buildMiddleware = (
 
   return {
     specificationVersion: 'v4',
-    // Retrieve memories for the user query and inject them into the prompt.
+    // Find memories for the user message and add them to the prompt.
     transformParams: async ({ params }) => {
       const userText = lastUserText(params.prompt);
       if (!userText) return params;
@@ -164,8 +158,7 @@ const buildMiddleware = (
       return result;
     },
 
-    // Tap the stream to accumulate text and tool-call args; persist the full
-    // turn in flush once the stream closes.
+    // Collect text and tool-call input from the stream. Save the turn when it closes.
     wrapStream: async ({ doStream, params }) => {
       const { stream, ...rest } = await doStream();
       let text = '';
@@ -202,10 +195,7 @@ const buildMiddleware = (
   };
 }
 
-/**
- * Create a NAMS memory provider. `wrap(model, scope)` returns a drop-in
- * LanguageModelV4 with transparent memory retrieval and persistence.
- */
+/** Create memory middleware. `wrap(model, scope)` returns the model with memory. */
 export function createNamsMemory(config: NamsMemoryConfig) {
   const maxMemories = config.maxMemories ?? 6;
   const persist = config.persistInteractions ?? true;

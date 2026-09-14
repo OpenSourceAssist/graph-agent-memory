@@ -8,12 +8,10 @@ const defaultLogger: NamsLogger = {
   error: (message, error) => console.error(`[nams] ${message}`, error ?? ''),
 };
 
-// Per-instance state
+// Per-client state
 //
-// The conversation cache is scoped to each MemoryClient instance (one per
-// createNams / createNamsProvider / tools factory call). Nothing is shared
-// across instances, so warm serverless workers can hold multiple providers
-// for different users without cross-talk.
+// Each MemoryClient has its own conversation cache, so several users can
+// share one process without mixing up conversations.
 
 const stateByClient = new WeakMap<MemoryClient, ClientState>();
 
@@ -26,24 +24,20 @@ function getState(client: MemoryClient): ClientState {
   return state;
 }
 
-/** The logger bound to a client via makeClient (default: console). */
+/** The logger set by makeClient (default: console). */
 export function getLogger(client: MemoryClient): NamsLogger {
   return getState(client).logger;
 }
 
-/** Resolve the configured logger without needing a live client instance. */
+/** The configured logger, without needing a client. */
 export function resolveLogger(config: NamsConfig): NamsLogger {
   return config.logger ?? defaultLogger;
 }
 
 /**
- * Report a graph-extraction failure. The first one logs at `error`, the rest at
- * `warn`.
- *
- * Extraction failing is not a transient miss: a rejected schema or a bad model
- * config fails identically on every call, forever, while storage still succeeds
- * and the request still returns. Logging the first occurrence at `warn` is how
- * `extractionModel` stayed a silent no-op through a release.
+ * Log a graph extraction failure. The first one is an error, later ones are
+ * warnings. These failures repeat on every call (bad schema or model config)
+ * while storage still works, so the first one must be loud.
  */
 export function reportExtractionFailure(client: MemoryClient, message: string, err: unknown): void {
   const state = getState(client);
@@ -59,14 +53,11 @@ export function reportExtractionFailure(client: MemoryClient, message: string, e
 }
 
 /**
- * Report a failed relationship write.
+ * Log a failed relationship write.
  *
- * The hosted REST API has no relationship endpoint and raises `NotSupportedError`
- * for every edge — a permanent condition, not a transient one. Since graph
- * extraction attempts one write per extracted edge per stored memory, logging
- * each occurrence would emit an unbounded stream of identical lines. The
- * unsupported case is therefore reported once per client and then suppressed;
- * genuine write failures still log every time.
+ * The hosted API has no relationship endpoint, so every edge fails with
+ * `NotSupportedError`. That case logs once per client. Other errors log
+ * every time.
  */
 export function reportRelationshipFailure(client: MemoryClient, err: unknown): void {
   const state = getState(client);
@@ -102,11 +93,11 @@ function cacheKey(config: NamsConfig, userId: string): string {
 }
 
 /**
- * Resolve a conversation id. Precedence:
- *   1. explicit scope.conversationId
- *   2. this instance's cache
- *   3. the user's most recent existing conversation in NAMS (GET)
- *   4. create a new one (CREATE)
+ * Get the conversation id, trying in order:
+ *   1. `scope.conversationId`
+ *   2. the cache
+ *   3. the user's latest conversation
+ *   4. a new conversation
  */
 export async function resolveConversation(
   client: MemoryClient,
@@ -139,11 +130,7 @@ export async function resolveConversation(
   return conv.id;
 }
 
-/**
- * Find an existing conversation without creating one.
- * Returns null if the user has no conversations yet
- * (e.g. reasoning trace) that should not side-effect a new conversation.
- */
+/** Like `resolveConversation`, but never creates one. Returns null if none exists. */
 export async function findExistingConversation(
   client: MemoryClient,
   config: NamsConfig,
@@ -166,7 +153,7 @@ export async function findExistingConversation(
   }
 }
 
-//Retrieval
+// Retrieval
 
 const RETRIEVAL = {
   currentThreshold: 0.4,
@@ -197,16 +184,16 @@ function entityContent(e: { name?: string; description?: string }): string {
   return name || description || '';
 }
 
-// Keyword + case-variant fallback
+// Search fallback
 //
-// Verified live against the hosted NAMS API: searchEntities/searchMessages do a
-// literal, case-sensitive substring match 
+// NAMS search is a case-sensitive substring match, so a full question rarely
+// matches anything. When it finds nothing, retry with single words.
 
 function titleCase(word: string): string {
   return word.length ? word[0].toUpperCase() + word.slice(1) : word;
 }
 
-/** Significant query words (own case + Title Case), longest-first, capped. */
+/** The longest query words, as typed and in Title Case. */
 function fallbackTerms(query: string, maxWords = 4): string[] {
   const words = query
     .split(/\s+/)
@@ -229,7 +216,7 @@ function tokenize(text: string): Set<string> {
   );
 }
 
-/** Rank candidates by case-insensitive word overlap with the original query. */
+/** Sort items by how many words they share with the query. */
 function rankByOverlap<T>(candidates: T[], query: string, contentOf: (item: T) => string | undefined): T[] {
   const queryTokens = tokenize(query);
   const overlap = (item: T) => {
@@ -242,9 +229,8 @@ function rankByOverlap<T>(candidates: T[], query: string, contentOf: (item: T) =
 }
 
 /**
- * Try `query` as-is first; if NAMS's literal substring match finds nothing,
- * retry with individual query words (own case + Title Case), merge, dedupe,
- * and rank the result by word overlap with the original query.
+ * Search the full query. If nothing matches, search each word, merge the
+ * results, and sort them by overlap with the query.
  */
 async function searchWithFallback<T>(
   query: string,
@@ -321,9 +307,9 @@ async function searchPastConversations(
 }
 
 /**
- * Search all four NAMS sources in parallel, dedupe, rank, and cap.
- * Priority (when no score): long-term > current conversation > cross-session > reasoning.
- * When scores are present the results are sorted by score descending.
+ * Search all four memory sources at once, remove duplicates, and cap the list.
+ * Sorted by score when there are scores. Otherwise: long-term, current
+ * conversation, past conversations, then reasoning.
  */
 export async function retrieveMemories(
   client: MemoryClient,
@@ -389,11 +375,11 @@ function entityName(content: string, max = 60): string {
 }
 
 /**
- * Persist a memory:
- *   - `interaction`               → short-term conversation thread
- *   - fact / preference / pattern → long-term graph
- * If `extractor` is provided, real entities + relationships are extracted
- * so the graph actually forms. Otherwise falls back to a single entity node.
+ * Save a memory:
+ *   - `interaction` goes to the conversation
+ *   - `fact`, `pattern`, `user_preference` go to the graph
+ * With an `extractor`, entities and relationships are extracted. Without one,
+ * or if it fails, the memory is saved as a single entity.
  */
 export async function storeMemory(
   client: MemoryClient,

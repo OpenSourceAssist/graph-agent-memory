@@ -1,15 +1,13 @@
 /**
- * Middleware mode (createNamsMemory().wrap) — the contract points an adopter
- * depends on when they wrap their model with NAMS memory (this same
- * middleware also underpins provider mode via createNamsProvider):
+ * Middleware mode (also used by provider mode).
  *
- *  1. relevant memories are injected into the prompt before the model runs
- *  2. the prompt is left untouched when there are no memories
- *  3. the user + assistant turn is persisted after generate
- *  4. the streamed turn is persisted after the stream closes
- *  5. retrieval failures are non-fatal — the model still answers
- *  6. persistInteractions=false disables persistence
- *  7. an explicit conversationId wins over lazy resolution
+ *  1. memories are added to the prompt before the model runs
+ *  2. the prompt is unchanged when there are no memories
+ *  3. the turn is saved after generate
+ *  4. a streamed turn is saved when the stream closes
+ *  5. a retrieval failure doesn't stop the model
+ *  6. persistInteractions=false turns saving off
+ *  7. an explicit conversationId is used as-is
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,7 +24,7 @@ import { createNamsMemory } from '../src/vercel-ai-provider-middleware';
 let fake: FakeClient;
 let userCounter = 0;
 
-/** Unique per test — client.ts keeps a module-global conversation cache. */
+/** A new user per test, so cached conversations never carry over. */
 const freshUser = () => `user-${Date.now()}-${userCounter++}`;
 
 beforeEach(() => {
@@ -85,7 +83,7 @@ describe('middleware mode — memory injection', () => {
 
 describe('middleware mode — persistence', () => {
   it('persists the clean user text and the assistant response after generate', async () => {
-    // Memory hit ensures injection happens — persisted text must still be the original.
+    // A memory is added to the prompt, but the saved text must be the original.
     fake.longTerm.searchEntities.mockResolvedValue([
       { name: 'Fact', description: 'Some stored fact', type: 'fact' },
     ]);
@@ -102,7 +100,7 @@ describe('middleware mode — persistence', () => {
     const calls = fake.shortTerm.addMessage.mock.calls;
     expect(calls).toContainEqual([conversationId, 'user', 'Tell me about graphs.']);
     expect(calls).toContainEqual([conversationId, 'assistant', 'Graphs model relationships.']);
-    // The injected memory block must NOT leak into the persisted user message.
+    // The memory block must not end up in the saved user message.
     const persistedUser = calls.find((c) => c[1] === 'user')![2];
     expect(persistedUser).not.toContain('Relevant long-term memory');
   });
@@ -147,7 +145,7 @@ describe('middleware mode — persistence', () => {
     const { model } = makeFakeModel('', [
       { type: 'tool-input-delta', id: 't1', delta: '{"city":' },
       { type: 'tool-input-delta', id: 't1', delta: '"Berlin"}' },
-      // The full tool-call supersedes the deltas for the same id — no duplication.
+      // The full tool-call replaces the deltas for the same id.
       { type: 'tool-call', toolCallId: 't1', toolName: 'weather', input: '{"city":"Berlin"}' },
       { type: 'finish', finishReason: 'tool-calls' },
     ]);
@@ -162,8 +160,7 @@ describe('middleware mode — persistence', () => {
 
     const assistantCall = fake.shortTerm.addMessage.mock.calls.find((c) => c[1] === 'assistant');
     expect(assistantCall![2]).toBe('{"city":"Berlin"}');
-    // Regression: V3 tool-call chunks have `input`, not `args` — the literal
-    // string "undefined" must never be persisted.
+    // Regression: tool-call chunks use `input`, not `args`. Never save "undefined".
     expect(assistantCall![2]).not.toContain('undefined');
   });
 
@@ -174,7 +171,7 @@ describe('middleware mode — persistence', () => {
       conversationId: 'conv-loop',
     });
 
-    // A tool loop calls doGenerate once per step with the same last user message.
+    // A tool loop calls doGenerate once per step with the same user message.
     await wrapped.doGenerate({ prompt: userPrompt('Run the tools') } as any);
     await wrapped.doGenerate({ prompt: userPrompt('Run the tools') } as any);
 
@@ -185,9 +182,8 @@ describe('middleware mode — persistence', () => {
   });
 
   it('injects exactly one memory block when a step is retried', async () => {
-    // The AI SDK rebuilds the params object per retry attempt but reuses the
-    // same prompt array, and transformParams re-runs on every attempt. Editing
-    // that array in place stacked a second memory block onto the first.
+    // Retries reuse the prompt array and rerun transformParams. Editing it in
+    // place used to add a second memory block.
     fake.longTerm.searchEntities.mockResolvedValue([
       { name: 'Alex', description: 'works at TechCorp', type: 'person', confidence: 0.9 },
     ]);
@@ -238,8 +234,7 @@ describe('middleware mode — persistence', () => {
     const userCalls = fake.shortTerm.addMessage.mock.calls.filter(c => c[1] === 'user');
     expect(userCalls).toHaveLength(1);
     expect(userCalls[0][2]).toBe('Where do I work?');
-    // A leaked memory block would poison short-term memory permanently, since
-    // the stored message is itself retrievable on later turns.
+    // A leaked block would be saved, then found again on later turns.
     expect(userCalls[0][2]).not.toContain('Relevant long-term memory');
   });
 

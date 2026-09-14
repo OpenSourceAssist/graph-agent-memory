@@ -1,11 +1,9 @@
 /**
- * Provider mode — ProviderV4-compatible NAMS provider.
+ * Provider mode. Wraps any AI SDK provider so every call loads memory first
+ * and saves the turn after.
  *
- * Wraps any base AI SDK provider (openai, anthropic, etc.) with NAMS memory —
- * retrieved automatically on every call, persisted after every response.
- *
- * No entity extraction here — turns are persisted as short-term messages and
- * NAMS extracts those server-side. Use tools mode for long-term memory.
+ * No entity extraction here. NAMS extracts saved turns server-side. Use tools
+ * mode for long-term memory.
  */
 
 import type { ProviderV4, LanguageModelV4, EmbeddingModelV4, ImageModelV4 } from '@ai-sdk/provider';
@@ -15,21 +13,15 @@ import { NamsConfig, NamsScope } from './vercel-ai-provider-types';
 
 export interface NamsProviderOptions extends NamsConfig {
   baseProvider: (modelId: string) => LanguageModelV4;
-  /**
-   * User/conversation scope for this provider instance.
-   * Create one provider instance per user session.
-   */
+  /** User and conversation. Create one provider per user session. */
   scope: NamsScope;
-  /** Max memories retrieved and injected into the prompt per turn (default: 6). Does not affect storage. */
+  /** Max memories added to the prompt per turn (default: 6). */
   maxMemories?: number;
-  /** Persist each turn to NAMS short-term memory (default: true). */
+  /** Save each turn to NAMS (default: true). */
   persistInteractions?: boolean;
 }
 
-/**
- * Create a ProviderV4-compatible NAMS provider, registrable with the
- * Vercel AI SDK via `createProviderRegistry`.
- */
+/** Create a NAMS provider. Works with `createProviderRegistry`. */
 export function createNamsProvider(options: NamsProviderOptions): ProviderV4 {
   const { baseProvider, scope, ...memoryConfig } = options;
   const memory = createNamsMemory(memoryConfig);

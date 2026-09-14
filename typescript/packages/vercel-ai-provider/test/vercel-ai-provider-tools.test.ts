@@ -1,12 +1,12 @@
 /**
- * Tools mode — query_memory / store_memory as model-driven AI SDK tools.
+ * Tools mode: the query_memory and store_memory tools.
  *
- * Contract points:
+ * Checks:
  *  - query_memory returns found=true with hits, found=false when empty
  *  - store_memory(interaction) → short-term message
  *  - store_memory(fact) → long-term entity + confidence feedback
  *  - existing entities are reused, not duplicated
- *  - a storage failure reports stored=false instead of throwing into the loop
+ *  - a storage failure returns stored=false instead of throwing
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -207,10 +207,8 @@ describe('store_memory', () => {
 });
 
 describe('enforceQueryMemory', () => {
-  // enforceQueryMemory reads only stepNumber and steps. AI SDK v7 widened the
-  // prepareStep options with several more required fields (instructions,
-  // initialMessages, responseMessages, …) that this hook never touches, so the
-  // fixture casts once here rather than restating unused fields at every call.
+  // enforceQueryMemory only reads stepNumber and steps, so cast once instead
+  // of filling in every other prepareStep field.
   type StepOptions = Parameters<ReturnType<typeof enforceQueryMemory>>[0];
 
   const stepOptions = (stepNumber: number, toolNames: string[][] = []) => ({
@@ -221,7 +219,7 @@ describe('enforceQueryMemory', () => {
   it('requires a tool call while query_memory has not been executed', async () => {
     const prepareStep = enforceQueryMemory();
     expect(await prepareStep(stepOptions(0))).toEqual({ toolChoice: 'required' });
-    // Other tools ran, but query_memory still hasn't → still constrained.
+    // Other tools ran but query_memory hasn't, so still constrained.
     expect(await prepareStep(stepOptions(2, [['read_file'], ['mcp_search']])))
       .toEqual({ toolChoice: 'required' });
   });
@@ -269,8 +267,7 @@ describe('ensureMemoryStored', () => {
     expect(fake.shortTerm.addMessage).toHaveBeenCalledWith(
       'conv-e1', 'assistant', 'Noted — you prefer dark mode.',
     );
-    // interaction → short-term only. The agent's own summary must never become
-    // a long-term entity; that is the self-referential loop the extractor rejects.
+    // interaction is short-term only. The agent's own summary must never become an entity.
     expect(fake.longTerm.addEntity).not.toHaveBeenCalled();
   });
 

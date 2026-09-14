@@ -2,7 +2,7 @@ import type { MemoryClient } from '@neo4j-labs/agent-memory';
 
 export const DEFAULT_ENDPOINT = 'https://memory.neo4jlabs.com/v1';
 
-/** Pluggable logger for non-fatal errors (network failures, fallbacks). */
+/** Logger for non-fatal errors. */
 export interface NamsLogger {
   warn: (message: string, error?: unknown) => void;
   error: (message: string, error?: unknown) => void;
@@ -12,7 +12,7 @@ export interface NamsConfig {
   apiKey: string;
   endpoint?: string;
   workspaceId?: string;
-  /** Reports non-fatal errors. Defaults to console; pass your own to redirect or silence. */
+  /** Logger for non-fatal errors (default: console). */
   logger?: NamsLogger;
 }
 
@@ -43,8 +43,8 @@ export type GraphExtractor = (client: MemoryClient, input: StoreInput) => Promis
 export interface ClientState {
   convCache: Map<string, string>;
   logger: NamsLogger;
-  /** Set once graph extraction has failed, so only the first failure logs at error level. */
+  /** True after the first graph extraction failure. */
   extractionFailed?: boolean;
-  /** Set once the backend has reported relationship writes unsupported, to suppress per-edge repeats. */
+  /** True once the backend has said it can't write relationships. */
   relationshipWritesUnsupported?: boolean;
 }

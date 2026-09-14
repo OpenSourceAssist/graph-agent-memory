@@ -30,24 +30,18 @@ const graphSchema = z.object({
 
 const normalize = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
-// "memories" -> "memory", "details" -> "detail". Crude by design: it only has to
-// collapse the plurals the extractor emits, not conjugate English.
+// Rough singular: "memories" -> "memory", "details" -> "detail".
 const singular = (s: string): string =>
   s.endsWith('ies') ? `${s.slice(0, -3)}y` : s.endsWith('s') ? s.slice(0, -1) : s;
 
 /**
- * True when a name is a common noun rather than a proper one.
- *
- * The second clause is what keeps this from being an English rule: a script
- * without case ("北京", "القاهرة") reports equal upper and lower forms, so the
- * test declines to fire rather than rejecting every entity in that language.
+ * True for an all-lowercase name (a common noun, not a proper name).
+ * Always false for scripts without case, like "北京".
  */
 const isCommonNoun = (name: string): boolean =>
   name === name.toLowerCase() && name !== name.toUpperCase();
 
-/**
- * True when an "entity" is really the memory system talking about itself.
- */
+/** True when an entity should be skipped: empty, a common noun, or just its type name. */
 function isSelfReferential(name: string, type: string): boolean {
   const n = normalize(name);
   if (!n) return true;
@@ -60,9 +54,8 @@ export interface GraphExtractorOptions {
 }
 
 /**
- * Build a graph extractor backed by an AI SDK model. Extracts entities and
- * relationships from a stored memory so the graph actually forms, instead of
- * one sentence-shaped node. Costs one extra model call per stored memory.
+ * Build an extractor that uses a model to pull entities and relationships
+ * out of a stored memory. Costs one extra model call per memory.
  */
 export function createGraphExtractor(
   model: LanguageModel,
