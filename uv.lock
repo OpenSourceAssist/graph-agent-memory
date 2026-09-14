@@ -3919,7 +3919,7 @@ wheels = [
 
 [[package]]
 name = "neo4j-agent-memory"
-version = "0.5.0"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "neo4j" },

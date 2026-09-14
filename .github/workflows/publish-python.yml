@@ -15,6 +15,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The tag is the only thing that names the version being released, but
+      # `uv build` reads the version out of `pyproject.toml`. When the two
+      # disagree the build still succeeds and the failure surfaces two jobs
+      # later, as a duplicate-file rejection from PyPI — so compare them here,
+      # before anything is built or uploaded.
+      - name: Verify the tag matches the package version
+        run: |
+          tag_version="${GITHUB_REF_NAME#python-v}"
+          pyproject_version="$(awk '/^\[project\]$/{f=1;next} /^\[/{f=0} \
+            f && /^version *= *"/{gsub(/^version *= *"|"$/,""); print; exit}' pyproject.toml)"
+          dunder_version="$(sed -n 's/^__version__ *= *"\(.*\)"$/\1/p' \
+            src/neo4j_agent_memory/__init__.py)"
+          echo "tag=${tag_version} pyproject=${pyproject_version} __version__=${dunder_version}"
+          if [ "$tag_version" != "$pyproject_version" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} releases ${tag_version}, but pyproject.toml declares ${pyproject_version}"
+            exit 1
+          fi
+          if [ "$tag_version" != "$dunder_version" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} releases ${tag_version}, but __version__ is ${dunder_version}"
+            exit 1
+          fi
+
       - name: Install uv
         uses: astral-sh/setup-uv@v4
 

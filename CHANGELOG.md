@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-14
+
 ### Added
 
 - **Strands MemoryStore** (`Neo4jMemoryStore`) — cross-session recall for Strands
@@ -370,7 +372,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `fastmcp>=4`. The CrewAI test guards still imported `from crewai.memory import
     Memory`, the path removed in 1.x, so every CrewAI test silently skipped; they now
     probe `crewai.memory.memory` like the adapter and actually run.
-- `strands` extra requires `strands-agents>=1.44.0` (was `>=0.1.0`).
 - **`Neo4jSessionManager` now guards against a paired `Neo4jMemoryStore` duplicating its work**: raises if both would extract the same turns (always, on NAMS), warns once if both would inject context.
 - `ShortTermProtocol.bulk_add_messages` takes explicit keyword-only params
   (`generate_embeddings`, `extract_entities`, `extract_relations`, `user_identifier`)
@@ -498,11 +499,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `merge_confidence` score; fallback entity confidence uses the model default.
   Null confidence and collection fields use meaningful defaults, while invalid
   server IDs and explicit null/invalid creation timestamps fail validation.
-
-> **Docs note:** when this ships, flip the "REST-only / no SDK method" notes in
-> `reference/rest-api.adoc`, `reference/ontology-api.adoc`, and
-> `reference/authentication.adoc`, and the Python↔TS parity note in
-> `reference/typescript-api.adoc`, to reflect the new SDK surface.
 
 ## [0.5.0] - 2026-05-30
 
@@ -1002,6 +998,7 @@ The v0.2 feature drop. Headline feature is **adopting an existing Neo4j graph** 
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Schema Persistence**: Store and version custom entity schemas in Neo4j
 
+[0.6.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/python-v0.6.0
 [0.5.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/python-v0.5.0
 [0.4.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.4.0
 [0.1.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.1.0
