@@ -14,7 +14,7 @@ NAMS-backend only. All methods raise `NotSupportedError` on bolt.
 | `ontology.get(id)` | `ontology.get(id)`
 | One ontology with its full revision history (`{record, versions[]}`).
 | `ontology.get_active()` | `ontology.getActive()`
-| Active version's parsed document + composed `validation_mode` / `revision` / `version_id`.
+| Parsed active document and binding metadata from the authoritative response `version`; never inferred from the latest revision.
 | `ontology.clone(template_name)` | `ontology.clone(templateName)`
 | Editable workspace copy of a system template; returns the rev-1 version.
 | `ontology.create(name, schema, validation_mode=None)` | `ontology.create({name, schema, validationMode?})`
@@ -22,7 +22,7 @@ NAMS-backend only. All methods raise `NotSupportedError` on bolt.
 | `ontology.update(id, schema, validation_mode=None)` | `ontology.update({id, schema, validationMode?})`
 | New immutable revision (n+1); returns it.
 | `ontology.activate(version_id)` | `ontology.activate(versionId)`
-| Bind a version; subsequent entity writes validate against it.
+| Bind the specified version to the workspace. Validation enforcement is a service behavior, separate from successful activation.
 | `ontology.delete(id)` | `ontology.delete(id)`
 | Delete a workspace-owned ontology.
 | `ontology.import_(content=/url=, format=)` | `ontology.import({content?, url?, format?})`
@@ -40,6 +40,15 @@ NAMS-backend only. All methods raise `NotSupportedError` on bolt.
 `list()` returns `OntologySummary[]`. `get()` returns `Ontology` (`{record,
 versions[]}`). `get_active()` returns `ActiveOntology`. `clone` / `create` /
 `update` / `activate` return an `OntologyVersion`.
+
+For `get_active()` / `getActive()`, a supplied response `version` identifies the
+bound version even when a newer revision exists. Python exposes its
+`version_id`, `revision` and `validation_mode`; TypeScript exposes `versionId`,
+`revision` and `validationMode`. Legacy document-only responses, or responses
+with a missing/null `version`, leave optional binding metadata absent. A
+consumer that must restore a binding must stop before mutation when that
+metadata is unavailable. Partial, malformed or contradictory supplied version
+metadata is an error; neither client silently substitutes the latest revision.
 
 `import_()` returns an `OntologyImportResult` (`{document?, warnings[]
 (ImportWarning), detected_format?, suggested_name?}`). `diff()` returns an

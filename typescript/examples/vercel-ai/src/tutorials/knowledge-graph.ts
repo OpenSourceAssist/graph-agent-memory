@@ -1,36 +1,33 @@
-import { MemoryClient } from "@neo4j-labs/agent-memory";
-import { pathToFileURL } from "node:url";
+import { TutorialRun, isTutorialEntryPoint } from "../../../shared/tutorial-state.js";
+import { inspectGraph, runTutorialCommand, waitForTerminalExtraction } from "../../../shared/tutorial-cleanup.js";
 
-export async function inspectDocuments(client: MemoryClient, timeoutMs = 30_000) {
-  const conversation = await client.shortTerm.createConversation({ userId: "tutorial-documents" });
+export async function inspectDocuments(run: TutorialRun, timeoutMs = 60_000) {
+  const conversation = await run.createConversation();
   console.log(`CONVERSATION_ID=${conversation.id}`);
-  const name = `Lantern Orchard ${conversation.id}`;
-  await client.shortTerm.bulkAddMessages(conversation.id, [
-    { role: "user", content: `${name} is a fictional organization that designs garden sensors.` },
-    { role: "user", content: `Mira Vale is an engineer at ${name}. The team works in Willow Harbor.` },
+  await run.bulkAddMessages([
+    { role: "user", content: `${run.name} is a fictional organization that designs garden sensors.` },
+    { role: "user", content: `Mira Vale ${run.state.runId} is an engineer at ${run.name}.` },
   ]);
-  const stored = await client.shortTerm.getConversation(conversation.id);
-  console.log(`Stored documents: ${stored.messages.length}`);
-  // Match this run's synthetic name; an arbitrary non-empty search is not readiness.
-  const ready = await client.longTerm.waitForExtraction({
-    query: name, expectedNames: [name], timeoutMs, intervalMs: 1_000,
-  });
-  if (!ready) {
-    console.log("The expected entity was not found before the deadline. Messages remain stored.");
-    return { conversationId: conversation.id, ready, entityIds: [] as string[] };
+  const stored = await run.verify();
+  console.log(`Stored document messages verified: ${stored.messages}`);
+  await waitForTerminalExtraction(run, timeoutMs);
+  const graph = await inspectGraph(run);
+  const entityIds = [...new Set(graph.map(row => String(row.entity_id)))];
+  let expectedNameFound = false;
+  for (const id of entityIds) {
+    // These IDs came from the owned messages' provenance edges, not workspace search.
+    run.retain({ kind: "entity", id, origin: "derived", disposition: "present" });
+    const entity = await run.client.longTerm.getEntity(id);
+    expectedNameFound ||= entity.name.toLowerCase() === run.name.toLowerCase();
+    console.log(`Linked entity: ${entity.id} ${entity.name} (${entity.type})`);
   }
-  const entities = await client.longTerm.searchEntities(name, { limit: 10 });
-  const matches = entities.filter((entity) => entity.name.toLowerCase() === name.toLowerCase());
-  for (const entity of matches) console.log(`Entity: ${entity.id} ${entity.name} (${entity.type})`);
-  const graph = await client.longTerm.getEntityGraph();
-  console.log(`Workspace graph: ${graph.nodes.length} nodes, ${graph.edges.length} edges`);
-  return { conversationId: conversation.id, ready, entityIds: matches.map((entity) => entity.id) };
+  console.log(`Run graph: ${graph.length} message/entity links`);
+  if (!entityIds.length) throw new Error("Extraction finished without linked entities. Keep the state and inspect the messages before claiming graph success.");
+  if (!expectedNameFound) throw new Error("Linked entities did not include this run's expected organization name. Keep the state; graph presence alone is not the lesson's success condition.");
+  return { conversationId: conversation.id, entityIds };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const client = new MemoryClient({ endpoint: process.env.MEMORY_ENDPOINT });
-  try {
-    if (!process.env.MEMORY_API_KEY) throw new Error("Set MEMORY_API_KEY.");
-    await inspectDocuments(client);
-  } finally { await client.close(); }
+if (isTutorialEntryPoint(import.meta.url)) {
+  runTutorialCommand("knowledge-graph", process.argv.slice(2), "seed", ["seed"],
+    (_mode, run) => inspectDocuments(run)).catch(error => { console.error(error); process.exitCode = 1; });
 }

@@ -18,7 +18,7 @@ anchor:_prerequisites[]
 
 The embedding calls send the supplied text to OpenAI. This exercise uses fictional data. Neo4j Agent Memory is an experimental Neo4j Labs project; see xref:reference/backend-capabilities.adoc[backend capabilities] before adapting the example to NAMS.
 
-You also need an OpenAI chat-model ID and disk space/network access for the GLiNER, GLiREL, and spaCy model downloads. CPU inference and the first download can take several minutes. GLiREL is installed separately because the SDK does not define a `glirel` extra.
+You also need an OpenAI chat-model ID and disk space/network access for the GLiNER, GLiREL, and spaCy model downloads. CPU inference and the first download can take several minutes. GLiREL is installed separately because the SDK does not define a `glirel` extra. Its current package also requires `loguru` at import time without declaring that dependency, so the command includes it explicitly.
 
 anchor:_step_1_project_setup[]
 anchor:_step_1_install_dependencies[]
@@ -31,7 +31,7 @@ git clone https://github.com/neo4j-labs/agent-memory.git
 cd agent-memory
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[openai,gliner,spacy]' glirel
+python -m pip install -e '.[openai,gliner,spacy]' glirel 'loguru>=0.7,<1'
 python -m spacy download en_core_web_sm
 python -c "import neo4j_agent_memory; print('SDK import verified')"
 ----

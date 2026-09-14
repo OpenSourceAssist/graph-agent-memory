@@ -72,10 +72,25 @@ artifact supplies every API used here.
 ## Run it
 
 ```bash
-cp .env.example .env       # set MEMORY_API_KEY
+if [ ! -e .env ]; then
+  (umask 077; set -C; cat .env.example > .env)
+fi
+chmod 600 .env
 npm ci
+```
+
+Edit the private `.env` with `MEMORY_API_KEY` before running `npm start`.
+The commands preserve an existing file.
+
+```bash
 npm start                  # waits on stdio for an MCP client
 ```
+
+For the separate step-by-step
+[Claude Desktop tutorial](../../../docs/modules/ROOT/pages/tutorials/mcp-server-typescript.adoc),
+follow its standalone `my-memory-mcp/` setup and `.env.tutorial.example`
+template. Its selected tools and resource-accounting helpers differ from this
+general server example.
 
 Expected output on **stderr** (stdout is the protocol channel and stays clean):
 
@@ -163,7 +178,11 @@ loader and a network-capable `npx` to the launch path.
 mechanism Desktop offers a self-hosted stdio server. So:
 
 - use a workspace-scoped data-plane key, never an admin key;
-- rotate it with `client.auth.rotateApiKey()` if the file leaks;
+- if the file leaks, have the key owner rotate or revoke that exact key through
+  their authenticated management interface, replace Desktop's private value,
+  and verify the old key is rejected; API management requires the `keyId` and
+  an owner-user or administrator credential, which must stay out of Desktop
+  ([key lifecycle](../../../docs/modules/ROOT/pages/reference/authentication.adoc#_key_lifecycle));
 - if you want OAuth instead of a long-lived key, use the hosted MCP host — it
   supports it and this pattern cannot.
 

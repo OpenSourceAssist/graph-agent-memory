@@ -53,6 +53,31 @@ def test_rendered_image_dimensions_and_description(tmp_path):
     assert any("invalid width" in error for error in errors)
 
 
+@pytest.mark.parametrize(
+    "paragraph",
+    [
+        '<p><a id="legacy"></a>\n== Setup</p>',
+        "<p>=== Read <em>and verify</em></p>",
+    ],
+)
+def test_rendered_heading_markers_in_paragraphs_are_rejected(tmp_path, paragraph):
+    (tmp_path / "index.html").write_text(f'<article class="doc">{paragraph}</article>')
+    errors = rendered_report(tmp_path)["errors"]
+    assert len(errors) == 1
+    assert "unrendered AsciiDoc heading" in errors[0]
+
+
+def test_rendered_heading_examples_and_shared_ui_are_ignored(tmp_path):
+    (tmp_path / "index.html").write_text(
+        '<nav><p>== Shared UI</p></nav><article class="doc">'
+        '<h2 id="setup">Setup</h2><pre><code>== Code example</code></pre>'
+        "<pre><p>== Preformatted example</p></pre>"
+        "<p><code>== </code> begins a heading.</p>"
+        "<p>Use <code>== Title</code> for a section.</p></article>"
+    )
+    assert not rendered_report(tmp_path)["errors"]
+
+
 def test_every_leaf_needs_a_hub_route_but_subindexes_are_supported(tmp_path):
     for quadrant in ("tutorials", "how-to", "reference", "explanation"):
         folder = tmp_path / quadrant

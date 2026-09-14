@@ -623,6 +623,25 @@ jobs:
         working-directory: ${{ matrix.dir }}
         run: npm run ${{ matrix.build || 'build' }}
 
+  # Run the hosted tutorials against their Python floor without heavyweight providers.
+  hosted-tutorial-minimum:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Install a clean Python 3.10 hosted environment
+        run: |
+          uv venv --python 3.10 .venv-hosted
+          uv pip install --python .venv-hosted/bin/python '.[nams]' pytest pytest-asyncio pytest-timeout respx
+      - name: Verify hosted clients and maintained tutorial failure paths
+        run: |
+          .venv-hosted/bin/python -m pytest -q \
+            tests/unit/nams/test_ontology.py \
+            tests/docs/test_hosted_tutorial_contracts.py \
+            tests/docs/test_hosted_tutorial_cleanup.py \
+            tests/docs/test_skills_tutorial.py \
+            tests/docs/test_ontology_tutorial.py --timeout=60
+
   # Documentation tests - validates code snippets and internal links
   docs-tests:
     runs-on: ubuntu-latest
@@ -664,6 +683,9 @@ jobs:
         run: |
           uv run pytest tests/docs/test_python_reference_contracts.py \
             tests/docs/test_hosted_tutorial_contracts.py \
+            tests/docs/test_hosted_tutorial_cleanup.py \
+            tests/docs/test_skills_tutorial.py \
+            tests/docs/test_ontology_tutorial.py \
             tests/docs/test_core_python_tutorials.py \
             tests/docs/test_aura_tutorial_setup.py \
             tests/docs/test_operational_howto_contracts.py \

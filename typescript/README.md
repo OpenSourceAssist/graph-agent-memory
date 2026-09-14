@@ -99,7 +99,8 @@ All five ship as subpath exports. See each integration's
 ## 📖 Documentation
 
 - [TypeScript SDK landing page](https://neo4j.com/labs/agent-memory/sdks/typescript)
-- [Tutorial: First Agent Memory (TypeScript)](https://neo4j.com/labs/agent-memory/tutorials/first-agent-memory-typescript)
+- [Start here: store and read back hosted memory](../docs/modules/ROOT/pages/tutorials/hosted-quickstart-typescript.adoc)
+- [Build an agent with memory](../docs/modules/ROOT/pages/tutorials/first-agent-memory-typescript.adoc)
 - [How-to guides](https://neo4j.com/labs/agent-memory/how-to/typescript) — authentication,
   edge deployment, error handling, observability, framework integrations
 - [Concept: short-term vs long-term vs reasoning memory](https://neo4j.com/labs/agent-memory/explanation/memory-types)

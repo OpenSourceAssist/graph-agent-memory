@@ -1,38 +1,20 @@
-= Hosted TypeScript Quickstart
+= Store and read back hosted memory with TypeScript
 :description: Store and read back a conversation using the hosted REST service and TypeScript SDK.
-:toc:
 :source-highlighter: rouge
 
-Create a conversation, store a message, retrieve its context, and record an
-application-authored activity step. This path needs a NAMS key and no model API
-key. Allow about ten minutes after installing Node.js.
+We will create a conversation, store a message, retrieve its context, and verify
+the same record in a fresh process. This path needs a NAMS key and no model API
+key.
 
 anchor:_prerequisites[]
 anchor:_step_2_install_a_client[]
 
 == Step 1: Build the SDK and install the lesson project
 
-This lesson uses the current source checkout. It does not establish which npm
-release contains these APIs. Use Node.js 22 or later; the lesson project declares
-AI SDK 7 and `@ai-sdk/openai` 4. You need a `MEMORY_API_KEY` for a test workspace
-on link:https://memory.neo4jlabs.com/[NAMS]. This quickstart does not call a model, so `OPENAI_API_KEY` is not required.
+You need a workspace-scoped `MEMORY_API_KEY` for a dedicated test workspace on
+link:https://memory.neo4jlabs.com/[NAMS]. This lesson does not call a model, so `OPENAI_API_KEY` is not required.
 
-From the repository root, run:
-
-[source,bash]
-----
-cd typescript
-npm ci
-npm run build
-cd examples/vercel-ai
-npm ci
-cp .env.example .env
-----
-
-Edit `.env` with your keys. Keep it out of version control. All remaining commands
-run in `typescript/examples/vercel-ai/`. Its `package.json` sets ESM and its
-`tsconfig.json` supplies the compiler settings; no global TypeScript install is needed.
-Run `npm run lint` to verify the complete programs against your checkout.
+include::partial$typescript-tutorial-project.adoc[]
 
 anchor:_step_3_create_a_conversation_and_add_messages[]
 anchor:_step_5_reasoning_provenance[]
@@ -43,66 +25,94 @@ Open `src/tutorials/hosted-quickstart.ts`:
 
 [source,typescript]
 ----
-import { MemoryClient } from "@neo4j-labs/agent-memory";
-import { pathToFileURL } from "node:url";
+import { TutorialRun, isTutorialEntryPoint } from "../../../shared/tutorial-state.js";
+import { runTutorialCommand } from "../../../shared/tutorial-cleanup.js";
 
-export async function hostedQuickstart(client: MemoryClient) {
-  const conversation = await client.shortTerm.createConversation({ userId: "tutorial-reader" });
+export async function hostedQuickstart(run: TutorialRun) {
+  const conversation = await run.createConversation();
   console.log(`CONVERSATION_ID=${conversation.id}`);
-  await client.shortTerm.addMessage(conversation.id, "user", "I am planning the fictional Lantern Orchard project.");
-  const stored = await client.shortTerm.getConversation(conversation.id);
-  const context = await client.shortTerm.getContext(conversation.id);
-  console.log(`Stored messages: ${stored.messages.length}`);
+  await run.addMessage("user", `I am planning the fictional ${run.name} project.`);
+  const stored = await run.verify();
+  const context = await run.client.shortTerm.getContext(conversation.id);
+  console.log(`Stored messages verified: ${stored.messages}`);
   console.log(`Recent context messages: ${context.recentMessages.length}`);
-  await client.reasoning.recordStep({
-    conversationId: conversation.id,
-    reasoning: "Verified that the submitted message can be read back.",
-    actionTaken: "verify_storage",
-    result: `Read ${stored.messages.length} message(s)`,
-  });
-  const trace = await client.reasoning.getTraceByConversation(conversation.id);
-  console.log(`Recorded steps: ${trace.steps.length}`);
+  console.log(`Keep run state: ${run.path}`);
   return conversation.id;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const client = new MemoryClient({ endpoint: process.env.MEMORY_ENDPOINT });
-  try {
-    if (!process.env.MEMORY_API_KEY) throw new Error("Set MEMORY_API_KEY.");
-    await hostedQuickstart(client);
-  } finally { await client.close(); }
+if (isTutorialEntryPoint(import.meta.url)) {
+  runTutorialCommand("hosted-quickstart", process.argv.slice(2), "seed", ["seed"],
+    (_mode, run) => hostedQuickstart(run)).catch(error => { console.error(error); process.exitCode = 1; });
 }
 ----
 
+The maintained state and cleanup helpers are in `typescript/examples/shared/`.
+Keep the private `.tutorial-state/` directory with this checkout. Each run binds
+its saved IDs to the endpoint, workspace selector and credential; a changed
+identity stops before using those IDs. Reseeding an existing state is refused.
+
 anchor:_step_1_sanity_check_the_service[]
-The first request validates authentication. `createConversation` supplies the id
-used by every later operation. The activity record describes this program's
-storage check; it does not claim an extraction or entity-provenance link.
 
-== Step 3: Run the storage check
+anchor:_step_3_run_the_storage_check[]
 
-[source,bash]
-----
-npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts
-----
-
-Expect a new conversation id, `Stored messages: 1`, one recent context message
-and `Recorded steps: 1`. A successful message write does not mean asynchronous
-entity extraction has finished. The next tutorial handles that distinction.
-
-== Clean up the conversation
-
-Keep the printed conversation id. From the same lesson directory, delete that
-specific conversation when you have finished inspecting it:
+== Step 3: Store and inspect one message
 
 [source,bash]
 ----
-CONVERSATION_ID='<the printed id>' npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts cleanup
+npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts seed .tutorial-state/hosted-quickstart.json
 ----
 
-Closing the client only releases client resources. It does not delete stored
-messages. Deleting a conversation does not promise removal of extracted,
-workspace-wide entities; inspect those separately in a disposable test workspace.
+Expect `Stored messages verified: 1` and a `Recent context messages:` count.
+The separate message readback checks the returned ID and fictional project
+content; a context count alone would not prove those contents. The run
+prints its actual IDs; search ranking and model output are not part of this
+storage check. A successful write does not mean asynchronous extraction has
+finished.
+
+This introductory path creates no reasoning steps. Their supported API and
+current cleanup limits are described in
+xref:reference/typescript-api.adoc[the TypeScript API reference].
+
+== Verify in a fresh process
+
+Run these commands from the same directory, using the state created above:
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts inspect .tutorial-state/hosted-quickstart.json
+npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts verify .tutorial-state/hosted-quickstart.json
+----
+
+`inspect` shows the saved IDs and operation status. Expect `Verified stored
+messages:` with the recorded conversation ID and message count from `verify`.
+It opens another
+client and reads the recorded conversation and exact message IDs, roles and
+content digests; it makes no model
+calls and creates no records. A successful check establishes persistence across
+client processes. It does not imply that the hosted service restarted.
+
+anchor:_clean_up_the_conversation[]
+
+== Clean up and inspect the disposition
+
+From the same lesson directory, clean up this run using its saved state:
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts cleanup .tutorial-state/hosted-quickstart.json
+npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts inspect .tutorial-state/hosted-quickstart.json
+----
+
+The cleanup command waits for the recorded messages' extraction to finish,
+checks the entities derived from those messages and any explicitly created
+entities, and deletes only records with proven exclusive ownership. It verifies
+deleted records are absent. Shared, merged or uncertain records remain listed;
+inspect their disposition instead of treating partial cleanup as a complete
+reset. A timeout or failed readback stops cleanup and preserves the state.
+
+Keep the state until every resource has a verified disposition. Closing the
+client alone does not delete data. Do not remove the state file to bypass an
+unfinished run or bulk-delete workspace entities.
 
 anchor:_step_4_inspect_the_entity_graph[]
 

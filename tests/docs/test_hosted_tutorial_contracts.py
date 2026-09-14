@@ -18,6 +18,7 @@ import httpx
 import pytest
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "docs/modules/ROOT/examples"
+sys.path.insert(0, str(EXAMPLES))
 
 
 def load_fixture(name):
@@ -31,6 +32,19 @@ def load_fixture(name):
 helpers = load_fixture("hosted_tutorial_helpers")
 skills = load_fixture("skills_quickstart")
 nams = load_fixture("nams_quickstart")
+
+
+def make_state(tmp_path, lesson="skills"):
+    from neo4j_agent_memory import NamsSettings
+
+    return skills.TutorialState.create(
+        tmp_path / f"{lesson}.json",
+        NamsSettings(
+            nams={"endpoint": "https://service.invalid/v1", "api_key": "nams_fixture"},
+            _env_file=None,
+        ),
+        lesson,
+    )
 
 
 class Clock:
@@ -107,81 +121,7 @@ def test_skill_poll_timeout_is_finite_while_queued():
     assert clock.now == 5
 
 
-class Ontology:
-    def __init__(self, previous="previous-version", fail_restore=False):
-        self.previous = previous
-        self.active = previous
-        self.calls = []
-        self.fail_restore = fail_restore
-
-    async def get_active(self):
-        self.calls.append(("get_active", self.active))
-        return SimpleNamespace(
-            version_id=self.active,
-            validation_mode="strict" if self.active == "strict-version" else "permissive",
-        )
-
-    async def clone(self, template):
-        self.calls.append(("clone", template))
-        return SimpleNamespace(ontology_id="new-clone", document="fixture-document")
-
-    async def update(self, ontology_id, document, **kwargs):
-        assert (ontology_id, document, kwargs) == (
-            "new-clone",
-            "fixture-document",
-            {"validation_mode": "strict"},
-        )
-        self.calls.append(("update", ontology_id))
-        return SimpleNamespace(id="strict-version")
-
-    async def activate(self, version):
-        self.calls.append(("activate", version))
-        if self.fail_restore and version == self.previous:
-            raise RuntimeError("restoration failed")
-        self.active = version
-
-    async def delete(self, ontology_id):
-        self.calls.append(("delete", ontology_id))
-
-
-def test_ontology_restores_then_verifies_before_delete_even_on_body_failure():
-    ontology = Ontology()
-
-    async def run():
-        async with helpers.temporary_strict_ontology(ontology, "healthcare"):
-            raise ValueError("exercise failed")
-
-    with pytest.raises(ValueError, match="exercise failed"):
-        asyncio.run(run())
-    assert ontology.calls[-3:] == [
-        ("activate", "previous-version"),
-        ("get_active", "previous-version"),
-        ("delete", "new-clone"),
-    ]
-
-
-def test_ontology_missing_prior_id_stops_before_clone():
-    ontology = Ontology(previous=None)
-
-    async def run():
-        async with helpers.temporary_strict_ontology(ontology, "healthcare"):
-            pytest.fail("must not enter the exercise")
-
-    with pytest.raises(RuntimeError, match="No restorable"):
-        asyncio.run(run())
-    assert ontology.calls == [("get_active", None)]
-
-
-def test_ontology_failed_restoration_keeps_clone():
-    ontology = Ontology(fail_restore=True)
-
-    async def run():
-        async with helpers.temporary_strict_ontology(ontology, "healthcare"):
-            pass
-
-    with pytest.raises(RuntimeError, match="restoration failed"):
-        asyncio.run(run())
-    assert not any(call[0] == "delete" for call in ontology.calls)
+# Ontology restoration/recovery contracts live in test_ontology_tutorial.py.
 
 
 class ShortTerm:
@@ -189,12 +129,16 @@ class ShortTerm:
         self.messages = []
         self.ids = []
 
-    async def create_conversation(self, name):
+    async def create_conversation(self, name, **kwargs):
+        assert kwargs["metadata"]["tutorialRun"]
         return SimpleNamespace(id="server-conversation-id")
 
     async def bulk_add_messages(self, conversation_id, transcript):
         self.ids.append(conversation_id)
-        self.messages = [SimpleNamespace(content=row["content"]) for row in transcript]
+        self.messages = [
+            SimpleNamespace(id=f"message-{index}", content=row["content"], role=row["role"])
+            for index, row in enumerate(transcript)
+        ]
         return self.messages
 
     async def get_conversation(self, conversation_id):
@@ -219,7 +163,9 @@ class Reasoning:
 
     async def record_tool_call(self, step_id, tool_name, arguments, result):
         assert step_id == self.steps[-1].id
-        self.steps[-1].tool_calls.append(SimpleNamespace(tool_name=tool_name))
+        call = SimpleNamespace(id=f"tool-{step_id}", tool_name=tool_name)
+        self.steps[-1].tool_calls.append(call)
+        return call
 
     async def complete_trace(self, trace_id, **kwargs):
         assert trace_id == "returned-trace"
@@ -229,7 +175,7 @@ class Reasoning:
         return [SimpleNamespace(steps=self.steps)]
 
 
-def test_hosted_exercise_reuses_server_ids_and_checks_reads():
+def test_hosted_exercise_reuses_server_ids_and_checks_reads(tmp_path):
     short_term, reasoning = ShortTerm(), Reasoning()
     seen = []
 
@@ -245,13 +191,16 @@ def test_hosted_exercise_reuses_server_ids_and_checks_reads():
         reasoning=reasoning,
         long_term=SimpleNamespace(wait_for_extraction=wait, search_entities=search),
     )
-    assert asyncio.run(nams.exercise(client)) == "server-conversation-id"
+    state = make_state(tmp_path, "nams")
+    assert asyncio.run(nams.exercise(client, state)) == "server-conversation-id"
     assert set(short_term.ids + reasoning.sessions) == {"server-conversation-id"}
+    assert not reasoning.sessions
+    assert len(state.data["resources"]["message"]) == 2
     assert seen[0]["session_id"] == "server-conversation-id"
     assert seen[0]["timeout"] == 60.0
 
 
-def test_hosted_extraction_timeout_stops_before_reasoning():
+def test_hosted_extraction_timeout_stops_before_reasoning(tmp_path):
     async def wait(**kwargs):
         return False
 
@@ -261,18 +210,21 @@ def test_hosted_extraction_timeout_stops_before_reasoning():
         long_term=SimpleNamespace(wait_for_extraction=wait),
     )
     with pytest.raises(TimeoutError):
-        asyncio.run(nams.exercise(client))
+        asyncio.run(nams.exercise(client, make_state(tmp_path, "nams")))
     assert not client.reasoning.sessions
 
 
 def test_skills_fixture_is_one_procedure_and_records_real_conversation(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     client = SimpleNamespace(short_term=ShortTerm(), reasoning=Reasoning())
-    asyncio.run(skills.seed(client, "https://service.invalid/v1"))
-    state = json.loads(skills.STATE.read_text())
+    ledger = make_state(tmp_path)
+    asyncio.run(skills.seed(client, ledger))
+    state = json.loads(ledger.path.read_text())
     assert state["seed_verified"] is True
     assert state["conversation_id"] == "server-conversation-id"
     assert len(client.reasoning.steps) == 9
+    assert len(state["resources"]["step"]) == 9
+    assert len(state["resources"]["tool_call"]) == 9
     assert {call.tool_name for step in client.reasoning.steps for call in step.tool_calls} == {
         "lookup_order",
         "check_return_policy",
@@ -290,18 +242,30 @@ def test_skills_routes_preserve_v1_and_returned_ids(tmp_path, monkeypatch):
     def handle(request):
         calls.append((request.method, request.url.path))
         path = request.url.path
+        if path.endswith("/capabilities"):
+            return httpx.Response(200, json={"distillation": True, "attestationConfigured": False})
         if path.endswith("/generate"):
+            assert json.loads(request.content) == {
+                "nameHint": "simulated-refund-decision",
+                "scope": {"type": "workspace"},
+            }
             return httpx.Response(202, json={"runId": "actual-run", "status": "queued"})
         if path.endswith("/runs/actual-run"):
             return httpx.Response(200, json={"outcome": "Created", "skillId": "actual-skill"})
         if path.endswith("/download"):
             return httpx.Response(200, content=payload.getvalue())
+        if path.endswith("/explain-provenance"):
+            return httpx.Response(200, json={"claims": [{"sourceNodeIds": ["returned-step"]}]})
+        if path.endswith("/query"):
+            return httpx.Response(200, json={"rows": []})
         return httpx.Response(200, json={"fixture": True})
 
     async def run():
-        state = {"seed_verified": True, "endpoint": "https://service.invalid/v1"}
+        state = make_state(tmp_path)
+        state.data["seed_verified"] = True
+        state.record("step", "returned-step")
         async with httpx.AsyncClient(
-            base_url=state["endpoint"] + "/", transport=httpx.MockTransport(handle)
+            base_url=state.data["identity"]["endpoint"] + "/", transport=httpx.MockTransport(handle)
         ) as http:
             for command in ["generate", "inspect"]:
                 await skills.run_command(http, command, state)
@@ -311,9 +275,9 @@ def test_skills_routes_preserve_v1_and_returned_ids(tmp_path, monkeypatch):
         return state
 
     state = asyncio.run(run())
-    assert state["run_id"] == "actual-run"
-    assert state["skill_id"] == "actual-skill"
-    assert all(path.startswith("/v1/skills/") for _, path in calls)
+    assert state.data["run_id"] == "actual-run"
+    assert state.data["skill_id"] == "actual-skill"
+    assert all(path.startswith("/v1/skills/") or path == "/v1/query" for _, path in calls)
     assert Path("simulated-refund-skill.zip").exists()
 
 
@@ -326,17 +290,21 @@ def test_skills_withheld_and_http_failure_do_not_publish(tmp_path, monkeypatch):
         return httpx.Response(200, json={"outcome": "Withheld"})
 
     async def run():
+        state = make_state(tmp_path)
+        state.data["run_id"] = "returned-run"
         async with httpx.AsyncClient(
             base_url="https://service.invalid/v1/", transport=httpx.MockTransport(handle)
         ) as http:
             with pytest.raises(RuntimeError, match="No skill to publish"):
-                await skills.run_command(http, "inspect", {"run_id": "returned-run"})
+                await skills.run_command(http, "inspect", state)
         async with httpx.AsyncClient(
             base_url="https://service.invalid/v1/",
             transport=httpx.MockTransport(lambda _request: httpx.Response(403)),
         ) as http:
             with pytest.raises(httpx.HTTPStatusError):
-                await skills.run_command(http, "generate", {"seed_verified": True})
+                state.data.pop("run_id")
+                state.data["seed_verified"] = True
+                await skills.run_command(http, "generate", state)
 
     asyncio.run(run())
     assert calls == ["/v1/skills/runs/returned-run"]

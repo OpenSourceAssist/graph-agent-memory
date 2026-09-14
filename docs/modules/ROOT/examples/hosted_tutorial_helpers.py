@@ -40,34 +40,202 @@ async def poll_skill_run(
         await sleep(min(interval, max(0.0, deadline - clock())))
 
 
-@asynccontextmanager
-async def temporary_strict_ontology(ontology: Any, template: str):
-    """Restore the captured active version before deleting this exercise's clone.
+def ontology_binding(active):
+    """Capture authoritative IDs, mode and schema; never infer a latest revision."""
+    values = {
+        "version_id": active.version_id,
+        "ontology_id": active.ontology_id,
+        "revision": active.revision,
+        "validation_mode": active.validation_mode,
+    }
+    if (
+        not values["version_id"]
+        or not values["ontology_id"]
+        or type(values["revision"]) is not int
+        or values["revision"] < 1
+        or values["validation_mode"] not in {"permissive", "strict"}
+    ):
+        raise RuntimeError("No restorable authoritative active binding; no ontology was changed")
+    values["document"] = active.document.model_dump(mode="json")
+    return values
 
-    Missing prior-version metadata stops before mutation. If restoration cannot
-    be verified, the clone remains for inspection instead of being deleted.
-    """
-    previous = await ontology.get_active()
-    previous_id = previous.version_id
-    if not previous_id:
-        raise RuntimeError("No restorable active version ID; no ontology was changed")
-    print(f"Previous active version: {previous_id}")
-    clone = await ontology.clone(template)
-    print(f"Exercise clone: {clone.ontology_id}")
+
+def _version_binding(version):
+    from types import SimpleNamespace
+
+    if version.document is None:
+        raise RuntimeError("Returned version has no inspectable schema; retained clone")
+    return ontology_binding(
+        SimpleNamespace(
+            version_id=version.id,
+            ontology_id=version.ontology_id,
+            revision=version.revision,
+            validation_mode=version.validation_mode,
+            document=version.document,
+        )
+    )
+
+
+async def _require_binding(ontology, expected):
+    actual = ontology_binding(await ontology.get_active())
+    if actual != expected:
+        raise RuntimeError("Active binding changed or readback differs; retained state and clone")
+    return actual
+
+
+async def _clone_absent(ontology, clone_id):
+    from neo4j_agent_memory.core.exceptions import NotFoundError
+
     try:
-        strict = await ontology.update(clone.ontology_id, clone.document, validation_mode="strict")
-        await ontology.activate(strict.id)
-        active = await ontology.get_active()
-        if active.version_id != strict.id or active.validation_mode != "strict":
-            raise RuntimeError("Active ontology readback did not match the strict version")
-        yield strict
-    finally:
-        await ontology.activate(previous_id)
-        restored = await ontology.get_active()
-        if restored.version_id != previous_id:
+        await ontology.get(clone_id)
+    except NotFoundError:
+        return True
+    return False
+
+
+async def verify_ontology_restoration(ontology, state):
+    """Fresh, read-only verification of the saved binding and exact clone absence."""
+    run = state.data.get("ontology", {})
+    if not run.get("previous"):
+        raise RuntimeError("State has no captured prior binding")
+    await _require_binding(ontology, run["previous"])
+    clone_id = run.get("clone_id")
+    if not clone_id or not await _clone_absent(ontology, clone_id):
+        raise RuntimeError("Clone absence is not verified; inspect or recover this run")
+    if state.data.get("pending"):
+        raise RuntimeError(
+            "An operation remains unresolved; run recover before claiming completion"
+        )
+    print(f"Verified: original version {run['previous']['version_id']} and mode restored")
+    print(f"Verified: exercise clone {clone_id} is absent")
+
+
+async def recover_ontology(ontology, state):
+    """Restore only a recognized binding, then delete the proven-owned clone.
+
+    An interrupted clone with no returned ID cannot be reconciled automatically.
+    A concurrent editor's binding is never replaced. There is no server-side
+    compare-and-swap here, so the exercise requires exclusive ontology editing.
+    """
+    from neo4j_agent_memory.core.exceptions import NotFoundError
+
+    run = state.data.get("ontology", {})
+    previous = run.get("previous")
+    if not previous:
+        raise RuntimeError("State has no captured prior binding; no recovery writes were made")
+    current = ontology_binding(await ontology.get_active())
+    if current != previous and current != run.get("strict"):
+        raise RuntimeError("Active binding changed unexpectedly; retained state and clone")
+    clone_id = run.get("clone_id")
+    pending = state.data.get("pending")
+    if not clone_id:
+        if pending:
             raise RuntimeError(
-                f"Restoration not verified; retained clone {clone.ontology_id} for inspection"
+                "Clone outcome is uncertain with no returned ID; inspect retained state"
             )
-        print(f"Restored active version: {previous_id}")
-        await ontology.delete(clone.ontology_id)
-        print(f"Deleted exercise clone: {clone.ontology_id}")
+        # A prerequisite failed before the first write.
+        print("Verified: original binding unchanged; no clone was created")
+        return
+    owned = state.data["resources"].get("ontology", {}).get(clone_id, {})
+    if owned.get("created_by_run") is not True:
+        raise RuntimeError("Clone ownership is not established; no recovery writes were made")
+    if pending:
+        if not isinstance(pending, dict) or pending.get("operation") not in {
+            "clone",
+            "update",
+            "activate",
+            "restore",
+            "delete",
+        }:
+            raise RuntimeError("Unrecognized pending operation; inspect retained state")
+        # Keep uncertainty recorded until deleting the known clone resolves all
+        # its revisions. Never replay a clone or an update with an unknown result.
+        run.setdefault("interrupted_operations", []).append(pending)
+        state.finish()
+    if current != previous:
+        state.begin({"operation": "restore", "version_id": previous["version_id"]})
+        await ontology.activate(previous["version_id"])
+        await _require_binding(ontology, previous)
+        state.finish()
+    else:
+        await _require_binding(ontology, previous)
+    run["restored"] = True
+    state.save()
+    print(f"Restored active version: {previous['version_id']} ({previous['validation_mode']})")
+
+    # Recheck immediately before deletion. This detects observed concurrent
+    # changes; it cannot make an unversioned service operation atomic.
+    await _require_binding(ontology, previous)
+    if not await _clone_absent(ontology, clone_id):
+        state.begin({"operation": "delete", "ontology_id": clone_id})
+        try:
+            await ontology.delete(clone_id)
+        except NotFoundError:
+            pass  # A retry still requires the independent GET below.
+        if not await _clone_absent(ontology, clone_id):
+            raise RuntimeError(f"Deletion not verified; retained clone {clone_id}")
+        state.finish()
+    state.record("ontology", clone_id, status="deleted")
+    for version_id, entry in state.data["resources"].get("ontology_version", {}).items():
+        if entry.get("ontology_id") == clone_id:
+            entry["status"] = "deleted_with_ontology"
+    run["deleted"] = True
+    run["status"] = "complete"
+    state.save()
+    print(f"Deleted exercise clone: {clone_id} (absence verified)")
+
+
+@asynccontextmanager
+async def temporary_strict_ontology(ontology: Any, template: str, state):
+    """Persist the restoration target before mutation and retain failed recovery."""
+    if state.data.get("ontology") or state.data.get("pending"):
+        raise RuntimeError("Ontology exercise already started; inspect or recover its state")
+    previous = ontology_binding(await ontology.get_active())
+    catalog = await ontology.list()
+    if not any(item.name == template and item.is_system for item in catalog):
+        raise RuntimeError("Required system template is absent; no ontology was changed")
+    existing_ids = {item.id for item in catalog}
+    state.data["ontology"] = {"previous": previous, "template": template, "status": "started"}
+    state.save()
+    print(f"Previous active version: {previous['version_id']} ({previous['validation_mode']})")
+    try:
+        state.begin({"operation": "clone", "template": template})
+        clone = await ontology.clone(template)
+        run = state.data["ontology"]
+        run["clone_id"] = clone.ontology_id
+        state.record(
+            "ontology", clone.ontology_id, created_by_run=clone.ontology_id not in existing_ids
+        )
+        state.record("ontology_version", clone.id, ontology_id=clone.ontology_id)
+        state.finish()
+        if clone.ontology_id in existing_ids:
+            raise RuntimeError(
+                "Clone response identifies a preexisting ontology; ownership is unknown"
+            )
+        if clone.document is None:
+            raise RuntimeError("Clone has no inspectable schema")
+        print(f"Exercise clone: {clone.ontology_id}")
+        state.begin({"operation": "update", "ontology_id": clone.ontology_id})
+        strict = await ontology.update(clone.ontology_id, clone.document, validation_mode="strict")
+        state.record("ontology_version", strict.id, ontology_id=strict.ontology_id)
+        run["strict"] = _version_binding(strict)
+        state.finish()
+        if strict.ontology_id != clone.ontology_id or strict.validation_mode != "strict":
+            raise RuntimeError("Strict revision response differs from the requested clone and mode")
+        await _require_binding(ontology, previous)
+        state.begin({"operation": "activate", "version_id": strict.id})
+        await ontology.activate(strict.id)
+        await _require_binding(ontology, run["strict"])
+        state.finish()
+        print(f"Activated strict version: {strict.id}")
+        yield strict
+    except BaseException as exercise_error:
+        state.data["ontology"]["exercise_error"] = type(exercise_error).__name__
+        state.save()
+        try:
+            await recover_ontology(ontology, state)
+        except BaseException as recovery_error:
+            raise recovery_error from exercise_error
+        raise
+    else:
+        await recover_ontology(ontology, state)

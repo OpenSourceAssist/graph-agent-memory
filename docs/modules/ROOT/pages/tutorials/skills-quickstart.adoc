@@ -4,22 +4,45 @@
 :toclevels: 2
 :sectanchors:
 
-We will seed one simulated refund-decision procedure in an empty test workspace, request distillation, inspect the generated procedure and its provenance, then explicitly publish and download a ZIP if the service creates a skill. We will verify that the ZIP contains `SKILL.md`; loading or executing it in another agent is outside this lesson.
+We will seed a simulated refund-decision procedure in an empty test workspace,
+request distillation, inspect the generated procedure and its provenance, then
+explicitly publish and download a ZIP if the service creates a skill. We will
+verify that the ZIP contains `SKILL.md` and record the disposition of every
+resource. Loading or executing the skill in another agent is outside this lesson.
 
-NOTE: Agent Skills is a NAMS preview feature exposed through REST and MCP, not a skill-specific SDK accessor. A run can be withheld or fail. This lesson's local checks do not establish that a live workspace will pass the service's quality gates.
-
-This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
+NOTE: Agent Skills is a NAMS preview feature exposed through REST and MCP, not
+an SDK skill accessor. A run can be withheld or fail. Offline contract checks do
+not establish that a live workspace will pass the service's quality gates.
 
 [[_what_youll_need]]
 == Before you begin
 
-* Python 3.10 or newer and Git.
-* A dedicated NAMS test workspace and its *workspace key*, using `https://memory.neo4jlabs.com/v1`.
-* Permission to create tutorial records in that workspace. Keep the same workspace key throughout the lesson.
+* Python 3.10 or newer, Git, and a POSIX shell.
+* A newly provisioned *empty* NAMS test workspace reserved for this fixture,
+  with a workspace data key permitting the lesson's memory operations and
+  `skills:read` / `skills:write`.
+* An identified workspace owner/operator and a verified disposal procedure or
+  explicitly agreed retention arrangement for the records described below.
 
-See xref:reference/authentication.adoc[Authentication] for obtaining the key before beginning. This path uses a workspace key; admin keys and custom deployments belong in xref:how-to/use-nams.adoc[the NAMS guide].
+The generation scope is the entire selected workspace. A zero-conversation
+count does not prove the workspace has no entities, reasoning records or skills.
+Have its owner verify that the new workspace is empty before seeding. A valid
+data key alone establishes neither this condition nor administrative permission
+to retire a workspace. See xref:reference/authentication.adoc[Authentication].
 
-Use an *empty* workspace reserved for this fixture, with `skills:read` and `skills:write` permission. The only distillation scope in this lesson is that workspace. All orders and refund decisions are simulated; the fixture never issues a payment.
+The fixture creates one conversation, two messages, nine application-authored
+steps and nine simulated tool calls. Extraction may create entities; generation
+creates a run and may create a skill. *There is no verified public deletion
+route for steps, tool calls, skill runs or skills.* Publishing and downloading
+do not remove them. Establish the owner and actual disposition arrangement
+before running seed; a generic promise to use a management interface is not a
+verified disposal procedure. See
+xref:reference/backend-capabilities.adoc#hosted-cleanup[Hosted cleanup limits].
+
+All orders and decisions are simulated. No payment is issued and no generated
+procedure is executed by this lesson.
+
+For a fresh checkout, install the maintained programs:
 
 [source,bash]
 ----
@@ -31,34 +54,71 @@ python -m pip install -e '.[nams]'
 python -c "import neo4j_agent_memory; print('SDK import verified')"
 ----
 
-Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
+Expected: `SDK import verified`. If continuing from the earlier Python NAMS
+lessons, keep their checkout and virtual environment, skip the clone/install
+block, and return to the repository root. Do not reuse a nonempty workspace
+merely because it was used for the preceding lesson.
+
+Set the key for the owner-verified empty workspace:
 
 [source,bash]
 ----
-export MEMORY_API_KEY="replace-with-your-workspace-key"
+export MEMORY_API_KEY="replace-with-the-empty-workspace-key"
 export MEMORY_ENDPOINT="https://memory.neo4jlabs.com/v1"
 unset MEMORY_WORKSPACE_ID
 python -c "from neo4j_agent_memory import NamsSettings; s=NamsSettings(); print(s.backend, s.nams.endpoint)"
 ----
 
-Expected: `nams https://memory.neo4jlabs.com/v1`. This validates configuration only; it does not authenticate or write data.
+Expected: `nams https://memory.neo4jlabs.com/v1`. This checks configuration only;
+it does not authenticate or prove emptiness. Keep these credentials and this
+repository directory for every following command. The maintained client uses
+the same resolved settings for its SDK and direct HTTP calls.
 
 [[_1_start_a_distillation_run]]
 == 1. Seed the exact procedure
 
-The maintained script records three instances of the same three-step procedure: look up an order, check the return policy, and record a decision. It saves the returned conversation ID in `skills-tutorial-state.json`, then verifies the nine recorded steps before allowing distillation.
+The script checks the service's distillation capability before any fixture
+write. Disabled or unavailable distillation stops seeding. The explicit
+empty-workspace flag records the owner's check; it does not perform workspace
+provisioning or independently certify emptiness.
+
+Read the complete maintained program and its shared helpers in
+`docs/modules/ROOT/examples/`:
 
 [source,python]
 ----
 include::example$skills_quickstart.py[]
 ----
 
+Replace the owner and disposition text below with the actual arrangement you
+verified. Supply `--empty-workspace-confirmed` only after that owner has checked
+the newly provisioned workspace:
+
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py seed
+python docs/modules/ROOT/examples/skills_quickstart.py seed \
+  --state .tutorial-state/skills.json \
+  --empty-workspace-confirmed \
+  --disposal-owner 'the responsible workspace owner' \
+  --disposal-plan 'the verified disposal procedure or explicitly agreed retention'
 ----
 
-Expected: `Verified fixture: conversation ...; 9 recorded steps`. The count can be higher only if the service returns additional records; inspect them before proceeding. A partial seed keeps its state file and stops instead of silently creating another fixture.
+Expected: exact readback of the two messages, followed by `Verified fixture:
+conversation ...; 9 recorded steps and 9 tool calls`. The step and tool-call IDs
+must match the saved fixture IDs, not merely an aggregate count.
+
+The private `.tutorial-state/skills.json` retains the owner arrangement,
+endpoint/workspace/credential identity, returned IDs and partial operation
+status. A changed identity or existing state file blocks accidental reseeding.
+If a write fails, retain the state and inspect it with:
+
+[source,bash]
+----
+python docs/modules/ROOT/examples/skills_quickstart.py state --state .tutorial-state/skills.json
+----
+
+Keep `.tutorial-state/` out of version control. The `state` command displays
+saved information without running generation or publication.
 
 [[_2_poll_the_run]]
 == 2. Generate and poll with real IDs
@@ -67,49 +127,103 @@ anchor:_prefer_to_script_it[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py generate
-python docs/modules/ROOT/examples/skills_quickstart.py inspect
+python docs/modules/ROOT/examples/skills_quickstart.py generate --state .tutorial-state/skills.json
+python docs/modules/ROOT/examples/skills_quickstart.py inspect --state .tutorial-state/skills.json
 ----
 
-The first command saves the response's `runId`. The second polls that exact run for at most two minutes, with bounded HTTP requests. Both `queued` and `running` remain pending. A `Created` outcome must include `skillId`; `Withheld` and `Failed` stop without publication. Unknown states, HTTP errors, and missing IDs are errors, not success.
+Generation submits `nameHint` and workspace scope, then saves the actual
+`runId`. A hint is not a promise that the service will use exactly that name.
+The inspect command polls that run for at most two minutes, with bounded HTTP
+requests. Queued/running states remain pending. `Created` must contain a real
+`skillId`; `Withheld` and `Failed` stop without publication. Missing IDs,
+unknown states and request failures are errors, not successful generation.
 
-Expected on creation: `Inspect skills-tutorial-review.json before running publish`. If the outcome is withheld, inspect the recorded response and stop this lesson; do not substitute a made-up skill ID or automatically retry a broader scope.
+Expected on creation: a private `.tutorial-state/skills-review.json` containing
+the skill detail and provenance. A duplicate generate command is refused. If a
+run is withheld, inspect its recorded result and stop the publication path;
+do not broaden the scope or invent a skill ID.
 
 [[_3_inspect_provenance]]
 == 3. Inspect the procedure and evidence
 
 [source,bash]
 ----
-python -m json.tool skills-tutorial-review.json
+python -m json.tool .tutorial-state/skills-review.json
 ----
 
-Check that the generated procedure is limited to the simulated three-step workflow, carries the return-window and damage conditions, and does not claim that a payment was issued. Compare its provenance with the fixture conversation and steps. Provenance makes the result reviewable; it is not a truth guarantee.
+Check that the generated procedure is limited to the simulated three-step
+workflow, carries the return-window and damage conditions, and never claims a
+payment was issued. Compare its reported source IDs with the recorded fixture
+messages, steps, tool calls and proven derived entities. Provenance makes the
+result reviewable; it is not a truth guarantee.
 
-Do not continue to publication if the procedure misstates the fixture or requires additional review.
+The program blocks publication when sources are unexplained. The service's
+provenance response is free-form JSON: this inspector accepts explicit source-ID
+fields and stops if their shape is unrecognized or empty. Such a response needs
+inspection and a reviewed parser update, not an automatic bypass or a claim
+that live provenance passed.
+
+Do not publish if the procedure misstates the fixture or needs further review.
 
 [[_4_review_then_publish]]
 == 4. Publish only the reviewed result
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py publish
+python docs/modules/ROOT/examples/skills_quickstart.py publish --state .tutorial-state/skills.json
 ----
 
-This command submits approval and publication for the saved `skillId`. Expected: `Published skill ID:` followed by that ID. The command is separate so reading or generating a draft does not silently approve it.
+This command rechecks the saved skill and provenance. If they changed since
+inspection, it saves the new report and stops for another review. Otherwise,
+it submits approval and publication for the saved `skillId`.
+Expected: `Published skill ID:` followed by that ID.
+
+Publication is deliberately separate from reading or generating a draft.
+An interrupted approval/publication retains pending state; do not repeat it
+blindly or delete the ledger to bypass the recovery check.
 
 [[_5_download_and_load_the_skill]]
 == 5. Download and inspect the package
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py download
-python -m zipfile -l simulated-refund-skill.zip
-python -m json.tool skills-tutorial-attestation.json
+python docs/modules/ROOT/examples/skills_quickstart.py download --state .tutorial-state/skills.json
+python -m zipfile -l .tutorial-state/simulated-refund-skill.zip
+python -m json.tool .tutorial-state/skills-attestation.json
 ----
 
-Expected: `Verified ZIP contains SKILL.md; saved simulated-refund-skill.zip`, followed by the archive listing. The separate attestation response must be inspected: a valid ZIP is not a verified signature, and a service without attestation configured may return an unsigned result. This lesson saves the archive without extracting arbitrary paths.
+Expected: `Verified ZIP contains SKILL.md; saved` followed by the path to
+`.tutorial-state/simulated-refund-skill.zip`, then the archive listing.
+The program saves the ZIP privately and inspects its members without extracting
+arbitrary paths.
 
-The package is not loaded into an agent and no procedure is executed. Retain the state/review files for audit, then remove the exercise records using the workspace's supported management interface. There is no documented blanket delete endpoint assumed here.
+Inspect attestation separately: ZIP validity does not prove a valid signature.
+`attestationConfigured: false` means signing is not configured; an unsigned
+publication must not be described as a verified signed artifact. Download,
+package structure and attestation are separate outcomes. The package is neither
+loaded into an agent nor executed.
+
+== 6. Clean up supported records and retain the disposition
+
+[source,bash]
+----
+python docs/modules/ROOT/examples/skills_quickstart.py cleanup --state .tutorial-state/skills.json
+python docs/modules/ROOT/examples/skills_quickstart.py state --state .tutorial-state/skills.json
+----
+
+The helper checks and deletes only the owned conversation and proven-owned
+entities through supported routes, verifying their absence. It reports retained
+steps, tool calls, skill runs and skills separately, including partial or
+published artifacts. Shared or uncertain entities also remain recorded.
+
+Expected output distinguishes `Verified: owned conversation and proven-owned
+entities are absent` from `Retained resources:` and the outstanding operator
+disposition. Cleanup exits with status `2` when any resource is retained, even
+when the supported deletions passed; this is not an empty-workspace result. Keep
+the private state, review files and archive until the named owner has verified
+disposal or recorded the agreed retention of every remaining resource. Do not
+invent a delete route or reset the workspace to make a cleanup result look
+complete.
 
 [[_next_steps]]
 == Next steps

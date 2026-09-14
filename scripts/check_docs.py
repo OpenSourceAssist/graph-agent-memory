@@ -117,7 +117,10 @@ class Document(HTMLParser):
         self.ids: set[str] = set()
         self.links: list[str] = []
         self.images: list[dict[str, str | None]] = []
+        self.unrendered_headings: list[str] = []
         self.in_article = False
+        self.code_depth = 0
+        self.paragraph: list[str] | None = None
         self.feed(html)
 
     def handle_starttag(self, tag: str, attributes):
@@ -126,14 +129,32 @@ class Document(HTMLParser):
             self.ids.add(attrs["id"])
         if tag == "article" and "doc" in (attrs.get("class") or "").split():
             self.in_article = True
+        if tag in {"pre", "code"}:
+            self.code_depth += 1
+            if self.paragraph is not None:
+                # An inline-code example is not an accidentally rendered heading.
+                self.paragraph.append("\ufffc")
+        if self.in_article and tag == "p" and not self.code_depth:
+            self.paragraph = []
         if self.in_article and tag == "a" and attrs.get("href"):
             self.links.append(attrs["href"])
         if self.in_article and tag == "img":
             self.images.append(attrs)
 
     def handle_endtag(self, tag: str):
+        if tag == "p" and self.paragraph is not None:
+            text = "".join(self.paragraph).strip()
+            if re.match(r"={1,6}[ \t]+\S", text):
+                self.unrendered_headings.append(text)
+            self.paragraph = None
+        if tag in {"pre", "code"}:
+            self.code_depth = max(0, self.code_depth - 1)
         if tag == "article":
             self.in_article = False
+
+    def handle_data(self, data: str):
+        if self.paragraph is not None and not self.code_depth:
+            self.paragraph.append(data)
 
 
 def rendered_report(site: Path) -> dict:
@@ -142,6 +163,10 @@ def rendered_report(site: Path) -> dict:
     errors = []
     links = images = 0
     for source, document in documents.items():
+        errors.extend(
+            f"{source.relative_to(site)}: unrendered AsciiDoc heading: {heading!r}"
+            for heading in document.unrendered_headings
+        )
         for href in document.links:
             parts = urlsplit(href)
             if parts.scheme or parts.netloc:

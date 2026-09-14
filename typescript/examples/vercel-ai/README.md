@@ -70,8 +70,17 @@ artifact supplies every API used here.
 ## Run it
 
 ```bash
-cp .env.example .env       # set MEMORY_API_KEY and OPENAI_API_KEY
+if [ ! -e .env ]; then
+  (umask 077; set -C; cat .env.example > .env)
+fi
+chmod 600 .env
 npm ci
+```
+
+Edit the private `.env` with `MEMORY_API_KEY` and `OPENAI_API_KEY` before
+running `npm start`. The commands preserve an existing file.
+
+```bash
 npm start
 ```
 
@@ -113,6 +122,21 @@ count keeps climbing. Exact wording varies with the model; the structure does
 not. Reflection and observation counts grow as NAMS processes the conversation
 in the background, and entity extraction is asynchronous — the script waits for
 it with `longTerm.waitForExtraction` rather than racing a fixed delay.
+
+## Follow the maintained tutorials
+
+The programs in `src/tutorials/` have their own first-run and continuation
+instructions. Start with [store and read back hosted memory](../../../docs/modules/ROOT/pages/tutorials/hosted-quickstart-typescript.adoc),
+then continue to the [first agent](../../../docs/modules/ROOT/pages/tutorials/first-agent-memory-typescript.adoc),
+[conversation restart](../../../docs/modules/ROOT/pages/tutorials/conversation-memory-typescript.adoc),
+and [entity inspection](../../../docs/modules/ROOT/pages/tutorials/knowledge-graph-typescript.adoc) lessons.
+
+Use `.env.tutorial.example` for those lessons, creating `.env` only when it is
+missing. It describes `gpt-4o-mini` and the tutorials' explicit conversation
+handling. The `.env.example` template and `npm start` instructions above belong
+to the general demo: it defaults to `gpt-5-mini` and can resume the newest
+conversation for `DEMO_USER_ID`. Keep existing private configuration when
+moving between them; edit only the settings needed by the selected program.
 
 ## Tests
 

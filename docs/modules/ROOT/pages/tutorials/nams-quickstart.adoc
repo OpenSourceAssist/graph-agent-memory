@@ -4,7 +4,10 @@
 :toclevels: 2
 :sectanchors:
 
-We will create a hosted conversation, read its messages back, wait for its extraction status, and record and retrieve a simulated tool call. We will use the conversation ID returned by NAMS throughout.
+We will create a hosted conversation, read its two messages back, wait for
+extraction, and verify the same messages from a fresh process. We will retain
+the IDs returned by NAMS and use them for scoped cleanup. This path needs no
+model API key and creates no reasoning records.
 
 This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
 
@@ -55,31 +58,101 @@ The maintained file is `docs/modules/ROOT/examples/nams_quickstart.py`. It alrea
 include::example$nams_quickstart.py[]
 ----
 
-[[_4_short_term_memory]]
-== 4. Run and verify each stage
+The shared state and cleanup modules sit beside the script. Its private
+`.tutorial-state/nams.json` file records the selected endpoint, workspace and
+credential identity, returned IDs, content digests and operation status. Keep
+that directory ignored by Git. Reusing the file with a different key or
+workspace stops before saved IDs are used; reseeding an existing file is refused.
 
-anchor:_5_long_term_memory_and_asynchronous_extraction[]anchor:_7_reasoning_memory[]anchor:_10_run_it[]
+[[_4_short_term_memory]]
+== 4. Store and read back the fixture
+
+anchor:_5_long_term_memory_and_asynchronous_extraction[]
+anchor:_10_run_it[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/nams_quickstart.py
+python docs/modules/ROOT/examples/nams_quickstart.py seed --state .tutorial-state/nams.json
 ----
 
 The program prints these milestones in order:
 
-. `Conversation ID:` followed by the real server ID. Record it for inspection and cleanup.
-. `Verified: both messages were read back`. This checks the contents returned by a separate read.
-. `Extraction settled; workspace search returned ...`. The wait is finite and a timeout stops the lesson. Candidate count and names depend on the service; workspace search is not proof that every result originated in this conversation.
-. `Verified: the simulated tool call was read back`. The tool result is an explicit fixture, not a hardware operation or an inferred internal reasoning trace.
+. `Conversation ID:` identifies the actual server-created conversation.
+. `Verified: exact IDs, roles and content for 2 stored messages` confirms a
+  separate read of both fixture messages.
+. `Extraction settled; workspace search returned ... candidate(s)` reports the
+  search after a finite extraction wait. Candidate count and names depend on
+  the service; a workspace search match does not prove that this conversation
+  produced the entity.
+. `Retained state:` identifies the file needed for verification and cleanup.
 
-A missing milestone or exception means that stage is not verified. NAMS reassembles reasoning records by conversation, so the script checks actual steps/tool calls rather than a synthetic trace title.
+A timeout or exception means that stage is not verified. Keep the saved state
+rather than rerunning seed and creating another fixture.
+
+== 5. Verify from a fresh process
+
+The seed command has exited. From the same repository root, run:
+
+[source,bash]
+----
+python docs/modules/ROOT/examples/nams_quickstart.py inspect --state .tutorial-state/nams.json
+python docs/modules/ROOT/examples/nams_quickstart.py verify --state .tutorial-state/nams.json
+----
+
+`inspect` displays the saved resource IDs and pending/disposition information.
+Expected from `verify`: `Verified: exact IDs, roles and content for 2 stored
+messages`. That command reads the original records without repeating seed,
+search or model generation. This checks a client-process restart; the hosted
+service is not restarted.
+
+anchor:_7_reasoning_memory[]
+
+The introductory path creates no reasoning steps or tool calls. Those records
+currently have no verified public deletion route, and deleting a conversation
+must not be described as deleting them. See
+xref:reference/api/reasoning.adoc[Reasoning API] and
+xref:reference/backend-capabilities.adoc#hosted-cleanup[Hosted cleanup limits]
+before adding a reasoning exercise with an explicit retention arrangement.
+
+[[_cleanup]]
+== 6. Clean up and inspect the disposition
+
+Before switching workspaces or continuing to another lesson, run:
+
+[source,bash]
+----
+python docs/modules/ROOT/examples/nams_quickstart.py cleanup --state .tutorial-state/nams.json
+python docs/modules/ROOT/examples/nams_quickstart.py inspect --state .tutorial-state/nams.json
+----
+
+The helper waits for terminal extraction of the saved messages, examines only
+entities linked to them, and checks creation and all source/neighbor IDs before
+deletion. It uses supported conversation/entity DELETE routes, then verifies
+404 responses and a query restricted to this run's IDs. It does not use a
+workspace reset or write-Cypher workaround.
+
+Expected: `Verified: owned conversation and proven-owned entities are absent`,
+followed by `Retained resources:`. An empty retained-resource mapping means no
+recorded resource remains. Shared, merged or ambiguous entities stay listed and
+must not be called deleted. Exit status `2` reports retained resources even
+when the supported deletions passed. Inspect that disposition before claiming
+this run is fully removed. An uncertain write, failed extraction, failed request
+or unexpected residual stops the check and preserves the state for inspection.
+
+Closing a client only releases its connections. Keep the private state until
+every returned ID has a verified deletion or retention disposition. If a write
+was interrupted before its ID was saved, establish that exact resource with the
+workspace owner instead of deleting by a similar name or reseeding.
 
 [[_what_just_happened]]
 == What we learned
 
 anchor:_which_calls_are_portable[]
 
-The conversation name and its returned ID have different roles. Stored messages can be read back before asynchronous extraction settles. A trace records the actions supplied by an application; in this exercise those actions are simulated.
+The conversation name and returned ID have different roles. Exact message
+readback verifies persistence independently of asynchronous extraction and
+workspace-wide semantic search. A saved run ledger makes the later verification
+and cleanup refer to the same records.
 
 The Python Bolt and NAMS APIs have different creation and return contracts. Do not switch the settings object and assume this script is portable. See xref:reference/backend-capabilities.adoc[Backend capabilities].
 
@@ -89,8 +162,3 @@ The Python Bolt and NAMS APIs have different creation and return contracts. Do n
 anchor:_8_the_active_ontology[]anchor:_9_portable_read_only_cypher[]anchor:_what_now[]
 
 Context assembly, graph expansion, ontology management, and read-only Cypher are separate tasks. Their commands and result contracts belong in xref:how-to/use-nams.adoc[Use NAMS] and xref:reference/rest-api.adoc[REST API]. Continue with xref:tutorials/ontology-quickstart.adoc[the ontology lesson] after this conversation path succeeds.
-
-[[_cleanup]]
-== Cleanup
-
-The script closes its client and retains the tutorial conversation for inspection. Remove the recorded conversation through the NAMS workspace's supported data-management interface using the printed ID. Extracted entities may be shared with other records and are not claimed to be removed by conversation cleanup. This is why the lesson uses a dedicated test workspace. No write-Cypher cleanup is required.

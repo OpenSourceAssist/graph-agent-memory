@@ -212,7 +212,7 @@ This is a Neo4j Labs project — community supported, no SLA. Ask questions on t
 
 ## See also
 
-- [Tutorial: Ontology quickstart](https://neo4j.com/labs/agent-memory/tutorials/ontology-quickstart) (`docs/modules/ROOT/pages/tutorials/ontology-quickstart.adoc`) — cloning a system template, strict-mode rejections, cleanup.
+- [Tutorial: Ontology quickstart](https://neo4j.com/labs/agent-memory/tutorials/ontology-quickstart) (`docs/modules/ROOT/pages/tutorials/ontology-quickstart.adoc`) — cloning a system template, strict revision activation, exact restoration, and clone cleanup.
 - [Ontology API reference](https://neo4j.com/labs/agent-memory/reference/ontology-api).
 - [Python parity example](../../../examples/ontology-lifecycle/) — the same eight steps through `client.ontology`.
 

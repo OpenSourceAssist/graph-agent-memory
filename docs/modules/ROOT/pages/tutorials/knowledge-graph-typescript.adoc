@@ -1,13 +1,12 @@
-= Ingest Documents and Inspect Extracted Entities (TypeScript)
-:toc:
+= Ingest documents and inspect extracted entities (TypeScript)
 :source-highlighter: rouge
 
 anchor:_what_youll_learn[]
 anchor:_time_required[]
 anchor:_what_were_building[]
-Store two synthetic documents as conversation messages, wait for a specific
-extracted entity, and inspect the workspace graph returned by NAMS. Allow about
-15 minutes. This lesson demonstrates ingestion and inspection. The service's
+We will store two synthetic documents as conversation messages, wait for a
+specific extracted entity, and inspect graph records linked to those messages.
+This lesson demonstrates ingestion and inspection. The service's
 extraction pipeline decides which entities and relationships it produces; this
 lesson does not promise a particular relationship or multi-hop traversal result.
 
@@ -16,129 +15,133 @@ anchor:_step_1_project_setup[]
 
 == Step 1: Build the SDK and install the lesson project
 
-This lesson uses the current source checkout. It does not establish which npm
-release contains these APIs. Use Node.js 22 or later; the lesson project declares
-AI SDK 7 and `@ai-sdk/openai` 4. You need a `MEMORY_API_KEY` for a test workspace
-on link:https://memory.neo4jlabs.com/[NAMS]. NAMS performs extraction; this program does not need an OpenAI key.
+You need a workspace-scoped `MEMORY_API_KEY` for a dedicated test workspace on
+link:https://memory.neo4jlabs.com/[NAMS]. This lesson does not call a model, so `OPENAI_API_KEY` is not required.
 
-From the repository root, run:
-
-[source,bash]
-----
-cd typescript
-npm ci
-npm run build
-cd examples/vercel-ai
-npm ci
-cp .env.example .env
-----
-
-Edit `.env` with your keys. Keep it out of version control. All remaining commands
-run in `typescript/examples/vercel-ai/`. Its `package.json` sets ESM and its
-`tsconfig.json` supplies the compiler settings; no global TypeScript install is needed.
-Run `npm run lint` to verify the complete programs against your checkout.
+include::partial$typescript-tutorial-project.adoc[]
 
 anchor:_step_2_prepare_sample_documents[]
 anchor:_step_5_persist_the_extraction_into_the_knowledge_graph[]
 
 == Step 2: Inspect the complete ingestion program
 
-Open `src/tutorials/knowledge-graph.ts`. The program adds a conversation-specific
+Open `src/tutorials/knowledge-graph.ts`. The program adds a run-specific
 suffix to the fictional organization name to reduce confusion with an earlier
-run. Entity search covers the workspace, so a count of unrelated results would
-not establish readiness.
+run. It obtains entity IDs from the saved messages' graph links, rather than
+searching unrelated workspace data.
 
 [source,typescript]
 ----
-import { MemoryClient } from "@neo4j-labs/agent-memory";
-import { pathToFileURL } from "node:url";
+import { TutorialRun, isTutorialEntryPoint } from "../../../shared/tutorial-state.js";
+import { inspectGraph, runTutorialCommand, waitForTerminalExtraction } from "../../../shared/tutorial-cleanup.js";
 
-export async function inspectDocuments(client: MemoryClient, timeoutMs = 30_000) {
-  const conversation = await client.shortTerm.createConversation({ userId: "tutorial-documents" });
+export async function inspectDocuments(run: TutorialRun, timeoutMs = 60_000) {
+  const conversation = await run.createConversation();
   console.log(`CONVERSATION_ID=${conversation.id}`);
-  const name = `Lantern Orchard ${conversation.id}`;
-  await client.shortTerm.bulkAddMessages(conversation.id, [
-    { role: "user", content: `${name} is a fictional organization that designs garden sensors.` },
-    { role: "user", content: `Mira Vale is an engineer at ${name}. The team works in Willow Harbor.` },
+  await run.bulkAddMessages([
+    { role: "user", content: `${run.name} is a fictional organization that designs garden sensors.` },
+    { role: "user", content: `Mira Vale ${run.state.runId} is an engineer at ${run.name}.` },
   ]);
-  const stored = await client.shortTerm.getConversation(conversation.id);
-  console.log(`Stored documents: ${stored.messages.length}`);
-  // Match this run's synthetic name; an arbitrary non-empty search is not readiness.
-  const ready = await client.longTerm.waitForExtraction({
-    query: name, expectedNames: [name], timeoutMs, intervalMs: 1_000,
-  });
-  if (!ready) {
-    console.log("The expected entity was not found before the deadline. Messages remain stored.");
-    return { conversationId: conversation.id, ready, entityIds: [] as string[] };
+  const stored = await run.verify();
+  console.log(`Stored document messages verified: ${stored.messages}`);
+  await waitForTerminalExtraction(run, timeoutMs);
+  const graph = await inspectGraph(run);
+  const entityIds = [...new Set(graph.map(row => String(row.entity_id)))];
+  let expectedNameFound = false;
+  for (const id of entityIds) {
+    // These IDs came from the owned messages' provenance edges, not workspace search.
+    run.retain({ kind: "entity", id, origin: "derived", disposition: "present" });
+    const entity = await run.client.longTerm.getEntity(id);
+    expectedNameFound ||= entity.name.toLowerCase() === run.name.toLowerCase();
+    console.log(`Linked entity: ${entity.id} ${entity.name} (${entity.type})`);
   }
-  const entities = await client.longTerm.searchEntities(name, { limit: 10 });
-  const matches = entities.filter((entity) => entity.name.toLowerCase() === name.toLowerCase());
-  for (const entity of matches) console.log(`Entity: ${entity.id} ${entity.name} (${entity.type})`);
-  const graph = await client.longTerm.getEntityGraph();
-  console.log(`Workspace graph: ${graph.nodes.length} nodes, ${graph.edges.length} edges`);
-  return { conversationId: conversation.id, ready, entityIds: matches.map((entity) => entity.id) };
+  console.log(`Run graph: ${graph.length} message/entity links`);
+  if (!entityIds.length) throw new Error("Extraction finished without linked entities. Keep the state and inspect the messages before claiming graph success.");
+  if (!expectedNameFound) throw new Error("Linked entities did not include this run's expected organization name. Keep the state; graph presence alone is not the lesson's success condition.");
+  return { conversationId: conversation.id, entityIds };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const client = new MemoryClient({ endpoint: process.env.MEMORY_ENDPOINT });
-  try {
-    if (!process.env.MEMORY_API_KEY) throw new Error("Set MEMORY_API_KEY.");
-    await inspectDocuments(client);
-  } finally { await client.close(); }
+if (isTutorialEntryPoint(import.meta.url)) {
+  runTutorialCommand("knowledge-graph", process.argv.slice(2), "seed", ["seed"],
+    (_mode, run) => inspectDocuments(run)).catch(error => { console.error(error); process.exitCode = 1; });
 }
 ----
 
-`bulkAddMessages` accepts at most 100 messages per call. This lesson submits two.
-`waitForExtraction` polls until a case-insensitive exact name match is present
-or its deadline expires. A timeout returns `false`; authentication, network and
-validation errors still propagate. The exact extracted name is not guaranteed,
-so the timeout branch is an expected, useful result rather than proof of failed storage.
+The maintained state and cleanup helpers are in `typescript/examples/shared/`.
+Keep the private `.tutorial-state/` directory with this checkout. Each run binds
+its saved IDs to the endpoint, workspace selector and credential; a changed
+identity stops before using those IDs. Reseeding an existing state is refused.
 
 anchor:_step_6_query_the_knowledge_graph[]
-anchor:_what_youve_built[]
-
-== Step 3: Run and distinguish storage from extraction
-
-[source,bash]
-----
-npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts
-----
-
-Expect `CONVERSATION_ID=<id>` and `Stored documents: 2` immediately after readback.
-If the named entity becomes searchable, the program prints its actual id, name
-and type, then workspace graph node/edge counts. Otherwise it prints the bounded
-waiting message. Inspect stored documents even when extraction does not meet
-the predicate; do not rerun ingestion merely to wait longer.
-
-Graph output can include pre-existing workspace data. It is not a subgraph owned
-by this conversation. Entity names, type assignments, edges and search order are
-service outputs, and exact extraction/traversal behavior requires a separate live
-sandbox check. These source-validated examples do not establish that live outcome.
-
 anchor:_step_3_define_an_extraction_schema_with_zod[]
 anchor:_step_4_extract_structured_entities_with_the_llm[]
-Hosted REST has no SDK route for `addRelationship`, `addFact`, `getEntityByName`
-or `getRelatedEntities`. Those bridge methods cannot be used to force the old
-relationship tutorial's result. For actual returned graph data, see
-xref:reference/typescript-api.adoc[the entity graph and expansion methods].
 
-== Clean up the conversation
+anchor:_step_3_run_and_distinguish_storage_from_extraction[]
 
-Keep the printed conversation id. From the same lesson directory, delete that
-specific conversation when you have finished inspecting it:
+== Step 3: Store documents and inspect extraction
 
 [source,bash]
 ----
-CONVERSATION_ID='<the printed id>' npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts cleanup
+npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts seed .tutorial-state/knowledge-graph.json
 ----
 
-Closing the client only releases client resources. It does not delete stored
-messages. Deleting a conversation does not promise removal of extracted,
-workspace-wide entities; inspect those separately in a disposable test workspace.
+Expect `Stored document messages verified: 2`. The program waits up to 60
+seconds for those messages' extraction to finish, then inspects graph links
+starting from only their saved IDs. At least one linked entity must match the
+run's exact organization name, ignoring case. A nonempty graph alone is not
+success.
 
-Each run creates a new conversation and messages. Entity deduplication does not
-make the whole script idempotent. Do not bulk-delete workspace entities to clean
-up this lesson: they may be merged with data used by other conversations.
+A timeout means terminal extraction was not observed in time; it does not mean
+the messages were not stored. Missing or unexpected entities also fail the
+lesson check and retain state. Do not seed another run to bypass either result.
+
+Inspect `Linked entity:` and `Run graph:` output alongside the saved message
+IDs and relationship names. This scoped view does not enumerate unrelated
+workspace data or promise a particular relationship or extraction-quality score.
+Cleanup independently rechecks terminal status before considering deletion.
+
+anchor:_what_youve_built[]
+
+== Verify in a fresh process
+
+Run these commands from the same directory, using the state created above:
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts inspect .tutorial-state/knowledge-graph.json
+npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts verify .tutorial-state/knowledge-graph.json
+----
+
+`inspect` shows the saved IDs and operation status. Expect `Verified stored
+messages:` with the recorded conversation ID and message count from `verify`.
+It opens another
+client and reads the recorded conversation and exact message IDs, roles and
+content digests; it makes no model
+calls and creates no records. A successful check establishes persistence across
+client processes. It does not imply that the hosted service restarted.
+
+anchor:_clean_up_the_conversation[]
+
+== Clean up and inspect the disposition
+
+From the same lesson directory, clean up this run using its saved state:
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts cleanup .tutorial-state/knowledge-graph.json
+npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts inspect .tutorial-state/knowledge-graph.json
+----
+
+The cleanup command waits for the recorded messages' extraction to finish,
+checks the entities derived from those messages and any explicitly created
+entities, and deletes only records with proven exclusive ownership. It verifies
+deleted records are absent. Shared, merged or uncertain records remain listed;
+inspect their disposition instead of treating partial cleanup as a complete
+reset. A timeout or failed readback stops cleanup and preserves the state.
+
+Keep the state until every resource has a verified disposition. Closing the
+client alone does not delete data. Do not remove the state file to bypass an
+unfinished run or bulk-delete workspace entities.
 
 anchor:_step_7_use_the_graph_from_a_different_agent[]
 anchor:_extending_the_knowledge_graph[]

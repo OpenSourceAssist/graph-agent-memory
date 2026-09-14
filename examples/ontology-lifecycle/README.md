@@ -200,7 +200,7 @@ bolt — you own the Cypher.
 
 ## Going further
 
-- **Step-by-step walkthrough:** [Ontology Quickstart](https://neo4j.com/labs/agent-memory/tutorials/ontology-quickstart) (`docs/modules/ROOT/pages/tutorials/ontology-quickstart.adoc`) — cloning a system template, strict-mode rejections, and cleanup.
+- **Step-by-step walkthrough:** [Ontology Quickstart](https://neo4j.com/labs/agent-memory/tutorials/ontology-quickstart) (`docs/modules/ROOT/pages/tutorials/ontology-quickstart.adoc`) — cloning a system template, strict revision activation, exact restoration, and clone cleanup.
 - **API surface:** [Ontology API reference](https://neo4j.com/labs/agent-memory/reference/ontology-api).
 - **TypeScript parity:** [`typescript/examples/ontology-lifecycle/`](../../typescript/examples/ontology-lifecycle/) runs this same lifecycle through `OntologyClient`.
 - **First steps on NAMS:** [`nams-quickstart/`](../nams-quickstart/).

@@ -1,13 +1,12 @@
-= Recall Conversation Memory After a Restart (TypeScript)
-:toc:
+= Recall conversation memory after a restart (TypeScript)
 :source-highlighter: rouge
 
 anchor:_what_youll_learn[]
 anchor:_time_required[]
 anchor:_what_were_building[]
-Store a fictional running-club name and shoe size, exit the process, then ask a
-new process to recall them. You will retain the conversation id explicitly.
-Allow about 15 minutes.
+We will store a fictional running-club name and shoe size, exit the process, then
+ask a new process to recall them. The state file retains the actual conversation
+ID, so recall cannot silently select another conversation or repeat teaching.
 
 anchor:_step_4_capture_preferences_as_long_term_knowledge[]
 `userId` is ownership metadata; creating another conversation with the same user
@@ -20,27 +19,10 @@ anchor:_step_1_project_setup[]
 
 == Step 1: Build the SDK and install the lesson project
 
-This lesson uses the current source checkout. It does not establish which npm
-release contains these APIs. Use Node.js 22 or later; the lesson project declares
-AI SDK 7 and `@ai-sdk/openai` 4. You need a `MEMORY_API_KEY` for a test workspace
-on link:https://memory.neo4jlabs.com/[NAMS]. Model calls also need `OPENAI_API_KEY`.
+You need a workspace-scoped `MEMORY_API_KEY` for a dedicated test workspace on
+link:https://memory.neo4jlabs.com/[NAMS]. Model calls also need `OPENAI_API_KEY`.
 
-From the repository root, run:
-
-[source,bash]
-----
-cd typescript
-npm ci
-npm run build
-cd examples/vercel-ai
-npm ci
-cp .env.example .env
-----
-
-Edit `.env` with your keys. Keep it out of version control. All remaining commands
-run in `typescript/examples/vercel-ai/`. Its `package.json` sets ESM and its
-`tsconfig.json` supplies the compiler settings; no global TypeScript install is needed.
-Run `npm run lint` to verify the complete programs against your checkout.
+include::partial$typescript-tutorial-project.adoc[]
 
 anchor:_step_2_create_the_memory_client_and_middleware[]
 
@@ -55,52 +37,52 @@ import type { LanguageModelV4 } from "@ai-sdk/provider";
 import { openai } from "@ai-sdk/openai";
 import { generateText, wrapLanguageModel } from "ai";
 import { agentMemoryMiddleware } from "@neo4j-labs/agent-memory/middleware/vercel-ai";
-import { MemoryClient } from "@neo4j-labs/agent-memory";
-import { pathToFileURL } from "node:url";
+import { TutorialRun, isTutorialEntryPoint } from "../../../shared/tutorial-state.js";
+import { runTutorialCommand } from "../../../shared/tutorial-cleanup.js";
 
-export async function teach(client: MemoryClient) {
-  const conversation = await client.shortTerm.createConversation({ userId: "tutorial-shopper" });
-  await client.shortTerm.addMessage(
-    conversation.id, "user", "My fictional running club is called Lantern Orchard. I wear size 10 shoes.",
-  );
+export async function teach(run: TutorialRun) {
+  const conversation = await run.createConversation();
+  await run.addMessage("user", `My fictional running club is called ${run.name}. I wear size 10 shoes.`);
+  await run.verify();
   console.log(`CONVERSATION_ID=${conversation.id}`);
-  console.log("Teaching message stored. Stop this process and keep the conversation id.");
+  console.log(`Teaching message verified. Stop this process and keep ${run.path}.`);
   return conversation.id;
 }
 
-export async function recall(client: MemoryClient, conversationId: string, baseModel: LanguageModelV4) {
-  const before = await client.shortTerm.getContext(conversationId);
-  console.log(`Stored recent messages before this question: ${before.recentMessages.length}`);
-  const model = wrapLanguageModel({
-    model: baseModel,
-    middleware: agentMemoryMiddleware(client, { conversationId }),
-  });
-  const { text } = await generateText({
-    model,
-    system: "Answer from the supplied memory. Say when a requested fact is missing.",
-    prompt: "What is my running club called, and what shoe size did I tell you?",
-  });
-  console.log(text);
-  return text;
+export async function recall(run: TutorialRun, baseModel: LanguageModelV4) {
+  await run.verify();
+  const before = await run.client.shortTerm.getConversation(run.conversationId);
+  console.log(`Stored messages verified before this question: ${before.messages.length}`);
+  const model = wrapLanguageModel({ model: baseModel,
+    middleware: agentMemoryMiddleware(run.client, { conversationId: run.conversationId }) });
+  // Neither the synthetic name nor the shoe size appears in this question.
+  const prompt = "What is the exact full running club name I told you, including its identifier, and what shoe size did I tell you?";
+  const restore = run.trackMiddlewareWrites();
+  try {
+    const { text } = await generateText({ model,
+      system: "Answer from the supplied memory. Say when a requested fact is missing.", prompt });
+    console.log(`Model returned: ${text}`);
+    await run.verifyTurn(before.messages.map(m => m.id), prompt, text);
+    console.log("New user and assistant messages verified in storage.");
+    if (!text.includes(run.name) || !/\b10\b/.test(text)) throw new Error("Storage passed, but recall did not include the run-specific club and size.");
+    console.log("Recall verified against the run-specific club and shoe size.");
+    return text;
+  } finally { restore(); }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const client = new MemoryClient({ endpoint: process.env.MEMORY_ENDPOINT });
-  try {
-    if (!process.env.MEMORY_API_KEY) throw new Error("Set MEMORY_API_KEY.");
-    const mode = process.argv[2];
-    const id = process.env.CONVERSATION_ID;
-    if (mode === "teach") await teach(client);
-    else if (mode === "recall" && id) {
-      if (!process.env.OPENAI_API_KEY) throw new Error("Set OPENAI_API_KEY.");
-      await recall(client, id, openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini"));
-    } else if (mode === "cleanup" && id) {
-      await client.shortTerm.deleteConversation(id);
-      console.log(`Deleted conversation ${id}`);
-    } else throw new Error("Use teach, or set CONVERSATION_ID and use recall or cleanup.");
-  } finally { await client.close(); }
+if (isTutorialEntryPoint(import.meta.url)) {
+  runTutorialCommand("conversation", process.argv.slice(2), "teach", ["teach", "recall"], (mode, run) => {
+    if (mode === "teach") return teach(run);
+    if (!process.env.OPENAI_API_KEY) throw new Error("Set OPENAI_API_KEY for recall; teach, inspect, verify and cleanup do not need it.");
+    return recall(run, openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini"));
+  }).catch(error => { console.error(error); process.exitCode = 1; });
 }
 ----
+
+The maintained state and cleanup helpers are in `typescript/examples/shared/`.
+Keep the private `.tutorial-state/` directory with this checkout. Each run binds
+its saved IDs to the endpoint, workspace selector and credential; a changed
+identity stops before using those IDs. Reseeding an existing state is refused.
 
 anchor:_step_3_drive_a_multi_turn_conversation[]
 
@@ -108,51 +90,81 @@ anchor:_step_3_drive_a_multi_turn_conversation[]
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts teach
+npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts teach .tutorial-state/conversation.json
 ----
 
-Expect `CONVERSATION_ID=<id>` followed by `Teaching message stored`. This run
-uses no model call. Copy the returned id before closing the shell.
+Expect `CONVERSATION_ID=` and `Teaching message verified.`; the state also
+retains the returned teaching-message ID. This command makes no model call. Keep `.tutorial-state/conversation.json` for every later phase;
+the saved conversation ID replaces guessing by user name or selecting the newest
+conversation.
 
 anchor:_step_5_test_persistence_across_sessions[]
 
 == Step 4: Recall from a new process
 
-Open a new shell, return to `typescript/examples/vercel-ai/`, and run:
+The teaching command has exited. From the same lesson directory, run:
 
 [source,bash]
 ----
-CONVERSATION_ID='<the printed id>' npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts recall
+npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts recall .tutorial-state/conversation.json
 ----
 
-Expect at least one recent message on the first recall, followed by an answer
-mentioning Lantern Orchard and size 10. The exact wording is model-dependent.
-The new prompt asks for the facts without stating them. The wrapper obtains them
-from the stored conversation and persists this new question and answer.
+Expect the retrieved memory to contain the seeded full club name and size 10,
+then a model answer recalling both, including the name’s unique identifier. The
+question asks for that precision without supplying either fact. Surrounding
+wording varies; inspect recall separately from the storage milestone.
+
+Expect `New user and assistant messages verified in storage.` and
+`Recall verified against the run-specific club and shoe size.`
+Middleware writes are best effort. This program independently reads the new
+user and assistant messages and requires their new IDs, correct roles and exact
+question/answer content. A model response alone cannot produce a persistence
+pass. If recall or readback fails, keep the state and inspect the recorded IDs;
+reusing a user ID does not resume the same conversation.
 
 anchor:_step_6_verify_memory_state[]
 anchor:_what_youve_built[]
-To inspect the mechanism, read the `getContext` diagnostic before generation.
-After many turns, observations or reflections may carry information that has
-left the recent-message window. A new conversation has no guarantee of either.
 
-For a missing-memory result, check the conversation id, endpoint and workspace
-credentials first. Reusing a user id alone cannot resume this lesson. Search
-ranking and model output are separate from whether the message was stored.
+== Verify in a fresh process
 
-== Clean up the conversation
-
-Keep the printed conversation id. From the same lesson directory, delete that
-specific conversation when you have finished inspecting it:
+Run these commands from the same directory, using the state created above:
 
 [source,bash]
 ----
-CONVERSATION_ID='<the printed id>' npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts cleanup
+npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts inspect .tutorial-state/conversation.json
+npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts verify .tutorial-state/conversation.json
 ----
 
-Closing the client only releases client resources. It does not delete stored
-messages. Deleting a conversation does not promise removal of extracted,
-workspace-wide entities; inspect those separately in a disposable test workspace.
+`inspect` shows the saved IDs and operation status. Expect `Verified stored
+messages:` with the recorded conversation ID and message count from `verify`.
+It opens another
+client and reads the recorded conversation and exact message IDs, roles and
+content digests; it makes no model
+calls and creates no records. A successful check establishes persistence across
+client processes. It does not imply that the hosted service restarted.
+
+anchor:_clean_up_the_conversation[]
+
+== Clean up and inspect the disposition
+
+From the same lesson directory, clean up this run using its saved state:
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts cleanup .tutorial-state/conversation.json
+npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts inspect .tutorial-state/conversation.json
+----
+
+The cleanup command waits for the recorded messages' extraction to finish,
+checks the entities derived from those messages and any explicitly created
+entities, and deletes only records with proven exclusive ownership. It verifies
+deleted records are absent. Shared, merged or uncertain records remain listed;
+inspect their disposition instead of treating partial cleanup as a complete
+reset. A timeout or failed readback stops cleanup and preserves the state.
+
+Keep the state until every resource has a verified disposition. Closing the
+client alone does not delete data. Do not remove the state file to bypass an
+unfinished run or bulk-delete workspace entities.
 
 anchor:_extending_the_assistant[]
 anchor:_see_also[]

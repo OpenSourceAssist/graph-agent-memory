@@ -59,6 +59,29 @@ The TypeScript test bridge is a development/conformance transport. Its operation
 
 For exact parameters, result shapes, defaults and exceptions, see xref:reference/api/memory-client.adoc[Python API], xref:reference/typescript-api.adoc[TypeScript API], and xref:reference/rest-api.adoc[REST API].
 
+[#hosted-cleanup]
+== Hosted cleanup and retained resources
+
+The selected NAMS contract provides conversation and entity deletion. It has
+no verified public DELETE route for reasoning steps, tool calls, skill runs or
+skills. Conversation deletion is not proof that these records or extracted
+entities were removed. Closing an SDK client deletes no service data.
+
+The maintained hosted tutorials retain returned IDs and verify supported
+deletion through exact readback. Derived or explicitly added entities are
+deleted only when creation and complete source/neighbor evidence establish
+exclusive ownership; shared, merged or uncertain entities remain recorded.
+A resource-disposition report distinguishes verified absence from retention.
+
+Skills generation operates over the selected workspace. Its lesson requires
+a newly provisioned empty workspace and an identified owner/operator with a
+verified disposal procedure or explicitly agreed retention before seeding.
+A workspace data key does not grant workspace administration. No step/skill
+DELETE route, entity-delete substitution, or write-through-Cypher cleanup is
+assumed. See xref:tutorials/nams-quickstart.adoc[the hosted conversation lesson]
+and xref:tutorials/skills-quickstart.adoc[the Skills workflow] for their exact
+commands and remaining resource classes.
+
 [#scope]
 == Identity and retrieval scope
 

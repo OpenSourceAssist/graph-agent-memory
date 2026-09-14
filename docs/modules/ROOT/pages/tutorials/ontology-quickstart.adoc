@@ -4,67 +4,149 @@
 :toclevels: 2
 :sectanchors:
 
-We will clone the healthcare template, activate a strict revision, inspect the active schema, and attempt a deliberately invalid entity write. Finally, we will restore the exact version that was active before the exercise and delete only the clone.
+We will capture the workspace's active ontology version, clone the healthcare
+template, activate and inspect a strict revision, then restore the exact
+previous binding. After restoration is verified, we will delete only the
+created clone and confirm its absence in a fresh process.
 
-This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
+This lesson runs the maintained scripts from the current repository checkout in
+a POSIX shell. It uses the NAMS ontology API; Aura connection credentials cannot
+replace a NAMS workspace key. Source and offline contract checks are separate
+from successful execution against your hosted workspace.
 
 [[_before_you_begin]]
 == Before you begin
 
-* Python 3.10 or newer and Git.
-* A dedicated NAMS test workspace and its *workspace key*, using `https://memory.neo4jlabs.com/v1`.
-* Permission to create tutorial records in that workspace. Keep the same workspace key throughout the lesson.
+* Python 3.10 or newer, Git, and the checkout and virtual environment from
+  xref:tutorials/nams-quickstart.adoc[the NAMS lesson].
+* A dedicated NAMS test workspace with its workspace-scoped data key and
+  permission to create, activate and delete lesson ontologies.
+* A `healthcare` template and an active ontology with authoritative version
+  metadata. The program stops before mutation if either is unavailable.
 
-See xref:reference/authentication.adoc[Authentication] for obtaining the key before beginning. This path uses a workspace key; admin keys and custom deployments belong in xref:how-to/use-nams.adoc[the NAMS guide].
+Use a workspace reserved for this exercise. Activation changes the schema
+binding for the entire workspace, so no other client or ontology editor may
+use it during the lesson. Establish who can recover that binding if the
+process is interrupted. A valid workspace key grants data access; it does not
+by itself establish isolation or permission to disrupt another application.
 
-Complete the xref:tutorials/nams-quickstart.adoc[NAMS lesson] first, retaining its checkout and virtual environment. This exercise also requires a `healthcare` template and an active ontology with a resolvable version ID. If either is absent, the program stops before changing the active schema. Do not run it concurrently with another ontology editor.
+Keep `MEMORY_API_KEY`, `MEMORY_ENDPOINT` and any workspace selector consistent
+with that dedicated workspace for every command. Retain the existing virtual
+environment and run commands from the repository root. See
+xref:reference/authentication.adoc[Authentication] for credential categories.
 
 [[_step_1_clone_the_healthcare_template]]
-== 1. Inspect the restoration guard
+== 1. Understand the restoration guard
 
-The helper below captures `version_id` before cloning. Missing prior-version metadata stops the exercise; it does not guess a default ontology. Its `finally` block restores and reads back the previous version before deleting the clone.
+The private `.tutorial-state/ontology.json` file records the endpoint and
+credential identity, original active version, each returned clone/revision ID,
+and unfinished operations. It is written before advancing to the next stage.
+Keep it out of version control and do not remove it to bypass an incomplete
+exercise.
 
-[source,python]
-----
-include::example$hosted_tutorial_helpers.py[]
-----
+The guard captures the version actually bound to the workspace. That version
+can be older than the ontology's latest revision. Missing or contradictory
+binding metadata is an error; the program never chooses the latest revision as
+a restoration fallback.
+
+Restoration precedes clone deletion. If restoration or its readback fails, the
+clone and local state are retained for recovery. If another client changes the
+active binding unexpectedly, the program stops instead of overwriting that
+client's work.
 
 [[_step_2_make_it_strict_and_activate_it]]
 == 2. Read the complete exercise
 
-anchor:_step_3_write_a_patient_and_watch_typed_extraction[]anchor:_step_4_observe_a_validation_rejection_under_strict[]
-
-The program uses actual clone, revision, and entity IDs returned by the SDK. It reads the template's labels instead of assuming a particular number of types or required Patient properties. This lesson demonstrates activation and rejection; it does not assert that a particular extracted Patient record was produced.
+The maintained program uses the shared state and restoration helpers in
+`docs/modules/ROOT/examples/`. Run it from this checkout so those imports are
+available:
 
 [source,python]
 ----
 include::example$ontology_quickstart.py[]
 ----
 
+anchor:_step_3_write_a_patient_and_watch_typed_extraction[]
+anchor:_step_4_observe_a_validation_rejection_under_strict[]
+
+This exercise verifies activation and configuration. It creates no Patient or
+other entity and does not test unknown-label rejection. The Python entity
+adapter currently maps an unrecognized `entity_type` to `custom`, so passing
+an invented label through that API would not establish the intended ontology
+constraint. See xref:reference/ontology-api.adoc[Ontology API] for the separate
+schema and version contracts.
+
 [[_step_5_clean_up]]
-== 3. Run and check restoration
+== 3. Activate, inspect and restore
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/ontology_quickstart.py
+python docs/modules/ROOT/examples/ontology_quickstart.py seed --state .tutorial-state/ontology.json
 ----
 
-Expected milestones:
+Check the reported IDs and milestones:
 
-. `Previous active version:` and `Exercise clone:` show the captured version and the new ontology ID.
-. `Strict schema entity labels:` displays the active template's actual labels.
-. `Verified: strict validation rejected the unknown type` confirms the observed rejection. If the service accepts the write, the program fails and prints its entity ID for inspection.
-. `Restored active version:` matches the first version ID.
-. `Deleted exercise clone:` matches the clone ID, after restoration was verified.
+. `Previous active version:` shows the saved version and validation mode;
+  `Exercise clone:` identifies the newly created ontology.
+. `Activated strict version:` and `Strict schema entity labels:` describe that
+  clone's active revision. `Verified: exact active revision, strict mode, and
+  schema readback` confirms the independent active readback.
+. `Restored active version:` matches the saved prior version and mode.
+. `Deleted exercise clone:` identifies only the created clone, with
+  `(absence verified)` after its deletion check.
 
-Restoration also runs if the exercise fails after cloning. If restoring or verifying the prior version fails, the clone is retained and the error propagates; use the printed IDs to inspect the workspace. Removing the clone alone would not restore the prior active version.
+The command refuses to seed over an existing state file. A successful process
+exit requires the restoration and cleanup checks, not merely activation of the
+strict revision.
+
+== 4. Verify from a fresh process
+
+[source,bash]
+----
+python docs/modules/ROOT/examples/ontology_quickstart.py inspect --state .tutorial-state/ontology.json
+python docs/modules/ROOT/examples/ontology_quickstart.py verify --state .tutorial-state/ontology.json
+----
+
+Inspect the saved resource disposition. The separate `verify` process reads the
+active binding and clone status without creating or activating anything. Its
+success establishes that the original version remains active and the lesson
+clone is absent at that readback. It does not restart the hosted service or
+prove that every strict-validation rule is enforced.
+
+== Recover an interrupted exercise
+
+Retain the state file and inspect it before another attempt. With the same
+workspace credentials and exclusive use of the workspace, run:
+
+[source,bash]
+----
+python docs/modules/ROOT/examples/ontology_quickstart.py recover --state .tutorial-state/ontology.json
+python docs/modules/ROOT/examples/ontology_quickstart.py verify --state .tutorial-state/ontology.json
+----
+
+Recovery uses the saved prior binding and exact created IDs. It reconciles
+interrupted activation, restoration or deletion when those IDs are known, and
+restores and verifies before deleting the clone. A clone with no returned ID,
+an unreconciled operation, an unexpected active binding or failed readback
+requires inspection by the workspace owner;
+do not reset the workspace, delete ontologies by a shared name, or remove the
+state file to suppress the failure. Keep the state until every created resource
+has a verified disposition.
 
 [[_what_you_learned]]
 == What we learned
 
-A schema version and its active binding are separate resources. Strict validation is a service behavior that must be observed, and schema cleanup is a state-restoration operation. The fixture does not delete unrelated entities or reset the workspace.
+An ontology document, its revisions and the workspace's active binding are
+separate concepts. The saved active binding, which may be older than the latest revision,
+defines what the exercise restores. Cleanup is
+complete only after restoration and removal of the created clone are checked.
 
 [[_runnable_examples]]
 == Continue with a full lifecycle
 
-The larger https://github.com/neo4j-labs/agent-memory/tree/main/examples/ontology-lifecycle[ontology lifecycle example] covers import, revision diff, and migration. Review its separate prerequisites and cleanup before running it. See xref:reference/ontology-api.adoc[Ontology API] and xref:how-to/use-ontologies.adoc[Use ontologies] for those operations.
+The larger https://github.com/neo4j-labs/agent-memory/tree/main/examples/ontology-lifecycle[ontology lifecycle example]
+covers import, revision diff and migration. Review its separate prerequisites
+and cleanup before running it. See xref:how-to/use-ontologies.adoc[Use ontologies]
+for those tasks, or continue to xref:tutorials/skills-quickstart.adoc[distilling a
+skill] after satisfying that lesson's empty-workspace and resource-disposition
+requirements.
