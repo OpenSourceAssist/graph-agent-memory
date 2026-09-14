@@ -4,6 +4,8 @@ import asyncio
 import os
 from uuid import uuid4
 
+from aura_connection import aura_config
+
 
 async def main():
     from agent_framework.openai import OpenAIChatClient
@@ -15,11 +17,7 @@ async def main():
     )
 
     settings = BoltSettings(
-        neo4j={
-            "uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
-            "username": os.getenv("NEO4J_USERNAME", "neo4j"),
-            "password": os.getenv("NEO4J_PASSWORD", "docs-local-password"),
-        },
+        neo4j=aura_config(),
         embedding="openai/text-embedding-3-small",
         extraction={"extractor_type": "none"},
     )

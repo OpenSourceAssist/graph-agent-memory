@@ -36,7 +36,7 @@ This example shows the reasoning audit edges in `neo4j-agent-memory`: explicit `
 
 ## Prerequisites
 
-- Neo4j 5.26 LTS or 2026.x running at `bolt://localhost:7687` (or set `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`).
+- A dedicated empty AuraDB instance with its connection variables exported; follow [Aura setup and cleanup](../AURA_SETUP.md).
 - `neo4j-agent-memory` installed in your environment. No LLM and no API key: the demo runs with `llm=None` and the local `sentence-transformers/all-MiniLM-L6-v2` embedder.
 
 The script is rerunnable — it deletes its own session's traces, steps, tool calls and messages before recording new ones.

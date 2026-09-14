@@ -4,9 +4,9 @@
 :toclevels: 2
 :sectanchors:
 
-We will connect Claude Desktop on macOS to a local stdio MCP server, explicitly request a message-storage tool call, and verify that record in Neo4j before retrieving it. The server does not automatically capture all chat turns merely because it is connected.
+We will connect Claude Desktop on macOS to a local stdio MCP server backed by AuraDB, explicitly request a message-storage tool call, and verify that record in Aura before retrieving it. The server does not automatically capture all chat turns merely because it is connected.
 
-This lesson selects the core tool profile, a local embedding model, and disabled entity/preference extraction. Remote hosting and other profiles are separate how-to tasks.
+This lesson selects the core tool profile, a local embedding model, and disabled entity/preference extraction. The MCP process and embedding computation run on your Mac; the database runs in Aura. Hosting the MCP process remotely and selecting other profiles are separate how-to tasks.
 
 This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
 
@@ -16,13 +16,14 @@ This lesson runs the maintained scripts from the current repository checkout in 
 anchor:_prerequisites[]anchor:_time_required[]
 
 * macOS with Claude Desktop installed and support for local MCP servers enabled.
-* Python 3.10 or newer, Git, Docker, and free local ports 7474/7687.
+* Python 3.10 or newer, Git, and a POSIX shell.
+* A Neo4j Aura account for a dedicated lesson instance.
 * Space and network access for the initial sentence-transformer model download.
 
 Claude Desktop's interface can vary by release. The verification target is the visible tool invocation and stored database record, not a particular icon or generated sentence.
 
 [[_step_1_start_neo4j]]
-== 1. Install and start Neo4j
+== 1. Install the server and connect to Aura
 
 anchor:_step_2_install_neo4j_agent_memory[]
 
@@ -38,16 +39,7 @@ python -c "import neo4j_agent_memory; print('SDK import verified')"
 
 Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
 
-[source,bash]
-----
-docker run -d --name neo4j-docs-mcp \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/docs-local-password \
-  neo4j:5.26-community
-python docs/modules/ROOT/examples/wait_for_tutorial_neo4j.py neo4j-docs-mcp
-----
-
-Expected: `Verified: Neo4j answered the readiness query`. The check stops after three minutes; resolve a startup failure before continuing.
+include::partial$aura-tutorial-setup.adoc[]
 
 [source,bash]
 ----
@@ -61,22 +53,25 @@ Expected: `Verified: local embedding model returned 384 dimensions`. This prepar
 
 anchor:_programmatic_server_usage[]
 
-The maintained server program uses the current virtual environment and explicit Bolt settings:
+The maintained server program uses the current virtual environment and the shared `aura_config()` helper for its explicit Bolt settings:
 
 [source,python]
 ----
 include::example$mcp_local_tutorial.py[]
 ----
 
-Generate the configuration with absolute interpreter and script paths:
+Claude Desktop does not inherit the Aura variables exported in your terminal. Generate configuration containing absolute interpreter/script paths and an explicit `env` mapping for those Aura variables:
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/mcp_local_tutorial.py --config > mcp-tutorial-config.json
-python -m json.tool mcp-tutorial-config.json
+umask 077
+MCP_TUTORIAL_CONFIG=$(mktemp "${TMPDIR:-/tmp}/neo4j-docs-mcp.XXXXXX")
+python docs/modules/ROOT/examples/mcp_local_tutorial.py --config > "$MCP_TUTORIAL_CONFIG"
+python -c "import json, sys; config = json.load(open(sys.argv[1])); assert config['mcpServers']['neo4j-docs']['env']['NEO4J_URI'].startswith('neo4j+s://'); print('Aura MCP configuration verified')" "$MCP_TUTORIAL_CONFIG"
+printf 'Private MCP configuration: %s\n' "$MCP_TUTORIAL_CONFIG"
 ----
 
-Expected: a `mcpServers` entry named `neo4j-docs` whose `command` and script argument are absolute paths. Merge that one entry into `~/Library/Application Support/Claude/claude_desktop_config.json`, preserving any existing servers. Restart Claude Desktop to load it. Do not run a second copy of the server manually: Claude Desktop launches the stdio process.
+Expected: `Aura MCP configuration verified`, followed by the private temporary file's path. Open that path in your editor. The `neo4j-docs` entry contains absolute interpreter/script paths and `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, and `NEO4J_DATABASE`. The generated JSON contains database credentials; keep it outside the repository and do not share it. Merge that one entry into `~/Library/Application Support/Claude/claude_desktop_config.json`, preserving any existing servers and keeping that file private too. Keep this terminal open for cleanup, then restart Claude Desktop to load its configuration. Claude Desktop launches the stdio process.
 
 [[_step_4_verify_the_connection]]
 == 3. Verify the tool connection
@@ -100,7 +95,7 @@ Expected: a visible `memory_store_message` invocation with those arguments and a
 [[_step_6_verify_in_neo4j_browser]]
 == 5. Verify the stored record
 
-Open `http://localhost:7474`, log in as `neo4j` with `docs-local-password`, and run:
+In the Aura console, open *Query*, select this lesson's instance, connect with its credentials, and run:
 
 [source,cypher]
 ----
@@ -126,11 +121,13 @@ Expected: a visible search invocation whose result contains `cedar-lantern-47`. 
 
 anchor:_next_steps[]anchor:_tool_profiles[]anchor:_runnable_example[]
 
-Remove the `neo4j-docs` entry from Claude Desktop's configuration and restart the app, then remove the lesson's database:
+Remove the `neo4j-docs` entry from Claude Desktop's configuration and restart the app. Delete the generated credential-bearing file:
 
 [source,bash]
 ----
-docker rm -f neo4j-docs-mcp
+rm "$MCP_TUTORIAL_CONFIG"
 ----
 
-The remote transport, extended profile, and team setup belong in xref:how-to/create-context-graph-mcp.adoc[Create a context-graph MCP integration], xref:reference/mcp-tools.adoc[MCP tool reference], and xref:how-to/team-memory-in-your-editor.adoc[Team memory]. They are not additional branches required to finish this local lesson.
+include::partial$aura-tutorial-cleanup.adoc[]
+
+The remote transport, extended profile, and team setup belong in xref:how-to/create-context-graph-mcp.adoc[Create a context-graph MCP integration], xref:reference/mcp-tools.adoc[MCP tool reference], and xref:how-to/team-memory-in-your-editor.adoc[Team memory]. They are not additional branches required to finish this desktop lesson.

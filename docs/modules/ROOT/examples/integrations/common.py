@@ -1,4 +1,4 @@
-"""Shared, explicit Bolt setup and readback for the integration recipes."""
+"""Shared Aura connection through Bolt and readback for integration recipes."""
 
 import os
 
@@ -10,8 +10,9 @@ def settings(embedding=None):
     return BoltSettings(
         neo4j={
             "uri": os.environ["NEO4J_URI"],
-            "username": os.getenv("NEO4J_USERNAME", "neo4j"),
+            "username": os.environ["NEO4J_USERNAME"],
             "password": os.environ["NEO4J_PASSWORD"],
+            "database": os.getenv("NEO4J_DATABASE", "neo4j"),
         },
         embedding=embedding or from_provider("openai/text-embedding-3-small", kind="embedding"),
         extraction={"extractor_type": "none"},

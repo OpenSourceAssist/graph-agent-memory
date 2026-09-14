@@ -28,14 +28,7 @@ Those five calls are the library. Everything else in [`examples/`](../) is a var
 
 - Python 3.10+ and [uv](https://docs.astral.sh/uv/) (0.11+, for `uv run --script`)
 - **Either** a NAMS API key from <https://memory.neo4jlabs.com> (no database, no embedding key)
-- **Or** a Neo4j 5.x instance and an embedding provider:
-
-  ```bash
-  docker run -d --name neo4j-hello -p 7474:7474 -p 7687:7687 \
-    -e NEO4J_AUTH=neo4j/test-password \
-    -e NEO4J_PLUGINS='["apoc"]' \
-    neo4j:5.26-community
-  ```
+- **Or** a dedicated empty AuraDB instance and an embedding provider. Follow [Aura setup and cleanup](../AURA_SETUP.md), keeping its connection variables exported for the Aura commands below.
 
 ## Run
 
@@ -45,23 +38,24 @@ Hosted — one key, nothing to operate:
 MEMORY_API_KEY=nams_xxxxxxxxxxxxxxxx uv run examples/hello-memory/main.py
 ```
 
-Your own Neo4j, OpenAI embeddings:
+AuraDB, OpenAI embeddings:
 
 ```bash
-OPENAI_API_KEY=sk-xxxx NEO4J_PASSWORD=test-password uv run examples/hello-memory/main.py
+OPENAI_API_KEY=sk-xxxx uv run examples/hello-memory/main.py
 ```
 
-Your own Neo4j, **no API keys at all** (embeddings run locally, ~90 MB model on first use):
+AuraDB, **no inference API key** (embeddings run locally, ~90 MB model on first use; Aura credentials and network access are still required):
 
 ```bash
-NEO4J_PASSWORD=test-password EMBEDDING=sentence-transformers/all-MiniLM-L6-v2 \
+EMBEDDING=sentence-transformers/all-MiniLM-L6-v2 \
   uv run --with "neo4j-agent-memory[sentence-transformers]" examples/hello-memory/main.py
 ```
 
 Or keep the variables in a file:
 
 ```bash
-cp examples/hello-memory/.env.example examples/hello-memory/.env   # then edit it
+cp examples/hello-memory/.env.example examples/hello-memory/.env
+# Replace local NEO4J_* template values with your Aura settings before running.
 uv run --env-file examples/hello-memory/.env examples/hello-memory/main.py
 ```
 

@@ -34,21 +34,34 @@ Import configuration classes from `neo4j_agent_memory.config.settings`; `MemoryS
 
 === Provider shapes and no-LLM operation
 
+The runnable examples use Aura connection values exported by xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. The default tables below still describe the SDK defaults.
+
 Provider strings resolve immediately through `from_provider`. Pass a constructed provider for constructor-specific options such as API base URL, timeout, or custom dimensions. Explicit legacy EmbeddingConfig/LLMConfig inputs still work in this checkout and emit DeprecationWarning; prefer provider strings/instances for new code. The warning's historical removal date does not describe current availability.
 
 [source,python]
 ----
+import os
 from neo4j_agent_memory import BoltSettings
 from neo4j_agent_memory.config.settings import ExtractionConfig
 
 settings = BoltSettings(
-    neo4j={"password": "password"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     embedding="openai/text-embedding-3-small",
     llm="openai/gpt-4o-mini",
 )
 # No LLM calls: also disable the pipeline's LLM fallback.
 local_settings = BoltSettings(
-    neo4j={"password": "password"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     embedding="BAAI/bge-small-en-v1.5",
     llm=None,
     extraction=ExtractionConfig(extractor_type="gliner", enable_llm_fallback=False),
@@ -72,9 +85,14 @@ From highest to lowest: explicit constructor values, process environment variabl
 import os
 from neo4j_agent_memory import BoltSettings
 
-os.environ["NAM_NEO4J__URI"] = "bolt://env-server:7687"
-settings = BoltSettings(neo4j={"uri": "bolt://explicit-server:7687", "password": "password"})
-assert settings.neo4j.uri == "bolt://explicit-server:7687"
+os.environ["NAM_NEO4J__URI"] = "neo4j+s://<environment-instance-id>.databases.neo4j.io"
+settings = BoltSettings(neo4j={
+    "uri": "neo4j+s://<explicit-instance-id>.databases.neo4j.io",
+    "username": os.environ["NEO4J_USERNAME"],
+    "password": os.environ["NEO4J_PASSWORD"],
+    "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+})
+assert settings.neo4j.uri == "neo4j+s://<explicit-instance-id>.databases.neo4j.io"
 ----
 
 anchor:neo4j[]

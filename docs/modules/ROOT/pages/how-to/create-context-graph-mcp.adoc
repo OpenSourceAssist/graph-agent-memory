@@ -12,7 +12,7 @@ To let an MCP client inspect a context graph application's memory, run the self-
 anchor:_prerequisites[]
 
 * A working application, such as one scaffolded with https://create-context-graph.dev[create-context-graph], with its database URI, database name and authorized credentials.
-* A Python environment containing a selected `neo4j-agent-memory[mcp]` version. The commands here follow this repository's current CLI; verify a published artifact separately.
+* A Python environment containing a selected `neo4j-agent-memory[mcp,openai]` version and an OpenAI key for this example's embedding provider. The commands here follow this repository's current CLI; verify a published artifact separately.
 * An MCP client that supports launching a local stdio process.
 * For an existing non-memory graph, complete xref:how-to/adopt-existing-graph.adoc[graph adoption] and its dry run first.
 
@@ -22,21 +22,21 @@ This procedure adds a second reader/writer of the same database. It does not cre
 
 anchor:_step_1_add_mcp_dependency[]
 
-In the application's Python project, add the MCP extra with its normal dependency manager. For a project managed by uv:
+In the application's Python project, add the MCP and OpenAI extras with its normal dependency manager. For a project managed by uv:
 
 [source,bash]
 ----
-uv add 'neo4j-agent-memory[mcp]'
+uv add 'neo4j-agent-memory[mcp,openai]'
 uv run neo4j-agent-memory mcp serve --help
 ----
 
-Confirm the selected command exposes `--backend`, `--database`, `--profile` and `--transport`. Resolve its executable path for the MCP host rather than relying on the GUI application's shell PATH. When using this SDK checkout directly, run `uv sync --extra mcp` from its root instead.
+Confirm the selected command exposes `--backend`, `--database`, `--profile` and `--transport`. Resolve its executable path for the MCP host rather than relying on the GUI application's shell PATH. When using this SDK checkout directly, run `uv sync --extra mcp --extra openai` from its root instead.
 
 == 2. Configure a local stdio process
 
 anchor:_step_2_add_makefile_target[]anchor:_step_3_generate_claude_desktop_configuration[]
 
-Adapt this entry in your MCP client's configuration. Replace the executable path, database settings and secrets with your application values. The client configuration file location depends on the installed host.
+Use xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] for the application's dedicated AuraDB instance. Adapt this entry in your MCP client's configuration. Replace the executable path, database settings and secrets with your application values. The client configuration file location depends on the installed host. Copy the Aura username into `NEO4J_USER`, the CLI's supported alias; JSON values below are literal strings, not shell expressions.
 
 [source,json]
 ----
@@ -49,9 +49,9 @@ Adapt this entry in your MCP client's configuration. Replace the executable path
         "--database", "neo4j", "--profile", "extended"
       ],
       "env": {
-        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_URI": "neo4j+s://<instance-id>.databases.neo4j.io",
         "NEO4J_USER": "neo4j",
-        "NEO4J_PASSWORD": "replace-with-database-password",
+        "NEO4J_PASSWORD": "replace-with-your-Aura-password",
         "OPENAI_API_KEY": "replace-with-provider-key"
       }
     }

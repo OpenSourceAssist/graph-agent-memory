@@ -11,16 +11,17 @@ Give a Microsoft Agent Framework agent retrieved Neo4j context, persist its turn
 anchor:_overview[]
 anchor:_installation[]
 
-Run these commands from a clone of the current repository on a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated Neo4j 5.26+ database with vector-index support and no incompatible existing vectors. These source examples are not a claim that every published wheel or live provider deployment has been verified.
+Run these commands from a clone of the current repository on a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These source examples are not a claim that every published wheel or live provider deployment has been verified.
 
 [source,bash]
 ----
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[microsoft-agent,openai]" "agent-framework-openai>=1.13,<2"
-export NEO4J_URI='bolt://localhost:7687'
+export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
 export NEO4J_USERNAME='neo4j'
-export NEO4J_PASSWORD='replace-with-your-database-password'
+export NEO4J_PASSWORD='replace-with-your-Aura-password'
+export NEO4J_DATABASE='neo4j'
 export OPENAI_API_KEY='replace-with-your-provider-key'
 export OPENAI_MODEL='replace-with-an-available-model-id'
 ----

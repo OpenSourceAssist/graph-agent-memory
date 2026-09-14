@@ -122,16 +122,12 @@ The right sidebar displays static agent configuration info:
 
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 - Node.js 22.13+ on the 22 release line, or Node.js 24, for the frontend development toolchain
-- Docker (for Neo4j)
+- A Neo4j Aura account and a dedicated instance sized for the transcripts you plan to load
 - OpenAI API key
 
-### 1. Start Neo4j
+### 1. Configure AuraDB
 
-```bash
-make neo4j
-```
-
-This starts Neo4j at http://localhost:7474 (user: `neo4j`, password: `password`).
+Follow [Aura setup and cleanup](../AURA_SETUP.md), using a dedicated empty instance. Start with the sample transcript load; check capacity before loading the full dataset. The backend and loading scripts read `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, and `NEO4J_DATABASE`. The application runs locally while Aura hosts the database.
 
 ### 2. Install Dependencies
 
@@ -145,7 +141,7 @@ Backend:
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# Replace local NEO4J_* values with your Aura connection and add OPENAI_API_KEY
 ```
 
 **Optional — run on Anthropic + local embeddings (no OpenAI dependency):**

@@ -6,6 +6,7 @@ import asyncio
 import importlib.util
 import io
 import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -287,13 +288,49 @@ def test_maintained_integration_program_compiles(path):
     compile(path.read_text(), str(path), "exec")
 
 
-def test_common_settings_constructs_an_embedding_provider_from_the_real_factory(monkeypatch):
-    monkeypatch.setenv("NEO4J_URI", "bolt://localhost:7687")
-    monkeypatch.setenv("NEO4J_PASSWORD", "fixture-password")
-    monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
+def test_common_settings_constructs_an_embedding_provider_from_the_real_factory(
+    monkeypatch, tmp_path
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        os,
+        "environ",
+        {
+            "NEO4J_URI": "neo4j+s://tutorial.databases.neo4j.io",
+            "NEO4J_USERNAME": "tutorial-user",
+            "NEO4J_PASSWORD": "synthetic-tutorial-password",
+            "NEO4J_DATABASE": "tutorial-database",
+            "OPENAI_API_KEY": "fixture-key",
+        },
+    )
     config = common.settings()
     assert config.backend == "bolt"
+    assert config.neo4j.uri == "neo4j+s://tutorial.databases.neo4j.io"
+    assert config.neo4j.username == "tutorial-user"
+    assert config.neo4j.password.get_secret_value() == "synthetic-tutorial-password"
+    assert config.neo4j.database == "tutorial-database"
     assert config.embedding.dimensions == 1536
+
+
+@pytest.mark.parametrize("missing", ["NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"])
+def test_common_settings_requires_explicit_aura_credentials_before_provider_setup(
+    monkeypatch, tmp_path, missing
+):
+    monkeypatch.chdir(tmp_path)
+    exports = {
+        "NEO4J_URI": "neo4j+s://tutorial.databases.neo4j.io",
+        "NEO4J_USERNAME": "tutorial-user",
+        "NEO4J_PASSWORD": "synthetic-tutorial-password",
+    }
+    exports.pop(missing)
+    monkeypatch.setattr(os, "environ", exports)
+
+    def unexpected_provider(*_args, **_kwargs):
+        raise AssertionError("Missing database credentials must stop before provider setup")
+
+    monkeypatch.setattr("neo4j_agent_memory.llm.from_provider", unexpected_provider)
+    with pytest.raises(KeyError, match=missing):
+        common.settings()
 
 
 def test_microsoft_selected_client_and_agent_constructor_match_current_package(monkeypatch):

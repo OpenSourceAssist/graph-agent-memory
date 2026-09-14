@@ -34,6 +34,8 @@ The command builds once and serves static files on port 8080. After an edit, run
 
 Follow the four repository skills in `.claude/skills`. Tutorials follow one complete path with named files, exact setup/run commands and observable milestones. How-tos state a task, prerequisites, ordered solution and final verification. Reference follows the actual API and includes options, defaults, constraints and backend applicability. Explanations focus on rationale and tradeoffs.
 
+Use Neo4j AuraDB for examples that connect directly to Neo4j through the Bolt backend. The shared `aura-tutorial-setup.adoc` and `aura-tutorial-cleanup.adoc` partials provide the tutorial path. Executable tutorial helpers read the exported `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE` through `examples/aura_connection.py`; never supply a local database or fixed password as a fallback. NAMS examples retain their NAMS service configuration. Reference tables must still document actual SDK defaults, and Docker instructions for application packaging or contributor tests serve a separate purpose.
+
 Keep a complete executable counterpart for programs assembled across several tutorial steps. Identify partial snippets and signature displays as such. Use a named deterministic fixture for automated checks; never run every extracted code block indiscriminately. Keep source-contract checks, local integration, paid-model calls, live service checks and public-site verification separate.
 
 Use `xref:` for internal pages. Add every page to its quadrant index or a linked subindex and to the sidebar. Preserve old anchors when restructuring; retain a forwarding page or use a verified Antora alias for an old URL. Do not create empty placeholder pages solely to silence link checks.

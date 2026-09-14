@@ -8,16 +8,15 @@ We will store a short conversation, a relationship between two entities, and an 
 
 image::diagrams/message-chain.svg["A conversation linked to an ordered chain of messages",width=100%,link=self]
 
-This lesson uses the Python SDK from the current repository checkout and a dedicated local Bolt database. The complete programs below are maintained as Antora examples. We will use the seed, verification, and search commands to check provider access and persisted data in this environment.
+This lesson uses the Python SDK from the current repository checkout and a dedicated Neo4j AuraDB instance over Bolt. The complete programs below are maintained as Antora examples. We will use the seed, verification, and search commands to check provider access and persisted data in this environment.
 
 anchor:_prerequisites[]
 
 == Before you begin
 
-* Python 3.10 or newer, Git, and a running local Docker engine.
-* A POSIX shell, such as Bash or Zsh, for the commands below.
+* Python 3.10 or newer, Git, and a POSIX shell such as Bash or Zsh.
 * An OpenAI API key with access to `text-embedding-3-small`.
-* Free local ports 7474 and 7687. Stop the database from an earlier lesson before starting this one.
+* A Neo4j Aura account with capacity for a dedicated AuraDB Free instance.
 
 The embedding calls send the supplied text to OpenAI. This exercise uses fictional data. Neo4j Agent Memory is an experimental Neo4j Labs project; see xref:reference/backend-capabilities.adoc[backend capabilities] before adapting the example to NAMS.
 
@@ -40,18 +39,9 @@ Expected: `SDK import verified`. Keep the repository root as your working direct
 
 anchor:_step_2_set_up_neo4j[]
 
-== 2. Start the dedicated database
+== 2. Create and connect to the Aura database
 
-[source,bash]
-----
-docker run -d --name neo4j-docs-first \
-  -p 127.0.0.1:7474:7474 -p 127.0.0.1:7687:7687 \
-  -e NEO4J_AUTH=neo4j/docs-local-password \
-  neo4j:5.26-community
-python docs/modules/ROOT/examples/wait_for_tutorial_neo4j.py neo4j-docs-first
-----
-
-Expected: `Verified: Neo4j answered the readiness query`. The readiness check stops after three minutes and reports the database error if startup fails.
+include::partial$aura-tutorial-setup.adoc[]
 
 anchor:_step_3_configure_environment[]
 
@@ -72,7 +62,7 @@ The maintained helper `docs/modules/ROOT/examples/core_memory_settings.py` is im
 include::example$core_memory_settings.py[]
 ----
 
-The helper explicitly selects Bolt, disables automatic extraction and enrichment, and selects the embedding adapter. This lesson stores the supplied entities directly. The next step runs the complete program from the checkout.
+The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. This lesson stores the supplied entities directly. The next step runs the complete program from the checkout.
 
 anchor:_step_4_create_your_first_memory_client[]
 
@@ -103,9 +93,9 @@ python docs/modules/ROOT/examples/first_agent_memory.py verify
 
 Expected: `Verified: stored history, preference, and relationship survived restart`, followed by the two stored messages, `Preference: Use concise answers`, and `Maya Chen works at Northstar Robotics`.
 
-This command starts a new Python process. Neo4j continues running between the two commands.
+This command starts a new Python process. The Aura instance continues running between the two commands.
 
-The history lookup uses the known session ID, and preference retrieval uses the known user identifier. These identifiers organize data; your application must authorize the caller before choosing them. The small demonstration database has a single application user.
+The history lookup uses the known session ID, and preference retrieval uses the known user identifier. These identifiers organize data; your application must authorize the caller before choosing them. The dedicated demonstration database has a single application user.
 
 anchor:_step_8_search_your_context_graph[]
 
@@ -122,7 +112,7 @@ anchor:_step_7_view_your_context_graph_in_neo4j_browser[]
 
 == 7. Inspect the stored relationship
 
-Open `http://localhost:7474` and sign in as `neo4j` with `docs-local-password`. Run:
+In the Aura console, open *Query*, select the lesson instance and database, and connect with the credentials exported in step 2. Run:
 
 [source,cypher]
 ----
@@ -142,22 +132,17 @@ anchor:_clean_up[]
 
 == Clean up
 
-Remove only the database created for this lesson:
+include::partial$aura-tutorial-cleanup.adoc[]
 
-[source,bash]
-----
-docker rm -fv neo4j-docs-first
-----
-
-Expected: Docker prints `neo4j-docs-first`. The `-v` option also removes the anonymous data and log volumes created by the Neo4j image. This deletes the dedicated lesson database. Keep the checkout and virtual environment. With this environment still active and the repository root as your working directory, continue at xref:tutorials/conversation-memory.adoc#_step_2_set_up_neo4j[step 2 of the next lesson] after checking its additional chat-model prerequisite.
+With this environment still active and the repository root as your working directory, continue at xref:tutorials/conversation-memory.adoc#_step_2_set_up_neo4j[step 2 of the next lesson] after checking its additional chat-model prerequisite.
 
 anchor:_troubleshooting[]
 
 == If a check fails
 
-* A connection or authentication failure: inspect `docker logs neo4j-docs-first` and confirm the tutorial password and ports match the helper.
+* A connection or authentication failure: confirm the Aura instance is Running, check the exported connection settings, and rerun the readiness command from step 2.
 * An OpenAI access or quota error: correct the account/model configuration and rerun on a fresh tutorial database if the prior write stopped midway.
-* Missing readback data: verify that the write command completed against this container. The program stops on missing data rather than treating an empty result as success.
+* Missing readback data: verify that the write command completed against this Aura instance. The program stops on missing data rather than treating an empty result as success.
 
 anchor:_see_also[]
 

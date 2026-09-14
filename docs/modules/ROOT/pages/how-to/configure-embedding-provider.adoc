@@ -25,7 +25,7 @@ NAMS. See xref:explanation/backends.adoc[Bolt vs NAMS].
 == Prerequisites
 
 * Install the extras for each selected provider and configure its credentials. Quote package extras in shell commands, for example `pip install "neo4j-agent-memory[openai]"`.
-* Use Bolt settings for the client-side provider examples. Replace the illustrative Neo4j password with your configured connection settings.
+* Use a dedicated AuraDB instance and export `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` as shown in xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. These examples use the `bolt` backend; `NEO4J_DATABASE` defaults to `neo4j` when omitted.
 * Model identifiers below illustrate adapter routing. Confirm the chosen model is available to your account before making a live request; successful provider construction does not verify model access.
 * Run snippets containing `await` in an async function. The `provider`, `messages`, and connected `client` in later fragments come from your application's setup.
 
@@ -39,11 +39,17 @@ NAMS. See xref:explanation/backends.adoc[Bolt vs NAMS].
 
 [source,python]
 ----
+import os
 from neo4j_agent_memory import MemorySettings
 
 settings = MemorySettings(
     backend="bolt",
-    neo4j={"password": "p"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     embedding="openai/text-embedding-3-small",
 )
 ----
@@ -54,12 +60,18 @@ The factory looks up the model in `neo4j_agent_memory.llm.defaults.EMBEDDING_DIM
 
 [source,python]
 ----
+import os
 from neo4j_agent_memory import MemorySettings
 from neo4j_agent_memory.llm.adapters.openai import OpenAIEmbeddingProvider
 
 settings = MemorySettings(
     backend="bolt",
-    neo4j={"password": "p"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     embedding=OpenAIEmbeddingProvider(
         "openai/text-embedding-3-large",
         dimensions=1024,    # request smaller output (OpenAI dimension reduction)
@@ -74,11 +86,17 @@ No API key needed; embeddings stay on your machine.
 
 [source,python]
 ----
+import os
 from neo4j_agent_memory import MemorySettings
 
 settings = MemorySettings(
     backend="bolt",
-    neo4j={"password": "p"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     embedding="BAAI/bge-small-en-v1.5",      # 384 dims
 )
 ----
@@ -123,12 +141,18 @@ The current `SentenceTransformersProvider` also requires `dimensions=` for an un
 
 [source,python]
 ----
+import os
 from neo4j_agent_memory import MemorySettings
 from neo4j_agent_memory.llm.adapters.bedrock import BedrockEmbeddingProvider
 
 settings = MemorySettings(
     backend="bolt",
-    neo4j={"password": "p"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     embedding=BedrockEmbeddingProvider(
         "bedrock/amazon.titan-embed-text-v2:0",
         aws_region="us-east-1",
@@ -143,12 +167,18 @@ The adapter delegates to the existing `BedrockEmbedder` and reads the standard b
 
 [source,python]
 ----
+import os
 from neo4j_agent_memory import MemorySettings
 from neo4j_agent_memory.llm.adapters.vertex_ai import VertexAIEmbeddingProvider
 
 settings = MemorySettings(
     backend="bolt",
-    neo4j={"password": "p"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     embedding=VertexAIEmbeddingProvider(
         "vertex_ai/gemini-embedding-001",
         project_id="my-gcp-project",
@@ -174,7 +204,7 @@ See xref:how-to/integrations/google-cloud.adoc#vertex-ai-embedding-models[the Ve
 [source,bash]
 ----
 neo4j-agent-memory mcp serve \
-  --password mypw \
+  --backend bolt --uri "$NEO4J_URI" --user "$NEO4J_USERNAME" \
   --embedding BAAI/bge-small-en-v1.5 \
   --embedding-dimensions 384      # override for unknown models
 ----
@@ -184,7 +214,7 @@ Or env var:
 [source,bash]
 ----
 export NAM_EMBEDDING=BAAI/bge-small-en-v1.5
-neo4j-agent-memory mcp serve --password mypw
+neo4j-agent-memory mcp serve --backend bolt --uri "$NEO4J_URI" --user "$NEO4J_USERNAME"
 ----
 
 == Verify dimensions at runtime

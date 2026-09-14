@@ -42,7 +42,7 @@ Every bullet below maps to code in this example — see the file in parentheses.
 
 - Python 3.10+
 - Node.js 22.13+ on the 22 release line, or Node.js 24, for the frontend development toolchain
-- **Neo4j 5.23+** (5.26 LTS recommended, or AuraDB) — the recommendation queries use the variable-scope `CALL (var) { ... }` clause introduced in 5.23
+- **Neo4j AuraDB** — a dedicated empty instance from [the shared Aura setup](../AURA_SETUP.md). Recommendation queries require Neo4j 5.23+ variable-scope `CALL (var) { ... }` support. GDS is optional: inspect the startup log for detected algorithms or the Cypher fallback; Aura hosting alone does not establish GDS availability.
 - OpenAI API key (or Azure OpenAI). Without one the app still starts: product search falls back to text matching and `/chat` returns a clear error.
 
 ## Quick Start
@@ -52,10 +52,11 @@ Every bullet below maps to code in this example — see the file in parentheses.
 ```bash
 cd backend
 cp .env.example .env
-# edit .env: NEO4J_PASSWORD is required, OPENAI_API_KEY is needed for chat
+# edit .env: use your Aura NEO4J_URI, NEO4J_USER and NEO4J_PASSWORD
+# Set NEO4J_USER to the shared setup's NEO4J_USERNAME; add OPENAI_API_KEY for chat
 ```
 
-`NEO4J_PASSWORD` has no default — the backend fails at startup rather than silently trying `password`. See [`backend/.env.example`](backend/.env.example) for every variable.
+Replace the template's local connection settings with the generated Aura values. `NEO4J_PASSWORD` has no default — the backend fails at startup rather than silently trying `password`. See [`backend/.env.example`](backend/.env.example) for every variable.
 
 ### 2. Install backend dependencies
 

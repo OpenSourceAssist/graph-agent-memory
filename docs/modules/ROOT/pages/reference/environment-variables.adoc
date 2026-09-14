@@ -270,12 +270,17 @@ The CLI does not automatically load `.neo4j-memory.yaml`. Review xref:reference/
 
 == Example dotenv configuration
 
+Copy the credentials from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup].
+
+This example uses the SDK's native `NAM_NEO4J__...` fields; the tutorial's helper explicitly maps its `NEO4J_*` variables to these settings. Plain `NEO4J_*` keys are not automatic `MemorySettings` aliases.
+
 [source,bash]
 ----
 NAM_BACKEND=bolt
-NAM_NEO4J__URI=bolt://localhost:7687
+NAM_NEO4J__URI="neo4j+s://<instance-id>.databases.neo4j.io"
 NAM_NEO4J__USERNAME=neo4j
-NAM_NEO4J__PASSWORD=replace-with-your-password
+NAM_NEO4J__PASSWORD=replace-with-your-Aura-password
+NAM_NEO4J__DATABASE=neo4j
 NAM_EXTRACTION__EXTRACTOR_TYPE=pipeline
 NAM_EXTRACTION__ENABLE_SPACY=true
 NAM_EXTRACTION__ENABLE_GLINER=true

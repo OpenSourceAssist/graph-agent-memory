@@ -4,7 +4,7 @@
 :toclevels: 2
 :sectanchors:
 
-We will store a message on Bolt, request entity extraction using an Anthropic adapter, and retrieve context using locally computed sentence-transformer embeddings. We will inspect the actual provider classes and vector dimensions. This exercise builds a memory pipeline; a conversational agent loop is a separate lesson.
+We will store a message in AuraDB through the Bolt backend, request entity extraction using an Anthropic adapter, and retrieve context using locally computed sentence-transformer embeddings. We will inspect the actual provider classes and vector dimensions. This exercise builds a memory pipeline; a conversational agent loop is a separate lesson.
 
 This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
 
@@ -13,11 +13,12 @@ This lesson runs the maintained scripts from the current repository checkout in 
 
 anchor:_prerequisites[]
 
-* Python 3.10 or newer, Git, and a running Docker engine.
+* Python 3.10 or newer, Git, and a POSIX shell.
+* A Neo4j Aura account for a dedicated lesson instance.
 * An Anthropic API key and an accessible model ID for that account.
-* Free local ports 7474 and 7687, and space for the database and local embedding-model download.
+* Local disk space and network access for the embedding-model download.
 
-The message text is sent to Anthropic for extraction. Embedding computation runs locally after the model download; that does not make the whole exercise offline.
+The message text is sent to Anthropic for extraction, and messages and vectors are stored in AuraDB. Embedding computation runs locally after the model download; the exercise still requires network access.
 
 [[_step_1_install_dependencies]]
 == 1. Install the selected providers
@@ -35,18 +36,9 @@ python -c "import neo4j_agent_memory; print('SDK import verified')"
 Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
 
 [[_step_2_set_up_neo4j]]
-== 2. Start the tutorial database
+== 2. Create and connect to the Aura lesson instance
 
-[source,bash]
-----
-docker run -d --name neo4j-docs-anthropic \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/docs-local-password \
-  neo4j:5.26-community
-python docs/modules/ROOT/examples/wait_for_tutorial_neo4j.py neo4j-docs-anthropic
-----
-
-Expected: `Verified: Neo4j answered the readiness query`. The check stops after three minutes; resolve a startup failure before continuing.
+include::partial$aura-tutorial-setup.adoc[]
 
 [[_step_3_configure_environment_variables]]
 == 3. Configure Anthropic
@@ -68,7 +60,7 @@ Expected: `Provider variables present`. This confirms presence only; the extract
 include::example$anthropic_local_memory.py[]
 ----
 
-The explicit `backend="bolt"` prevents a NAMS environment key from changing this lesson's backend. `extractor_type="llm"` selects the Anthropic extraction path rather than relying on an optional local NER model. The imports and event-loop entry point are already included.
+The shared `aura_config()` helper reads the required Aura connection variables. The explicit `backend="bolt"` prevents a NAMS environment key from changing this lesson's backend. `extractor_type="llm"` selects the Anthropic extraction path rather than relying on an optional local NER model. The imports and event-loop entry point are already included.
 
 [[_step_5_confirm_your_providers_were_used]]
 == 5. Run and verify the selected providers
@@ -92,7 +84,7 @@ Read the candidate names and context; model output is variable. A schema-valid r
 
 anchor:_step_7_verify_dimensions_match[]
 
-Open Neo4j Browser at `http://localhost:7474`, log in as `neo4j` with the tutorial password `docs-local-password`, and run:
+In the Aura console, open *Query*, select this lesson's instance, connect with its credentials, and run:
 
 [source,cypher]
 ----
@@ -124,9 +116,6 @@ Switching embedding models requires a migration even when dimensions happen to m
 [[_going_further]]
 == Cleanup and next steps
 
-[source,bash]
-----
-docker rm -f neo4j-docs-anthropic
-----
+include::partial$aura-tutorial-cleanup.adoc[]
 
-This removes the container used only for this lesson. Continue with xref:tutorials/conversation-memory.adoc[the conversation lesson] for an agent loop, or xref:how-to/bring-your-own-model.adoc[provider configuration] for other deployments.
+Continue with xref:tutorials/conversation-memory.adoc[the conversation lesson] for an agent loop, or xref:how-to/bring-your-own-model.adoc[provider configuration] for other deployments.

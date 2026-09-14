@@ -1,8 +1,10 @@
-"""Explicit Anthropic extraction with local embedding computation on Bolt."""
+"""Explicit Anthropic extraction with local embeddings and storage in AuraDB."""
 
 import asyncio
 import os
 from uuid import uuid4
+
+from aura_connection import aura_config
 
 
 async def main():
@@ -15,7 +17,7 @@ async def main():
     print(f"Embedding adapter: {type(embedding).__name__}; dimensions={embedding.dimensions}")
     settings = MemorySettings(
         backend="bolt",
-        neo4j={"uri": "bolt://localhost:7687", "password": "docs-local-password"},
+        neo4j=aura_config(),
         llm=llm,
         embedding=embedding,
         extraction={"extractor_type": "llm"},

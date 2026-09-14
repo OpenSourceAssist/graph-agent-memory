@@ -15,7 +15,9 @@ anchor:_installation[]
 anchor:_prerequisites[]
 anchor:_google_cloud_authentication[]
 
-Use Python 3.10+ and the current repository checkout. Start a dedicated Neo4j 5.26+ database; its existing vectors and indexes must match the selected model and dimensions. The program disables entity extraction and does not require a chat model.
+Use Python 3.10+ and the current repository checkout. Prepare a dedicated AuraDB instance; its existing vectors and indexes must match the selected model and dimensions. The program disables entity extraction and does not require a chat model.
+Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] for a dedicated test instance, then copy its URI, username and password into the exports below.
+
 [source,bash]
 ----
 python -m venv .venv
@@ -23,8 +25,10 @@ source .venv/bin/activate
 python -m pip install -e ".[vertex-ai]"
 export GOOGLE_CLOUD_PROJECT='replace-with-your-project-id'
 export GOOGLE_CLOUD_LOCATION='us-central1'
-export NEO4J_URI='bolt://localhost:7687'
-export NEO4J_PASSWORD='replace-with-your-database-password'
+export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
+export NEO4J_USERNAME='neo4j'
+export NEO4J_PASSWORD='replace-with-your-Aura-password'
+export NEO4J_DATABASE='neo4j'
 gcloud auth application-default login
 ----
 
@@ -77,7 +81,7 @@ Expected: `Verified 2 vectors of 768 dimensions`, then stored-message verificati
 == Troubleshooting and cleanup
 
 
-Stop when the program raises an exception; a printed model response alone does not verify persistence. Check the configured database, provider access and vector dimensions before retrying. The program prints the session or trace IDs needed for inspection and closes the client. Retained example records remain in the dedicated database; remove that disposable database only when you no longer need them. Reusing a session groups records; it does not authorize a user to read them.
+Stop when the program raises an exception; a printed model response alone does not verify persistence. Check the configured database, provider access and vector dimensions before retrying. The program prints the session or trace IDs needed for inspection and closes the client. Retained example records remain in the dedicated database; follow the Aura tutorial's cleanup procedure for that dedicated instance only when you no longer need them. Reusing a session groups records; it does not authorize a user to read them.
 
 == Adapt the integration
 

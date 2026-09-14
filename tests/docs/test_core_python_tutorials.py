@@ -6,6 +6,7 @@ No provider requests, model downloads, or database connections are made here.
 import ast
 import importlib
 import inspect
+import os
 import re
 import sys
 from pathlib import Path
@@ -29,8 +30,19 @@ RECIPE_NAMES = ["core_memory_recipes", "extraction_recipes"]
 
 
 @pytest.fixture
-def lessons(monkeypatch):
+def lessons(monkeypatch, tmp_path):
     monkeypatch.syspath_prepend(str(EXAMPLES))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        os,
+        "environ",
+        {
+            "NEO4J_URI": "neo4j+s://tutorial.databases.neo4j.io",
+            "NEO4J_USERNAME": "tutorial-user",
+            "NEO4J_PASSWORD": "synthetic-tutorial-password",
+            "NEO4J_DATABASE": "tutorial-database",
+        },
+    )
     return {name: importlib.import_module(name) for name in NAMES + RECIPE_NAMES}
 
 
@@ -86,6 +98,10 @@ def test_shared_settings_construct_without_optional_extraction_models(lessons, m
     monkeypatch.setattr("neo4j_agent_memory.llm.from_provider", from_provider)
     settings = sys.modules["core_memory_settings"].settings()
     assert settings.backend == "bolt"
+    assert settings.neo4j.uri == "neo4j+s://tutorial.databases.neo4j.io"
+    assert settings.neo4j.username == "tutorial-user"
+    assert settings.neo4j.password.get_secret_value() == "synthetic-tutorial-password"
+    assert settings.neo4j.database == "tutorial-database"
     assert settings.extraction.extractor_type == "none"
     assert settings.llm is None
     assert settings.embedding.dimensions == 1536
@@ -343,7 +359,8 @@ def test_pages_include_the_complete_maintained_programs():
         text = (ROOT / "docs/modules/ROOT/pages/tutorials" / f"{page}.adoc").read_text()
         assert f"include::example${fixture}.py[]" in text
         assert "include::example$core_memory_settings.py[]" in text
-        assert "wait_for_tutorial_neo4j.py" in text
+        assert "include::partial$aura-tutorial-setup.adoc[]" in text
+        assert "include::partial$aura-tutorial-cleanup.adoc[]" in text
         assert "sleep 30" not in text
 
 

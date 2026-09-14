@@ -1,9 +1,11 @@
-"""Two-process Bolt conversation persistence using a Strands session manager."""
+"""Two-process AuraDB conversation persistence using a Strands session manager."""
 
 import argparse
 import os
 from pathlib import Path
 from uuid import uuid4
+
+from aura_connection import aura_config
 
 SESSION_FILE = Path("strands-tutorial-session.txt")
 SENTINEL = "The workshop passphrase is cedar-lantern-47."
@@ -18,6 +20,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("phase", choices=["record", "recall"])
     phase = parser.parse_args().phase
+    settings = BoltSettings(
+        neo4j=aura_config(),
+        embedding="bedrock/amazon.titan-embed-text-v2:0",
+        extraction={"extractor_type": "none"},
+    )
     if phase == "record":
         if SESSION_FILE.exists():
             raise RuntimeError("A session file exists; use recall before starting another exercise")
@@ -25,15 +32,6 @@ def main():
         SESSION_FILE.write_text(session_id)
     else:
         session_id = SESSION_FILE.read_text().strip()
-    settings = BoltSettings(
-        neo4j={
-            "uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
-            "username": os.getenv("NEO4J_USERNAME", "neo4j"),
-            "password": os.getenv("NEO4J_PASSWORD", "docs-local-password"),
-        },
-        embedding="bedrock/amazon.titan-embed-text-v2:0",
-        extraction={"extractor_type": "none"},
-    )
     with Neo4jSessionManager(session_id, settings=settings, extract_entities=False) as manager:
         agent = Agent(
             model=os.environ["BEDROCK_MODEL_ID"],

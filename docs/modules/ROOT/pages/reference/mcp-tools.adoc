@@ -478,14 +478,17 @@ The server is built on FastMCP 4 (MCP Python SDK 2) and serves two transports:
 | Streamable HTTP, the network transport in the current MCP spec. Use it for Cloud Run, Kubernetes, or any deployment where several clients share one server. `streamable-http` is accepted as an explicit spelling of the same thing.
 |===
 
+Export the Aura credentials from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] before starting either transport. The server process connects to Aura through the `bolt` backend; its transport determines how the MCP host reaches that process.
+
 [source,bash]
 ----
-# local, for a desktop host
-neo4j-agent-memory mcp serve --password "$NEO4J_PASSWORD"
+# Local process, for a desktop host; memory is stored in Aura.
+neo4j-agent-memory mcp serve --backend bolt \
+  --uri "$NEO4J_URI" --user "$NEO4J_USERNAME"
 
 # networked, Streamable HTTP on all interfaces
 neo4j-agent-memory mcp serve --transport http --host 0.0.0.0 --port 8080 \
-  --password "$NEO4J_PASSWORD"
+  --backend bolt --uri "$NEO4J_URI" --user "$NEO4J_USERNAME"
 ----
 
 [WARNING]

@@ -58,7 +58,7 @@ spec suite, which consumes both SDKs as external dependencies.
 
 ## Quick start
 
-The fastest path is the hosted **NAMS** service — sign up, set one API key, and there's no database to run. Already operate Neo4j, or need write-Cypher / geospatial / air-gapped? Use the [self-hosted (bolt) path](#option-c-self-hosted-neo4j-bolt). Available methods, result shapes and retrieval scopes differ; see [Bolt vs NAMS](https://neo4j.com/labs/agent-memory/explanation/backends) for the trade-offs.
+The fastest path is the hosted **NAMS** service — sign up, set one API key, and there's no database to run. For direct Neo4j access, write Cypher or geospatial queries, use the [Aura (`bolt`) path](#option-c-self-hosted-neo4j-bolt). Available methods, result shapes and retrieval scopes differ; see [Bolt vs NAMS](https://neo4j.com/labs/agent-memory/explanation/backends) for the trade-offs.
 
 ### Option A: Hosted (NAMS) — zero infrastructure
 
@@ -96,11 +96,19 @@ asyncio.run(main())
 
 ### Option B: MCP Server (zero code)
 
-Give any MCP-compatible AI assistant (Claude Desktop, Claude Code, Cursor, VS Code Copilot) persistent memory backed by a knowledge graph:
+Give any MCP-compatible AI assistant (Claude Desktop, Claude Code, Cursor, VS Code Copilot) persistent memory backed by a dedicated AuraDB instance. Follow the [Aura setup](https://neo4j.com/labs/agent-memory/tutorials/first-agent-memory.html#_step_2_set_up_neo4j) and copy its values:
+
+```bash
+export NEO4J_URI="neo4j+s://<instance-id>.databases.neo4j.io"
+export NEO4J_USERNAME="neo4j"
+export NEO4J_PASSWORD="replace-with-your-Aura-password"
+export NEO4J_DATABASE="neo4j"
+export OPENAI_API_KEY="replace-with-your-OpenAI-key"
+```
 
 ```bash
 # Run directly with uvx (no install needed)
-uvx "neo4j-agent-memory[mcp]" mcp serve --password <neo4j-password>
+uvx "neo4j-agent-memory[mcp,openai]" mcp serve --backend bolt --user "$NEO4J_USERNAME"
 ```
 
 ![Self-hosted MCP profiles and backend-dependent support](docs/modules/ROOT/images/diagrams/mcp-server-architecture.png)
@@ -109,7 +117,7 @@ uvx "neo4j-agent-memory[mcp]" mcp serve --password <neo4j-password>
 
 ```bash
 claude mcp add neo4j-agent-memory -- \
-  uvx "neo4j-agent-memory[mcp]" mcp serve --password <neo4j-password>
+  uvx "neo4j-agent-memory[mcp,openai]" mcp serve --backend bolt --user "$NEO4J_USERNAME"
 ```
 
 **Claude Desktop** (`claude_desktop_config.json`):
@@ -119,18 +127,39 @@ claude mcp add neo4j-agent-memory -- \
   "mcpServers": {
     "neo4j-agent-memory": {
       "command": "uvx",
-      "args": ["neo4j-agent-memory[mcp]", "mcp", "serve", "--password", "your-password"],
+      "args": ["neo4j-agent-memory[mcp,openai]", "mcp", "serve", "--backend", "bolt"],
       "env": {
-        "OPENAI_API_KEY": "sk-..."
+        "NEO4J_URI": "neo4j+s://<instance-id>.databases.neo4j.io",
+        "NEO4J_USER": "neo4j",
+        "NEO4J_PASSWORD": "replace-with-your-Aura-password",
+        "NEO4J_DATABASE": "neo4j",
+        "OPENAI_API_KEY": "replace-with-your-OpenAI-key"
       }
     }
   }
 }
 ```
 
-### Option C: Self-hosted Neo4j (bolt)
+Copy actual Aura values into the Desktop JSON; it does not evaluate shell variables. The CLI uses `NEO4J_USER`, so the JSON maps the downloaded `NEO4J_USERNAME` value to that key. Keep populated credential files out of version control.
 
-Prefer to run your own database? Point the client at any Neo4j instance ([Desktop](https://neo4j.com/download/), [Docker](https://hub.docker.com/_/neo4j), or [Aura](https://neo4j.com/cloud/)). This path unlocks bolt-only features: write-Cypher, geospatial queries, `adopt_existing_graph`, and deployments with locally configured providers.
+<a id="option-c-self-hosted-neo4j-bolt"></a>
+
+### Option C: Neo4j Aura (bolt)
+
+Use a dedicated [AuraDB instance](https://neo4j.com/labs/agent-memory/tutorials/first-agent-memory.html#_step_2_set_up_neo4j) for this example. The `bolt` backend connects directly to Aura over TLS and uses your client-side model providers. It supports write-Cypher, geospatial queries and `adopt_existing_graph`.
+
+Copy the connection values from Aura and set the provider keys required by this example:
+
+```bash
+export NEO4J_URI="neo4j+s://<instance-id>.databases.neo4j.io"
+export NEO4J_USERNAME="neo4j"
+export NEO4J_PASSWORD="replace-with-your-Aura-password"
+export NEO4J_DATABASE="neo4j"
+export ANTHROPIC_API_KEY="replace-with-your-Anthropic-key"
+export OPENAI_API_KEY="replace-with-your-OpenAI-key"
+```
+
+Install both selected adapters with `pip install "neo4j-agent-memory[anthropic,openai]"`, or use the current checkout's equivalent extras as described above.
 
 ![Conversations, entities and application-recorded reasoning with backend-specific operations](docs/modules/ROOT/images/diagrams/the-three-layer-memory-architecture.png)
 
@@ -143,6 +172,7 @@ Prefer to run your own database? Point the client at any Neo4j instance ([Deskto
 
 ```python
 import asyncio
+import os
 from neo4j_agent_memory import MemoryClient, MemorySettings
 
 async def main():
@@ -151,7 +181,13 @@ async def main():
     # LiteLLM-supported providers. Defaults to a working OpenAI setup
     # when llm/embedding are omitted.
     settings = MemorySettings(
-        neo4j={"uri": "bolt://localhost:7687", "password": "your-password"},
+        backend="bolt",
+        neo4j={
+            "uri": os.environ["NEO4J_URI"],
+            "username": os.environ["NEO4J_USERNAME"],
+            "password": os.environ["NEO4J_PASSWORD"],
+            "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+        },
         llm="anthropic/claude-3-5-sonnet-latest",
         embedding="openai/text-embedding-3-small",
     )
@@ -202,7 +238,7 @@ pip install "neo4j-agent-memory[anthropic]"            # + Anthropic native adap
 pip install "neo4j-agent-memory[bedrock]"              # + AWS Bedrock native adapter
 pip install "neo4j-agent-memory[sentence-transformers]"# + local HF embeddings
 pip install "neo4j-agent-memory[litellm]"              # + LiteLLM universal fallback (100+ providers)
-pip install "neo4j-agent-memory[mcp]"                  # + MCP server
+pip install "neo4j-agent-memory[mcp,openai]"                  # + MCP server
 pip install "neo4j-agent-memory[langchain]"            # + LangChain
 pip install "neo4j-agent-memory[all]"                  # Everything except heavy local ML
 pip install "neo4j-agent-memory[full]"                 # Everything including spaCy, GLiNER, sentence-transformers, instructor
@@ -225,20 +261,20 @@ Provider extras follow native-first resolution: with both `[openai]` and `[litel
 
 ## MCP Server
 
-The MCP server exposes memory capabilities as tools for AI assistants.
+The MCP server exposes memory capabilities as tools for AI assistants. These commands reuse the Aura and provider environment variables configured in Option B.
 
 ```bash
 # stdio transport (Claude Desktop, Claude Code)
-neo4j-agent-memory mcp serve --password <pw>
+neo4j-agent-memory mcp serve --backend bolt --user "$NEO4J_USERNAME"
 
 # SSE transport (network deployment)
-neo4j-agent-memory mcp serve --transport sse --port 8080 --password <pw>
+neo4j-agent-memory mcp serve --transport sse --port 8080 --backend bolt --user "$NEO4J_USERNAME"
 
 # Core profile (fewer tools, less context overhead)
-neo4j-agent-memory mcp serve --profile core --password <pw>
+neo4j-agent-memory mcp serve --profile core --backend bolt --user "$NEO4J_USERNAME"
 
 # Session continuity across conversations
-neo4j-agent-memory mcp serve --session-strategy per_day --user-id alice --password <pw>
+neo4j-agent-memory mcp serve --session-strategy per_day --user-id alice --backend bolt --user "$NEO4J_USERNAME"
 ```
 
 **Tool Profiles:**

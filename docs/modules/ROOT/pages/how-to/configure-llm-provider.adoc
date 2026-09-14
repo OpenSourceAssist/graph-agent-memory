@@ -16,7 +16,7 @@ For the bigger-picture choice between providers, see xref:how-to/bring-your-own-
 == Prerequisites
 
 * Install the extras for each selected provider and configure its credentials. Quote package extras in shell commands, for example `pip install "neo4j-agent-memory[openai]"`.
-* Use Bolt settings for the client-side provider examples. Replace the illustrative Neo4j password with your configured connection settings.
+* Use a dedicated AuraDB instance and export `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` as shown in xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. These examples use the `bolt` backend; `NEO4J_DATABASE` defaults to `neo4j` when omitted.
 * Model identifiers below illustrate adapter routing. Confirm the chosen model is available to your account before making a live request; successful provider construction does not verify model access.
 * Run snippets containing `await` in an async function. The `provider`, `messages`, and connected `client` in later fragments come from your application's setup.
 
@@ -32,11 +32,17 @@ Recommended for most users.
 
 [source,python]
 ----
+import os
 from neo4j_agent_memory import MemorySettings
 
 settings = MemorySettings(
     backend="bolt",
-    neo4j={"password": "p"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     llm="anthropic/claude-3-5-sonnet-latest",
 )
 ----
@@ -49,12 +55,18 @@ When you need adapter-specific kwargs.
 
 [source,python]
 ----
+import os
 from neo4j_agent_memory import MemorySettings
 from neo4j_agent_memory.llm.adapters.anthropic import AnthropicProvider
 
 settings = MemorySettings(
     backend="bolt",
-    neo4j={"password": "p"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     llm=AnthropicProvider(
         "anthropic/claude-3-5-sonnet-latest",
         cache_system=True,            # Anthropic prompt caching
@@ -68,6 +80,7 @@ settings = MemorySettings(
 
 [source,python]
 ----
+import os
 from langchain_openai import ChatOpenAI
 from neo4j_agent_memory import MemorySettings
 from neo4j_agent_memory.integrations.langchain import (
@@ -77,7 +90,12 @@ from neo4j_agent_memory.integrations.langchain import (
 chat = ChatOpenAI(model_name="gpt-4o-mini")
 settings = MemorySettings(
     backend="bolt",
-    neo4j={"password": "p"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     llm=llm_provider_from_langchain(chat),
 )
 ----
@@ -88,12 +106,18 @@ Pass-through helpers exist for every supported integration. See xref:how-to/migr
 
 [source,python]
 ----
+import os
 from neo4j_agent_memory import MemorySettings
 from neo4j_agent_memory.config.settings import ExtractionConfig, ExtractorType
 
 settings = MemorySettings(
     backend="bolt",
-    neo4j={"password": "p"},
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
     llm=None,
     extraction=ExtractionConfig(
         extractor_type=ExtractorType.GLINER,  # or SPACY / PIPELINE
@@ -157,7 +181,7 @@ Useful for consistency tests, observability standardisation across providers, or
 [source,bash]
 ----
 neo4j-agent-memory mcp serve \
-  --password mypw \
+  --backend bolt --uri "$NEO4J_URI" --user "$NEO4J_USERNAME" \
   --llm anthropic/claude-3-5-sonnet-latest \
   --llm-api-key $ANTHROPIC_API_KEY \
   --llm-api-base https://custom-endpoint.example.com  # optional
@@ -169,7 +193,7 @@ Or env vars:
 ----
 export NAM_LLM=anthropic/claude-3-5-sonnet-latest
 export NAM_LLM_API_KEY=$ANTHROPIC_API_KEY
-neo4j-agent-memory mcp serve --password mypw
+neo4j-agent-memory mcp serve --backend bolt --uri "$NEO4J_URI" --user "$NEO4J_USERNAME"
 ----
 
 == Catch provider errors uniformly

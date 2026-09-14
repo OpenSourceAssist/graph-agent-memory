@@ -22,11 +22,12 @@ Use a workspace-bound API key from https://memory.neo4jlabs.com[the NAMS dashboa
 Store the conversation ID returned by the service when you want to resume it. A matching user identifier alone does not resume a conversation. Preferences, facts and client-created relationships are not hosted REST operations; see xref:reference/backend-capabilities.adoc[the capability reference].
 
 // Retain former section URLs at the current related topic.
-== Python with a Neo4j database
+[#_python_with_a_neo4j_database]
+== Python with Neo4j Aura
 
 anchor:_path_b_self_hosted_neo4j_bolt[]anchor:_install_with_extras[]anchor:_download_spacy_model[]anchor:_setting_up_neo4j[]anchor:_option_1_docker_recommended_for_development[]anchor:_option_2_neo4j_desktop[]anchor:_option_3_neo4j_auradb_cloud[]anchor:_connecting_to_neo4j[]anchor:_configuration_with_environment_variables[]
 
-Use Bolt when you manage the database or need client-side extraction, preferences, facts, geospatial queries or custom write Cypher.
+Use a dedicated AuraDB instance with the `bolt` backend when you need client-side extraction, preferences, facts, geospatial queries or custom write Cypher. Start with xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup].
 
 * xref:tutorials/first-agent-memory.adoc[Build your first memory example] provides one complete setup path.
 * xref:tutorials/conversation-memory.adoc[Build a conversation application] continues into model use.

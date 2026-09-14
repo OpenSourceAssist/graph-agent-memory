@@ -6,15 +6,15 @@
 
 We will extract candidate entities and relationships from two fictional business documents, store their message provenance, inspect the graph after restarting Python, and pass that evidence to a chat model. We will inspect model output rather than assume every extraction is correct.
 
-This lesson uses the Python SDK from the current repository checkout and a dedicated local Bolt database. The complete programs below are maintained as Antora examples. Offline contract tests exercise their assembly and control flow; provider and database success still need to be observed in your environment.
+This lesson uses the Python SDK from the current repository checkout and a dedicated Neo4j AuraDB instance over Bolt. The complete programs below are maintained as Antora examples. Offline contract tests exercise their assembly and control flow; provider and database success still need to be observed in your environment.
 
 anchor:_prerequisites[]
 
 == Before you begin
 
-* Python 3.10 or newer, Git, and a running Docker engine.
+* Python 3.10 or newer, Git, and a POSIX shell such as Bash or Zsh.
 * An OpenAI API key with access to `text-embedding-3-small`.
-* Free local ports 7474 and 7687. Stop the database from an earlier lesson before starting this one.
+* A Neo4j Aura account with capacity for a dedicated AuraDB Free instance.
 
 The embedding calls send the supplied text to OpenAI. This exercise uses fictional data. Neo4j Agent Memory is an experimental Neo4j Labs project; see xref:reference/backend-capabilities.adoc[backend capabilities] before adapting the example to NAMS.
 
@@ -36,22 +36,13 @@ python -m spacy download en_core_web_sm
 python -c "import neo4j_agent_memory; print('SDK import verified')"
 ----
 
-Expected: `SDK import verified`. Keep the repository root as your working directory for every command below.
+Expected: `SDK import verified`. Keep the repository root as your working directory for every command below. If you already have this checkout, activate its virtual environment and run the dependency-install commands above without repeating `git clone`, `cd agent-memory`, or virtual-environment creation.
 
 anchor:_step_2_set_up_neo4j[]
 
-== 2. Start the dedicated database
+== 2. Create and connect to the Aura database
 
-[source,bash]
-----
-docker run -d --name neo4j-docs-knowledge \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/docs-local-password \
-  neo4j:5.26-community
-python docs/modules/ROOT/examples/wait_for_tutorial_neo4j.py neo4j-docs-knowledge
-----
-
-Expected: `Verified: Neo4j answered the readiness query`. The readiness check stops after three minutes and reports the database error if startup fails.
+include::partial$aura-tutorial-setup.adoc[]
 
 anchor:_step_3_configure_environment[]
 
@@ -73,7 +64,7 @@ The maintained helper `docs/modules/ROOT/examples/core_memory_settings.py` is im
 include::example$core_memory_settings.py[]
 ----
 
-The helper explicitly selects Bolt, disables automatic extraction and enrichment, and selects the embedding adapter. This makes manual storage and explicit extraction separate operations. After reading it, confirm both files exist with the run command in the next step; no code fragments need to be spliced together.
+The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. The complete program in the next step imports this helper from the checkout.
 
 anchor:_step_2_prepare_sample_documents[]
 anchor:_step_3_configure_domain_specific_extraction[]
@@ -124,7 +115,7 @@ anchor:_step_5_visualize_in_neo4j_browser[]
 
 == 7. Inspect the physical graph
 
-In Neo4j Browser at `http://localhost:7474`, sign in with the tutorial credentials and run:
+In the Aura console, open *Query*, select the lesson instance and database, and connect with the credentials exported in step 2. Run:
 
 [source,cypher]
 ----
@@ -163,22 +154,15 @@ anchor:_clean_up[]
 
 == Clean up
 
-Remove only the database created for this lesson:
-
-[source,bash]
-----
-docker rm -f neo4j-docs-knowledge
-----
-
-Expected: Docker prints `neo4j-docs-knowledge`. This container has no mounted persistent volume, so removing it deletes this lesson's database. Keep the checkout and virtual environment for the next lesson.
+include::partial$aura-tutorial-cleanup.adoc[]
 
 anchor:_troubleshooting[]
 
 == If a check fails
 
-* A connection or authentication failure: inspect `docker logs neo4j-docs-knowledge` and confirm the tutorial password and ports match the helper.
+* A connection or authentication failure: confirm the Aura instance is Running, check the exported connection settings, and rerun the readiness command from step 2.
 * An OpenAI access or quota error: correct the account/model configuration and rerun on a fresh tutorial database if the prior write stopped midway.
-* Missing readback data: verify that the write command completed against this container. The program stops on missing data rather than treating an empty result as success.
+* Missing readback data: verify that the write command completed against this Aura instance. The program stops on missing data rather than treating an empty result as success.
 
 * If GLiREL reports a missing tokenizer, rerun `python -m spacy download en_core_web_sm` in this virtual environment. If a model download fails, resolve its network/cache access before rerunning ingestion on a fresh database.
 

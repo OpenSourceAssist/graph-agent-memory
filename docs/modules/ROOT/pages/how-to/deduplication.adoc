@@ -12,7 +12,7 @@ anchor:_prerequisites[]
 
 == 1. Prepare the Bolt client
 
-Use a disposable local database from xref:tutorials/first-agent-memory.adoc[the first memory tutorial], including its repository checkout, virtual environment, `OPENAI_API_KEY`, and running database. From the repository root, install the selected provider:
+Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], including its repository checkout, virtual environment, `OPENAI_API_KEY`, and exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. From the repository root, install the selected provider:
 
 [source,bash]
 ----

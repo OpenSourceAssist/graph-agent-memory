@@ -4,7 +4,7 @@
 :toclevels: 2
 :sectanchors:
 
-We will store an explicit shopping preference, attach a Neo4j context provider to a Microsoft Agent Framework agent, and verify the persisted turn and recorded trace. The product catalog is a small fictional list in the instructions; this lesson does not promise graph algorithms or real inventory queries.
+We will store an explicit shopping preference in AuraDB, attach a Neo4j context provider to a Microsoft Agent Framework agent, and verify the persisted turn and recorded trace. The product catalog is a small fictional list in the instructions; this lesson does not promise graph algorithms or real inventory queries.
 
 This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
 
@@ -13,10 +13,11 @@ This lesson runs the maintained scripts from the current repository checkout in 
 
 anchor:_prerequisites[]
 
-* Python 3.10 or newer, Git, Docker, and free local ports 7474/7687.
+* Python 3.10 or newer, Git, and a POSIX shell.
+* A Neo4j Aura account for a dedicated lesson instance.
 * An OpenAI API key with access to the chat model selected for this lesson and `text-embedding-3-small`.
 
-This one path uses the OpenAI Responses client, not Azure credentials. The repository's Microsoft integration targets `agent-framework-core>=1.13,<2`; xref:how-to/integrations/microsoft-agent.adoc[the integration guide] owns the compatibility details.
+This path uses the OpenAI client. The repository's Microsoft integration targets `agent-framework-core>=1.13,<2`; xref:how-to/integrations/microsoft-agent.adoc[the integration guide] owns the compatibility details.
 
 [[_step_1_install_dependencies]]
 == 1. Install the current integration
@@ -36,24 +37,15 @@ Expected: `SDK import verified`. Keep this repository directory as the working d
 [source,bash]
 ----
 python -m pip install 'agent-framework-openai>=1.13,<2'
-python -c "from agent_framework.openai import OpenAIChatClient; print('Responses client import verified')"
+python -c "from agent_framework.openai import OpenAIChatClient; print('OpenAI client import verified')"
 ----
 
-Expected: `Responses client import verified`. The optional framework client is installed explicitly rather than assuming the memory extra includes it.
+Expected: `OpenAI client import verified`. The optional framework client is installed explicitly rather than assuming the memory extra includes it.
 
 [[_step_2_set_up_neo4j]]
-== 2. Start the tutorial database
+== 2. Create and connect to the Aura lesson instance
 
-[source,bash]
-----
-docker run -d --name neo4j-docs-microsoft \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/docs-local-password \
-  neo4j:5.26-community
-python docs/modules/ROOT/examples/wait_for_tutorial_neo4j.py neo4j-docs-microsoft
-----
-
-Expected: `Verified: Neo4j answered the readiness query`. The check stops after three minutes; resolve a startup failure before continuing.
+include::partial$aura-tutorial-setup.adoc[]
 
 [[_step_3_create_the_memory_configuration]]
 == 3. Configure credentials and read the complete script
@@ -62,14 +54,11 @@ anchor:_step_4_create_the_agent[]anchor:_step_5_create_the_main_application[]anc
 
 [source,bash]
 ----
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_USERNAME="neo4j"
-export NEO4J_PASSWORD="docs-local-password"
 export OPENAI_API_KEY="replace-with-your-key"
 export OPENAI_MODEL="replace-with-your-accessible-OpenAI-model-id"
 ----
 
-The complete file is `docs/modules/ROOT/examples/microsoft_shopping_tutorial.py`. It contains the fictional catalog, explicit preference write, agent configuration, trace handling, and client cleanup:
+The complete file is `docs/modules/ROOT/examples/microsoft_shopping_tutorial.py`. It reads the exported Aura connection variables through the shared `aura_config()` helper and contains the fictional catalog, explicit preference write, agent configuration, trace handling, and client cleanup:
 
 [source,python]
 ----
@@ -95,7 +84,7 @@ Expected milestones:
 . `Verified: context-provider hook persisted the user turn`.
 . `Verified: trace read back; session=...` with the new session ID.
 
-The last two checks read records back from Neo4j. A plausible answer alone is not proof that the integration persisted the turn or trace.
+The last two checks read records back from the lesson's Aura instance. A plausible answer alone is not proof that the integration persisted the turn or trace.
 
 [[_understanding_memory_in_action]]
 == What we learned
@@ -109,9 +98,6 @@ The application explicitly stored a preference, the framework hook supplied memo
 
 anchor:_see_also[]
 
-[source,bash]
-----
-docker rm -f neo4j-docs-microsoft
-----
+include::partial$aura-tutorial-cleanup.adoc[]
 
-This removes the tutorial's database container. For a larger application, see the existing https://github.com/neo4j-labs/agent-memory/tree/main/examples/microsoft_agent_retail_assistant[retail assistant example] and xref:how-to/integrations/microsoft-agent.adoc[Microsoft integration guide]. Review their separate prerequisites before adding graph algorithms or another deployment.
+For a larger application, see the existing https://github.com/neo4j-labs/agent-memory/tree/main/examples/microsoft_agent_retail_assistant[retail assistant example] and xref:how-to/integrations/microsoft-agent.adoc[Microsoft integration guide]. Review their separate prerequisites before adding graph algorithms or another deployment.

@@ -1,13 +1,13 @@
 # Deploy the MCP server on Cloud Run
 
-Run the Python MCP server as an authenticated Cloud Run service connected to a Neo4j database. This is an experimental Neo4j Labs deployment example. Complete local packaging and protocol checks before using a cloud project.
+Run the Python MCP server as an authenticated Cloud Run service connected to Neo4j AuraDB. This is an experimental Neo4j Labs deployment example. Complete local packaging and protocol checks before using a cloud project.
 
 ## Prerequisites
 
 - A checkout of this repository, Docker, and Google Cloud CLI.
 - A test Google Cloud project with billing and Cloud Run, Cloud Build, Artifact Registry, Secret Manager, and Vertex AI APIs enabled.
 - Permission to create the required resources, deploy using the runtime service account, and grant the intended developer/service identity `roles/run.invoker`.
-- A Neo4j database reachable from Cloud Run and credentials stored in Secret Manager. Use a fresh test database with 768-dimensional vector indexes for the selected embedding configuration.
+- A dedicated [AuraDB instance](../../examples/AURA_SETUP.md) reachable from Cloud Run and credentials stored in Secret Manager. Use a fresh test database with 768-dimensional vector indexes for the selected embedding configuration.
 - Access to `gemini-embedding-001` in Vertex AI location `us-central1`. The runtime service account needs permission to invoke that model; database secrets alone are insufficient.
 
 The image explicitly selects Vertex AI embeddings (`gemini-embedding-001`, 768 dimensions) and the Bolt backend. It disables automatic entity extraction and preference detection, so this path needs no OpenAI key or separate LLM. Message storage, embedding search and explicit graph tools remain available. Installing `[mcp,google]` alone would not select Google providers: the SDK defaults still select OpenAI embeddings, and provider credentials are checked lazily when a tool uses them.
@@ -25,7 +25,7 @@ docker run --rm neo4j-memory-mcp:local neo4j-agent-memory mcp serve --help
 
 The Dockerfile must copy `README-pypi.md`, because that is the packaging readme declared by `pyproject.toml`. The context is the repository root, not the `deploy/cloudrun` directory.
 
-For a protocol smoke test, supply `NEO4J_URI`, `NEO4J_USER`, and `NEO4J_PASSWORD` through a local, uncommitted environment file. Configure local Application Default Credentials (ADC) and select the Vertex AI project. The following mount passes the ADC file read-only; the local process uses your UID/GID so it can read the file without widening its permissions:
+For a protocol smoke test, supply the Aura `neo4j+s://` URI, username and password as `NEO4J_URI`, `NEO4J_USER`, and `NEO4J_PASSWORD` through a local, uncommitted environment file. Map the Aura setup's `NEO4J_USERNAME` value to the CLI's `NEO4J_USER` key. Docker runs the MCP application here; the database remains in Aura. Configure local Application Default Credentials (ADC) and select the Vertex AI project. The following mount passes the ADC file read-only; the local process uses your UID/GID so it can read the file without widening its permissions:
 
 ```bash
 export PROJECT_ID=your-test-project

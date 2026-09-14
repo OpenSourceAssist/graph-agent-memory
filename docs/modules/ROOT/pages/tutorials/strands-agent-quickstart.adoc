@@ -4,9 +4,9 @@
 :toclevels: 2
 :sectanchors:
 
-We will record a passphrase with a Strands agent, exit the process, and start a second process using the saved session ID. Before the second model call, we will verify that the original message was restored from Neo4j.
+We will record a passphrase with a Strands agent, exit the process, and start a second process using the saved session ID. Before the second model call, we will verify that the original message was restored from AuraDB.
 
-This path uses Bolt, Bedrock for the agent and embeddings, and the Strands session manager for persistence. Entity extraction is disabled so the observable outcome is conversation restoration, not an unverified automatically built knowledge graph.
+This path uses the Bolt backend connected to AuraDB, Bedrock for the agent and embeddings, and the Strands session manager for persistence. Entity extraction is disabled so the observable outcome is conversation restoration, not an unverified automatically built knowledge graph.
 
 This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
 
@@ -15,14 +15,15 @@ This lesson runs the maintained scripts from the current repository checkout in 
 
 anchor:_prerequisites[]anchor:_time_required[]
 
-* Python 3.10 or newer, Git, a running Docker engine, and free local ports 7474/7687.
+* Python 3.10 or newer, Git, and a POSIX shell.
+* A Neo4j Aura account for a dedicated lesson instance.
 * AWS credentials already configured in the standard credential chain.
 * Access to a Bedrock chat model or inference-profile ID and `amazon.titan-embed-text-v2:0` in the selected region.
 
 Confirm the provider prerequisites using xref:how-to/integrations/aws-bedrock-embeddings.adoc[Bedrock configuration] before beginning. AWS account setup is not part of the timed execution of this lesson.
 
 [[_step_1_set_up_your_environment]]
-== 1. Install and start Neo4j
+== 1. Install the integration and connect to Aura
 
 [source,bash]
 ----
@@ -36,25 +37,13 @@ python -c "import neo4j_agent_memory; print('SDK import verified')"
 
 Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
 
-[source,bash]
-----
-docker run -d --name neo4j-docs-strands \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/docs-local-password \
-  neo4j:5.26-community
-python docs/modules/ROOT/examples/wait_for_tutorial_neo4j.py neo4j-docs-strands
-----
-
-Expected: `Verified: Neo4j answered the readiness query`. The check stops after three minutes; resolve a startup failure before continuing.
+include::partial$aura-tutorial-setup.adoc[]
 
 [[_step_2_configure_credentials]]
 == 2. Select the authorized Bedrock deployment
 
 [source,bash]
 ----
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_USERNAME="neo4j"
-export NEO4J_PASSWORD="docs-local-password"
 export AWS_REGION="us-east-1"
 export AWS_DEFAULT_REGION="$AWS_REGION"
 export BEDROCK_MODEL_ID="replace-with-your-accessible-Bedrock-model-or-profile-id"
@@ -71,7 +60,7 @@ Expected: your intended AWS identity ARN. This is a read-only identity check; it
 include::example$strands_memory_tutorial.py[]
 ----
 
-The session manager owns message persistence and client shutdown. `record` writes the session ID to a local file; `recall` reads it and does not reseed the passphrase. The sentinel is checked in restored message history before another model request.
+The shared `aura_config()` helper reads the exported Aura connection variables. The session manager owns message persistence and client shutdown. `record` writes the session ID to a local file; `recall` reads it and does not reseed the passphrase. The sentinel is checked in restored message history before another model request. Keep the same Aura instance and exported connection variables for both processes.
 
 [[_step_4_run_the_agent]]
 == 4. Record the first turn
@@ -114,8 +103,11 @@ An identity check and model access are separate. If Bedrock rejects a request, i
 
 [source,bash]
 ----
-docker rm -f neo4j-docs-strands
 rm strands-tutorial-session.txt
 ----
 
-Remove only this lesson's container and state file. Continue with xref:how-to/integrations/aws-strands.adoc[Strands integration] for retrieval configuration, memory tools, and backend-specific limits.
+This removes only the local session-ID file created by this lesson.
+
+include::partial$aura-tutorial-cleanup.adoc[]
+
+Continue with xref:how-to/integrations/aws-strands.adoc[Strands integration] for retrieval configuration, memory tools, and backend-specific limits.

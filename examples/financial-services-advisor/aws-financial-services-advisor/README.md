@@ -71,7 +71,7 @@ This example application showcases the AWS-Neo4j partnership through a example a
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 - Node.js 22.13+ on the 22 release line, or Node.js 24, for the frontend development toolchain
 - AWS CLI configured with Bedrock access (a current Claude Sonnet inference profile + Titan Embed V2)
-- Neo4j Aura account (or local Neo4j via Docker)
+- Neo4j Aura account and a dedicated example instance; follow [Aura setup and cleanup](../../AURA_SETUP.md) and configure the application's `NEO4J_USER` field as shown below
 
 ### Local Development
 

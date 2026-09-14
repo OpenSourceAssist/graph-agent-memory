@@ -125,7 +125,7 @@ Relation/preference lines use `type: "relation"` / `type: "preference"` with the
 
 === schemas
 
-Manage EntitySchemaConfig documents stored in Neo4j (bolt only). These commands do not list the built-in local GLiNER schemas or hosted ontologies. Supply a bolt password through `NEO4J_PASSWORD` or `--password`.
+Manage EntitySchemaConfig documents stored in Neo4j (bolt only). These commands do not list the built-in local GLiNER schemas or hosted ontologies. Configure the Aura environment variables in <<_environment_variables,Environment variables>> before running the connection examples.
 
 ==== schemas list
 
@@ -180,7 +180,7 @@ neo4j-agent-memory schemas validate SCHEMA_FILE
 [source,bash]
 ----
 # List schemas
-neo4j-agent-memory schemas list --password $NEO4J_PASSWORD
+neo4j-agent-memory schemas list --uri "$NEO4J_URI" --user "$NEO4J_USERNAME"
 
 # Show schema details
 neo4j-agent-memory schemas show medical --format yaml
@@ -212,7 +212,7 @@ neo4j-agent-memory stats [OPTIONS]
 
 [source,bash]
 ----
-neo4j-agent-memory stats --password $NEO4J_PASSWORD
+neo4j-agent-memory stats --uri "$NEO4J_URI" --user "$NEO4J_USERNAME"
 ----
 
 The table contains an Extraction Statistics panel, an entity-type breakdown, and extractor counts. `--format json` returns an object with `extraction_stats` and `extractor_stats`; it does not return conversation/message/reasoning totals.
@@ -225,6 +225,8 @@ Start the MCP server for Claude Desktop and other MCP hosts. Install the `mcp` e
 ----
 neo4j-agent-memory mcp serve [OPTIONS]
 ----
+
+The runnable Bolt commands below use the Aura environment in <<_environment_variables,Environment variables>>; set its URI and credentials first.
 
 ==== Options
 
@@ -259,31 +261,31 @@ neo4j-agent-memory mcp serve [OPTIONS]
 [source,bash]
 ----
 # Bolt example (requires the corresponding provider dependencies/credentials).
-neo4j-agent-memory mcp serve --password mypw
+neo4j-agent-memory mcp serve --backend bolt --uri "$NEO4J_URI" --user "$NEO4J_USERNAME"
 
 # Anthropic + local sentence-transformers, no OpenAI dependency.
-neo4j-agent-memory mcp serve \
-  --password mypw \
+neo4j-agent-memory mcp serve --backend bolt \
+  --uri "$NEO4J_URI" --user "$NEO4J_USERNAME" \
   --llm anthropic/claude-3-5-sonnet-latest \
   --embedding BAAI/bge-small-en-v1.5
 
 # Local vLLM endpoint via LiteLLM.
-neo4j-agent-memory mcp serve \
-  --password mypw \
+neo4j-agent-memory mcp serve --backend bolt \
+  --uri "$NEO4J_URI" --user "$NEO4J_USERNAME" \
   --llm openai/llama-3.3-70b-instruct \
   --llm-api-base https://llms.internal.corp/v1
 
 # Core profile (fewer tools), per-day session strategy.
-neo4j-agent-memory mcp serve \
-  --password mypw \
+neo4j-agent-memory mcp serve --backend bolt \
+  --uri "$NEO4J_URI" --user "$NEO4J_USERNAME" \
   --profile core \
   --session-strategy per_day \
   --user-id alice
 
 # Streamable HTTP, for a networked deployment (Cloud Run, Kubernetes).
 # The MCP endpoint is POST/GET http://<host>:8080/mcp/
-neo4j-agent-memory mcp serve \
-  --password mypw \
+neo4j-agent-memory mcp serve --backend bolt \
+  --uri "$NEO4J_URI" --user "$NEO4J_USERNAME" \
   --transport http \
   --host 0.0.0.0 \
   --port 8080
@@ -302,14 +304,19 @@ xref:reference/mcp-tools.adoc#_transports[Transports].
 
 == Environment variables
 
+Copy Aura connection values from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] before running the Bolt examples. The examples override the local defaults listed in the option tables.
+
 Options use their listed environment aliases. The CLI does not load `.neo4j-memory.yaml` or implement a `NAM_CLI__...` settings group. Example process environment:
 
 [source,bash]
 ----
 # Neo4j connection (avoids passing --password)
-export NEO4J_URI=bolt://localhost:7687
-export NEO4J_USER=neo4j
-export NEO4J_PASSWORD=password
+export NEO4J_URI="neo4j+s://<instance-id>.databases.neo4j.io"
+export NEO4J_USERNAME="neo4j"
+export NEO4J_PASSWORD="replace-with-your-Aura-password"
+export NEO4J_DATABASE="neo4j"
+# The CLI uses NEO4J_USER, so map the downloaded Aura username.
+export NEO4J_USER="$NEO4J_USERNAME"
 
 # OpenAI (for LLM extractor or OpenAI provider strings)
 export OPENAI_API_KEY=sk-...
