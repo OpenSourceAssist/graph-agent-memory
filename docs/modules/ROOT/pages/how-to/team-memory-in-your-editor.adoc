@@ -18,17 +18,99 @@ seeds the workspace, and diagnoses the wiring.
 
 [TIP]
 ====
-**Runnable example:**
+**Maintained source:**
 link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/claude-code-team-memory[`examples/claude-code-team-memory/`]
-ships configuration templates, scripts and a `WALKTHROUGH.md` for testing persistence across quitting the editor. The walkthrough is not a live-service certification.
+also contains an extended editor-restart walkthrough. This page displays all files needed for its steps; no source download is required. The walkthrough is not a live-service certification.
 ====
 
 == Prerequisites
 
-* This SDK checkout with `uv sync --extra nams --extra mcp` completed. The current factory helpers are absent from the selected PyPI 0.5.0 wheel.
+* Python 3.10+ and a POSIX shell; the setup below installs the published Python 0.6.0 package.
 * An intended shared workspace, a workspace administrator for key creation, and a separate data-plane key for each editor that uses key authentication.
 * An installed MCP host. Its configuration and OAuth support must be checked against the installed version.
 * Agreement about what the team will share; user metadata and session naming do not enforce all memory search boundaries.
+
+Prepare a local folder and install the published package:
+
+include::partial$python-tutorial-setup.adoc[]
+
+[source,bash]
+----
+python -m pip install 'neo4j-agent-memory[nams,mcp]==0.6.0'
+----
+
+Keep `agent-memory-tutorials/` as the working directory. Create a subdirectory
+and save all six complete files shown below. The diagnostic program reads the
+three `.json.example` files from its own directory, so retain their exact
+names and placeholders. Export the intended `MEMORY_API_KEY` and, for a private
+deployment, `MEMORY_ENDPOINT` before seeding; keep credentials out of these
+templates. Configure private editor copies separately in step 3.
+
+[source,bash]
+----
+mkdir -p team-memory
+----
+
+.Complete `team-memory/_shared.py`
+[%collapsible]
+====
+.Save as `team-memory/_shared.py`
+[source,python]
+----
+include::example$team-memory/_shared.py[]
+----
+====
+
+.Complete `team-memory/seed_workspace.py`
+[%collapsible]
+====
+.Save as `team-memory/seed_workspace.py`
+[source,python]
+----
+include::example$team-memory/seed_workspace.py[]
+----
+====
+
+.Complete `team-memory/doctor.py`
+[%collapsible]
+====
+.Save as `team-memory/doctor.py`
+[source,python]
+----
+include::example$team-memory/doctor.py[]
+----
+====
+
+.Complete `team-memory/.mcp.json.example`
+[%collapsible]
+====
+.Save as `team-memory/.mcp.json.example`
+[source,json]
+----
+include::example$team-memory/.mcp.json.example[]
+----
+====
+
+.Complete `team-memory/claude_desktop_config.json.example`
+[%collapsible]
+====
+.Save as `team-memory/claude_desktop_config.json.example`
+[source,json]
+----
+include::example$team-memory/claude_desktop_config.json.example[]
+----
+====
+
+.Complete `team-memory/cursor_mcp.json.example`
+[%collapsible]
+====
+.Save as `team-memory/cursor_mcp.json.example`
+[source,json]
+----
+include::example$team-memory/cursor_mcp.json.example[]
+----
+====
+
 
 == Pick a server
 
@@ -77,12 +159,12 @@ The current Python `create_api_key()` accessor does not send `category`. Do not 
 
 == Step 2: seed a synthetic conversation and retain its ID
 
-The maintained example defines its full `DECISIONS` transcript and handles the client lifecycle. From the repository root:
+The complete `team-memory/seed_workspace.py` defines its full `DECISIONS` transcript and handles the client lifecycle. From `agent-memory-tutorials/`:
 
 [source,bash]
 ----
-uv run python examples/claude-code-team-memory/seed_workspace.py --dry-run
-uv run python examples/claude-code-team-memory/seed_workspace.py
+python team-memory/seed_workspace.py --dry-run
+python team-memory/seed_workspace.py
 ----
 
 The first command prints fictional fixture decisions without writes. Review them before running the second command, which creates a conversation in the configured workspace and waits for extraction. Keep the printed conversation ID. A timeout exits unsuccessfully; do not treat a generic nonempty entity search as proof that this seed completed.
@@ -109,7 +191,7 @@ This is a project-scoped template. Configure the hosted or self-hosted entry you
     "team-memory-self-hosted": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "neo4j-agent-memory[mcp,openai]", "neo4j-agent-memory",
+      "args": ["--from", "neo4j-agent-memory[mcp,openai]==0.6.0", "neo4j-agent-memory",
                "mcp", "serve", "--backend", "bolt", "--transport", "stdio",
                "--profile", "core", "--session-strategy", "per_day"],
       "env": {
@@ -144,7 +226,7 @@ For a desktop host configuration that launches stdio commands, a remote server c
 }
 ----
 
-GUI hosts may have a different environment from your shell. Use the installed host's supported secret mechanism and verify the executable path. The example also includes an MCP bundle; inspect its manifest and build instructions before installing it.
+GUI hosts may have a different environment from your shell. Use the installed host's supported secret mechanism and verify the executable path.
 
 === Cursor — `.cursor/mcp.json`
 
@@ -153,7 +235,7 @@ into the `Authorization` header and keep the file untracked.
 
 == Step 4: diagnose before you debug
 
-`examples/claude-code-team-memory/doctor.py` runs five checks in
+`team-memory/doctor.py` runs five checks in
 failure-frequency order: key present and well-shaped, config files parse and name
 a real command or URL (and contain no pasted key), the tool surface each server
 will expose, endpoint reachability with the workspace header, and whether
@@ -161,13 +243,13 @@ extraction has settled for the seeded conversation.
 
 [source,bash]
 ----
-uv run python examples/claude-code-team-memory/doctor.py --configs-only    # offline: no key, no network
-uv run python examples/claude-code-team-memory/doctor.py --conversation-id RETURNED_ID
+python team-memory/doctor.py --configs-only    # offline: no key, no network
+python team-memory/doctor.py --conversation-id RETURNED_ID
 ----
 
 Rather than hard-coding the tool counts, it registers each profile on a throwaway
 `FastMCP` instance with the library's own registrar and lists what came back — so
-the local Bolt core/extended counts can be checked against this checkout. This does not enumerate an authenticated hosted server. Read
+the local Bolt core/extended counts can be checked against the installed package. This does not enumerate an authenticated hosted server. Read
 `check_tool_surface()` in `doctor.py` for the dozen lines that do it.
 
 == Choosing a profile

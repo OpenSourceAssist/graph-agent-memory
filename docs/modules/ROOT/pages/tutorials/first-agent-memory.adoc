@@ -8,13 +8,13 @@ We will store a short conversation, a relationship between two entities, and an 
 
 image::diagrams/message-chain.svg["A conversation linked to an ordered chain of messages",width=100%,link=self]
 
-This lesson uses the Python SDK from the current repository checkout and a dedicated Neo4j AuraDB instance over Bolt. The complete programs below are maintained as Antora examples. We will use the seed, verification, and search commands to check provider access and persisted data in this environment.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI, the complete programs on this page, and a dedicated Neo4j AuraDB instance over Bolt. We will use the seed, verification, and search commands to check provider access and persisted data in this environment.
 
 anchor:_prerequisites[]
 
 == Before you begin
 
-* Python 3.10 or newer, Git, and a POSIX shell such as Bash or Zsh.
+* Python 3.10 or newer and a POSIX shell such as Bash or Zsh.
 * An OpenAI API key with access to `text-embedding-3-small`.
 * A Neo4j Aura account with capacity for a dedicated AuraDB Free instance.
 
@@ -25,17 +25,15 @@ anchor:_step_1_install_dependencies[]
 
 == 1. Install the lesson dependencies
 
+include::partial$python-tutorial-setup.adoc[]
+
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-cd agent-memory
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[openai]'
-python -c "import neo4j_agent_memory; print('SDK import verified')"
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
+python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
-Expected: `SDK import verified`. Keep the repository root as your working directory for every command below.
+Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
 anchor:_step_2_set_up_neo4j[]
 
@@ -55,21 +53,23 @@ python -c "import os; assert os.environ['OPENAI_API_KEY']; print('Provider key p
 
 Expected: `Provider key present`. This checks presence; the requests in the program verify access. Do not put the API key in the program.
 
-The maintained helper `docs/modules/ROOT/examples/core_memory_settings.py` is imported by the program in this lesson:
+The maintained helper `core_memory_settings.py` is imported by the program in this lesson:
 
+.Save as `core_memory_settings.py`
 [source,python]
 ----
 include::example$core_memory_settings.py[]
 ----
 
-The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. This lesson stores the supplied entities directly. The next step runs the complete program from the checkout.
+The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. This lesson stores the supplied entities directly. The next step runs the complete program from the tutorial folder.
 
 anchor:_step_4_create_your_first_memory_client[]
 
 == 4. Read and run the complete storage program
 
-The file `docs/modules/ROOT/examples/first_agent_memory.py` contains all imports, the command parser, and the event-loop entry point:
+The file `first_agent_memory.py` contains all imports, the command parser, and the event-loop entry point:
 
+.Save as `first_agent_memory.py`
 [source,python]
 ----
 include::example$first_agent_memory.py[]
@@ -77,7 +77,7 @@ include::example$first_agent_memory.py[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/first_agent_memory.py seed
+python first_agent_memory.py seed
 ----
 
 Expected: `Stored: 2 messages, 2 entities, 1 relationship, 1 explicit preference`. The process then closes its database client. The entities and preference are supplied by the program; they are not automatically learned from the conversation.
@@ -88,7 +88,7 @@ anchor:_step_6_add_user_preferences[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/first_agent_memory.py verify
+python first_agent_memory.py verify
 ----
 
 Expected: `Verified: stored history, preference, and relationship survived restart`, followed by the two stored messages, `Preference: Use concise answers`, and `Maya Chen works at Northstar Robotics`.
@@ -103,7 +103,7 @@ anchor:_step_8_search_your_context_graph[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/first_agent_memory.py search
+python first_agent_memory.py search
 ----
 
 Expected: up to five entity names and their `metadata["similarity"]` values, followed by the candidate count. Scores and order vary. Semantic retrieval is a ranked candidate search; the exact relationship query in step 5 is the persistence check. An empty search string is not an API for listing all entities.
@@ -134,7 +134,7 @@ anchor:_clean_up[]
 
 include::partial$aura-tutorial-cleanup.adoc[]
 
-With this environment still active and the repository root as your working directory, continue at xref:tutorials/conversation-memory.adoc#_step_2_set_up_neo4j[step 2 of the next lesson] after checking its additional chat-model prerequisite.
+With this environment still active and `agent-memory-tutorials` as your working directory, continue at xref:tutorials/conversation-memory.adoc#_step_2_set_up_neo4j[step 2 of the next lesson] after checking its additional chat-model prerequisite.
 
 anchor:_troubleshooting[]
 

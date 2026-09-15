@@ -9,4 +9,4 @@ Remove the downloaded credentials for that deleted instance and clear its connec
 unset NEO4J_URI NEO4J_USERNAME NEO4J_PASSWORD NEO4J_DATABASE
 ----
 
-Keep the checkout and virtual environment. Start each Aura tutorial with a new empty lesson instance and its new credentials; this also avoids carrying over vector indexes from a lesson using a different embedding dimension.
+Keep the tutorial folder and virtual environment. Start each Aura tutorial with a new empty lesson instance and its new credentials; this also avoids carrying over vector indexes from a lesson using a different embedding dimension.

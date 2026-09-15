@@ -8,15 +8,18 @@ import json
 from pathlib import Path
 
 from hosted_tutorial_helpers import (
+    read_active_binding,
     recover_ontology,
     temporary_strict_ontology,
     verify_ontology_restoration,
 )
-from hosted_tutorial_state import TutorialState
+from hosted_tutorial_state import TutorialState, http_client
 
 
-async def exercise(client, state):
-    async with temporary_strict_ontology(client.ontology, "healthcare", state) as strict:
+async def exercise(client, state, *, read_active):
+    async with temporary_strict_ontology(
+        client.ontology, "healthcare", state, read_active=read_active
+    ) as strict:
         labels = [item.label for item in strict.document.entity_types]
         print(f"Strict schema entity labels: {', '.join(labels)}")
         print("Verified: exact active revision, strict mode, and schema readback")
@@ -40,12 +43,17 @@ async def main(argv=None):
         return
     client = await connect(settings)
     try:
-        if args.command == "seed":
-            await exercise(client, state)
-        elif args.command == "verify":
-            await verify_ontology_restoration(client.ontology, state)
-        else:
-            await recover_ontology(client.ontology, state)
+        async with http_client(settings) as http:
+
+            async def read_active():
+                return await read_active_binding(http)
+
+            if args.command == "seed":
+                await exercise(client, state, read_active=read_active)
+            elif args.command == "verify":
+                await verify_ontology_restoration(client.ontology, state, read_active=read_active)
+            else:
+                await recover_ontology(client.ontology, state, read_active=read_active)
     finally:
         await client.close()
 

@@ -1,20 +1,30 @@
 = Python SDK
-:description: Select a Python SDK artifact or checkout, then choose Bolt or NAMS setup.
+:description: Install the published Python SDK and choose Aura or NAMS setup.
 
 The Python SDK connects directly to Neo4j over Bolt or to NAMS over HTTP. Supported methods, result shapes and data scope differ; see xref:reference/backend-capabilities.adoc[backend capabilities].
 
-== Select a release or a checkout
+anchor:_select_a_release_or_a_checkout[]
 
-The public PyPI package and this source checkout can have different APIs even when their version strings match. On 13 September 2026, PyPI's latest wheel was `0.5.0`; its exports did not include the current `connect`, `BoltSettings` or `NamsSettings` factory entry points. These docs' factory examples therefore require the checkout until a matching artifact is verified.
+== Install Python 0.6.0
 
-To install a selected release:
+These Python examples use the published `neo4j-agent-memory==0.6.0` package.
+Use Python 3.10 or later and install the extras needed by the selected backend
+and provider. For hosted NAMS memory:
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory==0.5.0'
+python -m pip install 'neo4j-agent-memory[nams]==0.6.0'
 ----
 
-Use that release's documentation and inspect its available extras/API. To run the maintained source lessons, clone this repository and follow the lesson's `uv sync` commands. Install the named provider/framework extra; `[all]` does not include every local model dependency.
+For Aura with OpenAI embeddings, use
+`python -m pip install 'neo4j-agent-memory[openai]==0.6.0'`.
+Install the named provider/framework extra; `[all]` does not include every
+local model dependency. The linked tutorials include virtual-environment setup.
+
+Each Python lesson displays its complete programs and helper modules with
+labelled filenames. Create the lesson folder, save those files locally, and
+install the SDK from PyPI. A repository clone is needed for SDK development;
+these Python lessons require neither a clone nor a code download.
 
 // Retain former section URLs at the current related topic.
 == Quick start
@@ -33,7 +43,7 @@ A complete lesson is the maintained starting point. A constructor change alone d
 
 * xref:how-to/index.adoc[Complete a memory task]
 * xref:reference/api/memory-client.adoc[MemoryClient operations and lifecycle]
-* xref:reference/api/factory.adoc[Current source factory and typed settings]
+* xref:reference/api/factory.adoc[Factory and typed settings]
 * xref:reference/configuration.adoc[Configuration reference]
 * xref:reference/cli.adoc[CLI reference]
 
@@ -49,4 +59,4 @@ See xref:sdks/typescript.adoc[TypeScript SDK]. Python and TypeScript application
 
 == Runnable examples
 
-The https://github.com/neo4j-labs/agent-memory/tree/main/examples[examples directory] contains small scripts, framework integrations and full applications. Use each README's dependency, backend and source-versus-release requirements. Application test fakes do not establish hosted service support for every demonstrated business operation.
+The https://github.com/neo4j-labs/agent-memory/tree/main/examples[examples directory] contains small scripts, framework integrations and full applications. The tutorial and how-to pages display complete documentation recipes; larger applications have their own README dependencies and backend requirements. Application test fakes do not establish hosted service support for every demonstrated business operation.

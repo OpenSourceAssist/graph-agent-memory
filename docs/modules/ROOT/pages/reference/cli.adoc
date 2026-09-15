@@ -11,7 +11,7 @@ Install with CLI extras:
 
 [source,bash]
 ----
-pip install 'neo4j-agent-memory[cli]'
+pip install 'neo4j-agent-memory[cli]==0.6.0'
 ----
 
 == Commands
@@ -315,7 +315,7 @@ export NEO4J_URI="neo4j+s://<instance-id>.databases.neo4j.io"
 export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="replace-with-your-Aura-password"
 export NEO4J_DATABASE="neo4j"
-# The CLI uses NEO4J_USER, so map the downloaded Aura username.
+# The CLI uses NEO4J_USER, so map the exported Aura username.
 export NEO4J_USER="$NEO4J_USERNAME"
 
 # OpenAI (for LLM extractor or OpenAI provider strings)

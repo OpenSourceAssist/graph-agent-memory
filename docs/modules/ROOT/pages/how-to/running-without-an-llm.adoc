@@ -16,13 +16,17 @@ Use `neo4j-agent-memory` with local extraction and embeddings, without construct
 
 == Prerequisites
 
+Use Python 3.10+ and a POSIX shell. Prepare the example files and environment:
+
+include::partial$python-tutorial-setup.adoc[]
+
 [source,bash]
 ----
-pip install "neo4j-agent-memory[extraction,sentence-transformers]"
+pip install 'neo4j-agent-memory[extraction,sentence-transformers]==0.6.0'
 python -m spacy download en_core_web_sm
 ----
 
-Use a current repository checkout and a dedicated AuraDB instance configured through xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. Export `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` for the example, and download the local models into the deployment cache. Local model inference has compute costs and does not guarantee identical outputs across hardware or dependency versions.
+Use a dedicated AuraDB instance configured through xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. Export `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` for the example, and download the local models into the deployment cache. Local model inference has compute costs and does not guarantee identical outputs across hardware or dependency versions.
 
 == 1. Configure local providers
 
@@ -103,12 +107,31 @@ If you _omit_ the `llm` field altogether (rather than passing `None`), the packa
 [#_3_verify_the_local_run]
 == 3. Verify the run with local models
 
-A runnable script lives at `examples/no_llm/main.py` in the repository. It exercises all three memory layers with no LLM and fails fast when the local extraction stack is incomplete:
+Create the subdirectory, then save the complete script below as
+`no_llm/main.py`. It exercises all three memory layers with no LLM and fails
+fast when the local extraction stack is incomplete.
+
+[source,bash]
+----
+mkdir -p no_llm
+----
+
+.Complete `no_llm/main.py`
+[%collapsible]
+====
+.Save as `no_llm/main.py`
+[source,python]
+----
+include::example$no_llm/main.py[]
+----
+====
+
+Run it from `agent-memory-tutorials/`:
 
 [source,bash]
 ----
 # Keep the exported Aura connection values in this process environment.
-uv run python examples/no_llm/main.py
+python no_llm/main.py
 ----
 
 Confirm the example stores and retrieves messages, entities, and reasoning traces in the dedicated AuraDB instance. You can repeat after disabling outbound model-service access with all required models cached; keep access to Aura available. Missing local model files are a setup failure, not evidence that a hosted model fallback is required.

@@ -10,16 +10,18 @@ anchor:_prerequisites[]
 
 == 1. Install the local extractor
 
-Use Python 3.10 or newer and a repository checkout. From its root, activate a virtual environment and install the required extra:
+Use Python 3.10 or newer and a POSIX shell. Prepare the example files and install the required extra:
+
+include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[gliner]'
+python -m pip install 'neo4j-agent-memory[gliner]==0.6.0'
 ----
 
-The maintained program `docs/modules/ROOT/examples/extraction_recipes.py` supplies its own imports, source texts, and event-loop entry point. It downloads the GLiNER model on first inference; allow disk space and network access for the download. These commands do not connect to a database or require an LLM API key.
+The maintained program `extraction_recipes.py` supplies its own imports, source texts, and event-loop entry point. It downloads the GLiNER model on first inference; allow disk space and network access for the download. These commands do not connect to a database or require an LLM API key.
+
+include::partial$python-extraction-recipe-file.adoc[]
 
 == 2. Configure and run the extraction
 
@@ -34,7 +36,7 @@ include::example$extraction_recipes.py[tags=schema;extract]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/extraction_recipes.py schema
+python extraction_recipes.py schema
 ----
 
 == 3. Verify the result

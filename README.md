@@ -43,7 +43,7 @@ TypeScript agents read and write the same memory.
 
 | Language | Package | Install | Docs |
 |---|---|---|---|
-| Python | [`neo4j-agent-memory`](https://pypi.org/project/neo4j-agent-memory/) | `pip install neo4j-agent-memory` | [Python SDK docs](https://neo4j.com/labs/agent-memory/sdks/python) |
+| Python | [`neo4j-agent-memory`](https://pypi.org/project/neo4j-agent-memory/) | `pip install 'neo4j-agent-memory==0.6.0'` | [Python SDK docs](https://neo4j.com/labs/agent-memory/sdks/python) |
 | TypeScript | [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory) | `npm install @neo4j-labs/agent-memory` | [TypeScript SDK docs](https://neo4j.com/labs/agent-memory/sdks/typescript) |
 
 The Python SDK lives at the repo root (`src/neo4j_agent_memory/`,
@@ -54,7 +54,7 @@ is enforced by the
 [`agent-memory-tck`](https://github.com/neo4j-labs/agent-memory-tck)
 spec suite, which consumes both SDKs as external dependencies.
 
-> **Source and releases:** This README follows the current checkout. On 13 September 2026, PyPI 0.5.0 and npm 0.4.1 exposed older APIs than this source. The factory-based Python lessons and V4 TypeScript middleware lessons require their documented source setup until a matching release is verified. Select a package artifact deliberately; the version string alone does not establish compatibility.
+> **Python release:** These Python instructions use the published `neo4j-agent-memory==0.6.0` package. The [Python tutorials](https://neo4j.com/labs/agent-memory/sdks/python) show the complete example programs and helpers to copy into local files, so running them does not require a repository clone or code download. TypeScript tutorials retain their [documented source setup](https://neo4j.com/labs/agent-memory/sdks/typescript); Python and npm release versions are independent.
 
 ## Quick start
 
@@ -66,7 +66,7 @@ The fastest path is the hosted **NAMS** service — sign up, set one API key, an
 2. Install the SDK and export the key:
 
 ```bash
-pip install "neo4j-agent-memory[nams]"
+pip install 'neo4j-agent-memory[nams]==0.6.0'
 export MEMORY_API_KEY=nams_...
 ```
 
@@ -140,7 +140,7 @@ claude mcp add neo4j-agent-memory -- \
 }
 ```
 
-Copy actual Aura values into the Desktop JSON; it does not evaluate shell variables. The CLI uses `NEO4J_USER`, so the JSON maps the downloaded `NEO4J_USERNAME` value to that key. Keep populated credential files out of version control.
+Copy actual Aura values into the Desktop JSON; it does not evaluate shell variables. The CLI uses `NEO4J_USER`, so the JSON maps the exported `NEO4J_USERNAME` value to that key. Keep populated credential files out of version control.
 
 <a id="option-c-self-hosted-neo4j-bolt"></a>
 
@@ -159,7 +159,7 @@ export ANTHROPIC_API_KEY="replace-with-your-Anthropic-key"
 export OPENAI_API_KEY="replace-with-your-OpenAI-key"
 ```
 
-Install both selected adapters with `pip install "neo4j-agent-memory[anthropic,openai]"`, or use the current checkout's equivalent extras as described above.
+Install both selected adapters with `pip install 'neo4j-agent-memory[anthropic,openai]==0.6.0'`.
 
 ![Conversations, entities and application-recorded reasoning with backend-specific operations](docs/modules/ROOT/images/diagrams/the-three-layer-memory-architecture.png)
 
@@ -232,16 +232,16 @@ This generates a ready-to-run project with a FastAPI backend, Next.js frontend, 
 ## Installation
 
 ```bash
-pip install neo4j-agent-memory                       # Core
-pip install "neo4j-agent-memory[openai]"               # + OpenAI native adapter
-pip install "neo4j-agent-memory[anthropic]"            # + Anthropic native adapter
-pip install "neo4j-agent-memory[bedrock]"              # + AWS Bedrock native adapter
-pip install "neo4j-agent-memory[sentence-transformers]"# + local HF embeddings
-pip install "neo4j-agent-memory[litellm]"              # + LiteLLM universal fallback (100+ providers)
-pip install "neo4j-agent-memory[mcp,openai]"                  # + MCP server
-pip install "neo4j-agent-memory[langchain]"            # + LangChain
-pip install "neo4j-agent-memory[all]"                  # Everything except heavy local ML
-pip install "neo4j-agent-memory[full]"                 # Everything including spaCy, GLiNER, sentence-transformers, instructor
+pip install 'neo4j-agent-memory==0.6.0'                                 # Core
+pip install 'neo4j-agent-memory[openai]==0.6.0'                         # + OpenAI native adapter
+pip install 'neo4j-agent-memory[anthropic]==0.6.0'                      # + Anthropic native adapter
+pip install 'neo4j-agent-memory[bedrock]==0.6.0'                        # + AWS Bedrock native adapter
+pip install 'neo4j-agent-memory[sentence-transformers]==0.6.0'          # + local HF embeddings
+pip install 'neo4j-agent-memory[litellm]==0.6.0'                        # + LiteLLM universal fallback (100+ providers)
+pip install 'neo4j-agent-memory[mcp,openai]==0.6.0'                     # + MCP server
+pip install 'neo4j-agent-memory[langchain]==0.6.0'                      # + LangChain
+pip install 'neo4j-agent-memory[all]==0.6.0'                            # Everything except heavy local ML
+pip install 'neo4j-agent-memory[full]==0.6.0'                           # Everything including spaCy, GLiNER, sentence-transformers, instructor
 ```
 
 Provider extras follow native-first resolution: with both `[openai]` and `[litellm]` installed, an `"openai/..."` model uses the native adapter; an unsupported provider like `"groq/..."` falls through to LiteLLM. See [Bring your own model](https://neo4j.com/labs/agent-memory/how-to/bring-your-own-model.html) for details.

@@ -7,10 +7,31 @@ To apply a domain schema to future NAMS writes, clone a template, choose the val
 
 == Prerequisites
 
-* This checkout with `uv sync --extra nams` completed.
-* A sandbox workspace key in `MEMORY_API_KEY` and permission to manage its ontology.
+* Python 3.10+ and a POSIX shell.
+* A dedicated, nonconcurrent sandbox workspace with a key in `MEMORY_API_KEY` and permission to manage its ontology.
 * A selected template from the current catalog. The program below uses `healthcare` only after checking it is present.
 * A known active version to restore if validation fails. For a temporary exercise that restores automatically, use xref:tutorials/ontology-quickstart.adoc[the ontology tutorial].
+
+Prepare the local helpers and install the published client:
+
+include::partial$python-tutorial-setup.adoc[]
+
+[source,bash]
+----
+python -m pip install 'neo4j-agent-memory[nams]==0.6.0'
+----
+
+Python 0.6.0 can infer the wrong active version through `get_active()`.
+The `read_active_binding` helper shown below reads the authoritative REST binding
+using the same NAMS settings. See
+xref:reference/ontology-api.adoc#python-0-6-active-binding[the release limitation].
+
+Save the two complete helper files in `agent-memory-tutorials/` before the
+activation program. Their names must match its imports.
+
+include::partial$python-hosted-state-file.adoc[]
+
+include::partial$python-hosted-helpers-file.adoc[]
 
 [#_list_the_catalog]
 // Retain former section URLs at the current related topic.
@@ -18,45 +39,50 @@ To apply a domain schema to future NAMS writes, clone a template, choose the val
 
 anchor:_clone_a_template_customize_activate[]
 
-Save this as `activate_ontology.py` in the repository root. It lists the catalog, creates a strict revision, verifies its active ID and leaves that version active on success. It prints both IDs needed for an intentional rollback.
+Save this as `activate_ontology.py` in `agent-memory-tutorials/`, alongside the helpers you just saved. It lists the catalog, creates a strict revision, verifies its active ID and leaves that version active on success. It prints both IDs needed for an intentional rollback.
 
+.Save as `activate_ontology.py`
 [source,python]
 ----
 import asyncio
 from neo4j_agent_memory import NamsSettings, connect
+from hosted_tutorial_helpers import read_active_binding
+from hosted_tutorial_state import http_client
 
 
 async def main():
-    client = await connect(NamsSettings())
+    settings = NamsSettings()
+    client = await connect(settings)
     try:
-        catalog = await client.ontology.list()
-        names = [item.name for item in catalog]
-        print("Available ontologies:", names)
-        if "healthcare" not in names:
-            raise RuntimeError("Expected healthcare template is unavailable")
-        previous = await client.ontology.get_active()
-        if not previous.version_id:
-            raise RuntimeError("No restorable active version; no change made")
-        print("Previous version:", previous.version_id)
-        clone = await client.ontology.clone("healthcare")
-        print("Workspace ontology:", clone.ontology_id)
-        try:
-            version = await client.ontology.update(
-                clone.ontology_id, clone.document, validation_mode="strict"
-            )
-            await client.ontology.activate(version.id)
-            active = await client.ontology.get_active()
-            if active.version_id != version.id or active.validation_mode != "strict":
-                raise RuntimeError("Active version readback did not match")
-        except Exception:
-            await client.ontology.activate(previous.version_id)
-            restored = await client.ontology.get_active()
-            if restored.version_id != previous.version_id:
-                raise RuntimeError(f"Restore not verified; inspect {clone.ontology_id}")
-            await client.ontology.delete(clone.ontology_id)
-            raise
-        print("Verified active strict version:", active.version_id)
-        print("Entity types:", [item.label for item in active.document.entity_types])
+        async with http_client(settings) as http:
+            catalog = await client.ontology.list()
+            names = [item.name for item in catalog]
+            print("Available ontologies:", names)
+            if "healthcare" not in names:
+                raise RuntimeError("Expected healthcare template is unavailable")
+            previous = await read_active_binding(http)
+            print("Previous version:", previous["version_id"])
+            clone = await client.ontology.clone("healthcare")
+            print("Workspace ontology:", clone.ontology_id)
+            try:
+                version = await client.ontology.update(
+                    clone.ontology_id, clone.document, validation_mode="strict"
+                )
+                await client.ontology.activate(version.id)
+                active = await read_active_binding(http)
+                if active["version_id"] != version.id or active["validation_mode"] != "strict":
+                    raise RuntimeError("Active version readback did not match")
+            except Exception:
+                await client.ontology.activate(previous["version_id"])
+                restored = await read_active_binding(http)
+                if (restored["version_id"], restored["validation_mode"]) != (
+                    previous["version_id"], previous["validation_mode"]
+                ):
+                    raise RuntimeError(f"Restore not verified; inspect {clone.ontology_id}")
+                await client.ontology.delete(clone.ontology_id)
+                raise
+            print("Verified active strict version:", active["version_id"])
+            print("Entity types:", [item["label"] for item in active["document"]["entity_types"]])
     finally:
         await client.close()
 
@@ -70,7 +96,7 @@ anchor:_choose_a_validation_mode[]
 
 [source,bash]
 ----
-uv run python activate_ontology.py
+python activate_ontology.py
 ----
 
 Use the printed entity labels for writes governed by this schema. Edit `clone.document` before `update` when customizing a domain; the full document model and validation modes are in xref:reference/ontology-api.adoc[ontology reference]. `update` and `delete` take an ontology ID; `activate` takes a version ID. Do not interchange them.
@@ -81,7 +107,7 @@ anchor:_verify_with_get_active[]
 
 Success prints `Verified active strict version` with the same version returned by `update`. A failing activation or readback attempts to restore and verify the prior version before deleting the clone. If restoration fails, retain the clone and printed identifiers for inspection.
 
-Readback verifies the selected active version. To verify deployed strict rejection and cleanup, run the xref:tutorials/ontology-quickstart.adoc[temporary strict-validation exercise]. This checkout's offline tests do not certify the deployed service. Python and TypeScript currently expose different transport exception mappings; inspect xref:reference/rest-api.adoc[the REST reference] before handling errors.
+Readback verifies the selected active version. For a temporary activation that restores the previous binding and removes its clone, run xref:tutorials/ontology-quickstart.adoc[the activation and restoration lesson]. That lesson does not test rejection of an unknown entity label. Offline tests do not certify the deployed service. Python and TypeScript currently expose different transport exception mappings; inspect xref:reference/rest-api.adoc[the REST reference] before handling errors.
 
 == Verify extraction separately
 

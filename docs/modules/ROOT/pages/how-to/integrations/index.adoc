@@ -60,28 +60,28 @@ Choose your framework and install:
 [source,bash]
 ----
 # LangChain
-pip install neo4j-agent-memory[langchain]
+pip install 'neo4j-agent-memory[langchain]==0.6.0'
 
 # PydanticAI
-pip install neo4j-agent-memory[pydantic-ai]
+pip install 'neo4j-agent-memory[pydantic-ai]==0.6.0'
 
 # LlamaIndex
-pip install neo4j-agent-memory[llamaindex]
+pip install 'neo4j-agent-memory[llamaindex]==0.6.0'
 
 # CrewAI
-pip install neo4j-agent-memory[crewai]
+pip install 'neo4j-agent-memory[crewai]==0.6.0'
 
 # OpenAI Agents SDK
-pip install neo4j-agent-memory[openai-agents]
+pip install 'neo4j-agent-memory[openai-agents]==0.6.0'
 
 # Google Cloud (Vertex AI + ADK + MCP)
-pip install neo4j-agent-memory[google,mcp]
+pip install 'neo4j-agent-memory[google,mcp]==0.6.0'
 
 # AWS Strands Agents
-pip install neo4j-agent-memory[aws,strands]
+pip install 'neo4j-agent-memory[aws,strands]==0.6.0'
 
 # All frameworks
-pip install neo4j-agent-memory[all]
+pip install 'neo4j-agent-memory[all]==0.6.0'
 ----
 
 == Quick Examples

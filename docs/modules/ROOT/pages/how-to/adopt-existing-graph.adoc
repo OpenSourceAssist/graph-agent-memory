@@ -28,7 +28,7 @@ Inspect the intended label/type mapping, preview changes without writes, then ad
 
 anchor:_3_dry_run_before_mutating[]
 
-Limitations observed in the current Bolt source (Python manifest version 0.5.0):
+Limitations of the Bolt implementation:
 
 * **Automatic extraction does not link to adopted nodes.** The NER
 extractors map their labels through POLE+O, so a `MOVIE` mention arrives

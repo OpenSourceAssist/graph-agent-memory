@@ -6,13 +6,13 @@
 
 We will store a shopper's first conversation, stop the process, and answer a new question in a second process using the earlier conversation, an explicit budget preference, and a fictional product. The program passes that retrieved context to a chat model and records the product lookup as a trace.
 
-This lesson uses the Python SDK from the current repository checkout and a dedicated Neo4j AuraDB instance over Bolt. The complete programs below are maintained as Antora examples. Offline contract tests exercise their assembly and control flow; provider and database success still need to be observed in your environment.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI, the complete programs on this page, and a dedicated Neo4j AuraDB instance over Bolt. Offline contract tests exercise their assembly and control flow; provider and database success still need to be observed in your environment.
 
 anchor:_prerequisites[]
 
 == Before you begin
 
-* Python 3.10 or newer, Git, and a POSIX shell such as Bash or Zsh.
+* Python 3.10 or newer and a POSIX shell such as Bash or Zsh.
 * An OpenAI API key with access to `text-embedding-3-small`.
 * A Neo4j Aura account with capacity for a dedicated AuraDB Free instance.
 
@@ -25,17 +25,15 @@ anchor:_step_1_install_dependencies[]
 
 == 1. Install the lesson dependencies
 
+include::partial$python-tutorial-setup.adoc[]
+
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-cd agent-memory
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[openai]'
-python -c "import neo4j_agent_memory; print('SDK import verified')"
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
+python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
-Expected: `SDK import verified`. Keep the repository root as your working directory for every command below. If you already have this checkout, activate its virtual environment and run the dependency-install commands above without repeating `git clone`, `cd agent-memory`, or virtual-environment creation.
+Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
 anchor:_step_2_set_up_neo4j[]
 
@@ -56,21 +54,23 @@ python -c "import os; assert os.environ['OPENAI_API_KEY']; print('Provider key p
 
 Expected: `Provider key present`. This checks presence; the requests in the program verify access. Set `OPENAI_MODEL` to a chat model available to your account. Do not put the API key in the program.
 
-The maintained helper `docs/modules/ROOT/examples/core_memory_settings.py` is imported by the program in this lesson:
+The maintained helper `core_memory_settings.py` is imported by the program in this lesson:
 
+.Save as `core_memory_settings.py`
 [source,python]
 ----
 include::example$core_memory_settings.py[]
 ----
 
-The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. The complete program in the next step imports this helper from the checkout.
+The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. The complete program in the next step imports this helper from the tutorial folder.
 
 anchor:_step_2_create_the_memory_enabled_assistant[]
 
 == 4. Read the complete chatbot program
 
-All behavior is in `docs/modules/ROOT/examples/conversation_memory.py`:
+All behavior is in `conversation_memory.py`:
 
+.Save as `conversation_memory.py`
 [source,python]
 ----
 include::example$conversation_memory.py[]
@@ -82,7 +82,7 @@ Check the command assembly:
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/conversation_memory.py --help
+python conversation_memory.py --help
 ----
 
 Expected: the help output lists `seed` and `resume`.
@@ -93,7 +93,7 @@ anchor:_step_3_test_the_assistant[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/conversation_memory.py seed
+python conversation_memory.py seed
 ----
 
 Expected: `Stored: first conversation, explicit shopper preference, fictional product`. The process exits and closes its database connection.
@@ -104,7 +104,7 @@ anchor:_step_4_test_persistence_across_sessions[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/conversation_memory.py resume
+python conversation_memory.py resume
 ----
 
 Expected milestones:

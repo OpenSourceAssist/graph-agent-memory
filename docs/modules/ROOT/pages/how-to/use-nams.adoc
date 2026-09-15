@@ -10,11 +10,11 @@ To store and retrieve messages through NAMS, configure the Python client with a 
 
 anchor:_env_var_reference[]anchor:_next_steps[]
 
-* Python 3.10+ and this repository checkout, or a selected package whose API you have verified against its own release documentation.
+* Python 3.10+ and a POSIX shell.
 * A data-plane workspace key and the intended NAMS endpoint. Obtain these from your workspace administrator or the https://memory.neo4jlabs.com[dashboard]. A key's permissions and workspace association determine access; two keys can belong to the same workspace.
 * Review xref:reference/backend-capabilities.adoc[backend capabilities] before moving existing Bolt code. Configuration alone does not migrate stored data or make all Bolt operations available.
 
-This procedure uses the current checkout. It performs a message write and leaves the test conversation available for inspection.
+This procedure uses the published Python 0.6.0 package. It performs a message write and leaves the test conversation available for inspection.
 
 [#_install]
 // Retain former section URLs at the current related topic.
@@ -22,11 +22,15 @@ This procedure uses the current checkout. It performs a message write and leaves
 
 anchor:_custom_endpoint_private_deployments[]
 
-From the repository root:
+Create a directory for the connection check and install the package in its own environment:
 
 [source,bash]
 ----
-uv sync --extra nams
+mkdir nams-connection-check
+cd nams-connection-check
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install 'neo4j-agent-memory[nams]==0.6.0'
 export MEMORY_API_KEY='nams_replace_with_workspace_key'
 export MEMORY_ENDPOINT='https://memory.neo4jlabs.com/v1'
 ----
@@ -37,8 +41,9 @@ Keep the key out of source control. A workspace header is needed only when requi
 
 anchor:_configure[]anchor:_first_request[]
 
-Save this as `check_nams.py` in the repository root:
+Save this as `check_nams.py` in `nams-connection-check/`:
 
+.Save as `check_nams.py`
 [source,python]
 ----
 import asyncio
@@ -74,7 +79,7 @@ anchor:_verify[]
 
 [source,bash]
 ----
-uv run python check_nams.py
+python check_nams.py
 ----
 
 Success prints `Verified message` followed by the returned identifiers. This verifies connection, message storage and readback. It does not certify entity extraction, long-term search scope or reasoning-trace durability. Retain the conversation ID to reopen this conversation; its display name and a user ID are not substitutes.

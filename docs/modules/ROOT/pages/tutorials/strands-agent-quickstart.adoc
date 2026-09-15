@@ -8,14 +8,14 @@ We will record a passphrase with a Strands agent, exit the process, and start a 
 
 This path uses the Bolt backend connected to AuraDB, Bedrock for the agent and embeddings, and the Strands session manager for persistence. Entity extraction is disabled so the observable outcome is conversation restoration, not an unverified automatically built knowledge graph.
 
-This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
 
 [[_what_youll_build]]
 == Before you begin
 
 anchor:_prerequisites[]anchor:_time_required[]
 
-* Python 3.10 or newer, Git, and a POSIX shell.
+* Python 3.10 or newer and a POSIX shell.
 * A Neo4j Aura account for a dedicated lesson instance.
 * AWS credentials already configured in the standard credential chain.
 * Access to a Bedrock chat model or inference-profile ID and `amazon.titan-embed-text-v2:0` in the selected region.
@@ -25,17 +25,15 @@ Confirm the provider prerequisites using xref:how-to/integrations/aws-bedrock-em
 [[_step_1_set_up_your_environment]]
 == 1. Install the integration and connect to Aura
 
+include::partial$python-tutorial-setup.adoc[]
+
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-cd agent-memory
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[strands,bedrock]'
-python -c "import neo4j_agent_memory; print('SDK import verified')"
+python -m pip install 'neo4j-agent-memory[strands,bedrock]==0.6.0'
+python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
-Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
+Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
 include::partial$aura-tutorial-setup.adoc[]
 
@@ -55,6 +53,7 @@ Expected: your intended AWS identity ARN. This is a read-only identity check; it
 [[_step_3_create_the_agent]]
 == 3. Read the complete agent
 
+.Save as `strands_memory_tutorial.py`
 [source,python]
 ----
 include::example$strands_memory_tutorial.py[]
@@ -67,7 +66,7 @@ The shared `aura_config()` helper reads the exported Aura connection variables. 
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/strands_memory_tutorial.py record
+python strands_memory_tutorial.py record
 ----
 
 Expected: a model response, the `Session ID:` with `phase=record`, and `Session manager closed after persisting the turn`. The process now exits. Keep `strands-tutorial-session.txt` for the next step.
@@ -77,7 +76,7 @@ Expected: a model response, the `Session ID:` with `phase=record`, and `Session 
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/strands_memory_tutorial.py recall
+python strands_memory_tutorial.py recall
 ----
 
 Expected before the response: `Verified: prior message restored before the model call`. The response should identify `cedar-lantern-47`; wording can vary. If the explicit history check fails, conversation restoration is not verified, even if the model happens to guess the phrase.

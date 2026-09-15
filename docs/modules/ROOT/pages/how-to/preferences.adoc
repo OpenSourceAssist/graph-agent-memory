@@ -14,16 +14,20 @@ anchor:_prerequisites[]
 
 == 1. Prepare the Bolt client
 
-Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], including its repository checkout, virtual environment, `OPENAI_API_KEY`, and exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. From the repository root, install the selected provider:
+Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra:
+
+include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install -e '.[openai]'
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
 ----
 
-The maintained program `docs/modules/ROOT/examples/core_memory_recipes.py` imports `core_memory_settings.py` from the same directory. That helper explicitly selects Bolt and disables automatic extraction/enrichment. Each command creates a new ID suffix so it can run independently. Embedding requests send example text to OpenAI.
+The maintained program `core_memory_recipes.py` imports `core_memory_settings.py` from the same directory. That helper explicitly selects Bolt and disables automatic extraction/enrichment. Each command creates a new ID suffix so it can run independently. Embedding requests send example text to OpenAI.
 
 These tasks use Python with Bolt. Consult xref:reference/backend-capabilities.adoc[backend capabilities] before adapting them to NAMS; preferences, facts, direct relationship writes, and this deduplication configuration are not portable hosted operations.
+
+include::partial$python-core-recipe-files.adoc[]
 
 == 2. Apply the task function
 
@@ -40,7 +44,7 @@ include::example$core_memory_recipes.py[tag=preferences]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/core_memory_recipes.py preferences
+python core_memory_recipes.py preferences
 ----
 
 Expected: `budget: Spend at most USD 80` and `Verified: current preference and retained history; user=...`. The assertions prove that only the replacement is active and both records remain in the history view.

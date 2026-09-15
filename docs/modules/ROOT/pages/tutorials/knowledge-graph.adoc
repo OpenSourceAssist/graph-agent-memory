@@ -6,13 +6,13 @@
 
 We will extract candidate entities and relationships from two fictional business documents, store their message provenance, inspect the graph after restarting Python, and pass that evidence to a chat model. We will inspect model output rather than assume every extraction is correct.
 
-This lesson uses the Python SDK from the current repository checkout and a dedicated Neo4j AuraDB instance over Bolt. The complete programs below are maintained as Antora examples. Offline contract tests exercise their assembly and control flow; provider and database success still need to be observed in your environment.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI, the complete programs on this page, and a dedicated Neo4j AuraDB instance over Bolt. Offline contract tests exercise their assembly and control flow; provider and database success still need to be observed in your environment.
 
 anchor:_prerequisites[]
 
 == Before you begin
 
-* Python 3.10 or newer, Git, and a POSIX shell such as Bash or Zsh.
+* Python 3.10 or newer and a POSIX shell such as Bash or Zsh.
 * An OpenAI API key with access to `text-embedding-3-small`.
 * A Neo4j Aura account with capacity for a dedicated AuraDB Free instance.
 
@@ -25,18 +25,16 @@ anchor:_step_1_install_dependencies[]
 
 == 1. Install the lesson dependencies
 
+include::partial$python-tutorial-setup.adoc[]
+
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-cd agent-memory
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[openai,gliner,spacy]' glirel 'loguru>=0.7,<1'
+python -m pip install 'neo4j-agent-memory[openai,gliner,spacy]==0.6.0' glirel 'loguru>=0.7,<1'
 python -m spacy download en_core_web_sm
-python -c "import neo4j_agent_memory; print('SDK import verified')"
+python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
-Expected: `SDK import verified`. Keep the repository root as your working directory for every command below. If you already have this checkout, activate its virtual environment and run the dependency-install commands above without repeating `git clone`, `cd agent-memory`, or virtual-environment creation.
+Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
 anchor:_step_2_set_up_neo4j[]
 
@@ -57,22 +55,24 @@ python -c "import os; assert os.environ['OPENAI_API_KEY']; print('Provider key p
 
 Expected: `Provider key present`. This checks presence; the requests in the program verify access. Set `OPENAI_MODEL` to a chat model available to your account. Do not put the API key in the program.
 
-The maintained helper `docs/modules/ROOT/examples/core_memory_settings.py` is imported by the program in this lesson:
+The maintained helper `core_memory_settings.py` is imported by the program in this lesson:
 
+.Save as `core_memory_settings.py`
 [source,python]
 ----
 include::example$core_memory_settings.py[]
 ----
 
-The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. The complete program in the next step imports this helper from the checkout.
+The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. The complete program in the next step imports this helper from the tutorial folder.
 
 anchor:_step_2_prepare_sample_documents[]
 anchor:_step_3_configure_domain_specific_extraction[]
 
 == 4. Inspect the documents and custom extractor
 
-The file `docs/modules/ROOT/examples/knowledge_graph.py` includes the two source documents, the custom `DomainSchema`, storage and query functions, and the complete command-line entry point:
+The file `knowledge_graph.py` includes the two source documents, the custom `DomainSchema`, storage and query functions, and the complete command-line entry point:
 
+.Save as `knowledge_graph.py`
 [source,python]
 ----
 include::example$knowledge_graph.py[]
@@ -84,7 +84,7 @@ Check the command assembly without downloading models:
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/knowledge_graph.py --help
+python knowledge_graph.py --help
 ----
 
 Expected: the help output lists `ingest`, `inspect`, and `answer`. The source documents are constants in the file; there is no missing input directory to create.
@@ -93,12 +93,12 @@ Expected: the help output lists `ingest`, `inspect`, and `answer`. The source do
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/knowledge_graph.py ingest
+python knowledge_graph.py ingest
 ----
 
 Expected: candidate names and stored/skipped counts for each document, followed by `Verified: extraction produced storable relationships`. Entity names and relationship counts can vary. If no entities or resolved relationships are produced, the program stops with a diagnostic; inspect the text and extraction settings before starting again with a fresh database.
 
-Every extracted mention receives an `EXTRACTED_FROM` link to its source message. Relationship endpoints must match unambiguous names in the same extraction result. Unresolved or ambiguous endpoints are reported and skipped. Bolt merges exact name/type matches across documents even when semantic deduplication is disabled. The program reads the stored ID by exact name and type before attaching links, because the current `add_entity` return value can contain a new ID on an existing-node match. Variants and aliases remain a separate xref:how-to/deduplication.adoc[deduplication] task.
+Every extracted mention receives an `EXTRACTED_FROM` link to its source message. Relationship endpoints must match unambiguous names in the same extraction result. Unresolved or ambiguous endpoints are reported and skipped. Bolt merges exact name/type matches across documents even when semantic deduplication is disabled. In SDK 0.6.0, `add_entity()` returns the canonical stored ID. The program additionally reads the exact name/type match to verify its identity and reject ambiguity before attaching links. Variants and aliases remain a separate xref:how-to/deduplication.adoc[deduplication] task.
 
 anchor:_step_4_query_the_knowledge_graph[]
 
@@ -106,7 +106,7 @@ anchor:_step_4_query_the_knowledge_graph[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/knowledge_graph.py inspect
+python knowledge_graph.py inspect
 ----
 
 Expected: the stored source/relation/target triples and `Verified: 2 source documents and ... relationships read back`. The query discovers entity names from source-message provenance, so it does not require the model to reproduce a hard-coded entity list.
@@ -139,7 +139,7 @@ anchor:_step_6_use_the_knowledge_graph_with_an_agent[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/knowledge_graph.py answer
+python knowledge_graph.py answer
 ----
 
 Expected: readback milestones followed by `Answer using retrieved evidence (inspect its factual accuracy):` and the model response. Compare the answer to the two fictional source texts, including Maya Chen's role and Denver. The program sends both stored triples and source text to the model; a nonempty response is not proof that the model interpreted them correctly.

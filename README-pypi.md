@@ -32,7 +32,7 @@ Select the backend at configuration time, then use its supported operations. Pre
 - **Hosted (NAMS)** — a managed REST service. Just an API key; embedding, extraction, and dedup run server-side. Use workspace authentication for the tenancy boundary; conversation user metadata is distinct.
 - **Direct Neo4j (bolt)** — connect to your AuraDB instance with client-side providers. Unlocks write-Cypher, geospatial queries, `adopt_existing_graph`, and deployments with locally configured providers.
 
-> **Source and releases:** This README follows the current checkout. On 13 September 2026, PyPI 0.5.0 and npm 0.4.1 exposed older APIs than this source. The factory-based Python lessons and V4 TypeScript middleware lessons require their documented source setup until a matching release is verified. Select a package artifact deliberately; the version string alone does not establish compatibility.
+> **Python release:** These Python instructions use the published `neo4j-agent-memory==0.6.0` package. The [Python tutorials](https://neo4j.com/labs/agent-memory/sdks/python) show the complete example programs and helpers to copy into local files, so running them does not require a repository clone or code download. TypeScript tutorials retain their [documented source setup](https://neo4j.com/labs/agent-memory/sdks/typescript); Python and npm release versions are independent.
 
 ## Quick start — Hosted (NAMS)
 
@@ -42,7 +42,7 @@ The fastest path: no database to run.
 2. Install and export the key:
 
 ```bash
-pip install "neo4j-agent-memory[nams]"
+pip install 'neo4j-agent-memory[nams]==0.6.0'
 export MEMORY_API_KEY=nams_...
 ```
 
@@ -75,7 +75,7 @@ asyncio.run(main())
 
 ## Quick start — Neo4j Aura (bolt)
 
-Use a dedicated [AuraDB instance](https://neo4j.com/labs/agent-memory/tutorials/first-agent-memory.html#_step_2_set_up_neo4j) and copy its connection values. Aura uses the `bolt` backend. Install the selected adapters with `pip install "neo4j-agent-memory[anthropic,openai]"` and set their keys:
+Use a dedicated [AuraDB instance](https://neo4j.com/labs/agent-memory/tutorials/first-agent-memory.html#_step_2_set_up_neo4j) and copy its connection values. Aura uses the `bolt` backend. Install the selected adapters with `pip install 'neo4j-agent-memory[anthropic,openai]==0.6.0'` and set their keys:
 
 ```bash
 export NEO4J_URI="neo4j+s://<instance-id>.databases.neo4j.io"
@@ -119,16 +119,16 @@ asyncio.run(main())
 ## Installation
 
 ```bash
-pip install neo4j-agent-memory                        # Core
-pip install "neo4j-agent-memory[nams]"                # + hosted NAMS backend
-pip install "neo4j-agent-memory[openai]"              # + OpenAI native adapter
-pip install "neo4j-agent-memory[anthropic]"           # + Anthropic native adapter
-pip install "neo4j-agent-memory[bedrock]"             # + AWS Bedrock native adapter
-pip install "neo4j-agent-memory[sentence-transformers]" # + local HF embeddings
-pip install "neo4j-agent-memory[litellm]"             # + LiteLLM universal fallback (100+ providers)
-pip install "neo4j-agent-memory[mcp,openai]"                 # + MCP server
-pip install "neo4j-agent-memory[all]"                 # Everything except heavy local ML
-pip install "neo4j-agent-memory[full]"                # Everything including spaCy, GLiNER, sentence-transformers
+pip install 'neo4j-agent-memory==0.6.0'                                 # Core
+pip install 'neo4j-agent-memory[nams]==0.6.0'                           # + hosted NAMS backend
+pip install 'neo4j-agent-memory[openai]==0.6.0'                         # + OpenAI native adapter
+pip install 'neo4j-agent-memory[anthropic]==0.6.0'                      # + Anthropic native adapter
+pip install 'neo4j-agent-memory[bedrock]==0.6.0'                        # + AWS Bedrock native adapter
+pip install 'neo4j-agent-memory[sentence-transformers]==0.6.0'          # + local HF embeddings
+pip install 'neo4j-agent-memory[litellm]==0.6.0'                        # + LiteLLM universal fallback (100+ providers)
+pip install 'neo4j-agent-memory[mcp,openai]==0.6.0'                     # + MCP server
+pip install 'neo4j-agent-memory[all]==0.6.0'                            # Everything except heavy local ML
+pip install 'neo4j-agent-memory[full]==0.6.0'                           # Everything including spaCy, GLiNER, sentence-transformers
 ```
 
 ## MCP Server

@@ -15,14 +15,14 @@ anchor:_installation[]
 anchor:_prerequisites[]
 anchor:_google_cloud_authentication[]
 
-Use Python 3.10+ and the current repository checkout. Prepare a dedicated AuraDB instance; its existing vectors and indexes must match the selected model and dimensions. The program disables entity extraction and does not require a chat model.
+Use Python 3.10+ and a POSIX shell. Prepare a dedicated AuraDB instance; its existing vectors and indexes must match the selected model and dimensions. The program disables entity extraction and does not require a chat model.
 Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] for a dedicated test instance, then copy its URI, username and password into the exports below.
+
+include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[vertex-ai]"
+python -m pip install 'neo4j-agent-memory[vertex-ai]==0.6.0'
 export GOOGLE_CLOUD_PROJECT='replace-with-your-project-id'
 export GOOGLE_CLOUD_LOCATION='us-central1'
 export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
@@ -36,17 +36,35 @@ The project needs Vertex AI enabled, billing and a principal authorized to invok
 
 == 2. Read the complete recipe
 
+Create the subdirectory below, then save both complete files under the displayed names. Run commands from `agent-memory-tutorials/`; Python resolves `common` from the script's `integrations/` directory.
+
+[source,bash]
+----
+mkdir -p integrations
+----
+
 
 The script imports this shared helper from the same directory. It supplies explicit database settings, closes clients through the calling context manager, and fails when expected records are absent. Task traces record the observable outcome of the call; they do not expose hidden model reasoning.
 
+.Complete `integrations/common.py`
+[%collapsible]
+====
+.Save as `integrations/common.py`
 [source,python]
 ----
 include::example$integrations/common.py[]
 ----
+====
+
+.Complete `integrations/cloud_embeddings_recipe.py`
+[%collapsible]
+====
+.Save as `integrations/cloud_embeddings_recipe.py`
 [source,python]
 ----
 include::example$integrations/cloud_embeddings_recipe.py[]
 ----
+====
 
 == 3. Run and verify persistence
 
@@ -73,7 +91,7 @@ anchor:_quick_start_scripts[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/integrations/cloud_embeddings_recipe.py vertex
+python integrations/cloud_embeddings_recipe.py vertex
 ----
 
 Expected: `Verified 2 vectors of 768 dimensions`, then stored-message verification. A configured dimension is checked against the actual returned vectors before the database write. A successful local settings construction does not prove model access.

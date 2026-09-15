@@ -375,7 +375,16 @@ def test_all_seven_bolt_tutorials_include_aura_setup_and_cleanup():
         assert "docker run" not in text and "docker exec" not in text, name
     setup = (ROOT / "docs/modules/ROOT/partials/aura-tutorial-setup.adoc").read_text()
     cleanup = (ROOT / "docs/modules/ROOT/partials/aura-tutorial-cleanup.adoc").read_text()
-    assert "python docs/modules/ROOT/examples/wait_for_tutorial_neo4j.py\n" in setup
+    assert "python wait_for_tutorial_neo4j.py\n" in setup
+    for partial, filename in (
+        ("python-aura-connection-file.adoc", "aura_connection.py"),
+        ("python-aura-readiness-file.adoc", "wait_for_tutorial_neo4j.py"),
+    ):
+        include = f"include::partial${partial}[]"
+        assert setup.index(include) < setup.index("python wait_for_tutorial_neo4j.py")
+        file_block = (ROOT / "docs/modules/ROOT/partials" / partial).read_text()
+        assert f".Save as `{filename}`" in file_block
+        assert f"include::example${filename}[]" in file_block
     for name in EXPORTS:
         assert f"export {name}=" in setup
         assert name in cleanup

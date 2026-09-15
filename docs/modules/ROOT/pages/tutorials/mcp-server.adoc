@@ -8,7 +8,7 @@ We will connect Claude Desktop on macOS to a local stdio MCP server backed by Au
 
 This lesson selects the core tool profile, a local embedding model, and disabled entity/preference extraction. The MCP process and embedding computation run on your Mac; the database runs in Aura. Hosting the MCP process remotely and selecting other profiles are separate how-to tasks.
 
-This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
 
 [[_what_youll_learn]]
 == Before you begin
@@ -16,7 +16,7 @@ This lesson runs the maintained scripts from the current repository checkout in 
 anchor:_prerequisites[]anchor:_time_required[]
 
 * macOS with Claude Desktop installed and support for local MCP servers enabled.
-* Python 3.10 or newer, Git, and a POSIX shell.
+* Python 3.10 or newer and a POSIX shell.
 * A Neo4j Aura account for a dedicated lesson instance.
 * Space and network access for the initial sentence-transformer model download.
 
@@ -27,23 +27,29 @@ Claude Desktop's interface can vary by release. The verification target is the v
 
 anchor:_step_2_install_neo4j_agent_memory[]
 
+include::partial$python-tutorial-setup.adoc[]
+
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-cd agent-memory
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[mcp,sentence-transformers]'
-python -c "import neo4j_agent_memory; print('SDK import verified')"
+python -m pip install 'neo4j-agent-memory[mcp,sentence-transformers]==0.6.0'
+python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
-Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
+Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
 include::partial$aura-tutorial-setup.adoc[]
 
+The maintained server program uses the current virtual environment and the shared `aura_config()` helper for its explicit Bolt settings:
+
+.Save as `mcp_local_tutorial.py`
+[source,python]
+----
+include::example$mcp_local_tutorial.py[]
+----
+
 [source,bash]
 ----
-python docs/modules/ROOT/examples/mcp_local_tutorial.py --prepare
+python mcp_local_tutorial.py --prepare
 ----
 
 Expected: `Verified: local embedding model returned 384 dimensions`. This prepares the model before Claude Desktop starts the server, avoiding an unobserved first-start download.
@@ -53,25 +59,18 @@ Expected: `Verified: local embedding model returned 384 dimensions`. This prepar
 
 anchor:_programmatic_server_usage[]
 
-The maintained server program uses the current virtual environment and the shared `aura_config()` helper for its explicit Bolt settings:
-
-[source,python]
-----
-include::example$mcp_local_tutorial.py[]
-----
-
 Claude Desktop does not inherit the Aura variables exported in your terminal. Generate configuration containing absolute interpreter/script paths and an explicit `env` mapping for those Aura variables:
 
 [source,bash]
 ----
 umask 077
 MCP_TUTORIAL_CONFIG=$(mktemp "${TMPDIR:-/tmp}/neo4j-docs-mcp.XXXXXX")
-python docs/modules/ROOT/examples/mcp_local_tutorial.py --config > "$MCP_TUTORIAL_CONFIG"
+python mcp_local_tutorial.py --config > "$MCP_TUTORIAL_CONFIG"
 python -c "import json, sys; config = json.load(open(sys.argv[1])); assert config['mcpServers']['neo4j-docs']['env']['NEO4J_URI'].startswith('neo4j+s://'); print('Aura MCP configuration verified')" "$MCP_TUTORIAL_CONFIG"
 printf 'Private MCP configuration: %s\n' "$MCP_TUTORIAL_CONFIG"
 ----
 
-Expected: `Aura MCP configuration verified`, followed by the private temporary file's path. Open that path in your editor. The `neo4j-docs` entry contains absolute interpreter/script paths and `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, and `NEO4J_DATABASE`. The generated JSON contains database credentials; keep it outside the repository and do not share it. Merge that one entry into `~/Library/Application Support/Claude/claude_desktop_config.json`, preserving any existing servers and keeping that file private too. Keep this terminal open for cleanup, then restart Claude Desktop to load its configuration. Claude Desktop launches the stdio process.
+Expected: `Aura MCP configuration verified`, followed by the private temporary file's path. Open that path in your editor. The `neo4j-docs` entry contains absolute interpreter/script paths and `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, and `NEO4J_DATABASE`. The generated JSON contains database credentials; keep it outside the tutorial folder and do not share it. Merge that one entry into `~/Library/Application Support/Claude/claude_desktop_config.json`, preserving any existing servers and keeping that file private too. Keep this terminal open for cleanup, then restart Claude Desktop to load its configuration. Claude Desktop launches the stdio process.
 
 [[_step_4_verify_the_connection]]
 == 3. Verify the tool connection

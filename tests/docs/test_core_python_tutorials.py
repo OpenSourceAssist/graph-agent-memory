@@ -8,6 +8,8 @@ import importlib
 import inspect
 import os
 import re
+import shlex
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +17,7 @@ from unittest.mock import AsyncMock, create_autospec
 from uuid import uuid4
 
 import pytest
+from packaging.requirements import Requirement
 
 from neo4j_agent_memory.core.query import BoltCypherQuery
 from neo4j_agent_memory.extraction.base import ExtractedEntity, ExtractedRelation, ExtractionResult
@@ -134,7 +137,11 @@ def client_double():
 )
 async def test_explicit_relationship_reads_match_the_actual_sdk_write_property(example):
     """Compare authored Cypher with the real write path, without fake read rows."""
-    graph = SimpleNamespace(execute_write=AsyncMock())
+    graph = SimpleNamespace(
+        execute_write=AsyncMock(
+            return_value=[{"id": str(uuid4()), "description": None, "confidence": 1.0}]
+        )
+    )
     store = LongTermMemory(graph)
     await store.add_relationship(uuid4(), uuid4(), "WORKS_AT")
     graph.execute_write.assert_awaited_once()
@@ -362,6 +369,127 @@ def test_pages_include_the_complete_maintained_programs():
         assert "include::partial$aura-tutorial-setup.adoc[]" in text
         assert "include::partial$aura-tutorial-cleanup.adoc[]" in text
         assert "sleep 30" not in text
+
+
+@pytest.mark.parametrize(
+    "page,extras,program",
+    [
+        ("first-agent-memory", {"openai"}, "first_agent_memory.py"),
+        ("conversation-memory", {"openai"}, "conversation_memory.py"),
+        ("knowledge-graph", {"openai", "gliner", "spacy"}, "knowledge_graph.py"),
+        (
+            "anthropic-and-local-embeddings",
+            {"anthropic", "sentence-transformers"},
+            "anthropic_local_memory.py",
+        ),
+        (
+            "microsoft-agent-memory",
+            {"microsoft-agent", "openai"},
+            "microsoft_shopping_tutorial.py",
+        ),
+        ("strands-agent-quickstart", {"strands", "bedrock"}, "strands_memory_tutorial.py"),
+        ("mcp-server", {"mcp", "sentence-transformers"}, "mcp_local_tutorial.py"),
+        ("nams-quickstart", {"nams"}, "nams_quickstart.py"),
+        ("ontology-quickstart", {"nams"}, "ontology_quickstart.py"),
+        ("skills-quickstart", {"nams"}, "skills_quickstart.py"),
+    ],
+)
+def test_python_tutorials_install_published_sdk_and_run_local_files(page, extras, program):
+    text = (ROOT / "docs/modules/ROOT/pages/tutorials" / f"{page}.adoc").read_text()
+    assert "include::partial$python-tutorial-setup.adoc[]" in text
+    assert f".Save as `{program}`\n[source,python]\n----\ninclude::example${program}[]" in text
+    assert "attachment$" not in text and "downloadable tutorial" not in text
+    assert "git clone" not in text
+    assert "docs/modules/ROOT/examples/" not in text
+    commands = [
+        shlex.split(line)
+        for block in re.findall(r"\[source,bash\]\n----\n(.*?)\n----", text, re.S)
+        for line in block.splitlines()
+        if line.startswith("python ") and not line.endswith("\\")
+    ]
+    installed = [
+        Requirement(argument)
+        for command in commands
+        if command[:4] == ["python", "-m", "pip", "install"]
+        for argument in command[4:]
+    ]
+    sdk = [requirement for requirement in installed if requirement.name == "neo4j-agent-memory"]
+    assert len(sdk) == 1
+    assert sdk[0].extras == extras
+    assert str(sdk[0].specifier) == "==0.6.0"
+    assert sdk[0].url is None
+    scripts = {command[1] for command in commands if command[1].endswith(".py")}
+    # The Skills seed spans lines; later standalone phases still identify the program.
+    assert program in scripts
+    for script in scripts:
+        path = Path(script)
+        assert not path.is_absolute() and ".." not in path.parts
+        assert (EXAMPLES / path).is_file(), f"Missing maintained local program: {script}"
+    if page == "knowledge-graph":
+        requirements = {requirement.name: requirement for requirement in installed}
+        assert "glirel" in requirements
+        assert str(requirements["loguru"].specifier) == "<1,>=0.7"
+    if page == "microsoft-agent-memory":
+        assert any(requirement.name == "agent-framework-openai" for requirement in installed)
+
+
+def test_python_local_setup_keeps_sdk_and_existing_state_separate():
+    text = (ROOT / "docs/modules/ROOT/partials/python-tutorial-setup.adoc").read_text()
+    commands = [
+        shlex.split(line)
+        for block in re.findall(r"\[source,bash\]\n----\n(.*?)\n----", text, re.S)
+        for line in block.splitlines()
+    ]
+    assert ["mkdir", "-p", "~/agent-memory-tutorials"] in commands
+    assert ["cd", "~/agent-memory-tutorials"] in commands
+    assert ["python3", "-m", "venv", ".venv"] in commands
+    assert ["source", ".venv/bin/activate"] in commands
+    assert not any("--system-site-packages" in command for command in commands)
+    assert "attachment$" not in text and "zipfile" not in text
+    assert "Save as" in text and "Copy the entire block" in text
+    assert ".tutorial-state/" in text and "Reuse unchanged helper files" in text
+
+
+def test_repeated_python_setup_preserves_files_and_activates_existing_environment(tmp_path):
+    """Execute the authored shell block and preserve existing files/environment."""
+    folder = tmp_path / "agent-memory-tutorials"
+    original = {
+        "first_agent_memory.py": "# existing edited lesson\n",
+        ".env": "SYNTHETIC_CONFIG=keep\n",
+        ".tutorial-state/nams.json": '{"pending":"keep recorded operation"}\n',
+        ".venv/bin/activate": "printf '%s\\n' 'Existing environment activated'\n",
+        ".venv/pyvenv.cfg": "existing environment sentinel\n",
+    }
+    for relative, content in original.items():
+        path = folder / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    calls = tmp_path / "python-calls.txt"
+    python = binaries / "python3"
+    python.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' called >> {shlex.quote(str(calls))}\n"
+        f'exec {shlex.quote(sys.executable)} "$@"\n'
+    )
+    python.chmod(0o755)
+    text = (ROOT / "docs/modules/ROOT/partials/python-tutorial-setup.adoc").read_text()
+    block = re.findall(r"\[source,bash\]\n----\n(.*?)\n----", text, re.S)[0]
+    block = block.replace("~/agent-memory-tutorials", shlex.quote(str(folder)))
+    result = subprocess.run(
+        ["/bin/bash", "-c", block],
+        cwd=tmp_path,
+        env={"PATH": str(binaries) + os.pathsep + os.defpath},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Using the existing virtual environment" in result.stdout
+    assert "Existing environment activated" in result.stdout
+    assert not calls.exists(), "Continuation must not recreate the environment"
+    assert {relative: (folder / relative).read_text() for relative in original} == original
 
 
 class LocalContractExtractor:

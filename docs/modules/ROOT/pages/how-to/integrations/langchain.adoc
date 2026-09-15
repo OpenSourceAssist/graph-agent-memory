@@ -11,13 +11,13 @@ Add verified conversation persistence to a LangChain 1.x `create_agent` agent wi
 anchor:_overview[]
 anchor:_prerequisites[]
 
-Run these commands from a clone of the current repository on a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These source examples are not a claim that every published wheel or live provider deployment has been verified.
+Use Python 3.10+ and a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
+
+include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[langchain-agents,openai]" langchain-openai
+python -m pip install 'neo4j-agent-memory[langchain-agents,openai]==0.6.0' langchain-openai
 export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
 export NEO4J_USERNAME='neo4j'
 export NEO4J_PASSWORD='replace-with-your-Aura-password'
@@ -30,17 +30,35 @@ The OpenAI-backed recipes require access to `text-embedding-3-small`; it produce
 
 == 2. Read the complete recipe
 
+Create the subdirectory below, then save both complete files under the displayed names. Run commands from `agent-memory-tutorials/`; Python resolves `common` from the script's `integrations/` directory.
+
+[source,bash]
+----
+mkdir -p integrations
+----
+
 
 The script imports this shared helper from the same directory. It supplies explicit database settings, closes clients through the calling context manager, and fails when expected records are absent. Task traces record the observable outcome of the call; they do not expose hidden model reasoning.
 
+.Complete `integrations/common.py`
+[%collapsible]
+====
+.Save as `integrations/common.py`
 [source,python]
 ----
 include::example$integrations/common.py[]
 ----
+====
+
+.Complete `integrations/langchain_recipe.py`
+[%collapsible]
+====
+.Save as `integrations/langchain_recipe.py`
 [source,python]
 ----
 include::example$integrations/langchain_recipe.py[]
 ----
+====
 
 == 3. Run and verify persistence
 
@@ -59,7 +77,7 @@ anchor:legacy[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/integrations/langchain_recipe.py
+python integrations/langchain_recipe.py
 ----
 
 Expected: `Verified stored messages` followed by the response. `abefore_model` persists the user input; `awrap_model_call` injects a retrieved memory block into the model request; `aafter_model` persists the reply. A failed model request can leave the user input stored without a reply. The async exception is allowed to propagate.

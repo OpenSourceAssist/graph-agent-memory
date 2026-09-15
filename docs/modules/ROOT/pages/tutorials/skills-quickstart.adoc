@@ -17,7 +17,7 @@ not establish that a live workspace will pass the service's quality gates.
 [[_what_youll_need]]
 == Before you begin
 
-* Python 3.10 or newer, Git, and a POSIX shell.
+* Python 3.10 or newer and a POSIX shell.
 * A newly provisioned *empty* NAMS test workspace reserved for this fixture,
   with a workspace data key permitting the lesson's memory operations and
   `skills:read` / `skills:write`.
@@ -42,21 +42,18 @@ xref:reference/backend-capabilities.adoc#hosted-cleanup[Hosted cleanup limits].
 All orders and decisions are simulated. No payment is issued and no generated
 procedure is executed by this lesson.
 
-For a fresh checkout, install the maintained programs:
+Install the published SDK, then create the local files shown in this lesson:
+
+include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-cd agent-memory
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[nams]'
-python -c "import neo4j_agent_memory; print('SDK import verified')"
+python -m pip install 'neo4j-agent-memory[nams]==0.6.0'
+python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
-Expected: `SDK import verified`. If continuing from the earlier Python NAMS
-lessons, keep their checkout and virtual environment, skip the clone/install
-block, and return to the repository root. Do not reuse a nonempty workspace
+Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your
+working directory. Do not reuse a nonempty workspace
 merely because it was used for the preceding lesson.
 
 Set the key for the owner-verified empty workspace:
@@ -71,7 +68,7 @@ python -c "from neo4j_agent_memory import NamsSettings; s=NamsSettings(); print(
 
 Expected: `nams https://memory.neo4jlabs.com/v1`. This checks configuration only;
 it does not authenticate or prove emptiness. Keep these credentials and this
-repository directory for every following command. The maintained client uses
+tutorial directory for every following command. The maintained client uses
 the same resolved settings for its SDK and direct HTTP calls.
 
 [[_1_start_a_distillation_run]]
@@ -82,9 +79,16 @@ write. Disabled or unavailable distillation stops seeding. The explicit
 empty-workspace flag records the owner's check; it does not perform workspace
 provisioning or independently certify emptiness.
 
-Read the complete maintained program and its shared helpers in
-`docs/modules/ROOT/examples/`:
+Create the three shared helpers below, then save `skills_quickstart.py` in
+the same lesson folder:
 
+include::partial$python-hosted-state-file.adoc[]
+
+include::partial$python-hosted-cleanup-file.adoc[]
+
+include::partial$python-hosted-helpers-file.adoc[]
+
+.Save as `skills_quickstart.py`
 [source,python]
 ----
 include::example$skills_quickstart.py[]
@@ -96,7 +100,7 @@ the newly provisioned workspace:
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py seed \
+python skills_quickstart.py seed \
   --state .tutorial-state/skills.json \
   --empty-workspace-confirmed \
   --disposal-owner 'the responsible workspace owner' \
@@ -114,7 +118,7 @@ If a write fails, retain the state and inspect it with:
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py state --state .tutorial-state/skills.json
+python skills_quickstart.py state --state .tutorial-state/skills.json
 ----
 
 Keep `.tutorial-state/` out of version control. The `state` command displays
@@ -127,8 +131,8 @@ anchor:_prefer_to_script_it[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py generate --state .tutorial-state/skills.json
-python docs/modules/ROOT/examples/skills_quickstart.py inspect --state .tutorial-state/skills.json
+python skills_quickstart.py generate --state .tutorial-state/skills.json
+python skills_quickstart.py inspect --state .tutorial-state/skills.json
 ----
 
 Generation submits `nameHint` and workspace scope, then saves the actual
@@ -170,7 +174,7 @@ Do not publish if the procedure misstates the fixture or needs further review.
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py publish --state .tutorial-state/skills.json
+python skills_quickstart.py publish --state .tutorial-state/skills.json
 ----
 
 This command rechecks the saved skill and provenance. If they changed since
@@ -187,7 +191,7 @@ blindly or delete the ledger to bypass the recovery check.
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py download --state .tutorial-state/skills.json
+python skills_quickstart.py download --state .tutorial-state/skills.json
 python -m zipfile -l .tutorial-state/simulated-refund-skill.zip
 python -m json.tool .tutorial-state/skills-attestation.json
 ----
@@ -207,8 +211,8 @@ loaded into an agent nor executed.
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/skills_quickstart.py cleanup --state .tutorial-state/skills.json
-python docs/modules/ROOT/examples/skills_quickstart.py state --state .tutorial-state/skills.json
+python skills_quickstart.py cleanup --state .tutorial-state/skills.json
+python skills_quickstart.py state --state .tutorial-state/skills.json
 ----
 
 The helper checks and deletes only the owned conversation and proven-owned

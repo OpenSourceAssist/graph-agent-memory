@@ -14,15 +14,15 @@ anchor:_overview[]
 anchor:_installation[]
 anchor:_model_ids[]
 
-Use the current repository checkout, Python 3.10+, a dedicated AuraDB instance and AWS credentials authorized for both the selected Bedrock chat model/inference profile and Titan V2 embeddings. The `[strands]` extra selects the repository's supported 1.x range. The TypeScript integration has different surfaces: see xref:how-to/typescript/strands.adoc[Strands for TypeScript].
+Use Python 3.10+, a POSIX shell, a dedicated AuraDB instance and AWS credentials authorized for both the selected Bedrock chat model/inference profile and Titan V2 embeddings. The `[strands]` extra selects the SDK's supported 1.x range. The TypeScript integration has different surfaces: see xref:how-to/typescript/strands.adoc[Strands for TypeScript].
 
 Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] for a dedicated test instance, then copy its URI, username and password into the exports below.
 
+include::partial$python-tutorial-setup.adoc[]
+
 [source,bash]
 ----
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[strands,bedrock]"
+python -m pip install 'neo4j-agent-memory[strands,bedrock]==0.6.0'
 export AWS_REGION='us-east-1'
 export AWS_DEFAULT_REGION="$AWS_REGION"
 export BEDROCK_MODEL_ID='replace-with-an-authorized-model-or-inference-profile-id'
@@ -35,11 +35,20 @@ aws sts get-caller-identity
 
 == 2. Read the complete session recipe
 
+Save both complete files below in `agent-memory-tutorials/`. The program imports `aura_config` from the helper in the same directory.
 
+include::partial$python-aura-connection-file.adoc[]
+
+
+.Complete `strands_memory_tutorial.py`
+[%collapsible]
+====
+.Save as `strands_memory_tutorial.py`
 [source,python]
 ----
 include::example$strands_memory_tutorial.py[]
 ----
+====
 
 The manager is constructed from settings, owns its client and closes it through `with`. A local state file carries the same actual session ID into the second process. Entity extraction is disabled for this persistence check.
 
@@ -60,8 +69,8 @@ anchor:_construction[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/strands_memory_tutorial.py record
-python docs/modules/ROOT/examples/strands_memory_tutorial.py recall
+python strands_memory_tutorial.py record
+python strands_memory_tutorial.py recall
 ----
 
 Expected on recall: `Verified: prior message restored before the model call`. If that explicit check fails, a plausible model answer does not prove restoration. For Aura setup and cleanup, follow xref:tutorials/strands-agent-quickstart.adoc[the complete Strands tutorial].

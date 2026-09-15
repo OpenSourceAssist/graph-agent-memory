@@ -12,7 +12,7 @@ To let an MCP client inspect a context graph application's memory, run the self-
 anchor:_prerequisites[]
 
 * A working application, such as one scaffolded with https://create-context-graph.dev[create-context-graph], with its database URI, database name and authorized credentials.
-* A Python environment containing a selected `neo4j-agent-memory[mcp,openai]` version and an OpenAI key for this example's embedding provider. The commands here follow this repository's current CLI; verify a published artifact separately.
+* Python 3.10+ and an OpenAI key for this example's embedding provider. The command below installs `neo4j-agent-memory[mcp,openai]==0.6.0`.
 * An MCP client that supports launching a local stdio process.
 * For an existing non-memory graph, complete xref:how-to/adopt-existing-graph.adoc[graph adoption] and its dry run first.
 
@@ -26,11 +26,11 @@ In the application's Python project, add the MCP and OpenAI extras with its norm
 
 [source,bash]
 ----
-uv add 'neo4j-agent-memory[mcp,openai]'
+uv add 'neo4j-agent-memory[mcp,openai]==0.6.0'
 uv run neo4j-agent-memory mcp serve --help
 ----
 
-Confirm the selected command exposes `--backend`, `--database`, `--profile` and `--transport`. Resolve its executable path for the MCP host rather than relying on the GUI application's shell PATH. When using this SDK checkout directly, run `uv sync --extra mcp --extra openai` from its root instead.
+Confirm the selected command exposes `--backend`, `--database`, `--profile` and `--transport`. Resolve its executable path for the MCP host rather than relying on the GUI application's shell PATH.
 
 == 2. Configure a local stdio process
 

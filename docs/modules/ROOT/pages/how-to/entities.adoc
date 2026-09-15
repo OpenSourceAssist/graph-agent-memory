@@ -10,20 +10,24 @@ anchor:_prerequisites[]
 
 == 1. Prepare the Bolt client
 
-Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], including its repository checkout, virtual environment, `OPENAI_API_KEY`, and exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. From the repository root, install the selected provider:
+Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra:
+
+include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install -e '.[openai]'
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
 ----
 
-The maintained program `docs/modules/ROOT/examples/core_memory_recipes.py` imports `core_memory_settings.py` from the same directory. That helper explicitly selects Bolt and disables automatic extraction/enrichment. Each command creates a new ID suffix so it can run independently. Embedding requests send example text to OpenAI.
+The maintained program `core_memory_recipes.py` imports `core_memory_settings.py` from the same directory. That helper explicitly selects Bolt and disables automatic extraction/enrichment. Each command creates a new ID suffix so it can run independently. Embedding requests send example text to OpenAI.
 
 These tasks use Python with Bolt. Consult xref:reference/backend-capabilities.adoc[backend capabilities] before adapting them to NAMS; preferences, facts, direct relationship writes, and this deduplication configuration are not portable hosted operations.
 
+include::partial$python-core-recipe-files.adoc[]
+
 == 2. Apply the task function
 
-`add_entity` returns `(Entity, DeduplicationResult)` on Bolt. Repeated exact name/type writes merge at storage even with `deduplicate=False`; the returned ID can differ from that existing node's ID. Read the persisted ID before linking a repeated entity, as shown in the document tutorial. The recipe disables resolution and deduplication for its isolated example names, then uses the returned entity objects as relationship endpoints. `add_fact` takes `obj` (or its third positional argument), and `Fact.as_triple` is a property.
+`add_entity` returns `(Entity, DeduplicationResult)` on Bolt. Repeated exact name/type writes merge at storage even with `deduplicate=False`. Python 0.6.0 returns the existing stored ID for SDK-created entities, so the returned entity can be used as a relationship endpoint. The recipe disables resolution and deduplication for its isolated example names, then verifies the stored edge. `add_fact` takes `obj` (or its third positional argument), and `Fact.as_triple` is a property.
 
 The function below is included from the complete maintained program, which already supplies imports, client setup, unique IDs, and `asyncio.run`. Run the file in step 3; this extract is not a separate top-level script.
 
@@ -36,7 +40,7 @@ include::example$core_memory_recipes.py[tag=entities]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/core_memory_recipes.py entities
+python core_memory_recipes.py entities
 ----
 
 Expected: `Verified: entity relationship and fact readback; person=...`. The recipe checks the exact source/target names and stored logical relationship type, then checks the fact triple returned by `get_facts_about`.
@@ -55,7 +59,7 @@ anchor:_create_relationships[]
 
 == Preserve relationship and source meaning
 
-Explicit `add_relationship` calls store the logical relationship name in `RELATED_TO.type`; automatic message extraction uses the separate `RELATED_TO.relation_type` property. The current `add_relationship` write does not persist its `attributes` argument; do not depend on a provenance attribute surviving that call. Use `link_entity_to_message` for `EXTRACTED_FROM` links and `get_entity_provenance` for inspection. The xref:tutorials/knowledge-graph.adoc[document tutorial] demonstrates complete extraction and provenance storage.
+Explicit `add_relationship` calls store the logical relationship name in `RELATED_TO.type`; automatic message extraction uses the separate `RELATED_TO.relation_type` property. Python 0.6.0 returns the stored relationship ID when an existing edge is matched and raises `NotFoundError` when an endpoint is absent. Its write still does not persist the `attributes` argument; do not depend on a provenance attribute surviving that call. Use `link_entity_to_message` for `EXTRACTED_FROM` links and `get_entity_provenance` for inspection. The xref:tutorials/knowledge-graph.adoc[document tutorial] demonstrates complete extraction and provenance storage.
 
 anchor:_update_entities[]
 anchor:_delete_entities[]

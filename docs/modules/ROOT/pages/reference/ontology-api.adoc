@@ -14,7 +14,7 @@ NAMS-backend only. All methods raise `NotSupportedError` on bolt.
 | `ontology.get(id)` | `ontology.get(id)`
 | One ontology with its full revision history (`{record, versions[]}`).
 | `ontology.get_active()` | `ontology.getActive()`
-| Parsed active document and binding metadata from the authoritative response `version`; never inferred from the latest revision.
+| Parsed active document. Python 0.6.0 has a binding-metadata limitation; see <<python-0-6-active-binding>> before restoration. Current TypeScript source reads the authoritative response `version`.
 | `ontology.clone(template_name)` | `ontology.clone(templateName)`
 | Editable workspace copy of a system template; returns the rev-1 version.
 | `ontology.create(name, schema, validation_mode=None)` | `ontology.create({name, schema, validationMode?})`
@@ -41,21 +41,36 @@ NAMS-backend only. All methods raise `NotSupportedError` on bolt.
 versions[]}`). `get_active()` returns `ActiveOntology`. `clone` / `create` /
 `update` / `activate` return an `OntologyVersion`.
 
-For `get_active()` / `getActive()`, a supplied response `version` identifies the
-bound version even when a newer revision exists. Python exposes its
-`version_id`, `revision` and `validation_mode`; TypeScript exposes `versionId`,
-`revision` and `validationMode`. Legacy document-only responses, or responses
-with a missing/null `version`, leave optional binding metadata absent. A
-consumer that must restore a binding must stop before mutation when that
-metadata is unavailable. Partial, malformed or contradictory supplied version
-metadata is an error; neither client silently substitutes the latest revision.
-
 `import_()` returns an `OntologyImportResult` (`{document?, warnings[]
 (ImportWarning), detected_format?, suggested_name?}`). `diff()` returns an
 `OntologyDiff` (`{from_revision, to_revision, entity_types, relationships,
 mode_change?}`). `migrate()` and `get_migration()` return a `MigrationJob`
 (`{id, status (pending|running|completed|failed|paused), total, processed,
 errored, …}`).
+
+[#python-0-6-active-binding]
+=== Python 0.6.0 active binding
+
+The REST response's `version` identifies the actual bound revision. Python
+`neo4j-agent-memory==0.6.0` does not use that field consistently: its
+`get_active()` metadata can report the latest revision when an older revision
+is active. Do not use that accessor's `version_id` or `validation_mode` to
+capture a rollback target or certify restoration.
+
+The self-contained xref:tutorials/ontology-quickstart.adoc[ontology lesson] uses
+`read_active_binding(http)` from `hosted_tutorial_helpers.py` to read
+`GET /ontologies/active` directly. It uses the same resolved NAMS settings as
+the SDK, validates the authoritative `version` and schema, and stops before
+mutation if the binding is incomplete. Use that path with Python 0.6.0;
+see xref:how-to/use-ontologies.adoc[the activation recipe] for its imports and
+client lifecycle. The helper is example code displayed on those pages, not an SDK method.
+
+Current TypeScript source exposes `versionId`, `revision` and `validationMode`
+from the authoritative response. Legacy document-only responses, or responses
+with a missing/null `version`, leave optional metadata absent. Partial,
+malformed or contradictory supplied metadata is rejected. Follow
+xref:sdks/typescript.adoc[the TypeScript source setup]; this is not a statement
+that a corresponding npm release is available.
 
 == Import formats
 

@@ -6,14 +6,14 @@
 
 We will store a message in AuraDB through the Bolt backend, request entity extraction using an Anthropic adapter, and retrieve context using locally computed sentence-transformer embeddings. We will inspect the actual provider classes and vector dimensions. This exercise builds a memory pipeline; a conversational agent loop is a separate lesson.
 
-This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
 
 [[_what_youll_learn]]
 == Before you begin
 
 anchor:_prerequisites[]
 
-* Python 3.10 or newer, Git, and a POSIX shell.
+* Python 3.10 or newer and a POSIX shell.
 * A Neo4j Aura account for a dedicated lesson instance.
 * An Anthropic API key and an accessible model ID for that account.
 * Local disk space and network access for the embedding-model download.
@@ -23,17 +23,15 @@ The message text is sent to Anthropic for extraction, and messages and vectors a
 [[_step_1_install_dependencies]]
 == 1. Install the selected providers
 
+include::partial$python-tutorial-setup.adoc[]
+
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-cd agent-memory
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[anthropic,sentence-transformers]'
-python -c "import neo4j_agent_memory; print('SDK import verified')"
+python -m pip install 'neo4j-agent-memory[anthropic,sentence-transformers]==0.6.0'
+python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
-Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
+Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
 [[_step_2_set_up_neo4j]]
 == 2. Create and connect to the Aura lesson instance
@@ -55,6 +53,7 @@ Expected: `Provider variables present`. This confirms presence only; the extract
 [[_step_4_wire_the_agent]]
 == 4. Read the complete program
 
+.Save as `anthropic_local_memory.py`
 [source,python]
 ----
 include::example$anthropic_local_memory.py[]
@@ -67,7 +66,7 @@ The shared `aura_config()` helper reads the required Aura connection variables. 
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/anthropic_local_memory.py
+python anthropic_local_memory.py
 ----
 
 Expected milestones:

@@ -34,7 +34,7 @@ The command builds once and serves static files on port 8080. After an edit, run
 
 Follow the four repository skills in `.claude/skills`. Tutorials follow one complete path with named files, exact setup/run commands and observable milestones. How-tos state a task, prerequisites, ordered solution and final verification. Reference follows the actual API and includes options, defaults, constraints and backend applicability. Explanations focus on rationale and tradeoffs.
 
-Use Neo4j AuraDB for examples that connect directly to Neo4j through the Bolt backend. The shared `aura-tutorial-setup.adoc` and `aura-tutorial-cleanup.adoc` partials provide the tutorial path. Executable tutorial helpers read the exported `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE` through `examples/aura_connection.py`; never supply a local database or fixed password as a fallback. NAMS examples retain their NAMS service configuration. Reference tables must still document actual SDK defaults, and Docker instructions for application packaging or contributor tests serve a separate purpose.
+Use Neo4j AuraDB for examples that connect directly to Neo4j through the Bolt backend. The shared `aura-tutorial-setup.adoc` and `aura-tutorial-cleanup.adoc` partials provide the tutorial path. Executable tutorial helpers read the exported `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE` through `docs/modules/ROOT/examples/aura_connection.py`; never supply a local database or fixed password as a fallback. NAMS examples retain their NAMS service configuration. Reference tables must still document actual SDK defaults, and Docker instructions for application packaging or contributor tests serve a separate purpose.
 
 Keep a complete executable counterpart for programs assembled across several tutorial steps. Identify partial snippets and signature displays as such. Use a named deterministic fixture for automated checks; never run every extracted code block indiscriminately. Keep source-contract checks, local integration, paid-model calls, live service checks and public-site verification separate.
 
@@ -48,6 +48,14 @@ uv run pytest tests/docs/test_build_pipeline.py -q
 ```
 
 Maintained Python programs under `docs/modules/ROOT/examples` are included by Antora's `example$` resource syntax. Both CI and `make lint` / `make format-check` run Ruff over this directory, including its integration subdirectory.
+
+Python user instructions install the verified PyPI release (`neo4j-agent-memory==0.6.0`, with the selected extras). Every tutorial is self-contained: show the complete program and every local helper on the same page, with a listing title such as ``.Save as `first_agent_memory.py` ``. Use full `include::example$...[]` resources so the displayed code stays tied to its maintained source. Long supporting files can use collapsible blocks, but readers must be able to copy the complete file directly from the page. Do not require a repository checkout, a ZIP, or another code download to run the Python lessons.
+
+Use `python-tutorial-setup.adoc` for the reusable local folder/environment setup. Commands run from `~/agent-memory-tutorials`, using the exact relative filenames shown by the page. Continuing readers retain their existing environment, configuration and private state. For a how-to that explains selected tagged functions and then runs a complete script, also provide all complete files needed by that command.
+
+`extensions/example-files.js` registers the explicitly listed standalone how-to scripts and templates as Antora example resources during `contentClassified`. This keeps the rendered listings tied to their maintained sources outside the docs directory; it creates no downloadable archive. Keep the extension enabled in publishing playbooks and build from the accepted full repository checkout so those sources are available. Fresh-build tests compare the named, rendered files with their canonical source and verify that the tutorial programs' local imports are supplied on the same page.
+
+Package availability and API compatibility must be verified independently of the repository version. Python 0.6.0 still has the older active-ontology metadata inference; the ontology lesson explicitly reads the authoritative REST response through its maintained helper. TypeScript retains its source build instructions until a compatible npm artifact is published; Python's version does not identify an npm release. Contributor development, SDK builds and release checks remain source workflows.
 
 The framework documentation contracts run in Python CI's `integration-test` job, which installs all framework extras. Run the same offline checks locally with:
 

@@ -145,6 +145,9 @@ Install one of the following:
   pip install 'neo4j-agent-memory[litellm]'        # universal adapter (recommended)
 ----
 
+For the version used by these docs, install the selected extra with a release
+pin, for example `python -m pip install 'neo4j-agent-memory[anthropic]==0.6.0'`.
+
 == Debugging which adapter you got
 
 Enable debug logging:

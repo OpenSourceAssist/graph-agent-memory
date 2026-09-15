@@ -11,13 +11,13 @@ Give a Microsoft Agent Framework agent retrieved Neo4j context, persist its turn
 anchor:_overview[]
 anchor:_installation[]
 
-Run these commands from a clone of the current repository on a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These source examples are not a claim that every published wheel or live provider deployment has been verified.
+Use Python 3.10+ and a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
+
+include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[microsoft-agent,openai]" "agent-framework-openai>=1.13,<2"
+python -m pip install 'neo4j-agent-memory[microsoft-agent,openai]==0.6.0' "agent-framework-openai>=1.13,<2"
 export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
 export NEO4J_USERNAME='neo4j'
 export NEO4J_PASSWORD='replace-with-your-Aura-password'
@@ -32,11 +32,20 @@ The repository's `microsoft-agent` extra selects the current supported `agent-fr
 
 == 2. Read the complete integration
 
+Save both complete files below in `agent-memory-tutorials/`. The program imports `aura_config` from the helper in the same directory.
 
+include::partial$python-aura-connection-file.adoc[]
+
+
+.Complete `microsoft_shopping_tutorial.py`
+[%collapsible]
+====
+.Save as `microsoft_shopping_tutorial.py`
 [source,python]
 ----
 include::example$microsoft_shopping_tutorial.py[]
 ----
+====
 
 The program seeds an explicit preference and places two fictional products in agent instructions. `Neo4jMicrosoftMemory.context_provider` is the sole message writer. A separate `record_agent_trace` call records the observed task outcome and its returned ID is read back.
 
@@ -60,7 +69,7 @@ anchor:_functions[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/microsoft_shopping_tutorial.py
+python microsoft_shopping_tutorial.py
 ----
 
 Expected: a nonempty response, confirmation that the context-provider hook persisted the exact user turn, and a verified trace. If the model raises an exception, the program records a failed task outcome and propagates it. The program does not query live inventory or promise an automatically inferred preference. For a complete database-startup walkthrough, see xref:tutorials/microsoft-agent-memory.adoc[the Microsoft tutorial].

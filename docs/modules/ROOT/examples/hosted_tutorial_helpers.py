@@ -7,6 +7,7 @@ They do not contact a service at import time.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -60,6 +61,52 @@ def ontology_binding(active):
     return values
 
 
+async def read_active_binding(http):
+    """Read a restorable binding directly from the public REST response.
+
+    SDK 0.6.0 get_active() infers version metadata from the latest revision.
+    This tutorial reader uses the actual binding returned by /ontologies/active
+    and the released public document model; it never substitutes a list lookup.
+    """
+    from neo4j_agent_memory.nams import OntologyDocument
+
+    response = await http.get("ontologies/active")
+    response.raise_for_status()
+    payload = response.json()
+    version = payload.get("version") if isinstance(payload, dict) else None
+    if (
+        not isinstance(version, dict)
+        or any(
+            not isinstance(version.get(key), str) or not version[key].strip()
+            for key in ("id", "ontology_id")
+        )
+        or type(version.get("revision")) is not int
+        or version["revision"] < 1
+        or version.get("validation_mode") not in {"permissive", "strict"}
+    ):
+        raise RuntimeError("No restorable authoritative active binding; no ontology was changed")
+
+    def document(value):
+        if isinstance(value, str):
+            value = json.loads(value)
+        return OntologyDocument.model_validate(value).model_dump(mode="json")
+
+    try:
+        active_document = document(payload.get("ontology"))
+        version_document = version.get("schema_json")
+        if version_document is not None and document(version_document) != active_document:
+            raise ValueError("Active and version schemas differ")
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError("Invalid or conflicting active ontology schema; retained state") from exc
+    return {
+        "version_id": version["id"],
+        "ontology_id": version["ontology_id"],
+        "revision": version["revision"],
+        "validation_mode": version["validation_mode"],
+        "document": active_document,
+    }
+
+
 def _version_binding(version):
     from types import SimpleNamespace
 
@@ -76,8 +123,8 @@ def _version_binding(version):
     )
 
 
-async def _require_binding(ontology, expected):
-    actual = ontology_binding(await ontology.get_active())
+async def _require_binding(read_active, expected):
+    actual = await read_active()
     if actual != expected:
         raise RuntimeError("Active binding changed or readback differs; retained state and clone")
     return actual
@@ -93,12 +140,12 @@ async def _clone_absent(ontology, clone_id):
     return False
 
 
-async def verify_ontology_restoration(ontology, state):
+async def verify_ontology_restoration(ontology, state, *, read_active):
     """Fresh, read-only verification of the saved binding and exact clone absence."""
     run = state.data.get("ontology", {})
     if not run.get("previous"):
         raise RuntimeError("State has no captured prior binding")
-    await _require_binding(ontology, run["previous"])
+    await _require_binding(read_active, run["previous"])
     clone_id = run.get("clone_id")
     if not clone_id or not await _clone_absent(ontology, clone_id):
         raise RuntimeError("Clone absence is not verified; inspect or recover this run")
@@ -110,7 +157,7 @@ async def verify_ontology_restoration(ontology, state):
     print(f"Verified: exercise clone {clone_id} is absent")
 
 
-async def recover_ontology(ontology, state):
+async def recover_ontology(ontology, state, *, read_active):
     """Restore only a recognized binding, then delete the proven-owned clone.
 
     An interrupted clone with no returned ID cannot be reconciled automatically.
@@ -123,7 +170,7 @@ async def recover_ontology(ontology, state):
     previous = run.get("previous")
     if not previous:
         raise RuntimeError("State has no captured prior binding; no recovery writes were made")
-    current = ontology_binding(await ontology.get_active())
+    current = await read_active()
     if current != previous and current != run.get("strict"):
         raise RuntimeError("Active binding changed unexpectedly; retained state and clone")
     clone_id = run.get("clone_id")
@@ -155,17 +202,17 @@ async def recover_ontology(ontology, state):
     if current != previous:
         state.begin({"operation": "restore", "version_id": previous["version_id"]})
         await ontology.activate(previous["version_id"])
-        await _require_binding(ontology, previous)
+        await _require_binding(read_active, previous)
         state.finish()
     else:
-        await _require_binding(ontology, previous)
+        await _require_binding(read_active, previous)
     run["restored"] = True
     state.save()
     print(f"Restored active version: {previous['version_id']} ({previous['validation_mode']})")
 
     # Recheck immediately before deletion. This detects observed concurrent
     # changes; it cannot make an unversioned service operation atomic.
-    await _require_binding(ontology, previous)
+    await _require_binding(read_active, previous)
     if not await _clone_absent(ontology, clone_id):
         state.begin({"operation": "delete", "ontology_id": clone_id})
         try:
@@ -186,11 +233,11 @@ async def recover_ontology(ontology, state):
 
 
 @asynccontextmanager
-async def temporary_strict_ontology(ontology: Any, template: str, state):
+async def temporary_strict_ontology(ontology: Any, template: str, state, *, read_active):
     """Persist the restoration target before mutation and retain failed recovery."""
     if state.data.get("ontology") or state.data.get("pending"):
         raise RuntimeError("Ontology exercise already started; inspect or recover its state")
-    previous = ontology_binding(await ontology.get_active())
+    previous = await read_active()
     catalog = await ontology.list()
     if not any(item.name == template and item.is_system for item in catalog):
         raise RuntimeError("Required system template is absent; no ontology was changed")
@@ -222,10 +269,10 @@ async def temporary_strict_ontology(ontology: Any, template: str, state):
         state.finish()
         if strict.ontology_id != clone.ontology_id or strict.validation_mode != "strict":
             raise RuntimeError("Strict revision response differs from the requested clone and mode")
-        await _require_binding(ontology, previous)
+        await _require_binding(read_active, previous)
         state.begin({"operation": "activate", "version_id": strict.id})
         await ontology.activate(strict.id)
-        await _require_binding(ontology, run["strict"])
+        await _require_binding(read_active, run["strict"])
         state.finish()
         print(f"Activated strict version: {strict.id}")
         yield strict
@@ -233,9 +280,9 @@ async def temporary_strict_ontology(ontology: Any, template: str, state):
         state.data["ontology"]["exercise_error"] = type(exercise_error).__name__
         state.save()
         try:
-            await recover_ontology(ontology, state)
+            await recover_ontology(ontology, state, read_active=read_active)
         except BaseException as recovery_error:
             raise recovery_error from exercise_error
         raise
     else:
-        await recover_ontology(ontology, state)
+        await recover_ontology(ontology, state, read_active=read_active)

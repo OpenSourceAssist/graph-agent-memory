@@ -186,11 +186,75 @@ if report.overall_score < MIN_SCORE:
     raise SystemExit(f"Memory-quality regression: {report.overall_score:.2f}")
 ----
 
-Then call it from the workflow and keep the report as an artifact:
+For a complete synthetic fixture and gate, save the complete harness files below. You
+need Python 3.10+, a POSIX shell, and a dedicated test Aura database. Each run
+resets the harness's fixed demo users, session, and entity names. Keep this
+fixture separate from application data.
+
+include::partial$python-tutorial-setup.adoc[]
+
+[source,bash]
+----
+python -m pip install 'neo4j-agent-memory[sentence-transformers]==0.6.0'
+export NEO4J_URI="neo4j+s://YOUR-TEST-INSTANCE.databases.neo4j.io"
+export NEO4J_USERNAME="YOUR-AURA-USERNAME"
+export NEO4J_PASSWORD="YOUR-AURA-PASSWORD"
+export NEO4J_DATABASE="neo4j"
+mkdir -p eval-harness
+----
+
+Use the credentials for your dedicated test instance from the
+link:https://console.neo4j.io[Aura console]. The first run downloads the local
+`all-MiniLM-L6-v2` embedding model; the database connection still uses the
+network. No model API key is required.
+
+Save both files in `eval-harness/`; `ci_gate.py` loads the sibling `main.py`.
+
+.Complete `eval-harness/main.py`
+[%collapsible]
+====
+.Save as `eval-harness/main.py`
+[source,python]
+----
+include::example$eval-harness/main.py[]
+----
+====
+
+.Complete `eval-harness/ci_gate.py`
+[%collapsible]
+====
+.Save as `eval-harness/ci_gate.py`
+[source,python]
+----
+include::example$eval-harness/ci_gate.py[]
+----
+====
+
+Run the complete gate from `agent-memory-tutorials/`:
+
+[source,bash]
+----
+python eval-harness/ci_gate.py --min-score 0.9 --report eval-report.json
+----
+
+To run the gate in your application's CI, copy your local `eval-harness/`
+directory into your own project. The following workflow steps check out that
+project, install the published SDK, and use dedicated test Aura credentials
+from its repository secrets:
 
 [source,yaml]
 ----
-- run: uv run python examples/eval-harness/ci_gate.py --min-score 0.9 --report eval-report.json
+- uses: actions/checkout@v4
+- uses: actions/setup-python@v5
+  with:
+    python-version: '3.12'
+- run: python -m pip install 'neo4j-agent-memory[sentence-transformers]==0.6.0'
+- run: python eval-harness/ci_gate.py --min-score 0.9 --report eval-report.json
+  env:
+    NEO4J_URI: ${{ secrets.NEO4J_URI }}
+    NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME }}
+    NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+    NEO4J_DATABASE: ${{ secrets.NEO4J_DATABASE || 'neo4j' }}
 - uses: actions/upload-artifact@v4
   if: always()
   with:
@@ -198,9 +262,10 @@ Then call it from the workflow and keep the report as an artifact:
     path: eval-report.json
 ----
 
-`examples/eval-harness/ci_gate.py` is that script, ready to copy: it exits
+The complete `eval-harness/ci_gate.py` exits
 `0` at or above the threshold, `1` below it, and `2` when the run itself
-failed. Appending one JSONL row per run (`main.py --out trend.jsonl`) gives
+failed. Appending one JSONL row per run
+(`python eval-harness/main.py --out trend.jsonl`) gives
 you the score over time instead of a single snapshot.
 
 === 5. Verify the regression gate

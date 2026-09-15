@@ -9,31 +9,29 @@ extraction, and verify the same messages from a fresh process. We will retain
 the IDs returned by NAMS and use them for scoped cleanup. This path needs no
 model API key and creates no reasoning records.
 
-This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
 
 [[_what_youll_need]]
 == Before you begin
 
-* Python 3.10 or newer and Git.
+* Python 3.10 or newer and a POSIX shell.
 * A dedicated NAMS test workspace and its *workspace key*, using `https://memory.neo4jlabs.com/v1`.
 * Permission to create tutorial records in that workspace. Keep the same workspace key throughout the lesson.
 
 See xref:reference/authentication.adoc[Authentication] for obtaining the key before beginning. This path uses a workspace key; admin keys and custom deployments belong in xref:how-to/use-nams.adoc[the NAMS guide].
 
 [[_1_install]]
-== 1. Install the current source
+== 1. Install the published SDK
+
+include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-cd agent-memory
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[nams]'
-python -c "import neo4j_agent_memory; print('SDK import verified')"
+python -m pip install 'neo4j-agent-memory[nams]==0.6.0'
+python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
-Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
+Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
 [[_2_configure]]
 == 2. Configure the hosted workspace
@@ -51,8 +49,13 @@ Expected: `nams https://memory.neo4jlabs.com/v1`. This validates configuration o
 [[_3_connect]]
 == 3. Read the complete program
 
-The maintained file is `docs/modules/ROOT/examples/nams_quickstart.py`. It already contains imports, `main()`, and client cleanup; run it as a file rather than assembling indented fragments.
+Create the state and cleanup helpers below, then save `nams_quickstart.py`. Each block contains the complete file, including imports and client cleanup.
 
+include::partial$python-hosted-state-file.adoc[]
+
+include::partial$python-hosted-cleanup-file.adoc[]
+
+.Save as `nams_quickstart.py`
 [source,python]
 ----
 include::example$nams_quickstart.py[]
@@ -61,7 +64,7 @@ include::example$nams_quickstart.py[]
 The shared state and cleanup modules sit beside the script. Its private
 `.tutorial-state/nams.json` file records the selected endpoint, workspace and
 credential identity, returned IDs, content digests and operation status. Keep
-that directory ignored by Git. Reusing the file with a different key or
+that directory private and out of version control. Reusing the file with a different key or
 workspace stops before saved IDs are used; reseeding an existing file is refused.
 
 [[_4_short_term_memory]]
@@ -72,7 +75,7 @@ anchor:_10_run_it[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/nams_quickstart.py seed --state .tutorial-state/nams.json
+python nams_quickstart.py seed --state .tutorial-state/nams.json
 ----
 
 The program prints these milestones in order:
@@ -91,12 +94,12 @@ rather than rerunning seed and creating another fixture.
 
 == 5. Verify from a fresh process
 
-The seed command has exited. From the same repository root, run:
+The seed command has exited. From the same `agent-memory-tutorials` directory, run:
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/nams_quickstart.py inspect --state .tutorial-state/nams.json
-python docs/modules/ROOT/examples/nams_quickstart.py verify --state .tutorial-state/nams.json
+python nams_quickstart.py inspect --state .tutorial-state/nams.json
+python nams_quickstart.py verify --state .tutorial-state/nams.json
 ----
 
 `inspect` displays the saved resource IDs and pending/disposition information.
@@ -121,8 +124,8 @@ Before switching workspaces or continuing to another lesson, run:
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/nams_quickstart.py cleanup --state .tutorial-state/nams.json
-python docs/modules/ROOT/examples/nams_quickstart.py inspect --state .tutorial-state/nams.json
+python nams_quickstart.py cleanup --state .tutorial-state/nams.json
+python nams_quickstart.py inspect --state .tutorial-state/nams.json
 ----
 
 The helper waits for terminal extraction of the saved messages, examines only

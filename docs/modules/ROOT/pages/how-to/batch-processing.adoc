@@ -16,7 +16,7 @@ Extract a collection of texts, inspect per-document failures, and store successf
 
 == Prerequisites
 
-* Install `pip install "neo4j-agent-memory[gliner]"` for the GLiNER examples and allow the configured model to download before an offline run.
+* Install `pip install 'neo4j-agent-memory[gliner]==0.6.0'` for the GLiNER examples and allow the configured model to download before an offline run.
 * Configure a connected `BoltMemoryClient` with `BoltSettings` and `await connect(settings)` as in xref:how-to/entity-extraction.adoc[Configure Entity Extraction]. Storage snippets below run in an async function with that `client`; close it in `finally`.
 * Use a test database and synthetic documents first. Choose positive batch sizes and concurrency limits that fit available memory.
 

@@ -6,7 +6,7 @@ Choose a language and a backend before installing an example. Each linked tutori
 
 [NOTE]
 ====
-These pages describe the current source checkout. The public artifacts checked on 13 September 2026 (PyPI `0.5.0`, npm `0.4.1`) have older APIs. Follow the selected tutorial's source setup; see xref:sdks/python.adoc[Python artifact scope] and xref:sdks/typescript.adoc[TypeScript artifact scope].
+Python examples use the published `neo4j-agent-memory==0.6.0` package and complete scripts shown on each page. TypeScript tutorials retain their source-build setup; Python and npm versions are independent. Follow xref:sdks/python.adoc[Python installation] or xref:sdks/typescript.adoc[TypeScript setup].
 ====
 
 // Retain former section URLs at the current related topic.
@@ -46,11 +46,15 @@ anchor:_basic_install[]anchor:_basic_usage[]anchor:_storing_conversation_message
 * xref:tutorials/mcp-server.adoc[Python MCP tutorial] and xref:tutorials/mcp-server-typescript.adoc[TypeScript MCP tutorial] expose memory through supported tools.
 
 // Retain former section URLs at the current related topic.
-== Run an example from a checkout
+anchor:_run_an_example_from_a_checkout[]
+
+anchor:_download_and_run_an_example[]
+
+== Copy and run an example
 
 anchor:_runnable_examples[]
 
-The https://github.com/neo4j-labs/agent-memory/tree/main/examples/hello-memory[hello-memory example] is a small Python round trip. Clone the repository before running a repository-relative command, or download the complete file as its README describes. TypeScript source examples require building the SDK before installing their local `file:` dependency; follow https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples[the example bootstrap instructions].
+The Python tutorials show every required local file alongside the published package install. Create the lesson folder, copy each complete program or helper into its labelled filename, and run the displayed commands. No code download is required. Start with xref:tutorials/first-agent-memory.adoc[the Aura lesson] or xref:tutorials/nams-quickstart.adoc[the NAMS lesson]. TypeScript source examples require building the SDK before installing their local `file:` dependency; follow xref:sdks/typescript.adoc[the TypeScript setup].
 
 == Verify your first result
 

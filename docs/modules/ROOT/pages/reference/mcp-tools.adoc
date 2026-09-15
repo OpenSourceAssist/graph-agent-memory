@@ -3,7 +3,7 @@
 :page-pagination:
 :toclevels: 2
 
-Tool parameters, resource registrations and prompts for the self-hosted Python server in this checkout.
+Tool parameters, resource registrations and prompts for the self-hosted Python server in `neo4j-agent-memory==0.6.0`.
 
 == Overview
 

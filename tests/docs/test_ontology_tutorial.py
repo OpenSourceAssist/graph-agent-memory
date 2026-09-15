@@ -15,7 +15,7 @@ EXAMPLES = Path(__file__).resolve().parents[2] / "docs/modules/ROOT/examples"
 sys.path.insert(0, str(EXAMPLES))
 import hosted_tutorial_helpers as helpers  # noqa: E402
 import ontology_quickstart as lesson  # noqa: E402
-from hosted_tutorial_state import TutorialState  # noqa: E402
+from hosted_tutorial_state import TutorialState, http_client  # noqa: E402
 
 from neo4j_agent_memory import NamsSettings  # noqa: E402
 from neo4j_agent_memory.nams import HttpTransport, NamsOntology, StaticApiKeyAuth  # noqa: E402
@@ -69,6 +69,8 @@ class Service:
         self.delete_ignored = False
         self.preexisting_clone = False
         self.closed = False
+        self.http_clients = []
+        self.active_payload = None
 
     def handle(self, request):
         method, path = request.method, request.url.path.removeprefix("/v1/")
@@ -78,6 +80,8 @@ class Service:
         if self.failure == (method, path, body):
             return httpx.Response(503, json={"error": "deliberate offline failure"})
         if method == "GET" and path == "ontologies/active":
+            if self.active_payload is not None:
+                return httpx.Response(200, json=self.active_payload)
             return httpx.Response(
                 200,
                 json={
@@ -128,6 +132,15 @@ class Service:
                 )
         raise AssertionError(f"Unexpected request: {method} {path}")
 
+    def http_client(self, config=None):
+        client = http_client(config or settings(), transport=httpx.MockTransport(self.handle))
+        self.http_clients.append(client)
+        return client
+
+    async def read_active(self):
+        async with self.http_client() as http:
+            return await helpers.read_active_binding(http)
+
     async def client(self):
         config = settings().nams
         transport = HttpTransport.from_config(config, auth=StaticApiKeyAuth.from_config(config))
@@ -148,7 +161,7 @@ def new_state(tmp_path):
 async def run_lesson(service, state):
     client = await service.client()
     try:
-        await lesson.exercise(client, state)
+        await lesson.exercise(client, state, read_active=service.read_active)
     finally:
         await client.close()
 
@@ -164,7 +177,116 @@ def test_success_restores_older_bound_revision_and_verifies_exact_clone_absence(
     assert set(state.data["resources"]["ontology_version"]) == {"clone-1", "clone-2"}
     assert not state.data["pending"]
     assert service.calls[-1][:2] == ("GET", "ontologies/owned-clone")
+    # The released get_active() would request this prior detail and infer v2.
+    # The lesson uses only its explicit catalog read and authoritative REST GETs.
+    assert sum(path == "ontologies" for _, path, _ in service.calls) == 1
+    assert not any(path == "ontologies/prior-ontology" for _, path, _ in service.calls)
+    assert all(client.is_closed for client in service.http_clients)
     assert service.closed
+
+
+def test_raw_active_reader_uses_resolved_credentials_and_only_the_active_route():
+    calls = []
+
+    def handle(request):
+        calls.append((request.method, str(request.url)))
+        assert request.headers["Authorization"] == "Bearer synthetic-key"
+        assert request.headers["X-Workspace-Id"] == "isolated-test"
+        return httpx.Response(
+            200,
+            json={
+                "ontology": DOC,
+                "version": version("prior-1", "prior-ontology", 1, "permissive"),
+            },
+        )
+
+    async def run():
+        async with http_client(settings(), transport=httpx.MockTransport(handle)) as http:
+            binding = await helpers.read_active_binding(http)
+        assert http.is_closed
+        return binding
+
+    binding = asyncio.run(run())
+    assert binding["version_id"] == "prior-1" and binding["revision"] == 1
+    assert binding["validation_mode"] == "permissive"
+    assert binding["document"]["domain"]["id"] == "healthcare"
+    assert calls == [("GET", "https://ontology.invalid/v1/ontologies/active")]
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "missing-version",
+        "null-version",
+        "version-list",
+        "missing-id",
+        "blank-id",
+        "missing-ontology",
+        "boolean-revision",
+        "string-revision",
+        "zero-revision",
+        "unknown-mode",
+        "missing-document",
+        "malformed-schema",
+        "schema-array",
+        "conflicting-schema",
+    ],
+)
+def test_raw_active_metadata_failure_prevents_tutorial_mutations(tmp_path, invalid):
+    service, state = Service(), new_state(tmp_path)
+    payload = {"ontology": DOC, "version": version("prior-1", "prior-ontology", 1, "permissive")}
+    if invalid == "missing-version":
+        payload.pop("version")
+    elif invalid == "null-version":
+        payload["version"] = None
+    elif invalid == "version-list":
+        payload["version"] = []
+    elif invalid == "missing-id":
+        payload["version"].pop("id")
+    elif invalid == "blank-id":
+        payload["version"]["id"] = " "
+    elif invalid == "missing-ontology":
+        payload["version"].pop("ontology_id")
+    elif invalid.endswith("revision"):
+        payload["version"]["revision"] = {
+            "boolean-revision": True,
+            "string-revision": "1",
+            "zero-revision": 0,
+        }[invalid]
+    elif invalid == "unknown-mode":
+        payload["version"]["validation_mode"] = "invented"
+    elif invalid == "missing-document":
+        payload.pop("ontology")
+    elif invalid == "malformed-schema":
+        payload["version"]["schema_json"] = "{"
+    elif invalid == "schema-array":
+        payload["version"]["schema_json"] = "[]"
+    else:
+        payload["version"]["schema_json"] = json.dumps(
+            {**DOC, "domain": {"id": "foreign", "name": "Foreign"}}
+        )
+    service.active_payload = payload
+    with pytest.raises(RuntimeError, match="binding|schema"):
+        asyncio.run(run_lesson(service, state))
+    assert all(method == "GET" for method, _, _ in service.calls)
+    assert not state.data.get("ontology") and state.data["pending"] is None
+    assert service.closed and all(client.is_closed for client in service.http_clients)
+
+
+@pytest.mark.parametrize("schema", ["missing", None, "normalized"])
+def test_raw_active_reader_accepts_optional_or_normalized_matching_schema(schema):
+    service = Service()
+    payload = {"ontology": DOC, "version": version("prior-1", "prior-ontology", 1, "permissive")}
+    if schema == "missing":
+        payload["version"].pop("schema_json")
+    elif schema is None:
+        payload["version"]["schema_json"] = None
+    else:
+        from neo4j_agent_memory.nams import OntologyDocument
+
+        payload["version"]["schema_json"] = OntologyDocument.model_validate(DOC).model_dump_json()
+    service.active_payload = payload
+    assert asyncio.run(service.read_active())["version_id"] == "prior-1"
 
 
 @pytest.mark.parametrize("missing", ["legacy", "missing_template"])
@@ -183,7 +305,9 @@ def test_body_failure_is_preserved_after_successful_cleanup(tmp_path):
     async def run():
         client = await service.client()
         try:
-            async with helpers.temporary_strict_ontology(client.ontology, "healthcare", state):
+            async with helpers.temporary_strict_ontology(
+                client.ontology, "healthcare", state, read_active=service.read_active
+            ):
                 raise ValueError("exercise failed")
         finally:
             await client.close()
@@ -222,7 +346,9 @@ def test_both_exercise_and_restoration_failure_remain_in_exception_chain(tmp_pat
     async def run():
         client = await service.client()
         try:
-            async with helpers.temporary_strict_ontology(client.ontology, "healthcare", state):
+            async with helpers.temporary_strict_ontology(
+                client.ontology, "healthcare", state, read_active=service.read_active
+            ):
                 raise ValueError("original exercise failure")
         finally:
             await client.close()
@@ -238,7 +364,7 @@ async def interrupt_after_activation(service, state):
     """Persist a process-stop boundary after the write but before its acknowledgement."""
     client = await service.client()
     try:
-        previous = helpers.ontology_binding(await client.ontology.get_active())
+        previous = await service.read_active()
         clone = await client.ontology.clone("healthcare")
         strict = await client.ontology.update(
             clone.ontology_id, clone.document, validation_mode="strict"
@@ -261,7 +387,7 @@ async def recover_new_client(service, path):
     state = TutorialState.load(path, settings(), "ontology")
     client = await service.client()
     try:
-        await helpers.recover_ontology(client.ontology, state)
+        await helpers.recover_ontology(client.ontology, state, read_active=service.read_active)
     finally:
         await client.close()
     return state
@@ -296,9 +422,7 @@ def test_unknown_clone_outcome_is_retained_without_repeating_mutation(tmp_path):
 
     async def prepare():
         client = await service.client()
-        state.data["ontology"] = {
-            "previous": helpers.ontology_binding(await client.ontology.get_active())
-        }
+        state.data["ontology"] = {"previous": await service.read_active()}
         state.begin({"operation": "clone", "template": "healthcare"})
         await client.close()
 
@@ -344,7 +468,9 @@ def test_standalone_verification_is_read_only_and_checks_disposition(tmp_path):
         client = await service.client()
         try:
             await helpers.verify_ontology_restoration(
-                client.ontology, TutorialState.load(state.path, settings())
+                client.ontology,
+                TutorialState.load(state.path, settings()),
+                read_active=service.read_active,
             )
         finally:
             await client.close()
@@ -367,9 +493,11 @@ def test_cli_closes_client_when_restore_fails(tmp_path, monkeypatch):
         return await service.client()
 
     monkeypatch.setattr(neo4j_agent_memory, "connect", connect)
+    monkeypatch.setattr(lesson, "http_client", service.http_client)
     with pytest.raises(Exception):
         asyncio.run(lesson.main(["seed", "--state", str(tmp_path / "cli.json")]))
     assert service.closed and service.clone_exists
+    assert service.http_clients and all(client.is_closed for client in service.http_clients)
 
 
 def test_cli_rejects_workspace_switch_before_connect(tmp_path, monkeypatch):

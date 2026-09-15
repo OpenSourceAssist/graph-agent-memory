@@ -6,33 +6,31 @@
 
 We will store an explicit shopping preference in AuraDB, attach a Neo4j context provider to a Microsoft Agent Framework agent, and verify the persisted turn and recorded trace. The product catalog is a small fictional list in the instructions; this lesson does not promise graph algorithms or real inventory queries.
 
-This lesson runs the maintained scripts from the current repository checkout in a POSIX shell. Offline checks verify the scripts and selected control flow; successful database, model, or hosted-service execution must still be observed in your environment. It does not claim that an unverified published SDK artifact exposes the same surface.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
 
 [[_what_youll_build]]
 == Before you begin
 
 anchor:_prerequisites[]
 
-* Python 3.10 or newer, Git, and a POSIX shell.
+* Python 3.10 or newer and a POSIX shell.
 * A Neo4j Aura account for a dedicated lesson instance.
 * An OpenAI API key with access to the chat model selected for this lesson and `text-embedding-3-small`.
 
-This path uses the OpenAI client. The repository's Microsoft integration targets `agent-framework-core>=1.13,<2`; xref:how-to/integrations/microsoft-agent.adoc[the integration guide] owns the compatibility details.
+This path uses the OpenAI client. The SDK’s Microsoft integration targets `agent-framework-core>=1.13,<2`; xref:how-to/integrations/microsoft-agent.adoc[the integration guide] owns the compatibility details.
 
 [[_step_1_install_dependencies]]
 == 1. Install the current integration
 
+include::partial$python-tutorial-setup.adoc[]
+
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-cd agent-memory
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[microsoft-agent,openai]'
-python -c "import neo4j_agent_memory; print('SDK import verified')"
+python -m pip install 'neo4j-agent-memory[microsoft-agent,openai]==0.6.0'
+python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
-Expected: `SDK import verified`. Keep this repository directory as the working directory for every command below.
+Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
 [source,bash]
 ----
@@ -58,8 +56,9 @@ export OPENAI_API_KEY="replace-with-your-key"
 export OPENAI_MODEL="replace-with-your-accessible-OpenAI-model-id"
 ----
 
-The complete file is `docs/modules/ROOT/examples/microsoft_shopping_tutorial.py`. It reads the exported Aura connection variables through the shared `aura_config()` helper and contains the fictional catalog, explicit preference write, agent configuration, trace handling, and client cleanup:
+The complete file is `microsoft_shopping_tutorial.py`. It reads the exported Aura connection variables through the shared `aura_config()` helper and contains the fictional catalog, explicit preference write, agent configuration, trace handling, and client cleanup:
 
+.Save as `microsoft_shopping_tutorial.py`
 [source,python]
 ----
 include::example$microsoft_shopping_tutorial.py[]
@@ -74,7 +73,7 @@ anchor:_example_conversation[]
 
 [source,bash]
 ----
-python docs/modules/ROOT/examples/microsoft_shopping_tutorial.py
+python microsoft_shopping_tutorial.py
 ----
 
 Expected milestones:
