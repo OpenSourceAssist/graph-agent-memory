@@ -61,7 +61,7 @@ anchor:_manual_entity_merging[]
 
 == Check relationship coverage before merging
 
-The current merge query copies incoming `MENTIONS` links and eligible `SAME_AS` links, adds the source name as a target alias, and marks the source. It does not delete the source or transfer every `RELATED_TO`, `EXTRACTED_FROM`, or custom relationship. Inspect those edges and decide how your application will reconcile them before merging a populated graph.
+As of SDK 0.6.0, the merge query adds the source name as a target alias and copies the source's edges of these types onto the target — inbound `MENTIONS`, `RELATED_TO` in both directions, `SAME_AS`, outbound `EXTRACTED_FROM` and `EXTRACTED_BY` provenance, inbound `APPLIES_TO`, and inbound `TOUCHED` — then marks the source with `merged_into`/`merged_at`. It copies rather than deletes: the source keeps its own edges so the merge stays reversible and auditable, and each copied edge carries the source edge's `id` plus a `migrated_from` property. Relationship types outside that list are not transferred automatically; inspect those edges and decide how your application will reconcile them before merging a populated graph.
 
 Known aliases, type consistency, and a labeled sample of true/false duplicates help assess a policy. Do not choose automatic thresholds from an unmeasured “safe” universal value. See xref:explanation/resolution-deduplication.adoc[resolution and deduplication] for the distinction between the two mechanisms, and xref:reference/api/long-term.adoc[the complete API] for configuration and return models.
 

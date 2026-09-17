@@ -26,7 +26,7 @@ See xref:reference/authentication.adoc[Authentication] and xref:reference/backen
 
 `user_identifier` is not accepted or enforced by every memory method. The supported fields and filters differ by backend and operation. A field stored in metadata does not automatically become a predicate on every read.
 
-In particular, the current Bolt entity-search implementation does not apply its `session_id` argument as a conversation filter. Do not use that argument to promise isolation or correct it by filtering only a limited result page in application code. Such filtering can miss relevant results and does not create an access-control boundary.
+In particular, the current Bolt semantic message search accepts a `session_id` argument but does not apply it as a conversation filter. Do not use that argument to promise isolation or correct it by filtering only a limited result page in application code. Such filtering can miss relevant results and does not create an access-control boundary.
 
 For a multi-user application, use the documented workspace/database boundary and enforce application authorization before calling memory operations. Follow xref:how-to/multi-tenancy.adoc[Multi-tenant memory] and the capability table for the supported per-operation filters.
 

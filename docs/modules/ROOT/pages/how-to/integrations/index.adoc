@@ -103,7 +103,7 @@ memory.save_context({"input": "Hello"}, {"output": "Hi!"})
 ----
 from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency
 
-deps = MemoryDependency(memory_client=client, session_id="user-123")
+deps = MemoryDependency(client=client, session_id="user-123")
 context = await deps.get_context("query")
 ----
 

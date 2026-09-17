@@ -5,14 +5,7 @@ The TypeScript SDK is a thin HTTP client over the
 xref:reference/rest-api.adoc[NAMS] hosted service. It runs on Node 22+,
 Bun, Deno, Cloudflare Workers, and Vercel Edge.
 
-[IMPORTANT]
-====
-This is a Neo4j Labs project: actively maintained and community supported,
-but not officially supported. There are no SLAs, backward-compatibility
-guarantees or scheduled deprecation commitments; APIs may change without notice.
-Use the link:https://community.neo4j.com/[Neo4j Community Forum] or
-link:https://github.com/neo4j-labs/agent-memory/issues[GitHub Issues] for support.
-====
+include::partial$labs-disclaimer.adoc[]
 
 [NOTE]
 ====
@@ -32,6 +25,14 @@ bun add @neo4j-labs/agent-memory
 Requires Node.js 22+. This page maps current source; inspect the installed
 package before using APIs added after its release. For a complete source-checkout
 setup, follow xref:tutorials/hosted-quickstart-typescript.adoc[the hosted tutorial].
+
+[#source-bootstrap]
+== Source bootstrap
+
+Build the SDK from source when you need APIs that are not on npm yet, such as
+the V4 Vercel AI middleware:
+
+include::partial$typescript-tutorial-checkout.adoc[]
 
 == Quick start
 

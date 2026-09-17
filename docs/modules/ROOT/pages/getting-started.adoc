@@ -4,6 +4,8 @@
 
 Choose a language and a backend before installing an example. Each linked tutorial supplies its complete dependency setup, files, run commands and expected results.
 
+include::partial$labs-disclaimer.adoc[]
+
 [NOTE]
 ====
 Python examples use the published `neo4j-agent-memory==0.6.0` package and complete scripts shown on each page. TypeScript tutorials retain their source-build setup; Python and npm versions are independent. Follow xref:sdks/python.adoc[Python installation] or xref:sdks/typescript.adoc[TypeScript setup].

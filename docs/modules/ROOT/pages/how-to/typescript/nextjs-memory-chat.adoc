@@ -16,6 +16,17 @@ that make it work.
 Next 16 uses Turbopack by default — a custom `webpack` config fails the build.
 ====
 
+[NOTE]
+====
+npm's published `@neo4j-labs/agent-memory` (`0.4.1`) predates the
+`LanguageModelV4Middleware` implementation and the `wrapStream` assistant-message
+persistence that this guide's route handler depends on
+(`agentMemoryMiddleware` from `@neo4j-labs/agent-memory/middleware/vercel-ai`).
+Build the SDK from source and link it locally, below, until a matching release
+ships — see xref:sdks/typescript.adoc#source-bootstrap[the source bootstrap] on
+the TypeScript SDK page for the same steps.
+====
+
 If all you need is the middleware wiring in one file, start at
 xref:how-to/typescript/vercel-ai.adoc[How to: integrate with the Vercel AI SDK]
 instead and come back when you want the UI.
@@ -27,12 +38,27 @@ instead and come back when you want the UI.
 * An `OPENAI_API_KEY` (model id via `OPENAI_MODEL`, default `gpt-5-mini`)
 * Optionally a `MEMORY_WORKSPACE_ID` to scope the data to one workspace
 
+Build the SDK from source and link it into your app — the same source
+build-and-link path xref:how-to/typescript/vercel-ai.adoc[the Vercel AI SDK
+guide] uses — so the app resolves the unreleased middleware and streaming
+persistence this guide's code needs:
+
 [source,bash]
 ----
+git clone https://github.com/neo4j-labs/agent-memory.git
+(cd agent-memory/typescript && npm ci && npm run build)
+
 npm install ai@^7 @ai-sdk/openai@^4 @ai-sdk/react@^4 \
-            @neo4j-labs/agent-memory \
             @neo4j-nvl/react@^1.2 @neo4j-nvl/base@^1.2
+npm install ./agent-memory/typescript
 ----
+
+`npm install ./agent-memory/typescript` records a `file:` dependency on the
+local build — the same wiring the
+link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/nextjs-memory-chat[runnable
+example]'s own `package.json` uses (`file:../..`). Adjust the path if you
+cloned the repository somewhere else, and rebuild (`npm run build` in
+`typescript/`) after pulling SDK changes.
 
 == Decision 1: put the conversation id in the URL
 

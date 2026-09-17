@@ -27,8 +27,6 @@ anchor:_short_term_memory_what_happened[]anchor:_long_term_memory_what_the_agent
 
 image::diagrams/the-three-layer-memory-architecture.png["Three-layer memory architecture: short-term, long-term, and reasoning memory backed by Neo4j",width=600,align=left,link=self]
 
-image::diagrams/three-memory-types-diagram.png["The three memory layers: Conversation and Message records; entities, preferences, and facts; and recorded traces, steps, and tool calls",width=600,align=left,link=self]
-
 * *Short-term memory* stores conversations and messages, preserving sequence and enabling supported retrieval of past exchanges. "Short-term" does not mean in-process or automatically deleted: these records are persisted.
 * *Long-term memory* represents reusable declarative knowledge, including entities and, on supported backend surfaces, preferences and facts. Relationships connect that knowledge to other records.
 * *Reasoning memory* stores the task steps, tool calls, observations, and outcomes that an application or integration records. It is an execution record, not access to a model's private internal reasoning.

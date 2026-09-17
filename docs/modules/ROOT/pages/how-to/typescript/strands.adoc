@@ -336,7 +336,7 @@ asserts each of our classes still satisfies the interface it implements, so an
 silently. We will not break the integration API across minor releases of
 `@neo4j-labs/agent-memory` without a CHANGELOG callout.
 
-`Neo4jMemoryStore` needs `@strands-agents/sdk >= 1.6.0`, the release that
+`Neo4jMemoryStore` needs `@strands-agents/sdk >= 1.16.0`, the release that
 introduced `MemoryManager`/`MemoryStore`.
 
 === A note on `SnapshotStorage` vs the unified `Storage`

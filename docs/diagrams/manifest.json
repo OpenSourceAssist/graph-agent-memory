@@ -275,9 +275,7 @@
     {
       "output": "docs/modules/ROOT/images/diagrams/three-memory-types-diagram.png",
       "source": "docs/assets/diagrams/excalidraw/the-three-layer-memory-architecture.excalidraw",
-      "referring_pages": [
-        "docs/modules/ROOT/pages/explanation/memory-types.adoc"
-      ],
+      "referring_pages": [],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
       "source_sha256": "264e8878ac09d40d06d32f4724b43ed95e3bf944e8672bd2e8b6b49db890df5c",

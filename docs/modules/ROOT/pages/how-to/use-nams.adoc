@@ -63,8 +63,8 @@ async def main():
         message = await client.short_term.add_message(
             conversation_id, "user", content
         )
-        history = await client.short_term.get_messages(conversation_id)
-        assert any(item.id == message.id and item.content == content for item in history)
+        history = await client.short_term.get_conversation(conversation_id)
+        assert any(item.id == message.id and item.content == content for item in history.messages)
         print(f"Verified message {message.id} in conversation {conversation_id}")
     finally:
         await client.close()

@@ -30,7 +30,7 @@ The first sections use `documents: list[str]`. The financial and catalog variati
 ----
 from neo4j_agent_memory.extraction import ExtractionPipeline, GLiNEREntityExtractor
 
-extractor = GLiNEREntityExtractor.for_schema("ecommerce")
+extractor = GLiNEREntityExtractor.for_schema("business")
 pipeline = ExtractionPipeline(stages=[extractor], fallback_on_error=False)
 
 # List of documents to process
@@ -146,10 +146,15 @@ for entity in result.entities:
 
 == 3. Store successful batch results
 
-The Bolt write merges entities by exact name and type. In the current source,
-`add_entity` can return a newly generated ID even when that MERGE matched an
-existing node. For provenance and relationship writes, read the persisted ID
-before using it. Define this application helper once for the remaining examples:
+The Bolt write merges entities by exact name and type. As of SDK 0.6.0,
+`add_entity` re-reads the matched node when that MERGE matches an existing
+entity, so the returned `Entity.id` already carries the persisted value;
+provenance and relationship writes can use it directly, with no separate
+readback required. A batch import can still run many writers against the
+same name/type pair concurrently, so define this application helper once for
+the remaining examples — it double-checks that exactly one node is stored
+before using its ID, which is cheap insurance against a concurrent write
+race, not a required workaround:
 
 [source,python]
 ----
@@ -167,8 +172,10 @@ async def store_entity(client, **kwargs):
     return entity.model_copy(update={"id": UUID(rows[0]["id"])}), dedup_result
 ----
 
-This extra read is a workaround for that source limitation, not an atomic
-upsert contract. It assumes library UUID entity IDs and no concurrent deletion.
+This extra read guards against concurrent writers racing on the same
+name/type pair during a large batch import; it is not required to work
+around SDK ID handling on 0.6.0, and it is not an atomic upsert contract
+either way. It assumes library UUID entity IDs and no concurrent deletion.
 Inspect ambiguous matches instead of choosing a semantic nearest neighbor.
 
 === Basic Storage
@@ -236,7 +243,7 @@ threshold configuration see xref:how-to/deduplication.adoc[Handle Duplicate Enti
 # Register the extractor for provenance
 await client.long_term.register_extractor(
     name="GLiNEREntityExtractor",
-    config={"schema": "ecommerce"},
+    config={"schema": "business"},
 )
 
 # Store with provenance
@@ -291,7 +298,7 @@ from neo4j_agent_memory.extraction import GLiNEREntityExtractor, ExtractionPipel
 
 # Configure for financial domain
 pipeline = ExtractionPipeline(
-    stages=[GLiNEREntityExtractor.for_schema("financial")],
+    stages=[GLiNEREntityExtractor.for_schema("business")],
     fallback_on_error=False,
 )
 
@@ -412,7 +419,7 @@ async def import_product_catalog(products: list[dict]):
 
     # Extract additional entities from descriptions
     pipeline = ExtractionPipeline(
-        stages=[GLiNEREntityExtractor.for_schema("ecommerce")],
+        stages=[GLiNEREntityExtractor.for_schema("business")],
         fallback_on_error=False,
     )
     result = await pipeline.extract_batch(

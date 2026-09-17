@@ -3,6 +3,8 @@
 
 The Python SDK connects directly to Neo4j over Bolt or to NAMS over HTTP. Supported methods, result shapes and data scope differ; see xref:reference/backend-capabilities.adoc[backend capabilities].
 
+include::partial$labs-disclaimer.adoc[]
+
 anchor:_select_a_release_or_a_checkout[]
 
 == Install Python 0.6.0

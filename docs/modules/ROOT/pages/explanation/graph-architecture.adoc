@@ -38,8 +38,8 @@ Here is a conceptual read-only query for the Bolt memory schema. It requires sto
 ----
 MATCH (conversation:Conversation)-[:HAS_MESSAGE]->(message:Message)
 MATCH (message)-[:MENTIONS]->(entity:Entity {name: $entityName})
-RETURN conversation.session_id, message.content, message.created_at
-ORDER BY message.created_at DESC
+RETURN conversation.session_id, message.content, message.timestamp
+ORDER BY message.timestamp DESC
 LIMIT 20
 ----
 

@@ -153,7 +153,7 @@ MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity)
 RETURN a.name, r.type, b.name, r.confidence
 ----
 
-Expected: the same stored triples printed by `inspect`, each with a nonempty logical relationship name. This lesson saves extracted candidates through explicit `add_relationship` calls, which store that name in `RELATED_TO.type`; they do not create a physical `works_at` relationship type. Automatic message extraction uses the separate `RELATED_TO.relation_type` property. `attributes` passed to `add_relationship` are currently not persisted by this write path, so provenance is stored through the dedicated message link instead.
+Expected: the same stored triples printed by `inspect`, each with a nonempty logical relationship name. This lesson saves extracted candidates through explicit `add_relationship` calls, which store that name in `RELATED_TO.type`; they do not create a physical `works_at` relationship type. Automatic message extraction uses the separate `RELATED_TO.relation_type` property. `attributes` passed to `add_relationship` are currently not persisted by this write path, so provenance is stored through the dedicated message link instead. `add_relationship` raises `NotFoundError` when either endpoint id matches no `:Entity` node, rather than silently creating an edge the graph does not contain — one reason `store_document` verifies each candidate's stored id before attaching a link.
 
 anchor:_step_6_use_the_knowledge_graph_with_an_agent[]
 

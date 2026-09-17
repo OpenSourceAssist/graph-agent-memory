@@ -33,7 +33,7 @@ Search methods return models, not `(model, score)` tuples. Bolt semantic-search 
 
 === add_entity
 
-On Bolt, entity writes merge by exact `(name, type)`, including when `deduplicate=False`. On an existing-node match, the current method can return a newly allocated ID instead of the persisted node ID. Before linking repeated entities, read the persisted ID with an exact name/type Cypher lookup and check that it resolves unambiguously. The xref:tutorials/knowledge-graph.adoc[document tutorial] includes this readback.
+On Bolt, entity writes merge by exact `(name, type)`, including when `deduplicate=False`. As of SDK 0.6.0, on an existing-node match `add_entity` re-reads the matched node and returns the entity carrying its persisted `id`, so a manual Cypher readback is no longer needed before linking repeated entities. The one exception is a node written by something other than this library that has no `id` property; that node is left as-is and the call returns the freshly generated id instead, since it cannot be adopted safely. The xref:tutorials/knowledge-graph.adoc[document tutorial] still reads back the exact name/type match, but to reject ambiguity across extraction results, not to work around an ID bug.
 
 Add an entity and return `(Entity, DeduplicationResult)`. Geocoding and enrichment flags default to True, but run only when their providers are configured. There is no `confidence` keyword; `attributes` and `metadata` are distinct fields.
 
@@ -353,6 +353,8 @@ async def add_relationship(
 
 The current implementation includes `attributes` on the returned model but does not pass them to the graph write. Do not depend on arbitrary relationship attributes surviving a later read through this method.
 
+If `source` or `target` does not resolve to a persisted `:Entity` node — a stale id, or the freshly generated id `add_entity` falls back to for a matched node that has no `id` property (see `add_entity` above) — `add_relationship` raises `NotFoundError` rather than silently returning a `Relationship` the graph does not contain. Re-adding an already-stored `(source, target, relationship_type)` triple does not raise: the `MERGE` keeps the original edge, and the returned `Relationship.id` is the id already stored on that edge, not a newly generated one.
+
 === get_related_entities
 
 Get entities related to a given entity.
@@ -414,7 +416,7 @@ async def find_potential_duplicates(*, limit: int=100) -> list[tuple[Entity, Ent
 
 === merge_duplicate_entities
 
-Merge two entities, keeping the target and marking source as merged. The current Bolt query adds the source name as a target alias and copies incoming `MENTIONS` and eligible `SAME_AS` links. It does not transfer every relationship type or delete the source; review `RELATED_TO`, provenance, and custom links separately.
+Merge two entities, keeping the target and marking source as merged. The source's name is added to the target's `aliases`, and the Bolt query copies the source's edges of these types onto the target: inbound `MENTIONS` (from `Message`), `RELATED_TO` in both directions, `SAME_AS`, outbound `EXTRACTED_FROM` and `EXTRACTED_BY` provenance, inbound `APPLIES_TO` (from `Preference`), and inbound `TOUCHED` (from `ReasoningStep`). Edges are copied, not moved: the merged-away source keeps its own edges — so the merge stays reversible and auditable — and is marked with `merged_into`/`merged_at` to exclude it from later deduplication scans. A copied edge keeps the source edge's `id` and gains a `migrated_from` property; nothing looks a `RELATED_TO` edge up by id, so the shared id is not ambiguous. Relationship types outside this list are not transferred automatically; review any custom links separately.
 
 // contract: memory/long_term.py:LongTermMemory.merge_duplicate_entities
 [source,python]
