@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { firstAgentCli } from "../src/tutorials/first-agent.js";
 import { inspectDocuments, observeDocuments } from "../src/tutorials/knowledge-graph.js";
-import { inspectTutorialState, TutorialRun, sha256 } from "../../shared/tutorial-state.js";
+import { inspectTutorialState, TutorialRun } from "../../shared/tutorial-state.js";
 import { runTutorialCommand } from "../../shared/tutorial-cleanup.js";
 import { tutorialMcpCli } from "../../shared/tutorial-mcp.js";
 import { startHostedStub } from "./docs-hosted-stub.js";
@@ -73,7 +73,7 @@ describe("offline redacted inspection and authenticated boundaries", () => {
     await runTutorialCommand("first-agent", ["inspect", run.path], "seed", ["seed"], vi.fn());
     const output = vi.mocked(console.log).mock.calls.flat().join(" ");
     expect(output).toContain("created-conversation"); expect(output).toContain("unknown-operation");
-    for (const secret of [config.apiKey, sha256(config.apiKey), config.workspaceId, config.endpoint, "private failure details"]) expect(output).not.toContain(secret);
+    for (const secret of [config.apiKey, run.state.identity.credentialSalt, run.state.identity.credentialDigest, config.workspaceId, config.endpoint, "private failure details"]) expect(output).not.toContain(secret);
     expect(fetch).not.toHaveBeenCalled(); expect(readFileSync(run.path, "utf8")).toBe(original);
     for (const mode of ["verify", "cleanup", "retry-empty"]) {
       vi.stubEnv("MEMORY_API_KEY", "rotated-key"); vi.stubEnv("MEMORY_ENDPOINT", config.endpoint);

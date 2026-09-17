@@ -27,7 +27,8 @@ describe("private durable run state", () => {
     expect(stub.requests.some(r => r.path.endsWith("extraction-status"))).toBe(true);
     expect(stub.requests.every(r => r.authorization === "Bearer nams_offline_private" && r.workspace === "workspace-offline")).toBe(true);
     expect(readFileSync(run.path, "utf8")).not.toContain(config().apiKey);
-    expect(JSON.stringify(run.inspect())).not.toContain(sha256(config().apiKey));
+    expect(JSON.stringify(run.inspect())).not.toContain(run.state.identity.credentialSalt);
+    expect(JSON.stringify(run.inspect())).not.toContain(run.state.identity.credentialDigest);
     expect(JSON.stringify(run.inspect())).not.toContain(config().workspaceId);
     expect(statSync(run.path).mode & 0o777).toBe(0o600);
     expect(statSync(directory).mode & 0o077).toBe(0);

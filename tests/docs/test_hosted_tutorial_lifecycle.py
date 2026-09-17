@@ -191,7 +191,15 @@ def test_rotated_key_allows_only_redacted_local_inspection_without_sdk_or_enviro
     assert shown["pending"] == "append message"
     assert shown["resources"]["message"] == {"message-id": {"status": "retained"}}
     assert shown["operator_context"]["workspace_owner"] == "responsible operator"
-    for hidden in ("credential_sha256", "synthetic-key", "private-digest", "hidden"):
+    for hidden in (
+        "credential_salt",
+        "credential_digest",
+        state.data["identity"]["credential_salt"],
+        state.data["identity"]["credential_digest"],
+        "synthetic-key",
+        "private-digest",
+        "hidden",
+    ):
         assert hidden not in result.stdout
     assert state.path.read_bytes() == before
     with pytest.raises(RuntimeError, match="credential changed"):

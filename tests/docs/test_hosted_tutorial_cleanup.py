@@ -113,7 +113,14 @@ def test_private_state_is_atomic_and_refuses_reseed(tmp_path):
         TutorialState.create(state.path, settings(), "test")
     assert state.path.read_bytes() == before
     assert "nams_test" not in state.path.read_text()
-    assert "credential_sha256" not in json.dumps(state.inspect())
+    redacted = json.dumps(state.inspect())
+    for secret in (
+        "credential_salt",
+        "credential_digest",
+        state.data["identity"]["credential_salt"],
+        state.data["identity"]["credential_digest"],
+    ):
+        assert secret not in redacted
     state.begin("append message")
     resumed = TutorialState.load(state.path, settings(), "test")
     assert resumed.data["pending"] == "append message"

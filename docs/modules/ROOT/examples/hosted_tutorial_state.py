@@ -145,22 +145,31 @@ def connection(settings):
     headers["Authorization"] = f"Bearer {key}"
     if config.workspace_id:
         headers["X-Workspace-Id"] = config.workspace_id
-    identity = {
-        "endpoint": endpoint,
-        "workspace_id": config.workspace_id,
-        "credential_sha256": digest(key),
-    }
-    return identity, headers, config.timeout
+    resolved = {"endpoint": endpoint, "workspace_id": config.workspace_id}
+    return resolved, headers, config.timeout, key
 
 
-def identity(settings):
-    return connection(settings)[0]
+def credential_digest(key: str, salt: str) -> str:
+    """Bind state to the credential that seeded it, without keeping a directly
+    comparable digest of that credential on disk. A per-run salt and a
+    deliberately slow KDF mean the stored value answers one question -- "is this
+    the same key as last time?" -- and is not worth attacking offline. Message
+    content keeps ``digest``: it is a change detector, not a secret."""
+    return hashlib.scrypt(
+        key.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1, maxmem=64 * 1024 * 1024, dklen=32
+    ).hex()
+
+
+def identity(settings, salt=None):
+    resolved, _headers, _timeout, key = connection(settings)
+    salt = salt or os.urandom(16).hex()
+    return {**resolved, "credential_salt": salt, "credential_digest": credential_digest(key, salt)}
 
 
 def http_client(settings, **kwargs):
     import httpx
 
-    resolved, headers, timeout = connection(settings)
+    resolved, headers, timeout, _key = connection(settings)
     return httpx.AsyncClient(
         base_url=resolved["endpoint"] + "/", headers=headers, timeout=timeout, **kwargs
     )
@@ -225,7 +234,11 @@ class TutorialState:
     def load(cls, path, settings, lesson=None):
         path = Path(path)
         data = read_state(path)
-        if data.get("identity") != identity(settings):
+        stored = data["identity"]
+        salt = stored.get("credential_salt")
+        if not isinstance(salt, str) or not re.fullmatch(r"[0-9a-f]{32}", salt):
+            raise RuntimeError("Tutorial identity is missing its credential salt; do not reseed")
+        if stored != identity(settings, salt):
             raise RuntimeError(
                 "Endpoint, workspace, or credential changed; verify ownership before recovery"
             )
@@ -256,7 +269,8 @@ class TutorialState:
 
     def inspect(self):
         data = json.loads(json.dumps(self.data))
-        data["identity"].pop("credential_sha256", None)
+        data["identity"].pop("credential_salt", None)
+        data["identity"].pop("credential_digest", None)
         return data
 
 
