@@ -1,4 +1,4 @@
-= Memory Consolidation
+= Memory consolidation
 :page-product: agent-memory
 :toclevels: 2
 

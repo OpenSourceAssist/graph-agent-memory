@@ -40,6 +40,10 @@ Keep a complete executable counterpart for programs assembled across several tut
 
 Use `xref:` for internal pages. Add every page to its quadrant index or a linked subindex and to the sidebar. Preserve old anchors when restructuring; retain a forwarding page or use a verified Antora alias for an old URL. Do not create empty placeholder pages solely to silence link checks.
 
+`docs/modules/ROOT/pages/how-to/typescript/*` is an intentional exception to the how-to naming convention of `how-to/integrations/{framework}.adoc`: it holds the TypeScript-specific integration guides as their own split, not framework pages that happen to be misfiled. Do not "fix" this by moving those pages into `how-to/integrations/` — that would break their published URLs for no benefit.
+
+NAMS preview features (for example Agent Skills and the ontology lifecycle) describe hosted, server-side behavior that has no implementation in this repository's `src/` or `typescript/src/`. Claims about them, such as the preview entries in `faq.adoc` and `glossary.adoc`, cannot be verified from this checkout. Treat them as release-verification items: a maintainer with NAMS access checks them against the hosted API before publication (see Release verification below), and a reviewer without access lists them as hosted-only claims to verify rather than as defects or as already verified.
+
 The main regression checks are:
 
 ```bash
@@ -77,6 +81,8 @@ Tutorial pages set `:page-role: code-nocollapse` to use the shared UI's supporte
 
 Editable documentation scenes live under `docs/assets/diagrams/excalidraw`; exports live under `docs/modules/ROOT/images/diagrams`. Example-specific scenes can remain with the example. The diagram manifest records source/export paths, hashes, referring pages, and any unresolved legacy provenance. Source validity alone does not establish readable rendering.
 
+`scripts/manage_diagrams.py status` (and the underlying `check_manifest()`) fails on any file under `docs/modules/ROOT/images/diagrams/` that is in neither the manifest nor an `image::` reference from a page — an orphan with no recorded provenance. Every export you add must land in the manifest in the same change, even when no page embeds it yet: give it a `status` of `"pending-placement"` (tracked, unreferenced, kept intentionally) or `"unresolved-provenance"` (provenance genuinely unclear; add a `note` explaining why and leave `source`/`reviewed_on` out rather than guess) instead of silently leaving it untracked. This check needs only the manifest and the files on disk, not the Playwright export toolchain.
+
 Optional export tools are isolated from the Antora build:
 
 ```bash
@@ -102,4 +108,18 @@ The repository identifies labs-pages as the publication route for these docs and
 
 Before publication, record the accepted commit, SDK artifacts actually tested, UI bundle identity, generated TypeDoc revision, complete build/check output, page moves/redirects and remaining live verification. Verify the accepted public pages and old URLs after deployment. A repository fix is not proof that a package was released, the site republished, or a CDN cache refreshed.
 
-Historical audits and plans remain dated snapshots. Track repair dispositions and the release/service/site handoff in `DOCUMENTATION_REMEDIATION_STATUS.md` at the repository root.
+Historical audits and plans remain dated snapshots.
+
+## Release verification
+
+A page's claims about released SDK behavior must be checked against the released tree, not against whatever branch is being edited. A feature branch's `src/` or `typescript/src/` can legitimately lag the version the docs pin (for example, docs pinning `0.6.0` while a branch still carries `0.5.0` source): verify version-specific claims with `git show origin/main:<path>`, or by installing the pinned released artifact, never by reading the working branch's checkout. Before merging a docs branch, rebase onto `origin/main` and re-run the verification pass so any claim checked earlier against a stale `main` gets a final check against what will actually ship.
+
+## Non-published files
+
+`docs/` holds a few paths that Antora does not publish and that carry no cross-reference from the site:
+
+- `docs/audit-evidence/` — dated evidence and findings from documentation review passes (raw notes, not maintained prose).
+- `docs/superpowers/` — internal agent-workflow material, unrelated to the published docs content.
+- `docs/product-improvements.adoc` — a working list of product feedback gathered while writing docs, not a documentation page.
+
+None of these are wired into `nav.adoc` or built by `npm run build`; leave them out of link/nav checks and treat their presence in `docs/` as intentional, not clutter to clean up.

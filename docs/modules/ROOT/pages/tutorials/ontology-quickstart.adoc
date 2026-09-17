@@ -4,6 +4,7 @@
 :page-pagination:
 :toclevels: 2
 :sectanchors:
+:state-file: ontology.json
 
 We will capture the workspace's active ontology version, clone the healthcare
 template, activate and inspect a strict revision, then restore the exact
@@ -62,7 +63,10 @@ ledger's selector can be null: the workspace key selects the workspace.
 Never put a key in either note.
 
 [[_step_1_clone_the_healthcare_template]]
-== 1. Understand the restoration guard
+== Step 1: Understand the restoration guard
+
+See xref:explanation/ontologies.adoc[] for what an ontology version and active
+binding are; this step covers only what the exercise checks.
 
 The private `.tutorial-state/ontology.json` file records the endpoint and
 credential identity, original active version, each returned clone/revision ID,
@@ -70,17 +74,15 @@ and unfinished operations. It is written before advancing to the next stage.
 Keep it out of version control and do not remove it to bypass an incomplete
 exercise.
 
-The guard captures the version actually bound to the workspace. That version
-can be older than the ontology's latest revision. Missing or contradictory
-binding metadata is an error; the program never chooses the latest revision as
-a restoration fallback.
+The guard captures the version actually bound to the workspace, which can be
+older than the ontology's latest revision. Missing or contradictory binding
+metadata is an error; the program never chooses the latest revision as a
+restoration fallback.
 
-In the published SDK 0.6.0, `client.ontology.get_active()` can report the latest
-revision instead of the bound revision. This tutorial reads
-`GET /ontologies/active` through its `read_active_binding()` helper, using the
-same resolved credentials and workspace as the SDK. It validates the returned
-version metadata and schema before any mutation. The remaining ontology
-operations use the published SDK.
+Because the published SDK 0.6.0's `client.ontology.get_active()` can report the
+latest revision instead of the bound revision, this tutorial reads the binding
+directly through its `read_active_binding()` helper and validates it before any
+mutation. The remaining ontology operations use the published SDK.
 
 Restoration precedes clone deletion. If restoration or its readback fails, the
 clone and local state are retained for recovery. If another client changes the
@@ -88,7 +90,7 @@ active binding unexpectedly, the program stops instead of overwriting that
 client's work.
 
 [[_step_2_make_it_strict_and_activate_it]]
-== 2. Read the complete exercise
+== Step 2: Read the complete exercise
 
 Create the shared state and restoration helpers below, then save the complete
 `ontology_quickstart.py` program. Keep all three files in
@@ -141,7 +143,7 @@ constraint. See xref:reference/ontology-api.adoc[Ontology API] for the separate
 schema and version contracts.
 
 [[_step_5_clean_up]]
-== 3. Activate, inspect and restore
+== Step 3: Activate, inspect and restore
 
 [source,bash]
 ----
@@ -183,7 +185,9 @@ The command refuses to seed over an existing state file. A successful process
 exit requires the restoration and cleanup checks, not merely activation of the
 strict revision.
 
-== 4. Verify from a fresh process
+== Step 4: Verify from a fresh process
+
+anchor:_4_verify_from_a_fresh_process[]
 
 [source,bash]
 ----
@@ -217,40 +221,11 @@ do not reset the workspace, delete ontologies by a shared name, or remove the
 state file to suppress the failure. Keep the state until every created resource
 has a verified disposition.
 
-== Inspect locally after a credential change
-
-If the original key expires or is rotated, normal lesson commands keep refusing
-to use its saved IDs with another credential. Use this separate local command:
-
-[source,bash]
-----
-python hosted_tutorial_state.py inspect-file .tutorial-state/ontology.json
-----
-
-It needs no key and makes no service requests. The summary omits credential
-fingerprints, message digests, fixture metadata and review/provenance payloads.
-It still contains resource IDs and operator labels, so keep it private. Its
-`local_only: true` and `service_checked: false` mean it reports saved evidence,
-not current remote state or authorization.
-
-Give the authorized owner the workspace label, endpoint, run token, exact
-resource IDs and pending operation through your agreed private channel. The
-owner must establish the actual workspace and reconcile those resources with
-a valid credential. Do not edit the identity hash, substitute a key in the
-ledger, or remove state to unlock a write. The helper cannot migrate a run to a
-new key or supply an administrative deletion route.
+include::partial$python-hosted-lifecycle.adoc[]
 
 == Keep the old run and start a separate exercise
 
-[cols="2,3",options="header"]
-|===
-|Recorded state |Next action
-|No mutation was attempted |Correct the failed prerequisite, then use the guarded new-run check below.
-|Every recorded resource was verified absent |Keep the ledger as evidence, recheck the lesson prerequisites and use a new run directory.
-|Retained/shared resources or cleanup exit `2` |Have the owner record the actual disposition. This is not an automatic permission to reseed.
-|Pending or uncertain mutation |Use `recover` with the original credentials when the saved IDs are known; otherwise seek owner reconciliation.
-|Credential changed |Use the local inspection/handoff procedure above; authenticated commands remain blocked.
-|===
+See xref:how-to/use-nams.adoc#_recover_from_an_interrupted_tutorial_run[Recover from an interrupted tutorial run] to check the recorded state before reseeding. For a pending or uncertain mutation with known IDs, prefer the `recover` command above over owner reconciliation.
 
 For a prerequisite failure *before* the first remote write, the new ledger's
 `remote_write_started: false`, empty resources and absent pending operation
@@ -292,6 +267,7 @@ complete only after restoration and removal of the created clone are checked.
 The larger https://github.com/neo4j-labs/agent-memory/tree/main/examples/ontology-lifecycle[ontology lifecycle example]
 covers import, revision diff and migration. Review its separate prerequisites
 and cleanup before running it. See xref:how-to/use-ontologies.adoc[Use ontologies]
-for those tasks, or continue to xref:tutorials/skills-quickstart.adoc[distilling a
+for those tasks, xref:explanation/ontologies.adoc[Ontologies] for the underlying
+concepts, or continue to xref:tutorials/skills-quickstart.adoc[distilling a
 skill] after satisfying that lesson's empty-workspace and resource-disposition
 requirements.

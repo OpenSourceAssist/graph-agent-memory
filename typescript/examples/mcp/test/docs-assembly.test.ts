@@ -1,4 +1,4 @@
-/** Compile the complete authored server and exercise real stdio against an offline REST fixture. */
+/** Compile the tutorial's base server plus the how-to's custom/restricted recipes, and exercise real stdio against an offline REST fixture. */
 import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile, copyFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -15,14 +15,17 @@ const sdkRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const names = ["memory_create_conversation", "memory_add_messages", "memory_get_context", "memory_search_messages", "memory_get_entity", "memory_add_entity"];
 
 it("assembles base/custom/restricted lessons, records tool IDs immediately, restarts and verifies scoped cleanup", async () => {
-  const page = await readFile(new URL("../../../../docs/modules/ROOT/pages/tutorials/mcp-server-typescript.adoc", import.meta.url), "utf8");
-  const blocks = [...page.matchAll(/\[source,(typescript|json)\]\n----\n([\s\S]*?)\n----/g)].map(match => match[2]!);
-  const source = blocks.find(block => block.includes("async function main()"))!;
-  const config = blocks.find(block => block.includes('"compilerOptions"'))!;
-  const customImports = blocks.find(block => block.startsWith('import { isAbsolute }'))!;
-  const custom = blocks.find(block => block.includes('"memory_tutorial_graph"'))!;
-  const restricted = blocks.find(block => block.startsWith("const toolNames ="))!;
-  const json = blocks.filter(block => block.trim().startsWith("{")).map(block => JSON.parse(block));
+  const blockPattern = /\[source,(typescript|json)\]\n----\n([\s\S]*?)\n----/g;
+  const tutorialPage = await readFile(new URL("../../../../docs/modules/ROOT/pages/tutorials/mcp-server-typescript.adoc", import.meta.url), "utf8");
+  const howToPage = await readFile(new URL("../../../../docs/modules/ROOT/pages/how-to/typescript/mcp.adoc", import.meta.url), "utf8");
+  const tutorialBlocks = [...tutorialPage.matchAll(blockPattern)].map(match => match[2]!);
+  const howToBlocks = [...howToPage.matchAll(blockPattern)].map(match => match[2]!);
+  const source = tutorialBlocks.find(block => block.includes("async function main()"))!;
+  const config = tutorialBlocks.find(block => block.includes('"compilerOptions"'))!;
+  const customImports = howToBlocks.find(block => block.startsWith('import { isAbsolute }'))!;
+  const custom = howToBlocks.find(block => block.includes('"memory_tutorial_graph"'))!;
+  const restricted = howToBlocks.find(block => block.startsWith("const toolNames ="))!;
+  const json = tutorialBlocks.filter(block => block.trim().startsWith("{")).map(block => JSON.parse(block));
   const conversationArgs = json.find(value => value.user_id === "<printed userId>");
   const entityArgs = json.find(value => value.name === "<printed entityName>");
   const messageArgs = json.find(value => value.conversation_id === "<returned conversation ID>");

@@ -21,15 +21,13 @@ include::partial$python-tutorial-setup.adoc[]
 python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
 ----
 
-The maintained program `core_memory_recipes.py` imports `core_memory_settings.py` from the same directory. That helper explicitly selects Bolt and disables automatic extraction/enrichment. Each command creates a new ID suffix so it can run independently. Embedding requests send example text to OpenAI.
-
-These tasks use Python with Bolt. Consult xref:reference/backend-capabilities.adoc[backend capabilities] before adapting them to NAMS; preferences, facts, direct relationship writes, and this deduplication configuration are not portable hosted operations.
+include::partial$python-core-recipe-intro.adoc[]
 
 include::partial$python-core-recipe-files.adoc[]
 
 == 2. Apply the task function
 
-`DeduplicationConfig` is imported from `neo4j_agent_memory.memory.long_term`. For custom thresholds, construct `LongTermMemory` with the connected Bolt graph and embedder. `MemoryClient` does not accept a `deduplication=` argument, and `MemorySettings.deduplication` is not a setting. The example uses a deliberately created pair and bypasses automatic deduplication so the manual review step is reproducible.
+Configure custom deduplication thresholds and merge a reviewed duplicate pair. `DeduplicationConfig` is imported from `neo4j_agent_memory.memory.long_term`. For custom thresholds, construct `LongTermMemory` with the connected Bolt graph and embedder. `MemoryClient` does not accept a `deduplication=` argument, and `MemorySettings.deduplication` is not a setting. The example uses a deliberately created pair and bypasses automatic deduplication so the manual review step is reproducible.
 
 The function below is included from the complete maintained program, which already supplies imports, client setup, unique IDs, and `asyncio.run`. Run the file in step 3; this extract is not a separate top-level script.
 

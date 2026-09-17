@@ -1,10 +1,12 @@
-= Agent Framework Integrations
+= Agent framework integrations
 :page-product: agent-memory
 :page-pagination:
 :description: Integrate Neo4j Agent Memory with popular AI agent frameworks.
 :keywords: langchain, pydantic-ai, llamaindex, crewai, openai, agents, integration
 
-Neo4j Agent Memory provides official integrations for five popular agent frameworks, enabling persistent memory storage backed by Neo4j's graph database.
+See also xref:how-to/typescript/integrations-overview.adoc[the TypeScript integrations overview] for the equivalent guides in the TypeScript SDK.
+
+Neo4j Agent Memory provides official integrations for ten popular agent frameworks and cloud providers, enabling persistent memory storage backed by Neo4j's graph database.
 
 == Available Integrations
 
@@ -52,133 +54,6 @@ Neo4j Agent Memory provides official integrations for five popular agent framewo
 | Context providers, GDS algorithms, and graph-enhanced memory
 | Experimental · Community supported
 |===
-
-== Quick Start
-
-Choose your framework and install:
-
-[source,bash]
-----
-# LangChain
-pip install 'neo4j-agent-memory[langchain]==0.6.0'
-
-# PydanticAI
-pip install 'neo4j-agent-memory[pydantic-ai]==0.6.0'
-
-# LlamaIndex
-pip install 'neo4j-agent-memory[llamaindex]==0.6.0'
-
-# CrewAI
-pip install 'neo4j-agent-memory[crewai]==0.6.0'
-
-# OpenAI Agents SDK
-pip install 'neo4j-agent-memory[openai-agents]==0.6.0'
-
-# Google Cloud (Vertex AI + ADK + MCP)
-pip install 'neo4j-agent-memory[google,mcp]==0.6.0'
-
-# AWS Strands Agents
-pip install 'neo4j-agent-memory[aws,strands]==0.6.0'
-
-# All frameworks
-pip install 'neo4j-agent-memory[all]==0.6.0'
-----
-
-== Quick Examples
-
-=== LangChain
-
-[source,python]
-----
-from neo4j_agent_memory.integrations.langchain import Neo4jAgentMemory
-
-memory = Neo4jAgentMemory(memory_client=client, session_id="user-123")
-context = memory.load_memory_variables({"input": "query"})
-memory.save_context({"input": "Hello"}, {"output": "Hi!"})
-----
-
-=== PydanticAI
-
-[source,python]
-----
-from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency
-
-deps = MemoryDependency(client=client, session_id="user-123")
-context = await deps.get_context("query")
-----
-
-=== LlamaIndex
-
-[source,python]
-----
-from neo4j_agent_memory.integrations.llamaindex import Neo4jLlamaIndexMemory
-
-memory = Neo4jLlamaIndexMemory(memory_client=client, session_id="user-123")
-nodes = memory.get(input="query")
-----
-
-=== CrewAI
-
-[source,python]
-----
-from neo4j_agent_memory.integrations.crewai import Neo4jCrewMemory
-
-memory = Neo4jCrewMemory(memory_client=client, crew_id="my-crew")
-memory.remember("Important fact", metadata={"type": "fact"})
-----
-
-=== OpenAI Agents SDK
-
-[source,python]
-----
-from neo4j_agent_memory.integrations.openai_agents import Neo4jOpenAIMemory
-
-memory = Neo4jOpenAIMemory(memory_client=client, session_id="user-123")
-messages = await memory.get_conversation()
-----
-
-=== Google ADK
-
-[source,python]
-----
-from neo4j_agent_memory.integrations.google_adk import Neo4jMemoryService
-
-memory_service = Neo4jMemoryService(memory_client=client, user_id="user-123")
-await memory_service.add_session_to_memory(session)
-results = await memory_service.search_memory("query")
-----
-
-=== AWS Strands Agents
-
-Export the connection values from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. The tool factory uses the direct Neo4j backend.
-
-[source,python]
-----
-import os
-from strands import Agent
-from neo4j_agent_memory.integrations.strands import context_graph_tools
-
-tools = context_graph_tools(
-    neo4j_uri=os.environ["NEO4J_URI"],
-    neo4j_user=os.environ["NEO4J_USERNAME"],
-    neo4j_password=os.environ["NEO4J_PASSWORD"],
-    neo4j_database=os.getenv("NEO4J_DATABASE", "neo4j"),
-    embedding_provider="bedrock",
-)
-
-agent = Agent(model="anthropic.claude-sonnet-4-20250514-v1:0", tools=tools)
-----
-
-=== Microsoft Agent Framework
-
-[source,python]
-----
-from neo4j_agent_memory.integrations.microsoft_agent import Neo4jMicrosoftMemory
-
-memory = Neo4jMicrosoftMemory(memory_client=client, session_id="user-123")
-# Use context provider with Agent
-agent = chat_client.as_agent(context_providers=[memory.context_provider])
-----
 
 == Choosing a Framework
 

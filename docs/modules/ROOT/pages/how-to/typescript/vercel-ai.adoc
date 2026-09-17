@@ -1,4 +1,4 @@
-= How to: integrate with the Vercel AI SDK
+= Integrate with the Vercel AI SDK
 :toc: left
 :source-highlighter: rouge
 
@@ -34,10 +34,10 @@ Prerequisites: a configured model provider and NAMS test-workspace credentials.
 
 For every model invocation:
 
-1. Fetches three-tier context for the conversation (reflections,
-   observations, recent messages) and prepends it to the prompt —
-   reflections and observations as one `system` message, recent messages
-   replayed as `user`/`assistant` turns with `{ type: "text" }` parts.
+1. Fetches xref:explanation/context-tiers.adoc[three-tier context] for the
+   conversation and prepends it to the prompt — reflections and
+   observations as one `system` message, recent messages replayed as
+   `user`/`assistant` turns with `{ type: "text" }` parts.
 2. Persists the user's input message before generation. A multi-part user
    message (text interleaved with files) is flattened to its text parts.
 3. Persists the assistant's response after generation — for `generateText`
@@ -124,10 +124,11 @@ schema); the env-var form above is what a script uses.
 
 == Streaming
 
-The default `wrapStream` forwards stream parts and launches an assistant write
-in the background. It exposes no persistence-completion promise. Draining the
-model stream does not establish that NAMS stored the answer; cancellation,
-errors and runtime shutdown can leave that write incomplete.
+The default `wrapStream` is fire-and-forget: it exposes no persistence-completion
+promise, so draining the model stream does not establish that NAMS stored the
+answer. See xref:how-to/typescript/edge-runtime.adoc#streaming-memory-persistence[the
+full derivation] for why and what that means for cancellation, errors and
+runtime shutdown.
 
 For a CLI that must finish storing before exit, own the streaming assistant write
 and disable automatic assistant persistence to avoid duplicates. Add `streamText`

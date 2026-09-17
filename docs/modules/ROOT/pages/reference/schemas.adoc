@@ -199,12 +199,9 @@ real_estate_schema = DomainSchema(
 extractor = GLiNEREntityExtractor(schema=real_estate_schema, threshold=0.5)
 ----
 
-=== Schema description guidance
+anchor:_schema_description_guidance[]
 
-1. **Use descriptive names**: `"A real estate property"` is better than `"property"`
-2. **Include synonyms**: `"A company, startup, or business organization"`
-3. **Be domain-specific**: Tailor descriptions to your use case
-4. **Test thresholds**: Lower thresholds catch more entities but may reduce precision
+See xref:how-to/entity-extraction-schemas.adoc#_write_effective_schema_descriptions[writing effective schema descriptions] for guidance on wording `DomainSchema` entity-type descriptions.
 
 == Schema persistence
 

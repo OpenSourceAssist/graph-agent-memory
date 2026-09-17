@@ -239,7 +239,7 @@ async def get_locations(
 [cols="1,4",options="header"]
 |===
 | Parameter | Description
-| `session_id` | Filter to locations mentioned in this conversation. When provided, only returns locations that have an EXTRACTED_FROM relationship to messages in this session.
+| `session_id` | Filter to locations mentioned in this conversation. When provided, only returns locations that have an `:EXTRACTED_FROM` relationship to messages in this session.
 | `has_coordinates` | Only return locations with lat/lon coordinates. Defaults to True for map visualization use cases.
 | `limit` | Maximum number of locations to return. Defaults to 500.
 |===

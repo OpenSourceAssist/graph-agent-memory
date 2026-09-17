@@ -59,8 +59,8 @@ async def add_message(
 | `extract_relations` | Whether to extract and store relations between entities
 | `generate_embedding` | Whether to generate embedding
 | `metadata` | Optional metadata
-| `extraction_mode` | How to populate MENTIONS edges for this message. `'auto'` (default): run the configured extractor pipeline. `'skip'`: do not run extraction, do not write MENTIONS edges. `'explicit'`: do not run extraction, write MENTIONS edges only for the entities supplied via `explicit_mentions`.
-| `explicit_mentions` | When `extraction_mode='explicit'`, a list of `~neo4j_agent_memory.schema.models.EntityRef` describing the entities to MERGE on and link.
+| `extraction_mode` | How to populate `:MENTIONS` edges for this message. `'auto'` (default): run the configured extractor pipeline. `'skip'`: do not run extraction, do not write `:MENTIONS` edges. `'explicit'`: do not run extraction, write `:MENTIONS` edges only for the entities supplied via `explicit_mentions`.
+| `explicit_mentions` | When `extraction_mode='explicit'`, a list of xref:reference/api/reasoning.adoc#_entityref[EntityRef] (element type `~neo4j_agent_memory.schema.models.EntityRef`) describing the entities to MERGE on and link.
 | `user_identifier` | When provided, scopes the conversation to a :User node via `(:User)-[:HAS_CONVERSATION]->(:Conversation)`. Required when `MemorySettings.memory.multi_tenant=True`.
 |===
 
@@ -135,7 +135,7 @@ There are no public `get_messages` or `get_message` methods. Read the conversati
 
 === delete_message
 
-Attempt to delete one message; `cascade=True` also removes its MENTIONS relationships. Returns whether deletion succeeded. Not supported on NAMS. The current query does not remove conversation/sequential/other links, so deletion can fail when those relationships remain; it does not reconnect neighboring messages.
+Attempt to delete one message; `cascade=True` also removes its `:MENTIONS` relationships. Returns whether deletion succeeded. Not supported on NAMS. The current query does not remove conversation/sequential/other links, so deletion can fail when those relationships remain; it does not reconnect neighboring messages.
 
 // contract: memory/short_term.py:ShortTermMemory.delete_message
 [source,python]
@@ -147,7 +147,7 @@ async def delete_message(message_id: UUID | str, *, cascade: bool=True) -> bool:
 |===
 | Parameter | Description
 | `message_id` | The message UUID to delete
-| `cascade` | If True, also delete MENTIONS relationships to entities. The entities themselves are not deleted as they may be referenced by other messages.
+| `cascade` | If True, also delete `:MENTIONS` relationships to entities. The entities themselves are not deleted as they may be referenced by other messages.
 |===
 
 == Search operations (bolt)
@@ -234,7 +234,7 @@ anchor:_delete_session[]
 
 === clear_session
 
-Delete the matching conversation, its linked messages, and any traces, steps, and tool calls connected through its `HAS_TRACE` relationships. This is the supported session-clearing name; `delete_session` does not exist.
+Delete the matching conversation, its linked messages, and any traces, steps, and tool calls connected through its `:HAS_TRACE` relationships. This is the supported session-clearing name; `delete_session` does not exist.
 
 // contract: memory/short_term.py:ShortTermMemory.clear_session
 [source,python]
@@ -286,7 +286,7 @@ Messages are linked sequentially:
 
 === migrate_message_links
 
-Migrate existing messages to use NEXT_MESSAGE and FIRST_MESSAGE relationships.
+Migrate existing messages to use `:NEXT_MESSAGE` and `:FIRST_MESSAGE` relationships.
 
 // contract: memory/short_term.py:ShortTermMemory.migrate_message_links
 [source,python]
@@ -339,7 +339,7 @@ async def extract_entities_from_session(
 | Parameter | Description
 | `session_id` | Session to process
 | `batch_size` | Messages to process per batch
-| `skip_existing` | Skip messages that already have entity links (MENTIONS relationships)
+| `skip_existing` | Skip messages that already have entity links (`:MENTIONS` relationships)
 | `extract_relations` | Whether to also extract and store relations between entities
 | `on_progress` | Progress callback (processed_count, total_count)
 |===

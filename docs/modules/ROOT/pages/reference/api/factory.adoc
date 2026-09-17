@@ -1,10 +1,7 @@
 = from_provider factory reference
 :page-product: agent-memory
 :page-pagination:
-:toclevels: 3
-:sectanchors:
-:icons: font
-:source-highlighter: highlight.js
+:toclevels: 2
 
 Reference for the `from_provider` string-shorthand factory.
 
@@ -174,8 +171,8 @@ print(type(provider).__name__)
 
 * xref:reference/api/llm-provider.adoc[LLM Provider API] — the Protocols.
 * xref:reference/api/adapters.adoc[Adapters] — constructor signatures.
-* xref:how-to/configure-llm-provider.adoc[Configure LLM Provider].
-* xref:how-to/configure-embedding-provider.adoc[Configure Embedding Provider].
+* xref:how-to/configure-llm-provider.adoc[Configure an LLM provider].
+* xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider].
 
 == Earlier section links
 

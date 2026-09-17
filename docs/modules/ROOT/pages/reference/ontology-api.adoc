@@ -137,7 +137,7 @@ request/response shapes.
 `MigrationJob` you poll with `get_migration()` (the service also exposes
 `/migrations/\{job_id}/pause` and `/resume`). The preview/dry-run path of `import`
 is rate-limited to 30 requests/hour/workspace (see
-xref:reference/nams-limits.adoc[NAMS Limits & Behavior]).
+xref:reference/nams-limits.adoc[NAMS limits and behavior]).
 ====
 
 == Errors
@@ -162,6 +162,12 @@ xref:reference/nams-limits.adoc[NAMS Limits & Behavior]).
 `personal-knowledge`, `product-management`, `real-estate`, `retail-ecommerce`,
 `scientific-research`, `software-engineering`, `trip-planning`,
 `vacation-industry`, `wildlife-management`.
+
+== See also
+
+* xref:explanation/ontologies.adoc[Ontologies] — the concept: system templates, revisions, and validation modes.
+* xref:how-to/use-ontologies.adoc[Use ontologies] — the activation recipe.
+* xref:reference/nams-limits.adoc[NAMS limits and behavior] — the import/preview rate limit.
 
 == Runnable examples
 

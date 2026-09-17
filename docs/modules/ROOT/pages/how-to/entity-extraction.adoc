@@ -4,9 +4,13 @@
 :toclevels: 2
 :sectanchors:
 
+include::partial$backend-bolt-only.adoc[]
+
 To extract entity candidates with a local model, select a supported domain schema, run extraction on the input, and inspect the returned names and types before persistence.
 
 image::diagrams/extraction-pipeline.svg["Configurable extraction stages combine candidate results",width=100%,link=self]
+
+For the rationale, see xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline].
 
 anchor:_prerequisites[]
 

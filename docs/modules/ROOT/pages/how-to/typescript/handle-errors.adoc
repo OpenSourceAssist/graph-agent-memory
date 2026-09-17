@@ -1,4 +1,4 @@
-= Handle TypeScript REST Errors
+= Handle TypeScript REST errors
 :toc:
 :source-highlighter: rouge
 

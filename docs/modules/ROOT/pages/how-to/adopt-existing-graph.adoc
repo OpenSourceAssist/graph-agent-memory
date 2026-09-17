@@ -1,4 +1,4 @@
-= Adopt an Existing Domain Graph
+= Adopt an existing domain graph
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2
@@ -17,6 +17,29 @@ and so on — none of which carry `:Entity` — those merges will create
 duplicates. The `client.schema.adopt_existing_graph()` helper attaches
 the `:Entity` super-label, the library's `id`/`type`/`name` properties,
 and is idempotent.
+
+== Prerequisites
+
+* A running Neo4j 5.x with your existing domain graph already loaded.
+* A Python SDK artifact containing `client.schema.adopt_existing_graph`; verify the method against the installed version before use.
+* A `MemorySettings` configured for the database (see xref:reference/configuration.adoc[Configuration Reference]), and an already-open `async with MemoryClient(settings) as client:` block — every snippet below shares that one connected `client`.
+
+If your domain types differ from the POLE+O default ontology, also configure `SchemaModel.CUSTOM`:
+
+[source,python]
+----
+from neo4j_agent_memory import MemorySettings
+from neo4j_agent_memory.config.settings import SchemaConfig, SchemaModel
+
+settings = MemorySettings(
+    schema_config=SchemaConfig(
+        model=SchemaModel.CUSTOM,
+        entity_types=["PERSON", "MOVIE", "GENRE"],
+        strict_types=True,
+    ),
+    # ...
+)
+----
 
 == Goal
 
@@ -44,29 +67,6 @@ rejected today.
 without a pre-existing `id` get a deterministic `<label_lc>:<name>` id;
 helpers that hydrate `Entity.id` as a `UUID` (such as `search_entities()`)
 raise `ValueError` on those rows. Read them with `client.query.cypher`.
-
-== Prerequisites
-
-* A running Neo4j 5.x with your existing domain graph already loaded.
-* A Python SDK artifact containing `client.schema.adopt_existing_graph`; verify the method against the installed version before use.
-* A `MemorySettings` configured for the database (see xref:reference/configuration.adoc[Configuration Reference]).
-
-If your domain types differ from the POLE+O default ontology, also configure `SchemaModel.CUSTOM`:
-
-[source,python]
-----
-from neo4j_agent_memory import MemorySettings
-from neo4j_agent_memory.config.settings import SchemaConfig, SchemaModel
-
-settings = MemorySettings(
-    schema_config=SchemaConfig(
-        model=SchemaModel.CUSTOM,
-        entity_types=["PERSON", "MOVIE", "GENRE"],
-        strict_types=True,
-    ),
-    # ...
-)
-----
 
 == Steps
 
@@ -97,26 +97,25 @@ Review the counts and skipped nodes before applying the same mapping.
 
 [source,python]
 ----
-async with MemoryClient(settings) as client:
-    report = await client.schema.adopt_existing_graph(
-        label_to_type={
-            "Person": "PERSON",
-            "Movie": "MOVIE",
-            "Genre": "GENRE",
-        },
-        name_property_per_label={"Movie": "title"},
-    )
+report = await client.schema.adopt_existing_graph(
+    label_to_type={
+        "Person": "PERSON",
+        "Movie": "MOVIE",
+        "Genre": "GENRE",
+    },
+    name_property_per_label={"Movie": "title"},
+)
 
-    print(f"Migrated {report.total_migrated} nodes "
-          f"({report.total_already_adopted} already adopted, "
-          f"{report.total_skipped} skipped).")
-    for label_report in report.by_label:
-        print(
-            f"  {label_report.label} -> {label_report.type}: "
-            f"+{label_report.migrated_count} new, "
-            f"={label_report.already_adopted_count} already, "
-            f"~{label_report.skipped_count} skipped"
-        )
+print(f"Migrated {report.total_migrated} nodes "
+      f"({report.total_already_adopted} already adopted, "
+      f"{report.total_skipped} skipped).")
+for label_report in report.by_label:
+    print(
+        f"  {label_report.label} -> {label_report.type}: "
+        f"+{label_report.migrated_count} new, "
+        f"={label_report.already_adopted_count} already, "
+        f"~{label_report.skipped_count} skipped"
+    )
 ----
 
 The helper:

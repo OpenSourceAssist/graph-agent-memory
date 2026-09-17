@@ -792,6 +792,8 @@ def build() -> EntityExtractor: ...
 
 Relation extraction consumes previously extracted entities with span positions. Import from `neo4j_agent_memory.extraction`.
 
+The SDK does not define a `glirel` extra, so install the `glirel` package separately alongside `neo4j-agent-memory`. Its current release also requires `loguru` at import time without declaring that dependency, so install `loguru` explicitly too.
+
 // contract: extraction/gliner_extractor.py:GLiRELExtractor.__init__
 [source,python]
 ----
@@ -1092,6 +1094,7 @@ result = await streamer.extract_to_result(long_document, deduplicate=True)
 * xref:reference/schemas.adoc[Domain schemas]
 * xref:how-to/entity-extraction.adoc[Configure entity extraction]
 * xref:how-to/batch-processing.adoc[Batch processing]
+* xref:how-to/entity-extraction-batch.adoc[Batch & Streaming] — handling `BatchExtractionResult` and `StreamingChunkResult` errors
 
 == Earlier section links
 

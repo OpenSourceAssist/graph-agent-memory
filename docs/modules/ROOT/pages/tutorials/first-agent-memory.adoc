@@ -63,7 +63,7 @@ include::example$core_memory_settings.py[]
 include::example$first_agent_memory.py[]
 ----
 
-Check the copied files before exporting credentials or making a service request:
+include::partial$python-tutorial-import-check.adoc[tag=intro]
 
 [source,bash]
 ----
@@ -72,7 +72,10 @@ python -c "import aura_connection, wait_for_tutorial_neo4j, core_memory_settings
 python first_agent_memory.py --help
 ----
 
-Expected: compilation exits without errors, then `Lesson imports verified` and the command help. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+:cli-help-suffix: {sp}and the command help
+include::partial$python-tutorial-import-check.adoc[tag=expected]
+
+:cli-help-suffix!:
 
 anchor:_step_2_set_up_neo4j[]
 
@@ -88,9 +91,10 @@ anchor:_step_3_configure_environment[]
 ----
 export OPENAI_API_KEY="replace-with-your-key"
 python -c "import os; assert os.environ['OPENAI_API_KEY']; print('Provider key present')"
+python -c "from core_memory_settings import settings; s = settings(); print(f'backend={s.backend}, embedding={type(s.embedding).__name__}')"
 ----
 
-Expected: `Provider key present`. This checks presence; the requests in the program verify access. Do not put the API key in the program.
+Expected: `Provider key present`, then `backend=bolt, embedding=OpenAIEmbeddingProvider`. The first check confirms the key is present; the requests in the program verify access. The second constructs and inspects the shared settings object without contacting Aura or OpenAI. Do not put the API key in the program.
 
 The `core_memory_settings.py` file copied above is imported by the lesson program.
 
@@ -135,7 +139,7 @@ anchor:_step_8_search_your_context_graph[]
 python first_agent_memory.py search
 ----
 
-Expected: up to five entity names and their `metadata["similarity"]` values, followed by the candidate count. Scores and order vary. Semantic retrieval is a ranked candidate search; the exact relationship query in step 5 is the persistence check. An empty search string is not an API for listing all entities.
+Expected: up to five entity names and their `metadata["similarity"]` values, followed by the candidate count. Scores and order vary between runs; the exact readback in step 5 remains the persistence check. An empty search string does not list all entities. See xref:explanation/memory-types.adoc[] for how ranked semantic search differs from exact lookup.
 
 anchor:_step_7_view_your_context_graph_in_neo4j_browser[]
 
@@ -173,9 +177,7 @@ anchor:_troubleshooting[]
 
 == If a check fails
 
-* A connection or authentication failure: confirm the Aura instance is Running, check the exported connection settings, and rerun the readiness command from step 2.
-* An OpenAI access or quota error: correct the account/model configuration and rerun on a fresh tutorial database if the prior write stopped midway.
-* Missing readback data: verify that the write command completed against this Aura instance. The program stops on missing data rather than treating an empty result as success.
+include::partial$python-tutorial-check-failed.adoc[]
 
 anchor:_see_also[]
 

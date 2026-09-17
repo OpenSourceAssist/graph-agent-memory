@@ -64,7 +64,7 @@ for a principal whose scopes permit them.
 | `skill_drift` | Drift status of a published skill.
 | `skill_edit` | Preview / apply an edit.
 | `skill_extract_subprocedure` | Composition (off by default).
-| `skill_execute` | *Dry-run planning only* — orders and validates steps, invokes nothing. Gated off by default.
+| `skill_execute` | *Dry-run planning only* — orders and validates steps, invokes nothing. Gated off by default (see `SKILL_EXECUTION_ENABLED` below).
 |===
 
 == Lifecycle & run outcomes
@@ -107,7 +107,7 @@ skill can still be published but is flagged **unsigned**.
 
 These are server-side operator settings, shown so you can interpret run outcomes
 (e.g. a `Withheld` run whose grounding fell below `0.9`). For request-level rate
-limits see xref:reference/nams-limits.adoc[NAMS Limits & Behavior].
+limits see xref:reference/nams-limits.adoc[NAMS limits and behavior].
 
 == See also
 

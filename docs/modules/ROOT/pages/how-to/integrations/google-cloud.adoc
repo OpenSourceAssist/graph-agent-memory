@@ -98,8 +98,7 @@ Expected: `Verified 2 vectors of 768 dimensions`, then stored-message verificati
 
 == Troubleshooting and cleanup
 
-
-Stop when the program raises an exception; a printed model response alone does not verify persistence. Check the configured database, provider access and vector dimensions before retrying. The program prints the session or trace IDs needed for inspection and closes the client. Retained example records remain in the dedicated database; follow the Aura tutorial's cleanup procedure for that dedicated instance only when you no longer need them. Reusing a session groups records; it does not authorize a user to read them.
+include::partial$python-integration-troubleshooting.adoc[tag=troubleshooting]
 
 == Adapt the integration
 
@@ -124,4 +123,4 @@ For ADK, use xref:how-to/integrations/google-adk.adoc[the complete Runner recipe
 
 https://github.com/neo4j-labs/agent-memory/tree/main/examples/google_cloud_integration[The Google Cloud scripts] demonstrate cloud embedding and ADK APIs. https://github.com/neo4j-labs/agent-memory/tree/main/examples/financial-services-advisor/google-cloud-financial-advisor[The financial-advisor application] adds its own specialist agents, domain tools, UI and infrastructure. Those application components are not installed automatically by the memory library, and any real deployment requires the example's own setup and checks.
 
-See xref:reference/backend-capabilities.adoc[Backend capabilities and scoping] before adding hosted or multi-user behavior. Neo4j Agent Memory is a Neo4j Labs project with community support.
+include::partial$python-integration-troubleshooting.adoc[tag=closing]

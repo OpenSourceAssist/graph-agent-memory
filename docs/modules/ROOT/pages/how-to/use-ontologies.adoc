@@ -3,7 +3,7 @@
 
 include::partial$backend-nams-only.adoc[]
 
-To apply a domain schema to future NAMS writes, clone a template, choose the validation mode and activate its version ID. This changes the workspace's active ontology; it does not rewrite all existing entities.
+To apply a domain schema to future NAMS writes, clone a template, choose the validation mode and activate its version ID.
 
 == Prerequisites
 
@@ -21,17 +21,10 @@ include::partial$python-tutorial-setup.adoc[]
 python -m pip install 'neo4j-agent-memory[nams]==0.6.0'
 ----
 
-Python 0.6.0 can infer the wrong active version through `get_active()`.
-The `read_active_binding` helper shown below reads the authoritative REST binding
-using the same NAMS settings. See
-xref:reference/ontology-api.adoc#python-0-6-active-binding[the release limitation].
-
-Save the two complete helper files in `agent-memory-tutorials/` before the
-activation program. Their names must match its imports.
-
-include::partial$python-hosted-state-file.adoc[]
-
-include::partial$python-hosted-helpers-file.adoc[]
+[NOTE]
+====
+Python 0.6.0's `get_active()` can report the latest revision when an older one is active — do not use its `version_id` or `validation_mode` as a rollback target. The program below reads the authoritative binding through a `read_active_binding` helper instead. See xref:reference/ontology-api.adoc#python-0-6-active-binding[the release limitation].
+====
 
 [#_list_the_catalog]
 // Retain former section URLs at the current related topic.
@@ -39,7 +32,7 @@ include::partial$python-hosted-helpers-file.adoc[]
 
 anchor:_clone_a_template_customize_activate[]
 
-Save this as `activate_ontology.py` in `agent-memory-tutorials/`, alongside the helpers you just saved. It lists the catalog, creates a strict revision, verifies its active ID and leaves that version active on success. It prints both IDs needed for an intentional rollback.
+The task is four calls: clone a template, update it into a strict revision, activate that version, then verify it took. Save this as `activate_ontology.py` in `agent-memory-tutorials/`. It lists the catalog, creates the strict revision, verifies its active ID with `read_active_binding` and leaves that version active on success, printing both IDs needed for an intentional rollback. The two helper modules it imports, `hosted_tutorial_helpers` and `hosted_tutorial_state`, are in the appendix at the end of this page — save them alongside this file before running it.
 
 .Save as `activate_ontology.py`
 [source,python]
@@ -107,16 +100,31 @@ anchor:_verify_with_get_active[]
 
 Success prints `Verified active strict version` with the same version returned by `update`. A failing activation or readback attempts to restore and verify the prior version before deleting the clone. If restoration fails, retain the clone and printed identifiers for inspection.
 
-Readback verifies the selected active version. For a temporary activation that restores the previous binding and removes its clone, run xref:tutorials/ontology-quickstart.adoc[the activation and restoration lesson]. That lesson does not test rejection of an unknown entity label. Offline tests do not certify the deployed service. Python and TypeScript currently expose different transport exception mappings; inspect xref:reference/rest-api.adoc[the REST reference] before handling errors.
+Readback verifies the selected active version. For a temporary activation that restores the previous binding and removes its clone, run xref:tutorials/ontology-quickstart.adoc[the activation and restoration lesson]. That lesson does not test rejection of an unknown entity label.
 
 == Verify extraction separately
 
 anchor:_await_asynchronous_extraction[]
 
-A completed message write is not proof of extraction readiness. Use a bounded wait tied to its returned conversation ID or exact expected names. A generic nonempty nearest-neighbor search can match older workspace entities. Ontology activation, direct entity writes and asynchronous message extraction have different success criteria.
+Use a bounded wait tied to its returned conversation ID or exact expected names. Ontology activation, direct entity writes and asynchronous message extraction have different success criteria.
+
+== Limits and gotchas
+
+* Activating an ontology changes the workspace's active ontology; it does not rewrite existing entities.
+* Offline tests do not certify the deployed service. Python and TypeScript currently expose different transport exception mappings; inspect xref:reference/rest-api.adoc[the REST reference] before handling errors.
+* A completed message write is not proof of extraction readiness, and a generic nonempty nearest-neighbor search can match older workspace entities rather than the ones just written.
 
 == See also
 
 * xref:explanation/ontologies.adoc[Why use an ontology]
 * xref:reference/ontology-api.adoc[Ontology operations, IDs and models]
 * xref:how-to/use-nams.adoc[Connect to NAMS]
+
+[#_appendix_helper_files]
+== Appendix: helper files
+
+`activate_ontology.py` above imports these two modules. `hosted_tutorial_state.py` provides the shared HTTP client and the on-disk run ledger; `hosted_tutorial_helpers.py` provides `read_active_binding`, which reads the authoritative `GET /ontologies/active` binding directly rather than trusting the SDK's `get_active()` metadata (see the note in <<_list_the_catalog>>). Save both files in `agent-memory-tutorials/` before running the activation program. For a guided walkthrough of what this code does and why, see xref:tutorials/ontology-quickstart.adoc[the ontology tutorial].
+
+include::partial$python-hosted-state-file.adoc[]
+
+include::partial$python-hosted-helpers-file.adoc[]

@@ -1,4 +1,4 @@
-= How to: integrate with AWS Strands Agents
+= Integrate with AWS Strands Agents
 :toc: left
 :source-highlighter: rouge
 
@@ -23,9 +23,10 @@ all four of Strands' orthogonal extension surfaces:
   nodes; non-message snapshot state (Strands' `data` minus messages,
   plus `appData`, plus manifests) rides on synthetic `role: "user"`
   marker messages whose content is `pass:[__strands_state__:{base64-JSON}]`.
-* **`ConversationManager`** — three-tier context (reflections + observations
-  from `getContext()`) is prepended to every model invocation, *on top of*
-  a configurable inner manager (defaults to `SlidingWindowConversationManager`).
+* **`ConversationManager`** — xref:explanation/context-tiers.adoc[three-tier
+  context] (reflections + observations from `getContext()`) is prepended to
+  every model invocation, *on top of* a configurable inner manager (defaults
+  to `SlidingWindowConversationManager`).
 * **`HookRegistry` events** — `BeforeInvocation`, `AfterInvocation`,
   `BeforeToolCall`, and `AfterToolCall` are wired to the reasoning subclient
   so every agent turn becomes a queryable `ReasoningStep` with tool calls

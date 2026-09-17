@@ -19,9 +19,10 @@ Your `MEMORY_API_KEY` is missing, mistyped, or revoked.
 == `NotSupportedError: Method 'X' has no equivalent in the hosted REST API`
 
 You're calling a bridge-only operation against the hosted service (or
-vice versa). The hosted service exposes a richer surface (three-tier
-context, observations, reflections, entity feedback, graph view); the
-bridge supports the legacy long-term/reasoning operations from the TCK.
+vice versa). The hosted service exposes a richer surface
+(xref:explanation/context-tiers.adoc[three-tier context], entity feedback,
+graph view); the bridge supports the legacy long-term/reasoning operations
+from the TCK.
 
 Either:
 
@@ -67,7 +68,8 @@ ESM-only subpath exports, which require modern module resolution.
 If you wrote your own e2e tests against the live hosted service and see
 "Hook timed out in 10000ms" on `beforeAll(client.connect)`: vitest's
 default `hookTimeout` is 10s, but the first connect on a cold path can
-take longer. Bump it in `vitest.config.ts`:
+take longer. Add this key to your existing `vitest.config.ts` object — it's a
+partial fragment, not a full config file:
 
 [source,typescript]
 ----

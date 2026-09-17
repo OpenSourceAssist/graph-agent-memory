@@ -102,6 +102,8 @@ anchor:_multi_user_support[]
 anchor:_the_shared_brain_pattern[]
 anchor:_see_also[]
 
+Pick a surface before configuring either class: use `Neo4jSessionManager` to transparently persist and restore the whole conversation transcript, and add `Neo4jMemoryStore` only when the agent also needs to pull retrieved memory into its own reasoning loop through `MemoryManager`. The two paragraphs below cover each in turn.
+
 `Neo4jSessionManager` persists and restores transcripts; it does not require the model to invoke a memory tool. Its constructor requires exactly one of `settings=` or `memory_client=`. Prefer settings-owned lifecycle for a synchronous Strands application. Optional `record_tool_calls=True` records observed calls; `restore_limit` controls how much history is loaded.
 
 `Neo4jMemoryStore(Neo4jMemoryStoreConfig(...))` implements Strands' memory-store surface. Configure it on `MemoryManager(stores=[store])` for agent-loop retrieval. `name` identifies a store, `settings` or `client` supplies a backend, and `conversation_id` selects the sink where applicable. Store extraction is off by default; a read-only configuration should not be described as capturing every turn. See https://github.com/neo4j-labs/agent-memory/tree/main/examples/strands-memory-store[the complete maintained memory-store example] for its lifecycle and verified settings.

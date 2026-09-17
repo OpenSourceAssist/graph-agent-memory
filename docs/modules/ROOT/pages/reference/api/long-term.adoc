@@ -155,7 +155,7 @@ async def add_preference(
 | `generate_embedding` | Whether to generate embedding
 | `metadata` | Optional metadata
 | `user_identifier` | When provided, writes a `(:User)-[:HAS_PREFERENCE]->(:Preference)` edge linking the preference to the user's :User node. Multi-tenant deployments should pass this on every call.
-| `applies_to` | Optional list of `EntityRef` describing the entities this preference scopes to. Each ref is materialized as a `(:Preference)-[:APPLIES_TO]->(:Entity)` edge so `get_preferences_for(user, applies_to=...)` queries can find scoped preferences efficiently.
+| `applies_to` | Optional list of xref:reference/api/reasoning.adoc#_entityref[EntityRef] describing the entities this preference scopes to. Each ref is materialized as a `(:Preference)-[:APPLIES_TO]->(:Entity)` edge so `get_preferences_for(user, applies_to=...)` queries can find scoped preferences efficiently.
 |===
 
 anchor:_get_preferences[]
@@ -416,7 +416,7 @@ async def find_potential_duplicates(*, limit: int=100) -> list[tuple[Entity, Ent
 
 === merge_duplicate_entities
 
-Merge two entities, keeping the target and marking source as merged. The source's name is added to the target's `aliases`, and the Bolt query copies the source's edges of these types onto the target: inbound `MENTIONS` (from `Message`), `RELATED_TO` in both directions, `SAME_AS`, outbound `EXTRACTED_FROM` and `EXTRACTED_BY` provenance, inbound `APPLIES_TO` (from `Preference`), and inbound `TOUCHED` (from `ReasoningStep`). Edges are copied, not moved: the merged-away source keeps its own edges — so the merge stays reversible and auditable — and is marked with `merged_into`/`merged_at` to exclude it from later deduplication scans. A copied edge keeps the source edge's `id` and gains a `migrated_from` property; nothing looks a `RELATED_TO` edge up by id, so the shared id is not ambiguous. Relationship types outside this list are not transferred automatically; review any custom links separately.
+Merge two entities, keeping the target and marking source as merged. The source's name is added to the target's `aliases`, and the Bolt query copies the source's edges of these types onto the target: inbound `:MENTIONS` (from `Message`), `:RELATED_TO` in both directions, `:SAME_AS`, outbound `:EXTRACTED_FROM` and `:EXTRACTED_BY` provenance, inbound `:APPLIES_TO` (from `Preference`), and inbound `:TOUCHED` (from `ReasoningStep`). Edges are copied, not moved: the merged-away source keeps its own edges — so the merge stays reversible and auditable — and is marked with `merged_into`/`merged_at` to exclude it from later deduplication scans. A copied edge keeps the source edge's `id` and gains a `migrated_from` property; nothing looks a `:RELATED_TO` edge up by id, so the shared id is not ambiguous. Relationship types outside this list are not transferred automatically; review any custom links separately.
 
 // contract: memory/long_term.py:LongTermMemory.merge_duplicate_entities
 [source,python]
@@ -456,7 +456,7 @@ async def review_duplicate(
 
 === get_same_as_cluster
 
-Get all entities in the same SAME_AS cluster as the given entity.
+Get all entities in the same `:SAME_AS` cluster as the given entity.
 
 // contract: memory/long_term.py:LongTermMemory.get_same_as_cluster
 [source,python]
@@ -569,7 +569,7 @@ async def register_extractor(
 
 === link_entity_to_message
 
-Link an entity to its source message (EXTRACTED_FROM relationship).
+Link an entity to its source message (`:EXTRACTED_FROM` relationship).
 
 // contract: memory/long_term.py:LongTermMemory.link_entity_to_message
 [source,python]
@@ -598,7 +598,7 @@ async def link_entity_to_message(
 
 === link_entity_to_extractor
 
-Link an entity to its extractor (EXTRACTED_BY relationship).
+Link an entity to its extractor (`:EXTRACTED_BY` relationship).
 
 // contract: memory/long_term.py:LongTermMemory.link_entity_to_extractor
 [source,python]

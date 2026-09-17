@@ -8,7 +8,7 @@
 
 Entity resolution asks whether two mentions identify the same real-world thing. Deduplication applies that decision to stored records. Both seek a balance: missed matches fragment knowledge, while false merges combine information that should remain separate.
 
-NOTE: Python's configurable resolvers and manual deduplication review methods are Bolt capabilities. NAMS performs resolution server-side and returns service-specific outcomes. See xref:reference/backend-capabilities.adoc[Backend capabilities] before applying a workflow.
+NOTE: Python's configurable resolvers and manual deduplication review methods are Bolt capabilities. NAMS performs resolution server-side and returns service-specific outcomes. See xref:reference/backend-capabilities.adoc[Backend capabilities] and xref:explanation/backends.adoc[Bolt and NAMS] before applying a workflow.
 
 [[_the_entity_resolution_problem]]
 == The entity resolution problem

@@ -2,19 +2,19 @@
 :page-product: agent-memory
 :toclevels: 2
 
-Look up the contract for your SDK and backend. Start with xref:reference/backend-capabilities.adoc[capabilities and data scope] when comparing Bolt and NAMS. These pages describe the checked source; verify availability in the SDK artifact you install.
+Look up the contract for your SDK and backend. Start with xref:reference/backend-capabilities.adoc[Backend capabilities and data scope] when comparing Bolt and NAMS. These pages describe the checked source; verify availability in the SDK artifact you install.
 
 // Retain former section URLs at the current related topic.
 == Python API
 
 anchor:_api_reference[]anchor:_extraction_reference[]anchor:_tools[]anchor:_installation[]
 
-* xref:reference/api/adapters.adoc[Adapters Reference]
-* xref:reference/api/factory.adoc[`from_provider` Factory]
-* xref:reference/api/llm-provider.adoc[LLM Provider API]
-* xref:reference/api/long-term.adoc[LongTermMemory API Reference]
+* xref:reference/api/adapters.adoc[Adapters reference]
+* xref:reference/api/factory.adoc[from_provider factory reference]
+* xref:reference/api/llm-provider.adoc[LLM provider API reference]
+* xref:reference/api/long-term.adoc[LongTermMemory API reference]
 * xref:reference/api/memory-client.adoc[MemoryClient API reference]
-* xref:reference/api/reasoning.adoc[ReasoningMemory API Reference]
+* xref:reference/api/reasoning.adoc[ReasoningMemory API reference]
 * xref:reference/api/short-term.adoc[ShortTermMemory API reference]
 
 // Retain former section URLs at the current related topic.
@@ -22,19 +22,20 @@ anchor:_api_reference[]anchor:_extraction_reference[]anchor:_tools[]anchor:_inst
 
 anchor:_configuration[]anchor:_quick_links[]anchor:_minimal_example[]anchor:_reference_philosophy[]
 
-* xref:reference/authentication.adoc[Authentication & API Keys]
+* xref:reference/authentication.adoc[Authentication and API keys]
 * xref:reference/backend-capabilities.adoc[Backend capabilities and data scope]
-* xref:reference/cli.adoc[CLI Reference]
-* xref:reference/configuration.adoc[Configuration Reference]
-* xref:reference/deployment.adoc[Documentation Deployment Guide]
-* xref:reference/environment-variables.adoc[Environment Variables Reference]
-* xref:reference/extractors.adoc[Extractor Classes Reference]
-* xref:reference/mcp-tools.adoc[MCP Tools Reference]
-* xref:reference/nams-limits.adoc[NAMS Limits & Behavior]
-* xref:reference/nams-mcp.adoc[Hosted NAMS MCP Server]
+* xref:reference/cli.adoc[CLI reference]
+* xref:reference/configuration.adoc[Configuration reference]
+* xref:reference/deployment.adoc[Documentation publication]
+* xref:reference/deploy-an-application.adoc[Deploy a memory application]
+* xref:reference/environment-variables.adoc[Environment variables reference]
+* xref:reference/extractors.adoc[Extractor classes reference]
+* xref:reference/mcp-tools.adoc[Self-hosted Python MCP reference]
+* xref:reference/nams-limits.adoc[NAMS limits and behavior]
+* xref:reference/nams-mcp.adoc[Hosted NAMS MCP server]
 * xref:reference/ontology-api.adoc[Ontology API reference]
-* xref:reference/rest-api.adoc[REST API Reference]
-* xref:reference/schema-objects.adoc[Schema Objects Reference]
-* xref:reference/schemas.adoc[Domain Schemas Reference]
+* xref:reference/rest-api.adoc[REST API reference]
+* xref:reference/schema-objects.adoc[Schema objects reference]
+* xref:reference/schemas.adoc[Domain schemas reference]
 * xref:reference/skills-api.adoc[Skills API (Preview)]
-* xref:reference/typescript-api.adoc[TypeScript SDK API Reference]
+* xref:reference/typescript-api.adoc[TypeScript SDK API reference]

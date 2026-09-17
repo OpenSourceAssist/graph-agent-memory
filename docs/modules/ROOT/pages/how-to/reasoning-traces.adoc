@@ -8,6 +8,8 @@ To diagnose an unsuccessful tool action, create a trace, add the action as a ste
 
 image::diagrams/reasoning-trace-graph.svg["Trace links to a message and ordered steps with tool calls and touched entities",width=100%,link=self]
 
+For the rationale, see xref:explanation/memory-types.adoc[Understanding the three memory types].
+
 anchor:_prerequisites[]
 
 == 1. Prepare the Bolt client
@@ -21,15 +23,15 @@ include::partial$python-tutorial-setup.adoc[]
 python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
 ----
 
-The maintained program `core_memory_recipes.py` imports `core_memory_settings.py` from the same directory. That helper explicitly selects Bolt and disables automatic extraction/enrichment. Each command creates a new ID suffix so it can run independently. Embedding requests send example text to OpenAI.
-
-These tasks use Python with Bolt. Consult xref:reference/backend-capabilities.adoc[backend capabilities] before adapting them to NAMS; preferences, facts, direct relationship writes, and this deduplication configuration are not portable hosted operations.
+include::partial$python-core-recipe-intro.adoc[]
 
 include::partial$python-core-recipe-files.adoc[]
 
 == 2. Apply the task function
 
-The deliberately unavailable product gives a reproducible failure path. The trace stores application actions, tool arguments, errors, and outcomes. It does not require or expose a model's private reasoning.
+Start a trace, record a step and its tool call, then complete the trace with a structured outcome. The deliberately unavailable product gives a reproducible failure path. The trace stores application actions, tool arguments, errors, and outcomes. It does not require or expose a model's private reasoning.
+
+On success, the pattern is the same: call `record_tool_call` with the default `status=ToolCallStatus.SUCCESS` and the tool's actual `result`, then finish with `complete_trace(trace.id, outcome=TraceOutcome(success=True, summary=...))`. The xref:tutorials/conversation-memory.adoc[chatbot tutorial] runs that successful path end-to-end; this recipe isolates the failure path because it is the branch application code most often gets wrong.
 
 The function below is included from the complete maintained program, which already supplies imports, client setup, unique IDs, and `asyncio.run`. Run the file in step 3; this extract is not a separate top-level script.
 
@@ -53,7 +55,7 @@ anchor:_complete_the_trace[]
 
 == Complete every started trace
 
-In real tool code, wrap the actual operation in `try`/`except`, record the appropriate `ToolCallStatus`, and call `complete_trace` on success and failure paths. `record_tool_call` accepts `status`, `error`, and integer `duration_ms`; it has no `success` keyword. `complete_trace` accepts an outcome string or `TraceOutcome`; it has no `error` keyword.
+Always pair a started trace with a matching `complete_trace` call, whichever way the tool action goes. In real tool code, wrap the actual operation in `try`/`except`, record the appropriate `ToolCallStatus`, and call `complete_trace` on success and failure paths. `record_tool_call` accepts `status`, `error`, and integer `duration_ms`; it has no `success` keyword. `complete_trace` accepts an outcome string or `TraceOutcome`; it has no `error` keyword.
 
 The xref:tutorials/conversation-memory.adoc[chatbot tutorial] provides a complete success path and completion after a failed model request. Optional `triggered_by_message_id` creates an `INITIATED_BY` link. Use `touched_entities`/`EntityRef` for explicit action provenance, and async hooks for follow-up writes.
 
@@ -67,6 +69,9 @@ Similarity is stored in trace metadata; `search_steps` returns result wrappers w
 
 // Historical section links resolve to the maintained task and reference pointers.
 anchor:_typescript_equivalents_at_a_glance[]
+
+include::partial$python-typescript-equivalents.adoc[]
+
 anchor:_overview[]
 anchor:_record_reasoning_traces[]
 anchor:_start_a_trace[]

@@ -15,6 +15,8 @@ A graph-native memory system for AI agents. Store conversations, build knowledge
 > **Neo4j Labs project**
 >
 > This project is part of Neo4j Labs and is actively maintained, but not officially supported. There are no SLAs or guarantees around backwards compatibility and deprecation. For questions and support, please use the [Neo4j Community Forum](https://community.neo4j.com).
+>
+> The Python and TypeScript packages in this repository are versioned and released independently; the status badge above reflects this package's own maturity, not the other SDK's.
 
 ## What it does
 

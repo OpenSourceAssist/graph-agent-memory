@@ -4,7 +4,11 @@
 :toclevels: 2
 :sectanchors:
 
+include::partial$backend-bolt-only.adoc[]
+
 To process multiple source texts without losing failed inputs, use the pipeline's batch result wrappers and retain the input index for every result. For longer individual texts, select explicit chunk units and inspect per-chunk errors.
+
+For the rationale, see xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline].
 
 anchor:_prerequisites[]
 

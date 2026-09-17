@@ -104,7 +104,9 @@ commands and remaining resource classes.
 
 [IMPORTANT]
 ====
-The checked Bolt implementation of `short_term.search_messages` accepts `session_id` but does not apply it in its Cypher search. Do not use that argument as an isolation guarantee. `get_context` can combine search results from wider scopes; it is not an authorization boundary. Use a deliberately scoped read such as `get_conversation`, or separate authorized databases when isolation is required, and review each retrieval path. A future search-filter fix must be verified in the SDK version you install.
+Bolt's `short_term.search_messages` accepts a `session_id` argument but does not apply it in its Cypher search — do not treat that argument as an isolation guarantee.
+
+`get_context` can likewise combine search results from wider scopes and is not an authorization boundary. For isolation, use a deliberately scoped read such as `get_conversation`, or separate authorized databases, and review each retrieval path. If a later SDK version adds the filter, verify it against the version you install.
 ====
 
 `long_term.get_preferences_for(user_identifier)` follows a specific user's preference relationship on Bolt. In contrast, `search_preferences` is a semantic search and is not automatically limited to that user. `get_session_traces` selects a session; similarity search over traces has a different scope. Entity knowledge can be shared within the selected database/workspace.

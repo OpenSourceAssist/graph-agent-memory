@@ -67,14 +67,15 @@ Discovery and flow endpoints (served under the `/mcp` prefix on the MCP host):
 | `/mcp/oauth/token` | Token + refresh-token endpoint.
 |===
 
-See xref:reference/authentication.adoc[Authentication & API Keys] for the key and
+See xref:reference/authentication.adoc[Authentication and API keys] for the key and
 token model, and xref:how-to/typescript/mcp.adoc[MCP Tools (TypeScript)] for
 wiring a client.
 
 == Tool surface & scope-filtered visibility
 
-The documented service contract groups tools into memory, entity resolution/review,
-ontology, workspace management, and xref:reference/skills-api.adoc[Skills].
+The documented service contract groups tools into memory (including entity
+resolution and review, e.g. `memory_resolve_entity`), ontology, workspace
+management, and xref:reference/skills-api.adoc[Skills].
 Use authenticated `tools/list` to obtain the actual inventory; a fixed count in this SDK repository is not a deployment guarantee.
 
 The surface a caller sees is **scope-dependent**. `tools/list` returns only the

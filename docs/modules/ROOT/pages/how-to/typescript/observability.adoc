@@ -1,4 +1,4 @@
-= How to: enable request logging
+= Enable request logging
 :toc: left
 :source-highlighter: rouge
 
@@ -86,7 +86,7 @@ logger in your own try/catch if you care.
 == User-Agent customization
 
 The client sends a default `User-Agent` like
-`@neo4j-labs/agent-memory/0.4.0 (node/22.5.0; darwin)`. To override,
+`@neo4j-labs/agent-memory/0.4.1 (node/22.5.0; darwin)`. To override,
 pass your own:
 
 [source,typescript]
@@ -97,7 +97,7 @@ new MemoryClient({
 ----
 
 Wrapping SDKs should append their own identifier (e.g.,
-`@neo4j-labs/agent-memory/0.4.0 my-wrapper/1.0`) so server-side metrics
+`@neo4j-labs/agent-memory/0.4.1 my-wrapper/1.0`) so server-side metrics
 can break the population down.
 
 == Request-id correlation

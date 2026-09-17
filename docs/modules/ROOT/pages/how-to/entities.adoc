@@ -6,6 +6,10 @@
 
 To build explicit graph knowledge, create typed entities, connect their returned IDs, and read the stored relationship back. Use POLE+O types with optional subtypes to distinguish domain concepts such as products.
 
+image::diagrams/entity-relationship-recipe.svg["A Person and an Organization entity connected by a RELATED_TO relationship, with a separate Fact node",width=100%,link=self]
+
+For the rationale, see xref:explanation/poleo-model.adoc[The POLE+O data model].
+
 anchor:_prerequisites[]
 
 == 1. Prepare the Bolt client
@@ -19,15 +23,13 @@ include::partial$python-tutorial-setup.adoc[]
 python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
 ----
 
-The maintained program `core_memory_recipes.py` imports `core_memory_settings.py` from the same directory. That helper explicitly selects Bolt and disables automatic extraction/enrichment. Each command creates a new ID suffix so it can run independently. Embedding requests send example text to OpenAI.
-
-These tasks use Python with Bolt. Consult xref:reference/backend-capabilities.adoc[backend capabilities] before adapting them to NAMS; preferences, facts, direct relationship writes, and this deduplication configuration are not portable hosted operations.
+include::partial$python-core-recipe-intro.adoc[]
 
 include::partial$python-core-recipe-files.adoc[]
 
 == 2. Apply the task function
 
-`add_entity` returns `(Entity, DeduplicationResult)` on Bolt. Repeated exact name/type writes merge at storage even with `deduplicate=False`. Python 0.6.0 returns the existing stored ID for SDK-created entities, so the returned entity can be used as a relationship endpoint. The recipe disables resolution and deduplication for its isolated example names, then verifies the stored edge. `add_fact` takes `obj` (or its third positional argument), and `Fact.as_triple` is a property.
+Create a source and target entity, link them with an explicit relationship, and attach a fact to one of them. `add_entity` returns `(Entity, DeduplicationResult)` on Bolt. Repeated exact name/type writes merge at storage even with `deduplicate=False`. Python 0.6.0 returns the existing stored ID for SDK-created entities, so the returned entity can be used as a relationship endpoint. The recipe disables resolution and deduplication for its isolated example names, then verifies the stored edge. `add_fact` takes `obj` (or its third positional argument), and `Fact.as_triple` is a property.
 
 The function below is included from the complete maintained program, which already supplies imports, client setup, unique IDs, and `asyncio.run`. Run the file in step 3; this extract is not a separate top-level script.
 
@@ -59,7 +61,7 @@ anchor:_create_relationships[]
 
 == Preserve relationship and source meaning
 
-Explicit `add_relationship` calls store the logical relationship name in `RELATED_TO.type`; automatic message extraction uses the separate `RELATED_TO.relation_type` property. Python 0.6.0 returns the stored relationship ID when an existing edge is matched and raises `NotFoundError` when an endpoint is absent. Its write still does not persist the `attributes` argument; do not depend on a provenance attribute surviving that call. Use `link_entity_to_message` for `EXTRACTED_FROM` links and `get_entity_provenance` for inspection. The xref:tutorials/knowledge-graph.adoc[document tutorial] demonstrates complete extraction and provenance storage.
+Explicit `add_relationship` calls store the logical relationship name in `RELATED_TO.type`; automatic message extraction uses the separate `RELATED_TO.relation_type` property. Python 0.6.0 returns the stored relationship ID when an existing edge is matched and raises `NotFoundError` when an endpoint is absent. Its write does not persist the `attributes` argument — a documented limitation of 0.6.0; do not depend on a provenance attribute surviving that call. Use `link_entity_to_message` for `EXTRACTED_FROM` links and `get_entity_provenance` for inspection. The xref:tutorials/knowledge-graph.adoc[document tutorial] demonstrates complete extraction and provenance storage.
 
 anchor:_update_entities[]
 anchor:_delete_entities[]
@@ -72,6 +74,9 @@ For enrichment and geospatial tasks, follow xref:reference/configuration.adoc#en
 
 // Historical section links resolve to the maintained task and reference pointers.
 anchor:_typescript_equivalents_at_a_glance[]
+
+include::partial$python-typescript-equivalents.adoc[]
+
 anchor:_add_entities_manually[]
 anchor:_basic_entity_creation[]
 anchor:_entity_with_properties[]

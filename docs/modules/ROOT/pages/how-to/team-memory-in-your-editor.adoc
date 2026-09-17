@@ -287,5 +287,5 @@ If the host does not expose a conversation read for your scopes, inspect `tools/
 * xref:reference/nams-mcp.adoc[Hosted NAMS MCP Server] — scope-dependent tools and documented service authentication.
 * xref:reference/mcp-tools.adoc[MCP Tools] — every self-hosted tool, resource and prompt.
 * xref:tutorials/mcp-server.adoc[Connect Claude Desktop to Your Knowledge Graph] — the self-hosted path end to end.
-* xref:reference/authentication.adoc[Authentication & API Keys] — workspace vs admin keys.
+* xref:reference/authentication.adoc[Authentication and API keys] — workspace vs admin keys.
 * xref:how-to/use-nams.adoc[Use NAMS] — configuring the hosted backend from code.

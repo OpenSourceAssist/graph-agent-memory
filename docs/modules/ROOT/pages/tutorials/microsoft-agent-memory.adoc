@@ -7,6 +7,11 @@
 
 We will store an explicit shopping preference in AuraDB, attach a Neo4j context provider to a Microsoft Agent Framework agent, and verify the persisted turn and recorded trace. The product catalog is a small fictional list in the instructions; this lesson does not promise graph algorithms or real inventory queries.
 
+[NOTE]
+====
+icon:flask[] *Preview.* The Microsoft Agent Framework integration tracks a framework that is itself pre-1.0; APIs on either side can change between releases. Pin both packages explicitly and re-check this page before upgrading a deployment.
+====
+
 This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
 
 [[_what_youll_build]]
@@ -61,7 +66,7 @@ include::partial$aura-tutorial-files.adoc[]
 include::example$microsoft_shopping_tutorial.py[]
 ----
 
-Check the copied files before exporting credentials or making a service request:
+include::partial$python-tutorial-import-check.adoc[tag=intro]
 
 [source,bash]
 ----
@@ -69,7 +74,10 @@ python -m py_compile aura_connection.py wait_for_tutorial_neo4j.py microsoft_sho
 python -c "import aura_connection, wait_for_tutorial_neo4j, microsoft_shopping_tutorial; assert all(callable(f) for f in [aura_connection.aura_config, wait_for_tutorial_neo4j.wait_until_ready, microsoft_shopping_tutorial.main]); print('Lesson imports verified')"
 ----
 
-Expected: compilation exits without errors, then `Lesson imports verified`. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+:cli-help-suffix:
+include::partial$python-tutorial-import-check.adoc[tag=expected]
+
+:cli-help-suffix!:
 
 [[_step_2_set_up_neo4j]]
 == 2. Create and connect to the Aura lesson instance

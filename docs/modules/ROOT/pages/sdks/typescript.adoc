@@ -9,7 +9,7 @@ include::partial$labs-disclaimer.adoc[]
 
 [NOTE]
 ====
-Artifact check on 13 September 2026: npm's latest `@neo4j-labs/agent-memory` was `0.4.1`, with Node `>=20` metadata and older V1-style middleware declarations. This checkout's Node 22 / V4 lesson setup describes source development, not that published artifact. Use the source bootstrap below until a matching release is verified.
+Registry check on 13 September 2026: npm's latest `@neo4j-labs/agent-memory` was `0.4.1`. Run `npm view @neo4j-labs/agent-memory version engines` to re-check what is currently published. This checkout's Node 22 lesson setup describes source development, which can be ahead of that published artifact. Use the source bootstrap below until a matching release is verified.
 ====
 
 == Install
@@ -78,10 +78,10 @@ All five ship as subpath exports.
 
 * xref:tutorials/first-agent-memory-typescript.adoc[Tutorial: First agent memory (TypeScript)]
 * xref:tutorials/hosted-quickstart-typescript.adoc[Tutorial: Hosted quickstart]
-* xref:how-to/typescript/authenticate.adoc[How-to: authenticate]
+* xref:how-to/typescript/authenticate.adoc[How-to: authenticate a TypeScript client]
 * xref:how-to/typescript/edge-runtime.adoc[How-to: deploy to edge runtimes]
-* xref:how-to/typescript/observability.adoc[How-to: enable observability]
-* xref:how-to/typescript/handle-errors.adoc[How-to: handle errors]
+* xref:how-to/typescript/observability.adoc[How-to: enable request logging]
+* xref:how-to/typescript/handle-errors.adoc[How-to: handle TypeScript REST errors]
 * xref:how-to/typescript/troubleshooting.adoc[Troubleshooting]
 * xref:reference/typescript-api.adoc[Full API reference] (with the link:{attachmentsdir}/api/typescript/index.html[TypeDoc-generated method-level reference])
 
@@ -104,7 +104,8 @@ link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples[`t
 with link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/nextjs-memory-chat[`nextjs-memory-chat/`] —
 the flagship full-stack demo: a Next.js 16 App Router assistant on hosted NAMS
 with a live entity-graph rail, an extraction-status badge and a reasoning-trace
-drawer. The CI example matrix checks source compatibility with mocked services.
+drawer. See xref:how-to/typescript/nextjs-memory-chat.adoc[the task-oriented guide]
+for the four decisions behind it, or clone the example directly. The CI example matrix checks source compatibility with mocked services.
 The eve commerce demo currently has unsupported hosted preference/fact paths;
 see its README before using it as a deployment example. Offline checks do not
 prove npm artifact availability or live-service behavior.

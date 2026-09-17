@@ -5,7 +5,7 @@
 
 Extraction converts text into candidate entities, relationships, and preferences. It is an inference step: a well-formed result can still omit information or misidentify what the text means.
 
-NOTE: This page describes Python's configurable client-side extraction on Bolt. NAMS performs extraction server-side; the same client settings do not configure that pipeline. See xref:reference/backend-capabilities.adoc[Backend capabilities].
+NOTE: This page describes Python's configurable client-side extraction on Bolt. NAMS performs extraction server-side; the same client settings do not configure that pipeline. See xref:reference/backend-capabilities.adoc[Backend capabilities] and xref:explanation/backends.adoc[Bolt and NAMS].
 
 [[_the_challenge]]
 == The challenge
@@ -19,7 +19,7 @@ An extractor must distinguish a person, an organization, a place, and an event. 
 
 anchor:_spacy_statistical_ner[]anchor:_gliner_zero_shot_ner[]anchor:_llm_context_aware_extraction[]
 
-image::diagrams/extraction-pipeline.png["Multi-stage extraction pipeline: spaCy → GLiNER2 → GLiREL → LLM → knowledge graph",width=540,align=left,link=self]
+image::diagrams/extraction-pipeline.png["Configurable extraction pipeline: input messages or documents, a configured extractor stage (spaCy, GLiNER, relationship or LLM stages), the selected merge strategy, then persisted entities and supported relationships. Order and fallback depend on configuration.",width=540,align=left,link=self]
 
 * *spaCy* recognizes the labels learned by its installed language model. It can run locally and is useful when that label vocabulary matches the text. Its entity output does not provide the same confidence signal as every other extractor.
 * *GLiNER* accepts labels or domain descriptions at inference time. This allows a domain vocabulary without training a new spaCy model, at the cost of loading and running a transformer model. The model's training still affects what it can recognize.

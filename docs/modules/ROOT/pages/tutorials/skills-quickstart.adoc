@@ -4,6 +4,7 @@
 :page-pagination:
 :toclevels: 2
 :sectanchors:
+:state-file: skills.json
 
 We will seed a simulated refund-decision procedure in an empty test workspace,
 request distillation, inspect the generated procedure and its provenance, then
@@ -18,10 +19,12 @@ not establish that a live workspace will pass the service's quality gates.
 [[_what_youll_need]]
 == Before you begin
 
+Provision a second, empty NAMS workspace for this lesson from https://memory.neo4jlabs.com[the NAMS dashboard] before continuing.
+
 * Python 3.10 or newer and a POSIX shell.
 * A newly provisioned *empty* NAMS test workspace reserved for this fixture,
   with a workspace data key permitting the lesson's memory operations and
-  `skills:read` / `skills:write`.
+  `skills:read` / `skills:write` (see xref:reference/authentication.adoc#_key_categories[Key categories]).
 * An identified workspace owner/operator and a verified disposal procedure or
   explicitly agreed retention arrangement for the records described below.
 
@@ -80,7 +83,7 @@ ledger's selector can be null: the workspace key selects the workspace.
 Never put a key in the workspace label or disposal-owner note.
 
 [[_1_start_a_distillation_run]]
-== 1. Seed the exact procedure
+== Step 1: Seed the exact procedure
 
 The script checks the service's distillation capability before any fixture
 write. Disabled or unavailable distillation stops seeding. The explicit
@@ -161,7 +164,7 @@ Keep `.tutorial-state/` out of version control. The `state` command displays
 saved information without running generation or publication.
 
 [[_2_poll_the_run]]
-== 2. Generate and poll with real IDs
+== Step 2: Generate and poll with real IDs
 
 anchor:_prefer_to_script_it[]
 
@@ -211,7 +214,7 @@ same run or arrange operator handoff for the still-running job. Neither a
 client exit nor conversation deletion establishes that the service job ended.
 
 [[_3_inspect_provenance]]
-== 3. Inspect the procedure and evidence
+== Step 3: Inspect the procedure and evidence
 
 [source,bash]
 ----
@@ -233,7 +236,7 @@ that live provenance passed.
 Do not publish if the procedure misstates the fixture or needs further review.
 
 [[_4_review_then_publish]]
-== 4. Publish only the reviewed result
+== Step 4: Publish only the reviewed result
 
 [source,bash]
 ----
@@ -250,7 +253,7 @@ An interrupted approval/publication retains pending state; do not repeat it
 blindly or delete the ledger to bypass the recovery check.
 
 [[_5_download_and_load_the_skill]]
-== 5. Download and inspect the package
+== Step 5: Download and inspect the package
 
 [source,bash]
 ----
@@ -270,7 +273,9 @@ publication must not be described as a verified signed artifact. Download,
 package structure and attestation are separate outcomes. The package is neither
 loaded into an agent nor executed.
 
-== 6. Clean up supported records and retain the disposition
+== Step 6: Clean up supported records and retain the disposition
+
+anchor:_6_clean_up_supported_records_and_retain_the_disposition[]
 
 [source,bash]
 ----
@@ -308,40 +313,11 @@ run still require disposition. The complete ID lists are in the state file;
 `...` above only shortens this illustration. This expected exit `2` is not an
 empty-workspace pass and is not a reason to reseed.
 
-== Inspect locally after a credential change
-
-If the original key expires or is rotated, normal lesson commands keep refusing
-to use its saved IDs with another credential. Use this separate local command:
-
-[source,bash]
-----
-python hosted_tutorial_state.py inspect-file .tutorial-state/skills.json
-----
-
-It needs no key and makes no service requests. The summary omits credential
-fingerprints, message digests, fixture metadata and review/provenance payloads.
-It still contains resource IDs and operator labels, so keep it private. Its
-`local_only: true` and `service_checked: false` mean it reports saved evidence,
-not current remote state or authorization.
-
-Give the authorized owner the workspace label, endpoint, run token, exact
-resource IDs and pending operation through your agreed private channel. The
-owner must establish the actual workspace and reconcile those resources with
-a valid credential. Do not edit the identity hash, substitute a key in the
-ledger, or remove state to unlock a write. The helper cannot migrate a run to a
-new key or supply an administrative deletion route.
+include::partial$python-hosted-lifecycle.adoc[]
 
 == Keep the old run and start a separate exercise
 
-[cols="2,3",options="header"]
-|===
-|Recorded state |Next action
-|No mutation was attempted |Correct the failed prerequisite, then use the guarded new-run check below.
-|Every recorded resource was verified absent |Keep the ledger as evidence, recheck the lesson prerequisites and use a new run directory.
-|Retained/shared resources or cleanup exit `2` |Have the owner record the actual disposition. This is not an automatic permission to reseed.
-|Pending or uncertain mutation |Use owner reconciliation; do not replay seed or erase the pending operation.
-|Credential changed |Use the local inspection/handoff procedure above; authenticated commands remain blocked.
-|===
+See xref:how-to/use-nams.adoc#_recover_from_an_interrupted_tutorial_run[Recover from an interrupted tutorial run] to check the recorded state before reseeding.
 
 A normal Skills run retains steps, tool calls and possibly a run/skill. Its
 cleanup does not make the workspace empty. Another Skills exercise requires a

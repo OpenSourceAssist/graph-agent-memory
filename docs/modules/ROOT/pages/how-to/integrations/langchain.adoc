@@ -11,7 +11,7 @@ Add verified conversation persistence to a LangChain 1.x `create_agent` agent wi
 anchor:_overview[]
 anchor:_prerequisites[]
 
-Use Python 3.10+ and a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
+Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
 
 include::partial$python-tutorial-setup.adoc[]
 
@@ -84,8 +84,7 @@ Expected: `Verified stored messages` followed by the response. `abefore_model` p
 
 == Troubleshooting and cleanup
 
-
-Stop when the program raises an exception; a printed model response alone does not verify persistence. Check the configured database, provider access and vector dimensions before retrying. The program prints the session or trace IDs needed for inspection and closes the client. Retained example records remain in the dedicated database; follow the Aura tutorial's cleanup procedure for that dedicated instance only when you no longer need them. Reusing a session groups records; it does not authorize a user to read them.
+include::partial$python-integration-troubleshooting.adoc[tag=troubleshooting]
 
 == Adapt the integration
 
@@ -94,12 +93,14 @@ anchor:_add_tools_that_read_the_graph[]
 anchor:_best_practices[]
 anchor:_see_also[]
 
-Use `agent.ainvoke(...)` with this middleware: its persistence and context hooks are asynchronous. The memory block is appended to the request's system message, not repeatedly accumulated in graph state. The middleware tracks message IDs to avoid repeating the same write within its instance; this is not a durable cross-process exactly-once guarantee.
+Use `agent.ainvoke(...)` with this middleware: its persistence and context hooks are asynchronous. The memory block is appended to the request's system message, not repeatedly accumulated in graph state. The middleware tracks message IDs to avoid repeating the same write within its instance; this is not a durable cross-process exactly-once guarantee. The middleware does not select a chat model itself; pass your own configured model as `create_agent`'s first argument, for example `create_agent(ChatOpenAI(model=os.environ["OPENAI_MODEL"]), tools=[...], middleware=[Neo4jMemoryMiddleware(client, session_id=session_id)])`.
 
 For a `RunnableWithMessageHistory` application, `Neo4jAgentMemory` implements `BaseChatMessageHistory`. Use `aget_messages()` / `aadd_messages()` / `aclear()` in an async context. That adapter's `aget_messages()` is a framework method; the underlying library readback is `client.short_term.get_conversation(...).messages`. Do not assume a LangGraph checkpointer and Neo4j transcript memory are the same persistence layer.
 
-`Neo4jMemoryRetriever` implements `BaseRetriever` for memory RAG and can be invoked asynchronously. Keep retrieval limits and the prompt's context budget explicit. `llm_provider_from_langchain(model)` configures an extraction provider separately; see xref:how-to/migrate-to-providers.adoc[Configure providers].
+`Neo4jMemoryRetriever` implements `BaseRetriever` for memory RAG and can be invoked asynchronously. Keep retrieval limits and the prompt's context budget explicit. To add a tool that reads the graph, wrap a memory call in LangChain's `@tool` decorator and register it on the agent, for example `@tool` `async def search_entities(query: str) -> list[str]: return [e.name for e in await client.long_term.search_entities(query)]`, then pass it as `create_agent(model, tools=[search_entities], ...)`.
+
+`llm_provider_from_langchain(model)` configures an extraction provider separately; see xref:how-to/migrate-to-providers.adoc[Configure providers].
 
 This repository supports the 1.x packages declared in `pyproject.toml`. The old `ConversationChain`, `AgentExecutor` and `BaseMemory` recipes are not the selected path. See https://github.com/neo4j-labs/agent-memory/blob/main/examples/langchain_agent.py[the maintained LangChain example] and https://github.com/neo4j-labs/agent-memory/tree/main/examples/nams-langchain[the separate hosted example] for application assembly. Financial/product data loaders and domain tools are application-specific.
 
-See xref:reference/backend-capabilities.adoc[Backend capabilities and scoping] before adding hosted or multi-user behavior. Neo4j Agent Memory is a Neo4j Labs project with community support.
+include::partial$python-integration-troubleshooting.adoc[tag=closing]

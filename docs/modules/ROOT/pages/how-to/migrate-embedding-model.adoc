@@ -1,4 +1,4 @@
-= Migrate to a New Embedding Model
+= Migrate to a new embedding model
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3
@@ -84,7 +84,7 @@ a prefix can also be selected.
 
 == 3. Connect with the new model and backfill from source text
 
-Configure the new provider as in xref:how-to/configure-embedding-provider.adoc[Configure an Embedding Provider].
+Configure the new provider as in xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider].
 After the old incompatible indexes are gone, connecting with the new settings
 creates missing indexes at the new dimensions. Keep traffic paused: this step
 has not regenerated existing vectors.
@@ -175,8 +175,8 @@ would leave mixed-model vectors.
 
 == Related
 
-* xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers]
-* xref:how-to/configure-embedding-provider.adoc[Configure an Embedding Provider]
+* xref:how-to/migrate-to-providers.adoc[Migrate to pluggable providers]
+* xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider]
 * xref:reference/configuration.adoc[Configuration Reference]
 
 // Preserve historical section links after the procedure was reorganized.

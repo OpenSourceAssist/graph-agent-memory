@@ -1,4 +1,4 @@
-= Evaluating Memory Quality
+= Evaluate memory quality
 :page-product: agent-memory
 :toclevels: 2
 
@@ -278,11 +278,12 @@ to be present as well as checking the threshold.
 
 == What the harness is not
 
-* Not a public benchmark — your labels are domain-specific.
-* Not a replacement for hand inspection — high recall@k can hide
-  systematic bias toward popular entities.
-* Not a substitute for the ``ConsolidationRun`` audit trail — the eval
-  harness measures *current* state; audit nodes record *change* over time.
+The harness reports whether this run's scores moved against your own
+labels; it does not replace hand inspection of results or the
+`:ConsolidationRun` audit trail, which records *change* over time rather
+than current state. See xref:explanation/operational-primitives.adoc[] for
+why the harness is opt-in and scaffold-shaped rather than a benchmark or a
+guarantee.
 
 == See Also
 

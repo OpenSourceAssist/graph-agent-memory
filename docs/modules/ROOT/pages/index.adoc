@@ -35,10 +35,19 @@ anchor:_pick_your_install[]anchor:_quick_start[]
 |xref:tutorials/hosted-quickstart-typescript.adoc[Use the hosted TypeScript SDK]
 |Python
 |Your Neo4j database through Bolt
-|xref:tutorials/first-agent-memory.adoc[Build your first Bolt memory example]
+|xref:tutorials/first-agent-memory.adoc[Build your first memory context]
 |===
 
 NAMS is the recommended starting point when you want a managed workspace. Choose Bolt when you need client-side extraction configuration, preferences, facts, custom write Cypher or other database-specific operations. Review xref:reference/backend-capabilities.adoc[backend capabilities and data scope] before moving an example between them.
+
+[source,python]
+----
+async with MemoryClient(settings) as client:
+    await client.short_term.add_message("session-1", "user", "Hi!")
+    entity, _ = await client.long_term.add_entity("Acme Corp", "ORGANIZATION")
+    context = await client.get_context("what does the user need?")
+----
+Abridged; see xref:tutorials/first-agent-memory.adoc[Build your first memory context] for the full program.
 
 xref:getting-started.adoc[Setup and learning paths] · xref:sdks/python.adoc[Python SDK] · xref:sdks/typescript.adoc[TypeScript SDK] · https://github.com/neo4j-labs/agent-memory[GitHub]
 
@@ -73,9 +82,7 @@ See xref:explanation/memory-types.adoc[memory types] for the conceptual model an
 
 anchor:_podcast_lennys_podcast_memory_explorer_flagship[]anchor:_newspaper_full_stack_chat_agent[]anchor:_typescript_neo4j_labsagent_memory[]anchor:_architecture[]anchor:_requirements[]
 
-Several agents can use the same workspace or database. Shared entities can connect their work, while conversation IDs identify individual conversations. Those identifiers are not universal access-control or query-filter guarantees. NAMS uses workspace authentication as its tenancy boundary; Bolt applications must choose authorized database boundaries and explicitly scoped reads.
-
-The current Bolt semantic-message search accepts `session_id` without applying it to its Cypher query. Do not infer privacy from that argument or from combined context generation. See xref:how-to/multi-tenancy.adoc[associate users and select scoped reads] and xref:explanation/multi-agent-sharing.adoc[sharing tradeoffs].
+Several agents can use the same workspace or database. Shared entities can connect their work, while conversation IDs identify individual conversations rather than enforce access control — see xref:reference/backend-capabilities.adoc#scope[identity and retrieval scope] for exactly what each identifier does and does not guarantee. See xref:how-to/multi-tenancy.adoc[associate users and select scoped reads] and xref:explanation/multi-agent-sharing.adoc[sharing tradeoffs].
 
 [#_what_makes_this_different]
 // Retain former section URLs at the current related topic.

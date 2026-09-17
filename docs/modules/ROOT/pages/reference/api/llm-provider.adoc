@@ -1,10 +1,7 @@
 = LLM provider API reference
 :page-product: agent-memory
 :page-pagination:
-:toclevels: 3
-:sectanchors:
-:icons: font
-:source-highlighter: highlight.js
+:toclevels: 2
 
 Reference for the `neo4j_agent_memory.llm` Protocols, types, factory, and exception hierarchy.
 

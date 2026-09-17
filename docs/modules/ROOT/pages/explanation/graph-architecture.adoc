@@ -32,7 +32,7 @@ anchor:_1_natural_relationship_modeling[]anchor:_2_traversal_performance[]anchor
 
 Relationships are part of the data model. A conversation can contain messages; messages can mention entities; traces can point back to the messages that triggered them. This helps an application retain provenance instead of reducing everything to disconnected text fragments.
 
-Here is a conceptual read-only query for the Bolt memory schema. It requires stored messages with `:MENTIONS` edges and the parameter `$entityName`:
+Here is a conceptual read-only query for the Bolt memory schema (see xref:explanation/backends.adoc[Bolt and NAMS]). It requires stored messages with `:MENTIONS` edges and the parameter `$entityName`:
 
 [source,cypher]
 ----

@@ -7,7 +7,7 @@
 
 An Agent Skill packages a reusable procedure derived from selected memory records. It connects a workspace's recorded experience to material another agent can load and review.
 
-NOTE: Agent Skills is a NAMS preview feature in an experimental Neo4j Labs project. The REST and MCP surfaces are documented in xref:reference/skills-api.adoc[Skills API]; the Python and TypeScript SDKs do not expose skill-specific methods. APIs and the dashboard experience may change.
+NOTE: Agent Skills is a NAMS preview feature in an experimental Neo4j Labs project (see xref:explanation/backends.adoc[Bolt and NAMS]). The REST and MCP surfaces are documented in xref:reference/skills-api.adoc[Skills API]; the Python and TypeScript SDKs do not expose skill-specific methods. APIs and the dashboard experience may change.
 
 [[_the_problem_skills_solve]]
 == The problem skills solve

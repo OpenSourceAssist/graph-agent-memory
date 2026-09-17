@@ -1,4 +1,4 @@
-= Bring Your Own Model
+= Bring your own model
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3
@@ -76,7 +76,7 @@ Embedding-only providers:
 | Provider                 | Example model string                  | Extra                     | Dimensions
 | OpenAI                   | `openai/text-embedding-3-small`       | `[openai]`                | 1536
 | OpenAI (large)           | `openai/text-embedding-3-large`       | `[openai]`                | 3072
-| Vertex AI                | `vertex_ai/gemini-embedding-001`      | `[vertex-ai]`             | 768 (3072 native, truncated by default)
+| Vertex AI                | `vertex_ai/gemini-embedding-001`      | `[vertex-ai]`             | 768 (3072 native, truncated by default) footnote:vertexfallback[`gemini-embedding-001` is not a key in `neo4j_agent_memory.llm.defaults.EMBEDDING_DIMENSIONS`. `VertexAIEmbeddingProvider` falls back to 768 and logs a warning when it does not recognize the model — the 768 is adapter fallback behavior, not a tabulated default. Passing `dimensions=` silences the warning but only declares the index size; this adapter does not forward it as Vertex AI's `output_dimensionality`, so it still emits 768-dimension vectors. See xref:how-to/configure-embedding-provider.adoc#_use_vertex_ai_embeddings[Use Vertex AI embeddings].]
 | Bedrock Titan            | `bedrock/amazon.titan-embed-text-v2:0`| `[bedrock]`               | 1024
 | sentence-transformers    | `BAAI/bge-small-en-v1.5`              | `[sentence-transformers]` | 384
 | sentence-transformers    | `BAAI/bge-large-en-v1.5`              | `[sentence-transformers]` | 1024
@@ -207,7 +207,7 @@ assert embedder.dimensions == 384
 custom = SentenceTransformersProvider("my-org/my-internal-model", dimensions=512)
 ----
 
-If you change embedding model after creating data, see xref:how-to/migrate-embedding-model.adoc[Migrate Embedding Model] for the index-rebuild runbook.
+If you change embedding model after creating data, see xref:how-to/migrate-embedding-model.adoc[Migrate to a new embedding model] for the index-rebuild runbook.
 
 == Structured extraction
 
@@ -334,10 +334,10 @@ vector dimension stays the same; see xref:how-to/migrate-embedding-model.adoc[th
 == Related
 
 * xref:tutorials/anthropic-and-local-embeddings.adoc[Tutorial: Anthropic + local embeddings] — a copy-paste-runnable walkthrough.
-* xref:how-to/configure-llm-provider.adoc[Configure LLM Provider].
-* xref:how-to/configure-embedding-provider.adoc[Configure Embedding Provider].
+* xref:how-to/configure-llm-provider.adoc[Configure an LLM provider].
+* xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider].
 * xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.
-* xref:how-to/migrate-to-providers.adoc[Migrate to Pluggable Providers] — backward compat and side-by-side examples.
+* xref:how-to/migrate-to-providers.adoc[Migrate to pluggable providers] — backward compat and side-by-side examples.
 
 // Preserve historical section links after the procedure was reorganized.
 anchor:_tldr_string_shorthand[]

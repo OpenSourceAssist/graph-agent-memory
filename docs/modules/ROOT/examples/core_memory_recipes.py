@@ -183,6 +183,42 @@ async def deduplication(client, run_id):
 # end::deduplication[]
 
 
+# tag::audit[]
+async def audit(client, run_id):
+    session = f"docs-audit-{run_id}"
+    client_name = f"Anthem {run_id}"
+    consultant_name = f"Sara {run_id}"
+    trace = await client.reasoning.start_trace(session, "Recommend a consulting team")
+    step = await client.reasoning.add_step(trace.id, action="recommend_team")
+    await client.reasoning.record_tool_call(
+        step.id,
+        tool_name="recommend_team",
+        arguments={"client_name": client_name},
+        result=[{"consultant": consultant_name}],
+        touched_entities=[
+            EntityRef(name=client_name, type="CLIENT"),
+            EntityRef(name=consultant_name, type="PERSON"),
+        ],
+    )
+    await client.reasoning.complete_trace(
+        trace.id,
+        outcome=TraceOutcome(success=True, summary="Matched one consultant"),
+    )
+    rows = await client.query.cypher(
+        "MATCH (:Entity {name: $client_name})<-[:TOUCHED]-(s:ReasoningStep)"
+        "<-[:HAS_STEP]-(rt:ReasoningTrace) "
+        "RETURN rt.task AS task, s.action AS action, rt.outcome AS outcome",
+        {"client_name": client_name},
+    )
+    assert rows == [
+        {"task": trace.task, "action": "recommend_team", "outcome": "Matched one consultant"}
+    ]
+    print(f"Verified: touched-entity audit query found the trace; client={client_name}")
+
+
+# end::audit[]
+
+
 async def main():
     commands = {
         "messages": messages,
@@ -190,6 +226,7 @@ async def main():
         "preferences": preferences,
         "reasoning": reasoning,
         "deduplication": deduplication,
+        "audit": audit,
     }
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=commands)

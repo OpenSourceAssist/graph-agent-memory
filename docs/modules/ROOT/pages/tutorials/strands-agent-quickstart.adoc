@@ -56,7 +56,7 @@ include::partial$aura-tutorial-files.adoc[]
 include::example$strands_memory_tutorial.py[]
 ----
 
-Check the copied files before exporting credentials or making a service request:
+include::partial$python-tutorial-import-check.adoc[tag=intro]
 
 [source,bash]
 ----
@@ -65,7 +65,10 @@ python -c "import aura_connection, wait_for_tutorial_neo4j, strands_memory_tutor
 python strands_memory_tutorial.py --help
 ----
 
-Expected: compilation exits without errors, then `Lesson imports verified` and the command help. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+:cli-help-suffix: {sp}and the command help
+include::partial$python-tutorial-import-check.adoc[tag=expected]
+
+:cli-help-suffix!:
 
 include::partial$aura-tutorial-setup.adoc[]
 

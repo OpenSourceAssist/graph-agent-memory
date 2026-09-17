@@ -17,6 +17,8 @@ SDK-method mapping the spec doesn't show.
 The protocol-operation column uses conformance names from the link:https://github.com/neo4j-labs/agent-memory-tck[agent-memory-tck]
 cross-language conformance suite. Check the client accessor column rather than converting a protocol name to another casing. Python endpoint registry names can differ (for example, its message-list route uses `list_messages`, while its public method is `short_term.get_conversation`).
 
+anchor:_base_url_versioning[]
+
 == Base URL and protocol version
 
 NAMS is an unversioned, continuously shipped service. `/v1` identifies its REST protocol; it is independent of Python/TypeScript package versions. The production base URL is `+https://memory.neo4jlabs.com/v1+`. The SDK appends paths to the configured
@@ -41,7 +43,7 @@ your API key (`nams_...`) used directly, or a short-lived JWT obtained from the
 Auth0 exchange endpoints (`POST /v1/auth/exchange`, `POST /v1/auth/refresh`).
 
 The target workspace depends on the key's category (see
-xref:reference/authentication.adoc[Authentication & API Keys]): a **workspace
+xref:reference/authentication.adoc[Authentication and API keys]): a **workspace
 key** is already bound to one workspace, so `X-Workspace-Id` is optional (and a
 _different_ value is rejected with `403`); an **admin key** names the workspace
 per request with `X-Workspace-Id: <workspace_id>`. The SDK sends the header
@@ -149,6 +151,8 @@ without a follow-up GET.
 
 Python reasoning uses a local synthetic trace lifecycle over conversation-level server steps. `complete_trace` does not persist a server trace/outcome. See xref:reference/api/reasoning.adoc[Reasoning API] for lifetime and retrieval limits.
 
+anchor:_cypher_and_auth[]
+
 == Cypher and authentication
 
 [cols="2,3,1,1,1,1,1"]
@@ -170,7 +174,7 @@ The Python and TypeScript SDKs expose authentication operations on `client.auth`
 TypeScript `AuthClient`): `list_api_keys` / `create_api_key` / `reveal_api_key` /
 `rotate_api_key` / `revoke_api_key` / `refresh_access_token`. On the bolt backend
 `client.auth` is a `NotSupportedError` sentinel (bolt uses Neo4j credentials). You can also manage keys from the dashboard. See
-xref:reference/authentication.adoc[Authentication & API Keys].
+xref:reference/authentication.adoc[Authentication and API keys].
 ====
 
 == Ontologies
@@ -226,7 +230,7 @@ Error responses use standard HTTP status codes with a JSON body of the shape
 | Other 4xx (e.g. `409`, `410`, `413`, `422`) | Conflict, gone, payload too large, semantic validation | `TransportError`
 |===
 
-All SDK exceptions subclass `MemoryError`. The Python transport retries `429`, `500`, `502`, `503`, `504`, and connection/timeout/remote-protocol errors with exponential backoff. It honors numeric `Retry-After` seconds; HTTP-date Retry-After values are not parsed. See xref:reference/nams-limits.adoc[NAMS Limits & Behavior]
+All SDK exceptions subclass `MemoryError`. The Python transport retries `429`, `500`, `502`, `503`, `504`, and connection/timeout/remote-protocol errors with exponential backoff. It honors numeric `Retry-After` seconds; HTTP-date Retry-After values are not parsed. See xref:reference/nams-limits.adoc[NAMS limits and behavior]
 for rate-limit and quota specifics.
 
 The TypeScript REST transport reports 404 as `TransportError` with
@@ -245,9 +249,3 @@ Pagination is endpoint- and client-specific; inspect the OpenAPI schema for the 
 The wrappers translate their supported fields; NAMS ontologies use snake_case request documents. Python may synthesize model fields where hosted responses do not carry bolt equivalents; see the API references. If you're writing a custom transport,
 see the link:https://github.com/neo4j-labs/agent-memory-tck/blob/main/docs/reference/bridge-protocol.adoc[bridge-protocol reference]
 and the language-specific `casing` modules in the TCK repo.
-
-== Earlier section links
-
-anchor:_base_url_versioning[]
-anchor:_cypher_and_auth[]
-The earlier sections have been consolidated into the current contracts. See xref:reference/rest-api.adoc#_base_url_and_protocol_version[base URL and protocol version] and xref:reference/rest-api.adoc#_cypher_and_authentication[Cypher and authentication].

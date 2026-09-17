@@ -1,4 +1,4 @@
-= How to: store Mastra threads in NAMS
+= Store Mastra threads in NAMS
 :toc: left
 :source-highlighter: rouge
 
@@ -89,7 +89,8 @@ There is no in-process buffer: reuse the same thread id across requests and
 processes and a restarted server picks the thread up where it left off.
 
 Everything written this way is a real NAMS conversation, so entity extraction,
-three-tier context and Cypher queries all apply to it — which is the reason to
+xref:explanation/context-tiers.adoc[three-tier context] and Cypher queries all
+apply to it — which is the reason to
 mirror turns here rather than leave them in Mastra's own store:
 
 [source,typescript]
@@ -135,25 +136,12 @@ threads, and reusing the `resourceId` would collapse them into one.
 [#why-not-a-storage-adapter-yet]
 == Why not a storage adapter yet
 
-Mastra 1.x takes a custom backend as a **storage adapter**: a
-`MastraCompositeStore` whose `memory` domain extends the abstract
-`MemoryStorage` class from `@mastra/core/storage`. That contract is nine abstract
-methods over `MastraDBMessage` and `StorageListMessagesInput` —
-`getThreadById`, `saveThread`, `updateThread`, `deleteThread`, `listThreads`,
-`listMessages`, `listMessagesById`, `saveMessages`, `updateMessages` — plus
-resource-scoped working memory.
-
-Two of those (`listMessagesById`, `updateMessages`) have no equivalent on the
-NAMS API today, so a half-implemented domain would fail inside Mastra's own
-recall paths rather than at wiring time. Until the API covers them, this adapter
-stays explicitly outside Mastra's extension points.
-`typescript/test/unit/mastra.test.ts` pins that gap against the installed
-`@mastra/core` typings, so a rename on either side fails a test instead of
-quietly making this page wrong.
-
-Track the full storage adapter in
-link:https://github.com/neo4j-labs/agent-memory/issues[the issue tracker]; if you
-need it, say which Mastra recall features you depend on.
+Two methods of Mastra 1.x's nine-method `MastraCompositeStore` contract
+(`listMessagesById`, `updateMessages`) have no NAMS equivalent today, so this
+adapter stays outside Mastra's extension points rather than half-implementing
+that contract; track it in
+link:https://github.com/neo4j-labs/agent-memory/issues[the issue tracker] and say
+which Mastra recall features you depend on.
 
 == Compatibility
 

@@ -18,6 +18,8 @@ and account for the resources we create.
 This lesson teaches a local stdio server with a selected set of tools. For the
 separate hosted MCP service, see xref:reference/nams-mcp.adoc[Hosted NAMS MCP].
 
+image::diagrams/typescript-mcp-architecture.svg["Claude Desktop connects over local stdio to a TypeScript MCP server running registerMemoryTools() with six selected memory tools, which reaches the hosted NAMS workspace over HTTPS with a Bearer apiKey using MemoryClient's REST transport.",width=100%,link=self]
+
 anchor:_what_youll_learn[]
 
 == What we will learn
@@ -25,13 +27,17 @@ anchor:_what_youll_learn[]
 * Register memory tools with `@neo4j-labs/agent-memory/mcp/register`.
 * Connect that server to Claude Desktop through stdio.
 * Verify explicit tool results and reuse the returned conversation ID.
-* Inspect call logs, restrict tools, and add a scoped custom query.
+* Inspect call logs recorded by the audit hook.
 
 anchor:_prerequisites[]
 
 == Before you begin
 
-* macOS, Git, Node.js 22 or later with npm, and a POSIX shell.
+* macOS, Git, Node.js 22 or later with npm, and a POSIX shell. This lesson is
+  macOS-only because Step 4 edits the Claude Desktop config file at its macOS
+  path (`~/Library/Application Support/Claude/claude_desktop_config.json`). On
+  Windows or Linux, follow xref:reference/nams-mcp.adoc[Hosted NAMS MCP]
+  instead.
 * Claude Desktop with local stdio-server support.
 * A workspace-scoped `MEMORY_API_KEY` for a dedicated NAMS test workspace.
 
@@ -276,7 +282,7 @@ they do not establish a GUI test on your installed Desktop version.
 == Step 5: Verify the connection
 
 Inspect the connected server's `tools/list` response in your MCP client. The
-lesson registers these six tools before the custom-tool step:
+lesson registers these six tools:
 
 [listing]
 ----
@@ -456,94 +462,19 @@ Successful protocol dispatch, actual Desktop behavior and hosted extraction are
 separate checks. Verify the original message again with the CLI after the new
 chat; its `verify` command neither repeats teaching nor creates another record.
 
-Keep the ledger for the scoped custom query below. Cleanup follows the last
+Keep the ledger for the cleanup step below. Cleanup follows the last
 verification step.
 
-== Step 8: Add a custom tool
+anchor:_step_8_add_a_custom_tool[]
+anchor:_step_9_restrict_what_a_client_can_reach[]
 
-Add these imports beside the existing imports in `src/server.ts`:
+Adding a custom tool alongside the memory ones, and restricting which tools a
+client can reach, are configuration choices rather than additional tutorial
+steps. See xref:how-to/typescript/mcp.adoc[the MCP how-to] for both recipes.
 
-[source,typescript]
-----
-import { isAbsolute } from "node:path";
-import { TutorialRun } from "./tutorial-state.js";
-import { inspectGraph } from "./tutorial-cleanup.js";
-----
+anchor:_step_10_clean_up_and_inspect_retained_resources[]
 
-Then insert this registration inside `main()`, after
-`registerMemoryTools(...)` and before connecting the transport:
-
-[source,typescript]
-----
-// In src/server.ts, inside main(), after registerMemoryTools(...):
-server.registerTool(
-  "memory_tutorial_graph",
-  {
-    description: "Inspect graph records linked only to this tutorial's recorded messages.",
-    inputSchema: {},
-    annotations: { readOnlyHint: true, idempotentHint: true, destructiveHint: false },
-  },
-  async () => {
-    let run: TutorialRun | undefined;
-    try {
-      const path = process.env.TUTORIAL_STATE_PATH;
-      if (!path || !isAbsolute(path)) {
-        throw new Error("Set TUTORIAL_STATE_PATH to the absolute path of this lesson's state file.");
-      }
-      run = TutorialRun.load(path, resolveTutorialConfig(), "mcp");
-      const rows = await inspectGraph(run);
-      return { content: [{ type: "text", text: JSON.stringify(rows, null, 2) }] };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return { content: [{ type: "text", text: message }], isError: true };
-    } finally {
-      await run?.client.close();
-    }
-  },
-);
-----
-
-The tool accepts no model-supplied Cypher or resource IDs. Its helper verifies
-the saved conversation and message ownership, then uses those message IDs as
-parameters in the scoped graph query. An empty graph can mean extraction is
-still pending; it does not negate the exact message readback from Step 6.
-
-Print the absolute state-file path without exposing its contents:
-
-[source,bash]
-----
-printf '%s/.tutorial-state/mcp.json\n' "$PWD"
-npm run build
-----
-
-Add `TUTORIAL_STATE_PATH` to this server's private Desktop `env` block using
-that exact printed path, alongside the same NAMS credential and endpoint.
-Reconnect Desktop. Expect seven tools including `memory_tutorial_graph`, then
-ask it to invoke that tool. Any returned graph rows must refer to the recorded
-message IDs. A state/credential mismatch is a tool error, not permission to
-inspect another workspace.
-
-== Step 9: Restrict what a client can reach
-
-`registerMemoryTools` takes an allow-list. Anything not on it is neither advertised in `tools/list` nor callable:
-
-[source,typescript]
-----
-const toolNames = registerMemoryTools(server, memory, {
-  only: ["memory_get_context", "memory_search_messages"],
-  onCall: ({ tool, argKeys, durationMs, ok }) =>
-    console.error(`[mcp] ${tool} keys=[${argKeys.join(",")}] ${durationMs}ms ok=${ok}`),
-});
-----
-
-Replace the original registration block with this one; do not register the same
-tools twice. The audit hook and allow-list apply to the registered memory tools.
-Remove the custom `memory_tutorial_graph` registration for this restricted variant,
-then rebuild and reconnect. Expect exactly two listed tools; an attempted
-`memory_create_conversation` call must be rejected. The CLI cleanup below does
-not depend on exposing deletion tools to Desktop.
-
-== Step 10: Clean up and inspect retained resources
+== Step 8: Clean up and inspect retained resources
 
 Stop Desktop's lesson server so it cannot add more records, then run:
 
@@ -575,8 +506,8 @@ anchor:_what_youve_built[]
   and logs that record argument keys rather than secret values.
 * A Claude Desktop workflow using explicit tool calls and the same conversation
   ID in a fresh chat, checked independently by a separate CLI process.
-* A scoped custom query, a two-tool policy, and an explicit record/verify/cleanup
-  procedure for the resources created during the exercise.
+* An explicit record/verify/cleanup procedure for the resources created during
+  the exercise.
 
 anchor:_extending_the_server[]
 

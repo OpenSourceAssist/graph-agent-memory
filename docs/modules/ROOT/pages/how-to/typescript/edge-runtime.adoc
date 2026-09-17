@@ -1,4 +1,4 @@
-= How to: deploy to edge runtimes
+= Deploy to edge runtimes
 :toc: left
 :source-highlighter: rouge
 
@@ -59,6 +59,7 @@ export async function GET(req: Request) {
   silently stripped by Cloudflare Workers due to a runtime restriction on
   setting that header in `fetch`. The default User-Agent is best-effort.
 
+[#streaming-memory-persistence]
 == Streaming + memory persistence
 
 Non-streaming `generateText` uses `wrapGenerate`, which awaits its assistant

@@ -35,7 +35,7 @@ anchor:_install[]
 
 Choose one complete lesson with setup, named files and observable verification:
 
-* xref:tutorials/first-agent-memory.adoc[Store and retrieve memory in your Neo4j database].
+* xref:tutorials/first-agent-memory.adoc[Build your first memory context].
 * xref:tutorials/nams-quickstart.adoc[Store and retrieve hosted memory through NAMS].
 * xref:tutorials/conversation-memory.adoc[Pass stored context to a conversation model].
 

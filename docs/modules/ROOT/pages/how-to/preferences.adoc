@@ -10,6 +10,8 @@ image::diagrams/preference-aware-context-graph.svg["Illustrative preference grap
 
 The illustration is conceptual. This recipe's physical path is `(User)-[:HAS_PREFERENCE]->(Preference)-[:APPLIES_TO]->(Entity)`.
 
+For the rationale, see xref:explanation/memory-types.adoc[Understanding the three memory types].
+
 anchor:_prerequisites[]
 
 == 1. Prepare the Bolt client
@@ -23,15 +25,13 @@ include::partial$python-tutorial-setup.adoc[]
 python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
 ----
 
-The maintained program `core_memory_recipes.py` imports `core_memory_settings.py` from the same directory. That helper explicitly selects Bolt and disables automatic extraction/enrichment. Each command creates a new ID suffix so it can run independently. Embedding requests send example text to OpenAI.
-
-These tasks use Python with Bolt. Consult xref:reference/backend-capabilities.adoc[backend capabilities] before adapting them to NAMS; preferences, facts, direct relationship writes, and this deduplication configuration are not portable hosted operations.
+include::partial$python-core-recipe-intro.adoc[]
 
 include::partial$python-core-recipe-files.adoc[]
 
 == 2. Apply the task function
 
-The recipe disables embedding-based preference deduplication for these independent user revisions. The current duplicate lookup can reuse a preference node across users; superseding a shared node can therefore affect every linked user's active view. `generate_embedding=False` avoids that lookup here, at the cost of omitting vectors for semantic preference search.
+Store a preference for a user, then supersede it with a revised value while keeping both records in history. The recipe disables embedding-based preference deduplication for these independent user revisions. The current duplicate lookup can reuse a preference node across users; superseding a shared node can therefore affect every linked user's active view. `generate_embedding=False` avoids that lookup here, at the cost of omitting vectors for semantic preference search.
 
 The function below is included from the complete maintained program, which already supplies imports, client setup, unique IDs, and `asyncio.run`. Run the file in step 3; this extract is not a separate top-level script.
 
@@ -69,6 +69,9 @@ There are no `update_preference` or `delete_preference` wrappers. Supersession p
 
 // Historical section links resolve to the maintained task and reference pointers.
 anchor:_typescript_equivalents_at_a_glance[]
+
+include::partial$python-typescript-equivalents.adoc[]
+
 anchor:_overview[]
 anchor:_store_preferences[]
 anchor:_basic_preference_storage[]

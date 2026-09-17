@@ -37,6 +37,8 @@ Bolt's user nodes and selected `user_identifier` arguments associate data with a
 
 anchor:_operational_model[]
 
+image::diagrams/bolt-vs-nams-data-flow.svg["Two lanes. Bolt: your application drives client-side embedding and entity-extraction providers and writes through the Bolt driver straight to a Neo4j instance you operate. NAMS: your application calls the hosted workspace over HTTPS; the workspace triggers background, server-side extraction that reaches an explicit not-yet-ready state until the readiness API reports it complete",width=100%,link=self]
+
 [#_bolt_you_own_the_database]
 The Bolt client opens a driver connection pool and issues Cypher. Client-side providers can generate embeddings and extracted entities, while Neo4j stores memory and indexes. The chosen provider determines whether model processing is local or remote.
 

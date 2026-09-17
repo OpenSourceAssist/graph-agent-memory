@@ -4,7 +4,11 @@
 :toclevels: 2
 :sectanchors:
 
+include::partial$backend-bolt-only.adoc[]
+
 To identify customer and product mentions, provide domain descriptions and an explicit mapping from extraction labels to persisted entity types. Test the mapping against a representative sentence before writing graph data.
+
+For the rationale, see xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline].
 
 anchor:_prerequisites[]
 
@@ -57,7 +61,15 @@ anchor:_relationship_extraction[]
 
 == Extract relationships and persist schema configuration
 
-For GLiREL, install `glirel`, spaCy, and the `en_core_web_sm` tokenizer model, construct `GLiRELExtractor(relation_types=...)`, and compose it with the entity extractor. A custom domain object's existence does not automatically wire a relation extractor. The xref:tutorials/knowledge-graph.adoc[knowledge-graph tutorial] includes every dependency and the complete constructor/storage path.
+For GLiREL, install `glirel` and `loguru` explicitly — the SDK does not define a `glirel` extra, and GLiREL's current package requires `loguru` at import time without declaring that dependency — plus spaCy and the `en_core_web_sm` tokenizer model:
+
+[source,bash]
+----
+python -m pip install 'neo4j-agent-memory[gliner,spacy]==0.6.0' glirel 'loguru>=0.7,<1'
+python -m spacy download en_core_web_sm
+----
+
+Then construct `GLiRELExtractor(relation_types=...)` and compose it with the entity extractor. A custom domain object's existence does not automatically wire a relation extractor. The xref:tutorials/knowledge-graph.adoc[knowledge-graph tutorial] includes the complete constructor/storage path.
 
 Persisting an `EntitySchemaConfig` through the Bolt schema manager stores configuration; it does not automatically validate every existing graph node or deploy a hosted ontology. Select/load the intended configuration explicitly when constructing extraction. See xref:reference/schemas.adoc[the persistence API] and xref:how-to/use-ontologies.adoc[hosted ontology tasks] for the separate contracts.
 
@@ -71,3 +83,12 @@ anchor:_persist_schemas_to_neo4j[]
 anchor:_glirel_no_llm_required[]
 anchor:_custom_relationship_types[]
 anchor:_see_also[]
+
+== Write effective schema descriptions
+
+Improve GLiNER's zero-shot accuracy by tuning the description text passed to `DomainSchema`:
+
+1. Use descriptive names — `"A real estate property"` scores better than `"property"`.
+2. Include synonyms in the description — `"A company, startup, or business organization"` catches more of the mentions a plain `"company"` label misses.
+3. Be domain-specific — tailor descriptions to your corpus's vocabulary rather than reusing a generic label.
+4. Test thresholds on a sample document before committing to one — a lower `threshold` catches more entities but can reduce precision.

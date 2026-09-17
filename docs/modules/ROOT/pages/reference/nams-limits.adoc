@@ -1,4 +1,4 @@
-= NAMS Limits & Behavior
+= NAMS limits and behavior
 :page-product: agent-memory
 :toclevels: 2
 :icons: font
@@ -25,7 +25,7 @@ These are SDK-side defaults you can override; they are not server limits.
 
 | `timeout` | `30s` | Per-request HTTP timeout.
 | `max_retries` | `3` | Retries on network errors, 5xx, and 429.
-| `retry_backoff` | `0.5s` | Base for exponential backoff. `Retry-After` is honored on 429.
+| `retry_backoff_seconds` | `0.5s` | Base for exponential backoff. `Retry-After` is honored on 429.
 | `validate_on_connect` | `true` | Sends a probe (with `X-Workspace-Id` when set) so misconfiguration fails fast.
 | `transport_mode` | `auto` | `rest` for `/v\{n}` endpoints, `bridge` otherwise.
 |===

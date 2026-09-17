@@ -1,4 +1,4 @@
-= Privacy and Audit
+= Privacy and audit
 :page-product: agent-memory
 :toclevels: 2
 

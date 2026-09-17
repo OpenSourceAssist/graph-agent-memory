@@ -63,7 +63,7 @@ include::example$core_memory_settings.py[]
 include::example$conversation_memory.py[]
 ----
 
-Check the copied files before exporting credentials or making a service request:
+include::partial$python-tutorial-import-check.adoc[tag=intro]
 
 [source,bash]
 ----
@@ -72,7 +72,10 @@ python -c "import aura_connection, wait_for_tutorial_neo4j, core_memory_settings
 python conversation_memory.py --help
 ----
 
-Expected: compilation exits without errors, then `Lesson imports verified` and the command help. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+:cli-help-suffix: {sp}and the command help
+include::partial$python-tutorial-import-check.adoc[tag=expected]
+
+:cli-help-suffix!:
 
 anchor:_step_2_set_up_neo4j[]
 
@@ -133,7 +136,7 @@ Expected milestones:
 . `Verified: new response and product-lookup trace read back`.
 . A model answer to “What would you recommend for the trip I mentioned?”
 
-Inspect the answer for the seeded wide-fit city-walking requirement, the USD 60 budget, and the fictional Trail Starter product priced at USD 45. Wording and model adherence can vary. The checks prove that the request contained retrieved context and that the resulting answer and tool record were stored; they do not grade recommendation quality.
+Inspect the answer for the seeded wide-fit city-walking requirement, the USD 60 budget, and the fictional Trail Starter product priced at USD 45. The checks prove that the request contained retrieved context and that the resulting answer and tool record were stored, not that the wording is ideal; see xref:explanation/memory-types.adoc[] for that distinction.
 
 A model failure completes the trace with `success=False` and raises the error. Fix provider access before retrying. The program does not label a failed request as a successful answer.
 
@@ -181,9 +184,7 @@ anchor:_troubleshooting[]
 
 == If a check fails
 
-* A connection or authentication failure: confirm the Aura instance is Running, check the exported connection settings, and rerun the readiness command from step 2.
-* An OpenAI access or quota error: correct the account/model configuration and rerun on a fresh tutorial database if the prior write stopped midway.
-* Missing readback data: verify that the write command completed against this Aura instance. The program stops on missing data rather than treating an empty result as success.
+include::partial$python-tutorial-check-failed.adoc[]
 
 anchor:_see_also[]
 

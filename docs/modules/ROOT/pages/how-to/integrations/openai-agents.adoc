@@ -11,7 +11,7 @@ Run an actual `agents.Agent` through `Runner.run`, then save and verify its conv
 anchor:_overview[]
 anchor:_installation[]
 
-Use Python 3.10+ and a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
+Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
 
 include::partial$python-tutorial-setup.adoc[]
 
@@ -90,7 +90,7 @@ anchor:_troubleshooting[]
 anchor:_importerror_openai_not_found[]
 anchor:_empty_context[]
 
-Stop when the program raises an exception; a printed model response alone does not verify persistence. Check the configured database, provider access and vector dimensions before retrying. The program prints the session or trace IDs needed for inspection and closes the client. Retained example records remain in the dedicated database; follow the Aura tutorial's cleanup procedure for that dedicated instance only when you no longer need them. Reusing a session groups records; it does not authorize a user to read them.
+include::partial$python-integration-troubleshooting.adoc[tag=troubleshooting]
 
 == Adapt the integration
 
@@ -109,8 +109,15 @@ The repository's `[openai-agents]` extra installs the underlying `openai` client
 
 `Neo4jOpenAIMemory` provides `get_context`, `save_message` and `get_conversation`. It is not an automatic Agents SDK session implementation: this recipe explicitly orchestrates those operations. `record_agent_trace` consumes normalized message dictionaries and actual tool-call records when supplied; it does not directly consume every SDK event type.
 
-`create_memory_tools(memory)` returns Chat Completions-style function-schema dictionaries. Do not pass those dictionaries directly as Agents SDK function tools. To expose memory operations to an Agents SDK agent, write `@function_tool` wrappers around the async adapter methods with explicit arguments and return types, then add those functions to `Agent(tools=...)`. Only register write tools the application intends the agent to use.
+`create_memory_tools(memory)` returns Chat Completions-style function-schema dictionaries. Do not pass those dictionaries directly as Agents SDK function tools. To expose memory operations to an Agents SDK agent, write `@function_tool` wrappers around the async adapter methods with explicit arguments and return types, then add those functions to `Agent(tools=...)`. Only register write tools the application intends the agent to use. `integrations/openai_agents_recipe.py` ships this factory alongside the recipe, wrapping the adapter's async `get_context` in exactly that pattern:
+
+[source,python]
+----
+include::example$integrations/openai_agents_recipe.py[tag=function_tool]
+----
+
+`integrations/openai_agents_recipe.py` wires this in: `main()` passes `tools=[make_recall_tool(memory)]` into `Agent(...)`, so the shipped recipe exercises the wrapper on every run, not just the surrounding get/save calls.
 
 For Chat Completions, dispatch returned tool calls with `execute_memory_tool(memory, tool_name, arguments)` and retain matched call IDs and responses in conversation history. Merely sending a schema to a model does not execute the function. Provider selection is covered by xref:how-to/migrate-to-providers.adoc[Configure providers]. Product search and payment operations remain application code.
 
-See xref:reference/backend-capabilities.adoc[Backend capabilities and scoping] before adding hosted or multi-user behavior. Neo4j Agent Memory is a Neo4j Labs project with community support.
+include::partial$python-integration-troubleshooting.adoc[tag=closing]

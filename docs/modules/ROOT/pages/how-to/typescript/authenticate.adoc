@@ -1,4 +1,4 @@
-= Authenticate a TypeScript Client
+= Authenticate a TypeScript client
 :description: Configure API keys and token refresh for the hosted REST client.
 :toc:
 :source-highlighter: rouge

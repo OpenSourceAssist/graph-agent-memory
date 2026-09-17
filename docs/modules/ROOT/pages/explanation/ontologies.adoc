@@ -3,7 +3,7 @@
 
 An ontology supplies a domain vocabulary and validation policy for NAMS. It refines the broad POLE+O categories without requiring every application to treat all entities as generic people, places, or objects.
 
-NOTE: Ontology methods are a NAMS capability. Bolt uses client-side schema configuration instead. See xref:reference/backend-capabilities.adoc[Backend capabilities].
+NOTE: Ontology methods are a NAMS capability. Bolt uses client-side schema configuration instead. See xref:reference/backend-capabilities.adoc[Backend capabilities] and xref:explanation/backends.adoc[Bolt and NAMS].
 
 [[_what_is_an_ontology]]
 == What is an ontology?

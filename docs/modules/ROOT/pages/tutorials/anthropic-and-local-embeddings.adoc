@@ -54,7 +54,7 @@ include::partial$aura-tutorial-files.adoc[]
 include::example$anthropic_local_memory.py[]
 ----
 
-Check the copied files before exporting credentials or making a service request:
+include::partial$python-tutorial-import-check.adoc[tag=intro]
 
 [source,bash]
 ----
@@ -62,7 +62,10 @@ python -m py_compile aura_connection.py wait_for_tutorial_neo4j.py anthropic_loc
 python -c "import aura_connection, wait_for_tutorial_neo4j, anthropic_local_memory; assert all(callable(f) for f in [aura_connection.aura_config, wait_for_tutorial_neo4j.wait_until_ready, anthropic_local_memory.main]); print('Lesson imports verified')"
 ----
 
-Expected: compilation exits without errors, then `Lesson imports verified`. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+:cli-help-suffix:
+include::partial$python-tutorial-import-check.adoc[tag=expected]
+
+:cli-help-suffix!:
 
 [[_step_2_set_up_neo4j]]
 == 2. Create and connect to the Aura lesson instance
@@ -87,6 +90,19 @@ Expected: `Provider variables present`. This confirms presence only; the extract
 == 4. Read the complete program
 
 The shared `aura_config()` helper reads the required Aura connection variables. The explicit `backend="bolt"` prevents a NAMS environment key from changing this lesson's backend. `extractor_type="llm"` selects the Anthropic extraction path rather than relying on an optional local NER model. The imports and event-loop entry point are already included.
+
+Excerpt of the `MemorySettings` construction from `anthropic_local_memory.py`:
+
+[source,python]
+----
+settings = MemorySettings(
+    backend="bolt",
+    neo4j=aura_config(),
+    llm=llm,
+    embedding=embedding,
+    extraction={"extractor_type": "llm"},
+)
+----
 
 [[_step_5_confirm_your_providers_were_used]]
 == 5. Run and verify the selected providers

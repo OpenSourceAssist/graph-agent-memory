@@ -33,6 +33,8 @@ image::diagrams/the-three-layer-memory-architecture.png["Three-layer memory arch
 
 These are product terms. Human-memory analogies are approximate: both a conversation and a task trace can describe an episode; the current prompt is closer to working memory than any one persisted layer.
 
+NOTE: "Observation" above is a reasoning-memory tool-call result. The hosted TypeScript client also uses "observation" and "reflection" in an unrelated sense, for the compressed tiers of a conversation's short-term context. See xref:explanation/context-tiers.adoc[Understanding the three-tier context model] and the xref:glossary.adoc[glossary] for both senses.
+
 [[_why_three_layers]]
 == Why separate the layers?
 
@@ -47,7 +49,7 @@ Their structures also differ: messages form a sequence, entities form a connecte
 
 anchor:_messages_entities[]anchor:_traces_messages[]anchor:_unified_context[]
 
-On Bolt, `:MENTIONS` connects a message to an extracted entity, and a trace can link to its triggering message through `:INITIATED_BY`. These links retain the context in which knowledge or an action arose. An application must actually record or extract these relationships; the presence of the three layers does not populate them automatically.
+On Bolt (see xref:explanation/backends.adoc[Bolt and NAMS]), `:MENTIONS` connects a message to an extracted entity, and a trace can link to its triggering message through `:INITIATED_BY`. These links retain the context in which knowledge or an action arose. An application must actually record or extract these relationships; the presence of the three layers does not populate them automatically.
 
 Context assembly can combine relevant material from the supported layers for an LLM prompt. Its output and available filters are part of the client/backend contract. See xref:reference/api/memory-client.adoc[MemoryClient] and xref:reference/backend-capabilities.adoc[Backend capabilities].
 

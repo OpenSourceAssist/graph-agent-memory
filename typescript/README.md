@@ -4,6 +4,9 @@
 ![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)
 ![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)
 
+> The TypeScript and Python SDKs are tracked with separate maturity levels: this
+> package is Beta, while the Python SDK (`neo4j-agent-memory`) is Experimental.
+
 > **Package installation.** Install with `npm install @neo4j-labs/agent-memory`
 > ([package page](https://www.npmjs.com/package/@neo4j-labs/agent-memory)).
 > Source lives alongside the Python SDK at
@@ -19,6 +22,10 @@
 > officially supported. There are no SLAs, backward-compatibility guarantees,
 > or scheduled deprecation commitments. APIs may change without notice. For questions and support, please use
 > the [Neo4j Community Forum](https://community.neo4j.com).
+>
+> The Python and TypeScript packages in this repository are versioned and
+> released independently; the status badge above reflects this package's own
+> maturity, not the Python SDK's.
 
 ## ✨ Features
 

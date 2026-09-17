@@ -7,11 +7,28 @@ from uuid import uuid4
 from common import settings, verify_messages
 
 
+# tag::function_tool[]
+def make_recall_tool(memory):
+    from agents import function_tool
+
+    @function_tool
+    async def recall_context(query: str) -> str:
+        """Retrieve prior conversation context relevant to `query`."""
+        return await memory.get_context(query)
+
+    return recall_context
+
+
+# end::function_tool[]
+
+
 async def exercise(client, run):
     from neo4j_agent_memory.integrations.openai_agents import Neo4jOpenAIMemory, record_agent_trace
 
     session_id = f"docs-openai-{uuid4().hex[:8]}"
     memory = Neo4jOpenAIMemory(memory_client=client, session_id=session_id)
+    if hasattr(run, "bind_memory"):
+        run.bind_memory(memory)
     prompt = "Suggest a simple project planning checklist."
     await memory.save_message("user", prompt, extract_entities=False)
     messages = [{"role": "user", "content": prompt}]
@@ -47,13 +64,18 @@ async def main():
 
     from neo4j_agent_memory import MemoryClient
 
+    memory_holder = []
+
     async def run(prompt, context):
         agent = Agent(
             name="Checklist assistant",
             model=os.environ["OPENAI_MODEL"],
             instructions=f"Answer briefly. Retrieved background:\n{context}",
+            tools=[make_recall_tool(memory_holder[0])],
         )
         return (await Runner.run(agent, prompt)).final_output
+
+    run.bind_memory = memory_holder.append
 
     async with MemoryClient(settings()) as client:
         print(await exercise(client, run))

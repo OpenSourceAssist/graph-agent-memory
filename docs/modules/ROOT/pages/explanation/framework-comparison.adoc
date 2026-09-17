@@ -24,7 +24,7 @@ Neo4j Agent Memory and these adapters are an experimental, community-supported N
 |Google ADK |Memory service integration |xref:how-to/integrations/google-adk.adoc[Google ADK]
 |===
 
-This table describes integration shapes, not a ranking or a promise that every adapter exposes every memory method. The linked guides own dependency ranges and setup details. In particular, the maintained LangChain adapter uses `BaseChatMessageHistory` and middleware; the old `BaseMemory` recipe is not the supported 1.x path. The Microsoft integration targets `agent-framework-core>=1.13,<2`, consistent with its maintained guide, rather than the retired public-preview pin.
+This table describes integration shapes, not a ranking or a promise that every adapter exposes every memory method. The linked guides own dependency ranges and setup details. In particular, the maintained LangChain adapter uses `BaseChatMessageHistory` and middleware; the old `BaseMemory` recipe is not the supported 1.x path. The xref:how-to/integrations/microsoft-agent.adoc[Microsoft Agent Framework integration guide] documents its own supported version range.
 
 [[_quick_decision_guide]]
 == Choosing by application lifecycle
@@ -45,7 +45,7 @@ The application still decides what retrieved material enters the prompt. Exposin
 
 The short-term, long-term, and reasoning layers describe different records. An adapter may expose one layer directly and use another through the underlying client. Trace helpers must be connected to an application's execution path; their existence does not make every agent run automatically observable.
 
-Backend support is a separate question. Python supports Bolt and NAMS; TypeScript targets NAMS REST. Shared concepts do not imply identical operations or result shapes. Consult xref:reference/backend-capabilities.adoc[Backend capabilities] before choosing an adapter around preferences, graph writes, extraction, or user scoping.
+Backend support is a separate question. Python supports Bolt and NAMS; TypeScript targets NAMS REST. Shared concepts do not imply identical operations or result shapes. Consult xref:reference/backend-capabilities.adoc[Backend capabilities] and xref:explanation/backends.adoc[Bolt and NAMS] before choosing an adapter around preferences, graph writes, extraction, or user scoping.
 
 [[_installation]]
 == Dependency boundaries

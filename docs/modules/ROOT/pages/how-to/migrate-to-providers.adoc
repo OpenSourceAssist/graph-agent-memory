@@ -1,4 +1,4 @@
-= Migrate to Pluggable Providers
+= Migrate to pluggable providers
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3
@@ -206,7 +206,7 @@ These integration packages expose a `llm_provider_from_<framework>` helper:
 
 If you change embedding model — for example, OpenAI's 1536-dim model to a 384-dim sentence-transformers model — `MemoryClient.connect()` will detect the mismatch against existing Neo4j vector indexes and raise `EmbeddingDimensionMismatchError`. Choose a complete migration or restore the original model. Dropping indexes does not remove stored embedding properties and does not regenerate them. A same-dimension model change also requires a backfill, although dimension validation cannot detect it.
 
-See xref:how-to/migrate-embedding-model.adoc[Migrate Embedding Model] for the index-rebuild runbook.
+See xref:how-to/migrate-embedding-model.adoc[Migrate to a new embedding model] for the index-rebuild runbook.
 
 == Validating your migration
 
@@ -257,15 +257,7 @@ This is intentionally not the default — silent deprecations make migrations sl
 
 == Behind the scenes
 
-The migration is implemented by a `@model_validator(mode="after")` on `MemorySettings` (named `_resolve_providers`). It:
-
-. Coerces dict input to legacy configs (so `MemorySettings(embedding={...})` still works).
-. Resolves provider strings via `from_provider`.
-. Emits `DeprecationWarning` when the user explicitly passed legacy `EmbeddingConfig` / `LLMConfig` instances.
-. Validates Provider instances against the runtime-checkable `EmbeddingProvider` / `LLMProvider` Protocols.
-. Keeps explicit `llm=None` only when extraction does not require an LLM; otherwise construction raises. An omitted LLM field may be auto-filled when the configured extraction pipeline needs it.
-
-After resolution, `MemoryClient._create_embedder` and `_create_extractor` consume either shape transparently. A small adapter (`_ProviderToEmbedderAdapter`) bridges new Provider instances back to the legacy `Embedder` API so downstream memory layers keep working unchanged.
+For the `_resolve_providers` model-validator and `_ProviderToEmbedderAdapter` implementation walkthrough, see xref:explanation/why-provider-protocol.adoc#_how_migration_resolves_provider_settings[Why the Provider Protocol? — How migration resolves provider settings].
 
 A clean warning check confirms configuration shape only. Verify a completion,
 an embedding vector, and representative retrieval using your selected providers.
@@ -273,6 +265,6 @@ Use the embedding migration runbook before changing an existing graph's model.
 
 == Related
 
-* xref:how-to/bring-your-own-model.adoc[Bring Your Own Model] — the headline how-to for choosing a provider.
+* xref:how-to/bring-your-own-model.adoc[Bring your own model] — the headline how-to for choosing a provider.
 * xref:reference/configuration.adoc[Configuration] — the canonical `MemorySettings` reference.
 * xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.

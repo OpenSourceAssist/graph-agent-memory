@@ -8,6 +8,8 @@ To retain an ordered conversation and retrieve it later, write messages with a k
 
 image::diagrams/message-chain.svg["A conversation with linked messages in chronological order",width=100%,link=self]
 
+For the rationale, see xref:explanation/memory-types.adoc[Understanding the three memory types].
+
 anchor:_prerequisites[]
 
 == 1. Prepare the Bolt client
@@ -21,9 +23,7 @@ include::partial$python-tutorial-setup.adoc[]
 python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
 ----
 
-The maintained program `core_memory_recipes.py` imports `core_memory_settings.py` from the same directory. That helper explicitly selects Bolt and disables automatic extraction/enrichment. Each command creates a new ID suffix so it can run independently. Embedding requests send example text to OpenAI.
-
-These tasks use Python with Bolt. Consult xref:reference/backend-capabilities.adoc[backend capabilities] before adapting them to NAMS; preferences, facts, direct relationship writes, and this deduplication configuration are not portable hosted operations.
+include::partial$python-core-recipe-intro.adoc[]
 
 include::partial$python-core-recipe-files.adoc[]
 
@@ -53,7 +53,10 @@ anchor:_filter_by_session[]
 
 == Retrieve only the intended conversation
 
-Authorize the caller's session ID before passing it to `get_conversation`. On the current Bolt implementation, `search_messages(session_id=...)` accepts the keyword but does not apply it in the underlying vector query. Do not use it to enforce user isolation. The example's semantic search is explicitly database-wide and runs only on the disposable example data.
+[WARNING]
+====
+`short_term.search_messages` accepts a `session_id` keyword, but on the current Bolt implementation the underlying Cypher (`SEARCH_MESSAGES_BY_EMBEDDING`) never filters on it, so results can cross sessions. Do not use it to enforce user isolation. Authorize the caller's session ID yourself before passing it to `get_conversation`. The example's semantic search is explicitly database-wide and runs only on the disposable example data.
+====
 
 `get_conversation` accepts `limit` and `since`; `limit=None` currently fetches at most 1,000 messages, then applies the timestamp filter in Python. For larger histories, specify the intended bound or implement a scoped Cypher pagination query. See xref:reference/api/short-term.adoc[exact message contracts].
 
@@ -76,6 +79,9 @@ Metadata filters apply according to the selected search method's contract. They 
 
 // Historical section links resolve to the maintained task and reference pointers.
 anchor:_typescript_equivalents_at_a_glance[]
+
+include::partial$python-typescript-equivalents.adoc[]
+
 anchor:_store_messages[]
 anchor:_basic_message_storage[]
 anchor:_store_with_metadata[]

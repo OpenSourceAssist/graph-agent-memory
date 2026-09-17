@@ -10,6 +10,8 @@ Structured extraction separates the shape of a model response from its meaning. 
 
 This page explains the provider design. Use xref:how-to/bring-your-own-model.adoc[Bring your own model] for setup and xref:reference/api/llm-provider.adoc[the provider reference] for signatures.
 
+NOTE: This provider configuration is a Bolt capability. NAMS performs extraction and completion calls server-side and does not expose these provider adapters. See xref:explanation/backends.adoc[Bolt and NAMS].
+
 [[_the_problem_structured_extraction_solves]]
 == The problem structured extraction solves
 

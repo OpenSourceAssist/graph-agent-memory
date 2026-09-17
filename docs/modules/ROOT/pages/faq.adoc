@@ -334,7 +334,7 @@ Reduce input chunk size or concurrency according to the extractor's limits, and 
 [[extra-forbidden-from-env]]
 === Why does `MemorySettings(...)` raise `extra_forbidden` for `neo4j_uri` / `openai_api_key`?
 
-Check for misspelled settings and the environment-loading behavior of the installed package. Current source filters unrelated `.env` keys while retaining strict validation of settings fields. Do not globally disable validation merely to hide an unknown key. See xref:reference/configuration.adoc[Settings] and xref:reference/environment-variables.adoc[Environment variables]; compare the installed release before assuming a source fix is available there.
+Check for misspelled settings and the environment-loading behavior of the installed package. Current source filters unrelated `.env` keys while retaining strict validation of settings fields. Do not globally disable validation merely to hide an unknown key. See xref:reference/configuration.adoc[Settings] and xref:reference/environment-variables.adoc[Environment variables]; compare the installed release against https://github.com/neo4j-labs/agent-memory/blob/main/CHANGELOG.md[the changelog] or https://pypi.org/project/neo4j-agent-memory/#history[PyPI's release history] before assuming a source fix is available there.
 
 [[gliner-not-installed]]
 === ImportError: GLiNER not installed

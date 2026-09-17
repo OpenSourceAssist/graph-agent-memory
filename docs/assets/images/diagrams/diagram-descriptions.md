@@ -25,7 +25,7 @@ Title at top: "POLE+O Entity Model". Camera XL (1200x900).
 
 ---
 
-## 2. message-chain.png
+## 2. message-chain.svg
 **Page**: `how-to/messages.adoc`
 **Describes**: How messages are stored and linked in short-term memory
 
@@ -49,7 +49,7 @@ Color: Conversation=light teal, Messages=light blue (user) / light green (assist
 
 ---
 
-## 3. multi-tenant-scoping.png
+## 3. multi-tenant-scoping.svg
 **Page**: `how-to/multi-tenancy.adoc`
 **Describes**: How User nodes scope data per tenant in a shared Neo4j instance
 
@@ -95,7 +95,7 @@ Colors: Agent=light purple, Buffer=light yellow, Neo4j=light teal.
 
 ---
 
-## 5. entity-dedup-flow.png
+## 5. entity-dedup-flow.svg
 **Page**: `how-to/deduplication.adoc`
 **Describes**: How entity deduplication works with similarity thresholds
 
@@ -121,7 +121,7 @@ Auto-merge=light green, Flag=light orange, Create=light teal.
 
 ---
 
-## 6. reasoning-trace-graph.png
+## 6. reasoning-trace-graph.svg
 **Page**: `how-to/reasoning-traces.adoc`
 **Replaces**: ASCII art trace structure diagram
 

@@ -19,7 +19,7 @@ anchor:_prerequisites[]
 
 The embedding calls send the supplied text to OpenAI. This exercise uses fictional data. Neo4j Agent Memory is an experimental Neo4j Labs project; see xref:reference/backend-capabilities.adoc[backend capabilities] before adapting the example to NAMS.
 
-You also need an OpenAI chat-model ID and disk space/network access for the GLiNER, GLiREL, and spaCy model downloads. CPU inference and the first download can take several minutes. GLiREL is installed separately because the SDK does not define a `glirel` extra. Its current package also requires `loguru` at import time without declaring that dependency, so the command includes it explicitly.
+You also need an OpenAI chat-model ID and disk space/network access for the GLiNER, GLiREL, and spaCy model downloads. CPU inference and the first download can take several minutes. The install command below adds `glirel` and `loguru` alongside the SDK extras; see xref:reference/extractors.adoc#_glirelextractor[the GLiRELExtractor reference] for why those two packages are named explicitly.
 
 anchor:_step_1_project_setup[]
 anchor:_step_1_install_dependencies[]
@@ -64,7 +64,7 @@ include::example$core_memory_settings.py[]
 include::example$knowledge_graph.py[]
 ----
 
-Check the copied files before exporting credentials or making a service request:
+include::partial$python-tutorial-import-check.adoc[tag=intro]
 
 [source,bash]
 ----
@@ -73,7 +73,10 @@ python -c "import aura_connection, wait_for_tutorial_neo4j, core_memory_settings
 python knowledge_graph.py --help
 ----
 
-Expected: compilation exits without errors, then `Lesson imports verified` and the command help. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+:cli-help-suffix: {sp}and the command help
+include::partial$python-tutorial-import-check.adoc[tag=expected]
+
+:cli-help-suffix!:
 
 anchor:_step_2_set_up_neo4j[]
 
@@ -164,7 +167,7 @@ anchor:_step_6_use_the_knowledge_graph_with_an_agent[]
 python knowledge_graph.py answer
 ----
 
-Expected: readback milestones followed by `Answer using retrieved evidence (inspect its factual accuracy):` and the model response. Compare the answer to the two fictional source texts, including Maya Chen's role and Denver. The program sends both stored triples and source text to the model; a nonempty response is not proof that the model interpreted them correctly.
+Expected: readback milestones followed by `Answer using retrieved evidence (inspect its factual accuracy):` and the model response. Compare the answer to the two fictional source texts, including Maya Chen's role and Denver. See xref:explanation/memory-types.adoc[] for why a nonempty response is not itself proof of correct interpretation.
 
 anchor:_what_youve_built[]
 
@@ -186,9 +189,7 @@ anchor:_troubleshooting[]
 
 == If a check fails
 
-* A connection or authentication failure: confirm the Aura instance is Running, check the exported connection settings, and rerun the readiness command from step 2.
-* An OpenAI access or quota error: correct the account/model configuration and rerun on a fresh tutorial database if the prior write stopped midway.
-* Missing readback data: verify that the write command completed against this Aura instance. The program stops on missing data rather than treating an empty result as success.
+include::partial$python-tutorial-check-failed.adoc[]
 
 * If GLiREL reports a missing tokenizer, rerun `python -m spacy download en_core_web_sm` in this virtual environment. If a model download fails, resolve its network/cache access before rerunning ingestion on a fresh database.
 

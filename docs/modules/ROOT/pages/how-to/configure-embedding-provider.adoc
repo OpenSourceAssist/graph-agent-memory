@@ -1,4 +1,4 @@
-= Configure an Embedding Provider
+= Configure an embedding provider
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3
@@ -11,7 +11,7 @@ include::partial$backend-bolt-only.adoc[]
 Configure a client-side embedding provider through `MemorySettings.embedding` and verify that its output matches the graph indexes.
 
 [.lead]
-For the big-picture choice between providers see xref:how-to/bring-your-own-model.adoc[Bring Your Own Model]. Embedding adapters share the `EmbeddingProvider` Protocol; the same wiring patterns apply across cloud APIs and local models.
+For the big-picture choice between providers see xref:how-to/bring-your-own-model.adoc[Bring your own model]. Embedding adapters share the `EmbeddingProvider` Protocol; the same wiring patterns apply across cloud APIs and local models.
 
 [NOTE]
 ====
@@ -31,54 +31,18 @@ NAMS. See xref:explanation/backends.adoc[Bolt vs NAMS].
 
 == Procedure
 
-. Choose a string, explicit adapter, or framework pass-through from the options below.
+. Choose a provider string or an explicit adapter from the options below.
 . Configure both the LLM and embedding provider; changing one does not configure the other.
 . Run the verification at the end before applying the configuration to an existing graph.
 
-== Set via a provider string
+== Set the embedding provider
 
-[source,python]
-----
-import os
-from neo4j_agent_memory import MemorySettings
+anchor:_set_via_a_provider_string[]anchor:_set_via_an_explicit_provider_instance[]
 
-settings = MemorySettings(
-    backend="bolt",
-    neo4j={
-        "uri": os.environ["NEO4J_URI"],
-        "username": os.environ["NEO4J_USERNAME"],
-        "password": os.environ["NEO4J_PASSWORD"],
-        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
-    },
-    embedding="openai/text-embedding-3-small",
-)
-----
+`MemorySettings.embedding` accepts a provider string or an explicit Provider instance. xref:how-to/bring-your-own-model.adoc#_three_ways_to_wire_a_provider[Bring your own model — Three ways to wire a provider] is the canonical walkthrough with runnable code for both (pattern C, framework pass-through, applies to `llm=` only); the deltas specific to the embedding field are below.
 
-The factory looks up the model in `neo4j_agent_memory.llm.defaults.EMBEDDING_DIMENSIONS` to populate `dimensions` automatically. For unknown models, pass an explicit instance with `dimensions=N` (see below).
-
-== Set via an explicit Provider instance
-
-[source,python]
-----
-import os
-from neo4j_agent_memory import MemorySettings
-from neo4j_agent_memory.llm.adapters.openai import OpenAIEmbeddingProvider
-
-settings = MemorySettings(
-    backend="bolt",
-    neo4j={
-        "uri": os.environ["NEO4J_URI"],
-        "username": os.environ["NEO4J_USERNAME"],
-        "password": os.environ["NEO4J_PASSWORD"],
-        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
-    },
-    embedding=OpenAIEmbeddingProvider(
-        "openai/text-embedding-3-large",
-        dimensions=1024,    # request smaller output (OpenAI dimension reduction)
-        batch_size=200,
-    ),
-)
-----
+* **Provider string** (recommended for most users) — `embedding="openai/text-embedding-3-small"` resolves via `from_provider(model, kind="embedding")`. The factory looks up the model in `neo4j_agent_memory.llm.defaults.EMBEDDING_DIMENSIONS` to populate `dimensions` automatically. For unknown models, pass an explicit instance with `dimensions=N` (see below).
+* **Explicit Provider instance** — construct the adapter directly for kwargs the string form can't express, for example `OpenAIEmbeddingProvider("openai/text-embedding-3-large", dimensions=1024, batch_size=200)` to request OpenAI's dimension reduction and a larger embedding batch size.
 
 == Use local sentence-transformers
 
@@ -236,10 +200,10 @@ print("Verified vector dimensions:", len(vector))
 
 `MemoryClient.connect()` raises `EmbeddingDimensionMismatchError` if existing managed vector indexes have a different size. It does not detect a same-dimension model change or verify every stored vector. The error lists every offending index and points at the migration runbook.
 
-See xref:how-to/migrate-embedding-model.adoc[Migrate Embedding Model] for the three remediation options (rebuild, revert, re-embed in place).
+See xref:how-to/migrate-embedding-model.adoc[Migrate to a new embedding model] for the three remediation options (rebuild, revert, re-embed in place).
 
 == Related
 
-* xref:how-to/bring-your-own-model.adoc[Bring Your Own Model] — overview.
-* xref:how-to/migrate-embedding-model.adoc[Migrate Embedding Model] — when changing dimensions.
+* xref:how-to/bring-your-own-model.adoc[Bring your own model] — overview.
+* xref:how-to/migrate-embedding-model.adoc[Migrate to a new embedding model] — when changing dimensions.
 * xref:reference/configuration.adoc[Configuration Reference].

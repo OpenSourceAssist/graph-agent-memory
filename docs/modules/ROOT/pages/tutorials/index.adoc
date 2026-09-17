@@ -4,6 +4,8 @@
 
 Learn by building one working example. Choose a language and backend here; each lesson then follows one path. The Aura lessons connect to a dedicated Neo4j database through Bolt. The hosted lessons use a NAMS workspace and its data key; the two configurations are separate.
 
+image::diagrams/tutorial-routes.svg["Three tutorial routes (Python and Aura, Python and NAMS, TypeScript and NAMS), each starting at a foundation lesson with solid arrows to continuations and dashed arrows to optional branches",width=100%,link=self]
+
 Start with the foundation lesson in your route. The tables identify its continuation and optional branches, including the accounts and tools each adds. Each lesson provides one complete path; you do not need to complete every provider or framework branch.
 
 anchor:_python_and_bolt[]

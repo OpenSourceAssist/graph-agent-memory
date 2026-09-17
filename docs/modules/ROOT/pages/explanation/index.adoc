@@ -7,17 +7,23 @@ Understand memory models, architecture, and design tradeoffs. Use xref:how-to/in
 // Retain former section URLs at the current related topic.
 == Memory concepts
 
+// Anchors below are from the pre-Diataxis docs/explanation/index.adoc (commit 94e4c32): _core_concepts,
+// _technical_deep_dives and _key_design_decisions were its `==` sections; _graph_native_memory,
+// _three_layer_architecture and _poleo_classification were `===` subsections under Key Design Decisions;
+// _explanation_philosophy and _further_reading were its closing `==` sections.
 anchor:_core_concepts[]anchor:_technical_deep_dives[]anchor:_key_design_decisions[]anchor:_graph_native_memory[]anchor:_three_layer_architecture[]anchor:_poleo_classification[]anchor:_explanation_philosophy[]anchor:_further_reading[]
 
 * xref:explanation/backends.adoc[Backends: Bolt and NAMS]
+* xref:explanation/context-tiers.adoc[Understanding the three-tier context model]
 * xref:explanation/extraction-pipeline.adoc[How entity extraction works]
 * xref:explanation/framework-comparison.adoc[Choosing an agent framework integration]
 * xref:explanation/graph-architecture.adoc[Why Neo4j? Graph memory architecture]
 * xref:explanation/memory-types.adoc[Understanding the three memory types]
 * xref:explanation/multi-agent-sharing.adoc[Cross-agent memory sharing]
 * xref:explanation/ontologies.adoc[Ontologies]
+* xref:explanation/operational-primitives.adoc[Why the v0.2 operational primitives are opt-in]
 * xref:explanation/poleo-model.adoc[The POLE+O data model]
 * xref:explanation/resolution-deduplication.adoc[Entity resolution and deduplication]
 * xref:explanation/skills.adoc[Agent Skills]
-* xref:explanation/structured-extraction.adoc[Structured Extraction]
-* xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?]
+* xref:explanation/structured-extraction.adoc[Structured extraction]
+* xref:explanation/why-provider-protocol.adoc[Why the provider protocol?]

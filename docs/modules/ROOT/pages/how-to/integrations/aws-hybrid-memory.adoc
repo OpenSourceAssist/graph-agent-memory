@@ -11,7 +11,7 @@ Use `HybridMemoryProvider` to route message, entity and preference retrieval wit
 anchor:_overview[]
 anchor:_installation[]
 
-Use Python 3.10+ and a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
+Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
 
 include::partial$python-tutorial-setup.adoc[]
 
@@ -90,7 +90,7 @@ Expected: `Verified stored message and explicit route`, with a session ID and se
 anchor:_performance_optimization[]
 anchor:_reduce_latency[]
 
-Stop when the program raises an exception; a printed model response alone does not verify persistence. Check the configured database, provider access and vector dimensions before retrying. The program prints the session or trace IDs needed for inspection and closes the client. Retained example records remain in the dedicated database; follow the Aura tutorial's cleanup procedure for that dedicated instance only when you no longer need them. Reusing a session groups records; it does not authorize a user to read them.
+include::partial$python-integration-troubleshooting.adoc[tag=troubleshooting]
 
 == Adapt the integration
 
@@ -110,4 +110,4 @@ The supported search kinds are `message`, `entity` and `preference`. `store_memo
 
 For relationship enrichment, enable `include_relationships` only when the underlying Bolt graph surface and expected entities exist; failures or empty results are not evidence of a successful enrichment. See xref:explanation/multi-agent-sharing.adoc[Shared memory consistency] and xref:how-to/integrations/aws-strands.adoc[the Strands integration] for the larger application context.
 
-See xref:reference/backend-capabilities.adoc[Backend capabilities and scoping] before adding hosted or multi-user behavior. Neo4j Agent Memory is a Neo4j Labs project with community support.
+include::partial$python-integration-troubleshooting.adoc[tag=closing]

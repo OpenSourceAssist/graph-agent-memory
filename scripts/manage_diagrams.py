@@ -97,13 +97,25 @@ def check_manifest(root: Path = PROJECT_ROOT) -> dict[str, Any]:
     outputs = {record["output"] for record in records}
     if len(outputs) != len(records):
         errors.append("Duplicate output entries in diagram manifest")
+    referenced_outputs: set[str] = set()
     for page in (root / "docs/modules/ROOT/pages").rglob("*.adoc"):
         for target in re.findall(r"image::([^\[]+)\[", page.read_text()):
             if target.startswith("http"):
                 continue
             output = "docs/modules/ROOT/images/" + target
+            referenced_outputs.add(output)
             if output not in outputs:
                 errors.append(f"{page.relative_to(root)}: untracked published image {target}")
+    diagrams_dir = root / "docs/modules/ROOT/images/diagrams"
+    if diagrams_dir.is_dir():
+        for file in sorted(diagrams_dir.iterdir()):
+            if not file.is_file():
+                continue
+            output = str(file.relative_to(root))
+            if output not in outputs and output not in referenced_outputs:
+                errors.append(
+                    f"Orphaned file (in neither the manifest nor a page reference): {output}"
+                )
     for record in records:
         for kind in ("source", "output"):
             name = record.get(kind)

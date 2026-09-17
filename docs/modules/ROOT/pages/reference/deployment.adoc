@@ -1,4 +1,4 @@
-= Documentation publication and application deployment
+= Documentation publication
 :page-product: agent-memory
 :toclevels: 2
 
@@ -11,11 +11,4 @@ The Antora authoring, validation, diagram and publication workflow is maintained
 
 The repository's TypeDoc workflow regenerates API attachments for the labs-pages docs build. The external publishing owner must verify the accepted revision, public base path and redirects. No Vercel configuration or GitHub Pages deployment is supplied by this page.
 
-== Deploy a memory application
-
-* xref:how-to/use-nams.adoc[Use a hosted NAMS workspace] to avoid operating a database and MCP server.
-* xref:reference/configuration.adoc[Configure the Python Bolt client] when connecting to a database you operate.
-* https://github.com/neo4j-labs/agent-memory/blob/main/deploy/cloudrun/README.md[Cloud Run MCP deployment] describes local image verification, authenticated invocation and its external deployment prerequisites.
-* xref:how-to/typescript/edge-runtime.adoc[TypeScript edge runtime] covers persistence lifetime in the supported Worker pattern.
-
-See xref:reference/backend-capabilities.adoc[backend capabilities] before treating these as interchangeable deployment paths.
+Deploying an application built on the SDKs, rather than this documentation site? See xref:reference/deploy-an-application.adoc[].

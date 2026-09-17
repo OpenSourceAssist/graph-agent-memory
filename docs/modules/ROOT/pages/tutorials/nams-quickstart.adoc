@@ -4,6 +4,7 @@
 :page-pagination:
 :toclevels: 2
 :sectanchors:
+:state-file: nams.json
 
 We will create a hosted conversation, read its two messages back, wait for
 extraction, and verify the same messages from a fresh process. We will retain
@@ -22,7 +23,7 @@ This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the complete programs 
 See xref:reference/authentication.adoc[Authentication] for obtaining the key before beginning. This path uses a workspace key; admin keys and custom deployments belong in xref:how-to/use-nams.adoc[the NAMS guide].
 
 [[_1_install]]
-== 1. Install the published SDK
+== Step 1: Install the published SDK
 
 include::partial$python-tutorial-setup.adoc[]
 
@@ -35,7 +36,7 @@ python -c "from importlib.metadata import version; import neo4j_agent_memory; as
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
 [[_2_configure]]
-== 2. Configure the hosted workspace
+== Step 2: Configure the hosted workspace
 
 [source,bash]
 ----
@@ -54,10 +55,34 @@ workspace identity. Because this lesson unsets `MEMORY_WORKSPACE_ID`, the
 ledger's selector can be null: the workspace key selects the workspace.
 Never put a key in either note.
 
-[[_3_connect]]
-== 3. Read the complete program
+[[_3_first_write]]
+== Step 3: Write and read back one message
 
-Create the state and cleanup helpers below, then save `nams_quickstart.py`. Each block contains the complete file, including imports and client cleanup.
+Before building the tutorial's stateful ledger, confirm the SDK itself works
+end to end: build settings from the API key exported in Step 2, open a
+client, write a message, and read it back.
+
+[source,python]
+----
+include::example$nams_first_write.py[]
+----
+
+[source,bash]
+----
+python nams_first_write.py
+----
+
+You should see `Stored and read back: user said 'Hello, NAMS!'`.
+
+[[_3_connect]]
+== Step 4: Read the complete program
+
+anchor:_4_connect[]
+
+The rest of this lesson wraps that same round trip in scaffolding the later
+verify and cleanup steps use: a private ledger and scoped-deletion helpers.
+Create them below, then save `nams_quickstart.py`. Each block contains the
+complete file, including imports and client cleanup.
 
 Copy these files into the same lesson folder. The final row is the program
 we will run; the other files are tutorial support, not SDK APIs. Reuse a helper
@@ -102,8 +127,9 @@ that directory private and out of version control. Reusing the file with a diffe
 workspace stops before saved IDs are used; reseeding an existing file is refused.
 
 [[_4_short_term_memory]]
-== 4. Store and read back the fixture
+== Step 5: Store and read back the fixture
 
+anchor:_5_short_term_memory[]
 anchor:_5_long_term_memory_and_asynchronous_extraction[]
 anchor:_10_run_it[]
 
@@ -128,7 +154,10 @@ The program prints these milestones in order:
 A timeout or exception means that stage is not verified. Keep the saved state
 rather than rerunning seed and creating another fixture.
 
-== 5. Verify from a fresh process
+== Step 6: Verify from a fresh process
+
+anchor:_5_verify_from_a_fresh_process[]
+anchor:_6_verify_from_a_fresh_process[]
 
 The seed command has exited. From the same `agent-memory-tutorials` directory, run:
 
@@ -154,7 +183,9 @@ xref:reference/backend-capabilities.adoc#hosted-cleanup[Hosted cleanup limits]
 before adding a reasoning exercise with an explicit retention arrangement.
 
 [[_cleanup]]
-== 6. Clean up and inspect the disposition
+== Step 7: Clean up and inspect the disposition
+
+anchor:_7_cleanup[]
 
 Before switching workspaces or continuing to another lesson, run:
 
@@ -205,40 +236,11 @@ every returned ID has a verified deletion or retention disposition. If a write
 was interrupted before its ID was saved, establish that exact resource with the
 workspace owner instead of deleting by a similar name or reseeding.
 
-== Inspect locally after a credential change
-
-If the original key expires or is rotated, normal lesson commands keep refusing
-to use its saved IDs with another credential. Use this separate local command:
-
-[source,bash]
-----
-python hosted_tutorial_state.py inspect-file .tutorial-state/nams.json
-----
-
-It needs no key and makes no service requests. The summary omits credential
-fingerprints, message digests, fixture metadata and review/provenance payloads.
-It still contains resource IDs and operator labels, so keep it private. Its
-`local_only: true` and `service_checked: false` mean it reports saved evidence,
-not current remote state or authorization.
-
-Give the authorized owner the workspace label, endpoint, run token, exact
-resource IDs and pending operation through your agreed private channel. The
-owner must establish the actual workspace and reconcile those resources with
-a valid credential. Do not edit the identity hash, substitute a key in the
-ledger, or remove state to unlock a write. The helper cannot migrate a run to a
-new key or supply an administrative deletion route.
+include::partial$python-hosted-lifecycle.adoc[]
 
 == Keep the old run and start a separate exercise
 
-[cols="2,3",options="header"]
-|===
-|Recorded state |Next action
-|No mutation was attempted |Correct the failed prerequisite, then use the guarded new-run check below.
-|Every recorded resource was verified absent |Keep the ledger as evidence, recheck the lesson prerequisites and use a new run directory.
-|Retained/shared resources or cleanup exit `2` |Have the owner record the actual disposition. This is not an automatic permission to reseed.
-|Pending or uncertain mutation |Use owner reconciliation; do not replay seed or erase the pending operation.
-|Credential changed |Use the local inspection/handoff procedure above; authenticated commands remain blocked.
-|===
+See xref:how-to/use-nams.adoc#_recover_from_an_interrupted_tutorial_run[Recover from an interrupted tutorial run] to check the recorded state before reseeding.
 
 For a prerequisite failure *before* the first remote write, the new ledger's
 `remote_write_started: false`, empty resources and absent pending operation

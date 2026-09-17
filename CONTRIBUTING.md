@@ -1,5 +1,7 @@
 # Contributing to Neo4j Agent Memory
 
+This is a Neo4j Labs project — for general questions and support, please use the [Neo4j Community Forum](https://community.neo4j.com).
+
 Contributions are welcome! Please read the guidelines below before submitting a pull request.
 
 ## Development Setup

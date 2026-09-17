@@ -1,4 +1,4 @@
-= How to: integrate with LangChain JS
+= Integrate with LangChain JS
 :toc: left
 :source-highlighter: rouge
 

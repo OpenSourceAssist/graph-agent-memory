@@ -2,6 +2,8 @@
 :page-product: agent-memory
 :toclevels: 2
 
+include::partial$backend-both.adoc[]
+
 To associate Bolt conversation writes and preferences with a user, pass the identifier only to supported operations and use an explicitly scoped read. This guide does not establish user authentication or database access control.
 
 // Retain former section URLs at the current related topic.
@@ -17,6 +19,8 @@ anchor:_steps[]
 == 1. Associate supported writes with a user
 
 anchor:_1_upsert_the_user[]anchor:_2_pass_user_identifier_on_writes[]anchor:_what_ports_cleanly[]
+
+image::diagrams/multi-tenant-scoping.svg["Two :User nodes, each linked by a HAS_CONVERSATION relationship to its own Conversation, with that user's messages and preferences shown alongside, all held in one shared Neo4j instance. A caption notes that user_identifier= scopes only the operations that accept it",width=100%,link=self]
 
 The following fragments run inside `async with MemoryClient(settings) as client:`. They use synthetic identities and do not require a model call for the demonstrated writes.
 

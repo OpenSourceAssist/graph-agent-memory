@@ -43,7 +43,7 @@ neo4j-agent-memory mcp serve --profile extended   # 16 on Bolt / 20 on NAMS (def
 
 === memory_search
 
-Search the selected memory types through the integration layer. With NAMS, pass `memory_types=["messages", "entities"]` to avoid the unsupported default preference search.
+Search the selected memory types through the integration layer. With NAMS, pass `memory_types=["messages", "entities"]` to avoid the unsupported default preference search — see the fuller NAMS-limitations note under xref:reference/mcp-tools.adoc#_memory_add_preference[memory_add_preference] below.
 
 [cols="1,3", options="header"]
 |===
@@ -186,6 +186,9 @@ Store a subject-predicate-object fact triple. Bolt only.
 
 | `valid_until`
 | ISO date for when this fact expires.
+
+| `metadata`
+| Additional metadata (e.g., scope, stack_tags, temporality).
 |===
 
 == Extended profile additional tools
@@ -386,7 +389,7 @@ Write operations (`CREATE`, `MERGE`, `DELETE`, `SET`, `REMOVE`) are blocked for 
 == NAMS-specific extended registrations
 
 The extended profile adds these four registrations when the client uses NAMS.
-“Platinum” in source comments names a client conformance tier, not a pricing or support commitment.
+“Platinum” in source comments names a client conformance tier, not a pricing or support commitment — see xref:reference/nams-limits.adoc[NAMS limits and behavior] for what the conformance tiers mean.
 
 [cols="2,3,4",options="header"]
 |===
@@ -503,7 +506,7 @@ The endpoint path also changed with it: Streamable HTTP serves a single
 client URLs alongside the flag.
 ====
 
-== CLI Reference
+== CLI reference
 
 The maintained options, defaults and environment precedence are in
 xref:reference/cli.adoc[CLI reference]. The core profile registers six tools;

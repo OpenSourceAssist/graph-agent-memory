@@ -6,12 +6,17 @@
 
 Give a Microsoft Agent Framework agent retrieved Neo4j context, persist its turns through the context-provider hook, and verify an explicitly recorded task trace. The selected example uses the current `Agent` API and `OpenAIChatClient`.
 
+[NOTE]
+====
+icon:flask[] *Preview.* The Microsoft Agent Framework integration tracks a framework that is itself pre-1.0; APIs on either side can change between releases. Pin both packages explicitly and re-check this page before upgrading a deployment.
+====
+
 == 1. Prepare the selected environment
 
 anchor:_overview[]
 anchor:_installation[]
 
-Use Python 3.10+ and a POSIX shell. The recipe uses `BoltSettings` to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
+Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
 
 include::partial$python-tutorial-setup.adoc[]
 
@@ -28,7 +33,7 @@ export OPENAI_MODEL='replace-with-an-available-model-id'
 
 The OpenAI-backed recipes require access to `text-embedding-3-small`; it produces 1536-dimensional vectors in this configuration. Configure the selected chat model separately where required. Credentials are read from the environment, never printed by the programs.
 
-The repository's `microsoft-agent` extra selects the current supported `agent-framework-core` 1.x range. The program imports `OpenAIChatClient` from `agent_framework.openai`; an OpenAI key is appropriate for that client. An Azure client would require its own deployment, endpoint and credentials.
+The repository's `microsoft-agent` extra pins `agent-framework-core>=1.13,<2`. The program imports `OpenAIChatClient` from `agent_framework.openai`; an OpenAI key is appropriate for that client. An Azure client would require its own deployment, endpoint and credentials.
 
 == 2. Read the complete integration
 
@@ -105,9 +110,9 @@ The context provider can include short-term history, long-term knowledge and sim
 .Integration components; graph analytics are optional
 image::diagrams/microsoft-agent-architecture.png["Microsoft Agent Framework context hooks and optional memory tools connect to Neo4j Agent Memory",width=600,align=left,link=self]
 
-The optional GDS helper requires suitable domain data and a supported graph surface. A Cypher fallback is a different retrieval/ranking method, not an equivalent execution of PageRank or Node Similarity. The minimal script above does not enable GDS. `create_memory_tools(...)` returns tool definitions that require the corresponding execution path; inspect the installed adapter before translating them into framework tool objects.
+The optional GDS helper requires suitable domain data and a supported graph surface. A Cypher fallback is a different retrieval/ranking method, not an equivalent execution of PageRank or Node Similarity. The minimal script above does not enable GDS; see `get_gds_config()` in https://github.com/neo4j-labs/agent-memory/blob/main/examples/microsoft_agent_retail_assistant/backend/memory_config.py[the retail application's `memory_config.py`] for a working `GDSConfig` that enables `GDSAlgorithm.SHORTEST_PATH`, `NODE_SIMILARITY` and `PAGERANK`. `create_memory_tools(...)` returns tool definitions that require the corresponding execution path; inspect the installed adapter before translating them into framework tool objects.
 
-https://github.com/neo4j-labs/agent-memory/tree/main/examples/microsoft_agent_retail_assistant[The maintained retail application] adds inventory, cart and product-search tools plus a UI and domain graph. Those features belong to the example application, not to `MemoryClient` automatically.
+https://github.com/neo4j-labs/agent-memory/tree/main/examples/microsoft_agent_retail_assistant[The maintained retail application] adds inventory, cart and product-search tools plus a UI and domain graph, and is also the GDS-enabled example referenced above. Those features belong to the example application, not to `MemoryClient` automatically.
 
 .Separate TfL Explorer example application
 image::diagrams/tfl-explorer-app-screenshot.png["TfL Explorer example interface showing a route-planning conversation",width=540,align=left,link=self]

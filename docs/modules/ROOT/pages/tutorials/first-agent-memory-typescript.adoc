@@ -10,6 +10,8 @@ We will store a fictional project name and entity, retrieve the same conversatio
 during a model call, then independently verify that the new question and answer
 were stored. NAMS hosts the data; no database server runs on your machine.
 
+image::diagrams/nams-hosted-memory-flow.svg["Your TypeScript application calls the @neo4j-labs/agent-memory SDK, which reaches the hosted NAMS workspace over HTTPS with a Bearer apiKey. NAMS assembles a three-tier context — reflections, observations and recent messages — and returns it to the application before each model call.",width=100%,link=self]
+
 anchor:_prerequisites[]
 anchor:_step_1_create_the_project[]
 
@@ -88,6 +90,10 @@ The maintained state and cleanup helpers are in `typescript/examples/shared/`.
 Keep the private `.tutorial-state/` directory with this checkout. Each run binds
 its saved IDs to the endpoint, workspace selector and credential; a changed
 identity stops authenticated use of those IDs; local `inspect` remains available. Reseeding an existing state is refused.
+
+This lesson pins the cheaper `gpt-4o-mini` as its `OPENAI_MODEL` fallback on
+purpose, to keep the exercise low-cost; the SDK's own `agentMemoryMiddleware`
+JSDoc example uses `gpt-5-mini` for the same env var.
 
 include::partial$typescript-tutorial-api.adoc[]
 

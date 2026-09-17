@@ -3,7 +3,7 @@
 :page-pagination:
 :toclevels: 2
 
-To change an existing Bolt application to NAMS, inventory its operations and data assumptions, replace unsupported paths, then verify the application against a separate workspace. Changing a backend setting does not transfer the existing Neo4j database.
+To change an existing Bolt application to NAMS, inventory its operations and data assumptions, replace unsupported paths, then verify the application against a separate workspace.
 
 // Retain former section URLs at the current related topic.
 == Prerequisites
@@ -71,7 +71,7 @@ anchor:_backendnams_bolt_only_features_raise[]anchor:_embeddings_and_vector_inde
 
 . Persist the ID returned by `create_conversation`; do not continue using its display name as the message session ID.
 . Handle entity creation correctly: Bolt returns `(Entity, DeduplicationResult)`, while NAMS returns an `Entity`. Keep backend-specific code explicit when the application needs merge details.
-. After asynchronous ingestion, use a bounded extraction wait and verify the exact expected entity or session status. A nonempty workspace search does not prove this run's extraction completed.
+. After asynchronous ingestion, use a bounded extraction wait and verify the exact expected entity or session status.
 . Remove inactive client-side embedding/extraction/resolution settings from the NAMS configuration. Configure an LLM provider separately only for client-side summary or application model work.
 . Replace combined-context isolation assumptions with explicit retrieval and application authorization. Test a second conversation with different synthetic content.
 
@@ -92,7 +92,7 @@ Run the following checks in the sandbox and retain the returned IDs and failures
 . Test authentication failures, rate limits and unsupported operations. Mock tests should reject unimplemented routes instead of silently returning success.
 . Confirm that content from another user/conversation is handled by the intended access policy; do not treat the presence of a `userId` field as proof.
 
-Only switch the application after these application-specific checks pass. A successful Bolt suite is a baseline, not evidence of hosted equivalence. The detailed supported operations and exceptions remain in xref:reference/backend-capabilities.adoc[backend capabilities] and the xref:reference/api/memory-client.adoc[Python API reference].
+Only switch the application after these application-specific checks pass. The detailed supported operations and exceptions remain in xref:reference/backend-capabilities.adoc[backend capabilities] and the xref:reference/api/memory-client.adoc[Python API reference].
 
 [#_deprecation_timeline]
 // Retain former section URLs at the current related topic.
@@ -100,7 +100,15 @@ Only switch the application after these application-specific checks pass. A succ
 
 anchor:_full_notsupportederror_reference[]
 
-`client.graph.execute_read` currently warns on Bolt; `client.query.cypher` is the preferred read accessor. `client.graph.execute_write` remains the Bolt write path. This guide does not promise an unshipped removal version or a NAMS write-Cypher replacement.
+`client.graph.execute_read` currently warns on Bolt; use `client.query.cypher` as the preferred read accessor. `client.graph.execute_write` remains the Bolt write path.
+
+[#_limits_and_gotchas]
+== Limits and gotchas
+
+* Changing a backend setting does not transfer the existing Neo4j database; keep the source database until a separately planned import and rollback procedure has been verified.
+* This guide does not promise an unshipped removal version or a NAMS write-Cypher replacement.
+* A nonempty workspace search does not prove a given run's extraction completed — verify the exact expected entity or session status instead.
+* A successful Bolt test suite is a baseline, not evidence of hosted equivalence.
 
 [#_need_help]
 // Retain former section URLs at the current related topic.
