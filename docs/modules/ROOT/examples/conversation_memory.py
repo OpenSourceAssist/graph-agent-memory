@@ -114,8 +114,6 @@ async def resume(client, llm, model):
 
 
 async def main():
-    from openai import AsyncOpenAI
-
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["seed", "resume"])
     args = parser.parse_args()
@@ -123,6 +121,10 @@ async def main():
         if args.command == "seed":
             await seed(client)
         else:
+            # Imported here: only this branch calls a model, so `seed` runs
+            # without the openai package installed.
+            from openai import AsyncOpenAI
+
             async with AsyncOpenAI() as llm:
                 await resume(client, llm, os.environ["OPENAI_MODEL"])
 

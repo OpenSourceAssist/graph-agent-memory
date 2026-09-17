@@ -178,8 +178,6 @@ async def answer(client, llm, model):
 
 
 async def main():
-    from openai import AsyncOpenAI
-
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["ingest", "inspect", "answer"])
     args = parser.parse_args()
@@ -189,6 +187,10 @@ async def main():
         elif args.command == "inspect":
             await inspect_graph(client)
         else:
+            # Imported here: only this branch calls a model, so `ingest` and
+            # `inspect` run without the openai package installed.
+            from openai import AsyncOpenAI
+
             async with AsyncOpenAI() as llm:
                 await answer(client, llm, os.environ["OPENAI_MODEL"])
 

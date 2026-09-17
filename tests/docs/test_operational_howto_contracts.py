@@ -8,6 +8,7 @@ substitutes; the migration helper runs against a deterministic graph substitute.
 from __future__ import annotations
 
 import ast
+import json
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -42,10 +43,32 @@ PAGES = (
 )
 
 
+#: `example$` includes resolve two ways at build time: files under the Antora
+#: examples dir, and maintained top-level programs mapped in by the
+#: `docs/extensions/example-files` extension. Resolving them here means these
+#: blocks are compiled as the page renders them, not skipped.
+ANTORA_EXAMPLES = ROOT / "docs/modules/ROOT/examples"
+EXAMPLE_FILES = json.loads((ROOT / "docs/extensions/example-files.json").read_text())
+
+
+def resolve_example(relative):
+    mapped = EXAMPLE_FILES.get(relative)
+    path = ROOT / mapped if mapped else ANTORA_EXAMPLES / relative
+    assert path.is_file(), (
+        f"include::example${relative}[] resolves to no file ({path}); Antora would "
+        "render an unresolved-directive error on the page"
+    )
+    return path.read_text().rstrip("\n")
+
+
 def blocks(name):
-    return re.findall(
+    found = re.findall(
         r"\[source,python\]\n----\n(.*?)\n----", (HOWTO / f"{name}.adoc").read_text(), re.S
     )
+    return [
+        re.sub(r"include::example\$(.+?)\[\]", lambda m: resolve_example(m[1]), block)
+        for block in found
+    ]
 
 
 def program(name, contains):
