@@ -61,6 +61,21 @@ def test_bolt_initializes_without_importing_nams_or_httpx(tmp_path):
             async def close(self):
                 self.is_connected = False
 
+        # Minimal EmbeddingProvider, so the test needs no provider extra: the
+        # unit-test CI job installs the dev group only, where a provider string
+        # like "openai/text-embedding-3-small" has no adapter to resolve to. An
+        # instance still exercises the real provider -> legacy-embedder
+        # adaptation inside MemoryClient.
+        class OfflineEmbeddingProvider:
+            model = "offline-test-embedder"
+            dimensions = 1536
+
+            async def embed(self, texts):
+                return [[0.0] * self.dimensions for _ in texts]
+
+            async def embed_one(self, text):
+                return [0.0] * self.dimensions
+
         class SchemaManager:
             def __init__(self, client, vector_dimensions):
                 self.client = client
@@ -81,7 +96,7 @@ def test_bolt_initializes_without_importing_nams_or_httpx(tmp_path):
                 _env_file=None,
                 backend="bolt",
                 neo4j={"password": "unused-offline-test-password"},
-                embedding="openai/text-embedding-3-small",
+                embedding=OfflineEmbeddingProvider(),
                 llm=None,
                 extraction={"extractor_type": "none"},
                 resolution={"strategy": "none"},
