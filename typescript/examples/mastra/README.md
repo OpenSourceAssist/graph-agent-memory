@@ -129,7 +129,8 @@ user> Remind me what kind of trip I said I like.
 agent> You said you like food and history trips …
 NAMS lists 2 thread(s) for the demo resource
 
-CLEANUP=1 deletes only threads created during that run; keep earlier printed ids for separate cleanup.
+Both threads were kept. Re-run with CLEANUP=1 to delete them.
+CLEANUP=1 deletes only the threads created during that run.
 ```
 
 Exact wording varies with the model; the structure does not. Reflection and

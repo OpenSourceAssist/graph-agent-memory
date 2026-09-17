@@ -209,7 +209,11 @@ export async function main(options: RunOptions = {}): Promise<RunResult> {
       await memory.deleteThread(secondThread.id);
       log("\nCLEANUP=1 — both threads deleted");
     } else {
-      log(`\nKeep thread ids ${thread.id} and ${secondThread.id} for inspection or deletion.`);
+      // Ids stay out of the log for the reason given above: on the bridge
+      // transport they encode the resource id, which comes from the
+      // environment. Callers that need them have them on the returned
+      // RunResult, and NAMS lists them for the resource.
+      log("\nBoth threads were kept. Re-run with CLEANUP=1 to delete them.");
       log("CLEANUP=1 deletes only the threads created during that run.");
     }
 

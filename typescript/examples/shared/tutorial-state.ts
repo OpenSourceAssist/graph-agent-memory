@@ -1,5 +1,5 @@
 /** Private, durable state for the hosted tutorials; no SDK-wide behavior changes. */
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -19,11 +19,21 @@ export interface TutorialOperation {
 }
 export interface TutorialState {
   schemaVersion: 1; lesson: string; runId: string; createdAt: string;
-  identity: { endpoint: string; workspaceId?: string; credentialSha256: string };
+  identity: { endpoint: string; workspaceId?: string; credentialSalt: string; credentialDigest: string };
   resources: TutorialResource[]; operations: TutorialOperation[];
   cleanup?: { prepared: boolean; complete: boolean; residualIds: string[]; error?: string };
 }
 export const sha256 = (text: string): string => createHash("sha256").update(text).digest("hex");
+/**
+ * Bind a state file to the credential that seeded it without writing a
+ * directly-comparable digest of that credential to disk. A per-run salt and a
+ * deliberately slow KDF mean the stored value answers exactly one question --
+ * "is this the same key as last time?" -- and is not worth attacking offline.
+ * Message content keeps `sha256`: it is a change detector, not a secret.
+ */
+function credentialDigest(apiKey: string, salt: string): string {
+  return scryptSync(apiKey, salt, 32).toString("hex");
+}
 function normalizeConfig(config: TutorialConfig): TutorialConfig {
   const apiKey = config.apiKey;
   if (!apiKey?.trim()) throw new Error("Set MEMORY_API_KEY before using tutorial state.");
@@ -38,15 +48,16 @@ export function resolveTutorialConfig(env: NodeJS.ProcessEnv = process.env): Tut
   return normalizeConfig({ endpoint: env.MEMORY_ENDPOINT ?? "https://memory.neo4jlabs.com/v1", apiKey: env.MEMORY_API_KEY ?? "",
     ...(env.MEMORY_WORKSPACE_ID ? { workspaceId: env.MEMORY_WORKSPACE_ID } : {}) });
 }
-function identity(config: TutorialConfig): TutorialState["identity"] {
-  return { endpoint: config.endpoint, workspaceId: config.workspaceId, credentialSha256: sha256(config.apiKey) };
+function identity(config: TutorialConfig, salt = randomBytes(16).toString("hex")): TutorialState["identity"] {
+  return { endpoint: config.endpoint, workspaceId: config.workspaceId, credentialSalt: salt,
+    credentialDigest: credentialDigest(config.apiKey, salt) };
 }
 function nonempty(value: unknown): value is string { return typeof value === "string" && value.length > 0; }
 function validateState(value: unknown): asserts value is TutorialState {
   const s = value as TutorialState;
   if (!s || s.schemaVersion !== 1 || !nonempty(s.lesson) || !/^[0-9a-f-]{36}$/.test(s.runId) ||
       !Number.isFinite(Date.parse(s.createdAt)) || !s.identity || !nonempty(s.identity.endpoint) ||
-      !/^[0-9a-f]{64}$/.test(s.identity.credentialSha256) ||
+      !/^[0-9a-f]{32}$/.test(s.identity.credentialSalt) || !/^[0-9a-f]{64}$/.test(s.identity.credentialDigest) ||
       (s.identity.workspaceId !== undefined && !nonempty(s.identity.workspaceId)) ||
       !Array.isArray(s.resources) || !Array.isArray(s.operations)) throw new Error("Invalid tutorial state; keep it for inspection, do not reseed.");
   const keys = new Set<string>();
@@ -115,8 +126,8 @@ export class TutorialRun {
   static load(path: string, config = resolveTutorialConfig(), lesson?: string): TutorialRun {
     config = normalizeConfig(config);
     const state = readState(path, lesson);
-    const expected = identity(config);
-    if (state.identity.endpoint !== expected.endpoint || state.identity.workspaceId !== expected.workspaceId || state.identity.credentialSha256 !== expected.credentialSha256) {
+    const expected = identity(config, state.identity.credentialSalt);
+    if (state.identity.endpoint !== expected.endpoint || state.identity.workspaceId !== expected.workspaceId || state.identity.credentialDigest !== expected.credentialDigest) {
       throw new Error("Tutorial endpoint, workspace, or credential changed. Stop and verify ownership with the key owner; do not silently rebind saved IDs.");
     }
     return new TutorialRun(path, state, config);
