@@ -97,7 +97,10 @@ so rebuild and reinstall after SDK changes. An install cannot create missing
 3. Ship `lint` (`tsc --noEmit`) and `test` scripts; keep the suite offline so
    it runs with no API key.
 4. Write a README with the Labs badges, the disclaimer, prerequisites, run
-   steps, expected output, a support section and a dated verification note naming the source commit, installed artifacts, checks and mocked/live boundaries.
+   steps, expected output, a support section and a provenance footer — either a
+   dated verification note naming the source commit, installed artifacts, checks
+   and mocked/live boundaries, or the `Compatibility scope:` statement the other
+   examples here use when no such run has been performed.
 5. Add the directory to the `type-check-examples` matrix in
    `.github/workflows/ci-typescript.yml`, and add a row to the table above.
 
