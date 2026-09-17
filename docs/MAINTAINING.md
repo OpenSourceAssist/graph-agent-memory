@@ -43,7 +43,7 @@ Use `xref:` for internal pages. Add every page to its quadrant index or a linked
 The main regression checks are:
 
 ```bash
-uv run pytest tests/docs/test_docs_checker.py tests/docs/test_links.py -q
+uv run pytest tests/docs/test_code_snippets.py tests/docs/test_docs_checker.py tests/docs/test_links.py -q
 uv run pytest tests/docs/test_build_pipeline.py -q
 ```
 
@@ -53,7 +53,7 @@ Python user instructions install the verified PyPI release (`neo4j-agent-memory=
 
 Use `python-tutorial-setup.adoc` for the reusable local folder/environment setup. Commands run from `~/agent-memory-tutorials`, using the exact relative filenames shown by the page. Continuing readers retain their existing environment, configuration and private state. For a how-to that explains selected tagged functions and then runs a complete script, also provide all complete files needed by that command.
 
-`extensions/example-files.js` registers the explicitly listed standalone how-to scripts and templates as Antora example resources during `contentClassified`. This keeps the rendered listings tied to their maintained sources outside the docs directory; it creates no downloadable archive. Keep the extension enabled in publishing playbooks and build from the accepted full repository checkout so those sources are available. Fresh-build tests compare the named, rendered files with their canonical source and verify that the tutorial programs' local imports are supplied on the same page.
+`extensions/example-files.json` maps Antora example resource names to repository-relative standalone scripts and templates. The `extensions/example-files.js` extension and Python snippet checker both read this manifest, so rendered pages and source checks resolve the same files. The extension registers these resources during `contentClassified`; it creates no downloadable archive. Keep the extension enabled in publishing playbooks and build from the accepted full repository checkout so those sources are available. Fresh-build tests compare the named, rendered files with their canonical source and verify that the tutorial programs' local imports are supplied on the same page.
 
 Package availability and API compatibility must be verified independently of the repository version. Python 0.6.0 still has the older active-ontology metadata inference; the ontology lesson explicitly reads the authoritative REST response through its maintained helper. TypeScript retains its source build instructions until a compatible npm artifact is published; Python's version does not identify an npm release. Contributor development, SDK builds and release checks remain source workflows.
 

@@ -1,5 +1,8 @@
 """Regression fixtures for the failures missed by the old docs checks."""
 
+import json
+from pathlib import Path
+
 import pytest
 
 from scripts.check_docs import build_site, rendered_report, source_report
@@ -166,3 +169,77 @@ def test_tagged_example_includes_select_real_regions(tmp_path):
     )
     with pytest.raises(ValueError, match="Missing example tags"):
         expand_example_includes("include::example$recipes.py[tag=missing]", pages / "x.adoc")
+
+
+@pytest.mark.parametrize(
+    "target,source",
+    json.loads(
+        (Path(__file__).resolve().parents[2] / "docs/extensions/example-files.json").read_text()
+    ).items(),
+)
+def test_syntax_checker_reads_every_registered_example(target, source):
+    """The snippet checker and Antora must read identical Python and JSON resources."""
+    from tests.docs.utils.extract_code import expand_example_includes
+
+    root = Path(__file__).resolve().parents[2]
+    page = root / "docs/modules/ROOT/pages/how-to/team-memory-in-your-editor.adoc"
+    assert (
+        expand_example_includes(f"include::example${target}[]", page)
+        == (root / source).read_text(encoding="utf-8").rstrip()
+    )
+
+
+@pytest.fixture
+def registered_example(tmp_path):
+    """A virtual resource exists only at its registered repository source path."""
+    root = tmp_path / "repository"
+    docs = root / "docs"
+    page = docs / "modules/ROOT/pages/how-to/lesson.adoc"
+    page.parent.mkdir(parents=True)
+    manifest = docs / "extensions/example-files.json"
+    manifest.parent.mkdir()
+    manifest.write_text(json.dumps({"team-memory/program.py": "examples/program.py"}))
+    source = root / "examples/program.py"
+    source.parent.mkdir()
+    source.write_text("import os\n# tag::run[]\nprint('actual source')\n# end::run[]\n")
+    page.write_text(
+        "= Lesson\n[source,python]\n----\ninclude::example$team-memory/program.py[]\n----\n"
+    )
+    return page, manifest, source
+
+
+def test_registered_example_is_expanded_during_snippet_collection(registered_example):
+    from tests.docs.utils.extract_code import extract_snippets_from_file
+
+    page, _, source = registered_example
+    assert extract_snippets_from_file(page)[0].code == source.read_text().rstrip()
+    source.unlink()
+    with pytest.raises(FileNotFoundError):
+        extract_snippets_from_file(page)
+
+
+def test_registered_example_supports_tags_and_rejects_invalid_includes(registered_example):
+    from tests.docs.utils.extract_code import expand_example_includes
+
+    page, _, _ = registered_example
+    assert (
+        expand_example_includes("include::example$team-memory/program.py[tag=run]", page)
+        == "print('actual source')"
+    )
+    with pytest.raises(ValueError, match="Missing example tags"):
+        expand_example_includes("include::example$team-memory/program.py[tag=absent]", page)
+    with pytest.raises(ValueError, match="Unsupported example include options"):
+        expand_example_includes("include::example$team-memory/program.py[lines=1]", page)
+    with pytest.raises(FileNotFoundError):
+        expand_example_includes("include::example$team-memory/unknown.py[]", page)
+
+
+def test_registered_examples_preserve_include_path_boundaries(registered_example):
+    from tests.docs.utils.extract_code import expand_example_includes
+
+    page, manifest, _ = registered_example
+    with pytest.raises(ValueError, match="escapes module examples"):
+        expand_example_includes("include::example$../outside.py[]", page)
+    manifest.write_text(json.dumps({"team-memory/program.py": "../outside.py"}))
+    with pytest.raises(ValueError, match="Registered example escapes repository"):
+        expand_example_includes("include::example$team-memory/program.py[]", page)

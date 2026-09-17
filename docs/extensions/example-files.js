@@ -6,17 +6,7 @@ const { readFileSync } = require('node:fs')
 const path = require('node:path')
 
 const ROOT = path.resolve(__dirname, '../..')
-const EXAMPLE_FILES = {
-  'no_llm/main.py': 'examples/no_llm/main.py',
-  'eval-harness/main.py': 'examples/eval-harness/main.py',
-  'eval-harness/ci_gate.py': 'examples/eval-harness/ci_gate.py',
-  'team-memory/_shared.py': 'examples/claude-code-team-memory/_shared.py',
-  'team-memory/seed_workspace.py': 'examples/claude-code-team-memory/seed_workspace.py',
-  'team-memory/doctor.py': 'examples/claude-code-team-memory/doctor.py',
-  'team-memory/.mcp.json.example': 'examples/claude-code-team-memory/.mcp.json.example',
-  'team-memory/claude_desktop_config.json.example': 'examples/claude-code-team-memory/claude_desktop_config.json.example',
-  'team-memory/cursor_mcp.json.example': 'examples/claude-code-team-memory/cursor_mcp.json.example',
-}
+const EXAMPLE_FILES = require('./example-files.json')
 
 module.exports.register = function () {
   this.on('contentClassified', ({ contentCatalog }) => {

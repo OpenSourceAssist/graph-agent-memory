@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -227,6 +228,12 @@ def expand_example_includes(code: str, file_path: Path) -> str:
     if module is None or "include::example$" not in code:
         return code
     examples = (module.parent / "examples").resolve()
+    docs_root = module.parents[2]
+    manifest = docs_root / "extensions/example-files.json"
+    external_examples = (
+        json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else {}
+    )
+    repository = docs_root.parent.resolve()
 
     def include(match: re.Match[str]) -> str:
         target, options = match.groups()
@@ -239,6 +246,10 @@ def expand_example_includes(code: str, file_path: Path) -> str:
         source = (examples / target).resolve()
         if not source.is_relative_to(examples):
             raise ValueError(f"Example include escapes module examples: {target}")
+        if target in external_examples:
+            source = (repository / external_examples[target]).resolve()
+            if not source.is_relative_to(repository):
+                raise ValueError(f"Registered example escapes repository: {target}")
         text = source.read_text(encoding="utf-8")
         if tags is None:
             return text.rstrip()
