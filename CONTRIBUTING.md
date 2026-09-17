@@ -296,14 +296,24 @@ tag prefix and publish workflow.
 
 ### Python (neo4j-agent-memory → PyPI)
 
-1. Update version in `pyproject.toml`
-2. Create and push a tag with the **`python-v`** prefix:
+1. Update the version in **both** `pyproject.toml` (`[project] version`) and
+   `src/neo4j_agent_memory/__init__.py` (`__version__`). The two are maintained
+   by hand; `tests/unit/test_version_consistency.py` fails if they drift, and
+   `uv build` takes the `pyproject.toml` value.
+2. Cut the release section in `CHANGELOG.md`: rename `## [Unreleased]` to
+   `## [<version>] - <YYYY-MM-DD>`, open a fresh empty `## [Unreleased]` above
+   it, and add the matching link reference at the bottom of the file.
+3. Merge that to `main` and wait for CI to go green — nothing downstream
+   re-runs the test suite.
+4. Create and push a tag with the **`python-v`** prefix:
    ```bash
-   git tag python-v0.4.1
-   git push origin python-v0.4.1
+   git tag python-v0.6.0
+   git push origin python-v0.6.0
    ```
-3. `publish-python.yml` builds and publishes to PyPI, then creates a
-   GitHub Release.
+5. `publish-python.yml` verifies the tag against the versions from step 1,
+   then builds and publishes to PyPI and creates a GitHub Release. The `pypi`
+   environment has no approval gate, so the push publishes — and a version
+   number, once claimed on PyPI, cannot be reused.
 
 ### TypeScript (@neo4j-labs/agent-memory → npm)
 

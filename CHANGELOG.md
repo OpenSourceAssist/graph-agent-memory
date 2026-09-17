@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-14
+
 ### Added
 
 - **Strands MemoryStore** (`Neo4jMemoryStore`) — cross-session recall for Strands
@@ -92,6 +94,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `expected_names` / `min_results` / `predicate` / `timeout` / `interval`, so
   portable code calling it through `client.long_term` failed `mypy --strict`. All
   parameters are keyword-only and optional; bolt still returns `True` immediately.
+- **Entity aliases are now readable by alias.** `add_entity` wrote `aliases`
+  into the JSON `metadata` blob while `get_entity_by_name` looks for a top-level
+  `aliases` property, so an entity was never findable by an alias passed to
+  `add_entity`. `aliases` is now a top-level list property everywhere, matching
+  what `MERGE_ENTITIES` already wrote; rows written earlier still read back via
+  the `metadata` fallback.
+- **`add_relationship` no longer acknowledges a write that matched nothing.**
+  The query `MATCH`es both endpoints before `MERGE`ing the edge, so ids that
+  address no node wrote zero rows and returned a relationship the graph did not
+  contain. It now raises `NotFoundError` naming both ids, and on a re-add it
+  returns the stored id instead of a newly minted one.
+- **`add_entity` returns the id the graph stored.** The `MERGE` is keyed on
+  `(name, type)`, so a repeat add hits `ON MATCH`, keeps the original `id` and
+  discards the freshly minted one — the returned entity then addressed no node,
+  and every later write keyed on it (`add_relationship`,
+  `link_entity_to_message`) silently did nothing.
+- **`merge_duplicate_entities` no longer orphans edges.** It migrated only
+  `MENTIONS` and `SAME_AS`, so a merge dropped the entity's `RELATED_TO` edges
+  (both directions) and both provenance edges (`EXTRACTED_FROM`,
+  `EXTRACTED_BY`), plus the v0.2 `APPLIES_TO` and `TOUCHED` audit edges. All of
+  them are now copied onto the surviving entity and tagged `migrated_from`; the
+  merged-away entity keeps its own edges so the merge stays reversible.
 - **`add_messages_batch` now accepts `user_identifier`**, enforcing `multi_tenant`
   and linking the conversation to its `:User`; previously the bulk path silently
   wrote unscoped, unlinked conversations — so a bulk write that used to succeed
@@ -348,7 +372,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `fastmcp>=4`. The CrewAI test guards still imported `from crewai.memory import
     Memory`, the path removed in 1.x, so every CrewAI test silently skipped; they now
     probe `crewai.memory.memory` like the adapter and actually run.
-- `strands` extra requires `strands-agents>=1.44.0` (was `>=0.1.0`).
 - **`Neo4jSessionManager` now guards against a paired `Neo4jMemoryStore` duplicating its work**: raises if both would extract the same turns (always, on NAMS), warns once if both would inject context.
 - `ShortTermProtocol.bulk_add_messages` takes explicit keyword-only params
   (`generate_embeddings`, `extract_entities`, `extract_relations`, `user_identifier`)
@@ -476,11 +499,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `merge_confidence` score; fallback entity confidence uses the model default.
   Null confidence and collection fields use meaningful defaults, while invalid
   server IDs and explicit null/invalid creation timestamps fail validation.
-
-> **Docs note:** when this ships, flip the "REST-only / no SDK method" notes in
-> `reference/rest-api.adoc`, `reference/ontology-api.adoc`, and
-> `reference/authentication.adoc`, and the Python↔TS parity note in
-> `reference/typescript-api.adoc`, to reflect the new SDK surface.
 
 ## [0.5.0] - 2026-05-30
 
@@ -980,6 +998,7 @@ The v0.2 feature drop. Headline feature is **adopting an existing Neo4j graph** 
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Schema Persistence**: Store and version custom entity schemas in Neo4j
 
+[0.6.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/python-v0.6.0
 [0.5.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/python-v0.5.0
 [0.4.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.4.0
 [0.1.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.1.0
