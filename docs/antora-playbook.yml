@@ -5,6 +5,7 @@ site:
 antora:
   extensions:
     - require: ./extensions/example-files.js
+    - require: ./extensions/tutorial-ui.js
 
 content:
   sources:
@@ -13,6 +14,7 @@ content:
       start_path: docs
 
 ui:
+  supplemental_files: ./ui
   bundle:
     url: https://static-content.neo4j.com/build/ui-bundle-latest.zip
     snapshot: true

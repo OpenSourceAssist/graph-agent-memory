@@ -8,6 +8,11 @@ export async function inspectDocuments(run: TutorialRun, timeoutMs = 60_000) {
     { role: "user", content: `${run.name} is a fictional organization that designs garden sensors.` },
     { role: "user", content: `Mira Vale ${run.state.runId} is an engineer at ${run.name}.` },
   ]);
+  return observeDocuments(run, timeoutMs);
+}
+
+// This phase reads the existing run; it never creates another conversation or message.
+export async function observeDocuments(run: TutorialRun, timeoutMs = 60_000) {
   const stored = await run.verify();
   console.log(`Stored document messages verified: ${stored.messages}`);
   await waitForTerminalExtraction(run, timeoutMs);
@@ -24,10 +29,11 @@ export async function inspectDocuments(run: TutorialRun, timeoutMs = 60_000) {
   console.log(`Run graph: ${graph.length} message/entity links`);
   if (!entityIds.length) throw new Error("Extraction finished without linked entities. Keep the state and inspect the messages before claiming graph success.");
   if (!expectedNameFound) throw new Error("Linked entities did not include this run's expected organization name. Keep the state; graph presence alone is not the lesson's success condition.");
-  return { conversationId: conversation.id, entityIds };
+  return { conversationId: run.conversationId, entityIds };
 }
 
 if (isTutorialEntryPoint(import.meta.url)) {
-  runTutorialCommand("knowledge-graph", process.argv.slice(2), "seed", ["seed"],
-    (_mode, run) => inspectDocuments(run)).catch(error => { console.error(error); process.exitCode = 1; });
+  runTutorialCommand("knowledge-graph", process.argv.slice(2), "seed", ["seed", "observe"],
+    (mode, run) => mode === "observe" ? observeDocuments(run) : inspectDocuments(run))
+    .catch(error => { console.error(error); process.exitCode = 1; });
 }

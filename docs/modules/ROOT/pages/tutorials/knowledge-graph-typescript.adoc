@@ -1,4 +1,8 @@
 = Ingest documents and inspect extracted entities (TypeScript)
+:page-role: code-nocollapse
+:ts-program: src/tutorials/knowledge-graph.ts
+:ts-seed: seed
+:ts-next-state: knowledge-graph-2.json
 :source-highlighter: rouge
 
 anchor:_what_youll_learn[]
@@ -42,6 +46,11 @@ export async function inspectDocuments(run: TutorialRun, timeoutMs = 60_000) {
     { role: "user", content: `${run.name} is a fictional organization that designs garden sensors.` },
     { role: "user", content: `Mira Vale ${run.state.runId} is an engineer at ${run.name}.` },
   ]);
+  return observeDocuments(run, timeoutMs);
+}
+
+// This phase reads the existing run; it never creates another conversation or message.
+export async function observeDocuments(run: TutorialRun, timeoutMs = 60_000) {
   const stored = await run.verify();
   console.log(`Stored document messages verified: ${stored.messages}`);
   await waitForTerminalExtraction(run, timeoutMs);
@@ -58,19 +67,22 @@ export async function inspectDocuments(run: TutorialRun, timeoutMs = 60_000) {
   console.log(`Run graph: ${graph.length} message/entity links`);
   if (!entityIds.length) throw new Error("Extraction finished without linked entities. Keep the state and inspect the messages before claiming graph success.");
   if (!expectedNameFound) throw new Error("Linked entities did not include this run's expected organization name. Keep the state; graph presence alone is not the lesson's success condition.");
-  return { conversationId: conversation.id, entityIds };
+  return { conversationId: run.conversationId, entityIds };
 }
 
 if (isTutorialEntryPoint(import.meta.url)) {
-  runTutorialCommand("knowledge-graph", process.argv.slice(2), "seed", ["seed"],
-    (_mode, run) => inspectDocuments(run)).catch(error => { console.error(error); process.exitCode = 1; });
+  runTutorialCommand("knowledge-graph", process.argv.slice(2), "seed", ["seed", "observe"],
+    (mode, run) => mode === "observe" ? observeDocuments(run) : inspectDocuments(run))
+    .catch(error => { console.error(error); process.exitCode = 1; });
 }
 ----
 
 The maintained state and cleanup helpers are in `typescript/examples/shared/`.
 Keep the private `.tutorial-state/` directory with this checkout. Each run binds
 its saved IDs to the endpoint, workspace selector and credential; a changed
-identity stops before using those IDs. Reseeding an existing state is refused.
+identity stops authenticated use of those IDs; local `inspect` remains available. Reseeding an existing state is refused.
+
+include::partial$typescript-tutorial-api.adoc[]
 
 anchor:_step_6_query_the_knowledge_graph[]
 anchor:_step_3_define_an_extraction_schema_with_zod[]
@@ -95,6 +107,20 @@ A timeout means terminal extraction was not observed in time; it does not mean
 the messages were not stored. Missing or unexpected entities also fail the
 lesson check and retain state. Do not seed another run to bypass either result.
 
+After a timeout, observe the same run again in a new process:
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts observe .tutorial-state/knowledge-graph.json
+----
+
+`observe` verifies the saved messages, waits for terminal extraction and repeats
+the exact-name and scoped graph checks. It creates no conversation, message or
+entity; it can add discovered entity IDs to the private local ledger. A normal
+exit establishes that the expected organization was found. If the named
+predicate still fails after extraction finishes, retain that result for review
+and cleanup; graph presence alone is insufficient.
+
 Inspect `Linked entity:` and `Run graph:` output alongside the saved message
 IDs and relationship names. This scoped view does not enumerate unrelated
 workspace data or promise a particular relationship or extraction-quality score.
@@ -108,17 +134,17 @@ Run these commands from the same directory, using the state created above:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts inspect .tutorial-state/knowledge-graph.json
+npx tsx src/tutorials/knowledge-graph.ts inspect .tutorial-state/knowledge-graph.json
 npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts verify .tutorial-state/knowledge-graph.json
 ----
 
-`inspect` shows the saved IDs and operation status. Expect `Verified stored
-messages:` with the recorded conversation ID and message count from `verify`.
-It opens another
-client and reads the recorded conversation and exact message IDs, roles and
-content digests; it makes no model
-calls and creates no records. A successful check establishes persistence across
-client processes. It does not imply that the hosted service restarted.
+`inspect` shows local saved IDs and operation status without loading `.env`
+or contacting NAMS. `verify` opens another authenticated client and reads the
+recorded conversation and exact message IDs, roles and content digests. Expect
+`Verified stored messages:` with the conversation ID and message count.
+Verification makes no model calls and creates no records. It establishes
+persistence across client processes; it does not imply that the hosted service
+restarted.
 
 anchor:_clean_up_the_conversation[]
 
@@ -129,7 +155,7 @@ From the same lesson directory, clean up this run using its saved state:
 [source,bash]
 ----
 npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts cleanup .tutorial-state/knowledge-graph.json
-npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts inspect .tutorial-state/knowledge-graph.json
+npx tsx src/tutorials/knowledge-graph.ts inspect .tutorial-state/knowledge-graph.json
 ----
 
 The cleanup command waits for the recorded messages' extraction to finish,
@@ -146,6 +172,8 @@ unfinished run or bulk-delete workspace entities.
 anchor:_step_7_use_the_graph_from_a_different_agent[]
 anchor:_extending_the_knowledge_graph[]
 anchor:_see_also[]
+
+include::partial$typescript-tutorial-lifecycle.adoc[]
 
 == Next steps
 

@@ -74,8 +74,8 @@ async def store_document(client, filename, text, result):
             resolve=False,
             deduplicate=False,
         )
-        # Repeated name/type writes MERGE in Bolt, but add_entity currently returns
-        # a newly allocated ID even on a MERGE hit. Use the persisted ID for links.
+        # SDK 0.6.0 returns the canonical stored ID after a name/type MERGE.
+        # Verify that the exact match is unambiguous before attaching links.
         persisted = await client.query.cypher(
             "MATCH (e:Entity {name: $name, type: $type}) RETURN e.id AS id",
             {"name": entity.name, "type": entity.type},

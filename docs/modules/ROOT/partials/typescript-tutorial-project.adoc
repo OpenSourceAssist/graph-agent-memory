@@ -22,6 +22,18 @@ tutorial settings without replacing its other values.
 For the two model lessons, set `OPENAI_MODEL=gpt-4o-mini` and supply
 `OPENAI_API_KEY`; an existing demo configuration may select a different model.
 
+If an earlier install was interrupted, or the lockfile changed, run `npm ci`
+again from this project directory, then `npm run lint`. The directory check
+above only avoids an unnecessary reinstall; it does not prove the dependencies
+are complete. `npm ci` replaces `node_modules` from the lockfile and preserves
+your `.env` and `.tutorial-state/` files.
+
+Keep a private note of the selected NAMS workspace name/ID and its key owner.
+The optional `MEMORY_WORKSPACE_ID` is a selector, not proof of ownership. A
+workspace-scoped key may not need it. Keep the same endpoint, key and selector
+for the run's authenticated verification and cleanup; do not print the key or
+use a different workspace to work around a failed check.
+
 The tutorial template uses `gpt-4o-mini` for model lessons. `DEMO_USER_ID`,
 newest-conversation reuse and the `gpt-5-mini` default in `.env.example` belong
 to the separate `npm start` demo. These lessons create or explicitly resume

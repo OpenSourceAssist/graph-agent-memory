@@ -215,7 +215,11 @@ async def run_command(http, command, state):
         print(f"Saved run ID: {run['runId']}; run inspect next")
         return
     if command == "inspect":
-        run_id = data["run_id"]
+        run_id = data.get("run_id")
+        if not run_id:
+            raise RuntimeError(
+                "No recorded run ID; inspect local state before any generation retry"
+            )
 
         async def fetch():
             return await request_json(http, "GET", f"skills/runs/{quote(run_id, safe='')}")
@@ -274,7 +278,7 @@ async def run_command(http, command, state):
         print("Inspect skills-attestation.json; ZIP validation does not verify its signature")
 
 
-async def main():
+async def main(argv=None):
     from neo4j_agent_memory import NamsSettings, connect
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -283,6 +287,9 @@ async def main():
         choices=["seed", "generate", "inspect", "publish", "download", "state", "cleanup"],
     )
     parser.add_argument("--state", type=Path, default=STATE)
+    parser.add_argument(
+        "--workspace-label", help="Operator-recorded workspace name/ID; not routing"
+    )
     parser.add_argument(
         "--empty-workspace-confirmed",
         action="store_true",
@@ -294,14 +301,20 @@ async def main():
     parser.add_argument(
         "--disposal-plan", help="Verified disposal procedure or explicitly agreed retention"
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     settings = NamsSettings()
     if args.command == "seed":
         if not args.empty_workspace_confirmed or not args.disposal_owner or not args.disposal_plan:
             parser.error(
                 "seed requires --empty-workspace-confirmed, --disposal-owner and --disposal-plan"
             )
-        state = TutorialState.create(args.state, settings, "skills")
+        state = TutorialState.create(
+            args.state,
+            settings,
+            "skills",
+            workspace_label=args.workspace_label,
+            workspace_owner=args.disposal_owner,
+        )
         state.data["disposition_agreement"] = {
             "owner": args.disposal_owner,
             "procedure": args.disposal_plan,
@@ -323,6 +336,25 @@ async def main():
         return
     async with http_client(settings) as http:
         if args.command == "cleanup":
+            if state.data.get("run_id") and state.data.get("run", {}).get("outcome") not in {
+                "Created",
+                "Withheld",
+                "Failed",
+            }:
+                raise RuntimeError(
+                    "Skill run is not recorded terminal; inspect the same run or hand it to the "
+                    "owner before cleanup. A client timeout does not cancel the service job."
+                )
+            if state.data.get("run", {}).get("outcome") == "Created":
+                skill_id = state.data["run"].get("skillId")
+                if (
+                    not skill_id
+                    or skill_id != state.data.get("skill_id")
+                    or skill_id not in state.data["resources"].get("skill", {})
+                ):
+                    raise RuntimeError(
+                        "Created skill ID is not fully recorded; inspect the same run before cleanup"
+                    )
             complete = await cleanup(http, state)
             print("Operator disposition is still required for retained step/tool/run/skill records")
             if not complete:

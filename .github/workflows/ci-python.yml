@@ -639,6 +639,7 @@ jobs:
             tests/unit/nams/test_ontology.py \
             tests/docs/test_hosted_tutorial_contracts.py \
             tests/docs/test_hosted_tutorial_cleanup.py \
+            tests/docs/test_hosted_tutorial_lifecycle.py \
             tests/docs/test_skills_tutorial.py \
             tests/docs/test_ontology_tutorial.py --timeout=60
 
@@ -684,10 +685,12 @@ jobs:
           uv run pytest tests/docs/test_python_reference_contracts.py \
             tests/docs/test_hosted_tutorial_contracts.py \
             tests/docs/test_hosted_tutorial_cleanup.py \
+            tests/docs/test_hosted_tutorial_lifecycle.py \
             tests/docs/test_skills_tutorial.py \
             tests/docs/test_ontology_tutorial.py \
             tests/docs/test_core_python_tutorials.py \
             tests/docs/test_aura_tutorial_setup.py \
+            tests/docs/test_aura_tutorial_persona.py \
             tests/docs/test_operational_howto_contracts.py \
             tests/docs/test_diagram_manifest.py \
             tests/docs/test_cloudrun_assets.py -q --timeout=60

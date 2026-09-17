@@ -1,5 +1,6 @@
 = Distil and download a skill from a recorded procedure
 :page-product: agent-memory
+:page-role: code-nocollapse
 :page-pagination:
 :toclevels: 2
 :sectanchors:
@@ -71,6 +72,13 @@ it does not authenticate or prove emptiness. Keep these credentials and this
 tutorial directory for every following command. The maintained client uses
 the same resolved settings for its SDK and direct HTTP calls.
 
+Before seeding, identify the workspace name or ID in the dashboard and its
+responsible operator. Supply those non-secret labels in the seed command below.
+They are saved as operator notes; they do not change request routing or prove
+workspace identity. Because this lesson unsets `MEMORY_WORKSPACE_ID`, the
+ledger's selector can be null: the workspace key selects the workspace.
+Never put a key in the workspace label or disposal-owner note.
+
 [[_1_start_a_distillation_run]]
 == 1. Seed the exact procedure
 
@@ -81,6 +89,20 @@ provisioning or independently certify emptiness.
 
 Create the three shared helpers below, then save `skills_quickstart.py` in
 the same lesson folder:
+
+Copy these files into the same lesson folder. The final row is the program
+we will run; the other files are tutorial support, not SDK APIs. Reuse a helper
+only when its contents match. Finish pending cleanup/recovery before replacing
+code that owns an existing ledger.
+
+[cols="2,3,1",options="header"]
+|===
+|File |Purpose |Continuing reader
+|`hosted_tutorial_state.py` |Private ledger and local inspection |Reuse unchanged
+|`hosted_tutorial_cleanup.py` |Supported scoped cleanup; retained resources stay explicit |Reuse unchanged
+|`hosted_tutorial_helpers.py` |Bounded polling and ontology support shared with the preceding lesson |Reuse unchanged
+|`skills_quickstart.py` |The learner-facing seed, generate, review and disposition commands |New lesson file
+|===
 
 include::partial$python-hosted-state-file.adoc[]
 
@@ -94,6 +116,19 @@ include::partial$python-hosted-helpers-file.adoc[]
 include::example$skills_quickstart.py[]
 ----
 
+Before the first service operation, check the assembled files offline:
+
+[source,bash]
+----
+python -m py_compile hosted_tutorial_state.py hosted_tutorial_cleanup.py hosted_tutorial_helpers.py skills_quickstart.py
+python skills_quickstart.py --help
+----
+
+Expected: compilation prints nothing and exits successfully; `--help` prints
+the command choices. Compilation catches syntax errors; the CLI check also
+loads the local imports. Neither command authenticates, contacts NAMS or
+creates tutorial state. Fix a missing or truncated file before continuing.
+
 Replace the owner and disposition text below with the actual arrangement you
 verified. Supply `--empty-workspace-confirmed` only after that owner has checked
 the newly provisioned workspace:
@@ -102,6 +137,7 @@ the newly provisioned workspace:
 ----
 python skills_quickstart.py seed \
   --state .tutorial-state/skills.json \
+  --workspace-label 'workspace name or ID from the dashboard' \
   --empty-workspace-confirmed \
   --disposal-owner 'the responsible workspace owner' \
   --disposal-plan 'the verified disposal procedure or explicitly agreed retention'
@@ -146,6 +182,33 @@ Expected on creation: a private `.tutorial-state/skills-review.json` containing
 the skill detail and provenance. A duplicate generate command is refused. If a
 run is withheld, inspect its recorded result and stop the publication path;
 do not broaden the scope or invent a skill ID.
+
+Choose the next action from the observed result, not from the next numbered
+heading. A two-minute client timeout does not cancel the service job.
+
+[cols="2,4",options="header"]
+|===
+|Outcome |Next action
+|`Created` with accepted provenance |Review `skills-review.json` in step 3; publish only after that review.
+|`Withheld` or `Failed` |Run `state` to read the recorded outcome, then proceed to step 6 for disposition. Do not publish, regenerate or broaden the scope.
+|Timeout; job remains queued/running |Repeat `inspect` with the same state and run ID. It only observes that job; each attempt has the same two-minute bound. If you cannot continue, hand the run ID to the operator.
+|Unknown state or unrecognized/unexplained provenance |Keep the saved state and any review report for maintainer/operator inspection. Do not bypass the parser or publish.
+|Interrupted approval/publication |Inspect local state and have the owner reconcile the saved skill ID. Do not blindly repeat `publish` or clear its pending operation.
+|===
+
+To resume observation after a timeout:
+
+[source,bash]
+----
+python skills_quickstart.py inspect --state .tutorial-state/skills.json
+----
+
+A recorded `Withheld` or `Failed` outcome still demonstrates submitting and
+observing a job; it does not demonstrate a generated or published skill. The
+remaining review/publish/download milestones are skipped. Cleanup refuses a
+saved run whose terminal outcome has not been observed: first inspect that
+same run or arrange operator handoff for the still-running job. Neither a
+client exit nor conversation deletion establishes that the service job ended.
 
 [[_3_inspect_provenance]]
 == 3. Inspect the procedure and evidence
@@ -212,6 +275,7 @@ loaded into an agent nor executed.
 [source,bash]
 ----
 python skills_quickstart.py cleanup --state .tutorial-state/skills.json
+printf 'Cleanup exit status: %s\n' "$?"
 python skills_quickstart.py state --state .tutorial-state/skills.json
 ----
 
@@ -228,6 +292,90 @@ the private state, review files and archive until the named owner has verified
 disposal or recorded the agreed retention of every remaining resource. Do not
 invent a delete route or reset the workspace to make a cleanup result look
 complete.
+
+Illustrative disposition after a terminal generated run (placeholder IDs):
+
+[source,text]
+----
+Verified: owned conversation and proven-owned entities are absent
+Retained resources: {'step': ['<step-id>', '...'], 'tool_call': ['<tool-id>', '...'], 'skill_run': ['<run-id>'], 'skill': ['<skill-id>']}
+Operator disposition is still required for retained step/tool/run/skill records
+Cleanup exit status: 2
+----
+
+A `Withheld` run has no created skill ID, but its recorded steps, tool calls and
+run still require disposition. The complete ID lists are in the state file;
+`...` above only shortens this illustration. This expected exit `2` is not an
+empty-workspace pass and is not a reason to reseed.
+
+== Inspect locally after a credential change
+
+If the original key expires or is rotated, normal lesson commands keep refusing
+to use its saved IDs with another credential. Use this separate local command:
+
+[source,bash]
+----
+python hosted_tutorial_state.py inspect-file .tutorial-state/skills.json
+----
+
+It needs no key and makes no service requests. The summary omits credential
+fingerprints, message digests, fixture metadata and review/provenance payloads.
+It still contains resource IDs and operator labels, so keep it private. Its
+`local_only: true` and `service_checked: false` mean it reports saved evidence,
+not current remote state or authorization.
+
+Give the authorized owner the workspace label, endpoint, run token, exact
+resource IDs and pending operation through your agreed private channel. The
+owner must establish the actual workspace and reconcile those resources with
+a valid credential. Do not edit the identity hash, substitute a key in the
+ledger, or remove state to unlock a write. The helper cannot migrate a run to a
+new key or supply an administrative deletion route.
+
+== Keep the old run and start a separate exercise
+
+[cols="2,3",options="header"]
+|===
+|Recorded state |Next action
+|No mutation was attempted |Correct the failed prerequisite, then use the guarded new-run check below.
+|Every recorded resource was verified absent |Keep the ledger as evidence, recheck the lesson prerequisites and use a new run directory.
+|Retained/shared resources or cleanup exit `2` |Have the owner record the actual disposition. This is not an automatic permission to reseed.
+|Pending or uncertain mutation |Use owner reconciliation; do not replay seed or erase the pending operation.
+|Credential changed |Use the local inspection/handoff procedure above; authenticated commands remain blocked.
+|===
+
+A normal Skills run retains steps, tool calls and possibly a run/skill. Its
+cleanup does not make the workspace empty. Another Skills exercise requires a
+newly provisioned, owner-verified empty workspace and a new disposition
+agreement; preserve the first workspace's ledger and reports. The automatic
+check below does not approve starting over with retained resources.
+
+For a prerequisite failure *before* the first remote write, the new ledger's
+`remote_write_started: false`, empty resources and absent pending operation
+establish that this program did not attempt a mutation. An empty ledger alone
+is not enough. Older empty ledgers without that marker, a lost returned ID, or any
+uncertain write fail the check and require owner inspection.
+
+After correcting the prerequisite and repeating the empty-workspace/owner
+checks, choose this unused run directory. The first command only reads the old ledger and checks the new path. It preserves
+the original file and creates nothing. `&&` prevents seed if that check fails:
+
+[source,bash]
+----
+python hosted_tutorial_state.py check-new-run .tutorial-state/skills.json \
+  --next-state .tutorial-state/skills-run-2/state.json &&
+python skills_quickstart.py seed --state .tutorial-state/skills-run-2/state.json \
+  --workspace-label 'workspace name or ID from the dashboard' \
+  --empty-workspace-confirmed \
+  --disposal-owner 'the responsible workspace owner' \
+  --disposal-plan 'the verified disposal procedure or explicitly agreed retention'
+----
+
+Expected before seed: `Recorded new-run check: no_remote_write_started` for
+an unstarted run, or `recorded_disposition_complete` for fully disposed records.
+This is a check of saved evidence, not a new service verification. The seed
+still checks its own prerequisites and refuses an existing target state file.
+Use the new `--state` path for every later command; reports and archives are
+written alongside that new state. Never copy the old IDs into the new ledger.
 
 [[_next_steps]]
 == Next steps

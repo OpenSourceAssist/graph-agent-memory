@@ -1,4 +1,8 @@
 = Store and read back hosted memory with TypeScript
+:page-role: code-nocollapse
+:ts-program: src/tutorials/hosted-quickstart.ts
+:ts-seed: seed
+:ts-next-state: hosted-quickstart-2.json
 :description: Store and read back a conversation using the hosted REST service and TypeScript SDK.
 :source-highlighter: rouge
 
@@ -49,7 +53,9 @@ if (isTutorialEntryPoint(import.meta.url)) {
 The maintained state and cleanup helpers are in `typescript/examples/shared/`.
 Keep the private `.tutorial-state/` directory with this checkout. Each run binds
 its saved IDs to the endpoint, workspace selector and credential; a changed
-identity stops before using those IDs. Reseeding an existing state is refused.
+identity stops authenticated use of those IDs; local `inspect` remains available. Reseeding an existing state is refused.
+
+include::partial$typescript-tutorial-api.adoc[]
 
 anchor:_step_1_sanity_check_the_service[]
 
@@ -79,17 +85,17 @@ Run these commands from the same directory, using the state created above:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts inspect .tutorial-state/hosted-quickstart.json
+npx tsx src/tutorials/hosted-quickstart.ts inspect .tutorial-state/hosted-quickstart.json
 npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts verify .tutorial-state/hosted-quickstart.json
 ----
 
-`inspect` shows the saved IDs and operation status. Expect `Verified stored
-messages:` with the recorded conversation ID and message count from `verify`.
-It opens another
-client and reads the recorded conversation and exact message IDs, roles and
-content digests; it makes no model
-calls and creates no records. A successful check establishes persistence across
-client processes. It does not imply that the hosted service restarted.
+`inspect` shows local saved IDs and operation status without loading `.env`
+or contacting NAMS. `verify` opens another authenticated client and reads the
+recorded conversation and exact message IDs, roles and content digests. Expect
+`Verified stored messages:` with the conversation ID and message count.
+Verification makes no model calls and creates no records. It establishes
+persistence across client processes; it does not imply that the hosted service
+restarted.
 
 anchor:_clean_up_the_conversation[]
 
@@ -100,7 +106,7 @@ From the same lesson directory, clean up this run using its saved state:
 [source,bash]
 ----
 npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts cleanup .tutorial-state/hosted-quickstart.json
-npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts inspect .tutorial-state/hosted-quickstart.json
+npx tsx src/tutorials/hosted-quickstart.ts inspect .tutorial-state/hosted-quickstart.json
 ----
 
 The cleanup command waits for the recorded messages' extraction to finish,
@@ -115,6 +121,8 @@ client alone does not delete data. Do not remove the state file to bypass an
 unfinished run or bulk-delete workspace entities.
 
 anchor:_step_4_inspect_the_entity_graph[]
+
+include::partial$typescript-tutorial-lifecycle.adoc[]
 
 == Next steps
 

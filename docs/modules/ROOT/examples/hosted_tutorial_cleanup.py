@@ -112,6 +112,7 @@ async def cleanup(http, state, *, timeout=60.0, interval=1.0) -> bool:
     for entry in resources.get("entity", {}).values():
         if entry.get("status") != "deleted":
             entry["owned"] = False
+    state.data["cleanup_complete"] = False
     state.save()
     route = f"conversations/{quote(conversation_id, safe='')}"
     response = await http.get(route)
@@ -224,6 +225,8 @@ async def cleanup(http, state, *, timeout=60.0, interval=1.0) -> bool:
     }
     if any(row.get("id") not in unsupported for row in rows):
         raise RuntimeError("Unexpected run-owned residuals remain; inspect state")
+    state.data["cleanup_complete"] = not state.data["retained_resources"]
+    state.save()
     print("Verified: owned conversation and proven-owned entities are absent")
     print(f"Retained resources: {state.data['retained_resources']}")
     return not state.data["retained_resources"]

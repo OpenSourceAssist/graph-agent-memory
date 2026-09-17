@@ -1,5 +1,6 @@
 = Store and recall a message from Claude Desktop
 :page-product: agent-memory
+:page-role: code-nocollapse
 :page-pagination:
 :toclevels: 2
 :sectanchors:
@@ -8,7 +9,7 @@ We will connect Claude Desktop on macOS to a local stdio MCP server backed by Au
 
 This lesson selects the core tool profile, a local embedding model, and disabled entity/preference extraction. The MCP process and embedding computation run on your Mac; the database runs in Aura. Hosting the MCP process remotely and selecting other profiles are separate how-to tasks.
 
-This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
 
 [[_what_youll_learn]]
 == Before you begin
@@ -37,15 +38,40 @@ python -c "from importlib.metadata import version; import neo4j_agent_memory; as
 
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
-include::partial$aura-tutorial-setup.adoc[]
+=== Create and check the local files
 
-The maintained server program uses the current virtual environment and the shared `aura_config()` helper for its explicit Bolt settings:
+Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
+
+[cols="2,4,2",options="header"]
+|===
+|File |Purpose |Returning reader
+|`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
+|`wait_for_tutorial_neo4j.py` |Probe the selected database and close the driver. |Reuse unchanged
+|`mcp_local_tutorial.py` |Prepare embeddings, validate Desktop configuration, or run the local MCP server. This is the lesson entry point. |New for this lesson; retain it with unfinished state
+|===
+
+include::partial$aura-tutorial-files.adoc[]
 
 .Save as `mcp_local_tutorial.py`
 [source,python]
 ----
 include::example$mcp_local_tutorial.py[]
 ----
+
+Check the copied files before exporting credentials or making a service request:
+
+[source,bash]
+----
+python -m py_compile aura_connection.py wait_for_tutorial_neo4j.py mcp_local_tutorial.py
+python -c "import aura_connection, wait_for_tutorial_neo4j, mcp_local_tutorial; assert all(callable(f) for f in [aura_connection.aura_config, wait_for_tutorial_neo4j.wait_until_ready, mcp_local_tutorial.main]); print('Lesson imports verified')"
+python mcp_local_tutorial.py --help
+----
+
+Expected: compilation exits without errors, then `Lesson imports verified` and the command help. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+
+include::partial$aura-tutorial-setup.adoc[]
+
+The server program copied above uses the current virtual environment and the shared `aura_config()` helper for its explicit Bolt settings.
 
 [source,bash]
 ----
@@ -70,7 +96,14 @@ python -c "import json, sys; config = json.load(open(sys.argv[1])); assert confi
 printf 'Private MCP configuration: %s\n' "$MCP_TUTORIAL_CONFIG"
 ----
 
-Expected: `Aura MCP configuration verified`, followed by the private temporary file's path. Open that path in your editor. The `neo4j-docs` entry contains absolute interpreter/script paths and `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, and `NEO4J_DATABASE`. The generated JSON contains database credentials; keep it outside the tutorial folder and do not share it. Merge that one entry into `~/Library/Application Support/Claude/claude_desktop_config.json`, preserving any existing servers and keeping that file private too. Keep this terminal open for cleanup, then restart Claude Desktop to load its configuration. Claude Desktop launches the stdio process.
+Expected: `Aura MCP configuration verified`, followed by the private temporary file's path. Open that path in your editor. The `neo4j-docs` entry contains absolute interpreter/script paths and `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, and `NEO4J_DATABASE`. The generated JSON contains database credentials; keep it outside the tutorial folder and do not share it. Merge that one entry into `~/Library/Application Support/Claude/claude_desktop_config.json`, preserving any existing servers and keeping that file private too. Place `neo4j-docs` directly inside the existing top-level `mcpServers` object, beside other server entries. Keep this terminal open for cleanup. Validate the final destination file after saving the merge:
+
+[source,bash]
+----
+python mcp_local_tutorial.py --check-config "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+----
+
+Expected: `Verified: merged Desktop JSON, lesson paths and explicit Aura variables`. The check reads only the local file, rejects malformed/duplicate JSON keys, checks this interpreter/script and required child-process variables, and never prints credential values or modifies other entries. It does not verify the password, server startup, or model access. Fix a reported line/column or nesting error before continuing. Then completely quit and restart Claude Desktop; it launches the stdio process.
 
 [[_step_4_verify_the_connection]]
 == 3. Verify the tool connection
@@ -80,6 +113,10 @@ In a new Claude Desktop conversation, inspect the tools provided by `neo4j-docs`
 Ask Claude: "Use the neo4j-docs memory_search tool to search for cedar-lantern-47. Show whether the tool found a stored result."
 
 Expected: a visible tool invocation and a result or an empty result. A chat response without a tool call does not verify the connection.
+
+If the server is absent, rerun the final JSON check, confirm the virtual environment and script still exist at the generated absolute paths, and inspect the local logs. The https://modelcontextprotocol.io/docs/develop/connect-local-servers#troubleshooting[official MCP Desktop troubleshooting guide] documents macOS logs under `~/Library/Logs/Claude`: `mcp.log` records connection failures and `mcp-server-neo4j-docs.log` contains this server's stderr. Open those files locally in your editor; logs can contain sensitive data, so do not paste their raw contents or the configuration into a support message. Record the error category and redact details first. These documented log locations are separate from a live verification of your installed Desktop release.
+
+A listed server with a failed tool invocation needs its server/Aura/provider error investigated. A successful search returning no records is an ordinary empty result at this point; it is not a startup failure. Do not test connection repair by repeatedly storing the passphrase.
 
 [[_step_5_have_a_memory_aware_conversation]]
 == 4. Store one exact message
@@ -114,6 +151,10 @@ Start a fresh Claude Desktop conversation and ask:
 Use neo4j-docs memory_search for "workshop passphrase" with session_id "claude-docs-tutorial". Quote the stored passphrase only if the tool returns it.
 
 Expected: a visible search invocation whose result contains `cedar-lantern-47`. An answer inferred from earlier chat text is not proof of retrieval; compare the tool result with the database row from the preceding step.
+
+include::partial$aura-tutorial-resume.adoc[]
+
+Keep the existing Desktop server entry and run the final configuration check again. In Aura Query, inspect the exact message before asking for another `memory_search` call. Do not repeat `memory_store_message` just because you opened a new chat. If the private temporary configuration path was lost, locate and delete only that lesson-generated file during cleanup; do not delete other temporary files.
 
 [[_running_the_server_remotely]]
 == Cleanup and further tasks

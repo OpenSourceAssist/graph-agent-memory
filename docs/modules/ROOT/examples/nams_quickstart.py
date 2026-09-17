@@ -53,7 +53,7 @@ async def exercise(client, state):
     return conversation_id
 
 
-async def main():
+async def main(argv=None):
     from neo4j_agent_memory import NamsSettings, connect
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -61,10 +61,20 @@ async def main():
         "command", choices=["seed", "inspect", "verify", "cleanup"], nargs="?", default="seed"
     )
     parser.add_argument("--state", type=Path, default=STATE)
-    args = parser.parse_args()
+    parser.add_argument(
+        "--workspace-label", help="Operator-recorded workspace name/ID; not routing"
+    )
+    parser.add_argument("--workspace-owner", help="Operator responsible for resource disposition")
+    args = parser.parse_args(argv)
     settings = NamsSettings()
     state = (
-        TutorialState.create(args.state, settings, "nams")
+        TutorialState.create(
+            args.state,
+            settings,
+            "nams",
+            workspace_label=args.workspace_label,
+            workspace_owner=args.workspace_owner,
+        )
         if args.command == "seed"
         else TutorialState.load(args.state, settings, "nams")
     )

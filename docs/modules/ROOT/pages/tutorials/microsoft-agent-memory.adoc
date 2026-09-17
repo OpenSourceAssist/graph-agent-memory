@@ -1,12 +1,13 @@
 = Build a shopping response with Microsoft Agent Framework memory
 :page-product: agent-memory
+:page-role: code-nocollapse
 :page-pagination:
 :toclevels: 2
 :sectanchors:
 
 We will store an explicit shopping preference in AuraDB, attach a Neo4j context provider to a Microsoft Agent Framework agent, and verify the persisted turn and recorded trace. The product catalog is a small fictional list in the instructions; this lesson does not promise graph algorithms or real inventory queries.
 
-This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
 
 [[_what_youll_build]]
 == Before you begin
@@ -40,6 +41,36 @@ python -c "from agent_framework.openai import OpenAIChatClient; print('OpenAI cl
 
 Expected: `OpenAI client import verified`. The optional framework client is installed explicitly rather than assuming the memory extra includes it.
 
+=== Create and check the local files
+
+Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
+
+[cols="2,4,2",options="header"]
+|===
+|File |Purpose |Returning reader
+|`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
+|`wait_for_tutorial_neo4j.py` |Probe the selected database and close the driver. |Reuse unchanged
+|`microsoft_shopping_tutorial.py` |Run the shopping agent and verify framework persistence and its trace. This is the lesson entry point. |New for this lesson; retain it with unfinished state
+|===
+
+include::partial$aura-tutorial-files.adoc[]
+
+.Save as `microsoft_shopping_tutorial.py`
+[source,python]
+----
+include::example$microsoft_shopping_tutorial.py[]
+----
+
+Check the copied files before exporting credentials or making a service request:
+
+[source,bash]
+----
+python -m py_compile aura_connection.py wait_for_tutorial_neo4j.py microsoft_shopping_tutorial.py
+python -c "import aura_connection, wait_for_tutorial_neo4j, microsoft_shopping_tutorial; assert all(callable(f) for f in [aura_connection.aura_config, wait_for_tutorial_neo4j.wait_until_ready, microsoft_shopping_tutorial.main]); print('Lesson imports verified')"
+----
+
+Expected: compilation exits without errors, then `Lesson imports verified`. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+
 [[_step_2_set_up_neo4j]]
 == 2. Create and connect to the Aura lesson instance
 
@@ -50,19 +81,15 @@ include::partial$aura-tutorial-setup.adoc[]
 
 anchor:_step_4_create_the_agent[]anchor:_step_5_create_the_main_application[]anchor:_step_6_load_sample_data[]
 
+include::partial$python-openai-model-selection.adoc[]
+
 [source,bash]
 ----
 export OPENAI_API_KEY="replace-with-your-key"
 export OPENAI_MODEL="replace-with-your-accessible-OpenAI-model-id"
 ----
 
-The complete file is `microsoft_shopping_tutorial.py`. It reads the exported Aura connection variables through the shared `aura_config()` helper and contains the fictional catalog, explicit preference write, agent configuration, trace handling, and client cleanup:
-
-.Save as `microsoft_shopping_tutorial.py`
-[source,python]
-----
-include::example$microsoft_shopping_tutorial.py[]
-----
+The complete file is `microsoft_shopping_tutorial.py`. It reads the exported Aura connection variables through the shared `aura_config()` helper and contains the fictional catalog, explicit preference write, agent configuration, trace handling, and client cleanup.
 
 The context-provider hook owns conversation writes; application code does not also save the same turn. Entity extraction is disabled for this lesson. The program records both successful calls and provider-call failures as trace outcomes without inventing an unsupported error argument.
 
@@ -91,6 +118,22 @@ The last two checks read records back from the lesson's Aura instance. A plausib
 anchor:_context_provider[]anchor:_preference_storage[]anchor:_reasoning_traces[]
 
 The application explicitly stored a preference, the framework hook supplied memory context and persisted the exchange, and the trace helper recorded the result. Those are separate actors and operations. Nothing in this script creates hidden reasoning, a product knowledge graph, or guaranteed cross-user isolation.
+
+include::partial$aura-tutorial-resume.adoc[]
+
+Inspect the stored `session=...` and trace output from the completed run in Aura Query. The main program creates a new session and preference on every run; rerunning it makes a new model call and writes another exercise.
+
+In this dedicated instance, the following read-only query locates the lesson's sessions even if a failed run never printed its final session ID:
+
+[source,cypher]
+----
+MATCH (conversation:Conversation)-[:HAS_MESSAGE]->(message:Message)
+WHERE conversation.session_id STARTS WITH 'shopping-docs-'
+RETURN conversation.session_id, message.id, message.role, message.content
+ORDER BY conversation.session_id, message.timestamp
+----
+
+Compare the stored prompt and response with the completed run's output. No rows does not prove that the earlier preference write was absent; inspect preferences or follow full instance cleanup before restarting a partially completed exercise.
 
 [[_next_steps]]
 == Cleanup and next steps

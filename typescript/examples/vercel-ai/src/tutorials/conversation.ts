@@ -38,7 +38,8 @@ export async function recall(run: TutorialRun, baseModel: LanguageModelV4) {
 if (isTutorialEntryPoint(import.meta.url)) {
   runTutorialCommand("conversation", process.argv.slice(2), "teach", ["teach", "recall"], (mode, run) => {
     if (mode === "teach") return teach(run);
-    if (!process.env.OPENAI_API_KEY) throw new Error("Set OPENAI_API_KEY for recall; teach, inspect, verify and cleanup do not need it.");
     return recall(run, openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini"));
-  }).catch(error => { console.error(error); process.exitCode = 1; });
+  }, { preflight: mode => {
+    if (mode === "recall" && !process.env.OPENAI_API_KEY?.trim()) throw new Error("Set OPENAI_API_KEY for recall; teach, inspect, verify and cleanup do not need it.");
+  } }).catch(error => { console.error(error); process.exitCode = 1; });
 }

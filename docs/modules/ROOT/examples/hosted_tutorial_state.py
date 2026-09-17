@@ -13,6 +13,111 @@ from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
 
+def read_state(path):
+    """Read a local ledger without credentials, SDK imports, or service access."""
+    path = Path(path)
+    if path.is_symlink():
+        raise RuntimeError("Refusing a symlink for tutorial state")
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        raise RuntimeError("Unsupported or incomplete tutorial state")
+    if not isinstance(data.get("identity"), dict):
+        raise RuntimeError("Missing tutorial identity")
+    if (
+        not isinstance(data.get("resources"), dict)
+        or not data.get("run_token")
+        or "pending" not in data
+    ):
+        raise RuntimeError("Incomplete tutorial state")
+    if any(not isinstance(entries, dict) for entries in data["resources"].values()):
+        raise RuntimeError("Invalid resource ledger")
+    if any(
+        not isinstance(entry, dict)
+        for entries in data["resources"].values()
+        for entry in entries.values()
+    ):
+        raise RuntimeError("Invalid resource disposition")
+    datetime.fromisoformat(data["started_at"])
+    return data
+
+
+def new_run_status(data):
+    """Classify recorded evidence only; never infer absence from an empty ledger."""
+    if data.get("pending"):
+        return "needs_reconciliation"
+    resources = data["resources"]
+    entries = [entry for group in resources.values() for entry in group.values()]
+    if (
+        data.get("remote_write_started") is False
+        and not entries
+        and not any(data.get(key) for key in ("conversation_id", "run_id", "skill_id"))
+        and not data.get("ontology", {}).get("clone_id")
+    ):
+        return "no_remote_write_started"
+    disposed = data.get("cleanup_complete") is True or (
+        data.get("ontology", {}).get("status") == "complete"
+        and data["ontology"].get("restored") is True
+        and data["ontology"].get("deleted") is True
+    )
+    if (
+        disposed
+        and entries
+        and all(entry.get("status") in {"deleted", "deleted_with_ontology"} for entry in entries)
+    ):
+        return "recorded_disposition_complete"
+    return "owner_disposition_required"
+
+
+def inspect_file(path):
+    """Return a redacted local summary; this never authenticates or enables writes."""
+    data = read_state(path)
+    endpoint = urlsplit(str(data["identity"].get("endpoint", "")))
+    # Do not expose credentials/query parameters even from a manually altered file.
+    endpoint = urlunsplit(
+        (endpoint.scheme, endpoint.netloc.rsplit("@", 1)[-1], endpoint.path, "", "")
+    )
+    return {
+        "local_only": True,
+        "service_checked": False,
+        "lesson": data.get("lesson"),
+        "run_token": data["run_token"],
+        "started_at": data["started_at"],
+        "identity": {
+            "endpoint": endpoint,
+            "workspace_id": data["identity"].get("workspace_id"),
+        },
+        "operator_context": data.get("operator_context", {}),
+        "pending": data.get("pending"),
+        "new_run_status": new_run_status(data),
+        "resources": {
+            kind: {
+                resource_id: {
+                    key: entry[key] for key in ("status", "owned", "disposition") if key in entry
+                }
+                for resource_id, entry in entries.items()
+            }
+            for kind, entries in data["resources"].items()
+        },
+    }
+
+
+def check_new_run(path, next_state):
+    """Permit a separate path only after no-write proof or recorded full disposal."""
+    status = new_run_status(read_state(path))
+    if status not in {"no_remote_write_started", "recorded_disposition_complete"}:
+        raise RuntimeError(
+            "No automatic new run: uncertain, retained, or legacy state needs owner disposition"
+        )
+    next_state = Path(next_state)
+    if next_state.exists() or next_state.is_symlink():
+        raise RuntimeError("Choose an unused state path; the previous run must remain intact")
+    if next_state.parent.resolve() == Path(path).parent.resolve():
+        raise RuntimeError("Use a separate run directory so reports and archives cannot collide")
+    if next_state.parent.exists() and any(next_state.parent.iterdir()):
+        raise RuntimeError("Choose a new or empty run directory; preserve its existing reports")
+    return status
+
+
 def digest(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
@@ -96,7 +201,7 @@ class TutorialState:
         self.data = data
 
     @classmethod
-    def create(cls, path, settings, lesson):
+    def create(cls, path, settings, lesson, *, workspace_label=None, workspace_owner=None):
         data = {
             "schema_version": 1,
             "lesson": lesson,
@@ -105,6 +210,13 @@ class TutorialState:
             "started_at": datetime.now(timezone.utc).isoformat(),
             "resources": {},
             "pending": None,
+            # Written durably by begin() before the first remote mutation.
+            # Missing in an older ledger means unknown, never proof of no writes.
+            "remote_write_started": False,
+            "operator_context": {
+                "workspace_label": workspace_label,
+                "workspace_owner": workspace_owner,
+            },
         }
         private_json(Path(path), data, exclusive=True)
         return cls(path, data)
@@ -112,20 +224,13 @@ class TutorialState:
     @classmethod
     def load(cls, path, settings, lesson=None):
         path = Path(path)
-        if path.is_symlink():
-            raise RuntimeError("Refusing a symlink for tutorial state")
-        data = json.loads(path.read_text())
-        if not isinstance(data, dict) or data.get("schema_version") != 1:
-            raise RuntimeError("Unsupported or incomplete tutorial state")
+        data = read_state(path)
         if data.get("identity") != identity(settings):
             raise RuntimeError(
                 "Endpoint, workspace, or credential changed; verify ownership before recovery"
             )
         if lesson is not None and data.get("lesson") != lesson:
             raise RuntimeError("State belongs to another tutorial")
-        if not isinstance(data.get("resources"), dict) or not data.get("run_token"):
-            raise RuntimeError("Incomplete tutorial state")
-        datetime.fromisoformat(data["started_at"])
         return cls(path, data)
 
     def save(self):
@@ -141,6 +246,7 @@ class TutorialState:
     def begin(self, operation):
         if self.data.get("pending"):
             raise RuntimeError("Unresolved write; inspect the retained state before retrying")
+        self.data["remote_write_started"] = True
         self.data["pending"] = operation
         self.save()
 
@@ -174,3 +280,28 @@ async def verify_messages(client, state):
         if digest(message.content) != entry["content_sha256"] or role != entry["role"]:
             raise RuntimeError(f"Message readback differs: {message_id}")
     print(f"Verified: exact IDs, roles and content for {len(expected)} stored messages")
+
+
+def main(argv=None):
+    """Local diagnostics only; importing this module still performs no I/O."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Inspect hosted lesson state without credentials")
+    commands = parser.add_subparsers(dest="command", required=True)
+    inspect = commands.add_parser("inspect-file", help="Print a redacted local summary; no network")
+    inspect.add_argument("state", type=Path)
+    retry = commands.add_parser("check-new-run", help="Check a separate path; preserve both files")
+    retry.add_argument("state", type=Path)
+    retry.add_argument("--next-state", type=Path, required=True)
+    args = parser.parse_args(argv)
+    if args.command == "inspect-file":
+        print(json.dumps(inspect_file(args.state), indent=2))
+    else:
+        status = check_new_run(args.state, args.next_state)
+        print(f"Recorded new-run check: {status}; original state preserved")
+        print(f"Use --state {args.next_state} only after rechecking the lesson prerequisites")
+        print("No service state was checked and no new file was created")
+
+
+if __name__ == "__main__":
+    main()

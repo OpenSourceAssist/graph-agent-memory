@@ -22,6 +22,13 @@ it("assembles base/custom/restricted lessons, records tool IDs immediately, rest
   const customImports = blocks.find(block => block.startsWith('import { isAbsolute }'))!;
   const custom = blocks.find(block => block.includes('"memory_tutorial_graph"'))!;
   const restricted = blocks.find(block => block.startsWith("const toolNames ="))!;
+  const json = blocks.filter(block => block.trim().startsWith("{")).map(block => JSON.parse(block));
+  const conversationArgs = json.find(value => value.user_id === "<printed userId>");
+  const entityArgs = json.find(value => value.name === "<printed entityName>");
+  const messageArgs = json.find(value => value.conversation_id === "<returned conversation ID>");
+  const receiptEnvelope = json.find(value => value.content?.[0]?.type === "text");
+  const receiptObject = json.find(value => value.id === "entity-demo");
+  expect(JSON.parse(receiptEnvelope.content[0].text)).toEqual(receiptObject);
   expect(source).toBeDefined(); expect(config).toBeDefined(); expect(custom).toBeDefined();
   const directory = await mkdtemp(join(tmpdir(), "agent-memory-mcp-lesson-"));
   const stub = await startHostedStub();
@@ -66,14 +73,20 @@ it("assembles base/custom/restricted lessons, records tool IDs immediately, rest
         const expected = variant === "base" ? names : variant === "custom" ? [...names, "memory_tutorial_graph"] : ["memory_get_context", "memory_search_messages"];
         expect(tools.map(tool => tool.name).sort()).toEqual([...expected].sort());
         if (variant === "base") {
-          conversationId = (await call("memory_create_conversation", { user_id: userId, metadata: { run: runId } })).id;
+          // Local startup and tools/list do not authenticate or contact NAMS.
+          expect(stub.requests).toHaveLength(0);
+          const substitute = (value: unknown) => JSON.parse(JSON.stringify(value)
+            .replaceAll("<printed userId>", userId).replaceAll("<printed runId>", runId)
+            .replaceAll("<printed entityName>", `Lantern Orchard ${runId}`)
+            .replaceAll("<returned conversation ID>", conversationId));
+          conversationId = (await call("memory_create_conversation", substitute(conversationArgs))).id;
           await cli("record", path, "conversation", conversationId);
-          const createdEntity = await call("memory_add_entity", { name: `Lantern Orchard ${runId}`, type: "organization" });
+          const createdEntity = await call("memory_add_entity", substitute(entityArgs));
           entityId = createdEntity.id;
           const receiptPath = join(directory, ".tutorial-state", "entity-result.json");
           await writeFile(receiptPath, JSON.stringify(createdEntity), { mode: 0o600 });
           await cli("record", path, "entity", entityId, receiptPath);
-          messageId = (await call("memory_add_messages", { conversation_id: conversationId, messages: [{ role: "user", content: `Fictional project Lantern Orchard ${runId}.` }] }))[0].id;
+          messageId = (await call("memory_add_messages", substitute(messageArgs)))[0].id;
           await cli("record", path, "message", messageId, conversationId);
           expect((await cli("verify", path)).stdout).toContain('"messages":1');
         } else {

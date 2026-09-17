@@ -1,14 +1,12 @@
+This starts a new lesson with a new empty database. To return to an unfinished lesson, use <<resume-this-lesson,Resume this lesson later>> instead.
+
 . Sign in to the https://console.neo4j.io/[Neo4j Aura console] and create an *AuraDB Free* instance named `agent-memory-tutorial`. Use an empty instance dedicated to this lesson; do not load a sample dataset.
 . Download the generated credentials and keep them outside the tutorial folder. Wait until the instance shows *Running*.
 . Copy its connection URI, username, password and database name into the exports below. Keep the `neo4j+s://` scheme supplied by Aura.
 
 Aura permits one Free instance per account. This lesson needs that slot for a dedicated tutorial instance; do not delete an existing database containing other work to make room. See https://neo4j.com/docs/aura/getting-started/create-instance/[Aura instance creation] for account and tier requirements.
 
-Create the two local files below before running the readiness check. They read the exported Aura settings and verify the selected database.
-
-include::partial$python-aura-connection-file.adoc[]
-
-include::partial$python-aura-readiness-file.adoc[]
+The files from the preceding assembly checkpoint read these exports and verify the selected database.
 
 [source,bash]
 ----

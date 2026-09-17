@@ -1,4 +1,8 @@
 = Build your first TypeScript agent with memory
+:page-role: code-nocollapse
+:ts-program: src/tutorials/first-agent.ts
+:ts-seed: seed
+:ts-next-state: first-agent-2.json
 :source-highlighter: rouge
 
 anchor:_what_youll_build[]
@@ -66,18 +70,26 @@ export async function firstAgent(run: TutorialRun, baseModel: LanguageModelV4) {
   } finally { restore(); }
 }
 
+export async function firstAgentCli(args: string[]) {
+  await runTutorialCommand("first-agent", args, "seed", ["seed"],
+    (_mode, run) => firstAgent(run, openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini")), {
+      preflight: () => {
+        if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("Set OPENAI_API_KEY before seed or retry-empty. No state or records were created; rerun after setting it.");
+      },
+    });
+}
+
 if (isTutorialEntryPoint(import.meta.url)) {
-  runTutorialCommand("first-agent", process.argv.slice(2), "seed", ["seed"], (_mode, run) => {
-    if (!process.env.OPENAI_API_KEY) throw new Error("Set OPENAI_API_KEY for seed; inspect, verify and cleanup do not need it.");
-    return firstAgent(run, openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini"));
-  }).catch(error => { console.error(error); process.exitCode = 1; });
+  firstAgentCli(process.argv.slice(2)).catch(error => { console.error(error); process.exitCode = 1; });
 }
 ----
 
 The maintained state and cleanup helpers are in `typescript/examples/shared/`.
 Keep the private `.tutorial-state/` directory with this checkout. Each run binds
 its saved IDs to the endpoint, workspace selector and credential; a changed
-identity stops before using those IDs. Reseeding an existing state is refused.
+identity stops authenticated use of those IDs; local `inspect` remains available. Reseeding an existing state is refused.
+
+include::partial$typescript-tutorial-api.adoc[]
 
 anchor:_step_6_add_vercel_ai_sdk_middleware[]
 
@@ -93,6 +105,28 @@ reporting a persistence milestone.
 ----
 npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts seed .tutorial-state/first-agent.json
 ----
+
+The program checks that `OPENAI_API_KEY` is present before reserving the state
+file or writing to NAMS. If that check fails, set the key and rerun the same
+command. Presence does not establish that the provider will accept the key:
+a later provider failure preserves the created resources for cleanup.
+
+If an earlier version left a proven-unstarted ledger, inspect it locally first.
+Only a ledger with no resources, no operations and no cleanup attempt qualifies
+for this recovery command:
+
+[source,bash]
+----
+npx tsx src/tutorials/first-agent.ts inspect .tutorial-state/first-agent.json
+npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts retry-empty .tutorial-state/first-agent.json .tutorial-state/first-agent-retry.json
+----
+
+`retry-empty` preserves the original ledger and exclusively creates the new
+file. Use `first-agent-retry.json` for the rest of that run. Any recorded or
+uncertain operation blocks this path, even if no resource ID was returned.
+Keep the same NAMS identity; do not delete a used state file to restart. A
+manually recorded MCP ledger cannot prove that no write occurred and does not
+support this recovery.
 
 Expect the returned conversation and entity IDs, a scoped message-search result,
 and a model answer recalling the run's full fictional project name, including
@@ -117,17 +151,17 @@ Run these commands from the same directory, using the state created above:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts inspect .tutorial-state/first-agent.json
+npx tsx src/tutorials/first-agent.ts inspect .tutorial-state/first-agent.json
 npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts verify .tutorial-state/first-agent.json
 ----
 
-`inspect` shows the saved IDs and operation status. Expect `Verified stored
-messages:` with the recorded conversation ID and message count from `verify`.
-It opens another
-client and reads the recorded conversation and exact message IDs, roles and
-content digests; it makes no model
-calls and creates no records. A successful check establishes persistence across
-client processes. It does not imply that the hosted service restarted.
+`inspect` shows local saved IDs and operation status without loading `.env`
+or contacting NAMS. `verify` opens another authenticated client and reads the
+recorded conversation and exact message IDs, roles and content digests. Expect
+`Verified stored messages:` with the conversation ID and message count.
+Verification makes no model calls and creates no records. It establishes
+persistence across client processes; it does not imply that the hosted service
+restarted.
 
 anchor:_step_7_clean_up[]
 anchor:_clean_up_the_conversation[]
@@ -139,7 +173,7 @@ From the same lesson directory, clean up this run using its saved state:
 [source,bash]
 ----
 npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts cleanup .tutorial-state/first-agent.json
-npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts inspect .tutorial-state/first-agent.json
+npx tsx src/tutorials/first-agent.ts inspect .tutorial-state/first-agent.json
 ----
 
 The cleanup command waits for the recorded messages' extraction to finish,
@@ -152,6 +186,8 @@ reset. A timeout or failed readback stops cleanup and preserves the state.
 Keep the state until every resource has a verified disposition. Closing the
 client alone does not delete data. Do not remove the state file to bypass an
 unfinished run or bulk-delete workspace entities.
+
+include::partial$typescript-tutorial-lifecycle.adoc[]
 
 == Next steps
 

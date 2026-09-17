@@ -1,5 +1,6 @@
 = Build your first memory context
 :page-product: agent-memory
+:page-role: code-nocollapse
 :page-pagination:
 :toclevels: 2
 :sectanchors:
@@ -35,6 +36,44 @@ python -c "from importlib.metadata import version; import neo4j_agent_memory; as
 
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
+=== Create and check the local files
+
+Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
+
+[cols="2,4,2",options="header"]
+|===
+|File |Purpose |Returning reader
+|`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
+|`wait_for_tutorial_neo4j.py` |Probe the selected database and close the driver. |Reuse unchanged
+|`core_memory_settings.py` |Construct the explicit Bolt and OpenAI embedding settings. |Reuse unchanged
+|`first_agent_memory.py` |Store, verify, and search the small memory context. This is the lesson entry point. |New for this lesson; retain it with unfinished state
+|===
+
+include::partial$aura-tutorial-files.adoc[]
+
+.Save as `core_memory_settings.py`
+[source,python]
+----
+include::example$core_memory_settings.py[]
+----
+
+.Save as `first_agent_memory.py`
+[source,python]
+----
+include::example$first_agent_memory.py[]
+----
+
+Check the copied files before exporting credentials or making a service request:
+
+[source,bash]
+----
+python -m py_compile aura_connection.py wait_for_tutorial_neo4j.py core_memory_settings.py first_agent_memory.py
+python -c "import aura_connection, wait_for_tutorial_neo4j, core_memory_settings, first_agent_memory; assert all(callable(f) for f in [aura_connection.aura_config, wait_for_tutorial_neo4j.wait_until_ready, core_memory_settings.settings, first_agent_memory.main]); print('Lesson imports verified')"
+python first_agent_memory.py --help
+----
+
+Expected: compilation exits without errors, then `Lesson imports verified` and the command help. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+
 anchor:_step_2_set_up_neo4j[]
 
 == 2. Create and connect to the Aura database
@@ -53,13 +92,7 @@ python -c "import os; assert os.environ['OPENAI_API_KEY']; print('Provider key p
 
 Expected: `Provider key present`. This checks presence; the requests in the program verify access. Do not put the API key in the program.
 
-The maintained helper `core_memory_settings.py` is imported by the program in this lesson:
-
-.Save as `core_memory_settings.py`
-[source,python]
-----
-include::example$core_memory_settings.py[]
-----
+The `core_memory_settings.py` file copied above is imported by the lesson program.
 
 The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. This lesson stores the supplied entities directly. The next step runs the complete program from the tutorial folder.
 
@@ -67,13 +100,9 @@ anchor:_step_4_create_your_first_memory_client[]
 
 == 4. Read and run the complete storage program
 
-The file `first_agent_memory.py` contains all imports, the command parser, and the event-loop entry point:
+Read the `first_agent_memory.py` file copied in step 1. Start at `main()`, which selects `seed`, `verify`, or `search`. In `seed()`, the public SDK calls `short_term.add_message()`, `long_term.add_entity()`, `add_relationship()`, and `add_preference()` create the records we will read back. `settings()` and the verification assertions are tutorial scaffolding; the memory accessors belong to the SDK.
 
-.Save as `first_agent_memory.py`
-[source,python]
-----
-include::example$first_agent_memory.py[]
-----
+`await` waits for each asynchronous operation before using its result. `async with MemoryClient(settings())` opens the client and closes it when the block ends, including on errors. `asyncio.run(main())` starts the event loop for this command. See xref:reference/api/memory-client.adoc[the public client reference] when adapting the example.
 
 [source,bash]
 ----
@@ -128,13 +157,17 @@ anchor:_what_youve_built[]
 
 A program now reconstructs memory context from persistent records. We verified storage independently of semantic ranking. Continue with xref:tutorials/conversation-memory.adoc[conversation memory] to consume retrieved context in an actual model call, or xref:tutorials/knowledge-graph.adoc[document extraction] to generate candidate entities from text.
 
+include::partial$aura-tutorial-resume.adoc[]
+
+Run `python first_agent_memory.py verify`. If records are incomplete, use the failure guidance below; do not run `seed` over partial results.
+
 anchor:_clean_up[]
 
 == Clean up
 
 include::partial$aura-tutorial-cleanup.adoc[]
 
-With this environment still active and `agent-memory-tutorials` as your working directory, continue at xref:tutorials/conversation-memory.adoc#_step_2_set_up_neo4j[step 2 of the next lesson] after checking its additional chat-model prerequisite.
+With this environment still active and `agent-memory-tutorials` as your working directory, continue at xref:tutorials/conversation-memory.adoc#_step_1_project_setup[step 1 of the next lesson] to copy its new entry point and reuse unchanged helpers after checking its additional chat-model prerequisite.
 
 anchor:_troubleshooting[]
 

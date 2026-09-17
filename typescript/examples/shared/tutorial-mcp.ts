@@ -1,7 +1,8 @@
 /** Explicitly record returned Desktop tool IDs; no hidden interception or reseeding. */
 import { readFileSync } from "node:fs";
 import { cleanupTutorial } from "./tutorial-cleanup.js";
-import { TutorialRun, isTutorialEntryPoint } from "./tutorial-state.js";
+import { MemoryClient } from "@neo4j-labs/agent-memory";
+import { TutorialRun, inspectTutorialState, isTutorialEntryPoint, resolveTutorialConfig } from "./tutorial-state.js";
 
 export async function recordMcpResult(run: TutorialRun, kind: string, id: string, parentId?: string, createReceipt?: unknown): Promise<void> {
   if (run.state.cleanup) throw new Error("Cleanup already began; preserve the existing ledger.");
@@ -36,10 +37,20 @@ export async function recordMcpResult(run: TutorialRun, kind: string, id: string
 
 export async function tutorialMcpCli(args: string[]): Promise<void> {
   const [mode, path, kind, id, parentId] = args;
+  if (mode === "check-access") {
+    const client = new MemoryClient({ ...resolveTutorialConfig(), transport: "rest", timeout: 30_000 });
+    try {
+      await client.shortTerm.listConversations({ limit: 1 });
+      console.log("NAMS authenticated read succeeded; no records were created or printed.");
+    } finally { await client.close(); }
+    return;
+  }
   if (!path) throw new Error("Use init|inspect|record|verify|cleanup <state-file.json> [kind id parent-id-or-create-result.json].");
+  if (mode === "inspect") { console.log(JSON.stringify(inspectTutorialState(path, "mcp"), null, 2)); return; }
+  if (!["init", "record", "verify", "cleanup"].includes(mode ?? "")) throw new Error("Use check-access, init, inspect, record, verify, or cleanup.");
   const run = mode === "init" ? TutorialRun.create(path, "mcp") : TutorialRun.load(path, undefined, "mcp");
   try {
-    if (mode === "init" || mode === "inspect") console.log(JSON.stringify(run.inspect(), null, 2));
+    if (mode === "init") console.log(JSON.stringify(run.inspect(), null, 2));
     else if (mode === "record") {
       const receipt = kind === "entity" && parentId ? JSON.parse(readFileSync(parentId, "utf8")) as unknown : undefined;
       await recordMcpResult(run, kind!, id!, kind === "message" ? parentId : undefined, receipt);

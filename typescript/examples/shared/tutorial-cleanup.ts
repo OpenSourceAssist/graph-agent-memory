@@ -1,6 +1,7 @@
 /** Supported, conservative cleanup for one recorded NAMS tutorial run. */
 import type { CypherResult } from "@neo4j-labs/agent-memory";
-import { TutorialRun } from "./tutorial-state.js";
+import { resolve } from "node:path";
+import { inspectTutorialState, TutorialRun } from "./tutorial-state.js";
 
 export function queryRows(result: CypherResult): Array<Record<string, unknown>> {
   if (result.stats && Object.values(result.stats).some(value => value !== 0)) throw new Error("The tutorial query reported mutation statistics.");
@@ -154,17 +155,26 @@ export async function cleanupTutorial(run: TutorialRun, options: { timeoutMs?: n
 
 /** Common CLI modes keep inspection and cleanup independent of any model call. */
 export async function runTutorialCommand(lesson: string, args: string[], seedMode: string,
-  writeModes: string[], action: (mode: string, run: TutorialRun) => Promise<unknown>): Promise<void> {
-  const [mode, path = `.tutorial-state/${lesson}.json`] = args;
-  if (!mode || ![...writeModes, "inspect", "verify", "cleanup"].includes(mode)) throw new Error(`Use ${[...writeModes, "inspect", "verify", "cleanup"].join("|")} [state-file.json].`);
-  const run = mode === seedMode ? TutorialRun.create(path, lesson) : TutorialRun.load(path, undefined, lesson);
+  lessonModes: string[], action: (mode: string, run: TutorialRun) => Promise<unknown>,
+  options: { preflight?: (mode: string) => void } = {}): Promise<void> {
+  const [mode, path = `.tutorial-state/${lesson}.json`, retryPath] = args;
+  const modes = [...lessonModes, "inspect", "verify", "cleanup", "retry-empty"];
+  if (!mode || !modes.includes(mode)) throw new Error(`Use ${modes.join("|")} [state-file.json]; retry-empty requires old.json new.json.`);
+  if (mode === "inspect") { console.log(JSON.stringify(inspectTutorialState(path, lesson), null, 2)); return; }
+  const effectiveMode = mode === "retry-empty" ? seedMode : mode;
+  if (lessonModes.includes(effectiveMode)) options.preflight?.(effectiveMode);
+  if (mode === "retry-empty") {
+    if (!retryPath || resolve(path) === resolve(retryPath)) throw new Error("retry-empty requires a distinct new state path; keep the original ledger.");
+    const original = TutorialRun.load(path, undefined, lesson);
+    try { original.assertUnstarted(); } finally { await original.client.close(); }
+  }
+  const run = mode === seedMode || mode === "retry-empty"
+    ? TutorialRun.create(mode === "retry-empty" ? retryPath! : path, lesson)
+    : TutorialRun.load(path, undefined, lesson);
   try {
-    if (mode === "inspect") {
-      console.log(JSON.stringify(run.inspect(), null, 2));
-      if (run.state.resources.some(r => r.kind === "conversation" && r.disposition !== "deleted")) console.log("Server messages:", JSON.stringify(await run.inspectMessages()));
-    } else if (mode === "verify") console.log("Verified stored messages:", JSON.stringify(await run.verify()));
+    if (mode === "verify") console.log("Verified stored messages:", JSON.stringify(await run.verify()));
     else if (mode === "cleanup") {
       const result = await cleanupTutorial(run); console.log("Cleanup:", JSON.stringify(result)); if (!result.complete) process.exitCode = 2;
-    } else await action(mode, run);
+    } else await action(effectiveMode, run);
   } finally { await run.client.close(); }
 }

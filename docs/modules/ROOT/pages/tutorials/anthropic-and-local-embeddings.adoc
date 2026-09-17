@@ -1,12 +1,13 @@
 = Extract memory with Anthropic and local embeddings
 :page-product: agent-memory
+:page-role: code-nocollapse
 :page-pagination:
 :toclevels: 2
 :sectanchors:
 
 We will store a message in AuraDB through the Bolt backend, request entity extraction using an Anthropic adapter, and retrieve context using locally computed sentence-transformer embeddings. We will inspect the actual provider classes and vector dimensions. This exercise builds a memory pipeline; a conversational agent loop is a separate lesson.
 
-This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
+This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
 
 [[_what_youll_learn]]
 == Before you begin
@@ -33,6 +34,36 @@ python -c "from importlib.metadata import version; import neo4j_agent_memory; as
 
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
+=== Create and check the local files
+
+Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
+
+[cols="2,4,2",options="header"]
+|===
+|File |Purpose |Returning reader
+|`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
+|`wait_for_tutorial_neo4j.py` |Probe the selected database and close the driver. |Reuse unchanged
+|`anthropic_local_memory.py` |Run extraction and verify local embedding dimensions and context. This is the lesson entry point. |New for this lesson; retain it with unfinished state
+|===
+
+include::partial$aura-tutorial-files.adoc[]
+
+.Save as `anthropic_local_memory.py`
+[source,python]
+----
+include::example$anthropic_local_memory.py[]
+----
+
+Check the copied files before exporting credentials or making a service request:
+
+[source,bash]
+----
+python -m py_compile aura_connection.py wait_for_tutorial_neo4j.py anthropic_local_memory.py
+python -c "import aura_connection, wait_for_tutorial_neo4j, anthropic_local_memory; assert all(callable(f) for f in [aura_connection.aura_config, wait_for_tutorial_neo4j.wait_until_ready, anthropic_local_memory.main]); print('Lesson imports verified')"
+----
+
+Expected: compilation exits without errors, then `Lesson imports verified`. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+
 [[_step_2_set_up_neo4j]]
 == 2. Create and connect to the Aura lesson instance
 
@@ -41,23 +72,19 @@ include::partial$aura-tutorial-setup.adoc[]
 [[_step_3_configure_environment_variables]]
 == 3. Configure Anthropic
 
+Open the https://platform.claude.com/docs/en/models/overview[Anthropic model overview] and copy the *Claude API ID* of the model selected for your API workspace; an AWS Bedrock ID belongs to a different provider path. Check that workspace's API access and usage limits before continuing. The https://platform.claude.com/docs/en/api/models[Models API] can confirm model metadata using the same API key without making a completion request. Metadata visibility does not prove inference permission or quota. Extraction below is a real provider operation and may incur usage charges.
+
 [source,bash]
 ----
 export ANTHROPIC_API_KEY="replace-with-your-key"
 export ANTHROPIC_MODEL="replace-with-your-accessible-Anthropic-model-id"
-python -c "import os; assert os.environ['ANTHROPIC_API_KEY']; assert os.environ['ANTHROPIC_MODEL']; print('Provider variables present')"
+python -c "import os; assert os.environ['ANTHROPIC_API_KEY']; assert os.environ['ANTHROPIC_MODEL'].strip() and not os.environ['ANTHROPIC_MODEL'].startswith('replace-with-'); print('Provider variables present')"
 ----
 
-Expected: `Provider variables present`. This confirms presence only; the extraction request below verifies actual model access. The model ID is a prerequisite from your account, not a guaranteed model alias in this documentation.
+Expected: `Provider variables present`. This confirms presence only; the extraction request below verifies actual model access. If access fails, check missing exports first, then the exact API model ID and workspace permission, then billing/quota. Fix those before another extraction attempt. A failed run can already have stored a message; inspect its reported session or dispose of the dedicated instance before intentionally starting over.
 
 [[_step_4_wire_the_agent]]
 == 4. Read the complete program
-
-.Save as `anthropic_local_memory.py`
-[source,python]
-----
-include::example$anthropic_local_memory.py[]
-----
 
 The shared `aura_config()` helper reads the required Aura connection variables. The explicit `backend="bolt"` prevents a NAMS environment key from changing this lesson's backend. `extractor_type="llm"` selects the Anthropic extraction path rather than relying on an optional local NER model. The imports and event-loop entry point are already included.
 
@@ -111,6 +138,10 @@ anchor:_switching_providers_later[]
 The program selected an Anthropic completion/structured-output adapter and a separate local embedding adapter. It verified storage and retrieval without claiming a particular extraction result or universal first-call success.
 
 Switching embedding models requires a migration even when dimensions happen to match. Follow xref:how-to/migrate-embedding-model.adoc[the migration guide] rather than changing a string against existing vectors.
+
+include::partial$aura-tutorial-resume.adoc[]
+
+Use the Aura vector/index queries from this page to inspect existing results. The main program creates a new session on every run; rerunning it is a new extraction/write operation, not a read-only resume.
 
 [[_going_further]]
 == Cleanup and next steps

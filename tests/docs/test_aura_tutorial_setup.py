@@ -372,8 +372,12 @@ def test_all_seven_bolt_tutorials_include_aura_setup_and_cleanup():
         text = (ROOT / "docs/modules/ROOT/pages/tutorials" / f"{name}.adoc").read_text()
         assert "include::partial$aura-tutorial-setup.adoc[]" in text, name
         assert "include::partial$aura-tutorial-cleanup.adoc[]" in text, name
+        assert text.index("include::partial$aura-tutorial-files.adoc[]") < text.index(
+            "include::partial$aura-tutorial-setup.adoc[]"
+        ), name
         assert "docker run" not in text and "docker exec" not in text, name
     setup = (ROOT / "docs/modules/ROOT/partials/aura-tutorial-setup.adoc").read_text()
+    files = (ROOT / "docs/modules/ROOT/partials/aura-tutorial-files.adoc").read_text()
     cleanup = (ROOT / "docs/modules/ROOT/partials/aura-tutorial-cleanup.adoc").read_text()
     assert "python wait_for_tutorial_neo4j.py\n" in setup
     for partial, filename in (
@@ -381,7 +385,7 @@ def test_all_seven_bolt_tutorials_include_aura_setup_and_cleanup():
         ("python-aura-readiness-file.adoc", "wait_for_tutorial_neo4j.py"),
     ):
         include = f"include::partial${partial}[]"
-        assert setup.index(include) < setup.index("python wait_for_tutorial_neo4j.py")
+        assert include in files
         file_block = (ROOT / "docs/modules/ROOT/partials" / partial).read_text()
         assert f".Save as `{filename}`" in file_block
         assert f"include::example${filename}[]" in file_block

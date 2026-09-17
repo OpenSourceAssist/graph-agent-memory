@@ -1,4 +1,8 @@
 = Connect Claude Desktop to memory with a TypeScript MCP server
+:page-role: code-nocollapse
+:ts-program: src/tutorial-mcp.ts
+:ts-seed: init
+:ts-next-state: mcp-2.json
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3
@@ -118,6 +122,12 @@ its own explicit environment in Step 4.
 All following terminal commands run in `my-memory-mcp/`. When returning from
 another lesson in this checkout, use
 `cd "$AGENT_MEMORY_TUTORIAL_ROOT/my-memory-mcp"` instead of recreating the project.
+If a dependency install was interrupted, run `npm ci` using this project's
+generated lockfile, then `npm run build`. This reinstalls dependencies while
+preserving `.env` and `.tutorial-state/`.
+Keep a private note of the selected workspace name/ID and key owner for any
+later resource review. If you use `MEMORY_WORKSPACE_ID`, set the same selector
+in the terminal `.env` and Desktop's `env` below.
 
 == Step 2: Write the MCP server
 
@@ -197,9 +207,23 @@ ID and disposition are established.
 npm start
 ----
 
-The process should print `my-memory-mcp listening on stdio; registered 6 SDK memory tools` to stderr and then sit waiting for JSON-RPC over stdin/stdout. Press Ctrl+C to stop it.
+The process should print `my-memory-mcp listening on stdio; registered 6 SDK memory tools` to stderr and then sit waiting for JSON-RPC over stdin/stdout. This proves local startup and tool registration; it does not authenticate with NAMS. Press Ctrl+C to stop it.
 
 If it exits 1 with `MEMORY_API_KEY is not set`, check that `.env` exists and that the `start` script carries `--env-file-if-exists=.env`.
+
+Check hosted access separately, using the same environment as the server:
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/tutorial-mcp.ts check-access
+----
+
+Expected: `NAMS authenticated read succeeded; no records were created or printed.`
+This makes one bounded conversation-list request and prints no conversation
+contents. It creates no ledger or records. A nonempty invalid key can start the
+stdio server successfully but fails this request, or the first hosted tool
+call, with an authentication error. A successful read does not prove every
+tool has permission to write.
 
 == Step 4: Register the server with Claude Desktop
 
@@ -212,7 +236,7 @@ independently of this SDK.
 ----
 {
   "mcpServers": {
-    "neo4j-memory": {
+    "agent-memory-tutorial": {
       "command": "node",
       "args": ["/absolute/path/to/my-memory-mcp/dist/server.js"],
       "env": {
@@ -224,7 +248,9 @@ independently of this SDK.
 }
 ----
 
-Run `npm run build` first so `dist/server.js` exists. Pointing Desktop at compiled output keeps a TypeScript loader out of the launch path, which is the most common reason a server silently fails to start.
+Run `npm run build` first so `dist/server.js` exists. Pointing Desktop at compiled
+output keeps a TypeScript loader out of the launch path. Use the lesson-specific
+`agent-memory-tutorial` entry; preserve other servers already configured.
 
 Use an absolute entry-point path and, if needed, an absolute Node executable
 path. This server does not depend on a client-specific `cwd` setting.
@@ -240,6 +266,12 @@ xref:reference/authentication.adoc#_key_lifecycle[Key rotation and revocation].
 Never put an owner or administrator credential in Desktop.
 
 Restart Claude Desktop.
+
+The link:https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop[official Claude Desktop guide]
+(checked September 17, 2026) places connected servers and tools under the chat's
+*+* button, then *Connectors*, and connection diagnostics under *Settings →
+Developer*. The protocol examples here are tested independently of Desktop;
+they do not establish a GUI test on your installed Desktop version.
 
 == Step 5: Verify the connection
 
@@ -260,12 +292,20 @@ If connection fails, inspect the client's MCP logs and the server's stderr.
 The usual setup issues are:
 
 * Wrong absolute path in `args`, or `dist/` not built yet.
-* Missing or invalid `MEMORY_API_KEY` in `env` — the server exits 1 and says so in the log.
+* Missing `MEMORY_API_KEY` in `env` — the server exits 1 and says so in the log.
+* A nonempty invalid key — local connection can succeed; `check-access` or a hosted tool call fails. Compare terminal and Desktop settings privately.
 * Node not on the PATH that Claude Desktop sees — use the absolute path to the binary, e.g. `"command": "/usr/local/bin/node"`.
 
 anchor:_step_6_have_a_memory_aware_conversation[]
 
 == Step 6: Store and read back a concrete memory
+
+Before any write, confirm that your installed Desktop version lets you inspect
+and copy the exact JSON text of a tool result. The official connection guide
+does not specify a raw-result copy control, and its label can vary by version.
+If your client only exposes an assistant summary, stop before this step: the
+manual receipt workflow cannot be completed reliably there. A summary or a
+later GET response cannot replace the original create result.
 
 First initialize the private ledger in the terminal:
 
@@ -278,8 +318,19 @@ Expected: JSON with a unique `runId`, `userId` and `entityName`. Keep those
 actual values. Ask Desktop to perform *one write at a time*, then record the
 returned ID in the terminal before requesting another write.
 
-. Ask Desktop to call `memory_create_conversation` with the printed `userId`
-  and metadata `{"run": "<the printed runId>"}`. Copy its returned conversation
+. Ask Desktop to call `memory_create_conversation` with these arguments,
+  replacing the placeholders with the ledger's printed values. MCP arguments
+  use `user_id`, while the TypeScript SDK method uses `userId`:
++
+[source,json]
+----
+{
+  "user_id": "<printed userId>",
+  "metadata": { "run": "<printed runId>" }
+}
+----
++
+Copy its returned conversation
   ID into the command below; do not invent an ID.
 +
 [source,bash]
@@ -292,7 +343,14 @@ Expected: `Recorded conversation ID` followed by that ID. The helper checks
 its user, run marker and creation time against the ledger.
 
 . Ask Desktop to call `memory_add_entity` with the printed `entityName` and
-  type `organization`, before adding the message that will mention it. Copy the
+  type `organization`, before adding the message that will mention it:
++
+[source,json]
+----
+{ "name": "<printed entityName>", "type": "organization" }
+----
++
+Copy the
   exact returned entity JSON object from the tool result's text content to the
   macOS clipboard, then save it privately and record its ID:
 +
@@ -307,13 +365,44 @@ Keep the create result unchanged: a later `memory_get_entity` response can omit
 merge evidence needed for cleanup. The command stops if the receipt file
 already exists, so an earlier receipt is not overwritten.
 +
+For example, this *synthetic* MCP envelope has an encoded JSON string in
+`content[0].text`:
++
+[source,json]
+----
+{"content":[{"type":"text","text":"{\"id\":\"entity-demo\",\"name\":\"Lantern Orchard <runId>\",\"type\":\"organization\",\"metadata\":{}}"}]}
+----
++
+The decoded receipt for that example is the inner object:
++
+[source,json]
+----
+{"id":"entity-demo","name":"Lantern Orchard <runId>","type":"organization","metadata":{}}
+----
++
+These illustrative IDs cannot be recorded. Copy every field from your actual
+create response, including timestamps and any `metadata.nams_resolution`;
+do not strip merge evidence or add fields to make a receipt pass.
++
 Expected: `Recorded entity ID`. Ask Desktop to call `memory_get_entity` with
 that ID and inspect its returned name and type. Recording an ID does not by
 itself authorize deletion. A merged entity, or one without a matching create
 receipt, is retained; cleanup checks creation and provenance separately.
 
 . Ask Desktop to call `memory_add_messages` for that conversation with one
-  user message: `My fictional project is <the printed entityName>.` Record the
+  user message, using these exact argument names:
++
+[source,json]
+----
+{
+  "conversation_id": "<returned conversation ID>",
+  "messages": [
+    { "role": "user", "content": "My fictional project is <printed entityName>." }
+  ]
+}
+----
++
+Record the
   actual message ID returned by the tool, supplying the same conversation ID:
 +
 [source,bash]
@@ -329,12 +418,13 @@ Inspect the ledger and verify all recorded messages from a separate process:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorial-mcp.ts inspect .tutorial-state/mcp.json
+npx tsx src/tutorial-mcp.ts inspect .tutorial-state/mcp.json
 npx tsx --env-file-if-exists=.env src/tutorial-mcp.ts verify .tutorial-state/mcp.json
 ----
 
-Expected: `Verified stored messages:` reports this conversation and its one
-message. These commands make no model calls or new memory writes. Desktop's
+`inspect` is entirely local and needs no key or `.env`. Expected from `verify`:
+`Verified stored messages:` reports this conversation and its one message.
+These commands make no model calls or new memory writes. Desktop's
 prose is not the storage assertion: inspect the actual tool results and CLI
 readback. This selected surface creates neither preference records nor
 reasoning steps.
@@ -460,7 +550,7 @@ Stop Desktop's lesson server so it cannot add more records, then run:
 [source,bash]
 ----
 npx tsx --env-file-if-exists=.env src/tutorial-mcp.ts cleanup .tutorial-state/mcp.json
-npx tsx --env-file-if-exists=.env src/tutorial-mcp.ts inspect .tutorial-state/mcp.json
+npx tsx src/tutorial-mcp.ts inspect .tutorial-state/mcp.json
 ----
 
 The helper waits for terminal extraction of the recorded messages, checks
@@ -474,6 +564,8 @@ Keep the private ledger until every resource has a verified disposition. No
 step or skill delete route, broad workspace reset, or entity-name deletion is
 assumed. If manual ID recording was interrupted, resolve that gap before making
 a full-cleanup claim.
+
+include::partial$typescript-tutorial-lifecycle.adoc[]
 
 anchor:_what_youve_built[]
 

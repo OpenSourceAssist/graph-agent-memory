@@ -31,10 +31,20 @@ async def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["seed", "inspect", "verify", "recover", "cleanup"])
     parser.add_argument("--state", type=Path, default=Path(".tutorial-state/ontology.json"))
+    parser.add_argument(
+        "--workspace-label", help="Operator-recorded workspace name/ID; not routing"
+    )
+    parser.add_argument("--workspace-owner", help="Operator responsible for resource disposition")
     args = parser.parse_args(argv)
     settings = NamsSettings()
     state = (
-        TutorialState.create(args.state, settings, "ontology")
+        TutorialState.create(
+            args.state,
+            settings,
+            "ontology",
+            workspace_label=args.workspace_label,
+            workspace_owner=args.workspace_owner,
+        )
         if args.command == "seed"
         else TutorialState.load(args.state, settings, "ontology")
     )

@@ -1,3 +1,5 @@
+Cleanup ends this lesson and removes its stored results. To keep working with those results later, follow <<resume-this-lesson,Resume this lesson later>> before cleanup.
+
 In the Aura console, select only the `agent-memory-tutorial` instance created for this lesson. Use its trashcan action, enter its exact name and confirm *Destroy*.
 
 Expected: the tutorial instance disappears from the instance list. This removes its data and snapshots, so verify the instance name before confirming. See https://neo4j.com/docs/aura/managing-instances/instance-actions/#_delete_an_instance[Aura instance deletion] for the console procedure.

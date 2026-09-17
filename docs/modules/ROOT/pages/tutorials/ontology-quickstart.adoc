@@ -1,5 +1,6 @@
 = Activate and restore a NAMS ontology
 :page-product: agent-memory
+:page-role: code-nocollapse
 :page-pagination:
 :toclevels: 2
 :sectanchors:
@@ -53,6 +54,13 @@ for every command and run from `~/agent-memory-tutorials` with the virtual
 environment active. See xref:reference/authentication.adoc[Authentication] for
 credential categories.
 
+Before seeding, identify the workspace name or ID in the dashboard and its
+responsible operator. Supply those non-secret labels in the seed command below.
+They are saved as operator notes; they do not change request routing or prove
+workspace identity. Because this lesson unsets `MEMORY_WORKSPACE_ID`, the
+ledger's selector can be null: the workspace key selects the workspace.
+Never put a key in either note.
+
 [[_step_1_clone_the_healthcare_template]]
 == 1. Understand the restoration guard
 
@@ -86,6 +94,19 @@ Create the shared state and restoration helpers below, then save the complete
 `ontology_quickstart.py` program. Keep all three files in
 `~/agent-memory-tutorials`:
 
+Copy these files into the same lesson folder. The final row is the program
+we will run; the other files are tutorial support, not SDK APIs. Reuse a helper
+only when its contents match. Finish pending cleanup/recovery before replacing
+code that owns an existing ledger.
+
+[cols="2,3,1",options="header"]
+|===
+|File |Purpose |Continuing reader
+|`hosted_tutorial_state.py` |Private ledger and local inspection |Reuse unchanged
+|`hosted_tutorial_helpers.py` |Authoritative active binding, restoration and bounded polling |Reuse unchanged
+|`ontology_quickstart.py` |The learner-facing activation and recovery commands |New lesson file
+|===
+
 include::partial$python-hosted-state-file.adoc[]
 
 include::partial$python-hosted-helpers-file.adoc[]
@@ -95,6 +116,19 @@ include::partial$python-hosted-helpers-file.adoc[]
 ----
 include::example$ontology_quickstart.py[]
 ----
+
+Before the first service operation, check the assembled files offline:
+
+[source,bash]
+----
+python -m py_compile hosted_tutorial_state.py hosted_tutorial_helpers.py ontology_quickstart.py
+python ontology_quickstart.py --help
+----
+
+Expected: compilation prints nothing and exits successfully; `--help` prints
+the command choices. Compilation catches syntax errors; the CLI check also
+loads the local imports. Neither command authenticates, contacts NAMS or
+creates tutorial state. Fix a missing or truncated file before continuing.
 
 anchor:_step_3_write_a_patient_and_watch_typed_extraction[]
 anchor:_step_4_observe_a_validation_rejection_under_strict[]
@@ -111,7 +145,9 @@ schema and version contracts.
 
 [source,bash]
 ----
-python ontology_quickstart.py seed --state .tutorial-state/ontology.json
+python ontology_quickstart.py seed --state .tutorial-state/ontology.json \
+  --workspace-label 'workspace name or ID from the dashboard' \
+  --workspace-owner 'responsible workspace operator'
 ----
 
 Check the reported IDs and milestones:
@@ -124,6 +160,24 @@ Check the reported IDs and milestones:
 . `Restored active version:` matches the saved prior version and mode.
 . `Deleted exercise clone:` identifies only the created clone, with
   `(absence verified)` after its deletion check.
+
+Illustrative successful output (placeholder IDs, not a live-service claim):
+
+[source,text]
+----
+Previous active version: <original-version-id> (permissive)
+Exercise clone: <new-ontology-id>
+Activated strict version: <new-version-id>
+Strict schema entity labels: ...
+Verified: exact active revision, strict mode, and schema readback
+Restored active version: <original-version-id> (permissive)
+Deleted exercise clone: <new-ontology-id> (absence verified)
+----
+
+The clone ID identifies an ontology; the two version IDs identify specific
+revisions. Your original mode can be `strict`; restoration must match the saved
+mode as well as the version ID. Only the next fresh-process check establishes
+the later readback.
 
 The command refuses to seed over an existing state file. A successful process
 exit requires the restoration and cleanup checks, not merely activation of the
@@ -162,6 +216,67 @@ requires inspection by the workspace owner;
 do not reset the workspace, delete ontologies by a shared name, or remove the
 state file to suppress the failure. Keep the state until every created resource
 has a verified disposition.
+
+== Inspect locally after a credential change
+
+If the original key expires or is rotated, normal lesson commands keep refusing
+to use its saved IDs with another credential. Use this separate local command:
+
+[source,bash]
+----
+python hosted_tutorial_state.py inspect-file .tutorial-state/ontology.json
+----
+
+It needs no key and makes no service requests. The summary omits credential
+fingerprints, message digests, fixture metadata and review/provenance payloads.
+It still contains resource IDs and operator labels, so keep it private. Its
+`local_only: true` and `service_checked: false` mean it reports saved evidence,
+not current remote state or authorization.
+
+Give the authorized owner the workspace label, endpoint, run token, exact
+resource IDs and pending operation through your agreed private channel. The
+owner must establish the actual workspace and reconcile those resources with
+a valid credential. Do not edit the identity hash, substitute a key in the
+ledger, or remove state to unlock a write. The helper cannot migrate a run to a
+new key or supply an administrative deletion route.
+
+== Keep the old run and start a separate exercise
+
+[cols="2,3",options="header"]
+|===
+|Recorded state |Next action
+|No mutation was attempted |Correct the failed prerequisite, then use the guarded new-run check below.
+|Every recorded resource was verified absent |Keep the ledger as evidence, recheck the lesson prerequisites and use a new run directory.
+|Retained/shared resources or cleanup exit `2` |Have the owner record the actual disposition. This is not an automatic permission to reseed.
+|Pending or uncertain mutation |Use `recover` with the original credentials when the saved IDs are known; otherwise seek owner reconciliation.
+|Credential changed |Use the local inspection/handoff procedure above; authenticated commands remain blocked.
+|===
+
+For a prerequisite failure *before* the first remote write, the new ledger's
+`remote_write_started: false`, empty resources and absent pending operation
+establish that this program did not attempt a mutation. An empty ledger alone
+is not enough. Older empty ledgers without that marker, a lost returned ID, or any
+uncertain write fail the check and require owner inspection.
+
+After correcting the prerequisite, choose this unused run directory. The
+first command only reads the old ledger and checks the new path. It preserves
+the original file and creates nothing. `&&` prevents seed if that check fails:
+
+[source,bash]
+----
+python hosted_tutorial_state.py check-new-run .tutorial-state/ontology.json \
+  --next-state .tutorial-state/ontology-run-2/state.json &&
+python ontology_quickstart.py seed --state .tutorial-state/ontology-run-2/state.json \
+  --workspace-label 'workspace name or ID from the dashboard' \
+  --workspace-owner 'responsible workspace operator'
+----
+
+Expected before seed: `Recorded new-run check: no_remote_write_started` for
+an unstarted run, or `recorded_disposition_complete` for fully disposed records.
+This is a check of saved evidence, not a new service verification. The seed
+still checks its own prerequisites and refuses an existing target state file.
+Use the new `--state` path for every later command; reports and archives are
+written alongside that new state. Never copy the old IDs into the new ledger.
 
 [[_what_you_learned]]
 == What we learned

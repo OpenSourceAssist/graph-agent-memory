@@ -7,7 +7,7 @@
 
 ** xref:tutorials/index.adoc[Tutorials]
 *** Python and Aura
-**** xref:tutorials/first-agent-memory.adoc[Build memory context]
+**** xref:tutorials/first-agent-memory.adoc[Build memory context (Python/Aura)]
 **** xref:tutorials/conversation-memory.adoc[Persistent chatbot context]
 **** xref:tutorials/knowledge-graph.adoc[Build a knowledge graph]
 **** xref:tutorials/anthropic-and-local-embeddings.adoc[Anthropic and local embeddings]
@@ -15,11 +15,11 @@
 **** xref:tutorials/strands-agent-quickstart.adoc[Restore a Strands conversation]
 **** xref:tutorials/mcp-server.adoc[Store and recall with Claude Desktop]
 *** Python and NAMS
-**** xref:tutorials/nams-quickstart.adoc[Store and read back hosted memory]
+**** xref:tutorials/nams-quickstart.adoc[Store memory with Python/NAMS]
 **** xref:tutorials/ontology-quickstart.adoc[Activate and restore an ontology]
 **** xref:tutorials/skills-quickstart.adoc[Distil and download a skill]
 *** TypeScript and NAMS
-**** xref:tutorials/hosted-quickstart-typescript.adoc[Store and read back hosted memory]
+**** xref:tutorials/hosted-quickstart-typescript.adoc[Store memory with TypeScript/NAMS]
 **** xref:tutorials/first-agent-memory-typescript.adoc[Build an agent with memory]
 **** xref:tutorials/conversation-memory-typescript.adoc[Recall after a restart]
 **** xref:tutorials/knowledge-graph-typescript.adoc[Inspect extracted entities]

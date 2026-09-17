@@ -63,6 +63,27 @@ function validateState(value: unknown): asserts value is TutorialState {
   for (const op of s.operations) if (!nonempty(op.id) || !nonempty(op.kind) || !["pending", "uncertain", "done"].includes(op.status) || !Array.isArray(op.returnedIds) || !op.returnedIds.every(nonempty)) throw new Error("Invalid tutorial operation record.");
   if (s.cleanup && (typeof s.cleanup.prepared !== "boolean" || typeof s.cleanup.complete !== "boolean" || !Array.isArray(s.cleanup.residualIds) || !s.cleanup.residualIds.every(nonempty))) throw new Error("Invalid cleanup state.");
 }
+function readState(path: string, lesson?: string): TutorialState {
+  if (lstatSync(path).isSymbolicLink()) throw new Error("Refusing a symbolic-link state file.");
+  const state: unknown = JSON.parse(readFileSync(path, "utf8")); validateState(state);
+  if (lesson && state.lesson !== lesson) throw new Error("This state belongs to a different tutorial.");
+  return state;
+}
+function stateSummary(state: TutorialState): object {
+  // Allowlist handoff fields. Omit credentials/fingerprints, workspace selectors,
+  // stored content/digests and free-form error text; never resolve current env.
+  return { schemaVersion: state.schemaVersion, lesson: state.lesson, runId: state.runId, createdAt: state.createdAt,
+    userId: `tutorial-${state.lesson}-${state.runId}`, entityName: `Lantern Orchard ${state.runId}`,
+    unstarted: state.lesson !== "mcp" && !state.resources.length && !state.operations.length && !state.cleanup,
+    resources: state.resources.map(({ kind, id, disposition, parentId, origin, reason }) => ({ kind, id, disposition, parentId, origin, reason })),
+    operations: state.operations.map(({ id, kind, parentId, status, returnedIds }) => ({ id, kind, parentId, status, returnedIds })),
+    ...(state.cleanup ? { cleanup: { prepared: state.cleanup.prepared, complete: state.cleanup.complete,
+      residualIds: state.cleanup.residualIds, errorRecorded: Boolean(state.cleanup.error) } } : {}) };
+}
+/** Local-only, redacted ledger inspection. Does not construct a client or read credentials. */
+export function inspectTutorialState(path: string, lesson?: string): object {
+  return stateSummary(readState(path, lesson));
+}
 function atomicWrite(path: string, state: TutorialState, create: boolean, expected?: string): void {
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   if (existsSync(path) && lstatSync(path).isSymbolicLink()) throw new Error("Refusing a symbolic-link state file.");
@@ -93,13 +114,11 @@ export class TutorialRun {
   }
   static load(path: string, config = resolveTutorialConfig(), lesson?: string): TutorialRun {
     config = normalizeConfig(config);
-    if (lstatSync(path).isSymbolicLink()) throw new Error("Refusing a symbolic-link state file.");
-    const state: unknown = JSON.parse(readFileSync(path, "utf8")); validateState(state);
+    const state = readState(path, lesson);
     const expected = identity(config);
     if (state.identity.endpoint !== expected.endpoint || state.identity.workspaceId !== expected.workspaceId || state.identity.credentialSha256 !== expected.credentialSha256) {
       throw new Error("Tutorial endpoint, workspace, or credential changed. Stop and verify ownership with the key owner; do not silently rebind saved IDs.");
     }
-    if (lesson && state.lesson !== lesson) throw new Error("This state belongs to a different tutorial.");
     return new TutorialRun(path, state, config);
   }
   get userId(): string { return `tutorial-${this.state.lesson}-${this.state.runId}`; }
@@ -113,9 +132,12 @@ export class TutorialRun {
     atomicWrite(this.path, this.state, false, this.persisted); this.persisted = readFileSync(this.path, "utf8");
   }
   inspect(): object {
-    return { schemaVersion: 1, lesson: this.state.lesson, runId: this.state.runId, createdAt: this.state.createdAt,
-      endpoint: this.config.endpoint, workspaceConfigured: Boolean(this.config.workspaceId), userId: this.userId, entityName: this.name,
-      resources: this.state.resources, operations: this.state.operations, cleanup: this.state.cleanup };
+    return stateSummary(this.state);
+  }
+  assertUnstarted(): void {
+    if (this.state.lesson === "mcp" || this.state.resources.length || this.state.operations.length || this.state.cleanup) {
+      throw new Error("Run is not proven unstarted. Preserve its ledger and resolve recorded or uncertain writes; do not retry-empty.");
+    }
   }
   retain(resource: TutorialResource): void {
     const existing = this.state.resources.find(r => r.kind === resource.kind && r.id === resource.id);

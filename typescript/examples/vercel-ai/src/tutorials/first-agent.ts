@@ -34,9 +34,15 @@ export async function firstAgent(run: TutorialRun, baseModel: LanguageModelV4) {
   } finally { restore(); }
 }
 
+export async function firstAgentCli(args: string[]) {
+  await runTutorialCommand("first-agent", args, "seed", ["seed"],
+    (_mode, run) => firstAgent(run, openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini")), {
+      preflight: () => {
+        if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("Set OPENAI_API_KEY before seed or retry-empty. No state or records were created; rerun after setting it.");
+      },
+    });
+}
+
 if (isTutorialEntryPoint(import.meta.url)) {
-  runTutorialCommand("first-agent", process.argv.slice(2), "seed", ["seed"], (_mode, run) => {
-    if (!process.env.OPENAI_API_KEY) throw new Error("Set OPENAI_API_KEY for seed; inspect, verify and cleanup do not need it.");
-    return firstAgent(run, openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini"));
-  }).catch(error => { console.error(error); process.exitCode = 1; });
+  firstAgentCli(process.argv.slice(2)).catch(error => { console.error(error); process.exitCode = 1; });
 }

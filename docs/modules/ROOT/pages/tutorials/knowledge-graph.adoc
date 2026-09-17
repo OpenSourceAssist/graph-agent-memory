@@ -1,5 +1,6 @@
 = Build a knowledge graph from documents
 :page-product: agent-memory
+:page-role: code-nocollapse
 :page-pagination:
 :toclevels: 2
 :sectanchors:
@@ -36,6 +37,44 @@ python -c "from importlib.metadata import version; import neo4j_agent_memory; as
 
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
 
+=== Create and check the local files
+
+Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
+
+[cols="2,4,2",options="header"]
+|===
+|File |Purpose |Returning reader
+|`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
+|`wait_for_tutorial_neo4j.py` |Probe the selected database and close the driver. |Reuse unchanged
+|`core_memory_settings.py` |Construct the explicit Bolt and OpenAI embedding settings. |Reuse unchanged
+|`knowledge_graph.py` |Extract the supplied documents, inspect provenance, and answer from evidence. This is the lesson entry point. |New for this lesson; retain it with unfinished state
+|===
+
+include::partial$aura-tutorial-files.adoc[]
+
+.Save as `core_memory_settings.py`
+[source,python]
+----
+include::example$core_memory_settings.py[]
+----
+
+.Save as `knowledge_graph.py`
+[source,python]
+----
+include::example$knowledge_graph.py[]
+----
+
+Check the copied files before exporting credentials or making a service request:
+
+[source,bash]
+----
+python -m py_compile aura_connection.py wait_for_tutorial_neo4j.py core_memory_settings.py knowledge_graph.py
+python -c "import aura_connection, wait_for_tutorial_neo4j, core_memory_settings, knowledge_graph; assert all(callable(f) for f in [aura_connection.aura_config, wait_for_tutorial_neo4j.wait_until_ready, core_memory_settings.settings, knowledge_graph.main]); print('Lesson imports verified')"
+python knowledge_graph.py --help
+----
+
+Expected: compilation exits without errors, then `Lesson imports verified` and the command help. These checks import the local files without calling their entry points, downloading models, or contacting Aura/providers. Compilation alone does not check imports. If a file or function is missing, recopy its entire source and repeat the checks; leave existing session/state files intact. Provider/framework calls are checked when the lesson runs.
+
 anchor:_step_2_set_up_neo4j[]
 
 == 2. Create and connect to the Aura database
@@ -46,48 +85,31 @@ anchor:_step_3_configure_environment[]
 
 == 3. Configure the provider and inspect the shared settings
 
+include::partial$python-openai-model-selection.adoc[]
+
 [source,bash]
 ----
 export OPENAI_API_KEY="replace-with-your-key"
 export OPENAI_MODEL="replace-with-your-accessible-chat-model-id"
-python -c "import os; assert os.environ['OPENAI_API_KEY']; print('Provider key present')"
+python -c "import os; assert os.environ['OPENAI_API_KEY'].strip(); assert os.environ['OPENAI_MODEL'].strip() and not os.environ['OPENAI_MODEL'].startswith('replace-with-'); print('Provider variables present')"
 ----
 
-Expected: `Provider key present`. This checks presence; the requests in the program verify access. Set `OPENAI_MODEL` to a chat model available to your account. Do not put the API key in the program.
+Expected: `Provider variables present`. This checks configuration presence; the requests in the program verify access. Set `OPENAI_MODEL` to a chat model available to your account. Do not put the API key in the program.
 
-The maintained helper `core_memory_settings.py` is imported by the program in this lesson:
+The `core_memory_settings.py` file copied above is imported by the lesson program.
 
-.Save as `core_memory_settings.py`
-[source,python]
-----
-include::example$core_memory_settings.py[]
-----
-
-The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. The complete program in the next step imports this helper from the tutorial folder.
+The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. The complete program imports this helper from the tutorial folder.
 
 anchor:_step_2_prepare_sample_documents[]
 anchor:_step_3_configure_domain_specific_extraction[]
 
 == 4. Inspect the documents and custom extractor
 
-The file `knowledge_graph.py` includes the two source documents, the custom `DomainSchema`, storage and query functions, and the complete command-line entry point:
-
-.Save as `knowledge_graph.py`
-[source,python]
-----
-include::example$knowledge_graph.py[]
-----
+Read `knowledge_graph.py` from step 1. `ingest()` runs the extractor; `store_document()` uses public `short_term.add_message()`, `long_term.add_entity()`, `add_relationship()`, and `link_entity_to_message()` calls. `inspect_graph()` verifies source messages and triples through `get_conversation()` and `query.cypher()`. The filename/name maps and assertions are tutorial verification scaffolding.
 
 We construct `GLiNEREntityExtractor(schema=SCHEMA)` and `GLiRELExtractor(relation_types=SCHEMA.relation_types)` explicitly, then compose them. `for_schema()` accepts a registered schema name, not an arbitrary schema object. The label mapping maps custom labels to `(TYPE, SUBTYPE)` tuples.
 
-Check the command assembly without downloading models:
-
-[source,bash]
-----
-python knowledge_graph.py --help
-----
-
-Expected: the help output lists `ingest`, `inspect`, and `answer`. The source documents are constants in the file; there is no missing input directory to create.
+The command help from the assembly checkpoint lists `ingest`, `inspect`, and `answer`. The source documents are constants in the file; there is no missing input directory to create.
 
 == 5. Extract and store the documents
 
@@ -149,6 +171,10 @@ anchor:_what_youve_built[]
 == What we built
 
 We constructed a custom extraction pipeline, preserved document provenance, verified the persisted graph in a separate process, and used retrieved evidence in a model request. See xref:how-to/entity-extraction-schemas.adoc[custom extraction schemas], xref:how-to/entity-extraction-batch.adoc[batch extraction], and xref:reference/extractors.adoc[extractor contracts] for task-specific extensions.
+
+include::partial$aura-tutorial-resume.adoc[]
+
+Run `python knowledge_graph.py inspect`. This checks persisted sources and relationships without ingesting documents or calling the chat model. `answer` makes another model request; `ingest` must not be repeated over partial results.
 
 anchor:_clean_up[]
 
