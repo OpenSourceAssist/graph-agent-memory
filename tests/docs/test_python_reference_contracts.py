@@ -33,8 +33,8 @@ def source_class(path: str, name: str) -> ast.ClassDef:
 def reference_contracts():
     for path in [
         *sorted((REFERENCE / "api").glob("*.adoc")),
-        REFERENCE / "extractors.adoc",
-        REFERENCE / "schemas.adoc",
+        *sorted(REFERENCE.glob("extractor*.adoc")),
+        *sorted(REFERENCE.glob("schemas*.adoc")),
     ]:
         for match in CONTRACT.finditer(path.read_text()):
             yield pytest.param(*match.groups(), id=f"{path.stem}:{match[2]}.{match[3]}")
@@ -75,7 +75,9 @@ def settings_values(node: ast.AST, tree: ast.Module):
 
 
 def setting_tables():
-    for filename in ("configuration.adoc", "environment-variables.adoc"):
+    filenames = [p.name for p in sorted(REFERENCE.glob("configuration*.adoc"))]
+    filenames.append("environment-variables.adoc")
+    for filename in filenames:
         text = (REFERENCE / filename).read_text()
         for match in re.finditer(
             r"// settings-fields: (\w+):(\w+):(python|env)\n.*?\n\|===\n(.*?)\n\|===",
@@ -149,7 +151,7 @@ def test_domain_schema_labels_and_descriptions_match_registry():
     registry = next(
         n for n in tree.body if isinstance(n, ast.AnnAssign) and n.target.id == "DOMAIN_SCHEMAS"
     )
-    text = (REFERENCE / "schemas.adoc").read_text()
+    text = (REFERENCE / "schemas-domains.adoc").read_text()
     for key, call in zip(registry.value.keys, registry.value.values, strict=True):
         name = ast.literal_eval(key)
         entities = ast.literal_eval(

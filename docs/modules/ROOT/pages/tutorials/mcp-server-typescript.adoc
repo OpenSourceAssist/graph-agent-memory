@@ -18,6 +18,7 @@ and account for the resources we create.
 This lesson teaches a local stdio server with a selected set of tools. For the
 separate hosted MCP service, see xref:reference/nams-mcp.adoc[Hosted NAMS MCP].
 
+.Claude Desktop connects over local stdio to a TypeScript MCP server that reaches the hosted NAMS workspace over HTTPS
 image::diagrams/typescript-mcp-architecture.svg["Claude Desktop connects over local stdio to a TypeScript MCP server running registerMemoryTools() with six selected memory tools, which reaches the hosted NAMS workspace over HTTPS with a Bearer apiKey using MemoryClient's REST transport.",width=100%,link=self]
 
 anchor:_what_youll_learn[]
@@ -524,9 +525,6 @@ Desktop chat alone does not create a workspace boundary.
 * xref:tutorials/conversation-memory-typescript.adoc[Recall conversation memory after a restart] — verify an application uses its saved conversation.
 * xref:tutorials/knowledge-graph-typescript.adoc[Ingest documents and inspect extracted entities] — inspect extraction through the lesson’s scoped message IDs.
 * xref:how-to/typescript/mcp.adoc[MCP tools how-to] — every option for `registerMemoryTools`, `createMemoryTools()` and `handleMemoryToolCall()`.
-
-== See also
-
 * xref:reference/nams-mcp.adoc[Hosted NAMS MCP server] — the larger, OAuth-capable surface you do not have to run.
 * xref:reference/mcp-tools.adoc[MCP tools reference] — the standard tool definitions.
 * xref:reference/typescript-api.adoc[TypeScript SDK API reference]

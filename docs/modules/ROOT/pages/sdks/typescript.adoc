@@ -74,17 +74,6 @@ All five ship as subpath exports.
 | AWS Strands | `@neo4j-labs/agent-memory/integrations/strands` | xref:how-to/typescript/strands.adoc[Strands]
 |===
 
-== Where to go next
-
-* xref:tutorials/first-agent-memory-typescript.adoc[Tutorial: First agent memory (TypeScript)]
-* xref:tutorials/hosted-quickstart-typescript.adoc[Tutorial: Hosted quickstart]
-* xref:how-to/typescript/authenticate.adoc[How-to: authenticate a TypeScript client]
-* xref:how-to/typescript/edge-runtime.adoc[How-to: deploy to edge runtimes]
-* xref:how-to/typescript/observability.adoc[How-to: enable request logging]
-* xref:how-to/typescript/handle-errors.adoc[How-to: handle TypeScript REST errors]
-* xref:how-to/typescript/troubleshooting.adoc[Troubleshooting]
-* xref:reference/typescript-api.adoc[Full API reference] (with the link:{attachmentsdir}/api/typescript/index.html[TypeDoc-generated method-level reference])
-
 == Source and releases
 
 * Package: link:https://www.npmjs.com/package/@neo4j-labs/agent-memory[`@neo4j-labs/agent-memory` on npm]
@@ -109,3 +98,14 @@ for the four decisions behind it, or clone the example directly. The CI example 
 The eve commerce demo currently has unsupported hosted preference/fact paths;
 see its README before using it as a deployment example. Offline checks do not
 prove npm artifact availability or live-service behavior.
+
+== See also
+
+* xref:tutorials/first-agent-memory-typescript.adoc[Tutorial: First agent memory (TypeScript)]
+* xref:tutorials/hosted-quickstart-typescript.adoc[Tutorial: Hosted quickstart]
+* xref:how-to/typescript/authenticate.adoc[Authenticate a TypeScript client]
+* xref:how-to/typescript/edge-runtime.adoc[Deploy to edge runtimes]
+* xref:how-to/typescript/observability.adoc[Enable request logging]
+* xref:how-to/typescript/handle-errors.adoc[Handle TypeScript REST errors]
+* xref:how-to/typescript/troubleshooting.adoc[Troubleshooting]
+* xref:reference/typescript-api.adoc[Full API reference] (with the link:{attachmentsdir}/api/typescript/index.html[TypeDoc-generated method-level reference])

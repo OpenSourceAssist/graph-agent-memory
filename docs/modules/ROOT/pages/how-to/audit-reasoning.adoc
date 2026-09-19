@@ -39,7 +39,8 @@ Run the `audit` command's fragment below in the same async function with that `c
 
 == Goal
 
-image::diagrams/provenance-chain-graph-auditability.svg[Provenance chain: graph traversal and vector similarity both trace agent decisions back to source messages and entities,width=100%,link=self]
+.HAS_STEP and TOUCHED edges from a reasoning trace to the entities it touched
+image::diagrams/reasoning-touched-audit.svg["Graph fragment showing HAS_STEP and TOUCHED edges from a ReasoningTrace through a ReasoningStep to two Entity nodes, with an optional INITIATED_BY edge to a Message",width=100%,link=self]
 
 Find traces through a direct `ReasoningStep` → `Entity` edge. The query also
 traverses `HAS_STEP` and optionally the initiating message. For the rationale
@@ -150,8 +151,6 @@ call is persisted and after any `touched_entities` passed to
 
 == 2. Record a structured outcome
 
-image::diagrams/graph-provenance-tracing-decisions-to-sources.svg[Graph provenance: a single Cypher traversal from a credit decision through shared entities back to the original KYC findings,width=100%,link=self]
-
 Pair `:TOUCHED` with `TraceOutcome` to make audit queries filterable
 by structured failure mode:
 
@@ -261,7 +260,7 @@ for r in results:
 Each result includes the parent trace's task and outcome so the LLM
 can see "in a similar situation, here's what worked."
 
-== See Also
+== See also
 
 * xref:how-to/reasoning-traces.adoc[Record and verify a failed tool call] — the
 underlying trace + step + tool-call API.

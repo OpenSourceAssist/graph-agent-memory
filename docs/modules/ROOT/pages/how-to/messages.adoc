@@ -4,8 +4,11 @@
 :toclevels: 2
 :sectanchors:
 
+include::partial$backend-both.adoc[]
+
 To retain an ordered conversation and retrieve it later, write messages with a known session ID, read that conversation, and compare stored message IDs. Use semantic search separately when you want ranked candidates.
 
+.A conversation with linked messages in chronological order
 image::diagrams/message-chain.svg["A conversation with linked messages in chronological order",width=100%,link=self]
 
 For the rationale, see xref:explanation/memory-types.adoc[Understanding the three memory types].

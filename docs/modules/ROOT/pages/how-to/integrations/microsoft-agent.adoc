@@ -108,13 +108,13 @@ anchor:_see_also[]
 The context provider can include short-term history, long-term knowledge and similar recorded traces with configured limits. Session and user identifiers are personalization/grouping inputs, not a universal access boundary. Serialized provider state records configuration; it is not a database backup or a credential export.
 
 .Integration components; graph analytics are optional
-image::diagrams/microsoft-agent-architecture.png["Microsoft Agent Framework context hooks and optional memory tools connect to Neo4j Agent Memory",width=600,align=left,link=self]
+image::diagrams/microsoft-agent-architecture.svg["Microsoft Agent Framework context hooks and optional memory tools connect to Neo4j Agent Memory",width=100%,link=self]
 
 The optional GDS helper requires suitable domain data and a supported graph surface. A Cypher fallback is a different retrieval/ranking method, not an equivalent execution of PageRank or Node Similarity. The minimal script above does not enable GDS; see `get_gds_config()` in https://github.com/neo4j-labs/agent-memory/blob/main/examples/microsoft_agent_retail_assistant/backend/memory_config.py[the retail application's `memory_config.py`] for a working `GDSConfig` that enables `GDSAlgorithm.SHORTEST_PATH`, `NODE_SIMILARITY` and `PAGERANK`. `create_memory_tools(...)` returns tool definitions that require the corresponding execution path; inspect the installed adapter before translating them into framework tool objects.
 
 https://github.com/neo4j-labs/agent-memory/tree/main/examples/microsoft_agent_retail_assistant[The maintained retail application] adds inventory, cart and product-search tools plus a UI and domain graph, and is also the GDS-enabled example referenced above. Those features belong to the example application, not to `MemoryClient` automatically.
 
-.Separate TfL Explorer example application
+.Screenshot of the separate TfL Explorer example application
 image::diagrams/tfl-explorer-app-screenshot.png["TfL Explorer example interface showing a route-planning conversation",width=540,align=left,link=self]
 
 The screenshot illustrates a separate application (capture date not recorded in the repository); it is not the output of the shopping recipe or evidence that the memory library itself provides live transit data.

@@ -1,5 +1,4 @@
 = Integrate with the Vercel AI SDK
-:toc: left
 :source-highlighter: rouge
 
 The TypeScript client ships a language-model middleware that auto-injects
@@ -181,7 +180,7 @@ export default {
 };
 ----
 
-See xref:how-to/typescript/edge-runtime.adoc[How-to: deploy to edge runtimes] for details.
+See xref:how-to/typescript/edge-runtime.adoc[deploy to edge runtimes] for details.
 
 == Compatibility
 

@@ -1,5 +1,4 @@
 = Deploy to edge runtimes
-:toc: left
 :source-highlighter: rouge
 
 The core `@neo4j-labs/agent-memory` REST client can run on Cloudflare
@@ -87,4 +86,4 @@ client in an environment where `process` is undefined. To exercise the
 full path against a real Worker, deploy with `wrangler` and watch tail
 logs for request-id-tagged failures.
 
-See xref:how-to/typescript/observability.adoc[How-to: enable request logging] for tracing.
+See xref:how-to/typescript/observability.adoc[enable request logging] for tracing.

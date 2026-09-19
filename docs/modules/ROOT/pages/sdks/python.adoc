@@ -41,14 +41,6 @@ Choose one complete lesson with setup, named files and observable verification:
 
 A complete lesson is the maintained starting point. A constructor change alone does not migrate data, configure every provider or guarantee backend parity.
 
-== Where to go next
-
-* xref:how-to/index.adoc[Complete a memory task]
-* xref:reference/api/memory-client.adoc[MemoryClient operations and lifecycle]
-* xref:reference/api/factory.adoc[Factory and typed settings]
-* xref:reference/configuration.adoc[Configuration reference]
-* xref:reference/cli.adoc[CLI reference]
-
 == Source and releases
 
 * Package: https://pypi.org/project/neo4j-agent-memory/[neo4j-agent-memory on PyPI]
@@ -62,3 +54,11 @@ See xref:sdks/typescript.adoc[TypeScript SDK]. Python and TypeScript application
 == Runnable examples
 
 The https://github.com/neo4j-labs/agent-memory/tree/main/examples[examples directory] contains small scripts, framework integrations and full applications. The tutorial and how-to pages display complete documentation recipes; larger applications have their own README dependencies and backend requirements. Application test fakes do not establish hosted service support for every demonstrated business operation.
+
+== See also
+
+* xref:how-to/index.adoc[Complete a memory task]
+* xref:reference/api/memory-client.adoc[MemoryClient operations and lifecycle]
+* xref:reference/api/factory.adoc[Factory and typed settings]
+* xref:reference/configuration.adoc[Configuration reference]
+* xref:reference/cli.adoc[CLI reference]

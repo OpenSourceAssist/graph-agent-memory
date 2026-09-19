@@ -52,23 +52,47 @@ configured. Python's default transport sends its configured API key directly; ca
 
 == Conversations
 
-[cols="2,3,1,1,1,1,1"]
+[cols="2,3,2,2,1"]
 |===
-| HTTP | Path | Protocol operation | TS | Go | Python accessor | C#
+| HTTP | Path | Protocol operation | Python accessor | TS
 
-| `GET` | `/conversations` | `list_conversations` | `listConversations` | `ListConversations` | `short_term.list_conversations` | `ListConversationsAsync`
-| `POST` | `/conversations` | `create_conversation` | `createConversation` | `CreateConversation` | `short_term.create_conversation` | `CreateConversationAsync`
-| `GET` | `/conversations/\{id}` | `get_conversation_metadata` | `getConversationMetadata` | `GetConversationMetadata` | short_term.get_conversation (combined metadata/messages) | `GetConversationMetadataAsync`
-| `DELETE` | `/conversations/\{id}` | `delete_conversation` | `deleteConversation` | `DeleteConversation` | `short_term.clear_session` | `DeleteConversationAsync`
-| `GET` | `/conversations/\{id}/messages` | `get_conversation` | `getConversation` | `GetConversation` | `short_term.get_conversation` | `GetConversationAsync`
-| `POST` | `/conversations/\{id}/messages` | `add_message` | `addMessage` | `AddMessage` | `short_term.add_message` | `AddMessageAsync`
-| `POST` | `/conversations/\{id}/messages/bulk` | `bulk_add_messages` | `bulkAddMessages` | `BulkAddMessages` | `short_term.bulk_add_messages` | `BulkAddMessagesAsync`
-| `POST` | `/conversations/\{id}/search` | `search_messages` | `searchMessages` | `SearchMessages` | `short_term.search_messages` | `SearchMessagesAsync`
-| `GET` | `/conversations/\{id}/context` | `get_context` | `getContext` | `GetContext` | `short_term.get_context` | `GetContextAsync`
-| `GET` | `/conversations/\{id}/observations` | `get_observations` | `getObservations` | `GetObservations` | `short_term.get_observations` | `GetObservationsAsync`
-| `GET` | `/conversations/\{id}/reflections` | `get_reflections` | `getReflections` | `GetReflections` | `short_term.get_reflections` | `GetReflectionsAsync`
-| `GET` | `/conversations/\{id}/extraction-status` | `get_extraction_status` | No public wrapper | `GetExtractionStatus` | `short_term.get_extraction_status` | `GetExtractionStatusAsync`
+| `GET` | `/conversations` | `list_conversations` | `short_term.list_conversations` | `listConversations`
+| `POST` | `/conversations` | `create_conversation` | `short_term.create_conversation` | `createConversation`
+| `GET` | `/conversations/\{id}` | `get_conversation_metadata` | short_term.get_conversation (combined metadata/messages) | `getConversationMetadata`
+| `DELETE` | `/conversations/\{id}` | `delete_conversation` | `short_term.clear_session` | `deleteConversation`
+| `GET` | `/conversations/\{id}/messages` | `get_conversation` | `short_term.get_conversation` | `getConversation`
+| `POST` | `/conversations/\{id}/messages` | `add_message` | `short_term.add_message` | `addMessage`
+| `POST` | `/conversations/\{id}/messages/bulk` | `bulk_add_messages` | `short_term.bulk_add_messages` | `bulkAddMessages`
+| `POST` | `/conversations/\{id}/search` | `search_messages` | `short_term.search_messages` | `searchMessages`
+| `GET` | `/conversations/\{id}/context` | `get_context` | `short_term.get_context` | `getContext`
+| `GET` | `/conversations/\{id}/observations` | `get_observations` | `short_term.get_observations` | `getObservations`
+| `GET` | `/conversations/\{id}/reflections` | `get_reflections` | `short_term.get_reflections` | `getReflections`
+| `GET` | `/conversations/\{id}/extraction-status` | `get_extraction_status` | `short_term.get_extraction_status` | No public wrapper
 |===
+
+Go and C# clients are not part of this repository; their method names for this
+table are collapsed below for reference.
+
+[%collapsible]
+====
+[cols="3,2,2"]
+|===
+| Path | Go | C#
+
+| `/conversations` | `ListConversations` | `ListConversationsAsync`
+| `/conversations` | `CreateConversation` | `CreateConversationAsync`
+| `/conversations/\{id}` | `GetConversationMetadata` | `GetConversationMetadataAsync`
+| `/conversations/\{id}` | `DeleteConversation` | `DeleteConversationAsync`
+| `/conversations/\{id}/messages` | `GetConversation` | `GetConversationAsync`
+| `/conversations/\{id}/messages` | `AddMessage` | `AddMessageAsync`
+| `/conversations/\{id}/messages/bulk` | `BulkAddMessages` | `BulkAddMessagesAsync`
+| `/conversations/\{id}/search` | `SearchMessages` | `SearchMessagesAsync`
+| `/conversations/\{id}/context` | `GetContext` | `GetContextAsync`
+| `/conversations/\{id}/observations` | `GetObservations` | `GetObservationsAsync`
+| `/conversations/\{id}/reflections` | `GetReflections` | `GetReflectionsAsync`
+| `/conversations/\{id}/extraction-status` | `GetExtractionStatus` | `GetExtractionStatusAsync`
+|===
+====
 
 Because extraction runs asynchronously on NAMS, Python `short_term.get_extraction_status` reads the conversation pipeline status; `long_term.wait_for_extraction(session_id=...)` polls it for you. TypeScript has no public extraction-status wrapper in this checkout: its `longTerm.waitForExtraction` polls entity search using expected names, a predicate, or result count. Entity search counts alone can match unrelated existing workspace entities.
 
@@ -76,22 +100,45 @@ On Python, `get_conversation` makes both metadata and message requests. There is
 
 == Entities
 
-[cols="2,3,1,1,1,1,1"]
+[cols="2,3,2,2,1"]
 |===
-| HTTP | Path | Protocol operation | TS | Go | Python accessor | C#
+| HTTP | Path | Protocol operation | Python accessor | TS
 
-| `GET` | `/entities` | `list_entities` | `listEntities` | `ListEntities` | No public wrapper | `ListEntitiesAsync`
-| `POST` | `/entities` | `add_entity` | `addEntity` | `AddEntity` | `long_term.add_entity` | `AddEntityAsync`
-| `GET` | `/entities/\{id}` | `get_entity` | `getEntity` | `GetEntity` | long_term.get_related_entities / get_entity_relationships (relationships only) | `GetEntityAsync`
-| `PUT` | `/entities/\{id}` | `update_entity` | `updateEntity` | `UpdateEntity` | No public wrapper | `UpdateEntityAsync`
-| `DELETE` | `/entities/\{id}` | `delete_entity` | `deleteEntity` | `DeleteEntity` | No public wrapper | `DeleteEntityAsync`
-| `PUT` | `/entities/\{id}/feedback` | `set_entity_feedback` | `setEntityFeedback` | `SetEntityFeedback` | `long_term.set_entity_feedback` | `SetEntityFeedbackAsync`
-| `GET` | `/entities/\{id}/history` | `get_entity_history` | `getEntityHistory` | `GetEntityHistory` | `long_term.get_entity_history` | `GetEntityHistoryAsync`
-| `POST` | `/entities/\{id}/merge` | `merge_entities` | `mergeEntities` | `MergeEntities` | No public wrapper | `MergeEntitiesAsync`
-| `GET` | `/entities/graph` | `get_entity_graph` | `getEntityGraph` | `GetEntityGraph` | No public wrapper | `GetEntityGraphAsync`
-| `POST` | `/entities/search` | `search_entities` | `searchEntities` | `SearchEntities` | `long_term.search_entities` | `SearchEntitiesAsync`
-| `POST` | `/graph/expand` | `expand_graph` | `expandGraph` | `ExpandGraph` | `long_term.expand_graph` | `ExpandGraphAsync`
+| `GET` | `/entities` | `list_entities` | No public wrapper | `listEntities`
+| `POST` | `/entities` | `add_entity` | `long_term.add_entity` | `addEntity`
+| `GET` | `/entities/\{id}` | `get_entity` | long_term.get_related_entities / get_entity_relationships (relationships only) | `getEntity`
+| `PUT` | `/entities/\{id}` | `update_entity` | No public wrapper | `updateEntity`
+| `DELETE` | `/entities/\{id}` | `delete_entity` | No public wrapper | `deleteEntity`
+| `PUT` | `/entities/\{id}/feedback` | `set_entity_feedback` | `long_term.set_entity_feedback` | `setEntityFeedback`
+| `GET` | `/entities/\{id}/history` | `get_entity_history` | `long_term.get_entity_history` | `getEntityHistory`
+| `POST` | `/entities/\{id}/merge` | `merge_entities` | No public wrapper | `mergeEntities`
+| `GET` | `/entities/graph` | `get_entity_graph` | No public wrapper | `getEntityGraph`
+| `POST` | `/entities/search` | `search_entities` | `long_term.search_entities` | `searchEntities`
+| `POST` | `/graph/expand` | `expand_graph` | `long_term.expand_graph` | `expandGraph`
 |===
+
+Go and C# clients are not part of this repository; their method names for this
+table are collapsed below for reference.
+
+[%collapsible]
+====
+[cols="3,2,2"]
+|===
+| Path | Go | C#
+
+| `/entities` | `ListEntities` | `ListEntitiesAsync`
+| `/entities` | `AddEntity` | `AddEntityAsync`
+| `/entities/\{id}` | `GetEntity` | `GetEntityAsync`
+| `/entities/\{id}` | `UpdateEntity` | `UpdateEntityAsync`
+| `/entities/\{id}` | `DeleteEntity` | `DeleteEntityAsync`
+| `/entities/\{id}/feedback` | `SetEntityFeedback` | `SetEntityFeedbackAsync`
+| `/entities/\{id}/history` | `GetEntityHistory` | `GetEntityHistoryAsync`
+| `/entities/\{id}/merge` | `MergeEntities` | `MergeEntitiesAsync`
+| `/entities/graph` | `GetEntityGraph` | `GetEntityGraphAsync`
+| `/entities/search` | `SearchEntities` | `SearchEntitiesAsync`
+| `/graph/expand` | `ExpandGraph` | `ExpandGraphAsync`
+|===
+====
 
 `POST /graph/expand` returns the 1-hop neighbourhood of a node (`{nodes, edges}`),
 excluding any IDs you already have (`loadedIds` on the wire; Python argument `loaded_ids`) — it backs incremental
@@ -137,17 +184,35 @@ without a follow-up GET.
 
 == Reasoning
 
-[cols="2,3,1,1,1,1,1"]
+[cols="2,3,2,2,1"]
 |===
-| HTTP | Path | Protocol operation | TS | Go | Python accessor | C#
+| HTTP | Path | Protocol operation | Python accessor | TS
 
-| `POST` | `/reasoning/steps` | `record_step` | `recordStep` | `RecordStep` | `reasoning.add_step` | `RecordStepAsync`
-| `GET` | `/reasoning/steps` | `list_steps` | `listSteps` | `ListSteps` | No public wrapper | `ListStepsAsync`
-| `GET` | `/reasoning/explain/\{step}` | `explain_step` | `explainStep` | `ExplainStep` | No public wrapper | `ExplainStepAsync`
-| `POST` | `/reasoning/tool-calls` | `record_tool_call` | `recordToolCall` | `RecordToolCall` | `reasoning.record_tool_call` | `RecordToolCallAsync`
-| `GET` | `/reasoning/trace/\{conv}` | `get_trace_by_conversation` | `getTraceByConversation` | `GetTraceByConversation` | reasoning.get_session_traces / get_trace_with_steps | `GetTraceByConversationAsync`
-| `GET` | `/reasoning/provenance/\{entity}` | `get_entity_provenance` | `getEntityProvenance` | `GetEntityProvenance` | `long_term.get_entity_provenance` | `GetEntityProvenanceAsync`
+| `POST` | `/reasoning/steps` | `record_step` | `reasoning.add_step` | `recordStep`
+| `GET` | `/reasoning/steps` | `list_steps` | No public wrapper | `listSteps`
+| `GET` | `/reasoning/explain/\{step}` | `explain_step` | No public wrapper | `explainStep`
+| `POST` | `/reasoning/tool-calls` | `record_tool_call` | `reasoning.record_tool_call` | `recordToolCall`
+| `GET` | `/reasoning/trace/\{conv}` | `get_trace_by_conversation` | reasoning.get_session_traces / get_trace_with_steps | `getTraceByConversation`
+| `GET` | `/reasoning/provenance/\{entity}` | `get_entity_provenance` | `long_term.get_entity_provenance` | `getEntityProvenance`
 |===
+
+Go and C# clients are not part of this repository; their method names for this
+table are collapsed below for reference.
+
+[%collapsible]
+====
+[cols="3,2,2"]
+|===
+| Path | Go | C#
+
+| `/reasoning/steps` | `RecordStep` | `RecordStepAsync`
+| `/reasoning/steps` | `ListSteps` | `ListStepsAsync`
+| `/reasoning/explain/\{step}` | `ExplainStep` | `ExplainStepAsync`
+| `/reasoning/tool-calls` | `RecordToolCall` | `RecordToolCallAsync`
+| `/reasoning/trace/\{conv}` | `GetTraceByConversation` | `GetTraceByConversationAsync`
+| `/reasoning/provenance/\{entity}` | `GetEntityProvenance` | `GetEntityProvenanceAsync`
+|===
+====
 
 Python reasoning uses a local synthetic trace lifecycle over conversation-level server steps. `complete_trace` does not persist a server trace/outcome. See xref:reference/api/reasoning.adoc[Reasoning API] for lifetime and retrieval limits.
 
@@ -155,18 +220,37 @@ anchor:_cypher_and_auth[]
 
 == Cypher and authentication
 
-[cols="2,3,1,1,1,1,1"]
+[cols="2,3,2,2,1"]
 |===
-| HTTP | Path | Protocol operation | TS | Go | Python accessor | C#
+| HTTP | Path | Protocol operation | Python accessor | TS
 
-| `POST` | `/query` | `cypher_query` | `query.cypher` | `Query.Cypher` | `query.cypher` | `Query.CypherAsync`
-| `GET` | `/auth/api-keys` | `list_api_keys` | `auth.listApiKeys` | `Auth.ListAPIKeys` | `auth.list_api_keys` | `Auth.ListApiKeysAsync`
-| `POST` | `/auth/api-keys` | `create_api_key` | `auth.createApiKey` | `Auth.CreateAPIKey` | `auth.create_api_key` | `Auth.CreateApiKeyAsync`
-| `DELETE` | `/auth/api-keys/\{id}` | `revoke_api_key` | `auth.revokeApiKey` | `Auth.RevokeAPIKey` | `auth.revoke_api_key` | `Auth.RevokeApiKeyAsync`
-| `GET` | `/auth/api-keys/\{id}/reveal` | `reveal_api_key` | `auth.revealApiKey` | `Auth.RevealAPIKey` | `auth.reveal_api_key` | `Auth.RevealApiKeyAsync`
-| `POST` | `/auth/api-keys/\{id}/rotate` | `rotate_api_key` | `auth.rotateApiKey` | `Auth.RotateAPIKey` | `auth.rotate_api_key` | `Auth.RotateApiKeyAsync`
-| `POST` | `/auth/refresh` | `refresh_access_token` | `auth.refreshAccessToken` | `Auth.RefreshAccessToken` | `auth.refresh_access_token` | `Auth.RefreshAccessTokenAsync`
+| `POST` | `/query` | `cypher_query` | `query.cypher` | `query.cypher`
+| `GET` | `/auth/api-keys` | `list_api_keys` | `auth.list_api_keys` | `auth.listApiKeys`
+| `POST` | `/auth/api-keys` | `create_api_key` | `auth.create_api_key` | `auth.createApiKey`
+| `DELETE` | `/auth/api-keys/\{id}` | `revoke_api_key` | `auth.revoke_api_key` | `auth.revokeApiKey`
+| `GET` | `/auth/api-keys/\{id}/reveal` | `reveal_api_key` | `auth.reveal_api_key` | `auth.revealApiKey`
+| `POST` | `/auth/api-keys/\{id}/rotate` | `rotate_api_key` | `auth.rotate_api_key` | `auth.rotateApiKey`
+| `POST` | `/auth/refresh` | `refresh_access_token` | `auth.refresh_access_token` | `auth.refreshAccessToken`
 |===
+
+Go and C# clients are not part of this repository; their method names for this
+table are collapsed below for reference.
+
+[%collapsible]
+====
+[cols="3,2,2"]
+|===
+| Path | Go | C#
+
+| `/query` | `Query.Cypher` | `Query.CypherAsync`
+| `/auth/api-keys` | `Auth.ListAPIKeys` | `Auth.ListApiKeysAsync`
+| `/auth/api-keys` | `Auth.CreateAPIKey` | `Auth.CreateApiKeyAsync`
+| `/auth/api-keys/\{id}` | `Auth.RevokeAPIKey` | `Auth.RevokeApiKeyAsync`
+| `/auth/api-keys/\{id}/reveal` | `Auth.RevealAPIKey` | `Auth.RevealApiKeyAsync`
+| `/auth/api-keys/\{id}/rotate` | `Auth.RotateAPIKey` | `Auth.RotateApiKeyAsync`
+| `/auth/refresh` | `Auth.RefreshAccessToken` | `Auth.RefreshAccessTokenAsync`
+|===
+====
 
 [NOTE]
 ====

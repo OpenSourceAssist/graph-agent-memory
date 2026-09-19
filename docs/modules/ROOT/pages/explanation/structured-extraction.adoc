@@ -89,7 +89,7 @@ Increasing the retry limit permits more provider calls and adds latency and cost
 Evaluate representative schemas and inputs, recording validation failures separately from factual extraction errors. Select the retry budget for the application's tolerance for latency and failure.
 
 [[_related]]
-== Related documentation
+== See also
 
 * xref:explanation/why-provider-protocol.adoc[Provider protocol design]
 * xref:explanation/extraction-pipeline.adoc[Extraction pipeline]

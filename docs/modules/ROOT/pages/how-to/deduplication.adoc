@@ -6,11 +6,14 @@
 
 To combine two known duplicate entities, choose the source and target explicitly, merge that pair, and verify the source marker and target aliases. Review semantic candidates before applying the same operation to user data.
 
+include::partial$backend-bolt-only.adoc[]
+
+.Entity similarity can trigger an automatic merge or a review flag
 image::diagrams/entity-dedup-flow.svg["Entity similarity can trigger merging or a review flag",width=100%,link=self]
 
 anchor:_prerequisites[]
 
-== 1. Prepare the Bolt client
+== Prerequisites
 
 Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra:
 
@@ -25,25 +28,23 @@ include::partial$python-core-recipe-intro.adoc[]
 
 include::partial$python-core-recipe-files.adoc[]
 
-== 2. Apply the task function
+== 1. Apply the task function
 
 Configure custom deduplication thresholds and merge a reviewed duplicate pair. `DeduplicationConfig` is imported from `neo4j_agent_memory.memory.long_term`. For custom thresholds, construct `LongTermMemory` with the connected Bolt graph and embedder. `MemoryClient` does not accept a `deduplication=` argument, and `MemorySettings.deduplication` is not a setting. The example uses a deliberately created pair and bypasses automatic deduplication so the manual review step is reproducible.
 
-The function below is included from the complete maintained program, which already supplies imports, client setup, unique IDs, and `asyncio.run`. Run the file in step 3; this extract is not a separate top-level script.
+The function below is included from the complete maintained program, which already supplies imports, client setup, unique IDs, and `asyncio.run`. Run the file in step 2; this extract is not a separate top-level script.
 
 [source,python]
 ----
 include::example$core_memory_recipes.py[tag=deduplication]
 ----
 
-== 3. Run and verify
+== 2. Run the recipe
 
 [source,bash]
 ----
 python core_memory_recipes.py deduplication
 ----
-
-Expected: `Verified: reviewed pair merged into ...; merged nodes=...`. The assertions check the source's `merged_into` value and the target's alias list rather than assuming a particular embedding score.
 
 The command retains its example records for inspection. Remove the disposable tutorial database using that tutorial's cleanup command when finished. Do not substitute an unrestricted delete query against an existing database.
 
@@ -61,7 +62,18 @@ anchor:_manual_entity_merging[]
 
 As of SDK 0.6.0, the merge query adds the source name as a target alias and copies the source's edges of these types onto the target — inbound `MENTIONS`, `RELATED_TO` in both directions, `SAME_AS`, outbound `EXTRACTED_FROM` and `EXTRACTED_BY` provenance, inbound `APPLIES_TO`, and inbound `TOUCHED` — then marks the source with `merged_into`/`merged_at`. It copies rather than deletes: the source keeps its own edges so the merge stays reversible and auditable, and each copied edge carries the source edge's `id` plus a `migrated_from` property. Relationship types outside that list are not transferred automatically; inspect those edges and decide how your application will reconcile them before merging a populated graph.
 
-Known aliases, type consistency, and a labeled sample of true/false duplicates help assess a policy. Do not choose automatic thresholds from an unmeasured “safe” universal value. See xref:explanation/resolution-deduplication.adoc[resolution and deduplication] for the distinction between the two mechanisms, and xref:reference/api/long-term.adoc[the complete API] for configuration and return models.
+Known aliases, type consistency, and a labeled sample of true/false duplicates help assess a policy. Do not choose automatic thresholds from an unmeasured "safe" universal value.
+
+== Verification
+
+Expected: `Verified: reviewed pair merged into ...; merged nodes=...`. The assertions check the source's `merged_into` value and the target's alias list rather than assuming a particular embedding score.
+
+anchor:_see_also[]
+
+== See also
+
+* xref:explanation/resolution-deduplication.adoc[Resolution and deduplication] — the distinction between the two mechanisms.
+* xref:reference/api/long-term.adoc[The long-term API reference] — configuration and return models.
 
 // Historical section links resolve to the maintained task and reference pointers.
 anchor:_overview[]
@@ -84,4 +96,3 @@ anchor:_1_start_conservative[]
 anchor:_2_use_specific_entity_types[]
 anchor:_3_add_known_aliases_upfront[]
 anchor:_4_regular_review_cycles[]
-anchor:_see_also[]

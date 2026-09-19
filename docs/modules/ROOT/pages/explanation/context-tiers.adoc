@@ -37,6 +37,9 @@ compress spans of messages, and reflections compress spans of observations.
 An application reading only reflections gets the most condensed view of a
 long conversation; reading recent messages gets the most literal one.
 
+.Context assembly narrows from raw messages to synthesized reflections
+image::diagrams/context-tiers-funnel.svg["Three-stage funnel from recent messages (raw, persisted turns kept verbatim) to observations (auto-generated summaries of a window of messages) to reflections (higher-level syntheses derived from observations), with compression increasing left to right",width=100%,link=self]
+
 == How `getContext()` assembles them
 
 `client.shortTerm.getContext(conversationId)` returns all three tiers

@@ -553,7 +553,7 @@ const memory = new MemoryClient({
 |`method`, `url`, `status?`, `requestId?`, `durationMs`, `message`
 |===
 
-See xref:how-to/typescript/observability.adoc[How-to: enable request logging] for the full pattern including OpenTelemetry forwarding.
+See xref:how-to/typescript/observability.adoc[enable request logging] for the full pattern including OpenTelemetry forwarding.
 
 == Versioning
 

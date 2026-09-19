@@ -22,6 +22,29 @@ python3 scripts/check_docs.py --build --report docs/build/quality-report.json
 
 `ANTORA_UI_BUNDLE=/absolute/path/to/ui-bundle.zip` selects a downloaded official UI bundle when offline. Record its hash with release evidence: the playbook's `ui-bundle-latest.zip` URL is mutable. `python3 scripts/check_docs.py --site-dir docs/build/site` checks an existing artifact but does not prove that artifact is fresh.
 
+`check_docs.py` reads source and rendered HTML, but it never opens a page in a
+browser, so it cannot see layout defects: an inline table of contents left in
+by a stray `:toc:`, a diagram scaled down far below its exported size, a page
+that scrolls horizontally on a phone, a Title Case heading, or a closing
+section that isn't one of the two standard headings. `make docs-render-check`
+builds the docs and then drives `scripts/render_docs.mjs` (Playwright, the
+same one used for the diagram exporter) to open every page at 1280px and
+390px, record per-page layout facts to a `report.json`, and check them with
+`tests/docs/test_rendered_site.py`:
+
+```bash
+make docs-render-check
+```
+
+Run `scripts/render_docs.mjs` directly to render a specific build without the
+pytest checks — `node scripts/render_docs.mjs [siteDir] [outDir]`; siteDir
+defaults to `docs/build/site/agent-memory`, outDir to
+`docs/build/render-report`. Pass `--screenshots` to also capture a PNG per
+page (skipped by default; `report.json` is what the checks read). The pytest
+module skips cleanly, with a reason, when `docs/build/site` has not been
+built yet or when Playwright is not installed under `docs/diagrams`
+(`make docs-install`).
+
 For a local preview:
 
 ```bash
@@ -77,6 +100,10 @@ Install the declared dependency environment before import/integration checks. Pr
 
 Use the official Neo4j shared UI for site chrome. Its Public Sans/Roboto Mono typography is an intentional upstream-UI exception to local font suggestions; this project does not fork the UI to override those fonts. Use Labs purple for project framing and preserve semantic diagram colors: short-term green, long-term yellow, reasoning purple, storage blue. Native Excalidraw scenes retain portable renderer fonts (hand-drawn or sans-serif) rather than embedding a web font into every scene. This is a documented export exception; legibility and semantic color roles still apply. Keep actual API and schema property names even when generic style examples prefer another casing. Graph nodes use ellipses; components use rounded boxes. Use sentence-case authored headings.
 
+House diagram style: Excalidraw text uses fontFamily 2 (Helvetica) and stroke roughness 1, with the semantic palette above applied to the three memory layers; `:User` nodes and anything else outside those layers use neutral grey rather than a semantic color. Compose every scene for the rendered column, which is 648px on desktop and narrower on a phone: keep the canvas no wider than about 1,400px and no label smaller than about 20px in the scene, since the browser shrinks that text by roughly half on render. Every diagram embed gets a figure caption — a title sentence on the line above the `image::` macro — plus `width=100%` and `link=self` so the reader can open the full-resolution export, and alt text that describes what the diagram shows rather than repeating the caption. Diagram exports are SVG, produced with `scripts/export_diagrams.mjs`; only literal UI screenshots stay PNG.
+
+The shared UI has no dark theme today, so exports carry an opaque white background chosen for the current light theme, not a transparent or theme-aware one. If the shared UI ever adds a dark theme, every diagram export would need to be regenerated against it rather than restyled after the fact.
+
 Tutorial pages set `:page-role: code-nocollapse` to use the shared UI's supported unfolded-code treatment. Long helper files can retain native AsciiDoc collapsible blocks: their `<summary>` controls support keyboard disclosure without the shared UI's inner click-only fold. `extensions/tutorial-ui.js` appends the small assets in `ui/` to the upstream head partial without replacing the shared templates. They make existing copy actions native buttons and source regions keyboard-focusable, with visible focus. When updating the UI bundle, verify helper disclosure with Space/Enter, full-file clipboard content, horizontal scrolling and focus visibility; a source/build pass does not replace this interaction check. Keep the enhancement limited to tutorials and retain the shared theme.
 
 Editable documentation scenes live under `docs/assets/diagrams/excalidraw`; exports live under `docs/modules/ROOT/images/diagrams`. Example-specific scenes can remain with the example. The diagram manifest records source/export paths, hashes, referring pages, and any unresolved legacy provenance. Source validity alone does not establish readable rendering.
@@ -94,7 +121,7 @@ node scripts/export_diagrams.mjs docs/assets/diagrams/excalidraw/the-three-layer
 python3 scripts/manage_diagrams.py status
 ```
 
-The exporter uses Excalidraw's own renderer and writes SVG plus PNG with a white background for readable text in either site theme. `DIAGRAM_TOOLS_DIR` can select a temporary dependency installation; `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select an existing compatible Chromium executable. Review the output at actual page size and a narrow viewport before recording fresh hashes. Do not mark unknown legacy source/export pairs as verified merely because their filenames match.
+The exporter uses Excalidraw's own renderer and writes SVG plus PNG with an opaque white background matched to the current light-only site theme. `DIAGRAM_TOOLS_DIR` can select a temporary dependency installation; `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select an existing compatible Chromium executable. Review the output at actual page size and a narrow viewport before recording fresh hashes. Do not mark unknown legacy source/export pairs as verified merely because their filenames match.
 
 Quote comma-containing image descriptions, for example `image::diagrams/example.svg["Conversations, entities and traces",width=100%]`. Alt text is an accessible description; a preceding `.Diagram title` is a visible caption.
 

@@ -58,7 +58,7 @@ xref:getting-started.adoc[Setup and learning paths] · xref:sdks/python.adoc[Pyt
 anchor:_framework_integrations[]anchor:_python_neo4j_agent_memory[]
 
 .Library memory layers and backend boundaries
-image::diagrams/the-three-layer-memory-architecture.png["Conversations, entities and reasoning records connected through the selected memory backend",width=100%,link=self]
+image::diagrams/the-three-layer-memory-architecture.svg["Conversations, entities and reasoning records connected through the selected memory backend",width=100%,link=self]
 
 [cols="1,2,3",options="header"]
 |===

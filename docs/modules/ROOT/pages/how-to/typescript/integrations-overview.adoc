@@ -11,19 +11,19 @@ Prerequisites: a configured `MemoryClient` — see xref:sdks/typescript.adoc[the
 
 `agentMemoryMiddleware` injects three-tier context into each model call and
 attempts to persist both the user's input and the assistant's response —
-streamed or not. See xref:how-to/typescript/vercel-ai.adoc[How-to: integrate with the Vercel AI SDK].
+streamed or not. See xref:how-to/typescript/vercel-ai.adoc[Integrate with the Vercel AI SDK].
 
 == LangChain JS (TypeScript)
 
 `Neo4jChatMessageHistory` and `Neo4jEntityRetriever` supply framework-neutral
 history and retrieval objects that you adapt to LangChain's APIs. See
-xref:how-to/typescript/langchain.adoc[How-to: use LangChain JS].
+xref:how-to/typescript/langchain.adoc[Integrate with LangChain JS].
 
 == Mastra (TypeScript)
 
 `Neo4jMastraMemory` is a thin thread-and-message-history adapter in Mastra's
 vocabulary, driven alongside your agent rather than passed as its `memory`.
-See xref:how-to/typescript/mastra.adoc[How-to: store Mastra threads in NAMS].
+See xref:how-to/typescript/mastra.adoc[Store Mastra threads in NAMS].
 
 == Strands Agents (TypeScript)
 

@@ -173,7 +173,7 @@ If validation fails, keep traffic paused and restore the database backup with
 the original model settings. Reverting settings alone after a partial backfill
 would leave mixed-model vectors.
 
-== Related
+== See also
 
 * xref:how-to/migrate-to-providers.adoc[Migrate to pluggable providers]
 * xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider]

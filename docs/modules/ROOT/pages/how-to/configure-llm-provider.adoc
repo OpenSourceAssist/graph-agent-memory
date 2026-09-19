@@ -173,7 +173,7 @@ your environment, and verify the returned content. Construction alone does
 not verify authentication, quota, model availability, or extraction quality.
 If you add retries, bound their number and account for adapter-level retries.
 
-== Related
+== See also
 
 * xref:how-to/bring-your-own-model.adoc[Bring your own model] — the headline overview.
 * xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider].

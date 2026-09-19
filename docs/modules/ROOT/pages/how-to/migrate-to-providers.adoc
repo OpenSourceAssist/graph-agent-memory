@@ -263,7 +263,7 @@ A clean warning check confirms configuration shape only. Verify a completion,
 an embedding vector, and representative retrieval using your selected providers.
 Use the embedding migration runbook before changing an existing graph's model.
 
-== Related
+== See also
 
 * xref:how-to/bring-your-own-model.adoc[Bring your own model] — the headline how-to for choosing a provider.
 * xref:reference/configuration.adoc[Configuration] — the canonical `MemorySettings` reference.

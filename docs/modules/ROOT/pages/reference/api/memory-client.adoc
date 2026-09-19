@@ -37,6 +37,8 @@ asyncio.run(main())
 
 For hosted setup use `NamsSettings` and the returned conversation ID, as shown in xref:tutorials/nams-quickstart.adoc[NAMS quickstart]. `connect(settings)` is also available as an async construction helper: it returns an already-connected `BoltMemoryClient` or `NamsMemoryClient` for the corresponding settings type. Close that client in `finally`. The SDK aliases improve static typing; they do not change the service.
 
+anchor:_parameters[]
+
 == Constructor
 
 // contract: __init__.py:MemoryClient.__init__
@@ -89,6 +91,8 @@ def MemoryClient(
 
 Store access before connection raises `NotConnectedError`. Unsupported accessors or calls raise `NotSupportedError`; a property being present is not evidence of backend support. Keep the `MemorySettings` object you passed to the constructor if you need to inspect configuration; there is no public `client.settings` property.
 
+anchor:_parameters_2[]
+
 == Methods
 
 === connect
@@ -131,6 +135,8 @@ await client.graph.execute_write(
 
 `Neo4jClient` also provides `execute_batch` and `vector_search`. Use graph operations only while the client is connected. NAMS does not expose direct bolt access or write Cypher.
 
+anchor:_returns[]
+
 === get_context
 
 Return a formatted *string* assembled from the enabled stores. There is no `MemoryContext` object or `to_prompt()` conversion.
@@ -170,6 +176,8 @@ context = await client.get_context(
 prompt = f"Context from memory:\n{context}\nUser question: Suggest a restaurant."
 ----
 
+anchor:_returns_2[]
+
 === get_stats
 
 Bolt only. Return a flat dictionary of counts; NAMS raises `NotSupportedError`. Use a supported read-only counting query when hosted statistics are needed.
@@ -189,6 +197,8 @@ print(stats["messages"], stats["entities"], stats["traces"])
 The count keys are `conversations`, `messages`, `entities`, `preferences`, `facts`, and `traces`.
 
 anchor:_export_graph[]
+
+anchor:_returns_3[]
 
 === get_graph
 
@@ -264,6 +274,9 @@ Alias for flushing explicit buffered writes. Bolt only.
 async def wait_for_pending() -> None: ...
 ----
 
+anchor:_context_manager[]
+anchor:_thread_safety[]
+
 == Context manager and concurrency
 
 Use `async with MemoryClient(settings)` to connect and close reliably. Async calls may share one client within the same event loop; create separate clients for separate threads/event loops. Flush submitted buffered work before consuming its results and inspect `write_errors` as described in the buffered-write guide.
@@ -308,21 +321,11 @@ Fields and defaults:
 | `metadata` | `dict[str, Any]` | `{}` | Export metadata (filters applied, counts, etc.)
 |===
 
+anchor:_example[]
+
 == See also
 
 * xref:reference/api/short-term.adoc[Short-term API]
 * xref:reference/api/long-term.adoc[Long-term API]
 * xref:reference/api/reasoning.adoc[Reasoning API]
 * xref:reference/configuration.adoc[Configuration]
-
-== Earlier section links
-
-anchor:_parameters[]
-anchor:_parameters_2[]
-anchor:_returns[]
-anchor:_example[]
-anchor:_returns_2[]
-anchor:_returns_3[]
-anchor:_context_manager[]
-anchor:_thread_safety[]
-The earlier sections have been consolidated into the current contracts. See xref:reference/api/memory-client.adoc#_constructor[constructor parameters], xref:reference/api/memory-client.adoc#_methods[method contracts and results], xref:reference/api/memory-client.adoc#_context_manager_and_concurrency[lifecycle and concurrency], and xref:tutorials/first-agent-memory.adoc[the complete memory-context example].

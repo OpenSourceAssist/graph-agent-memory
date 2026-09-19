@@ -1,5 +1,4 @@
 = Store Mastra threads in NAMS
-:toc: left
 :source-highlighter: rouge
 
 The `@neo4j-labs/agent-memory/integrations/mastra` subpath exports

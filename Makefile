@@ -1,4 +1,4 @@
-.PHONY: help install install-all install-dev lint lint-fix format format-check typecheck ty check test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws test-nams-unit test-nams-integration test-nams-staging test-nams-sandbox test-nams-local test-nams coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-examples-docker test-examples-ci test-docs test-docs-syntax test-docs-build test-docs-links test-docs-integration neo4j-start neo4j-stop neo4j-restart neo4j-logs neo4j-status neo4j-wait neo4j-wait-quiet neo4j-clean neo4j-shell clean build publish publish-test docs docs-install docs-serve docs-lint docs-clean docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate pre-commit ci ci-no-docker shell watch dev example-hello example-basic example-resolution example-enrichment example-langchain example-pydantic example-no-llm example-domain-schemas example-existing-graph example-buffered-writes example-audit-trail example-eval-harness example-strands-session-manager example-strands-memory-store example-nams-quickstart example-ontology-lifecycle example-team-memory-doctor example-team-memory-seed examples examples-with-keys chat-agent-install chat-agent-backend chat-agent-frontend chat-agent chat-agent-backend-with-neo4j ts-install ts-build ts-test ts-test-unit ts-test-integration ts-lint ts-docs ts-conformance ts-pack ts-clean ts-test-examples
+.PHONY: help install install-all install-dev lint lint-fix format format-check typecheck ty check test test-unit test-integration test-integration-mcp test-e2e test-all test-docker test-ci test-no-docker test-quick test-file test-match test-aws test-nams-unit test-nams-integration test-nams-staging test-nams-sandbox test-nams-local test-nams coverage coverage-all coverage-ci coverage-mcp test-examples test-examples-quick test-examples-no-neo4j test-examples-docker test-examples-ci test-docs test-docs-syntax test-docs-build test-docs-links test-docs-integration docs-render-check neo4j-start neo4j-stop neo4j-restart neo4j-logs neo4j-status neo4j-wait neo4j-wait-quiet neo4j-clean neo4j-shell clean build publish publish-test docs docs-install docs-serve docs-lint docs-clean docs-diagrams-list docs-diagrams-status docs-diagrams-missing docs-diagrams-manifest docs-diagrams-add-refs docs-diagrams-generate pre-commit ci ci-no-docker shell watch dev example-hello example-basic example-resolution example-enrichment example-langchain example-pydantic example-no-llm example-domain-schemas example-existing-graph example-buffered-writes example-audit-trail example-eval-harness example-strands-session-manager example-strands-memory-store example-nams-quickstart example-ontology-lifecycle example-team-memory-doctor example-team-memory-seed examples examples-with-keys chat-agent-install chat-agent-backend chat-agent-frontend chat-agent chat-agent-backend-with-neo4j ts-install ts-build ts-test ts-test-unit ts-test-integration ts-lint ts-docs ts-conformance ts-pack ts-clean ts-test-examples
 
 # Default target
 help:
@@ -466,9 +466,19 @@ docs-serve:
 	@echo "Building documentation and starting the static preview server..."
 	cd docs && npm run serve
 
-# Check source and a fresh rendered build
-docs-lint:
+# Check source and a fresh rendered build. Also runs the Playwright-based
+# rendered-site checks (docs-render-check) so inline TOC, undersized images
+# (downscale below 0.45), mobile overflow, Title Case headings and
+# scaffolding headings fail this target, not just a separate one.
+docs-lint: docs-render-check
 	cd docs && npm run lint
+
+# Build the docs, then render every page at desktop/mobile widths with
+# Playwright and check the resulting layout facts (inline TOC, undersized
+# images, mobile overflow, diagram captions, heading case, closing
+# sections). See scripts/render_docs.mjs and tests/docs/test_rendered_site.py.
+docs-render-check: docs
+	uv run pytest tests/docs/test_rendered_site.py -v --timeout=300
 
 # Clean built documentation
 docs-clean:

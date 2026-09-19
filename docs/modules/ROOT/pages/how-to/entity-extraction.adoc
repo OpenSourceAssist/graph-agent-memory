@@ -8,7 +8,8 @@ include::partial$backend-bolt-only.adoc[]
 
 To extract entity candidates with a local model, select a supported domain schema, run extraction on the input, and inspect the returned names and types before persistence.
 
-image::diagrams/extraction-pipeline.svg["Configurable extraction stages combine candidate results",width=100%,link=self]
+.Configurable extraction pipeline from input text through extractor stages to persisted entities and relationships
+image::diagrams/extraction-pipeline.svg["Configurable extraction pipeline: input messages or documents, a configured extractor stage (spaCy, GLiNER, relationship or LLM stages), the selected merge strategy, then persisted entities and supported relationships. Order and fallback depend on configuration.",width=100%,link=self]
 
 For the rationale, see xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline].
 

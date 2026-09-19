@@ -98,7 +98,7 @@ The interfaces provide a common call shape while preserving separate capabilitie
 The cost is that callers must understand which capabilities their selected adapter supports. Explicit dimensions, exceptions, and structured-output contracts make those boundaries inspectable.
 
 [[_related]]
-== Related documentation
+== See also
 
 * xref:how-to/bring-your-own-model.adoc[Bring your own model]
 * xref:how-to/migrate-to-providers.adoc[Migrate provider configuration]

@@ -23,12 +23,26 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "boundElements": [
-        { "id": "memory-client-label", "type": "text" },
-        { "id": "arrow-to-short", "type": "arrow" },
-        { "id": "arrow-to-long", "type": "arrow" },
-        { "id": "arrow-to-reasoning", "type": "arrow" }
+        {
+          "id": "memory-client-label",
+          "type": "text"
+        },
+        {
+          "id": "arrow-to-short",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-to-long",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-to-reasoning",
+          "type": "arrow"
+        }
       ]
     },
     {
@@ -40,7 +54,7 @@
       "height": 26,
       "text": "MemoryClient",
       "fontSize": 22,
-      "fontFamily": 1,
+      "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
       "strokeColor": "#1e1e1e",
@@ -80,12 +94,26 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "boundElements": [
-        { "id": "short-term-label", "type": "text" },
-        { "id": "short-term-desc", "type": "text" },
-        { "id": "arrow-to-short", "type": "arrow" },
-        { "id": "arrow-short-neo4j", "type": "arrow" }
+        {
+          "id": "short-term-label",
+          "type": "text"
+        },
+        {
+          "id": "short-term-desc",
+          "type": "text"
+        },
+        {
+          "id": "arrow-to-short",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-short-neo4j",
+          "type": "arrow"
+        }
       ]
     },
     {
@@ -97,7 +125,7 @@
       "height": 24,
       "text": "Short-Term",
       "fontSize": 20,
-      "fontFamily": 1,
+      "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
       "strokeColor": "#2f9e44",
@@ -126,7 +154,7 @@
       "height": 18,
       "text": "Memory",
       "fontSize": 16,
-      "fontFamily": 1,
+      "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
       "strokeColor": "#868e96",
@@ -166,12 +194,26 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "boundElements": [
-        { "id": "long-term-label", "type": "text" },
-        { "id": "long-term-desc", "type": "text" },
-        { "id": "arrow-to-long", "type": "arrow" },
-        { "id": "arrow-long-neo4j", "type": "arrow" }
+        {
+          "id": "long-term-label",
+          "type": "text"
+        },
+        {
+          "id": "long-term-desc",
+          "type": "text"
+        },
+        {
+          "id": "arrow-to-long",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-long-neo4j",
+          "type": "arrow"
+        }
       ]
     },
     {
@@ -183,7 +225,7 @@
       "height": 24,
       "text": "Long-Term",
       "fontSize": 20,
-      "fontFamily": 1,
+      "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
       "strokeColor": "#f08c00",
@@ -212,7 +254,7 @@
       "height": 18,
       "text": "Memory",
       "fontSize": 16,
-      "fontFamily": 1,
+      "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
       "strokeColor": "#868e96",
@@ -252,12 +294,26 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "boundElements": [
-        { "id": "reasoning-label", "type": "text" },
-        { "id": "reasoning-desc", "type": "text" },
-        { "id": "arrow-to-reasoning", "type": "arrow" },
-        { "id": "arrow-reasoning-neo4j", "type": "arrow" }
+        {
+          "id": "reasoning-label",
+          "type": "text"
+        },
+        {
+          "id": "reasoning-desc",
+          "type": "text"
+        },
+        {
+          "id": "arrow-to-reasoning",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-reasoning-neo4j",
+          "type": "arrow"
+        }
       ]
     },
     {
@@ -269,7 +325,7 @@
       "height": 24,
       "text": "Reasoning",
       "fontSize": 20,
-      "fontFamily": 1,
+      "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
       "strokeColor": "#9c36b5",
@@ -298,7 +354,7 @@
       "height": 18,
       "text": "Memory",
       "fontSize": 16,
-      "fontFamily": 1,
+      "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
       "strokeColor": "#868e96",
@@ -338,13 +394,30 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 3 },
+      "roundness": {
+        "type": 3
+      },
       "boundElements": [
-        { "id": "neo4j-label", "type": "text" },
-        { "id": "neo4j-desc", "type": "text" },
-        { "id": "arrow-short-neo4j", "type": "arrow" },
-        { "id": "arrow-long-neo4j", "type": "arrow" },
-        { "id": "arrow-reasoning-neo4j", "type": "arrow" }
+        {
+          "id": "neo4j-label",
+          "type": "text"
+        },
+        {
+          "id": "neo4j-desc",
+          "type": "text"
+        },
+        {
+          "id": "arrow-short-neo4j",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-long-neo4j",
+          "type": "arrow"
+        },
+        {
+          "id": "arrow-reasoning-neo4j",
+          "type": "arrow"
+        }
       ]
     },
     {
@@ -356,7 +429,7 @@
       "height": 26,
       "text": "Neo4j Graph Database",
       "fontSize": 22,
-      "fontFamily": 1,
+      "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
       "strokeColor": "#1971c2",
@@ -383,9 +456,9 @@
       "y": 428,
       "width": 390,
       "height": 18,
-      "text": "Nodes  ·  Relationships  ·  Vectors  ·  Spatial",
+      "text": "Nodes  \u00b7  Relationships  \u00b7  Vectors  \u00b7  Spatial",
       "fontSize": 14,
-      "fontFamily": 3,
+      "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
       "strokeColor": "#868e96",
@@ -425,11 +498,30 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "boundElements": null,
-      "points": [[0, 0], [-90, 80]],
-      "startBinding": { "elementId": "memory-client", "focus": -0.5, "gap": 5 },
-      "endBinding": { "elementId": "short-term", "focus": 0, "gap": 5 },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -90,
+          80
+        ]
+      ],
+      "startBinding": {
+        "elementId": "memory-client",
+        "focus": -0.5,
+        "gap": 5
+      },
+      "endBinding": {
+        "elementId": "short-term",
+        "focus": 0,
+        "gap": 5
+      },
       "startArrowhead": null,
       "endArrowhead": "arrow"
     },
@@ -453,11 +545,30 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "boundElements": null,
-      "points": [[0, 0], [0, 80]],
-      "startBinding": { "elementId": "memory-client", "focus": 0, "gap": 5 },
-      "endBinding": { "elementId": "long-term", "focus": 0, "gap": 5 },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          80
+        ]
+      ],
+      "startBinding": {
+        "elementId": "memory-client",
+        "focus": 0,
+        "gap": 5
+      },
+      "endBinding": {
+        "elementId": "long-term",
+        "focus": 0,
+        "gap": 5
+      },
       "startArrowhead": null,
       "endArrowhead": "arrow"
     },
@@ -481,11 +592,30 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "boundElements": null,
-      "points": [[0, 0], [90, 80]],
-      "startBinding": { "elementId": "memory-client", "focus": 0.5, "gap": 5 },
-      "endBinding": { "elementId": "reasoning", "focus": 0, "gap": 5 },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          90,
+          80
+        ]
+      ],
+      "startBinding": {
+        "elementId": "memory-client",
+        "focus": 0.5,
+        "gap": 5
+      },
+      "endBinding": {
+        "elementId": "reasoning",
+        "focus": 0,
+        "gap": 5
+      },
       "startArrowhead": null,
       "endArrowhead": "arrow"
     },
@@ -509,11 +639,30 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "boundElements": null,
-      "points": [[0, 0], [0, 80]],
-      "startBinding": { "elementId": "short-term", "focus": 0, "gap": 5 },
-      "endBinding": { "elementId": "neo4j", "focus": -0.7, "gap": 5 },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          80
+        ]
+      ],
+      "startBinding": {
+        "elementId": "short-term",
+        "focus": 0,
+        "gap": 5
+      },
+      "endBinding": {
+        "elementId": "neo4j",
+        "focus": -0.7,
+        "gap": 5
+      },
       "startArrowhead": null,
       "endArrowhead": "arrow"
     },
@@ -537,11 +686,30 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "boundElements": null,
-      "points": [[0, 0], [0, 80]],
-      "startBinding": { "elementId": "long-term", "focus": 0, "gap": 5 },
-      "endBinding": { "elementId": "neo4j", "focus": 0, "gap": 5 },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          80
+        ]
+      ],
+      "startBinding": {
+        "elementId": "long-term",
+        "focus": 0,
+        "gap": 5
+      },
+      "endBinding": {
+        "elementId": "neo4j",
+        "focus": 0,
+        "gap": 5
+      },
       "startArrowhead": null,
       "endArrowhead": "arrow"
     },
@@ -565,11 +733,30 @@
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
-      "roundness": { "type": 2 },
+      "roundness": {
+        "type": 2
+      },
       "boundElements": null,
-      "points": [[0, 0], [0, 80]],
-      "startBinding": { "elementId": "reasoning", "focus": 0, "gap": 5 },
-      "endBinding": { "elementId": "neo4j", "focus": 0.7, "gap": 5 },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          80
+        ]
+      ],
+      "startBinding": {
+        "elementId": "reasoning",
+        "focus": 0,
+        "gap": 5
+      },
+      "endBinding": {
+        "elementId": "neo4j",
+        "focus": 0.7,
+        "gap": 5
+      },
       "startArrowhead": null,
       "endArrowhead": "arrow"
     }

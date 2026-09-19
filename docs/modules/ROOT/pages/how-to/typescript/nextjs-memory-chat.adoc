@@ -1,5 +1,4 @@
 = Build a Next.js chat app with a memory rail
-:toc: left
 :source-highlighter: rouge
 
 This guide builds a Next.js 16 App Router chat app whose whole memory — the
@@ -276,12 +275,6 @@ verification): `next` 16.3.4, `react` 19.3.0, `ai` 7.0.97, `@ai-sdk/openai`
 4.0.65, `@ai-sdk/react` 4.0.100, `@chakra-ui/react` 3.37.0, `@neo4j-nvl/react`
 1.2.1, Node.js 22 — 2026-09-10.
 
-== See also
-
-* xref:how-to/typescript/vercel-ai.adoc[Integrate with the Vercel AI SDK] — the middleware on its own
-* xref:tutorials/conversation-memory-typescript.adoc[Tutorial: conversation memory in TypeScript]
-* xref:sdks/typescript.adoc[TypeScript SDK]
-
 == Testing it without an API key
 
 Put each route's behaviour in a `(deps, Request) => Response` function and keep
@@ -305,3 +298,9 @@ fails the suite. Answer 501 for any endpoint you have not implemented so that a
 new call fails loudly instead of passing silently. This is the last check before
 shipping: a green suite here means the route, the middleware wiring and the
 memory persistence contract all hold without needing a live API key.
+
+== See also
+
+* xref:how-to/typescript/vercel-ai.adoc[Integrate with the Vercel AI SDK] — the middleware on its own
+* xref:tutorials/conversation-memory-typescript.adoc[Tutorial: conversation memory in TypeScript]
+* xref:sdks/typescript.adoc[TypeScript SDK]

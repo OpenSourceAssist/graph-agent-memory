@@ -1,5 +1,4 @@
 = Troubleshooting
-:toc: left
 :source-highlighter: rouge
 
 == `AuthenticationError: Authentication failed: 401`

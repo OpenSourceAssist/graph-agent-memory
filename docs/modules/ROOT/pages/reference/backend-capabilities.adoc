@@ -6,54 +6,90 @@ This reference describes the SDK implementations in this source tree. Check the 
 
 == Backend and language
 
-[cols="2,3,3,3",options="header"]
-|===
-|Operation |Python with Bolt |Python with NAMS |TypeScript with NAMS REST
-|Conversations and messages
-|Session-oriented writes and conversation readback
-|Create a conversation and use its returned ID
-|Create a conversation and use its returned ID
-|Entity writes/search
-|`add_entity` returns `(Entity, DeduplicationResult)`; client-side configuration
-|`add_entity` returns `Entity`; server-managed extraction/deduplication
-|`longTerm.addEntity` / `searchEntities`; server-managed processing
-|Preferences and facts
-|Supported; see the long-term API for user-scoped preference reads
-|Unsupported; methods raise `NotSupportedError`
-|Unsupported on REST; bridge compatibility methods are not hosted APIs
-|Client-created relationships
-|Supported with `add_relationship(source, target, relationship_type, attributes=...)`
-|Unsupported; inspect relationships produced by supported service processing
-|Direct relationship-write methods are unsupported on REST
-|Reasoning records
-|Traces, steps, and tool calls
-|Python accessors adapt supported service records; check each accessor's contract
-|Use `recordStep` and `getTraceByConversation`; legacy trace lifecycle calls are not REST operations
-|Extraction configuration and local models
-|Client-side pipeline, providers and schema settings
-|Server-managed; Bolt pipeline options do not configure the service
-|Server-managed
-|Extraction readiness
-|`long_term.wait_for_extraction` is a compatibility no-op; no `short_term.get_extraction_status`
-|Conversation status and bounded `long_term.wait_for_extraction`
-|Check the selected SDK's `waitForExtraction` availability
-|Geospatial search and graph adoption
-|Supported Bolt-specific operations
-|Not exposed as equivalent SDK operations
-|Not exposed as equivalent REST operations
-|Custom Cypher
-|Read queries through `client.query.cypher`; direct database access permits writes
-|Read-only service queries; not a workaround for unsupported writes
-|Read-only service queries where exposed by the SDK
-|User registry, buffered writer, consolidation
-|Python `users`, `buffered`, and `consolidation` accessors
-|Not portable Bolt features
-|Not equivalent REST subclients
-|Ontologies and agent skills
-|Not hosted service features on Bolt; use Bolt schema configuration as appropriate
-|Ontologies through the supported accessor; skills use REST/MCP, not invented SDK methods
-|Ontology accessor where present in the selected artifact; skills use REST/MCP
-|===
+Each section below covers one data type. Within it, one description-list term per operation names the backend/language and its description gives that backend's behavior for that operation. This avoids wide tables, so nothing scrolls horizontally on a phone-width column.
+
+=== Conversations and messages
+
+[horizontal]
+Python with Bolt:: Session-oriented writes and conversation readback
+Python with NAMS:: Create a conversation and use its returned ID
+TypeScript with NAMS REST:: Create a conversation and use its returned ID
+
+=== Entities and relationships
+
+Entity writes/search::
++
+[horizontal]
+Python with Bolt::: `add_entity` returns `(Entity, DeduplicationResult)`; client-side configuration
+Python with NAMS::: `add_entity` returns `Entity`; server-managed extraction/deduplication
+TypeScript with NAMS REST::: `longTerm.addEntity` / `searchEntities`; server-managed processing
+
+Client-created relationships::
++
+[horizontal]
+Python with Bolt::: Supported with `add_relationship()`, passing source, target, relationship_type, and attributes
+Python with NAMS::: Unsupported; inspect relationships produced by supported service processing
+TypeScript with NAMS REST::: Direct relationship-write methods are unsupported on REST
+
+Geospatial search and graph adoption::
++
+[horizontal]
+Python with Bolt::: Supported Bolt-specific operations
+Python with NAMS::: Not exposed as equivalent SDK operations
+TypeScript with NAMS REST::: Not exposed as equivalent REST operations
+
+=== Preferences and facts
+
+[horizontal]
+Python with Bolt:: Supported; see the long-term API for user-scoped preference reads
+Python with NAMS:: Unsupported; methods raise `NotSupportedError`
+TypeScript with NAMS REST:: Unsupported on REST; bridge compatibility methods are not hosted APIs
+
+=== Reasoning
+
+[horizontal]
+Python with Bolt:: Traces, steps, and tool calls
+Python with NAMS:: Python accessors adapt supported service records; check each accessor's contract
+TypeScript with NAMS REST:: Use `recordStep` and `getTraceByConversation`; legacy trace lifecycle calls are not REST operations
+
+=== Extraction
+
+Extraction configuration and local models::
++
+[horizontal]
+Python with Bolt::: Client-side pipeline, providers and schema settings
+Python with NAMS::: Server-managed; Bolt pipeline options do not configure the service
+TypeScript with NAMS REST::: Server-managed
+
+Extraction readiness::
++
+[horizontal]
+Python with Bolt::: The `long_term` accessor's `wait_for_extraction` is a compatibility no-op; the `short_term` accessor has no `get_extraction_status`
+Python with NAMS::: Conversation status, and a bounded `wait_for_extraction` call on `long_term`
+TypeScript with NAMS REST::: Check the selected SDK's `waitForExtraction` availability
+
+=== Custom Cypher and platform accessors
+
+Custom Cypher::
++
+[horizontal]
+Python with Bolt::: Read queries through `client.query.cypher`; direct database access permits writes
+Python with NAMS::: Read-only service queries; not a workaround for unsupported writes
+TypeScript with NAMS REST::: Read-only service queries where exposed by the SDK
+
+User registry, buffered writer, consolidation::
++
+[horizontal]
+Python with Bolt::: Python `users`, `buffered`, and `consolidation` accessors
+Python with NAMS::: Not portable Bolt features
+TypeScript with NAMS REST::: Not equivalent REST subclients
+
+=== Ontologies and agent skills
+
+[horizontal]
+Python with Bolt:: Not hosted service features on Bolt; use Bolt schema configuration as appropriate
+Python with NAMS:: Ontologies through the supported accessor; skills use REST/MCP, not invented SDK methods
+TypeScript with NAMS REST:: Ontology accessor where present in the selected artifact; skills use REST/MCP
 
 The TypeScript test bridge is a development/conformance transport. Its operation names and successful test doubles do not establish a hosted REST feature. An integration adapter also cannot make an unsupported backend operation available.
 

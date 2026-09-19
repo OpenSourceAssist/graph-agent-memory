@@ -130,7 +130,7 @@ settings = MemorySettings(
 )
 ----
 
-=== B. Explicit Provider instance
+=== B. Explicit provider instance
 
 When you need adapter-specific kwargs (`api_base`, `cache_system`, `aws_region`):
 
@@ -331,7 +331,7 @@ For embeddings, compare `len(await embedder.embed_one("test"))` with
 production settings. Model changes require retrieval validation even if the
 vector dimension stays the same; see xref:how-to/migrate-embedding-model.adoc[the migration runbook].
 
-== Related
+== See also
 
 * xref:tutorials/anthropic-and-local-embeddings.adoc[Tutorial: Anthropic + local embeddings] — a copy-paste-runnable walkthrough.
 * xref:how-to/configure-llm-provider.adoc[Configure an LLM provider].

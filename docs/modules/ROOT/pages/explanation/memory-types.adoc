@@ -25,7 +25,8 @@ Persistence solves only part of the problem. An application must also decide whi
 
 anchor:_short_term_memory_what_happened[]anchor:_long_term_memory_what_the_agent_knows[]anchor:_reasoning_memory_how_to_solve_problems[]
 
-image::diagrams/the-three-layer-memory-architecture.png["Three-layer memory architecture: short-term, long-term, and reasoning memory backed by Neo4j",width=600,align=left,link=self]
+.MemoryClient with three memory layers backed by Neo4j
+image::diagrams/memory-architecture.svg["Memory architecture: MemoryClient with three memory layers backed by Neo4j",width=100%,align=left,link=self]
 
 * *Short-term memory* stores conversations and messages, preserving sequence and enabling supported retrieval of past exchanges. "Short-term" does not mean in-process or automatically deleted: these records are persisted.
 * *Long-term memory* represents reusable declarative knowledge, including entities and, on supported backend surfaces, preferences and facts. Relationships connect that knowledge to other records.

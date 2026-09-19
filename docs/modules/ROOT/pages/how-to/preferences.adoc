@@ -4,8 +4,11 @@
 :toclevels: 2
 :sectanchors:
 
+include::partial$backend-bolt-only.adoc[]
+
 To retain an explicit user preference and its revision history, attach it to the user identifier, optionally scope it to an entity, and supersede the old record after creating a replacement.
 
+.Illustrative preference graph using User and Entity labels
 image::diagrams/preference-aware-context-graph.svg["Illustrative preference graph; the recipe uses User and Entity labels",width=100%,link=self]
 
 The illustration is conceptual. This recipe's physical path is `(User)-[:HAS_PREFERENCE]->(Preference)-[:APPLIES_TO]->(Entity)`.

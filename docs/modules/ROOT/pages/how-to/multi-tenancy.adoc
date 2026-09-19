@@ -20,6 +20,7 @@ anchor:_steps[]
 
 anchor:_1_upsert_the_user[]anchor:_2_pass_user_identifier_on_writes[]anchor:_what_ports_cleanly[]
 
+.Two `:User` nodes, each with its own conversation, messages, and preferences in one shared Neo4j instance
 image::diagrams/multi-tenant-scoping.svg["Two :User nodes, each linked by a HAS_CONVERSATION relationship to its own Conversation, with that user's messages and preferences shown alongside, all held in one shared Neo4j instance. A caption notes that user_identifier= scopes only the operations that accept it",width=100%,link=self]
 
 The following fragments run inside `async with MemoryClient(settings) as client:`. They use synthetic identities and do not require a model call for the demonstrated writes.

@@ -63,7 +63,7 @@ The Python tutorials show every required local file alongside the published pack
 Finish the selected tutorial's storage/readback check before adding a framework or changing providers. When extraction is asynchronous, wait for the documented readiness condition before inspecting entities. If a step fails, keep its full error output and use xref:faq.adoc[the FAQ] and the relevant SDK troubleshooting guide.
 
 // Retain former section URLs at the current related topic.
-== Next steps
+== See also
 
 anchor:_2_install_the_sdk[]anchor:_prerequisites[]
 

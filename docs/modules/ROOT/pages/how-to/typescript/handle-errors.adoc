@@ -1,5 +1,4 @@
 = Handle TypeScript REST errors
-:toc:
 :source-highlighter: rouge
 
 Use this procedure to classify an SDK failure and retry a transient, idempotent

@@ -10,6 +10,7 @@ We will store a fictional project name and entity, retrieve the same conversatio
 during a model call, then independently verify that the new question and answer
 were stored. NAMS hosts the data; no database server runs on your machine.
 
+.Your TypeScript application reaches the hosted NAMS workspace over HTTPS and receives assembled context before each model call
 image::diagrams/nams-hosted-memory-flow.svg["Your TypeScript application calls the @neo4j-labs/agent-memory SDK, which reaches the hosted NAMS workspace over HTTPS with a Bearer apiKey. NAMS assembles a three-tier context — reflections, observations and recent messages — and returns it to the application before each model call.",width=100%,link=self]
 
 anchor:_prerequisites[]

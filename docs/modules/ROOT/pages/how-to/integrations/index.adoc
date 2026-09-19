@@ -8,68 +8,68 @@ See also xref:how-to/typescript/integrations-overview.adoc[the TypeScript integr
 
 Neo4j Agent Memory provides official integrations for ten popular agent frameworks and cloud providers, enabling persistent memory storage backed by Neo4j's graph database.
 
-== Available Integrations
+== Available integrations
 
 [cols="1,2,1", options="header"]
 |===
 | Framework | Use Case | Status
 
-| xref:how-to/integrations/langchain.adoc[LangChain]
+| xref:how-to/integrations/langchain.adoc[Use with LangChain]
 | Chains and agents with conversation memory
 | Experimental · Community supported
 
-| xref:how-to/integrations/pydantic-ai.adoc[PydanticAI]
+| xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI]
 | Modern type-safe agents with automatic tracing
 | Experimental · Community supported
 
-| xref:how-to/integrations/llamaindex.adoc[LlamaIndex]
+| xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex]
 | RAG applications with document + graph retrieval
 | Experimental · Community supported
 
-| xref:how-to/integrations/crewai.adoc[CrewAI]
+| xref:how-to/integrations/crewai.adoc[Use with CrewAI]
 | Multi-agent systems with shared memory
 | Experimental · Community supported
 
-| xref:how-to/integrations/openai-agents.adoc[OpenAI Agents SDK]
+| xref:how-to/integrations/openai-agents.adoc[Use with the OpenAI Agents SDK]
 | OpenAI function calling with persistent memory
 | Experimental · Community supported
 
-| xref:how-to/integrations/google-cloud.adoc[Google Cloud]
+| xref:how-to/integrations/google-cloud.adoc[Use Vertex AI embeddings with Neo4j]
 | Vertex AI embeddings, ADK agents, MCP server
 | Experimental · Community supported
 
-| xref:how-to/integrations/aws-strands.adoc[AWS Strands Agents]
+| xref:how-to/integrations/aws-strands.adoc[Use with Strands agents]
 | AWS Strands SDK with Bedrock and Context Graph tools
 | Experimental · Community supported
 
-| xref:how-to/integrations/aws-bedrock-embeddings.adoc[Amazon Bedrock Embeddings]
+| xref:how-to/integrations/aws-bedrock-embeddings.adoc[Use Amazon Bedrock embeddings]
 | Titan and Cohere embeddings via Bedrock
 | Experimental · Community supported
 
-| xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory]
+| xref:how-to/integrations/aws-hybrid-memory.adoc[Route memory searches with the hybrid provider]
 | AgentCore + Context Graphs combined
 | Experimental · Community supported
 
-| xref:how-to/integrations/microsoft-agent.adoc[Microsoft Agent Framework]
+| xref:how-to/integrations/microsoft-agent.adoc[Use with Microsoft Agent Framework]
 | Context providers, GDS algorithms, and graph-enhanced memory
 | Experimental · Community supported
 |===
 
-== Choosing a Framework
+== Choosing a framework
 
 Not sure which integration to use? See the xref:explanation/framework-comparison.adoc[Framework Comparison Guide] for a detailed comparison of features, performance, and use cases.
 
-== Common Patterns
+== Common patterns
 
 All integrations share these common capabilities:
 
-=== Three-Layer Memory
+=== Three-layer memory
 
 * **Short-Term**: Conversation history within a session
 * **Long-Term**: Entities, preferences, and facts across sessions
 * **Reasoning**: Task traces and tool usage patterns
 
-=== Semantic Search
+=== Semantic search
 
 All integrations support semantic search via embeddings:
 
@@ -77,7 +77,7 @@ All integrations support semantic search via embeddings:
 * Find related entities
 * Discover relevant preferences
 
-=== Entity Extraction
+=== Entity extraction
 
 Automatically extract entities from conversations:
 
@@ -85,15 +85,15 @@ Automatically extract entities from conversations:
 * Events and concepts
 * Custom entity types
 
-== Integration Guides
+== Integration guides
 
-* xref:how-to/integrations/langchain.adoc[LangChain Integration] - Memory and retriever for chains
-* xref:how-to/integrations/pydantic-ai.adoc[PydanticAI Integration] - Type-safe agents with tracing
-* xref:how-to/integrations/llamaindex.adoc[LlamaIndex Integration] - RAG with TextNode support
-* xref:how-to/integrations/crewai.adoc[CrewAI Integration] - Multi-agent shared memory
-* xref:how-to/integrations/openai-agents.adoc[OpenAI Agents Integration] - Function tools for OpenAI
-* xref:how-to/integrations/google-cloud.adoc[Google Cloud Integration] - Vertex AI, ADK, MCP server
-* xref:how-to/integrations/aws-strands.adoc[AWS Strands Integration] - Bedrock-powered agents with Context Graph
-* xref:how-to/integrations/aws-bedrock-embeddings.adoc[AWS Bedrock Embeddings] - Titan embedding configuration
-* xref:how-to/integrations/aws-hybrid-memory.adoc[AWS Hybrid Memory] - Combined memory providers
-* xref:how-to/integrations/microsoft-agent.adoc[Microsoft Agent Framework] - Context providers with GDS
+* xref:how-to/integrations/langchain.adoc[Use with LangChain] - Memory and retriever for chains
+* xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Type-safe agents with tracing
+* xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex] - RAG with TextNode support
+* xref:how-to/integrations/crewai.adoc[Use with CrewAI] - Multi-agent shared memory
+* xref:how-to/integrations/openai-agents.adoc[Use with the OpenAI Agents SDK] - Function tools for OpenAI
+* xref:how-to/integrations/google-cloud.adoc[Use Vertex AI embeddings with Neo4j] - Vertex AI, ADK, MCP server
+* xref:how-to/integrations/aws-strands.adoc[Use with Strands agents] - Bedrock-powered agents with Context Graph
+* xref:how-to/integrations/aws-bedrock-embeddings.adoc[Use Amazon Bedrock embeddings] - Titan embedding configuration
+* xref:how-to/integrations/aws-hybrid-memory.adoc[Route memory searches with the hybrid provider] - Combined memory providers
+* xref:how-to/integrations/microsoft-agent.adoc[Use with Microsoft Agent Framework] - Context providers with GDS

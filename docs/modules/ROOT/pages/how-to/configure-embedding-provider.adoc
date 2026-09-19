@@ -202,7 +202,7 @@ print("Verified vector dimensions:", len(vector))
 
 See xref:how-to/migrate-embedding-model.adoc[Migrate to a new embedding model] for the three remediation options (rebuild, revert, re-embed in place).
 
-== Related
+== See also
 
 * xref:how-to/bring-your-own-model.adoc[Bring your own model] — overview.
 * xref:how-to/migrate-embedding-model.adoc[Migrate to a new embedding model] — when changing dimensions.

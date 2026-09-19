@@ -52,7 +52,8 @@ Neo4j also supports vector and temporal data, so an application can combine cont
 
 anchor:_why_one_database[]
 
-image::diagrams/memory-architecture.png["Memory architecture: MemoryClient with three memory layers backed by Neo4j",width=600,align=left,link=self]
+.MemoryClient with three memory layers backed by Neo4j
+image::diagrams/memory-architecture.svg["Memory architecture: MemoryClient with three memory layers backed by Neo4j",width=100%,align=left,link=self]
 
 A single graph can hold conversation history, entities, and task records together. Keeping cross-layer links in one store reduces the need for application-managed joins across separate systems. It also concentrates operational concerns such as indexing, capacity, backup, and access control in that store.
 

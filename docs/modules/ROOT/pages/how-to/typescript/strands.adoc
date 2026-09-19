@@ -1,5 +1,4 @@
 = Integrate with AWS Strands Agents
-:toc: left
 :source-highlighter: rouge
 
 [NOTE]
@@ -46,7 +45,7 @@ Prerequisites: a Strands JS agent, Node.js 22+ and NAMS test-workspace credentia
 . Use `connectMemoryToAgent` for session/context/reasoning wiring, as shown below.
 . Add the memory-store surface only when your application needs explicit entity recall, then inspect stored messages using the synthetic-message filter.
 
-== Quick Start
+== Quick start
 
 [source,typescript]
 ----
@@ -352,6 +351,13 @@ graph traversal over the transcript — the reasons to persist a session into a
 graph at all. If Strands removes the snapshot form, the integration will move to
 a unified `Storage` that keeps the hybrid message mapping behind it.
 
+== Verify the integration
+
+In `typescript/examples/strands/`, run `npm run lint` and `npm test` after the
+README's SDK-build/install sequence. The suite checks session replay, context,
+reasoning and memory-store behavior offline. A live test must use your selected
+Strands/model versions and inspect returned conversation ids.
+
 == See also
 
 - link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/strands[Runnable Strands example]
@@ -359,10 +365,3 @@ a unified `Storage` that keeps the hybrid message mapping behind it.
 - xref:how-to/typescript/handle-errors.adoc[Error handling]
 - xref:how-to/integrations/aws-strands.adoc[AWS Strands Agents (Python)] — the Python guide
 - https://strandsagents.com[Strands Agents docs]
-
-== Verify the integration
-
-In `typescript/examples/strands/`, run `npm run lint` and `npm test` after the
-README's SDK-build/install sequence. The suite checks session replay, context,
-reasoning and memory-store behavior offline. A live test must use your selected
-Strands/model versions and inspect returned conversation ids.

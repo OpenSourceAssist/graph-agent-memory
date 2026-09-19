@@ -7,6 +7,7 @@
 
 We will store a short conversation, a relationship between two entities, and an explicit preference. We will close the process, retrieve those records in a second process, and assemble context that an application can pass to a model. This lesson builds the memory input; the xref:tutorials/conversation-memory.adoc[next lesson] uses that input in a chatbot.
 
+.A conversation linked to an ordered chain of messages
 image::diagrams/message-chain.svg["A conversation linked to an ordered chain of messages",width=100%,link=self]
 
 This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI, the complete programs on this page, and a dedicated Neo4j AuraDB instance over Bolt. We will use the seed, verification, and search commands to check provider access and persisted data in this environment.
@@ -181,7 +182,7 @@ include::partial$python-tutorial-check-failed.adoc[]
 
 anchor:_see_also[]
 
-== Related tasks
+== Next steps
 
 * xref:reference/api/memory-client.adoc[Python API reference]
 * xref:reference/backend-capabilities.adoc#scope[Identity and retrieval scope]
@@ -196,7 +197,6 @@ anchor:_view_all_nodes[]
 anchor:_view_messages_and_their_entities[]
 anchor:_view_user_preferences[]
 anchor:_view_the_full_context_graph[]
-anchor:_next_steps[]
 anchor:_connection_refused[]
 anchor:_authentication_failed[]
 anchor:_gliner_download_slow[]

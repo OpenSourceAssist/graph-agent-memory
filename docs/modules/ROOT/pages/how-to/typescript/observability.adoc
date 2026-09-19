@@ -1,5 +1,4 @@
 = Enable request logging
-:toc: left
 :source-highlighter: rouge
 
 The TypeScript client emits a typed event stream around every HTTP

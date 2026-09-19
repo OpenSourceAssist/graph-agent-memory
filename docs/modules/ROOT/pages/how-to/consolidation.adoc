@@ -130,7 +130,7 @@ can make multiple writes; a mid-run failure is not an atomic rollback.
 | Mark `:Conversation` nodes whose creation time is older than `ttl_days` as archived (falling back to update time when creation time is missing). Sets `archived = true` and `archived_at`; does not delete data. Pass `ttl_days` explicitly, for example from `MemorySettings.memory.conversation_ttl_days`; no scheduler or automatic retrieval filter is installed.
 |===
 
-== See Also
+== See also
 
 * xref:how-to/preferences.adoc[Manage Preferences]
 * xref:how-to/audit-reasoning.adoc[Audit Reasoning with TOUCHED Edges]

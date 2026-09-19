@@ -10,7 +10,8 @@ POLE+O is the default entity classification in Neo4j Agent Memory. Its broad cat
 
 NOTE: The shared categories do not make configuration identical across backends. Bolt uses client-side schema configuration; NAMS uses versioned server-side ontologies. See xref:reference/backend-capabilities.adoc[Backend capabilities] and xref:explanation/backends.adoc[Bolt and NAMS].
 
-image::diagrams/poleo-model.png["POLE+O entity model: Person, Object, Location, Event, and Organization categories with example subtypes",width=600,align=left,link=self]
+.POLE+O entity model: Person, Object, Location, Event, and Organization categories with example subtypes
+image::diagrams/poleo-model.svg["POLE+O entity model: Person, Object, Location, Event, and Organization categories with example subtypes",width=100%,align=left,link=self]
 
 [[_what_is_poleo]]
 == What is POLE+O?
@@ -93,7 +94,7 @@ Use consistent names and keep the source of an assertion. Add subtypes or custom
 The model should follow retrieval needs: a distinction that matters for a query must survive ingestion. No general performance advantage follows merely from choosing a subtype over a custom type.
 
 [[_next_steps]]
-== Related documentation
+== See also
 
 * xref:reference/schemas.adoc[Domain schemas and subtype catalog]
 * xref:reference/schema-objects.adoc[Graph schema objects]

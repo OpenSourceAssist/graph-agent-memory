@@ -10,6 +10,10 @@ These protocols describe client capabilities; their TCK tiers are not NAMS servi
 
 Every adapter in `neo4j_agent_memory.llm.adapters` implements one or more of the Protocols below. Adapter constructors are documented separately at xref:reference/api/adapters.adoc[Adapters]. The factory is documented at xref:reference/api/factory.adoc[Factory].
 
+== Overview
+
+The module exposes three Protocols (`LLMProvider`, `StructuredExtractor`, `EmbeddingProvider`), the Pydantic types they use, an exception hierarchy, the `from_provider` factory, and the `schema_aligned_extract` helper. The sections below cover each in the order they appear in `neo4j_agent_memory.llm`'s public exports.
+
 == Module
 
 `neo4j_agent_memory.llm`
@@ -219,14 +223,11 @@ Generic structured-output path. Builds a system message containing the schema, p
 
 For models not in the table, pass an explicit `dimensions=N` constructor argument.
 
+anchor:_related[]
+
 == See also
 
 * xref:reference/api/adapters.adoc[Adapters Reference] — constructor signatures for every adapter.
 * xref:reference/api/factory.adoc[Factory Reference] — `from_provider` details.
 * xref:reference/configuration.adoc[Configuration] — how to wire providers into `MemorySettings`.
 * xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.
-
-== Earlier section links
-
-anchor:_related[]
-The earlier sections have been consolidated into the current contracts. See xref:reference/api/llm-provider.adoc#_see_also[related factory, adapter, and provider references].

@@ -1,5 +1,4 @@
 = Use the MCP tools
-:toc: left
 :source-highlighter: rouge
 
 The `@neo4j-labs/agent-memory/mcp` subpath ships 12 neo4j-agent-memory tool

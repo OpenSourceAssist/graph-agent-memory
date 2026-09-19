@@ -114,12 +114,6 @@ Use a bounded wait tied to its returned conversation ID or exact expected names.
 * Offline tests do not certify the deployed service. Python and TypeScript currently expose different transport exception mappings; inspect xref:reference/rest-api.adoc[the REST reference] before handling errors.
 * A completed message write is not proof of extraction readiness, and a generic nonempty nearest-neighbor search can match older workspace entities rather than the ones just written.
 
-== See also
-
-* xref:explanation/ontologies.adoc[Why use an ontology]
-* xref:reference/ontology-api.adoc[Ontology operations, IDs and models]
-* xref:how-to/use-nams.adoc[Connect to NAMS]
-
 [#_appendix_helper_files]
 == Appendix: helper files
 
@@ -128,3 +122,9 @@ Use a bounded wait tied to its returned conversation ID or exact expected names.
 include::partial$python-hosted-state-file.adoc[]
 
 include::partial$python-hosted-helpers-file.adoc[]
+
+== See also
+
+* xref:explanation/ontologies.adoc[Why use an ontology]
+* xref:reference/ontology-api.adoc[Ontology operations, IDs and models]
+* xref:how-to/use-nams.adoc[Connect to NAMS]

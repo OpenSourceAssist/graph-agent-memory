@@ -3,6 +3,8 @@
 :page-pagination:
 :toclevels: 2
 
+include::partial$backend-bolt-only.adoc[]
+
 To let an MCP client inspect a context graph application's memory, run the self-hosted Python MCP server against the application's Bolt database. The server needs compatible memory labels and indexes; connecting to an arbitrary domain graph does not automatically adopt it.
 
 [#_overview]
@@ -87,7 +89,7 @@ Use xref:reference/backend-capabilities.adoc#scope[the scope reference] when com
 
 [#_next_steps]
 // Retain former section URLs at the current related topic.
-== Related tasks
+== See also
 
 
 

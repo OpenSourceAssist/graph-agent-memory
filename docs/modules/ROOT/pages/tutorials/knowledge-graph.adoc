@@ -195,7 +195,7 @@ include::partial$python-tutorial-check-failed.adoc[]
 
 anchor:_see_also[]
 
-== Related tasks
+== Next steps
 
 * xref:reference/api/memory-client.adoc[Python API reference]
 * xref:reference/backend-capabilities.adoc#scope[Identity and retrieval scope]
@@ -208,4 +208,3 @@ anchor:_view_full_knowledge_graph[]
 anchor:_view_person_company_network[]
 anchor:_view_document_entity_connections[]
 anchor:_extending_the_knowledge_graph[]
-anchor:_next_steps[]

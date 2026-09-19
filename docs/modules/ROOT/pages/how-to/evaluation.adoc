@@ -285,7 +285,7 @@ than current state. See xref:explanation/operational-primitives.adoc[] for
 why the harness is opt-in and scaffold-shaped rather than a benchmark or a
 guarantee.
 
-== See Also
+== See also
 
 * xref:how-to/consolidation.adoc[Memory Consolidation]
 * link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/eval-harness[Evaluation harness example] — the runnable example.

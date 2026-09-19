@@ -19,7 +19,8 @@ a scope-dependent tool surface including ontology and skills) — see xref:refer
 NAMS MCP Server]. That one you connect to; this one you run.
 ====
 
-image::diagrams/mcp-server-architecture.png["Self-hosted MCP client, server profiles and backend-dependent memory operations",width=100%,link=self]
+.Self-hosted MCP client, server profiles, and backend-dependent memory operations
+image::diagrams/mcp-server-architecture.svg["Self-hosted MCP client, server profiles and backend-dependent memory operations",width=100%,link=self]
 
 [IMPORTANT]
 ====
@@ -512,15 +513,15 @@ The maintained options, defaults and environment precedence are in
 xref:reference/cli.adoc[CLI reference]. The core profile registers six tools;
 the extended profile registers sixteen with Bolt or twenty with NAMS.
 
+== Runnable example
+
+link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/claude-code-team-memory[`examples/claude-code-team-memory/`]
+wires this server (both profiles) and the hosted NAMS MCP server side by side in
+Claude Code, Claude Desktop and Cursor, with no agent code.
+
 == See also
 
 * xref:how-to/typescript/mcp.adoc[Wire the same tools into the TypeScript SDK]
 * xref:reference/backend-capabilities.adoc[Backend capabilities and scope]
 * xref:reference/rest-api.adoc[NAMS REST API] - HTTP surface used by the NAMS backend
 * link:https://github.com/neo4j-labs/agent-memory-tck/blob/main/docs/reference/mcp-tools.adoc[MCP tools spec in the TCK] - Cross-language behavioral contract
-
-== Runnable example
-
-link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/claude-code-team-memory[`examples/claude-code-team-memory/`]
-wires this server (both profiles) and the hosted NAMS MCP server side by side in
-Claude Code, Claude Desktop and Cursor, with no agent code.

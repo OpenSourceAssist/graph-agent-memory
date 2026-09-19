@@ -17,7 +17,7 @@ file for the complete current inventory used in deployments.
 
 == Unique constraints
 
-[cols="1,1,1,3"]
+[cols="3,2,2,3"]
 |===
 | Name | Label | Property | Purpose
 
@@ -39,7 +39,7 @@ file for the complete current inventory used in deployments.
 
 Lookup indexes for common filter / equality queries.
 
-[cols="1,1,1,3"]
+[cols="3,2,2,3"]
 |===
 | Name | Label | Property | Purpose
 
@@ -68,7 +68,7 @@ Vector-index creation exceptions are currently suppressed, including failures un
 
 After setup, MemoryClient validates the dimensions of existing managed vector indexes against the configured embedder. Mismatches raise EmbeddingDimensionMismatchError; unrelated index names are not checked. Changing a model requires the migration workflow, not just changing this setting.
 
-[cols="1,1,1,3"]
+[cols="3,2,2,3"]
 |===
 | Name | Label | Property | Purpose
 
@@ -84,7 +84,7 @@ After setup, MemoryClient validates the dimensions of existing managed vector in
 
 Created for geospatial queries on Location entities.
 
-[cols="1,1,1,3"]
+[cols="3,2,2,3"]
 |===
 | Name | Label | Property | Purpose
 

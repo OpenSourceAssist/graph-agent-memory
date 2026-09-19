@@ -6,7 +6,7 @@ Generated diagrams for Antora documentation. All PNGs go to
 
 ---
 
-## 1. poleo-model.png
+## 1. poleo-model.svg
 **Page**: `explanation/poleo-model.adoc`
 **Replaces**: ASCII art table showing 5 entity types
 
@@ -56,24 +56,29 @@ Color: Conversation=light teal, Messages=light blue (user) / light green (assist
 ### Layout
 Two parallel columns:
 ```
-[:User sara@]          [:User liam@]
+[:User sara-demo]      [:User liam-demo]
      |                      |
 HAS_CONVERSATION      HAS_CONVERSATION
-     |                      |
-[Conv: sara-2026]     [Conv: liam-2026]
-     |                      |
-  [Messages]            [Messages]
+     v                      v
+[Conv: sara-2026-05-01] [Conv: liam-2026-05-01]
 
-HAS_PREFERENCE        HAS_PREFERENCE
-     |                      |
-[Pref: healthcare]    [Pref: fintech]
+[Messages (sara only)] [Messages (liam only)]
+
+[Pref: healthcare focus] [Pref: fintech focus]
 ```
-Underneath both: shared Neo4j cylinder / box.
-Colors: Users=light purple, Sara side=light blue, Liam side=light orange, Neo4j=light teal.
+Underneath both columns: shared Neo4j instance box, plus a caption noting
+`user_identifier=` scopes reads/writes only on the operations that accept it.
+Only the `:User -> Conversation` edges are drawn; the Messages and Preference
+ellipses sit below each conversation without a drawn edge (membership implied).
+Colors follow the house semantic palette: `:User` nodes are neutral grey
+(outside the three memory layers), Conversation/Messages are short-term green,
+Preferences are long-term yellow, and the Shared Neo4j Instance box is storage
+blue. Both tenant columns use the same palette; they are distinguished by
+position and label, not by color.
 
 ---
 
-## 4. buffered-write-flow.png
+## 4. buffered-write-flow.svg
 **Page**: `how-to/buffered-writes.adoc`
 **Describes**: Fire-and-forget buffered write architecture
 

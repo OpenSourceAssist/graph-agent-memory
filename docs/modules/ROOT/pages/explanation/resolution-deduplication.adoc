@@ -42,7 +42,8 @@ The opposite error is more damaging in some domains. Merging two product variant
 
 anchor:_embedding_based_similarity[]anchor:_fuzzy_string_matching[]anchor:_type_constrained_matching[]
 
-image::diagrams/embedding-based-similarity.png["Embedding-based entity resolution: new entity → embedding → candidate search → similarity scores → merge, flag, or create",width=540,align=left,link=self]
+.Embedding-based entity resolution from a new entity to merge, flag, or create
+image::diagrams/embedding-based-similarity.svg["Embedding-based entity resolution: new entity → embedding → candidate search → similarity scores → merge, flag, or create",width=100%,align=left,link=self]
 
 Exact-name matching detects repeated forms. Fuzzy matching tolerates spelling and word-order differences. Embedding similarity finds semantically related candidates. Each is a signal, not an identity proof: nearby vectors can describe competitors or different variants of the same product.
 

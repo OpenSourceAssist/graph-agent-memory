@@ -1,4 +1,4 @@
-= from_provider factory reference
+= Provider factory reference
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2
@@ -7,6 +7,10 @@ Reference for the `from_provider` string-shorthand factory.
 
 [.lead]
 `from_provider` is the entry point for the provider-string API. It implements *native-first resolution*: when both a native adapter and the LiteLLM universal adapter are installed, the native adapter is preferred. The factory file imports no SDKs at module load — all adapter imports happen inside the function.
+
+== Overview
+
+`from_provider` takes one required argument, `model`, and returns a provider configured for it. The default `kind="llm"` returns a chat/structured-extraction provider; set `kind="embedding"` for an embedder. The sections below give the signature, the resolution algorithm, worked examples for each provider family, and how to debug which adapter was selected.
 
 == Signature
 
@@ -167,14 +171,11 @@ print(type(provider).__name__)
 # OpenAIProvider
 ----
 
+anchor:_related[]
+
 == See also
 
 * xref:reference/api/llm-provider.adoc[LLM Provider API] — the Protocols.
 * xref:reference/api/adapters.adoc[Adapters] — constructor signatures.
 * xref:how-to/configure-llm-provider.adoc[Configure an LLM provider].
 * xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider].
-
-== Earlier section links
-
-anchor:_related[]
-The earlier sections have been consolidated into the current contracts. See xref:reference/api/factory.adoc#_see_also[related provider and protocol references].

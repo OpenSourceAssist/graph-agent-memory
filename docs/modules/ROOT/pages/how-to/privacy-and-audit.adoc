@@ -109,7 +109,7 @@ If you submit ciphertext to `add_message`, disable extraction and embedding
 for that write unless your application deliberately supplies another strategy.
 Database encryption at rest is a separate deployment control.
 
-== See Also
+== See also
 
 * xref:how-to/consolidation.adoc[Memory Consolidation] — `archive_expired_conversations` and the underlying audit-run pattern.
 * xref:how-to/multi-tenancy.adoc[Multi-Tenant Memory] — the `:User` node that audit edges attach to.

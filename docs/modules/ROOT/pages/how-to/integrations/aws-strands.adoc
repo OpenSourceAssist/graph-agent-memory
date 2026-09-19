@@ -112,12 +112,12 @@ Choose one writer when combining a store and session manager. Leave store extrac
 
 `context_graph_tools(...)` exposes the pull-based tools `search_context`, `get_entity_graph`, `add_memory` and `get_user_preferences` for Bolt. `nams_context_graph_tools(...)` exposes hosted operations with a workspace key. Tool names describe available actions; the model can choose not to call them. Tool factories cache clients; call `clear_client_cache()` when ending their lifecycle. Provider pass-through helpers configure extraction separately from Strands' own inference.
 
-.Example application: agents sharing a graph
-image::diagrams/multi-agent-architecture-aws-neo4j.png["Example specialist agents using a shared Neo4j graph",width=600,align=left,link=self]
+.Session manager, memory store and graph tools over one Neo4j database
+image::diagrams/strands-session-memory.svg["The Strands agent reaching Neo4jSessionManager, Neo4jMemoryStore and context_graph_tools, all three backed by the same Neo4j or Aura database, with Bedrock Titan V2 embeddings feeding all three surfaces",width=100%,link=self]
 
 .Persistence and extraction readiness before dependent retrieval
-image::diagrams/shared-memory-data-flow-kyc-graph-credit.png["KYC example writes are persisted and derived entities become ready before a credit agent retrieves them",width=540,align=left,link=self]
+image::diagrams/shared-memory-data-flow-kyc-graph-credit.svg["One agent's writes are persisted and derived entities become ready before a second agent retrieves authorized context",width=100%,link=self]
 
-These figures describe an application pattern, not a claim that installing the integration creates KYC, credit or compliance agents. Await writes, check the applicable extraction lifecycle, and apply workspace/database authorization before another agent retrieves results. A shared graph makes permitted records available through retrieval; it does not broadcast every fact immediately to every agent. `user_id` and session grouping do not provide universal entity isolation.
+Await writes, check the applicable extraction lifecycle, and apply workspace/database authorization before another agent retrieves results. A shared graph makes permitted records available through retrieval; it does not broadcast every fact immediately to every agent. `user_id` and session grouping do not provide universal entity isolation.
 
 See xref:reference/backend-capabilities.adoc[Backend capabilities], xref:explanation/multi-agent-sharing.adoc[Multi-agent sharing] and xref:how-to/integrations/aws-bedrock-embeddings.adoc[Bedrock embeddings]. Neo4j Agent Memory is community-supported Neo4j Labs software.

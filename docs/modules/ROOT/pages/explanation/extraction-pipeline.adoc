@@ -19,7 +19,8 @@ An extractor must distinguish a person, an organization, a place, and an event. 
 
 anchor:_spacy_statistical_ner[]anchor:_gliner_zero_shot_ner[]anchor:_llm_context_aware_extraction[]
 
-image::diagrams/extraction-pipeline.png["Configurable extraction pipeline: input messages or documents, a configured extractor stage (spaCy, GLiNER, relationship or LLM stages), the selected merge strategy, then persisted entities and supported relationships. Order and fallback depend on configuration.",width=540,align=left,link=self]
+.Configurable extraction pipeline from input text through extractor stages to persisted entities and relationships
+image::diagrams/extraction-pipeline.svg["Configurable extraction pipeline: input messages or documents, a configured extractor stage (spaCy, GLiNER, relationship or LLM stages), the selected merge strategy, then persisted entities and supported relationships. Order and fallback depend on configuration.",width=100%,align=left,link=self]
 
 * *spaCy* recognizes the labels learned by its installed language model. It can run locally and is useful when that label vocabulary matches the text. Its entity output does not provide the same confidence signal as every other extractor.
 * *GLiNER* accepts labels or domain descriptions at inference time. This allows a domain vocabulary without training a new spaCy model, at the cost of loading and running a transformer model. The model's training still affects what it can recognize.

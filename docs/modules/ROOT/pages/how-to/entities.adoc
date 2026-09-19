@@ -4,8 +4,11 @@
 :toclevels: 2
 :sectanchors:
 
+include::partial$backend-both.adoc[]
+
 To build explicit graph knowledge, create typed entities, connect their returned IDs, and read the stored relationship back. Use POLE+O types with optional subtypes to distinguish domain concepts such as products.
 
+.A Person and an Organization entity connected by a RELATED_TO relationship, with a separate Fact node
 image::diagrams/entity-relationship-recipe.svg["A Person and an Organization entity connected by a RELATED_TO relationship, with a separate Fact node",width=100%,link=self]
 
 For the rationale, see xref:explanation/poleo-model.adoc[The POLE+O data model].

@@ -23,11 +23,6 @@ H1_RE = re.compile(r"^=\s+(.+?)\s*$", re.MULTILINE)
 # Keep this list explicit and commented; it is the record of every deliberate
 # shortening or prose-style reference, not a way to silence real drift.
 ALLOWED_DIVERGENCE = {
-    # The TypeScript how-to entry keeps the short "MCP Tools" label in nav.adoc
-    # specifically to read as distinct from reference/mcp-tools.adoc's "Self-hosted
-    # Python MCP reference" (see ia-nav-4 / ref-hosted-diataxis-2). The how-to
-    # index entry for this same page still matches its own H1.
-    "how-to/typescript/mcp.adoc": "nav keeps a short label to disambiguate from the Python MCP reference page",
     # how-to/index.adoc references its own sibling integrations index inline
     # ("See also ... the integration chooser") as natural prose, not as a
     # peer list row, so it doesn't repeat the page's H1 verbatim.

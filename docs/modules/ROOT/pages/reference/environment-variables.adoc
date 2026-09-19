@@ -5,6 +5,9 @@
 
 Environment inputs recognized by Python MemorySettings and its optional integrations. All declared child fields are listed, including settings that the current MemoryClient does not automatically consume; those limits are stated explicitly.
 
+anchor:_overview[]
+anchor:_provider_strings[]
+
 == Loading and precedence
 
 `NAM_GROUP__FIELD` maps to `settings.group.field`. Constructor values override process environment, then `.env`, configured file secrets, and defaults. Arrays/dictionaries use JSON. Unknown nested fields in a recognized group are validation errors. See xref:reference/configuration.adoc#precedence[Configuration sources].
@@ -40,55 +43,238 @@ export NAM_NAMS__TIMEOUT=60
 
 == Neo4j connection
 
-`NAM_NEO4J__` prefix (`uri`, `username`, `password`, `database`, `max_connection_pool_size`, `connection_timeout`, `max_transaction_retry_time`, `max_connection_lifetime`, `liveness_check_timeout`, `keep_alive`). All scalar-valued; none need JSON encoding. See xref:reference/configuration.adoc#neo4j[Neo4j connection] for the full field table (Python kwarg, env var, type, default, constraint).
+`NAM_NEO4J__` prefix. All scalar-valued; none need JSON encoding.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_NEO4J__URI` | `bolt://localhost:7687` | Neo4j connection URI
+| `NAM_NEO4J__USERNAME` | `neo4j` | Neo4j username
+| `NAM_NEO4J__PASSWORD` | required | Neo4j password
+| `NAM_NEO4J__DATABASE` | `neo4j` | Neo4j database name
+| `NAM_NEO4J__MAX_CONNECTION_POOL_SIZE` | `50` | Maximum connection pool size
+| `NAM_NEO4J__CONNECTION_TIMEOUT` | `30.0` | Connection timeout in seconds
+| `NAM_NEO4J__MAX_TRANSACTION_RETRY_TIME` | `30.0` | Maximum transaction retry time in seconds
+| `NAM_NEO4J__MAX_CONNECTION_LIFETIME` | `300` | Maximum lifetime of a pooled connection in seconds
+| `NAM_NEO4J__LIVENESS_CHECK_TIMEOUT` | `60` | Seconds a connection can be idle before a liveness check
+| `NAM_NEO4J__KEEP_ALIVE` | `true` | Enable TCP keep-alive on connections
+|===
+
+See xref:reference/configuration-connections.adoc#neo4j[Neo4j connection] for the Python kwarg names and constraints.
+
+anchor:_nams[]
 
 == NAMS connection
 
-`NAM_NAMS__` prefix (`endpoint`, `api_key`, `workspace_id`, `timeout`, `max_retries`, `retry_backoff_seconds`, `headers`, `validate_on_connect`, `transport_mode`). `NAM_NAMS__HEADERS` is a JSON object, for example `NAM_NAMS__HEADERS='{"X-Trace-Id": "abc"}'`. See xref:reference/configuration.adoc#nams[NAMS connection] for the full field table.
+`NAM_NAMS__` prefix. `NAM_NAMS__HEADERS` is a JSON object, for example `NAM_NAMS__HEADERS='{"X-Trace-Id": "abc"}'`.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_NAMS__ENDPOINT` | `https://memory.neo4jlabs.com/v1` | Base URL
+| `NAM_NAMS__API_KEY` | unset | NAMS API key (`nams_...`); an unset value may be populated from `MEMORY_API_KEY`
+| `NAM_NAMS__WORKSPACE_ID` | unset | Sent as `X-Workspace-Id` when set
+| `NAM_NAMS__TIMEOUT` | `30.0` | HTTP request timeout in seconds
+| `NAM_NAMS__MAX_RETRIES` | `3` | Max retry attempts for 429/5xx/network errors
+| `NAM_NAMS__RETRY_BACKOFF_SECONDS` | `0.5` | Base exponential backoff between retries
+| `NAM_NAMS__HEADERS` | `{}` | Extra HTTP headers added to every request
+| `NAM_NAMS__VALIDATE_ON_CONNECT` | `true` | Probe an authenticated connection when connecting
+| `NAM_NAMS__TRANSPORT_MODE` | `auto` | `auto`, `rest`, or `bridge` wire-protocol override
+|===
+
+See xref:reference/configuration-connections.adoc#nams[NAMS connection] for the full field table.
 
 == Embedding configuration
 
-`NAM_EMBEDDING__` prefix, legacy nested-provider settings — provider strings/instances use adapter-specific configuration instead (see xref:reference/api/adapters.adoc[Adapters]). All fields are scalar-valued. See xref:reference/configuration.adoc#embedding[Embedding configuration] for the full field table.
+`NAM_EMBEDDING__` prefix, legacy nested-provider settings — provider strings/instances use adapter-specific configuration instead (see xref:reference/api/adapters.adoc[Adapters]). All fields are scalar-valued.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_EMBEDDING__PROVIDER` | `openai` | Embedding provider to use
+| `NAM_EMBEDDING__MODEL` | `text-embedding-3-small` | Embedding model name
+| `NAM_EMBEDDING__DIMENSIONS` | `1536` | Embedding dimensions
+| `NAM_EMBEDDING__API_KEY` | unset | API key for embedding provider
+| `NAM_EMBEDDING__BATCH_SIZE` | `100` | Batch size for embeddings
+| `NAM_EMBEDDING__DEVICE` | `cpu` | Device for sentence transformers (cpu/cuda)
+| `NAM_EMBEDDING__PROJECT_ID` | unset | GCP project ID for Vertex AI
+| `NAM_EMBEDDING__LOCATION` | `us-central1` | GCP region for Vertex AI
+| `NAM_EMBEDDING__TASK_TYPE` | `RETRIEVAL_DOCUMENT` | Vertex AI task type
+| `NAM_EMBEDDING__OUTPUT_DIMENSIONALITY` | unset (768 for Vertex AI) | Vertex AI output dimensionality
+| `NAM_EMBEDDING__AWS_REGION` | unset | AWS region for Bedrock
+| `NAM_EMBEDDING__AWS_PROFILE` | unset | AWS credentials profile name
+|===
+
+See xref:reference/configuration-providers.adoc#embedding[Embedding configuration] for the full field table.
 
 == LLM configuration
 
-`NAM_LLM__` prefix, legacy nested-provider settings — provider strings/instances use adapter-specific configuration instead. All fields are scalar-valued. See xref:reference/configuration.adoc#llm[LLM configuration] for the full field table and the `temperature` / `max_tokens` integration limit.
+`NAM_LLM__` prefix, legacy nested-provider settings — provider strings/instances use adapter-specific configuration instead. All fields are scalar-valued.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_LLM__PROVIDER` | `openai` | LLM provider to use
+| `NAM_LLM__MODEL` | `gpt-4o-mini` | LLM model name
+| `NAM_LLM__API_KEY` | unset | API key for LLM provider
+| `NAM_LLM__TEMPERATURE` | `0.0` | LLM temperature — not automatically applied by MemoryClient
+| `NAM_LLM__MAX_TOKENS` | `4096` | Maximum tokens for LLM — not automatically applied by MemoryClient
+|===
+
+See xref:reference/configuration-providers.adoc#llm[LLM configuration] for the full field table and the `temperature` / `max_tokens` integration limit.
 
 == Graph schema configuration
 
-`NAM_SCHEMA_CONFIG__` prefix. `NAM_SCHEMA_CONFIG__ENTITY_TYPES` is a JSON array, for example `NAM_SCHEMA_CONFIG__ENTITY_TYPES='["PERSON", "ORGANIZATION"]'`. See xref:reference/configuration.adoc#schema[Graph schema configuration] for the full field table and its integration limits.
+`NAM_SCHEMA_CONFIG__` prefix. `NAM_SCHEMA_CONFIG__ENTITY_TYPES` is a JSON array, for example `NAM_SCHEMA_CONFIG__ENTITY_TYPES='["PERSON", "ORGANIZATION"]'`.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_SCHEMA_CONFIG__MODEL` | `poleo` | Schema model to use (`poleo`, `legacy`, `custom`) — not automatically applied by MemoryClient
+| `NAM_SCHEMA_CONFIG__ENTITY_TYPES` | unset | Custom entity types (overrides model default when model=custom)
+| `NAM_SCHEMA_CONFIG__ENABLE_SUBTYPES` | `true` | Whether to track entity subtypes — not automatically applied by MemoryClient
+| `NAM_SCHEMA_CONFIG__STRICT_TYPES` | `false` | Whether to reject unknown entity types — not automatically applied by MemoryClient
+| `NAM_SCHEMA_CONFIG__CUSTOM_SCHEMA_PATH` | unset | Accepted path field; not automatically loaded by MemoryClient
+|===
+
+See xref:reference/configuration-providers.adoc#schema[Graph schema configuration] for the full field table and its integration limits.
 
 == Extraction configuration
 
-`NAM_EXTRACTION__` prefix. `NAM_EXTRACTION__ENTITY_TYPES` is a JSON array. There are no batch, streaming, or chunk-size fields in this settings group — those are method arguments, not environment variables. See xref:reference/configuration.adoc#extraction[Extraction configuration] for the full field table.
+`NAM_EXTRACTION__` prefix. `NAM_EXTRACTION__ENTITY_TYPES` is a JSON array. There are no batch, streaming, or chunk-size fields in this settings group — those are method arguments, not environment variables.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_EXTRACTION__EXTRACTOR_TYPE` | `pipeline` | Type of entity extractor (`llm`/`gliner`/`spacy`/`pipeline`/`none`)
+| `NAM_EXTRACTION__ENABLE_SPACY` | `true` | Enable spaCy in extraction pipeline
+| `NAM_EXTRACTION__ENABLE_GLINER` | `true` | Enable GLiNER in extraction pipeline
+| `NAM_EXTRACTION__ENABLE_LLM_FALLBACK` | `true` | Enable LLM as fallback in pipeline
+| `NAM_EXTRACTION__MERGE_STRATEGY` | `confidence` | Strategy for merging results from multiple extractors
+| `NAM_EXTRACTION__FALLBACK_ON_EMPTY` | `true` | Continue to next stage if current stage returns no results
+| `NAM_EXTRACTION__SPACY_MODEL` | `en_core_web_sm` | spaCy model name
+| `NAM_EXTRACTION__SPACY_CONFIDENCE` | `0.85` | Default confidence score for spaCy extractions
+| `NAM_EXTRACTION__GLINER_MODEL` | `gliner-community/gliner_medium-v2.5` | GLiNER model name
+| `NAM_EXTRACTION__GLINER_THRESHOLD` | `0.5` | GLiNER confidence threshold
+| `NAM_EXTRACTION__GLINER_DEVICE` | `cpu` | Device for GLiNER model (cpu/cuda/mps)
+| `NAM_EXTRACTION__GLINER_SCHEMA` | unset | Domain schema for GLiNER extraction (poleo, podcast, news, scientific, business, entertainment, medical, legal)
+| `NAM_EXTRACTION__LLM_MODEL` | `gpt-4o-mini` | LLM model for extraction
+| `NAM_EXTRACTION__ENTITY_TYPES` | `["PERSON", "ORGANIZATION", "LOCATION", "EVENT", "OBJECT"]` | Entity types to extract (POLE+O by default)
+| `NAM_EXTRACTION__EXTRACT_RELATIONS` | `true` | Whether to extract relations
+| `NAM_EXTRACTION__EXTRACT_PREFERENCES` | `true` | Whether to extract preferences
+| `NAM_EXTRACTION__CONFIDENCE_THRESHOLD` | `0.5` | Minimum confidence threshold for extracted entities — not automatically applied by MemoryClient
+|===
+
+See xref:reference/configuration-providers.adoc#extraction[Extraction configuration] for the full field table.
 
 == Resolution configuration
 
-`NAM_RESOLUTION__` prefix (`strategy`, `exact_threshold`, `fuzzy_threshold`, `semantic_threshold`, `fuzzy_scorer`). All scalar-valued. `NAM_RESOLUTION__EMBEDDING_THRESHOLD` and `NAM_RESOLUTION__MATCH_SAME_TYPE_ONLY` are not valid fields; the semantic threshold field is `NAM_RESOLUTION__SEMANTIC_THRESHOLD`. See xref:reference/configuration.adoc#resolution[Resolution configuration] for the full field table.
+`NAM_RESOLUTION__` prefix. All scalar-valued. `NAM_RESOLUTION__EMBEDDING_THRESHOLD` and `NAM_RESOLUTION__MATCH_SAME_TYPE_ONLY` are not valid fields; the semantic threshold field is `NAM_RESOLUTION__SEMANTIC_THRESHOLD`.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_RESOLUTION__STRATEGY` | `composite` | Resolution strategy (`exact`/`fuzzy`/`semantic`/`composite`/`none`)
+| `NAM_RESOLUTION__EXACT_THRESHOLD` | `1.0` | Exact match threshold
+| `NAM_RESOLUTION__FUZZY_THRESHOLD` | `0.85` | Fuzzy match threshold
+| `NAM_RESOLUTION__SEMANTIC_THRESHOLD` | `0.8` | Semantic match threshold
+| `NAM_RESOLUTION__FUZZY_SCORER` | `token_sort_ratio` | Fuzzy matching scorer — not forwarded by MemoryClient
+|===
+
+See xref:reference/configuration-providers.adoc#resolution[Resolution configuration] for the full field table.
 
 == Memory behavior
 
-`NAM_MEMORY__` prefix. All fields are scalar-valued. See xref:reference/configuration.adoc#memory[Memory behavior] for the full field table, including `write_mode`/`max_pending` (buffered writes) and the integration limits on the remaining fields.
+`NAM_MEMORY__` prefix. All fields are scalar-valued.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_MEMORY__DEFAULT_CONVERSATION_LIMIT` | `50` | Default conversation message limit — not automatically applied by MemoryClient
+| `NAM_MEMORY__MESSAGE_EMBEDDING_ENABLED` | `true` | Enable message embeddings — not automatically applied by MemoryClient
+| `NAM_MEMORY__PREFERENCE_CONFIDENCE_THRESHOLD` | `0.7` | Preference confidence threshold — not automatically applied by MemoryClient
+| `NAM_MEMORY__FACT_DEDUPLICATION_ENABLED` | `true` | Enable fact deduplication — not automatically applied by MemoryClient
+| `NAM_MEMORY__TRACE_EMBEDDING_ENABLED` | `true` | Enable reasoning trace embeddings — not automatically applied by MemoryClient
+| `NAM_MEMORY__TOOL_STATS_ENABLED` | `true` | Enable tool usage statistics — not automatically applied by MemoryClient
+| `NAM_MEMORY__MULTI_TENANT` | `false` | Require `user_identifier` on the guarded bolt writes
+| `NAM_MEMORY__WRITE_MODE` | `sync` | `sync` or `buffered` — controls `client.buffered.submit(...)`
+| `NAM_MEMORY__MAX_PENDING` | `200` | Maximum in-flight buffered writes
+| `NAM_MEMORY__CONVERSATION_TTL_DAYS` | unset | TTL value for `archive_expired_conversations(older_than_days=...)` — not automatically applied
+| `NAM_MEMORY__AUDIT_READ` | `false` | Audit preference for `consolidation.audit_reads(...)` — not automatically applied
+|===
+
+See xref:reference/configuration-operations.adoc#memory[Memory behavior] for the full field table, including `write_mode`/`max_pending` (buffered writes) and the integration limits on the remaining fields.
 
 == Search configuration
 
-`NAM_SEARCH__` prefix (`default_limit`, `default_threshold`, `hybrid_search_enabled`, `graph_depth`). All scalar-valued; none are automatically read by the memory stores. See xref:reference/configuration.adoc#search[Search configuration] for the full field table.
+`NAM_SEARCH__` prefix. All scalar-valued; none are automatically read by the memory stores.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_SEARCH__DEFAULT_LIMIT` | `10` | Default search limit
+| `NAM_SEARCH__DEFAULT_THRESHOLD` | `0.7` | Default similarity threshold
+| `NAM_SEARCH__HYBRID_SEARCH_ENABLED` | `true` | Enable hybrid search
+| `NAM_SEARCH__GRAPH_DEPTH` | `2` | Graph traversal depth for search
+|===
+
+See xref:reference/configuration-operations.adoc#search[Search configuration] for the full field table.
 
 == Geocoding configuration
 
-`NAM_GEOCODING__` prefix. All fields are scalar-valued. See xref:reference/configuration.adoc#geocoding[Geocoding configuration] for the full field table.
+`NAM_GEOCODING__` prefix. All fields are scalar-valued.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_GEOCODING__ENABLED` | `false` | Enable automatic geocoding of Location entities
+| `NAM_GEOCODING__PROVIDER` | `nominatim` | Geocoding provider to use (`nominatim`/`google`)
+| `NAM_GEOCODING__API_KEY` | unset | API key for geocoding provider (required for Google)
+| `NAM_GEOCODING__CACHE_RESULTS` | `true` | Cache geocoding results to avoid repeated API calls
+| `NAM_GEOCODING__RATE_LIMIT_PER_SECOND` | `1.0` | Client request rate limit for the configured geocoder
+| `NAM_GEOCODING__USER_AGENT` | `neo4j-agent-memory` | User-Agent sent by the configured geocoder
+|===
+
+See xref:reference/configuration-operations.adoc#geocoding[Geocoding configuration] for the full field table.
 
 == Enrichment configuration
 
-`NAM_ENRICHMENT__` prefix. `NAM_ENRICHMENT__PROVIDERS` and `NAM_ENRICHMENT__ENTITY_TYPES` are JSON arrays, for example `NAM_ENRICHMENT__PROVIDERS='["wikimedia", "diffbot"]'`. See xref:reference/configuration.adoc#enrichment[Enrichment configuration] for the full field table.
+`NAM_ENRICHMENT__` prefix. `NAM_ENRICHMENT__PROVIDERS` and `NAM_ENRICHMENT__ENTITY_TYPES` are JSON arrays, for example `NAM_ENRICHMENT__PROVIDERS='["wikimedia", "diffbot"]'`.
+
+[cols="3,2,4",options="header"]
+|===
+| Variable | Default | Meaning
+| `NAM_ENRICHMENT__ENABLED` | `false` | Enable automatic entity enrichment
+| `NAM_ENRICHMENT__PROVIDERS` | `["wikimedia"]` | Enrichment providers to use, in priority order
+| `NAM_ENRICHMENT__DIFFBOT_API_KEY` | unset | API key for Diffbot Knowledge Graph
+| `NAM_ENRICHMENT__WIKIMEDIA_RATE_LIMIT` | `0.5` | Seconds between Wikimedia API requests
+| `NAM_ENRICHMENT__DIFFBOT_RATE_LIMIT` | `0.2` | Seconds between Diffbot API requests
+| `NAM_ENRICHMENT__CACHE_RESULTS` | `true` | Cache enrichment results to avoid repeated API calls
+| `NAM_ENRICHMENT__CACHE_TTL_HOURS` | `168` | Hours to cache enrichment results
+| `NAM_ENRICHMENT__BACKGROUND_ENABLED` | `true` | Run enrichment in background (non-blocking)
+| `NAM_ENRICHMENT__QUEUE_MAX_SIZE` | `1000` | Maximum enrichment queue size
+| `NAM_ENRICHMENT__MAX_RETRIES` | `3` | Maximum retry attempts for failed enrichments
+| `NAM_ENRICHMENT__RETRY_DELAY_SECONDS` | `60.0` | Delay between retry attempts
+| `NAM_ENRICHMENT__ENTITY_TYPES` | `["PERSON", "ORGANIZATION", "LOCATION", "EVENT"]` | Entity types to enrich (empty = all types)
+| `NAM_ENRICHMENT__MIN_CONFIDENCE` | `0.7` | Minimum entity confidence to trigger enrichment
+| `NAM_ENRICHMENT__LANGUAGE` | `en` | Preferred language for enrichment data
+| `NAM_ENRICHMENT__USER_AGENT` | `neo4j-agent-memory/1.0` | User-Agent for API requests
+|===
+
+See xref:reference/configuration-operations.adoc#enrichment[Enrichment configuration] for the full field table.
 
 anchor:integration-limits[]
 
+anchor:_deduplication_configuration[]
+anchor:_observability[]
+
 == Integration limits
 
-The declared field inventory above is not an assertion of runtime wiring. See xref:reference/configuration.adoc#integration-limits[Configuration integration limits] for provider, method-default, schema, TTL, and auditing behavior. The settings family is `NAM_RESOLUTION__SEMANTIC_THRESHOLD`; `NAM_RESOLUTION__EMBEDDING_THRESHOLD` and `NAM_RESOLUTION__MATCH_SAME_TYPE_ONLY` are invalid fields.
+The declared field inventory above is not an assertion of runtime wiring. See xref:reference/configuration-operations.adoc#integration-limits[Configuration integration limits] for provider, method-default, schema, TTL, and auditing behavior. The settings family is `NAM_RESOLUTION__SEMANTIC_THRESHOLD`; `NAM_RESOLUTION__EMBEDDING_THRESHOLD` and `NAM_RESOLUTION__MATCH_SAME_TYPE_ONLY` are invalid fields.
 
 There are no `NAM_DEDUPLICATION__...`, `NAM_OBSERVABILITY__...`, or `NAM_CLI__...` settings groups. Batch sizes/concurrency/chunk sizes for extraction belong to method arguments, not ExtractionConfig environment fields.
+
+anchor:_aws_configuration[]
 
 == CLI and provider environment
 
@@ -112,6 +298,8 @@ These inputs are consumed by command options or external provider adapters rathe
 
 The CLI does not automatically load `.neo4j-memory.yaml`. Review xref:reference/cli.adoc[CLI reference] for exact flags, including NAMS backend options.
 
+anchor:_example_configuration[]
+
 == Example dotenv configuration
 
 Copy the credentials from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup].
@@ -134,6 +322,8 @@ NAM_ENRICHMENT__ENABLED=false
 NAM_GEOCODING__ENABLED=false
 ----
 
+anchor:_testing[]
+
 == Test harness switches
 
 Test-only inputs such as `RUN_INTEGRATION_TESTS`, `SKIP_INTEGRATION_TESTS`, `AUTO_START_DOCKER`, and `AUTO_STOP_DOCKER` belong to the test harness, not the SDK configuration API. Read the relevant test fixture before relying on their parsing or defaults.
@@ -143,15 +333,3 @@ Test-only inputs such as `RUN_INTEGRATION_TESTS`, `SKIP_INTEGRATION_TESTS`, `AUT
 * xref:reference/configuration.adoc[Python configuration]
 * xref:how-to/use-nams.adoc[Use NAMS]
 * xref:reference/cli.adoc[CLI options]
-
-== Earlier section links
-
-anchor:_overview[]
-anchor:_provider_strings[]
-anchor:_aws_configuration[]
-anchor:_deduplication_configuration[]
-anchor:_observability[]
-anchor:_testing[]
-anchor:_example_configuration[]
-anchor:_nams[]
-The earlier sections have been consolidated into the current contracts. See xref:reference/environment-variables.adoc#_loading_and_precedence[loading and precedence], xref:reference/environment-variables.adoc#_nams_process_aliases[NAMS aliases], xref:reference/environment-variables.adoc#integration-limits[integration limits], and xref:reference/environment-variables.adoc#_example_dotenv_configuration[the complete dotenv example].

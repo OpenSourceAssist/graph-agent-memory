@@ -25,7 +25,8 @@ The snippets run inside an async function. `generate_response` below represents 
 
 == Goal
 
-image::diagrams/buffered-write-flow.png[Buffered write architecture: agent submits to bounded queue; background drainer pushes to Neo4j,width=600,align=left,link=self]
+.Buffered write architecture: the agent submits to a bounded queue and a background drainer pushes to Neo4j
+image::diagrams/buffered-write-flow.svg[Buffered write architecture: agent submits to bounded queue; background drainer pushes to Neo4j,width=100%,align=left,link=self]
 
 The agent responds before persistence completes:
 
@@ -164,7 +165,7 @@ not transactional with each other. See
 xref:explanation/operational-primitives.adoc[] for why buffered writes are
 opt-in and what the other v0.2 primitives trade away for the same reasons.
 
-== See Also
+== See also
 
 * xref:how-to/multi-tenancy.adoc[Multi-Tenant Memory]
 * link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/buffered-writes[`examples/buffered-writes/`] — a runnable

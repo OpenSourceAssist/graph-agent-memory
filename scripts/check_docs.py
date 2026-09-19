@@ -49,6 +49,10 @@ def source_report(pages: Path = PAGES) -> dict:
         for target in sorted(targets):
             if target not in content:
                 errors.append(f"{name}: missing page {target}")
+        errors.extend(
+            f"{name}: leftover scaffolding heading: {heading.strip()}"
+            for heading in re.findall(r"^={1,6}[ \t]+(.*Earlier section.*)$", text, re.M)
+        )
         for line, attributes in re.findall(r"^(image::?[^\[]+\[([^\n]*)\])", text, re.M):
             try:
                 fields = next(csv.reader([attributes]))

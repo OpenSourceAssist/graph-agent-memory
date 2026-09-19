@@ -100,7 +100,7 @@ Import failures usually concern the installed framework/provider packages or the
 Use the relevant integration guide's troubleshooting and verification steps to isolate these layers. Changing the framework does not correct a backend capability mismatch.
 
 [[_summary]]
-== Related documentation
+== See also
 
 * xref:how-to/integrations/index.adoc[Python integration guides]
 * xref:how-to/typescript/integrations-overview.adoc[TypeScript integrations]

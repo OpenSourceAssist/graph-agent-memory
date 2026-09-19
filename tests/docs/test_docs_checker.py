@@ -109,6 +109,19 @@ def test_image_alt_with_commas_must_be_quoted(tmp_path):
     assert not source_report(tmp_path)["errors"]
 
 
+def test_leftover_scaffolding_heading_is_rejected(tmp_path):
+    for quadrant in ("tutorials", "how-to", "reference", "explanation"):
+        folder = tmp_path / quadrant
+        folder.mkdir()
+        (folder / "index.adoc").write_text(f"= {quadrant}\n")
+    entry = tmp_path / "index.adoc"
+    entry.write_text("= Home\n\n== Earlier section links\n\nanchor:_x[]\nStale note.\n")
+    errors = source_report(tmp_path)["errors"]
+    assert any("leftover scaffolding heading" in error for error in errors)
+    entry.write_text("= Home\n\nanchor:_x[]\n== See also\n")
+    assert not any("leftover scaffolding heading" in error for error in source_report(tmp_path)["errors"])
+
+
 def test_syntax_checker_reads_the_actual_example_include(tmp_path):
     from tests.docs.utils.extract_code import extract_snippets_from_file
 

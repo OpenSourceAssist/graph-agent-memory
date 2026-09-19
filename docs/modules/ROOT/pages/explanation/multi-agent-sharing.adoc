@@ -1,6 +1,5 @@
 = Cross-agent memory sharing
 :page-product: agent-memory
-:toc:
 :toclevels: 2
 
 Multiple agents can use records stored in a shared backend. Sharing requires compatible operations, the intended workspace or database, and explicit decisions about conversation and user scope.
@@ -40,6 +39,7 @@ Sharing requires the same hosted endpoint and workspace, not merely the same env
 [[_a_typical_multi_agent_architecture]]
 == A typical multi-agent architecture
 
+.Three agent clients share entities inside one workspace and database boundary
 image::diagrams/multi-agent-boundaries.svg["Three agent clients -- ingestion, chat and analytics -- each inside the same workspace/database boundary, each writing to its own conversation id, with entities shared across those conversations inside the boundary. A caller without access to the workspace or database is blocked outside it",width=100%,link=self]
 
 [cols="1,3",options="header"]
