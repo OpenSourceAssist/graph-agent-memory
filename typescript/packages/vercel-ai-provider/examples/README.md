@@ -1,10 +1,10 @@
 # Examples
 
-One runnable example per integration mode — provider, middleware, and tools —
-plus a Next.js route template. All examples need a free NAMS API key from
-[memory.neo4jlabs.com](https://memory.neo4jlabs.com) and an OpenAI key (swap in
-any `@ai-sdk/*` provider if you prefer). No other environment changes are
-needed to switch modes — mode selection is code-level.
+One runnable example per integration mode — provider, middleware, tools, and
+hooks — plus a mode switcher and a Next.js route template. All examples need a
+free NAMS API key from [memory.neo4jlabs.com](https://memory.neo4jlabs.com) and
+an OpenAI key (swap in any `@ai-sdk/*` provider if you prefer). No other
+environment changes are needed to switch modes — mode selection is code-level.
 
 ```bash
 export MEMORY_API_KEY=sk-nams-...
@@ -16,6 +16,9 @@ export OPENAI_API_KEY=sk-...
 | [`basic-chat.ts`](./basic-chat.ts) | Provider (transparent memory) — teaches a fact in session 1, recalls it in session 2 | `npx tsx examples/basic-chat.ts` |
 | [`middleware-chat.ts`](./middleware-chat.ts) | Middleware — wraps an existing model instance; a fresh model in turn 2 recalls turn 1 | `npx tsx examples/middleware-chat.ts` |
 | [`tools-chat.ts`](./tools-chat.ts) | Tools (model-driven) — `query_memory` / `store_memory` visible as tool calls; retrieval guaranteed via `enforceQueryMemory()` | `npx tsx examples/tools-chat.ts` |
+| [`hooks-chat.ts`](./hooks-chat.ts) | Hooks (runtime-controlled) — the transcript is restored and saved around every generation, with no memory tools | `npx tsx examples/hooks-chat.ts` |
+| [`advanced-hooks-chat.ts`](./advanced-hooks-chat.ts) | Lifecycle hooks — blocks a destructive tool, redacts a card number, carries context between turns | `npx tsx examples/advanced-hooks-chat.ts` |
+| [`mode-switch-chat.ts`](./mode-switch-chat.ts) | The same conversation in whichever mode you pick | `NAMS_MODE=hooks npx tsx examples/mode-switch-chat.ts` |
 | [`nextjs-chat-route.ts`](./nextjs-chat-route.ts) | Provider inside a Next.js App Router endpoint — copy into `app/api/chat/route.ts` | n/a (template) |
 
 Each script's header comment shows the **expected output**, so you can compare
