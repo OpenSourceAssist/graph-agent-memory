@@ -9,6 +9,8 @@ appear in minor versions with a callout in this file.
 
 ## [Unreleased]
 
+## 0.5.0 — 2026-09-22
+
 ### Added
 
 - **`registerMemoryTools`** (`@neo4j-labs/agent-memory/mcp/register`) — registers
