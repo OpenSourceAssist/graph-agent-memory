@@ -1,19 +1,7 @@
 /**
- * Neo4j Agent Memory (NAMS) for the Vercel AI SDK.
- *
- * Four ways to add memory:
- * - Provider   `createNamsProvider()`  wraps a provider. Memory is automatic.
- * - Middleware `createNams().wrap()`   wraps a model. Memory is automatic.
- * - Tools      `createNams().tools()`  the model calls query_memory / store_memory.
- *              `.toolsWithMcp()` also adds tools from an MCP server.
- * - Hooks      `createNams().hooks()`  your code loads and saves the session.
- *              Pass `hooks` to run lifecycle hooks too.
- *
- * @example
- * ```ts
- * const nams  = createNams({ apiKey: process.env.MEMORY_API_KEY! });
- * const model = nams.wrap(openai('gpt-5.4-mini'), { userId });
- * ```
+ * Neo4j Agent Memory (NAMS) for the Vercel AI SDK. Four ways to add memory:
+ * a provider, middleware, tools the model calls, or hooks your code drives.
+ * See the README for each one.
  */
 
 export type { NamsConfig, NamsScope, NamsLogger, MemoryHit, StoreInput, GraphExtractor } from './vercel-ai-provider-client';
@@ -53,9 +41,8 @@ export type {
 } from './vercel-ai-provider-hook-events';
 
 import type { LanguageModel } from 'ai';
-import type { LanguageModelV4 } from '@ai-sdk/provider';
 import type { NamsConfig, NamsScope } from './vercel-ai-provider-client';
-import type { NamsMemoryConfig } from './vercel-ai-provider-middleware';
+import type { NamsMemoryConfig, WrappableModel, WrappedModel } from './vercel-ai-provider-middleware';
 import type { GraphExtractorOptions } from './vercel-ai-provider-extract';
 import type { McpConfig } from './vercel-ai-provider-tools';
 import { resolveLogger } from './vercel-ai-provider-client';
@@ -67,10 +54,7 @@ import { createNamsHooks, type NamsHooksOptions } from './vercel-ai-provider-hoo
 export type NamsMode = 'provider' | 'middleware' | 'tools' | 'hooks';
 
 export interface NamsFactoryConfig extends NamsConfig {
-  /**
-   * Tools mode only. Extracts entities and relationships from each stored
-   * memory. Costs one extra model call per memory. Other modes warn and ignore it.
-   */
+  /** Tools mode only: pull entities out of each stored memory. One extra model call per memory. */
   extractionModel?: LanguageModel;
   /** Extractor options, e.g. a custom `skipEntity` filter. */
   extractionOptions?: GraphExtractorOptions;
@@ -78,16 +62,15 @@ export interface NamsFactoryConfig extends NamsConfig {
   persistInteractions?: boolean;
 }
 
-/**
- * Create a NAMS instance for middleware, tools, and hooks modes.
- * For provider mode, use `createNamsProvider`.
- */
+/** Memory for middleware, tools, and hooks modes. For provider mode use `createNamsProvider`. */
 export function createNams(config: NamsFactoryConfig) {
   const providerConfig: NamsMemoryConfig = {
     apiKey: config.apiKey,
     endpoint: config.endpoint,
     workspaceId: config.workspaceId,
     logger: config.logger,
+    crossSessionLimit: config.crossSessionLimit,
+    graphExpansionLimit: config.graphExpansionLimit,
     maxMemories: config.maxMemories,
     persistInteractions: config.persistInteractions,
   };
@@ -107,15 +90,12 @@ export function createNams(config: NamsFactoryConfig) {
 
   return {
     /** Middleware mode. Returns the model with memory added. No tool calls. */
-    wrap(model: LanguageModelV4, scope: NamsScope): LanguageModelV4 {
+    wrap(model: WrappableModel, scope: NamsScope): WrappedModel {
       warnExtractionIgnored('middleware');
       return memory.wrap(model, scope);
     },
 
-    /**
-     * Tools mode. Returns the `query_memory` and `store_memory` tools.
-     * Tell the model to query, answer, then store.
-     */
+    /** Tools mode. Returns `query_memory` and `store_memory` for the model to call. */
     tools(scope: NamsScope) {
       return createNamsMemoryTools({
         ...config,
@@ -125,14 +105,7 @@ export function createNams(config: NamsFactoryConfig) {
       });
     },
 
-    /**
-     * Tools mode plus the tools of an MCP server. Returns `{ tools, close, mcp }`.
-     * Call `close()` when done. `mcp.toolNames` lists the tools that loaded.
-     * Without `mcpConfig` it works like `.tools()`.
-     *
-     * Throws `NamsMcpConnectionError` if the connection fails. Set
-     * `mcp.optional` to fall back to the memory tools instead.
-     */
+    /** Tools mode plus MCP server tools. Call `close()` when done. */
     async toolsWithMcp(scope: NamsScope, mcpConfig?: McpConfig) {
       return createNamsTools({
         ...config,
@@ -143,15 +116,7 @@ export function createNams(config: NamsFactoryConfig) {
       });
     },
 
-    /**
-     * Hooks mode. Your code, not the model, loads and saves the session.
-     * Call `loadSession()` before a generation and pass `onFinish()` as the
-     * finish callback. Scope can be set here, per call, or on `runtimeContext`.
-     * Add `.tools()` if the model should also manage long-term memory.
-     *
-     * Pass `hooks` to register lifecycle hooks, then run them with
-     * `prepare()`, `withHooks()`, and `end()`.
-     */
+    /** Hooks mode. Your code loads the session and saves it; the model is not involved. */
     hooks(scope?: Partial<NamsScope> & Pick<NamsHooksOptions, 'hooks' | 'onSystemMessage' | 'sessionLimit'>) {
       warnExtractionIgnored('hooks');
       const { extractionModel: _m, extractionOptions: _o, ...hooksConfig } = config;

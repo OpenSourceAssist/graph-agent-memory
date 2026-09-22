@@ -1,16 +1,4 @@
-/**
- * Hooks mode — the runtime handles session memory, not the LLM.
- *
- * - `loadSession()` / `prepare()` — restore the transcript before a generation.
- * - `onFinish()`                  — save the turns after it.
- * - `withHooks(tools)`            — run the tool hooks around each tool call.
- * - `end()`                       — close the session.
- *
- * The lifecycle events live in vercel-ai-provider-hook-events.ts.
- *
- * Session transcript only. NAMS extracts entities server-side. Use tools mode
- * for long-term memory.
- */
+/** Hooks mode: your code, not the model, loads and saves the conversation. */
 
 import type { ModelMessage, ToolSet } from 'ai';
 import type { MemoryClient } from '@neo4j-labs/agent-memory';
@@ -64,10 +52,7 @@ export interface PrepareOptions {
 export interface PrepareResult {
   /** The history, then this turn's prompt. Never contains a system message. */
   messages: ModelMessage[];
-  /**
-   * Context from the hooks. Add it to your own `instructions`, since the AI SDK
-   * rejects system messages inside `messages`.
-   */
+  /** Extra context from hooks. Add it to your own `instructions`. */
   instructions?: string;
   /** The prompt after any `UserPromptSubmit` rewrite. Pass this one to `onFinish`. */
   prompt: string;
@@ -94,10 +79,7 @@ export interface OnFinishScope {
   persistUserPrompt?: boolean;
 }
 
-// Event types
-//
-// Plain shapes, not AI SDK generics, so one callback fits ToolLoopAgent,
-// generateText, and streamText.
+// Plain shapes, so one callback works with ToolLoopAgent, generateText and streamText.
 
 interface ResponseMessageLike {
   role: string;
@@ -162,10 +144,7 @@ const auditTurn = (
   },
 });
 
-/**
- * Convert response messages to turns. Tool calls and results are saved as
- * tagged assistant turns, because NAMS has no `tool` role.
- */
+/** Response messages as turns. Tool calls become tagged assistant turns, since NAMS has no `tool` role. */
 const turnsFromResponse = (messages: ReadonlyArray<ResponseMessageLike>): SessionTurn[] => {
   const turns: SessionTurn[] = [];
 
@@ -231,27 +210,7 @@ async function persistTurns(
 
 // Factory
 
-/**
- * Create the session hooks. One factory holds one client, so `loadSession` and
- * `onFinish` use the same conversation.
- *
- * ```ts
- * const session = createNamsHooks({ apiKey, userId: 'alice' });
- *
- * const agent = new ToolLoopAgent({
- *   model,
- *   prepareCall: async ({ options, prompt: _p, messages: _m, ...settings }) => ({
- *     ...settings,
- *     messages: [
- *       ...(await session.loadSession(options)),
- *       { role: 'user', content: options!.prompt },
- *     ],
- *     runtimeContext: options,   // scope flows to onFinish
- *   }),
- *   onFinish: session.onFinish(),
- * });
- * ```
- */
+/** Create the session hooks. See the README for a full example. */
 export function createNamsHooks(options: NamsHooksOptions) {
   const client = makeClient(options);
   const log = getLogger(client);
@@ -298,12 +257,7 @@ export function createNamsHooks(options: NamsHooksOptions) {
     return queued;
   };
 
-  /**
-   * Load previous user and assistant turns. Tool records are skipped, since
-   * providers reject a tool result without its call.
-   *
-   * Never creates a conversation and never throws. A new user gets `[]`.
-   */
+  /** Load past user and assistant messages (not tool records). Never throws; a new user gets `[]`. */
   const loadSession = async (opts: LoadSessionOptions = {}): Promise<ModelMessage[]> => {
     const scope = resolveScope(opts, 'loadSession');
 
@@ -326,13 +280,7 @@ export function createNamsHooks(options: NamsHooksOptions) {
     }
   };
 
-  /**
-   * Build the messages for one turn: `SessionStart` on the first call for a
-   * scope, then `UserPromptSubmit`, then the history.
-   *
-   * Check `blocked` before calling the model, and pass `instructions` to the
-   * model along with your own.
-   */
+  /** Build the messages for one turn and run the prompt hooks. Check `blocked` before calling the model. */
   const prepare = async (opts: PrepareOptions): Promise<PrepareResult> => {
     const scope = resolveScope(opts, 'prepare');
     const systemMessages: string[] = [];
@@ -380,12 +328,7 @@ export function createNamsHooks(options: NamsHooksOptions) {
     };
   };
 
-  /**
-   * Wrap a tool set so every call runs the tool hooks. A denied call never
-   * runs, and the model gets a `NamsToolBlocked` object instead.
-   *
-   * Returns the tool set untouched when no tool hooks are registered.
-   */
+  /** Wrap tools so each call runs the tool hooks. A denied tool returns `NamsToolBlocked` instead. */
   const withHooks = <T extends ToolSet>(tools: T, scope: Partial<NamsScope> = {}): T => {
     const wraps =
       registry.has('PreToolUse') || registry.has('PostToolUse') || registry.has('PostToolUseFailure');
@@ -466,13 +409,7 @@ export function createNamsHooks(options: NamsHooksOptions) {
     return wrapped as unknown as T;
   };
 
-  /**
-   * Build the finish callback. Saves the prompt and all assistant and tool
-   * turns once. Runs `PreMemoryWrite` before saving and `Stop` after.
-   *
-   * Pass the scope here for `generateText` / `streamText`. For `ToolLoopAgent`,
-   * set it on `runtimeContext` in `prepareCall` instead.
-   */
+  /** The callback that saves the turn. With `ToolLoopAgent`, pass the scope on `runtimeContext`. */
   const onFinish = (scope: OnFinishScope = {}): NamsOnFinishCallback => {
     return async (event) => {
       const context = (event.finalStep?.runtimeContext ?? event.runtimeContext ?? {}) as OnFinishScope;
@@ -531,10 +468,7 @@ export function createNamsHooks(options: NamsHooksOptions) {
     };
   };
 
-  /**
-   * Run `SessionEnd` and forget the scope's cached state, so the next
-   * `prepare()` counts as a new session.
-   */
+  /** Run `SessionEnd` and reset, so the next `prepare()` starts a new session. */
   const end = async (scope: { userId?: string; conversationId?: string; reason?: string } = {}): Promise<void> => {
     const resolved = resolveScope(scope, 'end');
 

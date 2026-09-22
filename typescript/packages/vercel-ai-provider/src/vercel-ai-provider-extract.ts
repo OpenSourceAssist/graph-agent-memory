@@ -3,7 +3,7 @@ import type { LanguageModel } from 'ai';
 import { z } from 'zod';
 import type { MemoryClient } from '@neo4j-labs/agent-memory';
 import { GraphExtractor, StoreInput } from './vercel-ai-provider-types';
-import { getLogger, reportRelationshipFailure } from './vercel-ai-provider-client';
+import { findEntity, getLogger, reportRelationshipFailure } from './vercel-ai-provider-client';
 
 const graphSchema = z.object({
   entities: z
@@ -34,10 +34,7 @@ const normalize = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, 
 const singular = (s: string): string =>
   s.endsWith('ies') ? `${s.slice(0, -3)}y` : s.endsWith('s') ? s.slice(0, -1) : s;
 
-/**
- * True for an all-lowercase name (a common noun, not a proper name).
- * Always false for scripts without case, like "北京".
- */
+/** True for an all-lowercase word like "editor", i.e. not a proper name. */
 const isCommonNoun = (name: string): boolean =>
   name === name.toLowerCase() && name !== name.toUpperCase();
 
@@ -53,10 +50,7 @@ export interface GraphExtractorOptions {
   skipEntity?: (entity: { name: string; type: string; description: string }) => boolean;
 }
 
-/**
- * Build an extractor that uses a model to pull entities and relationships
- * out of a stored memory. Costs one extra model call per memory.
- */
+/** An extractor that pulls entities and relationships out of a memory. One model call per memory. */
 export function createGraphExtractor(
   model: LanguageModel,
   options: GraphExtractorOptions = {},
@@ -83,7 +77,8 @@ export function createGraphExtractor(
         log.warn(`skipped self-referential entity "${e.name}" [${e.type}]`);
         continue;
       }
-      const entity = await client.longTerm.addEntity(e.name, e.type, {
+      // Reuse the existing entity so its relationships stay connected.
+      const entity = await findEntity(client, e.name, e.type) ?? await client.longTerm.addEntity(e.name, e.type, {
         description: e.description?.trim() || input.content,
       });
       if (entity?.id) nameToId.set(e.name, entity.id);

@@ -1,9 +1,4 @@
-/**
- * Tools mode. The model decides when to read and write memory.
- *
- * `createNamsMemoryTools()` returns the `query_memory` and `store_memory` tools.
- * `createNamsTools()` does the same and can add tools from an MCP server.
- */
+/** Tools mode: the model decides when to read and write memory. */
 
 import {
   tool,
@@ -94,10 +89,7 @@ export interface NamsToolsResult {
   mcp?: McpConnectionStatus;
 }
 
-/**
- * Thrown when an MCP server can't be reached or rejects the connection.
- * On a 401, the message names the auth scheme the server expects.
- */
+/** An MCP server could not be reached. On a 401 the message names the auth it wants. */
 export class NamsMcpConnectionError extends Error {
   readonly url: string;
   readonly status?: number;
@@ -145,12 +137,16 @@ export function createNamsMemoryTools(options: NamsToolsOptions) {
   const query_memory = tool<QueryInput, QueryOutput, ToolContext>({
     description:
       'Search NAMS (Neo4j Agent Memory System) for context relevant to the current message. ' +
-      'Call this before answering, every turn.',
+      'Call this before answering, every turn. A result whose source is "graph" is a stored ' +
+      'relationship, written (subject)-[RELATIONSHIP]->(object).',
     inputSchema: zodSchema(querySchema),
     execute: async ({ query, limit }) => {
       try {
         const convId = await getConvId();
-        const memories = await retrieveMemories(client, scope, convId, query, limit);
+        const memories = await retrieveMemories(
+          client, scope, convId, query, limit,
+          { crossSessionLimit: options.crossSessionLimit, graphExpansionLimit: options.graphExpansionLimit },
+        );
         if (memories.length === 0)
           return { found: false, message: 'No relevant memories found.', memories: [] };
         return { found: true, count: memories.length, memories };
@@ -210,10 +206,7 @@ export interface UnstoredTurn {
 }
 
 export interface EnsureMemoryStoredOptions {
-  /**
-   * What to save if the model never called `store_memory`. Return `null` to
-   * save nothing. Default: the final text as an `interaction`.
-   */
+  /** What to save if the model never stored anything. `null` saves nothing. */
   fallback?: (turn: UnstoredTurn) => MemoryStoreInput | null;
 }
 
@@ -221,10 +214,7 @@ export type EnsureMemoryStoredResult =
   | { stored: true; input: MemoryStoreInput }
   | { stored: false; reason: 'already-stored' | 'nothing-to-store' | 'failed' };
 
-/**
- * Save the final text as an `interaction`, like middleware mode. Not as a
- * `fact`, so the agent's own words never reach the graph.
- */
+/** Save the final text as a conversation message, never as a graph fact. */
 const defaultFallback = (turn: UnstoredTurn): MemoryStoreInput | null =>
   turn.text ? { content: turn.text, type: 'interaction' } : null;
 
@@ -269,29 +259,11 @@ export function ensureMemoryStored(
 }
 
 export interface EnforceQueryMemoryOptions {
-  /**
-   * Steps the model may use on other tools before `query_memory` is forced.
-   * Until then it must call some tool, so it can't just answer. `0` forces
-   * `query_memory` on the first step. Default: 3.
-   *
-   * Keep it at least 2 below the `stopWhen` step limit.
-   */
+  /** Steps allowed before `query_memory` is forced (default: 3). Keep it 2 below your step limit. */
   graceSteps?: number;
 }
 
-/**
- * A `prepareStep` hook that makes sure `query_memory` runs before the final
- * answer. Until it runs, every step must call a tool. After `graceSteps`
- * steps, `query_memory` itself is forced.
- *
- * ```ts
- * const agent = new ToolLoopAgent({
- *   model, tools,
- *   prepareStep: enforceQueryMemory(),
- *   stopWhen: stepCountIs(10),
- * });
- * ```
- */
+/** A `prepareStep` hook that makes the model call `query_memory` before it answers. */
 export function enforceQueryMemory<
   TOOLS extends ToolSet & { query_memory: Tool },
 >(options: EnforceQueryMemoryOptions = {}): PrepareStepFunction<TOOLS> {

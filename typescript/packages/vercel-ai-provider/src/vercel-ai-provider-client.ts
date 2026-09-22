@@ -1,4 +1,4 @@
-import { MemoryClient } from '@neo4j-labs/agent-memory';
+import { MemoryClient, type Entity } from '@neo4j-labs/agent-memory';
 import { DEFAULT_ENDPOINT, NamsConfig, NamsScope, NamsLogger, MemoryHit, StoreInput, GraphExtractor, ClientState } from './vercel-ai-provider-types';
 
 export type { NamsConfig, NamsScope, NamsLogger, MemoryHit, StoreInput, GraphExtractor };
@@ -8,10 +8,7 @@ const defaultLogger: NamsLogger = {
   error: (message, error) => console.error(`[nams] ${message}`, error ?? ''),
 };
 
-// Per-client state
-//
-// Each MemoryClient has its own conversation cache, so several users can
-// share one process without mixing up conversations.
+// Per-client state, so users sharing one process don't mix up conversations.
 
 const stateByClient = new WeakMap<MemoryClient, ClientState>();
 
@@ -34,11 +31,7 @@ export function resolveLogger(config: NamsConfig): NamsLogger {
   return config.logger ?? defaultLogger;
 }
 
-/**
- * Log a graph extraction failure. The first one is an error, later ones are
- * warnings. These failures repeat on every call (bad schema or model config)
- * while storage still works, so the first one must be loud.
- */
+/** Log a graph extraction failure: an error the first time, warnings after. */
 export function reportExtractionFailure(client: MemoryClient, message: string, err: unknown): void {
   const state = getState(client);
   if (state.extractionFailed) {
@@ -52,13 +45,7 @@ export function reportExtractionFailure(client: MemoryClient, message: string, e
   );
 }
 
-/**
- * Log a failed relationship write.
- *
- * The hosted API has no relationship endpoint, so every edge fails with
- * `NotSupportedError`. That case logs once per client. Other errors log
- * every time.
- */
+/** Log a failed relationship write. "Not supported" is logged only once per client. */
 export function reportRelationshipFailure(client: MemoryClient, err: unknown): void {
   const state = getState(client);
 
@@ -70,8 +57,9 @@ export function reportRelationshipFailure(client: MemoryClient, err: unknown): v
   if (state.relationshipWritesUnsupported) return;
   state.relationshipWritesUnsupported = true;
   state.logger.warn(
-    'this backend has no relationship endpoint — extracted entities are stored, ' +
-    'edges are skipped. Further occurrences are suppressed.',
+    'this backend does not accept relationship writes — extracted entities are stored, ' +
+    'edges are skipped. NAMS builds edges server-side from saved turns. ' +
+    'Further occurrences are suppressed.',
     err,
   );
 }
@@ -92,13 +80,7 @@ function cacheKey(config: NamsConfig, userId: string): string {
   return `${config.workspaceId ?? 'default'}:${userId}`;
 }
 
-/**
- * Get the conversation id, trying in order:
- *   1. `scope.conversationId`
- *   2. the cache
- *   3. the user's latest conversation
- *   4. a new conversation
- */
+/** The conversation id: the given one, else the cached one, else the user's latest, else a new one. */
 export async function resolveConversation(
   client: MemoryClient,
   config: NamsConfig,
@@ -158,9 +140,14 @@ export async function findExistingConversation(
 const RETRIEVAL = {
   currentThreshold: 0.4,
   crossThreshold: 0.4,
+  crossSessions: 5,
   maxReasoning: 6,
   maxTotal: 12,
-  maxLongterm:5
+  maxLongterm: 5,
+  /** Matched entities to read relationships for. One request each. */
+  graphExpansions: 2,
+  /** Cap per entity, so one hub entity cannot fill the whole budget. */
+  maxTriples: 5,
 };
 
 function deduplicatePush(
@@ -184,19 +171,74 @@ function entityContent(e: { name?: string; description?: string }): string {
   return name || description || '';
 }
 
-// Search fallback
-//
-// NAMS search is a case-sensitive substring match, so a full question rarely
-// matches anything. When it finds nothing, retry with single words.
+// Graph expansion
 
-function titleCase(word: string): string {
-  return word.length ? word[0].toUpperCase() + word.slice(1) : word;
+/** Read the relationships around the entities that matched. Search returns entities without them. */
+async function expandEntityGraph(
+  client: MemoryClient,
+  entities: Entity[],
+  maxEntities: number,
+): Promise<MemoryHit[]> {
+  const log = getLogger(client);
+  const roots = entities.filter(e => e.id).slice(0, maxEntities);
+  if (roots.length === 0) return [];
+
+  const expanded = await Promise.all(
+    roots.map(async (root) => {
+      const detail = await client.longTerm.getEntity(root.id).catch((err: unknown) => {
+        log.warn(`getEntity failed for "${root.name}", skipping its relationships`, err);
+        return null;
+      });
+
+      const from = (detail?.canonicalName ?? detail?.name ?? root.name ?? '').trim();
+      if (!from) return [];
+
+      return (detail?.relationships ?? [])
+        // A bare id tells the model nothing, so an unnamed target is dropped.
+        .filter(ref => ref.type?.trim() && ref.targetName?.trim())
+        .slice(0, RETRIEVAL.maxTriples)
+        .map((ref): MemoryHit => ({
+          content: `(${from})-[${ref.type.trim()}]->(${ref.targetName!.trim()})`,
+          source: 'graph',
+          type: ref.type.trim(),
+        }));
+    }),
+  );
+
+  return expanded.flat();
 }
 
-/** The longest query words, as typed and in Title Case. */
+/** Take one hit from each source in turn, so no single source fills the prompt. */
+function interleave(buckets: MemoryHit[][], limit: number): MemoryHit[] {
+  // The loop checks the budget only after taking a hit, so zero is handled here.
+  if (limit <= 0) return [];
+
+  const out: MemoryHit[] = [];
+  const deepest = Math.max(0, ...buckets.map(b => b.length));
+
+  for (let i = 0; i < deepest; i++) {
+    for (const bucket of buckets) {
+      if (i >= bucket.length) continue;
+      out.push(bucket[i]);
+      if (out.length === limit) return out;
+    }
+  }
+  return out;
+}
+
+// NAMS search matches exact text, so a whole question rarely finds anything.
+// When it finds nothing, search again word by word.
+
+/** First letter upper case, the rest lower case, so "NEOVIM" becomes "Neovim". */
+function titleCase(word: string): string {
+  return word.length ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word;
+}
+
+/** The query's longest words, as typed and in Title Case: "Alex's?" → "Alex", "alex". */
 function fallbackTerms(query: string, maxWords = 4): string[] {
   const words = query
     .split(/\s+/)
+    .map(w => w.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').replace(/['’]s$/iu, ''))
     .filter(w => w.replace(/[^\p{L}\p{N}]/gu, '').length >= 3);
   const significant = [...new Set(words)]
     .sort((a, b) => b.length - a.length)
@@ -228,10 +270,7 @@ function rankByOverlap<T>(candidates: T[], query: string, contentOf: (item: T) =
   return [...candidates].sort((a, b) => overlap(b) - overlap(a));
 }
 
-/**
- * Search the full query. If nothing matches, search each word, merge the
- * results, and sort them by overlap with the query.
- */
+/** Search the whole query, then word by word if that finds nothing. */
 async function searchWithFallback<T>(
   query: string,
   search: (q: string) => Promise<T[]>,
@@ -269,20 +308,23 @@ async function searchPastConversations(
   userId: string,
   currentConvId: string,
   query: string,
+  maxConversations: number,
 ): Promise<MemoryHit[]> {
   const log = getLogger(client);
   const seen = new Set<string>();
   const hits: MemoryHit[] = [];
+  if (maxConversations <= 0) return hits;
 
   let convs: Array<{ id: string }>;
   try {
-    convs = await client.shortTerm.listConversations({ userId, limit: 20 });
+    // One extra, since the list may include the current conversation.
+    convs = await client.shortTerm.listConversations({ userId, limit: maxConversations + 1 });
   } catch (err) {
     log.warn('cross-session listConversations failed', err);
     return hits;
   }
 
-  const past = convs.filter(c => c.id !== currentConvId);
+  const past = convs.filter(c => c.id !== currentConvId).slice(0, maxConversations);
   await Promise.all(
     past.map(async (conv) => {
       const [messages, steps] = await Promise.all([
@@ -306,17 +348,14 @@ async function searchPastConversations(
   return hits;
 }
 
-/**
- * Search all four memory sources at once, remove duplicates, and cap the list.
- * Sorted by score when there are scores. Otherwise: long-term, current
- * conversation, past conversations, then reasoning.
- */
+/** Search every memory source, drop duplicates, and return the best few. */
 export async function retrieveMemories(
   client: MemoryClient,
   scope: NamsScope,
   convId: string,
   query: string,
   limit = 5,
+  opts: { crossSessionLimit?: number; graphExpansionLimit?: number } = {},
 ): Promise<MemoryHit[]> {
   const log = getLogger(client);
   const [shortHits, longHits, reasoningSteps, crossHits] = await Promise.all([
@@ -336,35 +375,49 @@ export async function retrieveMemories(
     ),
     client.reasoning.listSteps(convId)
       .catch((e: unknown) => { log.warn('listSteps failed', e); return [] as any[]; }),
-    searchPastConversations(client, scope.userId, convId, query),
+    searchPastConversations(
+      client, scope.userId, convId, query, opts.crossSessionLimit ?? RETRIEVAL.crossSessions,
+    ),
   ]);
 
+  // Depends on which entities matched, so it cannot join the batch above.
+  const triples = await expandEntityGraph(
+    client, longHits, opts.graphExpansionLimit ?? RETRIEVAL.graphExpansions,
+  );
+
+  // One bucket per source, merged by taking turns rather than stacking.
   const seen = new Set<string>();
-  const hits: MemoryHit[] = [];
+  const entityHits: MemoryHit[] = [];
+  const graphHits: MemoryHit[] = [];
+  const messageHits: MemoryHit[] = [];
+  const crossSessionHits: MemoryHit[] = [];
+  const reasoningHits: MemoryHit[] = [];
 
   for (const e of longHits) {
-    deduplicatePush(hits, seen, {
+    deduplicatePush(entityHits, seen, {
       content: entityContent(e),
       source: 'long-term',
       type: e.type ?? 'entity',
       score: e.confidence,
     }, e.description ?? e.name);
   }
+  for (const t of triples) deduplicatePush(graphHits, seen, t);
   for (const m of shortHits) {
-    deduplicatePush(hits, seen, { content: m.content, source: 'conversation', type: 'message' });
+    deduplicatePush(messageHits, seen, { content: m.content, source: 'conversation', type: 'message' });
   }
-  for (const h of crossHits) deduplicatePush(hits, seen, h);
+  for (const h of crossHits) deduplicatePush(crossSessionHits, seen, h);
 
   const reasoning = (reasoningSteps as any[])
     .filter(s => s.actionTaken === 'direct response' && s.reasoning)
     .slice(0, RETRIEVAL.maxReasoning);
   for (const s of reasoning) {
-    deduplicatePush(hits, seen, { content: s.reasoning, source: 'reasoning', type: 'step' });
+    deduplicatePush(reasoningHits, seen, { content: s.reasoning, source: 'reasoning', type: 'step' });
   }
 
-  const hasScores = hits.some(h => typeof h.score === 'number');
-  const ranked = hasScores ? [...hits].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)) : hits;
-  return ranked.slice(0, Math.min(limit, RETRIEVAL.maxTotal));
+  return interleave(
+    [entityHits, graphHits, messageHits, crossSessionHits, reasoningHits],
+    Math.min(limit, RETRIEVAL.maxTotal),
+  );
 }
 
 // Storage
@@ -374,13 +427,28 @@ function entityName(content: string, max = 60): string {
   return s.length > max ? s.slice(0, max) + '…' : s;
 }
 
+const sameText = (a: string | undefined, b: string): boolean =>
+  a?.trim().toLowerCase() === b.trim().toLowerCase();
+
 /**
- * Save a memory:
- *   - `interaction` goes to the conversation
- *   - `fact`, `pattern`, `user_preference` go to the graph
- * With an `extractor`, entities and relationships are extracted. Without one,
- * or if it fails, the memory is saved as a single entity.
+ * The stored entity with this name and type, or null. Hosted NAMS cannot look up
+ * a name, so search is used — and only an exact name matches, since search would
+ * otherwise return "Alexandra" for "Alex" and merge two real entities.
  */
+export async function findEntity(client: MemoryClient, name: string, type: string): Promise<Entity | null> {
+  const matchesWanted = (e: Entity): boolean =>
+    sameText(e.type, type) && (sameText(e.name, name) || sameText(e.canonicalName, name));
+
+  const direct = await client.longTerm.getEntityByName(name).catch(() => null);
+  if (direct) return matchesWanted(direct) ? direct : null;
+
+  const candidates = await client.longTerm
+    .searchEntities(name, { limit: RETRIEVAL.maxLongterm })
+    .catch(() => [] as Entity[]);
+  return candidates.find(matchesWanted) ?? null;
+}
+
+/** Save a memory: an `interaction` to the conversation, anything else to the graph. */
 export async function storeMemory(
   client: MemoryClient,
   convId: string,
@@ -402,7 +470,7 @@ export async function storeMemory(
   }
 
   const name = entityName(input.content);
-  let entity = await client.longTerm.getEntityByName(name).catch(() => null);
+  let entity = await findEntity(client, name, input.type);
   if (!entity) {
     entity = await client.longTerm.addEntity(name, input.type, { description: input.content });
   }

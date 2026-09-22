@@ -1,14 +1,7 @@
-/**
- * Middleware mode. `createNamsMemory(config).wrap(model, scope)` returns a model
- * that adds relevant memories before each call and saves the turn after.
- * Provider mode uses this too.
- *
- * No entity extraction here. NAMS extracts saved turns server-side. Use tools
- * mode for long-term memory.
- */
+/** Middleware mode: `wrap(model, scope)` adds memories to each turn and saves the conversation. Provider mode uses this too. */
 
 import { wrapLanguageModel } from 'ai';
-import type { LanguageModelV4, LanguageModelV4Middleware } from '@ai-sdk/provider';
+import type { LanguageModelMiddleware } from 'ai';
 import {
   makeClient,
   getLogger,
@@ -16,6 +9,10 @@ import {
   retrieveMemories,
 } from './vercel-ai-provider-client';
 import { MemoryHit, NamsConfig, NamsScope } from './vercel-ai-provider-types';
+
+// Model types come from `ai`, so they match the caller's `ai` version.
+export type WrappableModel = Parameters<typeof wrapLanguageModel>[0]['model'];
+export type WrappedModel = ReturnType<typeof wrapLanguageModel>;
 
 export interface NamsMemoryConfig extends NamsConfig {
   /** Max memories added to the prompt per turn (default: 6). */
@@ -31,6 +28,16 @@ const lastUserIndex = (prompt: any[]): number => {
   }
   return -1;
 }
+
+/** True for a later step of the same turn: tool results come after the last user message. */
+const continuesTurn = (prompt: any[]): boolean => {
+  const i = lastUserIndex(prompt);
+  return i >= 0 && prompt.slice(i + 1).some(m => m?.role === 'tool');
+}
+
+/** True when the model asks the app to run a tool. */
+const callsAppTool = (part: any): boolean =>
+  part?.type === 'tool-call' && !part.providerExecuted;
 
 /** Copy the prompt, with `block` added to the start of the last user message. */
 const withMemoryBlock = (prompt: any[], block: string): any[] => {
@@ -48,34 +55,27 @@ const withMemoryBlock = (prompt: any[], block: string): any[] => {
   return next;
 }
 
-const toolCallInput = (part: any): string => {
-  if (typeof part?.input === 'string') return part.input;
-  const args = part?.input ?? part?.args;
-  if (args === undefined) return '';
-  try { return JSON.stringify(args) ?? ''; } catch { return ''; }
-}
-
-// Assistant text from a result. Falls back to tool-call input (e.g. generateObject).
-const textFromResult = (result: any): string => {
+/** The model's answer, or '' when this step only calls tools. */
+const answerFromResult = (result: any): string => {
+  const content: any[] = Array.isArray(result?.content) ? result.content : [];
+  if (content.some(callsAppTool)) return '';
   if (typeof result?.text === 'string' && result.text) return result.text;
-  if (Array.isArray(result?.content)) {
-    const textParts = (result.content as any[])
-      .filter(p => p?.type === 'text')
-      .map(p => p.text as string)
-      .join('');
-    if (textParts) return textParts;
-    return (result.content as any[])
-      .filter(p => p?.type === 'tool-call')
-      .map(toolCallInput)
-      .join('');
-  }
-  return '';
+  return content
+    .filter(p => p?.type === 'text')
+    .map(p => p.text as string)
+    .join('');
 }
 
 const formatMemoryBlock = (memories: MemoryHit[]): string => {
+  // Explained only when there is a triple to explain.
+  const graphNote = memories.some(m => m.source === 'graph')
+    ? '\nA [graph] line is a stored relationship, written (subject)-[RELATIONSHIP]->(object).'
+    : '';
+
   return (
     'Relevant long-term memory about this user (use it to personalise your answer):\n' +
-    memories.map((m, i) => `${i + 1}. [${m.source}] ${m.content}`).join('\n')
+    memories.map((m, i) => `${i + 1}. [${m.source}] ${m.content}`).join('\n') +
+    graphNote
   );
 }
 
@@ -99,7 +99,7 @@ const buildMiddleware = (
   scope: NamsScope,
   maxMemories: number,
   persist: boolean,
-): LanguageModelV4Middleware => {
+): LanguageModelMiddleware => {
   const client = makeClient(config);
   const log = getLogger(client);
 
@@ -109,20 +109,39 @@ const buildMiddleware = (
 
   const originalUserText = new WeakMap<object, string>();
 
-  // Every step of a tool loop repeats the user message. Track it so it is saved once.
-  let lastPersistedUserText: string | undefined;
+  // Memories found at the start of the turn. Later steps reuse them.
+  let turnMemories: { userText: string; memories: MemoryHit[] } | undefined;
 
+  // Save the user's message on the first step and the answer on the last.
   async function persistTurn(params: any, assistantText: string): Promise<void> {
     if (!persist) return;
     const convId = await getConvId();
-    const userText = originalUserText.get(params as object) ?? lastUserText(params.prompt);
-    if (userText && userText !== lastPersistedUserText) {
-      lastPersistedUserText = userText;
-      await client.shortTerm.addMessage(convId, 'user', userText)
+    if (!continuesTurn(params.prompt)) {
+      const userText = originalUserText.get(params as object) ?? lastUserText(params.prompt);
+      if (userText) await client.shortTerm.addMessage(convId, 'user', userText)
         .catch(e => log.error('persist user message failed', e));
     }
     if (assistantText) await client.shortTerm.addMessage(convId, 'assistant', assistantText)
       .catch(e => log.error('persist assistant message failed', e));
+  }
+
+  async function memoriesFor(prompt: any[], userText: string): Promise<MemoryHit[] | null> {
+    if (continuesTurn(prompt) && turnMemories?.userText === userText) return turnMemories.memories;
+
+    let convId: string;
+    try {
+      convId = await getConvId();
+    } catch (e) {
+      log.warn('resolveConversation failed', e);
+      return null;
+    }
+
+    const memories = await retrieveMemories(
+      client, scope, convId, userText, maxMemories,
+      { crossSessionLimit: config.crossSessionLimit, graphExpansionLimit: config.graphExpansionLimit },
+    ).catch(e => { log.warn('retrieve failed', e); return [] as MemoryHit[]; });
+    turnMemories = { userText, memories };
+    return memories;
   }
 
   return {
@@ -133,18 +152,8 @@ const buildMiddleware = (
       if (!userText) return params;
       originalUserText.set(params as object, userText);
 
-      let convId: string;
-      try {
-        convId = await getConvId();
-      } catch (e) {
-        log.warn('resolveConversation failed', e);
-        return params;
-      }
-
-      const memories = await retrieveMemories(client, scope, convId, userText, maxMemories)
-        .catch(e => { log.warn('retrieve failed', e); return [] as MemoryHit[]; });
-
-      if (memories.length === 0) return params;
+      const memories = await memoriesFor(params.prompt, userText);
+      if (!memories?.length) return params;
 
       const augmented = { ...params, prompt: withMemoryBlock(params.prompt, formatMemoryBlock(memories)) };
       originalUserText.set(augmented as object, userText);
@@ -153,16 +162,16 @@ const buildMiddleware = (
 
     wrapGenerate: async ({ doGenerate, params }) => {
       const result = await doGenerate();
-      await persistTurn(params, textFromResult(result))
+      await persistTurn(params, answerFromResult(result))
         .catch(e => log.warn('persist failed', e));
       return result;
     },
 
-    // Collect text and tool-call input from the stream. Save the turn when it closes.
+    // Collect the streamed text. Save the turn when the stream closes.
     wrapStream: async ({ doStream, params }) => {
       const { stream, ...rest } = await doStream();
       let text = '';
-      const pendingToolArgs = new Map<string, string>();
+      let handsOffToTools = false;
 
       const tap = new TransformStream({
         transform(chunk: any, controller) {
@@ -170,22 +179,12 @@ const buildMiddleware = (
             text += (chunk.delta ?? chunk.textDelta ?? chunk.text ?? '') as string;
           else if (chunk?.type === 'text')
             text += (chunk.text ?? '') as string;
-          else if (chunk?.type === 'tool-input-delta') {
-            const id = chunk.id as string;
-            pendingToolArgs.set(id, (pendingToolArgs.get(id) ?? '') + (chunk.delta ?? ''));
-          } else if (chunk?.type === 'tool-call-delta') {
-            const id = chunk.toolCallId as string;
-            pendingToolArgs.set(id, (pendingToolArgs.get(id) ?? '') + (chunk.argsTextDelta ?? ''));
-          } else if (chunk?.type === 'tool-call') {
-            pendingToolArgs.set((chunk.toolCallId ?? chunk.id) as string, toolCallInput(chunk));
-          }
+          else if (callsAppTool(chunk))
+            handsOffToTools = true;
           controller.enqueue(chunk);
         },
         async flush() {
-          for (const args of pendingToolArgs.values()) {
-            if (args) text += args;
-          }
-          await persistTurn(params, text)
+          await persistTurn(params, handsOffToTools ? '' : text)
             .catch(e => log.warn('persist failed', e));
         },
       });
@@ -201,7 +200,7 @@ export function createNamsMemory(config: NamsMemoryConfig) {
   const persist = config.persistInteractions ?? true;
 
   return {
-    wrap(model: LanguageModelV4, scope: NamsScope, providerId?: string): LanguageModelV4 {
+    wrap(model: WrappableModel, scope: NamsScope, providerId?: string): WrappedModel {
       const middleware = buildMiddleware(config, scope, maxMemories, persist);
       return wrapLanguageModel({ model, middleware, ...(providerId && { providerId }) });
     },

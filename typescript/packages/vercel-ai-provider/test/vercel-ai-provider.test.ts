@@ -7,7 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { NoSuchModelError } from '@ai-sdk/provider';
+import { NoSuchModelError } from 'ai';
 import { makeFakeClient, makeFakeModel, type FakeClient } from './vercel-ai-provider-helpers';
 
 const holder = vi.hoisted(() => ({ client: undefined as unknown }));

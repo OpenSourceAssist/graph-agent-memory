@@ -76,7 +76,7 @@ describe('query_memory', () => {
 
     expect(out.found).toBe(true);
     expect(out.count).toBe(2);
-    // Scores present → sorted descending, long-term hit first.
+    // Sources take turns, in bucket order: the long-term hit, then the message.
     expect(out.memories[0]).toMatchObject({ content: 'Alex — User is named Alex', source: 'long-term' });
     expect(out.memories[1]).toMatchObject({ content: 'I love terse answers', source: 'conversation' });
   });
@@ -170,7 +170,7 @@ describe('store_memory', () => {
   });
 
   it('reuses an existing entity instead of duplicating it', async () => {
-    fake.longTerm.getEntityByName.mockResolvedValue({ id: 'ent-existing', name: 'Prefers dark mode' });
+    fake.longTerm.getEntityByName.mockResolvedValue({ id: 'ent-existing', name: 'Prefers dark mode', type: 'fact' });
 
     const { store_memory } = createNamsMemoryTools({
       apiKey: 'k',

@@ -14,6 +14,10 @@ export interface NamsConfig {
   workspaceId?: string;
   /** Logger for non-fatal errors (default: console). */
   logger?: NamsLogger;
+  /** How many of the user's other recent conversations to also search (default: 5). `0` turns this off. */
+  crossSessionLimit?: number;
+  /** How many matched entities to read relationships for, one request each (default: 2). `0` turns this off. */
+  graphExpansionLimit?: number;
 }
 
 export interface NamsScope {
@@ -21,13 +25,15 @@ export interface NamsScope {
   conversationId?: string;
 }
 
-export type MemorySource = 'long-term' | 'conversation' | 'cross-session' | 'reasoning';
+export type MemorySource = 'long-term' | 'graph' | 'conversation' | 'cross-session' | 'reasoning';
 export type MemoryType = 'fact' | 'interaction' | 'pattern' | 'user_preference';
 
 export interface MemoryHit {
+  /** For a `graph` hit, one relationship: `(Alex)-[WORKS_AT]->(TechCorp)`. */
   content: string;
   source: MemorySource;
   type: string;
+  /** The entity's stored confidence, where there is one. It rates the extraction, not the match, so hits are not ordered by it. */
   score?: number;
 }
 

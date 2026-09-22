@@ -1,7 +1,4 @@
-/**
- * Hook events, matchers, and results. Handlers are plain functions: return
- * nothing to do nothing, or an object to block, rewrite, or add context.
- */
+/** Hook events and results. A handler returns nothing, or an object to block, rewrite, or add context. */
 
 import type { NamsLogger } from './vercel-ai-provider-types';
 
@@ -171,11 +168,7 @@ export interface NamsHookEntry<E extends NamsHookEvent> {
 
 /** A matcher plus the handlers it applies to. */
 export interface NamsHookGroup<E extends NamsHookEvent> {
-  /**
-   * `*` or empty matches all, a name matches exactly, `a|b` matches either,
-   * anything else is a regex. Checked against the tool name, or the reason
-   * on `SessionStart` / `SessionEnd`.
-   */
+  /** Which tools (or session reasons) this applies to: `*`, a name, `a|b`, or a regex. */
   matcher?: string;
   hooks: Array<NamsHookHandler<E> | NamsHookEntry<E>>;
 }
