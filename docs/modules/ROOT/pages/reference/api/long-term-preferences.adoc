@@ -215,7 +215,7 @@ Import these Pydantic models from `neo4j_agent_memory.memory.long_term`. IDs are
 
 Pydantic model; inherited memory-entry fields are included.
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `id` | `UUID` | `new UUID` |
@@ -234,7 +234,7 @@ Pydantic model; inherited memory-entry fields are included.
 
 Pydantic model; inherited memory-entry fields are included.
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `id` | `UUID` | `new UUID` |

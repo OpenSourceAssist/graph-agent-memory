@@ -8,8 +8,8 @@ include::partial$backend-bolt-only.adoc[]
 
 To extract entity candidates with a local model, select a supported domain schema, run extraction on the input, and inspect the returned names and types before persistence.
 
-.Configurable extraction pipeline from input text through extractor stages to persisted entities and relationships
-image::diagrams/extraction-pipeline.svg["Configurable extraction pipeline: input messages or documents, a configured extractor stage (spaCy, GLiNER, relationship or LLM stages), the selected merge strategy, then persisted entities and supported relationships. Order and fallback depend on configuration.",width=100%,link=self]
+.Extraction pipeline: input text, configured extractors, merge strategy, then persisted entities and relationships
+image::diagrams/extraction-pipeline.svg["Extraction pipeline: input messages or documents, configured extractors (spaCy, GLiNER, relationship or LLM stages) run in a fixed order — spaCy, then GLiNER, then the LLM fallback — merge candidates using the selected pipeline strategy, then persist extracted entities and supported relationships. Bolt configures the client pipeline; NAMS manages service-side extraction.",width=100%,link=self]
 
 For the rationale, see xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline].
 

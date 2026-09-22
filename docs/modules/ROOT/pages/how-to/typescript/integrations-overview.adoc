@@ -7,29 +7,24 @@ Find the right TypeScript integration for your agent framework, each backed by t
 
 Prerequisites: a configured `MemoryClient` — see xref:sdks/typescript.adoc[the TypeScript SDK page] — and, for the hosted backend, NAMS credentials.
 
-== Vercel AI SDK (TypeScript)
+== Pick a guide
 
-`agentMemoryMiddleware` injects three-tier context into each model call and
-attempts to persist both the user's input and the assistant's response —
-streamed or not. See xref:how-to/typescript/vercel-ai.adoc[Integrate with the Vercel AI SDK].
+[cols="2,3", options="header"]
+|===
+| Framework | What it gives you
 
-== LangChain JS (TypeScript)
+| xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK]
+| `agentMemoryMiddleware` injects three-tier context into each model call and persists both the user's input and the assistant's response — streamed or not.
 
-`Neo4jChatMessageHistory` and `Neo4jEntityRetriever` supply framework-neutral
-history and retrieval objects that you adapt to LangChain's APIs. See
-xref:how-to/typescript/langchain.adoc[Integrate with LangChain JS].
+| xref:how-to/typescript/langchain.adoc[LangChain JS]
+| `Neo4jChatMessageHistory` and `Neo4jEntityRetriever` supply framework-neutral history and retrieval objects that you adapt to LangChain's APIs.
 
-== Mastra (TypeScript)
+| xref:how-to/typescript/mastra.adoc[Mastra]
+| `Neo4jMastraMemory` is a thin thread-and-message-history adapter in Mastra's vocabulary, driven alongside your agent rather than passed as its `memory`.
 
-`Neo4jMastraMemory` is a thin thread-and-message-history adapter in Mastra's
-vocabulary, driven alongside your agent rather than passed as its `memory`.
-See xref:how-to/typescript/mastra.adoc[Store Mastra threads in NAMS].
-
-== Strands Agents (TypeScript)
-
-`Neo4jMemoryStore` is a Strands `MemoryStore`, and `connectMemoryToAgent`
-wires session state and three-tier context injection into a Strands `Agent`
-in one call. See xref:how-to/typescript/strands.adoc[Strands Agents (TypeScript)].
+| xref:how-to/typescript/strands.adoc[Strands Agents]
+| `Neo4jMemoryStore` is a Strands `MemoryStore`, and `connectMemoryToAgent` wires session state and three-tier context injection into a Strands `Agent` in one call.
+|===
 
 == Other languages
 

@@ -33,7 +33,10 @@ include::partial$python-tutorial-setup.adoc[]
 [source,bash]
 ----
 python -m pip install 'neo4j-agent-memory[mcp,sentence-transformers]==0.6.0'
-python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
+python -c "from importlib.metadata import version; \
+import neo4j_agent_memory; \
+assert version('neo4j-agent-memory') == '0.6.0'; \
+print('SDK 0.6.0 import verified')"
 ----
 
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
@@ -42,7 +45,7 @@ Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your wor
 
 Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
 
-[cols="2,4,2",options="header"]
+[cols="4,3,2",options="header"]
 |===
 |File |Purpose |Returning reader
 |`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
@@ -95,7 +98,11 @@ Claude Desktop does not inherit the Aura variables exported in your terminal. Ge
 umask 077
 MCP_TUTORIAL_CONFIG=$(mktemp "${TMPDIR:-/tmp}/neo4j-docs-mcp.XXXXXX")
 python mcp_local_tutorial.py --config > "$MCP_TUTORIAL_CONFIG"
-python -c "import json, sys; config = json.load(open(sys.argv[1])); assert config['mcpServers']['neo4j-docs']['env']['NEO4J_URI'].startswith('neo4j+s://'); print('Aura MCP configuration verified')" "$MCP_TUTORIAL_CONFIG"
+python -c "import json, sys; \
+config = json.load(open(sys.argv[1])); \
+uri = config['mcpServers']['neo4j-docs']['env']['NEO4J_URI']; \
+assert uri.startswith('neo4j+s://'); \
+print('Aura MCP configuration verified')" "$MCP_TUTORIAL_CONFIG"
 printf 'Private MCP configuration: %s\n' "$MCP_TUTORIAL_CONFIG"
 ----
 
@@ -103,7 +110,8 @@ Expected: `Aura MCP configuration verified`, followed by the private temporary f
 
 [source,bash]
 ----
-python mcp_local_tutorial.py --check-config "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+python mcp_local_tutorial.py --check-config \
+  "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
 ----
 
 Expected: `Verified: merged Desktop JSON, lesson paths and explicit Aura variables`. The check reads only the local file, rejects malformed/duplicate JSON keys, checks this interpreter/script and required child-process variables, and never prints credential values or modifies other entries. It does not verify the password, server startup, or model access. Fix a reported line/column or nesting error before continuing. Then completely quit and restart Claude Desktop; it launches the stdio process.
@@ -138,7 +146,8 @@ In the Aura console, open *Query*, select this lesson's instance, connect with i
 
 [source,cypher]
 ----
-MATCH (conversation:Conversation {session_id: 'claude-docs-tutorial'})-[:HAS_MESSAGE]->(message:Message)
+MATCH (conversation:Conversation {session_id: 'claude-docs-tutorial'})
+      -[:HAS_MESSAGE]->(message:Message)
 WHERE message.content = 'The workshop passphrase is cedar-lantern-47.'
 RETURN message.id, message.content
 ----

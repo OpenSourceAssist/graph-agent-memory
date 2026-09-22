@@ -257,7 +257,7 @@ This is intentionally not the default — silent deprecations make migrations sl
 
 == Behind the scenes
 
-For the `_resolve_providers` model-validator and `_ProviderToEmbedderAdapter` implementation walkthrough, see xref:explanation/why-provider-protocol.adoc#_how_migration_resolves_provider_settings[Why the Provider Protocol? — How migration resolves provider settings].
+For the `_resolve_providers` model-validator and `_ProviderToEmbedderAdapter` implementation walkthrough, see xref:explanation/why-provider-protocol.adoc#_how_migration_resolves_provider_settings[Why the provider protocol? — How migration resolves provider settings].
 
 A clean warning check confirms configuration shape only. Verify a completion,
 an embedding vector, and representative retrieval using your selected providers.
@@ -267,4 +267,4 @@ Use the embedding migration runbook before changing an existing graph's model.
 
 * xref:how-to/bring-your-own-model.adoc[Bring your own model] — the headline how-to for choosing a provider.
 * xref:reference/configuration.adoc[Configuration] — the canonical `MemorySettings` reference.
-* xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.
+* xref:explanation/why-provider-protocol.adoc[Why the provider protocol?] — design rationale.

@@ -112,7 +112,7 @@ Choose one writer when combining a store and session manager. Leave store extrac
 
 `context_graph_tools(...)` exposes the pull-based tools `search_context`, `get_entity_graph`, `add_memory` and `get_user_preferences` for Bolt. `nams_context_graph_tools(...)` exposes hosted operations with a workspace key. Tool names describe available actions; the model can choose not to call them. Tool factories cache clients; call `clear_client_cache()` when ending their lifecycle. Provider pass-through helpers configure extraction separately from Strands' own inference.
 
-.Session manager, memory store and graph tools over one Neo4j database
+.Session manager, memory store and graph tools over one Neo4j database, with Bedrock Titan V2 embeddings feeding all three surfaces
 image::diagrams/strands-session-memory.svg["The Strands agent reaching Neo4jSessionManager, Neo4jMemoryStore and context_graph_tools, all three backed by the same Neo4j or Aura database, with Bedrock Titan V2 embeddings feeding all three surfaces",width=100%,link=self]
 
 .Persistence and extraction readiness before dependent retrieval

@@ -10,10 +10,6 @@ include::partial$backend-bolt-only.adoc[]
 
 How to efficiently process large document collections to build your context graph.
 
-== Goal
-
-Extract a collection of texts, inspect per-document failures, and store successful entities with source-message provenance. The storage procedure uses Bolt APIs. Local extraction can also run independently, but it does not configure extraction on the hosted service.
-
 == Prerequisites
 
 * Install `pip install 'neo4j-agent-memory[gliner]==0.6.0'` for the GLiNER examples and allow the configured model to download before an offline run.
@@ -21,6 +17,10 @@ Extract a collection of texts, inspect per-document failures, and store successf
 * Use a test database and synthetic documents first. Choose positive batch sizes and concurrency limits that fit available memory.
 
 The first sections use `documents: list[str]`. The financial and catalog variations define their own inputs. Local GLiNER entity extraction does not guarantee relation extraction; persist relations only when the chosen pipeline actually returns them.
+
+== Goal
+
+Extract a collection of texts, inspect per-document failures, and store successful entities with source-message provenance. The storage procedure uses Bolt APIs. Local extraction can also run independently, but it does not configure extraction on the hosted service.
 
 == 1. Extract and inspect a batch
 
@@ -178,7 +178,7 @@ print(f"Merged with existing: {merged_count}")
 `add_entity` accepts the per-call `deduplicate` boolean, not a
 `deduplication` configuration keyword. Its deduplication actions are `none`,
 `merged`, and `flagged`; `none` is not an insertion-count guarantee. For
-threshold configuration see xref:how-to/deduplication.adoc[Handle Duplicate Entities].
+threshold configuration see xref:how-to/deduplication.adoc[Handle duplicate entities].
 
 === With provenance tracking
 
@@ -592,10 +592,10 @@ source IDs and completed batches outside this example before adding retries.
 
 == See also
 
-* xref:how-to/entity-extraction.adoc[Configure Entity Extraction]
+* xref:how-to/entity-extraction.adoc[Configure entity extraction]
 * xref:how-to/entity-extraction-batch.adoc[Account for batch and chunk extraction results] — the `extract_batch`/`StreamingExtractor` API and its result bookkeeping in depth; this page covers ingesting and storing the documents that feed it.
-* xref:how-to/deduplication.adoc[Handle Duplicate Entities]
-* xref:reference/extractors.adoc[Extractor Classes Reference]
+* xref:how-to/deduplication.adoc[Handle duplicate entities]
+* xref:reference/extractors.adoc[Extractor classes reference]
 
 // Preserve historical section links after the procedure was reorganized.
 anchor:_overview[]

@@ -55,7 +55,7 @@ async with MemoryClient(settings) as client:
 
 == Pick a provider
 
-[cols="2,3,2,2",options="header"]
+[cols="2,5,2,2",options="header"]
 |===
 | Provider             | Example model string                            | Extra                     | Notes
 | OpenAI               | `openai/gpt-4o-mini`                            | `[openai]`                | Native: strict-mode structured output.
@@ -71,7 +71,7 @@ async with MemoryClient(settings) as client:
 
 Embedding-only providers:
 
-[cols="2,3,2,2",options="header"]
+[cols="2,5,2,2",options="header"]
 |===
 | Provider                 | Example model string                  | Extra                     | Dimensions
 | OpenAI                   | `openai/text-embedding-3-small`       | `[openai]`                | 1536
@@ -284,7 +284,7 @@ The full hierarchy:
 
 == Provider matrix at a glance
 
-[cols="2,1,1,1,1",options="header"]
+[cols="4,1,1,1,3",options="header"]
 |===
 | Adapter                                       | LLM Bronze | Structured Silver | Embedding | Notes
 | `OpenAIProvider`                              | ✓          | ✓ (strict mode)   |           | Native SDK adapter.

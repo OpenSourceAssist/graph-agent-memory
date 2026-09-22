@@ -27,31 +27,31 @@
 
 ** xref:how-to/index.adoc[How-to guides]
 
-*** Pluggable Providers
+*** Pluggable providers
 **** xref:how-to/bring-your-own-model.adoc[Bring your own model]
 **** xref:how-to/configure-llm-provider.adoc[Configure an LLM provider]
 **** xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider]
 **** xref:how-to/migrate-to-providers.adoc[Migrate to pluggable providers]
 **** xref:how-to/migrate-embedding-model.adoc[Migrate to a new embedding model]
 
-*** Hosted Backend
+*** Hosted backend
 **** xref:how-to/use-nams.adoc[Connect a Python application to NAMS]
 **** xref:how-to/migrate-to-nams.adoc[Migrate a Python application to NAMS]
 **** xref:how-to/use-ontologies.adoc[Activate and verify a workspace ontology]
 **** xref:how-to/team-memory-in-your-editor.adoc[Share team memory with an editor]
 
-*** Core Operations
+*** Core operations
 **** xref:how-to/messages.adoc[Store, retrieve, and summarize messages]
 **** xref:how-to/entities.adoc[Store entities, relationships, and facts]
 **** xref:how-to/preferences.adoc[Store and revise a user preference]
 **** xref:how-to/deduplication.adoc[Merge a reviewed entity pair]
 
-*** Entity Extraction
+*** Entity extraction
 **** xref:how-to/entity-extraction.adoc[Extract and inspect entity candidates]
 **** xref:how-to/entity-extraction-schemas.adoc[Apply a custom entity extraction schema]
 **** xref:how-to/entity-extraction-batch.adoc[Account for batch and chunk extraction results]
 
-*** Reasoning & Audit
+*** Reasoning and audit
 **** xref:how-to/reasoning-traces.adoc[Record and verify a failed tool call]
 **** xref:how-to/audit-reasoning.adoc[Audit reasoning with `:TOUCHED` edges]
 
@@ -65,7 +65,7 @@
 **** xref:how-to/running-without-an-llm.adoc[Run without an LLM]
 **** xref:how-to/batch-processing.adoc[Process documents in batch]
 
-*** Framework Integrations
+*** Framework integrations
 **** xref:how-to/integrations/index.adoc[Agent framework integrations]
 **** xref:how-to/integrations/langchain.adoc[Use with LangChain]
 **** xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex]
@@ -124,7 +124,7 @@
 **** xref:reference/schemas-custom.adoc[Custom schemas and persistence]
 **** xref:reference/schemas-api.adoc[SchemaManager persistence API]
 *** xref:reference/schema-objects.adoc[Schema objects reference]
-*** API Reference
+*** API reference
 **** xref:reference/api/memory-client.adoc[MemoryClient API reference]
 **** xref:reference/api/short-term.adoc[ShortTermMemory API reference]
 ***** xref:reference/api/short-term-messages.adoc[Conversation and message operations]

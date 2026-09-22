@@ -13,10 +13,7 @@ that make it work.
 ====
 `ai` 7 is ESM-only and requires Node.js 22 or newer, and so does this client.
 Next 16 uses Turbopack by default — a custom `webpack` config fails the build.
-====
 
-[NOTE]
-====
 npm's published `@neo4j-labs/agent-memory` (`0.4.1`) predates the
 `LanguageModelV4Middleware` implementation and the `wrapStream` assistant-message
 persistence that this guide's route handler depends on

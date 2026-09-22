@@ -97,7 +97,16 @@ Use `agent.ainvoke(...)` with this middleware: its persistence and context hooks
 
 For a `RunnableWithMessageHistory` application, `Neo4jAgentMemory` implements `BaseChatMessageHistory`. Use `aget_messages()` / `aadd_messages()` / `aclear()` in an async context. That adapter's `aget_messages()` is a framework method; the underlying library readback is `client.short_term.get_conversation(...).messages`. Do not assume a LangGraph checkpointer and Neo4j transcript memory are the same persistence layer.
 
-`Neo4jMemoryRetriever` implements `BaseRetriever` for memory RAG and can be invoked asynchronously. Keep retrieval limits and the prompt's context budget explicit. To add a tool that reads the graph, wrap a memory call in LangChain's `@tool` decorator and register it on the agent, for example `@tool` `async def search_entities(query: str) -> list[str]: return [e.name for e in await client.long_term.search_entities(query)]`, then pass it as `create_agent(model, tools=[search_entities], ...)`.
+`Neo4jMemoryRetriever` implements `BaseRetriever` for memory RAG and can be invoked asynchronously. Keep retrieval limits and the prompt's context budget explicit. To add a tool that reads the graph, wrap a memory call in LangChain's `@tool` decorator and register it on the agent:
+
+[source,python]
+----
+@tool
+async def search_entities(query: str) -> list[str]:
+    return [e.name for e in await client.long_term.search_entities(query)]
+----
+
+Then pass it as `create_agent(model, tools=[search_entities], ...)`.
 
 `llm_provider_from_langchain(model)` configures an extraction provider separately; see xref:how-to/migrate-to-providers.adoc[Configure providers].
 

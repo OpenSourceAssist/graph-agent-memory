@@ -97,7 +97,8 @@ anchor:_step_3_drive_a_multi_turn_conversation[]
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts teach .tutorial-state/conversation.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/conversation.ts teach .tutorial-state/conversation.json
 ----
 
 Expect `CONVERSATION_ID=` and `Teaching message verified.`; the state also
@@ -113,7 +114,8 @@ The teaching command has exited. From the same lesson directory, run:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts recall .tutorial-state/conversation.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/conversation.ts recall .tutorial-state/conversation.json
 ----
 
 Expect the retrieved memory to contain the seeded full club name and size 10,
@@ -138,8 +140,10 @@ Run these commands from the same directory, using the state created above:
 
 [source,bash]
 ----
-npx tsx src/tutorials/conversation.ts inspect .tutorial-state/conversation.json
-npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts verify .tutorial-state/conversation.json
+npx tsx src/tutorials/conversation.ts \
+  inspect .tutorial-state/conversation.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/conversation.ts verify .tutorial-state/conversation.json
 ----
 
 `inspect` shows local saved IDs and operation status without loading `.env`
@@ -158,8 +162,10 @@ From the same lesson directory, clean up this run using its saved state:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/conversation.ts cleanup .tutorial-state/conversation.json
-npx tsx src/tutorials/conversation.ts inspect .tutorial-state/conversation.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/conversation.ts cleanup .tutorial-state/conversation.json
+npx tsx src/tutorials/conversation.ts \
+  inspect .tutorial-state/conversation.json
 ----
 
 The cleanup command waits for the recorded messages' extraction to finish,

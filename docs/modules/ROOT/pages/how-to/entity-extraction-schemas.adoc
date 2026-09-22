@@ -82,7 +82,6 @@ anchor:_extend_built_in_schemas[]
 anchor:_persist_schemas_to_neo4j[]
 anchor:_glirel_no_llm_required[]
 anchor:_custom_relationship_types[]
-anchor:_see_also[]
 
 == Write effective schema descriptions
 
@@ -92,3 +91,10 @@ Improve GLiNER's zero-shot accuracy by tuning the description text passed to `Do
 2. Include synonyms in the description — `"A company, startup, or business organization"` catches more of the mentions a plain `"company"` label misses.
 3. Be domain-specific — tailor descriptions to your corpus's vocabulary rather than reusing a generic label.
 4. Test thresholds on a sample document before committing to one — a lower `threshold` catches more entities but can reduce precision.
+
+== See also
+
+* xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline]
+* xref:reference/schemas.adoc[Schema models and persistence]
+* xref:tutorials/knowledge-graph.adoc[Knowledge-graph tutorial]
+* xref:how-to/use-ontologies.adoc[Hosted ontology tasks]

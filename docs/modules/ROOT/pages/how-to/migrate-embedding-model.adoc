@@ -131,7 +131,7 @@ the backup if a provider call or database write fails.
 
 Match the source text used by the normal write APIs:
 
-[cols="1,1,3",options="header"]
+[cols="2,2,3",options="header"]
 |===
 | Node | Property | Text to embed
 | `Message` | `embedding` | `content`
@@ -163,7 +163,7 @@ ORDER BY dimensions
 ----
 . Confirm all six managed indexes that your database uses are `ONLINE` with the intended dimension in `SHOW VECTOR INDEXES`.
 . With the new provider, run `await client.schema.validate_vector_index_dimensions(embedder.dimensions)`. A successful connection alone is not evidence that every old vector was replaced.
-. Run labeled retrieval cases from xref:how-to/evaluation.adoc[Evaluate Memory Quality], including older records, before restoring traffic.
+. Run labeled retrieval cases from xref:how-to/evaluation.adoc[Evaluate memory quality], including older records, before restoring traffic.
 
 The dimension validator skips validation if the server rejects the `SHOW VECTOR
 INDEXES` syntax. Other query failures propagate. Do not treat a skipped check

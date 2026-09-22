@@ -159,3 +159,11 @@ The separately hosted NAMS MCP server has its own scope-dependent tool surface. 
 Bronze, Silver, Gold and Platinum are client TCK conformance labels, not NAMS pricing or access tiers. See xref:reference/nams-limits.adoc[service limits] for request constraints and xref:explanation/backends.adoc[backend tradeoffs] for choosing a deployment.
 
 Preference associations can share a node: Bolt's embedding-based duplicate lookup is global within a category. An existing preference can be linked to multiple users; superseding it affects those links. The scoped example disables embedding deduplication and uses explicit revision IDs.
+
+== See also
+
+* xref:reference/api/memory-client.adoc[MemoryClient API reference] — the Python signatures behind these capability differences.
+* xref:reference/typescript-api.adoc[TypeScript SDK API reference] — the TypeScript surface, REST/NAMS-only.
+* xref:reference/rest-api.adoc[REST API reference] — the wire contract both SDKs call.
+* xref:reference/nams-limits.adoc[NAMS limits and behavior] — request-level quotas and runtime behavior.
+* xref:explanation/backends.adoc[Bolt and NAMS backends] — why the two backends diverge.

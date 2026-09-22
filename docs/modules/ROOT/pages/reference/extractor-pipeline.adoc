@@ -159,7 +159,7 @@ def remove_stage(name: str) -> bool: ...
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `stage_name` | `str` | `required` |
@@ -173,7 +173,7 @@ Fields and defaults:
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `final_result` | `ExtractionResult` | `required` |
@@ -186,7 +186,7 @@ Fields and defaults:
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `index` | `int` | `required` |
@@ -200,7 +200,7 @@ Fields and defaults:
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `results` | `list[BatchItemResult]` | `field(default_factory=list)` |

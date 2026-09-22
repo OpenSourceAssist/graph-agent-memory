@@ -2,6 +2,8 @@
 :page-product: agent-memory
 :toclevels: 2
 
+How this documentation site is built, previewed, and published. This page keeps its former section anchors so old links still resolve, even though the content below has moved to the maintained source.
+
 // Retain former section URLs at the current related topic.
 == Maintain or publish this documentation
 
@@ -12,3 +14,8 @@ The Antora authoring, validation, diagram and publication workflow is maintained
 The repository's TypeDoc workflow regenerates API attachments for the labs-pages docs build. The external publishing owner must verify the accepted revision, public base path and redirects. No Vercel configuration or GitHub Pages deployment is supplied by this page.
 
 Deploying an application built on the SDKs, rather than this documentation site? See xref:reference/deploy-an-application.adoc[].
+
+== See also
+
+* xref:reference/deploy-an-application.adoc[Deploy a memory application] — deployment paths for an application built on the SDKs, not this documentation site.
+* https://github.com/neo4j-labs/agent-memory/blob/main/docs/MAINTAINING.md[Maintain the documentation] — the authoring, validation, diagram, and publication workflow.

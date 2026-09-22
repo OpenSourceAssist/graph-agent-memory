@@ -3,6 +3,8 @@
 :toclevels: 2
 :icons: font
 
+REST endpoints, MCP tools, lifecycle outcomes, and operator gates for the NAMS Agent Skills surface.
+
 [NOTE]
 ====
 icon:flask[] *Preview.* The Skills surface is exposed over the NAMS **REST API**
@@ -44,11 +46,10 @@ xref:explanation/skills.adoc[Agent Skills].
 
 == MCP tools
 
-The hosted NAMS MCP server (see xref:reference/nams-mcp.adoc[Hosted NAMS MCP
-Server]) exposes the same surface as 13 tools. They appear in `tools/list` only
+The hosted NAMS MCP server (see xref:reference/nams-mcp.adoc[Hosted NAMS MCP server]) exposes the same surface as 13 tools. They appear in `tools/list` only
 for a principal whose scopes permit them.
 
-[cols="1,3",options="header"]
+[cols="2,3",options="header"]
 |===
 | Tool | Purpose
 
@@ -112,5 +113,5 @@ limits see xref:reference/nams-limits.adoc[NAMS limits and behavior].
 == See also
 
 * xref:explanation/skills.adoc[Agent Skills] — the concept and provenance model.
-* xref:tutorials/skills-quickstart.adoc[Skills Quickstart] — end-to-end over REST/MCP.
-* xref:reference/nams-mcp.adoc[Hosted NAMS MCP Server] — how the MCP tools are served.
+* xref:tutorials/skills-quickstart.adoc[Skills quickstart] — end-to-end over REST/MCP.
+* xref:reference/nams-mcp.adoc[Hosted NAMS MCP server] — how the MCP tools are served.

@@ -6,58 +6,53 @@
 
 See also xref:how-to/typescript/integrations-overview.adoc[the TypeScript integrations overview] for the equivalent guides in the TypeScript SDK.
 
-Neo4j Agent Memory provides official integrations for ten popular agent frameworks and cloud providers, enabling persistent memory storage backed by Neo4j's graph database.
+Neo4j Agent Memory provides official integrations for eleven popular agent frameworks and cloud providers, enabling persistent memory storage backed by Neo4j's graph database.
 
 == Available integrations
 
-[cols="1,2,1", options="header"]
+[cols="2,3", options="header"]
 |===
-| Framework | Use Case | Status
+| Framework | Use Case
 
 | xref:how-to/integrations/langchain.adoc[Use with LangChain]
 | Chains and agents with conversation memory
-| Experimental · Community supported
-
-| xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI]
-| Modern type-safe agents with automatic tracing
-| Experimental · Community supported
 
 | xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex]
 | RAG applications with document + graph retrieval
-| Experimental · Community supported
+
+| xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI]
+| Modern type-safe agents with automatic tracing
 
 | xref:how-to/integrations/crewai.adoc[Use with CrewAI]
 | Multi-agent systems with shared memory
-| Experimental · Community supported
 
 | xref:how-to/integrations/openai-agents.adoc[Use with the OpenAI Agents SDK]
 | OpenAI function calling with persistent memory
-| Experimental · Community supported
 
 | xref:how-to/integrations/google-cloud.adoc[Use Vertex AI embeddings with Neo4j]
 | Vertex AI embeddings, ADK agents, MCP server
-| Experimental · Community supported
+
+| xref:how-to/integrations/google-adk.adoc[Use with Google ADK]
+| Memory service for ADK `Runner` agents
 
 | xref:how-to/integrations/aws-strands.adoc[Use with Strands agents]
 | AWS Strands SDK with Bedrock and Context Graph tools
-| Experimental · Community supported
 
 | xref:how-to/integrations/aws-bedrock-embeddings.adoc[Use Amazon Bedrock embeddings]
 | Titan and Cohere embeddings via Bedrock
-| Experimental · Community supported
 
 | xref:how-to/integrations/aws-hybrid-memory.adoc[Route memory searches with the hybrid provider]
 | AgentCore + Context Graphs combined
-| Experimental · Community supported
 
 | xref:how-to/integrations/microsoft-agent.adoc[Use with Microsoft Agent Framework]
 | Context providers, GDS algorithms, and graph-enhanced memory
-| Experimental · Community supported
 |===
+
+All of the integrations above are experimental and community-supported.
 
 == Choosing a framework
 
-Not sure which integration to use? See the xref:explanation/framework-comparison.adoc[Framework Comparison Guide] for a detailed comparison of features, performance, and use cases.
+Not sure which integration to use? See the xref:explanation/framework-comparison.adoc[framework comparison guide] for a detailed comparison of features, performance, and use cases.
 
 == Common patterns
 
@@ -84,16 +79,3 @@ Automatically extract entities from conversations:
 * People, organizations, locations
 * Events and concepts
 * Custom entity types
-
-== Integration guides
-
-* xref:how-to/integrations/langchain.adoc[Use with LangChain] - Memory and retriever for chains
-* xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI] - Type-safe agents with tracing
-* xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex] - RAG with TextNode support
-* xref:how-to/integrations/crewai.adoc[Use with CrewAI] - Multi-agent shared memory
-* xref:how-to/integrations/openai-agents.adoc[Use with the OpenAI Agents SDK] - Function tools for OpenAI
-* xref:how-to/integrations/google-cloud.adoc[Use Vertex AI embeddings with Neo4j] - Vertex AI, ADK, MCP server
-* xref:how-to/integrations/aws-strands.adoc[Use with Strands agents] - Bedrock-powered agents with Context Graph
-* xref:how-to/integrations/aws-bedrock-embeddings.adoc[Use Amazon Bedrock embeddings] - Titan embedding configuration
-* xref:how-to/integrations/aws-hybrid-memory.adoc[Route memory searches with the hybrid provider] - Combined memory providers
-* xref:how-to/integrations/microsoft-agent.adoc[Use with Microsoft Agent Framework] - Context providers with GDS

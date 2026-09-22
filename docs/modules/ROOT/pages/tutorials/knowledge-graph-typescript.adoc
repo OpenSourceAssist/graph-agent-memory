@@ -94,7 +94,8 @@ anchor:_step_3_run_and_distinguish_storage_from_extraction[]
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts seed .tutorial-state/knowledge-graph.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/knowledge-graph.ts seed .tutorial-state/knowledge-graph.json
 ----
 
 Expect `Stored document messages verified: 2`. The program waits up to 60
@@ -111,7 +112,8 @@ After a timeout, observe the same run again in a new process:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts observe .tutorial-state/knowledge-graph.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/knowledge-graph.ts observe .tutorial-state/knowledge-graph.json
 ----
 
 `observe` verifies the saved messages, waits for terminal extraction and repeats
@@ -134,8 +136,10 @@ Run these commands from the same directory, using the state created above:
 
 [source,bash]
 ----
-npx tsx src/tutorials/knowledge-graph.ts inspect .tutorial-state/knowledge-graph.json
-npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts verify .tutorial-state/knowledge-graph.json
+npx tsx src/tutorials/knowledge-graph.ts \
+  inspect .tutorial-state/knowledge-graph.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/knowledge-graph.ts verify .tutorial-state/knowledge-graph.json
 ----
 
 `inspect` shows local saved IDs and operation status without loading `.env`
@@ -154,8 +158,10 @@ From the same lesson directory, clean up this run using its saved state:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/knowledge-graph.ts cleanup .tutorial-state/knowledge-graph.json
-npx tsx src/tutorials/knowledge-graph.ts inspect .tutorial-state/knowledge-graph.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/knowledge-graph.ts cleanup .tutorial-state/knowledge-graph.json
+npx tsx src/tutorials/knowledge-graph.ts \
+  inspect .tutorial-state/knowledge-graph.json
 ----
 
 The cleanup command waits for the recorded messages' extraction to finish,

@@ -32,7 +32,7 @@ that cannot reach the hosted server.
 
 == The 12 tools
 
-[options="header"]
+[cols="5,6,2",options="header"]
 |===
 | Tool | Wraps | Annotations
 | `memory_create_conversation` | `shortTerm.createConversation` | write

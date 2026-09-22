@@ -388,7 +388,7 @@ TypeDoc: link:{attachmentsdir}/api/typescript/classes/index.AuthClient.html[`Aut
 
 Typed, versioned, validated domain schemas. See
 xref:reference/ontology-api.adoc[Ontology API] and
-xref:how-to/use-ontologies.adoc[Use Ontologies].
+xref:how-to/use-ontologies.adoc[Use ontologies].
 
 [cols="2,3", options="header"]
 |===

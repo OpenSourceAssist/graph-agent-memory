@@ -87,8 +87,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "8ad67d8042f6e64fdd8a15b745a0bf6e52934fd8824e2f27f609ba430ed128d3",
-      "output_sha256": "4246ecc22db3c50d6a76b8c3c54e2b42639d3e65f26313c630c52c46c3645176",
+      "source_sha256": "a99526112a42bfbcb3505deff5a81ecd644e2fe9c35203703173ab09d72788f7",
+      "output_sha256": "595280bedd15ea3eb40bdaaac63a5c17e28e1abf97f51fd21c5c757497e9693b",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
       "reviewed_on": "2026-09-18"
@@ -101,8 +101,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "c1f0667999c3fbe613e3a1d7e83bab1b58cea47ad30b2c298fa766ebc70ae0ff",
-      "output_sha256": "3c68edee883fc2a67dfbf924e7617108bdaf750fa56bb0caea9ef6c32e31cf21",
+      "source_sha256": "d900384063d779341844396c6c755d7fb4a7b345dfdc6a1dd6e8ffdb9f085e56",
+      "output_sha256": "26d5ce2ebe3e47860b38a1fa5c596fe0187902f02625f0354a7a3a6fdb1b3563",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
       "reviewed_on": "2026-09-18"
@@ -115,8 +115,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "66acbe0aa7a80a03ffaa3bbd4c3e759c245e7388a0156175e585f94b98a6751b",
-      "output_sha256": "3a108619a332a0d263d11e303664c42640fb24827e6ca886083257bc94d9d69c",
+      "source_sha256": "dde48c9c6ecd7d09b9d129fbd319c714c94af44eb884958053b2d78247e09f48",
+      "output_sha256": "7d4d6c8f4e2e12d1f5cd6b370371005860444af93c2aa6f4255156abc6141507",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18",
       "referring_documents": []
@@ -130,8 +130,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "8792cca88078222a685acc1ce53172464ab0a9038c22d0b22bb5515e6dcd5130",
-      "output_sha256": "d3f44cd6fe2a3886e41b42be28cf258aa79b119974d7e8e42e9f1ae563589b6b",
+      "source_sha256": "c7c64e54cda813709fa046c251cffe99d776ee3a053250e6f28d0a7414721c4c",
+      "output_sha256": "ecd84f6dd97719c2780f4116f95dbd56f98f4558a293c036a59dd937a39e8ed1",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18",
       "referring_documents": []
@@ -172,30 +172,31 @@
     {
       "output": "docs/modules/ROOT/images/diagrams/mcp-server-architecture.png",
       "source": "docs/assets/diagrams/excalidraw/mcp-server-architecture.excalidraw",
+      "referring_pages": [],
+      "owner": "documentation maintainers",
+      "status": "pending-placement",
+      "source_sha256": "dda9d723ddc00cd28292ff4d0fea2201d9c332d2efec8fe6f4f4b88d3eeb912f",
+      "output_sha256": "c9ccdd858e97d5e6203e26fcd0a7f03de37370c64ab86b65ad99a6338d72eccb",
+      "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
+      "reviewed_on": "2026-09-18",
+      "referring_documents": [
+        "README.md"
+      ],
+      "note": "Referenced by README.md; re-exported from the current scene."
+    },
+    {
+      "output": "docs/modules/ROOT/images/diagrams/mcp-server-architecture.svg",
+      "source": "docs/assets/diagrams/excalidraw/mcp-server-architecture.excalidraw",
       "referring_pages": [
         "docs/modules/ROOT/pages/reference/mcp-tools.adoc"
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "b5db3278ca24611b1d7f63b39a9e69b1a212315c447c91be221b3aa00c7a68af",
-      "output_sha256": "5ee90b45e98ad73c4b9e32fe32c85cc95d5b94ddecb1c2939d42f902aa089951",
-      "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-17",
-      "referring_documents": [
-        "README.md"
-      ]
-    },
-    {
-      "output": "docs/modules/ROOT/images/diagrams/mcp-server-architecture.svg",
-      "source": "docs/assets/diagrams/excalidraw/mcp-server-architecture.excalidraw",
-      "referring_pages": [],
-      "owner": "documentation maintainers",
-      "status": "unresolved-provenance",
-      "source_sha256": "b5db3278ca24611b1d7f63b39a9e69b1a212315c447c91be221b3aa00c7a68af",
-      "output_sha256": "880ff52f255886c344857af39b7df375cc687b691fcc96b5c28184ec4352c408",
+      "source_sha256": "dda9d723ddc00cd28292ff4d0fea2201d9c332d2efec8fe6f4f4b88d3eeb912f",
+      "output_sha256": "1013178c8230776c638b53e6ff95afacb103e246ca0cfa8c8b56e73b4a454a70",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
-      "note": "Untracked alternate-format export found alongside the in-use mcp-server-architecture.png; not referenced by any page. Provenance (intentional prep vs. abandoned export) unconfirmed -- left on disk pending maintainer triage."
+      "reviewed_on": "2026-09-18"
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/memory-architecture.svg",
@@ -220,10 +221,10 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "758eec8996f5745e9d010cc56bc2e26b45480c29b2b6e367f665fda0f3be838f",
-      "output_sha256": "c70a6e621da29766946449aad2dda7007b78ef6ca3e7377b01f0e051ac5ba8fa",
+      "source_sha256": "78da9f8bb16a73cf04b370795c6fed50432c5be84f5cc6a79a4566771e2a7cef",
+      "output_sha256": "48a63dc8045175152e291c7d9f347ac6abc40d3d1c45f8c7b0cd1e54276d7e2f",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-13",
+      "reviewed_on": "2026-09-18",
       "referring_documents": []
     },
     {
@@ -234,8 +235,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "521f54ec000f893d5706eb4a4fd275cfc1e60fe495de1edb5e6e661012f4986a",
-      "output_sha256": "23d5c59aa13cf652ce10aebf657563d8ff4b3c1aec05449b377683b9d962e7c5",
+      "source_sha256": "771dbd10bb9d4ec4075a67fdf8763dd1490163fe5366c86a6c00f9f39be686fc",
+      "output_sha256": "e3c002ccbb259956ba2c39c5ee91b8635202bafe6121d906b7f29ec62519d6fe",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
       "reviewed_on": "2026-09-18"
@@ -280,8 +281,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "9240bc78652c68f98a9d9538a8ff36d07af5c4791bde5fae6f153754d32fcba5",
-      "output_sha256": "f2256dcff90c33eb1d3e3ccaec09de04f1fa06171df34e8ba2dc07eb4699d744",
+      "source_sha256": "f5b668963f15cf40d3c5ca990845568b3c777b9cfe132bd84759923c92666ffc",
+      "output_sha256": "8eabe03d5d508440148daee878d556dc8f16c406fe9f9d9bb3b5d3820fff9024",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18",
       "referring_documents": []
@@ -294,10 +295,10 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "2f87a426335a08fc67f590055613911a5bd97e9383d0e28c9cbcd29ece995b14",
-      "output_sha256": "98e6b6275d77f09679a16b14f8b22c7f78a0c8a0128765edfd821b01b4602ce7",
+      "source_sha256": "e43294f114ea226c302ff7651933ebe0e7387c1049be50cb5b8eaeeff78681aa",
+      "output_sha256": "828234cf07367a8fe206747e4dca06bd7fdd92b82fb2f6c43955690ed1f2aa1f",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-13",
+      "reviewed_on": "2026-09-18",
       "referring_documents": []
     },
     {
@@ -308,8 +309,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "7902090eac90d1ed0a4186852103cb9888f259e06f20964f09c134c9d4d0bbed",
-      "output_sha256": "46ba4ad6e4fc0e89fcc68531682a429cbd1564b5dd8467590a8bbb34734bf228",
+      "source_sha256": "9d720e557228f9cae5fa0e08cc777a6309570db1861c1d7146fd899e4b72aec8",
+      "output_sha256": "168ea2017c698a4cbf18cb0babe528ab6e2418a641cfb9a5814580244bf526c2",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
       "reviewed_on": "2026-09-18"
@@ -346,43 +347,31 @@
     {
       "output": "docs/modules/ROOT/images/diagrams/the-three-layer-memory-architecture.png",
       "source": "docs/assets/diagrams/excalidraw/the-three-layer-memory-architecture.excalidraw",
-      "referring_pages": [
-        "docs/modules/ROOT/pages/explanation/memory-types.adoc",
-        "docs/modules/ROOT/pages/index.adoc"
-      ],
+      "referring_pages": [],
       "owner": "documentation maintainers",
-      "status": "exported-and-visually-reviewed",
-      "source_sha256": "264e8878ac09d40d06d32f4724b43ed95e3bf944e8672bd2e8b6b49db890df5c",
-      "output_sha256": "f01f03b8105f215b46031fb9f017d781694a3bf950b34fb644e65b3670bdc083",
+      "status": "pending-placement",
+      "source_sha256": "e290160d657c642c960f66923ba3e8cba201a8366ecaa34ae058c331f1df0ebf",
+      "output_sha256": "95e41e82974dba5b694763265c95d2b029c063fe8ae2a8b5fdf0a203b7d6a283",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-13",
+      "reviewed_on": "2026-09-18",
       "referring_documents": [
         "README.md"
-      ]
+      ],
+      "note": "Referenced by README.md; re-exported from the current scene."
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/the-three-layer-memory-architecture.svg",
       "source": "docs/assets/diagrams/excalidraw/the-three-layer-memory-architecture.excalidraw",
-      "referring_pages": [],
+      "referring_pages": [
+        "docs/modules/ROOT/pages/index.adoc"
+      ],
       "owner": "documentation maintainers",
-      "status": "unresolved-provenance",
-      "source_sha256": "264e8878ac09d40d06d32f4724b43ed95e3bf944e8672bd2e8b6b49db890df5c",
-      "output_sha256": "cf8b2b04be430813a9df2fbd2f0bc88fb9a7db74d468acf09ef916537a675062",
+      "status": "exported-and-visually-reviewed",
+      "source_sha256": "e290160d657c642c960f66923ba3e8cba201a8366ecaa34ae058c331f1df0ebf",
+      "output_sha256": "3cc4ddb3dc07173cd3ce6a9c540ba6d960f620c0589b3eab74957e0df4f71049",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
-      "note": "Untracked alternate-format export found alongside the in-use the-three-layer-memory-architecture.png; not referenced by any page. Provenance (intentional prep vs. abandoned export) unconfirmed -- left on disk pending maintainer triage."
-    },
-    {
-      "output": "docs/modules/ROOT/images/diagrams/three-extraction-approaches-pipeline.png",
-      "source": "docs/assets/diagrams/excalidraw/three-extraction-approaches.excalidraw",
-      "referring_pages": [],
-      "owner": "documentation maintainers",
-      "status": "unresolved-provenance",
-      "source_sha256": "8792cca88078222a685acc1ce53172464ab0a9038c22d0b22bb5515e6dcd5130",
-      "output_sha256": "4ffcc8107c0fbf4445a29820bc52a148a5a2b09690922bed85875c52b21232a3",
-      "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "referring_documents": [],
-      "note": "Untracked file alongside the already-unreferenced, pending-placement three-extraction-approaches.png; neither is embedded on any page. Left on disk pending maintainer triage."
+      "reviewed_on": "2026-09-18"
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/three-extraction-approaches.png",
@@ -390,49 +379,27 @@
       "referring_pages": [],
       "owner": "documentation maintainers",
       "status": "pending-placement",
-      "source_sha256": "8792cca88078222a685acc1ce53172464ab0a9038c22d0b22bb5515e6dcd5130",
-      "output_sha256": "b1d95bda37ae3a0d689664b1dd734a2b9b95bfdf1a8748c2569885a64696113f",
+      "source_sha256": "c7c64e54cda813709fa046c251cffe99d776ee3a053250e6f28d0a7414721c4c",
+      "output_sha256": "5b45c2f03dde2ebbdde3c91eb3204b9e3068608c5e89bd27ea5bef552a9ea1e2",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-13",
+      "reviewed_on": "2026-09-18",
       "referring_documents": [
         "README.md"
-      ]
+      ],
+      "note": "Referenced by README.md; re-exported from the current scene."
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/three-extraction-approaches.svg",
       "source": "docs/assets/diagrams/excalidraw/three-extraction-approaches.excalidraw",
       "referring_pages": [],
       "owner": "documentation maintainers",
-      "status": "unresolved-provenance",
-      "source_sha256": "8792cca88078222a685acc1ce53172464ab0a9038c22d0b22bb5515e6dcd5130",
-      "output_sha256": "f2fefb0d8cdd61aabcabda70d72141f6e14eca5da0e42f1503bb83a0fcfc1e35",
-      "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "referring_documents": [],
-      "note": "Untracked file alongside the already-unreferenced, pending-placement three-extraction-approaches.png; neither is embedded on any page. Left on disk pending maintainer triage."
-    },
-    {
-      "output": "docs/modules/ROOT/images/diagrams/three-memory-types-diagram.png",
-      "source": "docs/assets/diagrams/excalidraw/the-three-layer-memory-architecture.excalidraw",
-      "referring_pages": [],
-      "owner": "documentation maintainers",
       "status": "pending-placement",
-      "source_sha256": "264e8878ac09d40d06d32f4724b43ed95e3bf944e8672bd2e8b6b49db890df5c",
-      "output_sha256": "f01f03b8105f215b46031fb9f017d781694a3bf950b34fb644e65b3670bdc083",
-      "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-13",
-      "referring_documents": []
-    },
-    {
-      "output": "docs/modules/ROOT/images/diagrams/three-memory-types-diagram.svg",
-      "source": "docs/assets/diagrams/excalidraw/the-three-layer-memory-architecture.excalidraw",
-      "referring_pages": [],
-      "owner": "documentation maintainers",
-      "status": "unresolved-provenance",
-      "source_sha256": "264e8878ac09d40d06d32f4724b43ed95e3bf944e8672bd2e8b6b49db890df5c",
-      "output_sha256": "cf8b2b04be430813a9df2fbd2f0bc88fb9a7db74d468acf09ef916537a675062",
+      "source_sha256": "c7c64e54cda813709fa046c251cffe99d776ee3a053250e6f28d0a7414721c4c",
+      "output_sha256": "ecd84f6dd97719c2780f4116f95dbd56f98f4558a293c036a59dd937a39e8ed1",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
-      "note": "Untracked file alongside the already-unreferenced, pending-placement three-memory-types-diagram.png; neither is embedded on any page. Left on disk pending maintainer triage."
+      "note": "Exporter sibling of a README-referenced PNG; not embedded by any page.",
+      "reviewed_on": "2026-09-18"
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/multi-tenant-scoping.svg",
@@ -442,8 +409,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "54a1f84912663adbe30b4cafa23a8b1abf4f77b5aed1c04c60da184fbff4b4bc",
-      "output_sha256": "64b7cc990b7fbd857dfda7ac71f201cfd7d904a8b7855285dcfb03a2516fedc1",
+      "source_sha256": "dfcd3cfb9024deccefdab808feb0e10e84e5319321f4cc4d218f0fe4560339a6",
+      "output_sha256": "d3835176f62f8c23ad22335e3b12afe132b088253ab039b699bd9d2722b56aaa",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18"
     },
@@ -455,8 +422,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "a3a489001b7507eb953ed20391f1f92f8d91947e0233efcaf2dae8b2a61e93ce",
-      "output_sha256": "a40fb003145949ddd8e2e2db99173895830b483c69c5ac2746e67beff83a464a",
+      "source_sha256": "a335c6d383d75736f1a4de4863cbd2d186c214bd360d55ac8cd440fffac4a37b",
+      "output_sha256": "65e47e28148c56271a11895eda6eb9265e6741ac1ed43c64a11437be7318c528",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18"
     },
@@ -468,8 +435,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "3aefb9e9ea8b67817da32b2b42d0647a5b7f183f4bb8920ba69d14a1381d4960",
-      "output_sha256": "bc8c7e51efd665bb1136643969f0c87f72a3be249a87f3d14d7c4e1ae861bcd8",
+      "source_sha256": "6632db903c931866b00c61b4bc23af06cca3bc5b14a578180c3a77a9ba8e1f40",
+      "output_sha256": "bc8e4cee3c862ae33e85fc578ddcba67810c867d98452bff0ffe7d0a1ccbfc5f",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18"
     },
@@ -481,10 +448,10 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "0ae1e8f256c5744164918a5f11ecaa8c388995dbb4462da452e2ac413f30b3d9",
-      "output_sha256": "e8dc81b96dc7089af693d407de33bfc175e3a3fb6093032b1b601b97bc8e47e2",
+      "source_sha256": "42a6a1e2595fd1a830ff785801053f7fff865a4f334f88b8022b3a536574354d",
+      "output_sha256": "322fb19283f5de5f1f436c53f1d7a30981940b6655b221f2ba7786d2c139cd48",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-17",
+      "reviewed_on": "2026-09-18",
       "referring_documents": []
     },
     {
@@ -495,10 +462,10 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "93a4f8c2f17fe94948cc4fdb1f45d2d40657dec870949ed7ca24ccdb34975137",
-      "output_sha256": "8e4d8b218b9c0091a87c63f803df7043e0cdf98ad5819bf08eb4511f2e6c19e4",
+      "source_sha256": "8c62e83fb69fb170a5bd096a2ed88a62ef147e5d23502e7d9d54dbf80ec5b122",
+      "output_sha256": "3bcc1ab824eb9a74ce022dd84bd664fe2060703fae614efd1f7a10838947cdbe",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-17",
+      "reviewed_on": "2026-09-18",
       "referring_documents": []
     },
     {
@@ -509,8 +476,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "f43fec84de228edde133d70552f3b09f3b821eaa6efa8e4d57a55b33ed9d2e03",
-      "output_sha256": "fb499d6b46e0366b7f81cf03d92fba67faac7085b9d355cc36f71806a7766e38",
+      "source_sha256": "ae757c2d5eed7d053faf42dc439f08a46af82ef6b23d7f69a70991b60d6a6c95",
+      "output_sha256": "0ef0e9b6164bba07cb4cbad700f549403317377ed9627a7daab1b6b966ddd6bb",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18",
       "referring_documents": []
@@ -523,8 +490,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "bd72cdc06462c53cf32544ec3ef5748d3cb6ee7049c3cc393978be8453642ad6",
-      "output_sha256": "50d11c88db2efd6506b7da98b5c1145e0e600b06a9785575caf35db26df2f2bd",
+      "source_sha256": "d13b3709c2825b4ce44ae2a4aee829f2775c660badb6c16d456f03b66ba739a9",
+      "output_sha256": "33e9d5fb9305b522923ea4cb947fea503d50247527fe0e8ce9868364a697dab3",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18",
       "referring_documents": []
@@ -551,8 +518,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "7ff21caa2f4cc9f73d7b1cf13a294a508c095a031848c9e5fc881c3e22217da1",
-      "output_sha256": "81b1415a658e7c202f961520bd0a81bd68561436e1ac7535c30c4b851c088b23",
+      "source_sha256": "f5a8f1c7110f9a42665f3dd8b2eae10a71e00a664c7df8d6176bd5de083dec96",
+      "output_sha256": "9253efaa8d0fccbb89b5e32bd0ebe9d66e1ae7e18775c2bc118606cf2b9f803e",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18",
       "referring_documents": []
@@ -565,8 +532,8 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "a197e850e1f86f3b54f87e0b6c0565a6d10d469970bcfa4fd7871b6ba968711c",
-      "output_sha256": "7b8547ebbfcfa71f667c95e2bf4055f7f6b115df9b4fdea26f1d442869c91117",
+      "source_sha256": "86e7968008d811c74e1a743d6194f0eff51bd68f21396e44b3d4e980e81e4456",
+      "output_sha256": "18042b072ab4923dd11df6d6a83ad4a03927f2929205421aea7169379376303f",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18",
       "referring_documents": []

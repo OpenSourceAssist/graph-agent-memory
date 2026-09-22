@@ -30,22 +30,27 @@ Title at top: "POLE+O Entity Model". Camera XL (1200x900).
 **Describes**: How messages are stored and linked in short-term memory
 
 ### Layout
-Vertical flow:
+Vertical flow (2026-09-18 re-export, no in-image title):
 ```
-[Conversation] 
+:Conversation
   --FIRST_MESSAGE-->
-[Message: user "Hello"]
+:Message role=user · "Hello, Maya"
   --NEXT_MESSAGE-->
-[Message: assistant "Hi there"]
+:Message role=assistant · "Northstar can help"
   --NEXT_MESSAGE-->
-[Message: user "..."]
+:Message role=user · "Thanks"
 ```
-On the right side, branch arrows from messages:
+On the right side, branch arrows from the first two messages:
 ```
-[Message] --MENTIONS--> [Entity: Person]
-[Message] --MENTIONS--> [Entity: Org]
+:Message "Hello, Maya"          --MENTIONS--> :Entity:Person type=PERSON
+:Message "Northstar can help"   --MENTIONS--> :Entity:Organization type=ORGANIZATION
 ```
-Color: Conversation=light teal, Messages=light blue (user) / light green (assistant), Entities=light purple.
+Caption text under the diagram: "HAS_MESSAGE links from the Conversation to
+every Message are omitted for clarity." and "MENTIONS links are created by
+extraction; entity labels use PascalCase, type values use uppercase."
+Colors follow the house semantic palette: Conversation and all Messages are a
+single short-term green, and both Entity nodes are long-term yellow/orange
+(not the earlier teal/blue/green/purple mix).
 
 ---
 
@@ -83,20 +88,32 @@ position and label, not by color.
 **Describes**: Fire-and-forget buffered write architecture
 
 ### Layout
-Left-to-right flow with two horizontal swimlanes:
+Vertical flow (2026-09-18 re-export, no in-image title):
 ```
-Top lane (Agent response path):
-[Agent Turn] --submit()--> [Buffer Queue] 
-    |                    (max_pending=200)
-[Returns immediately]
-
-Bottom lane (Background drain path):
-                 [Buffer Queue] --drain--> [Neo4j]
-                                         (async)
+[Agent submits a write] --submit()--> [Bounded queue, max_pending=200 by default]
+                                              |
+                                           consume
+                                              v
+                                [Background drainer: consumes queued jobs]
+                                              |
+                                         execute_write
+                                              v
+                                    [Neo4j write attempt] --failure--> [Failure recorded in
+                                                                        client.write_errors;
+                                                                        optional error callback]
 ```
-Arrow from "Returns immediately" back to user showing agent is not blocked.
-Annotation: "Back-pressure at max_pending" on the queue.
-Colors: Agent=light purple, Buffer=light yellow, Neo4j=light teal.
+Plain-text annotations (no boxes) alongside the flow: "Queue has space: return
+after enqueueing. Queue full: wait for free space. This is intentional
+backpressure." and "Success and failure both finish the queued attempt; the
+drainer continues to the next job." A separate callout box reads
+"flush() / wait_for_pending() waits for queued attempts to finish. Then
+inspect write_errors and read back the required data.", followed by plain
+text: "Flush completion is not a guarantee that every write succeeded. Stop
+submitting new writes before a final flush; concurrent submissions can race
+with it."
+Colors: "Agent submits a write" and the failure/flush callout boxes are light
+purple/lavender; the queue, drainer, and write-attempt boxes are blue (not the
+earlier purple/yellow/teal scheme).
 
 ---
 
@@ -105,24 +122,28 @@ Colors: Agent=light purple, Buffer=light yellow, Neo4j=light teal.
 **Describes**: How entity deduplication works with similarity thresholds
 
 ### Layout
-Vertical decision flowchart:
+Vertical decision flowchart (2026-09-18 re-export; this is the one diagram in
+this set that still carries an in-image title, "Entity Deduplication Flow"):
 ```
-[New Entity] 
+[New Entity]
      |
 [Compute Similarity]
 (embedding + fuzzy)
      |
-  <similarity >= 0.95?>
+  <sim >= 0.95?>
    YES /          \ NO
       /            \
-[Auto-Merge]    <similarity >= 0.85?>
-(aliases kept)    YES /       \ NO
-                     /         \
+[Auto-Merge      <sim >= 0.85?>
+(keep aliases)]    YES /       \ NO
+                      /         \
               [Flag SAME_AS]  [Create New]
-              (status=pending) (no duplicate)
+              (status=pending)
 ```
-Colors: Input=light blue, decision diamonds=light yellow, 
-Auto-merge=light green, Flag=light orange, Create=light teal.
+Caption: "Thresholds: auto_merge_threshold=0.95 | flag_threshold=0.85".
+Colors: New Entity / Auto-Merge / Flag SAME_AS / Create New are all a single
+long-term yellow/orange; the similarity-compute box and both decision
+diamonds are neutral grey (not the earlier five-color blue/yellow/green/
+orange/teal scheme).
 
 ---
 
@@ -131,28 +152,29 @@ Auto-merge=light green, Flag=light orange, Create=light teal.
 **Replaces**: ASCII art trace structure diagram
 
 ### Layout
-Graph structure showing node types and relationships:
+Graph structure showing node types and relationships (2026-09-18 re-export,
+no in-image title; no Entity node or TOUCHED edge is drawn in this diagram —
+TOUCHED is called out only in a caption, see below):
 ```
-[Message] --INITIATED_BY--> [ReasoningTrace "Product search"]
+:Message <--INITIATED_BY-- :ReasoningTrace "Product search"
                                     |
                               HAS_STEP
-                                    |
                     ┌───────────────┼───────────────┐
                     |               |               |
-               [Step 1]        [Step 2]        [Step 3]
-              "Search"        "Filter"       "Recommend"
+            :ReasoningStep  :ReasoningStep  :ReasoningStep
+             "1 · Search"    "2 · Filter"   "3 · Recommend"
                     |               |               |
               USES_TOOL        USES_TOOL       USES_TOOL
                     |               |               |
-            [ToolCall:       [ToolCall:     [ToolCall:
-            search_api]      get_prefs]    rank_items]
-                    |
-                TOUCHED
-                    |
-             [Entity: Nike]
+            :ToolCall        :ToolCall       :ToolCall
+            search_api       get_prefs       rank_items
 ```
-Colors: Message=light blue, Trace=light purple, Steps=light purple (lighter),
-ToolCalls=light orange, Entities=light green.
+Captions: "Steps are ordered by step_number and HAS_STEP.order; no
+inter-step edges are shown." and "Optional TOUCHED links record
+application-supplied entity references; they do not prove a modification."
+Colors: `:Message`=short-term green, `:ReasoningTrace`/`:ReasoningStep`/
+`:ToolCall` are all reasoning purple, in the same family rather than the
+earlier blue/purple/orange/green mix (there is no Entity node to color).
 
 ---
 

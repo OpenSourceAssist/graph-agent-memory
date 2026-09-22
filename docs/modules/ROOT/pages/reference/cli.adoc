@@ -329,6 +329,6 @@ export NAM_EMBEDDING=BAAI/bge-small-en-v1.5
 
 == See also
 
-* xref:how-to/entity-extraction.adoc[Configure Entity Extraction] - Pipeline configuration
-* xref:reference/schemas.adoc[Domain Schemas Reference] - Available schemas
-* xref:reference/extractors.adoc[Extractor Classes Reference] - Python API
+* xref:how-to/entity-extraction.adoc[Extract and inspect entity candidates] — Pipeline configuration.
+* xref:reference/schemas.adoc[Domain schemas reference] — Available schemas.
+* xref:reference/extractors.adoc[Extractor classes reference] — Python API.

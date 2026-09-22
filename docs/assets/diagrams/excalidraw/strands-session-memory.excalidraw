@@ -4,82 +4,10 @@
   "source": "https://excalidraw.com",
   "elements": [
     {
-      "id": "title",
-      "type": "text",
-      "x": 30,
-      "y": 20,
-      "width": 1200,
-      "height": 38,
-      "angle": 0,
-      "strokeColor": "#1e1e1e",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 5001,
-      "version": 1,
-      "versionNonce": 5002,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1,
-      "link": null,
-      "locked": false,
-      "text": "Neo4j Labs \u00b7 AWS Strands integration surfaces",
-      "fontSize": 28,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "middle",
-      "baseline": 28,
-      "containerId": null,
-      "originalText": "Neo4j Labs \u00b7 AWS Strands integration surfaces",
-      "lineHeight": 1.25
-    },
-    {
-      "id": "subtitle",
-      "type": "text",
-      "x": 30,
-      "y": 58,
-      "width": 1000,
-      "height": 52,
-      "angle": 0,
-      "strokeColor": "#495057",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "seed": 5003,
-      "version": 1,
-      "versionNonce": 5004,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1,
-      "link": null,
-      "locked": false,
-      "text": "Neo4jSessionManager, Neo4jMemoryStore and context_graph_tools over one Neo4j database,\nwith Bedrock Titan V2 embedding their content",
-      "fontSize": 20,
-      "fontFamily": 2,
-      "textAlign": "left",
-      "verticalAlign": "middle",
-      "baseline": 20,
-      "containerId": null,
-      "originalText": "Neo4jSessionManager, Neo4jMemoryStore and context_graph_tools over one Neo4j database,\nwith Bedrock Titan V2 embedding their content",
-      "lineHeight": 1.25
-    },
-    {
       "id": "agent-box",
       "type": "rectangle",
-      "x": 280,
-      "y": 140,
+      "x": 255,
+      "y": 102,
       "width": 340,
       "height": 110,
       "angle": 0,
@@ -124,8 +52,8 @@
     {
       "id": "agent-text",
       "type": "text",
-      "x": 280,
-      "y": 140,
+      "x": 255,
+      "y": 102,
       "width": 340,
       "height": 110,
       "angle": 0,
@@ -160,8 +88,8 @@
     {
       "id": "bedrock-box",
       "type": "rectangle",
-      "x": 980,
-      "y": 140,
+      "x": 715,
+      "y": 102,
       "width": 280,
       "height": 110,
       "angle": 0,
@@ -185,18 +113,6 @@
         {
           "id": "bedrock-text",
           "type": "text"
-        },
-        {
-          "id": "a-bedrock-session",
-          "type": "arrow"
-        },
-        {
-          "id": "a-bedrock-store",
-          "type": "arrow"
-        },
-        {
-          "id": "a-bedrock-tools",
-          "type": "arrow"
         }
       ],
       "updated": 1,
@@ -206,8 +122,8 @@
     {
       "id": "bedrock-text",
       "type": "text",
-      "x": 980,
-      "y": 140,
+      "x": 715,
+      "y": 102,
       "width": 280,
       "height": 110,
       "angle": 0,
@@ -243,7 +159,7 @@
       "id": "session-box",
       "type": "rectangle",
       "x": 20,
-      "y": 390,
+      "y": 352,
       "width": 380,
       "height": 150,
       "angle": 0,
@@ -273,10 +189,6 @@
           "type": "arrow"
         },
         {
-          "id": "a-bedrock-session",
-          "type": "arrow"
-        },
-        {
           "id": "a-session-db",
           "type": "arrow"
         }
@@ -289,7 +201,7 @@
       "id": "session-text",
       "type": "text",
       "x": 20,
-      "y": 390,
+      "y": 352,
       "width": 380,
       "height": 150,
       "angle": 0,
@@ -325,7 +237,7 @@
       "id": "store-box",
       "type": "rectangle",
       "x": 450,
-      "y": 390,
+      "y": 352,
       "width": 380,
       "height": 150,
       "angle": 0,
@@ -355,10 +267,6 @@
           "type": "arrow"
         },
         {
-          "id": "a-bedrock-store",
-          "type": "arrow"
-        },
-        {
           "id": "a-store-db",
           "type": "arrow"
         }
@@ -371,7 +279,7 @@
       "id": "store-text",
       "type": "text",
       "x": 450,
-      "y": 390,
+      "y": 352,
       "width": 380,
       "height": 150,
       "angle": 0,
@@ -407,7 +315,7 @@
       "id": "tools-box",
       "type": "rectangle",
       "x": 880,
-      "y": 390,
+      "y": 352,
       "width": 380,
       "height": 150,
       "angle": 0,
@@ -437,10 +345,6 @@
           "type": "arrow"
         },
         {
-          "id": "a-bedrock-tools",
-          "type": "arrow"
-        },
-        {
           "id": "a-tools-db",
           "type": "arrow"
         }
@@ -453,7 +357,7 @@
       "id": "tools-text",
       "type": "text",
       "x": 880,
-      "y": 390,
+      "y": 352,
       "width": 380,
       "height": 150,
       "angle": 0,
@@ -489,7 +393,7 @@
       "id": "db-box",
       "type": "rectangle",
       "x": 20,
-      "y": 610,
+      "y": 572,
       "width": 1240,
       "height": 90,
       "angle": 0,
@@ -535,7 +439,7 @@
       "id": "db-text",
       "type": "text",
       "x": 20,
-      "y": 610,
+      "y": 572,
       "width": 1240,
       "height": 90,
       "angle": 0,
@@ -570,9 +474,9 @@
     {
       "id": "a-agent-session",
       "type": "arrow",
-      "x": 340,
-      "y": 250,
-      "width": 130,
+      "x": 310,
+      "y": 212,
+      "width": 140,
       "height": 140,
       "angle": 0,
       "strokeColor": "#1e1e1e",
@@ -601,27 +505,19 @@
           0
         ],
         [
-          0,
-          40
-        ],
-        [
-          -130,
-          40
-        ],
-        [
-          -130,
+          -140,
           140
         ]
       ],
       "lastCommittedPoint": null,
       "startBinding": {
         "elementId": "agent-box",
-        "focus": -0.35,
+        "focus": 0,
         "gap": 6
       },
       "endBinding": {
         "elementId": "session-box",
-        "focus": -0.4,
+        "focus": 0,
         "gap": 6
       },
       "startArrowhead": null,
@@ -631,9 +527,9 @@
     {
       "id": "a-agent-store",
       "type": "arrow",
-      "x": 450,
-      "y": 250,
-      "width": 190,
+      "x": 425,
+      "y": 212,
+      "width": 165,
       "height": 140,
       "angle": 0,
       "strokeColor": "#1e1e1e",
@@ -662,27 +558,19 @@
           0
         ],
         [
-          0,
-          40
-        ],
-        [
-          190,
-          40
-        ],
-        [
-          190,
+          165,
           140
         ]
       ],
       "lastCommittedPoint": null,
       "startBinding": {
         "elementId": "agent-box",
-        "focus": 0.0,
+        "focus": 0,
         "gap": 6
       },
       "endBinding": {
         "elementId": "store-box",
-        "focus": 0.0,
+        "focus": 0,
         "gap": 6
       },
       "startArrowhead": null,
@@ -692,9 +580,9 @@
     {
       "id": "a-agent-tools",
       "type": "arrow",
-      "x": 560,
-      "y": 250,
-      "width": 510,
+      "x": 540,
+      "y": 212,
+      "width": 470,
       "height": 140,
       "angle": 0,
       "strokeColor": "#1e1e1e",
@@ -723,210 +611,19 @@
           0
         ],
         [
-          0,
-          40
-        ],
-        [
-          510,
-          40
-        ],
-        [
-          510,
+          470,
           140
         ]
       ],
       "lastCommittedPoint": null,
       "startBinding": {
         "elementId": "agent-box",
-        "focus": 0.4,
+        "focus": 0,
         "gap": 6
       },
       "endBinding": {
         "elementId": "tools-box",
-        "focus": -0.35,
-        "gap": 6
-      },
-      "startArrowhead": null,
-      "endArrowhead": "arrow",
-      "elbowed": false
-    },
-    {
-      "id": "a-bedrock-session",
-      "type": "arrow",
-      "x": 1000,
-      "y": 250,
-      "width": 700,
-      "height": 140,
-      "angle": 0,
-      "strokeColor": "#868e96",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "dashed",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": {
-        "type": 2
-      },
-      "seed": 5035,
-      "version": 1,
-      "versionNonce": 5036,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1,
-      "link": null,
-      "locked": false,
-      "points": [
-        [
-          0,
-          0
-        ],
-        [
-          0,
-          80
-        ],
-        [
-          -700,
-          80
-        ],
-        [
-          -700,
-          140
-        ]
-      ],
-      "lastCommittedPoint": null,
-      "startBinding": {
-        "elementId": "bedrock-box",
-        "focus": -0.3,
-        "gap": 6
-      },
-      "endBinding": {
-        "elementId": "session-box",
-        "focus": 0.25,
-        "gap": 6
-      },
-      "startArrowhead": null,
-      "endArrowhead": "arrow",
-      "elbowed": false
-    },
-    {
-      "id": "a-bedrock-store",
-      "type": "arrow",
-      "x": 1080,
-      "y": 250,
-      "width": 360,
-      "height": 140,
-      "angle": 0,
-      "strokeColor": "#868e96",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "dashed",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": {
-        "type": 2
-      },
-      "seed": 5037,
-      "version": 1,
-      "versionNonce": 5038,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1,
-      "link": null,
-      "locked": false,
-      "points": [
-        [
-          0,
-          0
-        ],
-        [
-          0,
-          80
-        ],
-        [
-          -360,
-          80
-        ],
-        [
-          -360,
-          140
-        ]
-      ],
-      "lastCommittedPoint": null,
-      "startBinding": {
-        "elementId": "bedrock-box",
-        "focus": 0.0,
-        "gap": 6
-      },
-      "endBinding": {
-        "elementId": "store-box",
-        "focus": 0.2,
-        "gap": 6
-      },
-      "startArrowhead": null,
-      "endArrowhead": "arrow",
-      "elbowed": false
-    },
-    {
-      "id": "a-bedrock-tools",
-      "type": "arrow",
-      "x": 1150,
-      "y": 250,
-      "width": 80,
-      "height": 140,
-      "angle": 0,
-      "strokeColor": "#868e96",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "dashed",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": {
-        "type": 2
-      },
-      "seed": 5039,
-      "version": 1,
-      "versionNonce": 5040,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1,
-      "link": null,
-      "locked": false,
-      "points": [
-        [
-          0,
-          0
-        ],
-        [
-          0,
-          80
-        ],
-        [
-          -80,
-          80
-        ],
-        [
-          -80,
-          140
-        ]
-      ],
-      "lastCommittedPoint": null,
-      "startBinding": {
-        "elementId": "bedrock-box",
-        "focus": 0.3,
-        "gap": 6
-      },
-      "endBinding": {
-        "elementId": "tools-box",
-        "focus": 0.0,
+        "focus": 0,
         "gap": 6
       },
       "startArrowhead": null,
@@ -936,10 +633,10 @@
     {
       "id": "l-agent-session",
       "type": "text",
-      "x": 170,
-      "y": 258,
-      "width": 150,
-      "height": 26,
+      "x": 20,
+      "y": 214,
+      "width": 250,
+      "height": 28.6,
       "angle": 0,
       "strokeColor": "#495057",
       "backgroundColor": "#ffffff",
@@ -960,7 +657,7 @@
       "link": null,
       "locked": false,
       "text": "every turn persisted",
-      "fontSize": 20,
+      "fontSize": 22,
       "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
@@ -972,10 +669,10 @@
     {
       "id": "l-agent-store",
       "type": "text",
-      "x": 580,
-      "y": 258,
-      "width": 180,
-      "height": 26,
+      "x": 246,
+      "y": 295,
+      "width": 260,
+      "height": 28.6,
       "angle": 0,
       "strokeColor": "#495057",
       "backgroundColor": "#ffffff",
@@ -996,7 +693,7 @@
       "link": null,
       "locked": false,
       "text": "MemoryManager recall",
-      "fontSize": 20,
+      "fontSize": 22,
       "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
@@ -1008,10 +705,10 @@
     {
       "id": "l-agent-tools",
       "type": "text",
-      "x": 790,
-      "y": 258,
-      "width": 110,
-      "height": 26,
+      "x": 599,
+      "y": 280,
+      "width": 140,
+      "height": 28.6,
       "angle": 0,
       "strokeColor": "#495057",
       "backgroundColor": "#ffffff",
@@ -1032,7 +729,7 @@
       "link": null,
       "locked": false,
       "text": "@tool calls",
-      "fontSize": 20,
+      "fontSize": 22,
       "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
@@ -1044,10 +741,10 @@
     {
       "id": "l-bedrock-embeds",
       "type": "text",
-      "x": 760,
-      "y": 340,
-      "width": 280,
-      "height": 26,
+      "x": 700,
+      "y": 220,
+      "width": 560,
+      "height": 27.0,
       "angle": 0,
       "strokeColor": "#495057",
       "backgroundColor": "#ffffff",
@@ -1067,21 +764,21 @@
       "updated": 1,
       "link": null,
       "locked": false,
-      "text": "embeds messages & search queries",
+      "text": "embeds content for Neo4jMemoryStore and context_graph_tools",
       "fontSize": 20,
       "fontFamily": 2,
-      "textAlign": "center",
-      "verticalAlign": "middle",
+      "textAlign": "left",
+      "verticalAlign": "top",
       "baseline": 20,
       "containerId": null,
-      "originalText": "embeds messages & search queries",
+      "originalText": "embeds content for Neo4jMemoryStore and context_graph_tools",
       "lineHeight": 1.25
     },
     {
       "id": "a-session-db",
       "type": "arrow",
       "x": 210,
-      "y": 540,
+      "y": 502,
       "width": 0,
       "height": 70,
       "angle": 0,
@@ -1134,7 +831,7 @@
       "id": "a-store-db",
       "type": "arrow",
       "x": 640,
-      "y": 540,
+      "y": 502,
       "width": 0,
       "height": 70,
       "angle": 0,
@@ -1187,7 +884,7 @@
       "id": "a-tools-db",
       "type": "arrow",
       "x": 1070,
-      "y": 540,
+      "y": 502,
       "width": 0,
       "height": 70,
       "angle": 0,
@@ -1239,10 +936,10 @@
     {
       "id": "l-session-db",
       "type": "text",
-      "x": 230,
-      "y": 566,
-      "width": 200,
-      "height": 26,
+      "x": 60,
+      "y": 528,
+      "width": 300,
+      "height": 28.6,
       "angle": 0,
       "strokeColor": "#495057",
       "backgroundColor": "#ffffff",
@@ -1263,7 +960,7 @@
       "link": null,
       "locked": false,
       "text": ":Conversation transcript",
-      "fontSize": 20,
+      "fontSize": 22,
       "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
@@ -1275,10 +972,10 @@
     {
       "id": "l-store-db",
       "type": "text",
-      "x": 660,
-      "y": 566,
-      "width": 200,
-      "height": 26,
+      "x": 490,
+      "y": 528,
+      "width": 300,
+      "height": 28.6,
       "angle": 0,
       "strokeColor": "#495057",
       "backgroundColor": "#ffffff",
@@ -1299,7 +996,7 @@
       "link": null,
       "locked": false,
       "text": "entities \u00b7 prefs \u00b7 facts",
-      "fontSize": 20,
+      "fontSize": 22,
       "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",
@@ -1311,10 +1008,10 @@
     {
       "id": "l-tools-db",
       "type": "text",
-      "x": 1090,
-      "y": 566,
-      "width": 240,
-      "height": 26,
+      "x": 895,
+      "y": 528,
+      "width": 350,
+      "height": 28.6,
       "angle": 0,
       "strokeColor": "#495057",
       "backgroundColor": "#ffffff",
@@ -1335,7 +1032,7 @@
       "link": null,
       "locked": false,
       "text": "search_context \u00b7 add_memory",
-      "fontSize": 20,
+      "fontSize": 22,
       "fontFamily": 2,
       "textAlign": "center",
       "verticalAlign": "middle",

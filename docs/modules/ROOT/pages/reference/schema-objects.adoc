@@ -17,7 +17,7 @@ file for the complete current inventory used in deployments.
 
 == Unique constraints
 
-[cols="3,2,2,3"]
+[cols="4,3,2,3"]
 |===
 | Name | Label | Property | Purpose
 
@@ -39,7 +39,7 @@ file for the complete current inventory used in deployments.
 
 Lookup indexes for common filter / equality queries.
 
-[cols="3,2,2,3"]
+[cols="4,3,2,3"]
 |===
 | Name | Label | Property | Purpose
 
@@ -68,7 +68,7 @@ Vector-index creation exceptions are currently suppressed, including failures un
 
 After setup, MemoryClient validates the dimensions of existing managed vector indexes against the configured embedder. Mismatches raise EmbeddingDimensionMismatchError; unrelated index names are not checked. Changing a model requires the migration workflow, not just changing this setting.
 
-[cols="3,2,2,3"]
+[cols="4,3,2,3"]
 |===
 | Name | Label | Property | Purpose
 
@@ -84,7 +84,7 @@ After setup, MemoryClient validates the dimensions of existing managed vector in
 
 Created for geospatial queries on Location entities.
 
-[cols="3,2,2,3"]
+[cols="4,3,2,3"]
 |===
 | Name | Label | Property | Purpose
 
@@ -106,6 +106,6 @@ async with MemoryClient(settings) as client:
 
 == See also
 
-* xref:reference/configuration.adoc[Configuration Reference] — provider dimensions and other configuration options.
+* xref:reference/configuration.adoc[Configuration reference] — provider dimensions and other configuration options.
 * xref:how-to/migrate-embedding-model.adoc[Migrate embedding models] — recreate indexes and re-embed stored data.
-* xref:explanation/graph-architecture.adoc[Graph Architecture] — the relationships these constraints/indexes support.
+* xref:explanation/graph-architecture.adoc[Graph memory architecture] — the relationships these constraints/indexes support.

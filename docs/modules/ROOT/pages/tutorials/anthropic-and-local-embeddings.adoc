@@ -29,7 +29,10 @@ include::partial$python-tutorial-setup.adoc[]
 [source,bash]
 ----
 python -m pip install 'neo4j-agent-memory[anthropic,sentence-transformers]==0.6.0'
-python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
+python -c "from importlib.metadata import version; \
+import neo4j_agent_memory; \
+assert version('neo4j-agent-memory') == '0.6.0'; \
+print('SDK 0.6.0 import verified')"
 ----
 
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
@@ -38,7 +41,7 @@ Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your wor
 
 Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
 
-[cols="2,4,2",options="header"]
+[cols="4,3,2",options="header"]
 |===
 |File |Purpose |Returning reader
 |`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
@@ -81,7 +84,11 @@ Open the https://platform.claude.com/docs/en/models/overview[Anthropic model ove
 ----
 export ANTHROPIC_API_KEY="replace-with-your-key"
 export ANTHROPIC_MODEL="replace-with-your-accessible-Anthropic-model-id"
-python -c "import os; assert os.environ['ANTHROPIC_API_KEY']; assert os.environ['ANTHROPIC_MODEL'].strip() and not os.environ['ANTHROPIC_MODEL'].startswith('replace-with-'); print('Provider variables present')"
+python -c "import os; \
+assert os.environ['ANTHROPIC_API_KEY']; \
+model = os.environ['ANTHROPIC_MODEL']; \
+assert model.strip() and not model.startswith('replace-with-'); \
+print('Provider variables present')"
 ----
 
 Expected: `Provider variables present`. This confirms presence only; the extraction request below verifies actual model access. If access fails, check missing exports first, then the exact API model ID and workspace permission, then billing/quota. Fix those before another extraction attempt. A failed run can already have stored a message; inspect its reported session or dispose of the dedicated instance before intentionally starting over.

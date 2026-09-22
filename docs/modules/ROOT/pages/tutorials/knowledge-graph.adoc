@@ -32,7 +32,10 @@ include::partial$python-tutorial-setup.adoc[]
 ----
 python -m pip install 'neo4j-agent-memory[openai,gliner,spacy]==0.6.0' glirel 'loguru>=0.7,<1'
 python -m spacy download en_core_web_sm
-python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
+python -c "from importlib.metadata import version; \
+import neo4j_agent_memory; \
+assert version('neo4j-agent-memory') == '0.6.0'; \
+print('SDK 0.6.0 import verified')"
 ----
 
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
@@ -41,7 +44,7 @@ Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your wor
 
 Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
 
-[cols="2,4,2",options="header"]
+[cols="4,3,2",options="header"]
 |===
 |File |Purpose |Returning reader
 |`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
@@ -94,7 +97,11 @@ include::partial$python-openai-model-selection.adoc[]
 ----
 export OPENAI_API_KEY="replace-with-your-key"
 export OPENAI_MODEL="replace-with-your-accessible-chat-model-id"
-python -c "import os; assert os.environ['OPENAI_API_KEY'].strip(); assert os.environ['OPENAI_MODEL'].strip() and not os.environ['OPENAI_MODEL'].startswith('replace-with-'); print('Provider variables present')"
+python -c "import os; \
+assert os.environ['OPENAI_API_KEY'].strip(); \
+model = os.environ['OPENAI_MODEL']; \
+assert model.strip() and not model.startswith('replace-with-'); \
+print('Provider variables present')"
 ----
 
 Expected: `Provider variables present`. This checks configuration presence; the requests in the program verify access. Set `OPENAI_MODEL` to a chat model available to your account. Do not put the API key in the program.
@@ -144,7 +151,9 @@ In the Aura console, open *Query*, select the lesson instance and database, and 
 
 [source,cypher]
 ----
-MATCH (c:Conversation {session_id: 'docs-knowledge-sources'})-[:HAS_MESSAGE]->(m:Message)<-[:EXTRACTED_FROM]-(e:Entity)
+MATCH (c:Conversation {session_id: 'docs-knowledge-sources'})
+      -[:HAS_MESSAGE]->(m:Message)
+      <-[:EXTRACTED_FROM]-(e:Entity)
 RETURN c, m, e
 ----
 

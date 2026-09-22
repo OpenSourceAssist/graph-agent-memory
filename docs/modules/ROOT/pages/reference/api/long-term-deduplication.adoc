@@ -99,7 +99,7 @@ async def get_deduplication_stats() -> DeduplicationStats: ...
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `enabled` | `bool` | `True` |
@@ -115,7 +115,7 @@ Fields and defaults:
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `is_duplicate` | `bool` | `False` |
@@ -130,7 +130,7 @@ Fields and defaults:
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `entity_id` | `UUID` | `required` |
@@ -146,7 +146,7 @@ Fields and defaults:
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `total_entities` | `int` | `0` |

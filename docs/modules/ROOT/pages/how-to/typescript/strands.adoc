@@ -90,20 +90,16 @@ You want any of:
 `Neo4jMemoryStore` implements Strands' `MemoryStore` over a NAMS context
 graph.
 
-[options="header"]
-|===
-| Option | Meaning
-| `name` | Required. Identifies the store to `MemoryManager` (search/add tool targeting).
-| `client` / `clientOptions` | Exactly one. `client` borrows a live `MemoryClient` (left open on `close()`); `clientOptions` builds and owns one.
-| `description` | Shown in tool descriptions. Defaults to a generic "entities extracted from conversations" line.
-| `maxSearchResults` | Default result cap when a caller doesn't pass a per-call limit.
-| `writable` | Defaults to `true`.
-| `extraction` | `boolean \| ExtractionConfig`. Defaults to `false` (recall-only).
-| `conversationId` | Explicit write sink. Omit to use a deterministic, name-derived sink conversation.
-| `userId` | Scopes the *sink conversation*: it names the sink, is recorded on it, and filters the scan that finds it. Nothing else is narrowed — `searchEntities` takes no user filter, and `add({ kind: "entity" })` reaches the workspace-wide `addEntity`. Not tenant isolation.
-| `includeEntities` | Defaults to `true`. `false` turns off automatic recall only; set `graphTools: false` as well to stop the model reading the graph through the tool.
-| `graphTools` | Defaults to `true`. Exposes the store's `get_entity_graph` tool from `getTools()`.
-|===
+`name`:: Required. Identifies the store to `MemoryManager` (search/add tool targeting).
+`client` / `clientOptions`:: Exactly one. `client` borrows a live `MemoryClient` (left open on `close()`); `clientOptions` builds and owns one.
+`description`:: Shown in tool descriptions. Defaults to a generic "entities extracted from conversations" line.
+`maxSearchResults`:: Default result cap when a caller doesn't pass a per-call limit.
+`writable`:: Defaults to `true`.
+`extraction`:: `boolean \| ExtractionConfig`. Defaults to `false` (recall-only).
+`conversationId`:: Explicit write sink. Omit to use a deterministic, name-derived sink conversation.
+`userId`:: Scopes the *sink conversation*: it names the sink, is recorded on it, and filters the scan that finds it. Nothing else is narrowed — `searchEntities` takes no user filter, and `add({ kind: "entity" })` reaches the workspace-wide `addEntity`. Not tenant isolation.
+`includeEntities`:: Defaults to `true`. `false` turns off automatic recall only; set `graphTools: false` as well to stop the model reading the graph through the tool.
+`graphTools`:: Defaults to `true`. Exposes the store's `get_entity_graph` tool from `getTools()`.
 
 **`search(query, options)`** — entities only. Returns each hit as a
 `MemoryEntry` with no `score` (NAMS returns no similarity for entity search).

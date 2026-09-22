@@ -58,8 +58,6 @@ anchor:_deployment_backend[]anchor:_multi_agent_patterns[]anchor:_enterprise_use
 
 anchor:_core_context_graph_operations[]anchor:_entity_extraction_knowledge_building[]anchor:_agent_framework_integrations[]
 
-See also xref:how-to/integrations/index.adoc[the integration chooser].
-
 * xref:how-to/integrations/index.adoc[Agent framework integrations] -- Compare the available framework integrations and pick the one that fits your agent.
 * xref:how-to/integrations/langchain.adoc[Use with LangChain] -- Wire `neo4j-agent-memory` into a LangChain agent as memory and a retriever.
 * xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex] -- Use the package as a LlamaIndex memory backend.

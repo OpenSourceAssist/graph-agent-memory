@@ -102,7 +102,7 @@ For GLiNER, unmapped labels default to type `OBJECT` with the uppercased label a
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `name` | `str` | `required` | Schema name identifier
@@ -114,7 +114,7 @@ Fields and defaults:
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `name` | `str` | `required` | Entity type name (e.g., PERSON)
@@ -128,7 +128,7 @@ Fields and defaults:
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `name` | `str` | `required` | Relationship type name
@@ -142,7 +142,7 @@ Fields and defaults:
 
 Fields and defaults:
 
-[cols="1,2,1,3",options="header"]
+[cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
 | `name` | `str` | `'poleo'` | Schema name

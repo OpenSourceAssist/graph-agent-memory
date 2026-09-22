@@ -126,7 +126,7 @@ async def get_tool_usage_stats(tool_name: str | None=None) -> dict[str, Tool]: .
 
 NAMS exposes flat steps belonging to a conversation and tool calls belonging to a step. The Python wrapper holds a trace-ID-to-conversation mapping in this client instance; it does not create a server Trace record.
 
-[cols="1,3",options="header"]
+[cols="3,4",options="header"]
 |===
 | Operation | Hosted behavior
 | `start_trace(session_id, task, **kwargs)` | Creates local trace metadata and a UUID; `metadata` is held locally. No request stores a trace, task, trigger link, or outcome.

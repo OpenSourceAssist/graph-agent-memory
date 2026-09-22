@@ -5,33 +5,56 @@ NAMS-backend only. All methods raise `NotSupportedError` on bolt.
 
 == Methods
 
-[cols="1,1,3",options="header"]
+[cols="2,3",options="header"]
 |===
-| Python | TypeScript | Semantics
+| Method | Semantics
 
-| `ontology.list()` | `ontology.list()`
+| Python: `ontology.list()` +
+TypeScript: `ontology.list()`
 | System templates + workspace-owned ontologies; the active one is flagged (`is_active`).
-| `ontology.get(id)` | `ontology.get(id)`
+
+| Python: `ontology.get(id)` +
+TypeScript: `ontology.get(id)`
 | One ontology with its full revision history (`{record, versions[]}`).
-| `ontology.get_active()` | `ontology.getActive()`
+
+| Python: `ontology.get_active()` +
+TypeScript: `ontology.getActive()`
 | Parsed active document. Python 0.6.0 has a binding-metadata limitation; see <<python-0-6-active-binding>> before restoration. Current TypeScript source reads the authoritative response `version`.
-| `ontology.clone(template_name)` | `ontology.clone(templateName)`
+
+| Python: `ontology.clone(template_name)` +
+TypeScript: `ontology.clone(templateName)`
 | Editable workspace copy of a system template; returns the rev-1 version.
-| `ontology.create(name, schema, validation_mode=None)` | `ontology.create({name, schema, validationMode?})`
+
+| Python: `ontology.create(name, schema, validation_mode=None)` +
+TypeScript: `ontology.create({name, schema, validationMode?})`
 | New workspace ontology from a schema document; returns the rev-1 version.
-| `ontology.update(id, schema, validation_mode=None)` | `ontology.update({id, schema, validationMode?})`
+
+| Python: `ontology.update(id, schema, validation_mode=None)` +
+TypeScript: `ontology.update({id, schema, validationMode?})`
 | New immutable revision (n+1); returns it.
-| `ontology.activate(version_id)` | `ontology.activate(versionId)`
+
+| Python: `ontology.activate(version_id)` +
+TypeScript: `ontology.activate(versionId)`
 | Bind the specified version to the workspace. Validation enforcement is a service behavior, separate from successful activation.
-| `ontology.delete(id)` | `ontology.delete(id)`
+
+| Python: `ontology.delete(id)` +
+TypeScript: `ontology.delete(id)`
 | Delete a workspace-owned ontology.
-| `ontology.import_(content=/url=, format=)` | `ontology.import({content?, url?, format?})`
+
+| Python: `ontology.import_(content=/url=, format=)` +
+TypeScript: `ontology.import({content?, url?, format?})`
 | Convert an external graph/ontology document into a *non-persisted* draft (`OntologyImportResult`). Nothing is saved until you `create()` / `update()` from the returned document. Note the trailing underscore on the Python name (`import` is a keyword).
-| `ontology.diff(id, from_revision, to_revision)` | `ontology.diff(id, fromRevision, toRevision)`
+
+| Python: `ontology.diff(id, from_revision, to_revision)` +
+TypeScript: `ontology.diff(id, fromRevision, toRevision)`
 | Structural diff between two revisions of an ontology (`OntologyDiff`).
-| `ontology.migrate(id, from_version_id=, to_version_id=, type_mappings=, dry_run=False)` | `ontology.migrate(id, {fromVersionId, toVersionId, typeMappings, dryRun?})`
+
+| Python: `ontology.migrate(id, from_version_id=, to_version_id=, type_mappings=, dry_run=False)` +
+TypeScript: `ontology.migrate(id, {fromVersionId, toVersionId, typeMappings, dryRun?})`
 | Enqueue an *async* label-rename migration from one version to another; returns a `MigrationJob`. Pass `dry_run=True` to preview without writing.
-| `ontology.get_migration(job_id)` | `ontology.getMigration(jobId)`
+
+| Python: `ontology.get_migration(job_id)` +
+TypeScript: `ontology.getMigration(jobId)`
 | Poll a migration job's status and progress (`MigrationJob`).
 |===
 

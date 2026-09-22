@@ -33,7 +33,10 @@ include::partial$python-tutorial-setup.adoc[]
 [source,bash]
 ----
 python -m pip install 'neo4j-agent-memory[microsoft-agent,openai]==0.6.0'
-python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
+python -c "from importlib.metadata import version; \
+import neo4j_agent_memory; \
+assert version('neo4j-agent-memory') == '0.6.0'; \
+print('SDK 0.6.0 import verified')"
 ----
 
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
@@ -41,7 +44,8 @@ Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your wor
 [source,bash]
 ----
 python -m pip install 'agent-framework-openai>=1.13,<2'
-python -c "from agent_framework.openai import OpenAIChatClient; print('OpenAI client import verified')"
+python -c "from agent_framework.openai import OpenAIChatClient; \
+print('OpenAI client import verified')"
 ----
 
 Expected: `OpenAI client import verified`. The optional framework client is installed explicitly rather than assuming the memory extra includes it.
@@ -50,7 +54,7 @@ Expected: `OpenAI client import verified`. The optional framework client is inst
 
 Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
 
-[cols="2,4,2",options="header"]
+[cols="4,3,2",options="header"]
 |===
 |File |Purpose |Returning reader
 |`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged

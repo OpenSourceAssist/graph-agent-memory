@@ -10,7 +10,7 @@ not implement `client.consolidation`.
 
 == Prerequisites
 
-* A connected Bolt `client`, with `settings` configured as in xref:how-to/messages.adoc[Store and Search Messages].
+* A connected Bolt `client`, with `settings` configured as in xref:how-to/messages.adoc[Store and search messages].
 * A test user and seeded preferences for the read example.
 * A retention policy that distinguishes archival markers from deletion and access controls.
 

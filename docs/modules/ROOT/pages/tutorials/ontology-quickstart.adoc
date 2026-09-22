@@ -36,7 +36,10 @@ include::partial$python-tutorial-setup.adoc[]
 [source,bash]
 ----
 python -m pip install 'neo4j-agent-memory[nams]==0.6.0'
-python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
+python -c "from importlib.metadata import version; \
+import neo4j_agent_memory; \
+assert version('neo4j-agent-memory') == '0.6.0'; \
+print('SDK 0.6.0 import verified')"
 ----
 
 Expected: `SDK 0.6.0 import verified`. Configure the dedicated workspace:
@@ -46,7 +49,9 @@ Expected: `SDK 0.6.0 import verified`. Configure the dedicated workspace:
 export MEMORY_API_KEY="replace-with-the-dedicated-workspace-key"
 export MEMORY_ENDPOINT="https://memory.neo4jlabs.com/v1"
 unset MEMORY_WORKSPACE_ID
-python -c "from neo4j_agent_memory import NamsSettings; s=NamsSettings(); print(s.backend, s.nams.endpoint)"
+python -c "from neo4j_agent_memory import NamsSettings; \
+s=NamsSettings(); \
+print(s.backend, s.nams.endpoint)"
 ----
 
 Expected: `nams https://memory.neo4jlabs.com/v1`. This checks configuration;
@@ -101,7 +106,7 @@ we will run; the other files are tutorial support, not SDK APIs. Reuse a helper
 only when its contents match. Finish pending cleanup/recovery before replacing
 code that owns an existing ledger.
 
-[cols="2,3,1",options="header"]
+[cols="4,3,2",options="header"]
 |===
 |File |Purpose |Continuing reader
 |`hosted_tutorial_state.py` |Private ledger and local inspection |Reuse unchanged
@@ -123,7 +128,10 @@ Before the first service operation, check the assembled files offline:
 
 [source,bash]
 ----
-python -m py_compile hosted_tutorial_state.py hosted_tutorial_helpers.py ontology_quickstart.py
+python -m py_compile \
+    hosted_tutorial_state.py \
+    hosted_tutorial_helpers.py \
+    ontology_quickstart.py
 python ontology_quickstart.py --help
 ----
 
@@ -241,7 +249,8 @@ the original file and creates nothing. `&&` prevents seed if that check fails:
 ----
 python hosted_tutorial_state.py check-new-run .tutorial-state/ontology.json \
   --next-state .tutorial-state/ontology-run-2/state.json &&
-python ontology_quickstart.py seed --state .tutorial-state/ontology-run-2/state.json \
+python ontology_quickstart.py seed \
+  --state .tutorial-state/ontology-run-2/state.json \
   --workspace-label 'workspace name or ID from the dashboard' \
   --workspace-owner 'responsible workspace operator'
 ----

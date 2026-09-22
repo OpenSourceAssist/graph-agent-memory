@@ -45,7 +45,7 @@ image::diagrams/reasoning-touched-audit.svg["Graph fragment showing HAS_STEP and
 Find traces through a direct `ReasoningStep` → `Entity` edge. The query also
 traverses `HAS_STEP` and optionally the initiating message. For the rationale
 behind linking reasoning steps directly to entities instead of only through
-messages, see xref:explanation/graph-architecture.adoc[Graph architecture].
+messages, see xref:explanation/graph-architecture.adoc[Graph memory architecture].
 
 [source,cypher]
 ----

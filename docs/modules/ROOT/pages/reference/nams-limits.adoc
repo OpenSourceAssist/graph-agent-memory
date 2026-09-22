@@ -85,3 +85,10 @@ Because extraction and resolution are asynchronous, a just-written message and i
 == Status codes & errors
 
 The service uses standard HTTP status codes; error bodies are JSON of the shape `{"error": "..."}` (some carry additional fields such as `message` and `limit`). See xref:reference/rest-api.adoc#errors[REST API → Errors] for the full mapping to SDK exceptions.
+
+== See also
+
+* xref:reference/rest-api.adoc[REST API reference] — the wire contract these limits apply to.
+* xref:reference/authentication.adoc[Authentication and API keys] — how a workspace and key are resolved.
+* xref:how-to/use-nams.adoc[Connect a Python application to NAMS] — hosted setup walkthrough.
+* xref:explanation/backends.adoc#capability-matrix[Bolt and NAMS backends] — the capability matrix referenced above.

@@ -65,7 +65,8 @@ anchor:_step_3_run_the_storage_check[]
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts seed .tutorial-state/hosted-quickstart.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/hosted-quickstart.ts seed .tutorial-state/hosted-quickstart.json
 ----
 
 Expect `Stored messages verified: 1` and a `Recent context messages:` count.
@@ -85,8 +86,10 @@ Run these commands from the same directory, using the state created above:
 
 [source,bash]
 ----
-npx tsx src/tutorials/hosted-quickstart.ts inspect .tutorial-state/hosted-quickstart.json
-npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts verify .tutorial-state/hosted-quickstart.json
+npx tsx src/tutorials/hosted-quickstart.ts \
+  inspect .tutorial-state/hosted-quickstart.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/hosted-quickstart.ts verify .tutorial-state/hosted-quickstart.json
 ----
 
 `inspect` shows local saved IDs and operation status without loading `.env`
@@ -105,8 +108,10 @@ From the same lesson directory, clean up this run using its saved state:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tutorials/hosted-quickstart.ts cleanup .tutorial-state/hosted-quickstart.json
-npx tsx src/tutorials/hosted-quickstart.ts inspect .tutorial-state/hosted-quickstart.json
+npx tsx --env-file-if-exists=.env \
+  src/tutorials/hosted-quickstart.ts cleanup .tutorial-state/hosted-quickstart.json
+npx tsx src/tutorials/hosted-quickstart.ts \
+  inspect .tutorial-state/hosted-quickstart.json
 ----
 
 The cleanup command waits for the recorded messages' extraction to finish,

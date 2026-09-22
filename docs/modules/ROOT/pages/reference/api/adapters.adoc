@@ -249,6 +249,6 @@ The `from_provider` factory uses `importlib.util.find_spec` to detect which adap
 
 == See also
 
-* xref:reference/api/llm-provider.adoc[LLM Provider API] — the Protocols every adapter implements.
-* xref:reference/api/factory.adoc[Factory] — `from_provider` details.
-* xref:how-to/bring-your-own-model.adoc[Bring Your Own Model] — task-oriented overview.
+* xref:reference/api/llm-provider.adoc[LLM provider API reference] — the Protocols every adapter implements.
+* xref:reference/api/factory.adoc[Provider factory reference] — `from_provider` details.
+* xref:how-to/bring-your-own-model.adoc[Bring your own model] — task-oriented overview.

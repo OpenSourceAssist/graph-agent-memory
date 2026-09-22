@@ -919,8 +919,7 @@
     "viewBackgroundColor": "#ffffff",
     "theme": "light",
     "exportWithDarkMode": false,
-    "exportBackground": true,
-    "exportScale": 2
+    "exportBackground": true
   },
   "files": {}
 }

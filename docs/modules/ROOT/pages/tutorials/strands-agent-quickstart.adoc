@@ -31,7 +31,10 @@ include::partial$python-tutorial-setup.adoc[]
 [source,bash]
 ----
 python -m pip install 'neo4j-agent-memory[strands,bedrock]==0.6.0'
-python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
+python -c "from importlib.metadata import version; \
+import neo4j_agent_memory; \
+assert version('neo4j-agent-memory') == '0.6.0'; \
+print('SDK 0.6.0 import verified')"
 ----
 
 Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your working directory for every command below.
@@ -40,7 +43,7 @@ Expected: `SDK 0.6.0 import verified`. Keep `agent-memory-tutorials` as your wor
 
 Create each file below in `~/agent-memory-tutorials`. All complete sources follow this manifest. On a first visit every file is new; when returning, reuse unchanged helpers and compare their contents before replacing them.
 
-[cols="2,4,2",options="header"]
+[cols="4,3,2",options="header"]
 |===
 |File |Purpose |Returning reader
 |`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
@@ -82,7 +85,8 @@ Use the https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.ht
 export AWS_REGION="us-east-1"
 export AWS_DEFAULT_REGION="$AWS_REGION"
 export BEDROCK_MODEL_ID="replace-with-your-accessible-Bedrock-model-or-profile-id"
-python -c "import boto3; print('AWS identity:', boto3.client('sts').get_caller_identity()['Arn'])"
+python -c "import boto3; \
+print('AWS identity:', boto3.client('sts').get_caller_identity()['Arn'])"
 ----
 
 Expected: your intended AWS identity ARN. This is a read-only identity check; it does not prove model access. Keep the same region and identity for both runs. The later chat and embedding requests can incur provider usage charges. An access-denied response needs a check of IAM/model/profile permissions; a validation error needs the exact model/profile ID and region checked; a quota/throttling error needs the account limits or provider retry guidance checked.

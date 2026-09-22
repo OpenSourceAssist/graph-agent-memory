@@ -36,7 +36,8 @@ Only after a completed run, start the next exercise with a distinct filename:
 
 [source,bash,subs="+attributes"]
 ----
-npx tsx --env-file-if-exists=.env {ts-program} {ts-seed} .tutorial-state/{ts-next-state}
+npx tsx --env-file-if-exists=.env \
+  {ts-program} {ts-seed} .tutorial-state/{ts-next-state}
 ----
 
 Use that new filename for all subsequent commands for the new run. Preserve

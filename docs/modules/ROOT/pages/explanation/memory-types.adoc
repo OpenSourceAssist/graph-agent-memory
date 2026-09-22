@@ -61,7 +61,7 @@ anchor:_relationship_traversal[]anchor:_temporal_queries[]anchor:_combined_searc
 
 A graph can connect an entity to the conversation that mentioned it and the task outcome that followed. This allows questions that combine content, relationships, and time, rather than considering each record independently.
 
-Vector similarity can supply candidates while graph relationships and properties provide additional context. Those techniques answer different questions: similar text does not necessarily identify the same entity, and a nearby node is not automatically relevant to the current task. xref:explanation/graph-architecture.adoc[Graph architecture] explains the tradeoffs.
+Vector similarity can supply candidates while graph relationships and properties provide additional context. Those techniques answer different questions: similar text does not necessarily identify the same entity, and a nearby node is not automatically relevant to the current task. xref:explanation/graph-architecture.adoc[Graph memory architecture] explains the tradeoffs.
 
 [[_best_practices]]
 == From stored memory to useful context

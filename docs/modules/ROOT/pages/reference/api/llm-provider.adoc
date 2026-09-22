@@ -189,7 +189,7 @@ All inherit from `ProviderError`, which inherits from `Exception`. None inherit 
 
 == Factory
 
-`from_provider(model: str, *, kind="llm", prefer_litellm=False, **kwargs)` — string-shorthand factory. Returns an `LLMProvider` or `EmbeddingProvider` depending on `kind`. See xref:reference/api/factory.adoc[Factory Reference].
+`from_provider(model: str, *, kind="llm", prefer_litellm=False, **kwargs)` — string-shorthand factory. Returns an `LLMProvider` or `EmbeddingProvider` depending on `kind`. See xref:reference/api/factory.adoc[Provider factory reference].
 
 == Helper functions
 
@@ -227,7 +227,7 @@ anchor:_related[]
 
 == See also
 
-* xref:reference/api/adapters.adoc[Adapters Reference] — constructor signatures for every adapter.
-* xref:reference/api/factory.adoc[Factory Reference] — `from_provider` details.
+* xref:reference/api/adapters.adoc[Adapters reference] — constructor signatures for every adapter.
+* xref:reference/api/factory.adoc[Provider factory reference] — `from_provider` details.
 * xref:reference/configuration.adoc[Configuration] — how to wire providers into `MemorySettings`.
-* xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.
+* xref:explanation/why-provider-protocol.adoc[Why the provider protocol?] — design rationale.

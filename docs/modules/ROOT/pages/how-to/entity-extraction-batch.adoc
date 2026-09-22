@@ -79,12 +79,14 @@ The batch API shown here belongs to `ExtractionPipeline`. `GLiNEREntityExtractor
 
 Before persistence, associate each successful `BatchItemResult.index` with its source document; log errors against that same input identifier. The xref:tutorials/knowledge-graph.adoc[document program] demonstrates message provenance and safe relationship endpoint matching. Measure precision/recall on reviewed samples and inspect chunk boundaries; a 100% completed-item rate is not a claim of extraction accuracy.
 
-See xref:reference/extractors.adoc[batch, stage, and streaming result models] and xref:how-to/batch-processing.adoc[document-processing tasks].
-
 // Historical section links resolve to the maintained task and reference pointers.
 anchor:_batch_extraction[]
 anchor:_high_volume_ecommerce_speed_priority[]
 anchor:_financial_compliance_accuracy_priority[]
 anchor:_get_complete_deduplicated_result[]
 anchor:_token_based_chunking[]
-anchor:_see_also[]
+
+== See also
+
+* xref:reference/extractors.adoc[Batch, stage, and streaming result models]
+* xref:how-to/batch-processing.adoc[Document-processing tasks]
