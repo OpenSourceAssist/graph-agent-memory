@@ -206,7 +206,7 @@ raise `NotSupportedError` on REST. They are not substitutes for hosted entity AP
 |Method |Purpose
 
 |`addEntity(name, entityType, options?)`
-|Create an entity. Returns the persisted `Entity`.
+|Create an entity. On the hosted service, a sufficiently similar existing entity can cause the create to auto-merge onto it instead of creating a new record; the returned `Entity` is then the canonical merged-into entity, whose `name` and `type` can differ from the arguments (see below).
 
 |`addPreference(category, preference, options?)` _(bridge only)_
 |Record a preference (food, communication, dietary, etc.).
@@ -257,11 +257,48 @@ raise `NotSupportedError` on REST. They are not substitutes for hosted entity AP
 |Snapshot of the workspace entity graph (nodes + edges) for visualization.
 
 |`expandGraph(nodeId, loadedIds?)` _(hosted)_
-|Expand around a graph node, excluding already loaded ids (default `[]`). Returns `ExpandedGraph`.
+|Expand around a graph node, excluding already loaded ids (default `[]`). Returns `ExpandedGraph`. Fixed to work over REST in 0.5.0 — earlier releases nested the request payload under a literal `body` key, so every call failed with `nodeId is required`.
 
 |`waitForExtraction(options)`
 |Poll `searchEntities` for a predicate, exact expected names, or a minimum result count. See readiness constraints below.
 |===
+
+**Hosted entity auto-merge**: NAMS resolves-before-create. When `addEntity`'s
+name is a sufficiently close match to an existing entity, the hosted service
+responds `{id, resolution: "merged", merged_into, confidence}` instead of a
+full entity record — with no `name`/`type` at all. The client detects
+`resolution === "merged"` and follows up with `+GET /entities/{id}+` (using
+`merged_into`, falling back to the response's own `id`) to fetch the
+canonical merged-into entity, and that is what `addEntity` returns — so the
+resulting `name` and `type` can differ from what was passed in. If that
+follow-up `GET` 404s, or comes back with no name, the client falls back to a
+locally constructed `Entity` (the request's `name`, a lowercased
+`entityType`, and a client-generated `createdAt`); other transport errors
+propagate, and a malformed canonical response (a missing id/type, or a field
+of the wrong shape) throws `ValidationError`. Either way, `Entity.metadata`
+(`Record<string, unknown>`) gains an added `nams_resolution` object:
+
+[cols="2,3", options="header"]
+|===
+|Field |Meaning
+
+|`resolution`
+|Always `"merged"` when this key is present.
+
+|`merged_into`
+|Id of the canonical entity the create resolved onto.
+
+|`merge_confidence`
+|Present only when the service reported a match confidence. Does not populate `Entity.confidence`, which reflects extraction confidence instead.
+
+|`fallback`
+|`true` when the canonical `GET` 404'd or came back incomplete and the client constructed the entity locally.
+|===
+
+**Null normalization**: optional fields that arrive over the wire as `null` —
+on `Entity`, `EntityRelationshipRef`, `Preference`, `Fact` and
+`EntityMention` — are normalized to `undefined`, so every optional property
+is `T | undefined` at runtime, matching its declared type.
 
 **Returned types**: `Entity`, `Preference`, `Fact`, `Relationship`, `EntityHistory`, `EntityGraph`.
 
@@ -493,15 +530,15 @@ The package exposes seven subpath exports beyond the root. Each is independently
 
 |`@neo4j-labs/agent-memory/middleware/vercel-ai`
 |`agentMemoryMiddleware`, `AgentMemoryLanguageModelMiddleware`
-|Wire memory into a Vercel AI SDK `generateText` / `streamText` call. Implements specification v4 (`ai` 7.x). See xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK middleware].
+|Wire memory into a Vercel AI SDK `generateText` / `streamText` call. Implements specification v4 (`ai` 7.x). Requires the optional `@ai-sdk/provider` peer for its exported types. See xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK middleware].
 
 |`@neo4j-labs/agent-memory/mcp`
 |`createMemoryTools`, `handleMemoryToolCall`, `McpToolDefinition`, `McpToolAnnotations`, `READ_ONLY_MEMORY_TOOLS`, `memoryToolAnnotations`
 |The 12-tool memory surface as JSON Schema plus a dispatcher, for the low-level MCP `Server` API. See xref:how-to/typescript/mcp.adoc[MCP tools].
 
 |`@neo4j-labs/agent-memory/mcp/register`
-|`registerMemoryTools`, `memoryToolShapes`, `MemoryToolCallAudit`
-|Register the same 12 tools on a high-level `McpServer` (Zod input schemas, annotations, optional allow-list and audit hook). Requires the optional `zod` peer.
+|`registerMemoryTools`, `memoryToolShapes`, `RegisterMemoryToolsOptions`, `MemoryToolCallAudit`
+|Register the same 12 tools on a high-level `McpServer` (Zod input schemas, annotations, optional allow-list and audit hook). Requires the optional `zod` and `@modelcontextprotocol/sdk` peers.
 
 |`@neo4j-labs/agent-memory/integrations/langchain`
 |`Neo4jChatMessageHistory`, `Neo4jEntityRetriever`
@@ -513,7 +550,7 @@ The package exposes seven subpath exports beyond the root. Each is independently
 
 |`@neo4j-labs/agent-memory/integrations/strands`
 |`Neo4jSessionStorage`, `Neo4jConversationManager`, `registerReasoningHooks`, `connectMemoryToAgent`, `Neo4jMemoryStore`
-|AWS Strands Agents SDK (JS). See xref:how-to/typescript/strands.adoc[Strands].
+|AWS Strands Agents SDK (JS). Requires the optional `@strands-agents/sdk` peer. See xref:how-to/typescript/strands.adoc[Strands].
 
 |`@neo4j-labs/agent-memory/testing`
 |`BridgeTransport`, `BridgeTransportOptions`
@@ -521,6 +558,13 @@ The package exposes seven subpath exports beyond the root. Each is independently
 |===
 
 TypeDoc: each subpath's exports are listed under the matching module in the link:{attachmentsdir}/api/typescript/modules.html[TypeDoc module index].
+
+**Related package**: xref:how-to/typescript/nams-ai-provider.adoc[`@neo4j-labs/nams-ai-provider`]
+is a separate npm package, not a subpath of this one, that wraps this SDK for
+the Vercel AI SDK with additional retrieval and persistence policies —
+cross-session search, graph expansion, explicit memory tools, and lifecycle
+hooks across four selectable modes. See
+xref:reference/nams-ai-provider.adoc[its API reference].
 
 == Observability
 
@@ -558,11 +602,15 @@ See xref:how-to/typescript/observability.adoc[enable request logging] for the fu
 == Versioning
 
 The SDK has its own package version; NAMS itself is continuously shipped and
-`/v1` is the service API path. Release tags use `typescript-v<X.Y.Z>` separately
-from Python tags. The source manifest and
+`/v1` is the service API path. The current release is `0.5.0` (2026-09-22).
+Release tags are namespaced per package: `typescript-v<X.Y.Z>` publishes
+`@neo4j-labs/agent-memory` itself, separately from Python's `python-v*` tags;
+`nams-ai-provider-v<X.Y.Z>` publishes the separate
+`@neo4j-labs/nams-ai-provider` package. The source manifest and
 link:https://github.com/neo4j-labs/agent-memory/blob/main/typescript/CHANGELOG.md[changelog]
-record repository development; verify the npm artifact before treating an entry
-as released. This Neo4j Labs project provides no backward-compatibility or
+record repository development; an `[Unreleased]` entry does not prove an npm
+release — verify the installed package before treating it as shipped. This
+Neo4j Labs project provides no backward-compatibility or
 scheduled-deprecation guarantee.
 
 == See also

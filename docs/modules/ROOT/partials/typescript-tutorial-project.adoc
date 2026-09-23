@@ -1,8 +1,9 @@
 include::partial$typescript-tutorial-checkout.adoc[]
 
-Enter the shared lesson project. On its first use, install its locked
-dependencies; subsequent lessons reuse them. Create the tutorial environment
-file only if it does not already exist:
+Enter the shared lesson project — its `package.json` pins the SDK with
+`file:../..` so it always runs against the checkout you just built. On its
+first use, install its locked dependencies; subsequent lessons reuse them.
+Create the tutorial environment file only if it does not already exist:
 
 [source,bash]
 ----

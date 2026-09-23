@@ -25,8 +25,9 @@ against the hosted [Neo4j Agent Memory Service (NAMS)](https://memory.neo4jlabs.
 
 | Folder | What it shows |
 |---|---|
-| [`nextjs-memory-chat/`](./nextjs-memory-chat) | **Flagship full-stack demo.** Next.js 16 App Router travel assistant on hosted NAMS: `agentMemoryMiddleware` in the route handler, a live entity-graph rail with lazy `expandGraph` on double-click, an extraction-status badge, and a reasoning-trace drawer |
+| [`nextjs-memory-chat/`](./nextjs-memory-chat) | **Flagship full-stack demo.** Next.js 16 App Router travel assistant on hosted NAMS: `createNamsProvider` from `@neo4j-labs/nams-ai-provider` in the route handler, a live entity-graph rail with lazy `expandGraph` on double-click, an extraction-status badge, and a reasoning-trace drawer |
 | [`vercel-ai/`](./vercel-ai) | The minimal middleware snippet — memory-augmented chat through the Vercel AI SDK in one script |
+| [`nams-ai-provider/`](./nams-ai-provider) | The four `@neo4j-labs/nams-ai-provider` integration modes — provider, middleware, tools, and lifecycle hooks — one runnable program each |
 | [`mcp/`](./mcp) | An MCP server you run yourself, exposing the SDK's 12 memory tools with Zod-validated inputs and read/write annotations, plus a 13th read-only Cypher console behind an allow-list |
 | [`langchain/`](./langchain) | Chat-history and entity-retriever shapes for LangChain JS, plus a NAMS-backed memory module |
 | [`mastra/`](./mastra) | Wrapping the client as a Mastra-compatible memory provider, with NAMS threads |

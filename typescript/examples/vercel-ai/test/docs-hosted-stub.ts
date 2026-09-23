@@ -15,7 +15,8 @@ export async function startHostedStub() {
   let sequence = 0;
   const server = createServer(async (req, res) => {
     try {
-      const path = new URL(req.url!, "http://localhost").pathname.replace(/^\/v1/, "");
+      const requestUrl = new URL(req.url!, "http://localhost");
+      const path = requestUrl.pathname.replace(/^\/v1/, "");
       calls.push(`${req.method} ${path}`);
       let raw = ""; for await (const chunk of req) raw += String(chunk);
       const body: Row = raw ? JSON.parse(raw) : {};
@@ -31,6 +32,14 @@ export async function startHostedStub() {
       if (path === "/conversations" && req.method === "POST") {
         const created = { ...body, id: `conversation-${++sequence}`, messages: [], createdAt: new Date().toISOString() };
         conversations.set(created.id, created); send(created);
+      } else if (path === "/conversations" && req.method === "GET") {
+        // list_conversations: hosted REST query params are snake_case (user_id, limit).
+        const userId = requestUrl.searchParams.get("user_id");
+        const limit = Number(requestUrl.searchParams.get("limit") ?? "");
+        const matches = [...conversations.values()]
+          .filter(c => !userId || c["userId"] === userId)
+          .sort((a, b) => String(b["createdAt"]).localeCompare(String(a["createdAt"])));
+        send({ conversations: Number.isFinite(limit) && limit > 0 ? matches.slice(0, limit) : matches });
       } else if (conversation && path.endsWith("/messages/bulk") && req.method === "POST") {
         send({ messages: (body.messages as Row[]).map(append) });
       } else if (conversation && path.endsWith("/messages")) {
@@ -59,13 +68,25 @@ export async function startHostedStub() {
       else if (path === "/entities" && req.method === "POST") {
         const entity = { ...body, id: `entity-${++sequence}`, createdAt: new Date().toISOString(), metadata: {} };
         entities.set(entity.id, entity); sources.set(entity.id, []); send(entity);
+      } else if (path === "/entities/search" && req.method === "POST") {
+        // search_entities: case-insensitive name/description substring match, closest a nearest-neighbour search gets offline.
+        const q = String(body.query ?? "").toLowerCase();
+        const limit = Number(body.limit ?? 10);
+        const matches = [...entities.values()]
+          .filter(e => q === "" || String(e["name"] ?? "").toLowerCase().includes(q) || String(e["description"] ?? "").toLowerCase().includes(q))
+          .slice(0, limit);
+        send({ entities: matches });
+      } else if (path.endsWith("/feedback") && req.method === "PUT" && entities.has(id!)) {
+        send({ id, updated: true }); // set_entity_feedback
       } else if (path.startsWith("/entities/") && entities.has(id!)) {
         if (req.method === "DELETE") {
           if (behavior.failDelete === id) { send({ error: "Injected delete failure" }, 400); return; }
           entities.delete(id!); sources.delete(id!); res.writeHead(204).end();
         } else send(entities.get(id!));
       } else if (path.startsWith("/entities/")) send({ error: "Not found" }, 404);
-      else if (path === "/query" && req.method === "POST") {
+      else if (path === "/reasoning/steps" && req.method === "GET") {
+        send({ steps: [] }); // list_steps: no fixture program records reasoning steps
+      } else if (path === "/query" && req.method === "POST") {
         const params = body.params as { ids?: string[]; id?: string; conversation?: string };
         let rows: Row[];
         if (body.cypher === CLEANUP_QUERIES.derived || body.cypher === CLEANUP_QUERIES.graph) {

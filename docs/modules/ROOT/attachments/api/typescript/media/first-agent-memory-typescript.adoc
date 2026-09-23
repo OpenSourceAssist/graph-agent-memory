@@ -1,0 +1,204 @@
+= Build your first TypeScript agent with memory
+:page-role: code-nocollapse
+:ts-program: src/tutorials/first-agent.ts
+:ts-seed: seed
+:ts-next-state: first-agent-2.json
+:source-highlighter: rouge
+
+anchor:_what_youll_build[]
+We will store a fictional project name and entity, retrieve the same conversation
+during a model call, then independently verify that the new question and answer
+were stored. NAMS hosts the data; no database server runs on your machine.
+
+.Your TypeScript application reaches the hosted NAMS workspace over HTTPS and receives assembled context before each model call
+image::diagrams/nams-hosted-memory-flow.svg["Your TypeScript application calls the @neo4j-labs/agent-memory SDK, which reaches the hosted NAMS workspace over HTTPS with a Bearer apiKey. NAMS assembles a three-tier context — reflections, observations and recent messages — and returns it to the application before each model call.",width=100%,link=self]
+
+anchor:_prerequisites[]
+anchor:_step_1_create_the_project[]
+
+== Step 1: Build the SDK and install the lesson project
+
+You need a workspace-scoped `MEMORY_API_KEY` for a dedicated test workspace on
+link:https://memory.neo4jlabs.com/[NAMS]. Model calls also need `OPENAI_API_KEY`.
+
+include::partial$typescript-tutorial-project.adoc[]
+
+anchor:_step_2_connect_the_memory_client[]
+anchor:_step_3_store_and_retrieve_messages[]
+anchor:_step_4_build_a_knowledge_graph[]
+anchor:_step_5_record_reasoning_traces[]
+
+== Step 2: Read the complete agent
+
+Open `src/tutorials/first-agent.ts`. The file below is the complete program; keep
+its imports at module scope. It creates a conversation and an explicit entity
+before storing the message that mentions that entity. The subsequent message
+search explicitly scopes itself to this conversation.
+
+[source,typescript]
+----
+import type { LanguageModelV4 } from "@ai-sdk/provider";
+import { openai } from "@ai-sdk/openai";
+import { generateText, wrapLanguageModel } from "ai";
+import { agentMemoryMiddleware } from "@neo4j-labs/agent-memory/middleware/vercel-ai";
+import { TutorialRun, isTutorialEntryPoint } from "../../../shared/tutorial-state.js";
+import { runTutorialCommand } from "../../../shared/tutorial-cleanup.js";
+
+export async function firstAgent(run: TutorialRun, baseModel: LanguageModelV4) {
+  const conversation = await run.createConversation();
+  console.log(`CONVERSATION_ID=${conversation.id}`);
+  const entity = await run.addEntity();
+  const storedEntity = await run.client.longTerm.getEntity(entity.id);
+  console.log(`ENTITY_ID=${storedEntity.id} name=${storedEntity.name}`);
+  const message = await run.addMessage("user", `My fictional project is called ${run.name}.`);
+  console.log(`Stored message: ${message.id}`);
+  const matches = await run.client.shortTerm.searchMessages(run.name, { conversationId: conversation.id, limit: 5 });
+  console.log(`Conversation search matches: ${matches.length}`);
+
+  await run.verify();
+  const before = await run.client.shortTerm.getConversation(conversation.id);
+  const prompt = "What is the exact full project name I told you, including its identifier?";
+  const model = wrapLanguageModel({ model: baseModel,
+    middleware: agentMemoryMiddleware(run.client, { conversationId: conversation.id }) });
+  const restore = run.trackMiddlewareWrites();
+  try {
+    const answer = await generateText({ model,
+      system: "Use the supplied conversation history. If a fact is missing, say so.", prompt });
+    console.log(`Model returned: ${answer.text}`);
+    await run.verifyTurn(before.messages.map(m => m.id), prompt, answer.text);
+    console.log("New user and assistant messages verified in storage.");
+    if (!answer.text.includes(run.name)) throw new Error("Storage passed, but the model did not recall the run-specific project name.");
+    console.log("Recall verified against the run-specific project name.");
+    return { conversationId: conversation.id, entityId: entity.id, answer: answer.text };
+  } finally { restore(); }
+}
+
+export async function firstAgentCli(args: string[]) {
+  await runTutorialCommand("first-agent", args, "seed", ["seed"],
+    (_mode, run) => firstAgent(run, openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini")), {
+      preflight: () => {
+        if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("Set OPENAI_API_KEY before seed or retry-empty. No state or records were created; rerun after setting it.");
+      },
+    });
+}
+
+if (isTutorialEntryPoint(import.meta.url)) {
+  firstAgentCli(process.argv.slice(2)).catch(error => { console.error(error); process.exitCode = 1; });
+}
+----
+
+The maintained state and cleanup helpers are in `typescript/examples/shared/`.
+Keep the private `.tutorial-state/` directory with this checkout. Each run binds
+its saved IDs to the endpoint, workspace selector and credential; a changed
+identity stops authenticated use of those IDs; local `inspect` remains available. Reseeding an existing state is refused.
+
+This lesson pins the cheaper `gpt-4o-mini` as its `OPENAI_MODEL` fallback on
+purpose, to keep the exercise low-cost; the SDK's own `agentMemoryMiddleware`
+JSDoc example uses `gpt-5-mini` for the same env var.
+
+include::partial$typescript-tutorial-api.adoc[]
+
+anchor:_step_6_add_vercel_ai_sdk_middleware[]
+
+`wrapLanguageModel` accepts the SDK's V4 middleware. Before generation, the
+middleware reads this conversation's context. Its user and assistant writes are
+best effort: a model answer can succeed even if storing a message fails. This
+lesson checks newly returned message IDs, roles and exact content before
+reporting a persistence milestone.
+
+== Step 3: Run and inspect the result
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts seed .tutorial-state/first-agent.json
+----
+
+The program checks that `OPENAI_API_KEY` is present before reserving the state
+file or writing to NAMS. If that check fails, set the key and rerun the same
+command. Presence does not establish that the provider will accept the key:
+a later provider failure preserves the created resources for cleanup.
+
+If an earlier version left a proven-unstarted ledger, inspect it locally first.
+Only a ledger with no resources, no operations and no cleanup attempt qualifies
+for this recovery command:
+
+[source,bash]
+----
+npx tsx src/tutorials/first-agent.ts inspect .tutorial-state/first-agent.json
+npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts retry-empty .tutorial-state/first-agent.json .tutorial-state/first-agent-retry.json
+----
+
+`retry-empty` preserves the original ledger and exclusively creates the new
+file. Use `first-agent-retry.json` for the rest of that run. Any recorded or
+uncertain operation blocks this path, even if no resource ID was returned.
+Keep the same NAMS identity; do not delete a used state file to restart. A
+manually recorded MCP ledger cannot prove that no write occurred and does not
+support this recovery.
+
+Expect the returned conversation and entity IDs, a scoped message-search result,
+and a model answer recalling the run's full fictional project name, including
+its unique identifier. The question requests that precision without supplying
+the name or identifier. Surrounding model wording and search counts vary.
+
+Expect `New user and assistant messages verified in storage.` before
+`Recall verified against the run-specific project name.`
+Read these checks separately: the new user and assistant messages must
+match this call's question and answer, with IDs absent before generation.
+A previously stored identical string cannot satisfy this check. If the model
+answers but message storage cannot be verified, the command fails that milestone
+and preserves state for inspection and cleanup.
+
+The introductory path creates no reasoning steps. See
+xref:reference/typescript-api.adoc[the API reference] before adding reasoning
+records whose service cleanup is not established.
+
+== Verify in a fresh process
+
+Run these commands from the same directory, using the state created above:
+
+[source,bash]
+----
+npx tsx src/tutorials/first-agent.ts inspect .tutorial-state/first-agent.json
+npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts verify .tutorial-state/first-agent.json
+----
+
+`inspect` shows local saved IDs and operation status without loading `.env`
+or contacting NAMS. `verify` opens another authenticated client and reads the
+recorded conversation and exact message IDs, roles and content digests. Expect
+`Verified stored messages:` with the conversation ID and message count.
+Verification makes no model calls and creates no records. It establishes
+persistence across client processes; it does not imply that the hosted service
+restarted.
+
+anchor:_step_7_clean_up[]
+anchor:_clean_up_the_conversation[]
+
+== Clean up and inspect the disposition
+
+From the same lesson directory, clean up this run using its saved state:
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/tutorials/first-agent.ts cleanup .tutorial-state/first-agent.json
+npx tsx src/tutorials/first-agent.ts inspect .tutorial-state/first-agent.json
+----
+
+The cleanup command waits for the recorded messages' extraction to finish,
+checks the entities derived from those messages and any explicitly created
+entities, and deletes only records with proven exclusive ownership. It verifies
+deleted records are absent. Shared, merged or uncertain records remain listed;
+inspect their disposition instead of treating partial cleanup as a complete
+reset. A timeout or failed readback stops cleanup and preserves the state.
+
+Keep the state until every resource has a verified disposition. Closing the
+client alone does not delete data. Do not remove the state file to bypass an
+unfinished run or bulk-delete workspace entities.
+
+include::partial$typescript-tutorial-lifecycle.adoc[]
+
+== Next steps
+
+* xref:tutorials/conversation-memory-typescript.adoc[Recall memory after restarting the application].
+* xref:tutorials/knowledge-graph-typescript.adoc[Ingest documents and inspect extracted entities].
+* xref:how-to/typescript/vercel-ai.adoc[Configure the Vercel AI SDK middleware].
+* xref:reference/typescript-api.adoc[Check the REST capability and error reference].

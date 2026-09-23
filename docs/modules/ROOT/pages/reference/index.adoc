@@ -70,3 +70,4 @@ anchor:_configuration[]anchor:_quick_links[]anchor:_minimal_example[]anchor:_ref
 === TypeScript
 
 * xref:reference/typescript-api.adoc[TypeScript SDK API reference] -- The shape of `@neo4j-labs/agent-memory`'s public surface, linking into the TypeDoc reference.
+* xref:reference/nams-ai-provider.adoc[NAMS AI provider API reference] -- Hand-maintained reference for the separate `@neo4j-labs/nams-ai-provider` package: exports, options, and defaults per mode.

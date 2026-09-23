@@ -10,6 +10,8 @@ on:
       - 'docs/modules/ROOT/partials/typescript-tutorial*.adoc'
       - 'docs/modules/ROOT/pages/how-to/typescript/**'
       - 'docs/modules/ROOT/pages/reference/typescript-api.adoc'
+      - 'docs/modules/ROOT/pages/reference/nams-ai-provider.adoc'
+      - 'docs/modules/ROOT/pages/explanation/nams-ai-provider-retrieval.adoc'
       - 'docs/modules/ROOT/pages/sdks/typescript.adoc'
   pull_request:
     branches: [main]
@@ -20,6 +22,8 @@ on:
       - 'docs/modules/ROOT/partials/typescript-tutorial*.adoc'
       - 'docs/modules/ROOT/pages/how-to/typescript/**'
       - 'docs/modules/ROOT/pages/reference/typescript-api.adoc'
+      - 'docs/modules/ROOT/pages/reference/nams-ai-provider.adoc'
+      - 'docs/modules/ROOT/pages/explanation/nams-ai-provider-retrieval.adoc'
       - 'docs/modules/ROOT/pages/sdks/typescript.adoc'
 
 permissions:
@@ -87,6 +91,7 @@ jobs:
           - langchain
           - mastra
           - mcp
+          - nams-ai-provider
           - nextjs-memory-chat
           - ontology-lifecycle
           - strands
@@ -95,6 +100,8 @@ jobs:
           - example: vercel-ai
             node: '22'
           - example: mcp
+            node: '22'
+          - example: nams-ai-provider
             node: '22'
           - example: ontology-lifecycle
             node: '22'
@@ -110,6 +117,16 @@ jobs:
 
       - name: 'Build SDK (populates typescript/dist for file: deps)'
         working-directory: typescript
+        run: |
+          npm ci
+          npm run build
+
+      # nams-ai-provider depends on @neo4j-labs/nams-ai-provider via
+      # file:../../packages/vercel-ai-provider, whose dist/ is gitignored —
+      # build it before installing that example.
+      - name: 'Build vercel-ai-provider package (populates dist for nams-ai-provider example)'
+        if: matrix.example == 'nams-ai-provider'
+        working-directory: typescript/packages/vercel-ai-provider
         run: |
           npm ci
           npm run build
@@ -132,7 +149,7 @@ jobs:
         working-directory: typescript/examples/${{ matrix.example }}
         run: npx tsc --noEmit
 
-      # Eight of the nine ship an offline vitest suite that CI never ran.
+      # Nine of the ten ship an offline vitest suite that CI never ran.
       - name: Test example
         working-directory: typescript/examples/${{ matrix.example }}
         run: npm test --if-present

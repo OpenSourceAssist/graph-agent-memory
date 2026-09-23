@@ -1,6 +1,8 @@
-Use Git, Node.js 22 or later with npm, and a POSIX shell. The lesson uses the
-current repository checkout; it does not establish which npm release contains
-these APIs. Keep this checkout for the remaining TypeScript lessons.
+Use Git, Node.js 22 or later with npm, and a POSIX shell. These lessons
+share one repository checkout and build the SDK from source so every lesson
+runs against current source; application code instead installs the
+published `@neo4j-labs/agent-memory@0.5.0` package from npm. Keep this
+checkout for the remaining TypeScript lessons.
 
 *For your first lesson*, clone and build the SDK:
 

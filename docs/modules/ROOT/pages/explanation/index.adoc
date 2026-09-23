@@ -27,5 +27,6 @@ anchor:_core_concepts[]anchor:_technical_deep_dives[]anchor:_key_design_decision
 * xref:explanation/multi-agent-sharing.adoc[Cross-agent memory sharing] -- What happens, and what can go wrong, when multiple agents share the same memory graph.
 * xref:explanation/operational-primitives.adoc[Why the v0.2 operational primitives are opt-in] -- Why multi-tenancy, buffered writes, and consolidation ship opt-in rather than as defaults.
 * xref:explanation/context-tiers.adoc[Understanding the three-tier context model] -- How recent messages compress into observations, and observations into reflections, as context grows.
+* xref:explanation/nams-ai-provider-retrieval.adoc[How the NAMS AI provider retrieves memory] -- Why the separate NAMS AI provider package merges five memory sources by taking turns instead of ranking them by confidence.
 * xref:explanation/ontologies.adoc[Ontologies] -- What a NAMS ontology is and how it constrains extraction for a workspace.
 * xref:explanation/skills.adoc[Agent Skills] -- What a NAMS Agent Skill is and how it differs from an ontology.

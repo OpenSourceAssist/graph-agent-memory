@@ -32,7 +32,11 @@ anchor:_step_5_persist_the_extraction_into_the_knowledge_graph[]
 Open `src/tutorials/knowledge-graph.ts`. The program adds a run-specific
 suffix to the fictional organization name to reduce confusion with an earlier
 run. It obtains entity IDs from the saved messages' graph links, rather than
-searching unrelated workspace data.
+searching unrelated workspace data. In general, the hosted service can merge a
+newly created entity onto an existing one it considers the same; when that
+happens, the entity you read back carries the canonical name rather than the
+one you passed in, and `metadata.nams_resolution` records the merge (see
+xref:reference/typescript-api.adoc[the TypeScript SDK reference]).
 
 [source,typescript]
 ----

@@ -13,19 +13,20 @@ that make it work.
 ====
 `ai` 7 is ESM-only and requires Node.js 22 or newer, and so does this client.
 Next 16 uses Turbopack by default — a custom `webpack` config fails the build.
-
-npm's published `@neo4j-labs/agent-memory` (`0.4.1`) predates the
-`LanguageModelV4Middleware` implementation and the `wrapStream` assistant-message
-persistence that this guide's route handler depends on
-(`agentMemoryMiddleware` from `@neo4j-labs/agent-memory/middleware/vercel-ai`).
-Build the SDK from source and link it locally, below, until a matching release
-ships — see xref:sdks/typescript.adoc#source-bootstrap[the source bootstrap] on
-the TypeScript SDK page for the same steps.
 ====
 
-If all you need is the middleware wiring in one file, start at
+== When to use the SDK middleware instead
+
+If a single conversation's own three-tier context (recent messages,
+observations, reflections) is enough — no cross-session recall, no entity
+graph, no reasoning trail — start at
 xref:how-to/typescript/vercel-ai.adoc[Integrate with the Vercel AI SDK]
-instead and come back when you want the UI.
+instead: it wires memory into one model call with no extra package, and you
+can come back here when you want the UI. This guide's richer retrieval
+(entities, graph relationships, reasoning history, cross-session messages)
+needs `@neo4j-labs/nams-ai-provider`; if you are deciding between the SDK
+middleware and the provider's other modes, see
+xref:how-to/typescript/nams-ai-provider.adoc[Choose a NAMS AI provider mode].
 
 == What you need
 
@@ -34,26 +35,18 @@ instead and come back when you want the UI.
 * An `OPENAI_API_KEY` (model id via `OPENAI_MODEL`, default `gpt-5-mini`)
 * Optionally a `MEMORY_WORKSPACE_ID` to scope the data to one workspace
 
-Build the SDK from source and link it into your app — the same source
-build-and-link path xref:how-to/typescript/vercel-ai.adoc[the Vercel AI SDK
-guide] uses — so the app resolves the unreleased middleware and streaming
-persistence this guide's code needs:
+Install from npm:
 
 [source,bash]
 ----
-git clone https://github.com/neo4j-labs/agent-memory.git
-(cd agent-memory/typescript && npm ci && npm run build)
-
-npm install ai@^7 @ai-sdk/openai@^4 @ai-sdk/react@^4 @neo4j-nvl/react@^1.2
-npm install ./agent-memory/typescript
+npm install @neo4j-labs/nams-ai-provider@0.3.0 @neo4j-labs/agent-memory@0.5.0 \
+  ai@^7.0 @ai-sdk/openai@^4.0 @ai-sdk/react@^4.0 zod@^4.6.0 @neo4j-nvl/react@^1.2.1
 ----
 
-`npm install ./agent-memory/typescript` records a `file:` dependency on the
-local build — the same wiring the
-link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/nextjs-memory-chat[runnable
-example]'s own `package.json` uses (`file:../..`). Adjust the path if you
-cloned the repository somewhere else, and rebuild (`npm run build` in
-`typescript/`) after pulling SDK changes.
+The runnable example pins both `@neo4j-labs/nams-ai-provider` and
+`@neo4j-labs/agent-memory` to `file:` links into this repository, so it always
+runs against current source; an application installs the two npm releases
+above instead.
 
 == Decision 1: put the conversation id in the URL
 
@@ -99,37 +92,57 @@ export default async function ConversationPage({
 
 == Decision 2: send one turn, let memory supply the rest
 
-The route handler wraps the model once. Everything after `wrapLanguageModel` is
-plain AI SDK code:
+`app/api/chat/route.ts` supplies the dependencies (`MemoryClient`, the memory
+provider config, the model, the user id) and calls `handleChat` from
+`lib/handlers.ts`; the route file itself does nothing but pass those four
+dependencies to it. Inside it,
+`createNamsProvider({ ...deps.memory, baseProvider: () => deps.model, scope: {
+userId: deps.userId, conversationId } })` returns a `ProviderV4`, and
+`nams.languageModel("chat")` wraps `deps.model` so relevant memory —
+conversation history, cross-session messages, matching entities, their graph
+relationships and past reasoning steps — is retrieved and prepended to the
+last user message before the call, and the turn is persisted after it.
+`baseProvider` ignores the model id it is handed and always returns
+`deps.model`, so `nams.languageModel("chat")` is called with an arbitrary id;
+there is no other memory-specific code in the route:
 
 [source,typescript]
 ----
-import { agentMemoryMiddleware } from "@neo4j-labs/agent-memory/middleware/vercel-ai";
-import { convertToModelMessages, streamText, wrapLanguageModel } from "ai";
+export async function handleChat(deps: ChatDeps, request: Request): Promise<Response> {
+  let body: ChatRequestBody;
+  try {
+    body = (await request.json()) as ChatRequestBody;
+  } catch {
+    return badRequest("Request body must be JSON.");
+  }
 
-export async function POST(request: Request) {
-  const { messages, conversationId } = await request.json();
+  const conversationId = body.conversationId;
+  if (!conversationId) return badRequest("conversationId is required.");
 
-  // Only the newest user turn. The history the model sees is injected by the
-  // middleware from NAMS, so the browser is not the source of truth.
-  const latest = messages.filter((m) => m.role === "user").slice(-1);
+  const uiMessages = body.messages ?? [];
+  const latest = uiMessages.filter((m) => m.role === "user").slice(-1);
+  if (latest.length === 0) return badRequest("No user message to answer.");
 
-  const model = wrapLanguageModel({
-    model: openai(process.env.OPENAI_MODEL ?? "gpt-5-mini"),
-    middleware: agentMemoryMiddleware(client, { conversationId, userId }),
+  // Memory supplies the history; the client only has to send the new turn.
+  const messages = await convertToModelMessages(latest);
+  const question = uiMessageText(latest[0]!);
+
+  const nams = createNamsProvider({
+    ...deps.memory,
+    baseProvider: () => deps.model,
+    scope: { userId: deps.userId, conversationId },
   });
+  const model = nams.languageModel("chat");
 
   const result = streamText({
     model,
-    instructions,                                  // ai 7: `instructions`, not `system`
-    messages: await convertToModelMessages(latest),
-    onEnd: async ({ text }) => {                   // ai 7: `onEnd`, not `onFinish`
-      await client.reasoning.recordStep({
-        conversationId,
-        reasoning: `Answered using the injected context.`,
-        actionTaken: "generate_answer",
-        result: text.slice(0, 1_000),
-      });
+    instructions: deps.instructions ?? INSTRUCTIONS,
+    messages,
+    // `onEnd` is the AI SDK 7 name (`onFinish` is a deprecated alias). The
+    // reasoning step is what the trace drawer reads back — one row per answered
+    // turn, addressable by conversation.
+    onEnd: async ({ text }) => {
+      await recordTurn(deps.client, conversationId, question, text);
     },
   });
 
@@ -137,14 +150,23 @@ export async function POST(request: Request) {
 }
 ----
 
-The middleware attempts both writes — the user's message in
-`transformParams`, the assistant's in `wrapStream` once the stream finishes. You
-write no `addMessage` call in this minimal route. The assistant write is
-fire-and-forget, so returning/draining the stream does not prove persistence
-before a serverless runtime stops — see
-xref:how-to/typescript/edge-runtime.adoc#streaming-memory-persistence[the full
-derivation]. For a route that must coordinate storage with its lifecycle, use
-the xref:how-to/typescript/edge-runtime.adoc[application-owned write pattern].
+Only the newest user turn is forwarded — the history the model sees comes
+back out of the provider, so the browser is not the source of truth for the
+conversation. `onEnd` (the AI SDK 7 name; `onFinish` is a deprecated alias)
+hands the answered turn to the small `recordTurn` helper in the same file,
+which records it as a reasoning step; that is the only call this route makes
+to `MemoryClient` directly.
+
+`createNamsProvider`'s stream wrapper awaits the assistant-turn write as part
+of closing the response stream, so a fully drained client stream implies the
+write was attempted — not skipped, unlike a plain fire-and-forget write. It is
+still best-effort: a failed write is logged and swallowed, not surfaced to the
+caller, and nothing in the response tells the client whether it succeeded. For
+a route that must coordinate storage with its lifecycle and give the client a
+visible success signal, use the
+xref:how-to/typescript/edge-runtime.adoc[application-owned write pattern] and
+pass `persistInteractions: false` to `createNamsProvider` so the response is
+not stored twice.
 
 On the client, `useChat` with `DefaultChatTransport` sends the conversation id in
 the request body:
@@ -268,15 +290,16 @@ pass `apiKey` to `MemoryClient` explicitly, because on edge runtimes
 `process.env` is only populated inside the request scope. See
 xref:how-to/typescript/edge-runtime.adoc[Deploy to edge runtimes].
 Current-source example dependency declarations (not a release or live-service
-verification): `next` 16.3.4, `react` 19.3.0, `ai` 7.0.97, `@ai-sdk/openai`
-4.0.65, `@ai-sdk/react` 4.0.100, `@chakra-ui/react` 3.37.0, `@neo4j-nvl/react`
-1.2.1, Node.js 22 — 2026-09-10.
+verification): `@neo4j-labs/nams-ai-provider` 0.3.0, `@neo4j-labs/agent-memory`
+0.5.0, `next` 16.3.4, `react` 19.3.0, `ai` 7.0.97, `@ai-sdk/openai` 4.0.65,
+`@ai-sdk/react` 4.0.100, `@chakra-ui/react` 3.37.0, `@neo4j-nvl/react` 1.2.2,
+Node.js 22 — 2026-09-23.
 
 == Testing it without an API key
 
 Put each route's behaviour in a `(deps, Request) => Response` function and keep
 the route file a thin wrapper. Then the handlers can be driven in Vitest with the
-real `MemoryClient` over a mocked network
+real `MemoryClient` and `createNamsProvider` over a mocked network
 (link:https://mswjs.io[msw]) and the AI SDK's own `MockLanguageModelV4` from
 `ai/test`:
 
@@ -284,8 +307,9 @@ real `MemoryClient` over a mocked network
 ----
 import { MockLanguageModelV4 } from "ai/test";
 
-const client = new MemoryClient({ endpoint: "http://nams.test/v1", apiKey: "nams_test" });
-const response = await handleChat({ client, model: mockModel(), userId }, request);
+const client = new MemoryClient({ endpoint: ENDPOINT, apiKey: API_KEY });
+const deps = { client, memory: { apiKey: API_KEY, endpoint: ENDPOINT }, model: mockModel(), userId };
+const response = await handleChat(deps, request);
 await response.text();                       // drain the stream
 expect(state.rolesOf(conversationId)).toEqual(["user", "assistant"]);
 ----
@@ -293,11 +317,13 @@ expect(state.rolesOf(conversationId)).toEqual(["user", "assistant"]);
 Mocking the network rather than the SDK means a wrong URL, verb or body shape
 fails the suite. Answer 501 for any endpoint you have not implemented so that a
 new call fails loudly instead of passing silently. This is the last check before
-shipping: a green suite here means the route, the middleware wiring and the
+shipping: a green suite here means the route, the provider wiring and the
 memory persistence contract all hold without needing a live API key.
 
 == See also
 
 * xref:how-to/typescript/vercel-ai.adoc[Integrate with the Vercel AI SDK] — the middleware on its own
+* xref:how-to/typescript/nams-ai-provider.adoc[Choose a NAMS AI provider mode]
+* xref:reference/nams-ai-provider.adoc[NAMS AI provider API reference]
 * xref:tutorials/conversation-memory-typescript.adoc[Tutorial: conversation memory in TypeScript]
 * xref:sdks/typescript.adoc[TypeScript SDK]

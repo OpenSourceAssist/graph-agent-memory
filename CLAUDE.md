@@ -22,10 +22,14 @@ is built and released independently.
 
 Releases are tag-namespaced so they cannot collide:
 
-- `python-v*` (e.g. `python-v0.4.1`) → publishes to PyPI via
+- `python-v*` (e.g. `python-v0.6.0`) → publishes to PyPI via
   `.github/workflows/publish-python.yml`
-- `typescript-v*` (e.g. `typescript-v0.3.0`) → publishes to npm via
+- `typescript-v*` (e.g. `typescript-v0.5.0`) → publishes to npm via
   `.github/workflows/publish-typescript.yml`
+- `nams-ai-provider-v*` (e.g. `nams-ai-provider-v0.3.0`) → publishes
+  `@neo4j-labs/nams-ai-provider` (`typescript/packages/vercel-ai-provider/`)
+  to npm via `.github/workflows/publish-nams-ai-provider.yml`, versioned
+  independently of the SDK
 
 Plain `v*` tags do not trigger any publish.
 
@@ -40,11 +44,14 @@ Plain `v*` tags do not trigger any publish.
   Python-only PR skips it.
 - `.github/workflows/ci-typescript.yml` fires on changes under
   `typescript/**`. **Python-only PRs do not trigger TypeScript CI.** Its
-  `type-check-examples` matrix covers all nine `typescript/examples/*`
-  directories on Node 24 (`eve-commerce-agent` requires `>=24`; the rest
-  require `>=22`) and runs `tsc --noEmit`, `npm test --if-present` and
+  `type-check-examples` matrix covers all ten `typescript/examples/*`
+  directories on Node 24, with extra Node 22 legs for `vercel-ai`, `mcp`,
+  `nams-ai-provider` and `ontology-lifecycle` (`eve-commerce-agent` requires
+  `>=24`; the rest require `>=22`) and runs `tsc --noEmit`, `npm test --if-present` and
   `npm run build --if-present` for each — including the Next.js flagship,
-  `nextjs-memory-chat`.
+  `nextjs-memory-chat`. Its `vercel-ai-provider` job builds
+  `typescript/packages/vercel-ai-provider` on Node 22 and 24, running
+  typecheck, test, build, and `npm pack --dry-run`.
 
 If you touch a cross-cutting file (e.g. `.gitignore`, top-level
 `README.md`), expect neither workflow to fire — surface the change in
@@ -2020,7 +2027,7 @@ no README footer, no index row, or no test module. The shape of the tree:
 | Runtime + tooling | `no_llm/`, `domain-schemas/` |
 | Framework integrations | `strands-session-manager/`, `strands-memory-store/`, `google_adk_demo/`, `google_cloud_integration/`, `microsoft_agent_retail_assistant/` |
 | Full-stack apps | `full-stack-chat-agent/`, `lennys-memory/`, `financial-services-advisor/` (AWS Strands + Google ADK twins) |
-| TypeScript | `typescript/examples/` — nine examples, flagship `nextjs-memory-chat/` |
+| TypeScript | `typescript/examples/` — ten examples, flagship `nextjs-memory-chat/` |
 
 `hello-memory/` is the only example allowed to use a PEP 723 header; every other
 one pins `neo4j-agent-memory[...]>=0.5.0,<0.7` in a `requirements.txt` or

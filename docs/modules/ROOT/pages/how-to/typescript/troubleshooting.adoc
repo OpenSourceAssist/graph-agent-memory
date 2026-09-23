@@ -43,6 +43,18 @@ returned id. To wait for asynchronous extraction, use a bounded
 `waitForExtraction` predicate or expected name. An empty result or timeout does
 not by itself mean message storage failed.
 
+== The entity I created came back with a different name
+
+`longTerm.addEntity()` returned an `Entity` whose `name` (or `type`) doesn't
+match what you passed in. This is expected: on the hosted service,
+`addEntity` can auto-merge onto a sufficiently similar existing entity
+instead of creating a new one, and the returned `Entity` is that canonical
+entity. Check `entity.metadata?.nams_resolution` — when present, its
+`resolution` is `"merged"` and `merged_into` names the entity your create
+resolved onto. See
+xref:reference/typescript-api.adoc[the long-term memory reference] for the
+full merge and fallback behavior.
+
 == Edge runtime: `process is not defined`
 
 Some edge bundlers throw at *build* time if `process.env` appears in

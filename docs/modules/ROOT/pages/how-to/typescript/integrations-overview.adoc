@@ -16,6 +16,9 @@ Prerequisites: a configured `MemoryClient` — see xref:sdks/typescript.adoc[the
 | xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK]
 | `agentMemoryMiddleware` injects three-tier context into each model call and persists both the user's input and the assistant's response — streamed or not.
 
+| xref:how-to/typescript/nams-ai-provider.adoc[NAMS AI provider]
+| A separate package (`@neo4j-labs/nams-ai-provider`) with four selectable modes — cross-session search, graph-expanded retrieval, explicit memory tools, and lifecycle hooks, all on the same NAMS backend.
+
 | xref:how-to/typescript/langchain.adoc[LangChain JS]
 | `Neo4jChatMessageHistory` and `Neo4jEntityRetriever` supply framework-neutral history and retrieval objects that you adapt to LangChain's APIs.
 

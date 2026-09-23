@@ -1,0 +1,219 @@
+= Wrap a model in middleware mode
+:source-highlighter: rouge
+
+The `@neo4j-labs/nams-ai-provider` package talks only to the hosted Neo4j
+Agent Memory Service (NAMS) at https://memory.neo4jlabs.com — it has no Bolt
+equivalent for a self-managed Neo4j database.
+
+Middleware mode adds memory to a model instance you already configure
+elsewhere, instead of asking you to construct the model through a NAMS
+provider. Use it when your model selection lives in application code you
+don't control from the memory wiring — a shared model factory, a framework
+adapter, or a model chosen per request. This page walks through a complete,
+runnable program that teaches the agent a fact in one turn and recalls it in
+a fresh model instance for the same user.
+
+A runnable copy of this program, alongside the other three modes, lives at
+link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/nams-ai-provider[`typescript/examples/nams-ai-provider`].
+
+Prerequisites:
+
+* Node.js 22 or newer (the package's declared floor).
+* A `MEMORY_API_KEY` from https://memory.neo4jlabs.com[memory.neo4jlabs.com].
+* The packages installed:
++
+[source,bash]
+----
+npm install @neo4j-labs/nams-ai-provider@0.3.0 @neo4j-labs/agent-memory@0.5.0 ai@^7 @ai-sdk/openai@^4 zod@^4
+----
+
+== The program
+
+.Save as `middleware-mode.ts`
+[source,typescript]
+----
+/**
+ * Middleware mode: keep the model you already configure elsewhere and add
+ * memory with `createNams().wrap()`. Turn 1 teaches the agent a fact. Turn 2
+ * uses a brand-new model instance for the same user, so the answer must come
+ * back out of NAMS.
+ *
+ * Run with:
+ *
+ *   MEMORY_API_KEY=nams_... OPENAI_API_KEY=sk-... npx tsx src/middleware-mode.ts
+ *
+ * Expected output (wording varies):
+ *
+ *   --- Turn 1 -- teach it something
+ *   user:      My favourite programming language is Rust.
+ *   assistant: Great choice! Rust is loved for its safety and performance. ...
+ *
+ *   --- Turn 2 -- fresh model instance, same user
+ *   user:      What is my favourite programming language?
+ *   assistant: Your favourite programming language is Rust.
+ */
+
+import { createNams, type NamsProviderOptions } from '@neo4j-labs/nams-ai-provider';
+import { openai } from '@ai-sdk/openai';
+import { ToolLoopAgent, stepCountIs } from 'ai';
+
+const userId = process.env.NAMS_DEMO_USER ?? 'demo-user-middleware-mode';
+const modelId = process.env.NAMS_DEMO_MODEL ?? 'gpt-5.4-mini';
+
+/**
+ * Run the teach-then-recall demo. `buildModel` defaults to OpenAI; tests pass
+ * a mock model factory here so the demo can run without a real API call.
+ */
+export async function middlewareModeDemo(
+  buildModel: NamsProviderOptions['baseProvider'] = openai,
+): Promise<{ taught: string; recalled: string }> {
+  const rawApiKey = process.env.MEMORY_API_KEY;
+  if (!rawApiKey) {
+    throw new Error(
+      'Set MEMORY_API_KEY before running this example. Get a free key at https://memory.neo4jlabs.com',
+    );
+  }
+  const apiKey: string = rawApiKey; // narrowed here so the closure below sees `string`, not `string | undefined`
+
+  async function turn(label: string, message: string): Promise<string> {
+    // A new model each turn -- memory comes from NAMS, not from local state.
+    const nams = createNams({
+      apiKey,
+      endpoint: process.env.MEMORY_ENDPOINT,
+      workspaceId: process.env.MEMORY_WORKSPACE_ID,
+    });
+    const wrappedModel = nams.wrap(buildModel(modelId), { userId });
+
+    const agent = new ToolLoopAgent({
+      model: wrappedModel,
+      instructions: 'You are a helpful assistant.',
+      stopWhen: stepCountIs(1), // no tools needed in middleware mode
+    });
+
+    const { text } = await agent.generate({ prompt: message });
+
+    console.log(`\n--- ${label}`);
+    console.log(`user:      ${message}`);
+    console.log(`assistant: ${text}`);
+    return text;
+  }
+
+  const taught = await turn('Turn 1 -- teach it something', 'My favourite programming language is Rust.');
+  console.log('Stored: both sides of turn 1, saved to NAMS by the wrapped model.');
+
+  const recalled = await turn('Turn 2 -- fresh model instance, same user', 'What is my favourite programming language?');
+  console.log('Recalled: NAMS retrieved turn 1 and injected it before the model saw turn 2.');
+
+  return { taught, recalled };
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  middlewareModeDemo().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+----
+
+== Procedure
+
+. Read the demo `userId` and model id from the environment, falling back to
+  `demo-user-middleware-mode` and `gpt-5.4-mini`.
+. Require `MEMORY_API_KEY`. `middlewareModeDemo` throws immediately with a
+  link to get a key if it's unset, then narrows the value to `string`.
+. Define a `turn(label, message)` helper that builds a **fresh model each
+  turn** — memory comes from NAMS, not from any local state — and runs one
+  generation:
++
+--
+* `createNams({ apiKey, endpoint, workspaceId })` builds the memory client.
+  `endpoint` and `workspaceId` are read from optional environment variables
+  and are `undefined` unless set, in which case the client falls back to its
+  own defaults (the hosted endpoint, no workspace scoping). Neither
+  `maxMemories` nor `persistInteractions` is passed here, so both take their
+  defaults: 6 memories per turn (capped at 12 by the package regardless of
+  what you configure) and persistence on.
+* `nams.wrap(buildModel(modelId), { userId })` wraps the model instance with
+  the memory middleware and returns an ordinary AI SDK model — `buildModel`
+  defaults to `openai` but is a parameter so the test suite can substitute a
+  mock model.
+* `new ToolLoopAgent({ model: wrappedModel, instructions, stopWhen:
+  stepCountIs(1) })` — `stepCountIs(1)` because middleware mode needs no
+  tool-calling loop; retrieval and persistence happen inside the wrapped
+  model itself.
+* `agent.generate({ prompt: message })` runs the call.
+--
+. Call `turn()` twice:
++
+--
+* Turn 1 ("teach it something") states a preference. The reply is persisted
+  automatically.
+* Turn 2 ("fresh model instance, same user") builds a **new** wrapped model —
+  no JavaScript object is shared with turn 1 — for the same `userId`, then
+  asks a question whose answer only exists in what NAMS stored from turn 1.
+--
+. Return `{ taught, recalled }` so a caller (here, the offline test suite) can
+  assert on both answers. The `if (import.meta.url === ...)` guard runs the
+  demo only when the file is executed directly, not when it's imported.
+
+== Run and verify
+
+From `typescript/examples/nams-ai-provider/`, after the workspace build and
+`.env` setup described in the example's README:
+
+[source,bash]
+----
+npx tsx --env-file-if-exists=.env src/middleware-mode.ts
+----
+
+Expected output (wording varies with the model):
+
+[source,text]
+----
+--- Turn 1 -- teach it something
+user:      My favourite programming language is Rust.
+assistant: Great choice! Rust is loved for its safety and performance. ...
+Stored: both sides of turn 1, saved to NAMS by the wrapped model.
+
+--- Turn 2 -- fresh model instance, same user
+user:      What is my favourite programming language?
+assistant: Your favourite programming language is Rust.
+Recalled: NAMS retrieved turn 1 and injected it before the model saw turn 2.
+----
+
+The second answer is the actual check: nothing in the script passes "Rust" to
+turn 2 directly, so the model can only have gotten it from what NAMS stored
+and re-injected.
+
+== Middleware mode specifics
+
+`createNams(config).wrap(model, scope)` returns a model wrapped with
+`LanguageModelV4Middleware`; provider mode calls this same function
+internally, so the two modes share retrieval and persistence behaviour.
+
+* `transformParams` runs once per model call. It finds the **last
+  user-role message** in the prompt, retrieves memories for its text, and
+  prepends a formatted memory block to that message (a `graph`-sourced hit
+  is explained inline as a stored relationship written
+  `(subject)-[RELATIONSHIP]->(object)`, but only when one is actually
+  present).
+* In a tool-calling loop, a later step's prompt still ends with the same
+  user message — tool results are appended after it — so the middleware
+  recognises the step as continuing the current turn and reuses the
+  memories it already found rather than searching again per step.
+* `wrapGenerate` and `wrapStream` persist the turn: the user's message on the
+  step that starts the turn, and the assistant's final text on the step that
+  actually produces an answer. A step whose output includes a call to an app
+  tool persists **no assistant text** for that step, even if the model also
+  produced text alongside the call — persistence waits for a step whose
+  output is free of app tool calls, and `wrapStream` accumulates text deltas
+  and flushes on stream finish.
+* Defaults, set by `createNamsMemory`: `maxMemories` 6 per turn (capped at 12
+  by the package), `persistInteractions` true.
+
+== See also
+
+* xref:how-to/typescript/nams-ai-provider.adoc[Choose a NAMS AI provider mode]
+* xref:reference/nams-ai-provider.adoc[NAMS AI provider API reference]
+* xref:explanation/nams-ai-provider-retrieval.adoc[How the NAMS AI provider retrieves memory]
+* xref:how-to/typescript/vercel-ai.adoc[Integrate with the Vercel AI SDK] — the SDK's own built-in middleware, for comparison

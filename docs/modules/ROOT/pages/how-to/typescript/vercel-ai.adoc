@@ -17,10 +17,12 @@ Prefer not to wire the middleware yourself?
 
 [TIP]
 ====
-This page covers the low-level middleware. For a provider wrapper, ready-made
-memory tools and a Next.js route handler built on the same service, see
-link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/packages/vercel-ai-provider[`@neo4j-labs/nams-ai-provider`],
-which uses the same NAMS backend at a higher level of abstraction.
+For cross-session search, graph-expanded retrieval, and explicit memory tools
+or lifecycle hooks, see xref:how-to/typescript/nams-ai-provider.adoc[choosing
+a NAMS AI provider mode] — a separate package built on the same NAMS backend.
+This middleware injects only the current conversation's three-tier context;
+the provider package also searches other conversations and expands matched
+entities' relationships into the prompt.
 ====
 
 Prerequisites: a configured model provider and NAMS test-workspace credentials.
@@ -186,9 +188,10 @@ See xref:how-to/typescript/edge-runtime.adoc[deploy to edge runtimes] for detail
 
 == Compatibility
 
-The current source uses `ai` 7 / provider specification 4 and requires Node.js
-22+ for its Node examples. Build the in-tree SDK before running the examples.
-These source contracts do not establish npm release or live-service availability.
+The published `@neo4j-labs/agent-memory@0.5.0` package on npm implements
+provider specification v4 (`LanguageModelV4Middleware` from `@ai-sdk/provider`
+4.x), the specification `ai` 7 uses, on Node.js 22 or newer. Projects still
+on `ai` 4 to 6 should pin `@neo4j-labs/agent-memory` to a `0.4.x` release.
 
 == Verify the integration
 

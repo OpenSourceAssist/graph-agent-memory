@@ -537,6 +537,48 @@
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-18",
       "referring_documents": []
+    },
+    {
+      "output": "docs/modules/ROOT/images/diagrams/nams-ai-provider-modes.svg",
+      "source": "docs/assets/diagrams/excalidraw/nams-ai-provider-modes.excalidraw",
+      "referring_pages": [
+        "docs/modules/ROOT/pages/how-to/typescript/nams-ai-provider.adoc"
+      ],
+      "owner": "documentation maintainers",
+      "status": "exported-and-visually-reviewed",
+      "source_sha256": "db3a0f48fa296d31f26f1d5985b9e32c508bf33ed729c8fd5e9787f1ba11ca06",
+      "output_sha256": "444dd2d1f33d053bf2c0a6464003816ecd8d9f36044fc41629a186701433aa86",
+      "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
+      "reviewed_on": "2026-09-23",
+      "referring_documents": []
+    },
+    {
+      "output": "docs/modules/ROOT/images/diagrams/nams-ai-provider-hooks.svg",
+      "source": "docs/assets/diagrams/excalidraw/nams-ai-provider-hooks.excalidraw",
+      "referring_pages": [
+        "docs/modules/ROOT/pages/how-to/typescript/nams-ai-provider-hooks-mode.adoc"
+      ],
+      "owner": "documentation maintainers",
+      "status": "exported-and-visually-reviewed",
+      "source_sha256": "278c46592fb1967d9b7f8eff6dc8fbbbdb046862c987bf49dfc819c376a45863",
+      "output_sha256": "3257ebd00d94e2df81b53577b701e5535230af122f4ca7bf42ed1165775f5242",
+      "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
+      "reviewed_on": "2026-09-23",
+      "referring_documents": []
+    },
+    {
+      "output": "docs/modules/ROOT/images/diagrams/nams-ai-provider-retrieval.svg",
+      "source": "docs/assets/diagrams/excalidraw/nams-ai-provider-retrieval.excalidraw",
+      "referring_pages": [
+        "docs/modules/ROOT/pages/explanation/nams-ai-provider-retrieval.adoc"
+      ],
+      "owner": "documentation maintainers",
+      "status": "exported-and-visually-reviewed",
+      "source_sha256": "f59fc00b68cd051905b3b60e57a147f93708a202757ee0d8341a5beaeaacade4",
+      "output_sha256": "6609333ce6c7ff3848ddda372e7b7359069598bb7343ed62dd3750340a56946d",
+      "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
+      "reviewed_on": "2026-09-23",
+      "referring_documents": []
     }
   ]
 }

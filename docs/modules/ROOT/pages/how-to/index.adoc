@@ -80,6 +80,11 @@ anchor:_typescript_sdk_neo4j_labsagent_memory[]anchor:_how_to_guide_philosophy[]
 * xref:how-to/typescript/integrations-overview.adoc[TypeScript framework integrations] -- Compare the TypeScript SDK's framework integrations and pick the one that fits your app.
 * xref:how-to/typescript/edge-runtime.adoc[Deploy to edge runtimes] -- Run the TypeScript client in edge runtimes such as Vercel Edge Functions and Cloudflare Workers.
 * xref:how-to/typescript/vercel-ai.adoc[Integrate with the Vercel AI SDK] -- Add memory to a Vercel AI SDK application's chat loop.
+* xref:how-to/typescript/nams-ai-provider.adoc[Choose a NAMS AI provider mode] -- Compare the separate NAMS AI provider package's four integration modes and pick the one that fits your app.
+* xref:how-to/typescript/nams-ai-provider-provider-mode.adoc[Wrap a model in provider mode] -- Swap your model for a NAMS-wrapped one so memory is retrieved and persisted automatically, with no tool calls.
+* xref:how-to/typescript/nams-ai-provider-middleware-mode.adoc[Wrap a model in middleware mode] -- Wrap an existing model instance with automatic memory retrieval and persistence.
+* xref:how-to/typescript/nams-ai-provider-tools-mode.adoc[Expose memory as tools] -- Give the model explicit `query_memory` and `store_memory` tools it decides when to call.
+* xref:how-to/typescript/nams-ai-provider-hooks-mode.adoc[Control memory with lifecycle hooks] -- Drive memory retrieval and persistence from application code with lifecycle hooks around every generation.
 * xref:how-to/typescript/nextjs-memory-chat.adoc[Build a Next.js chat app with a memory rail] -- Build a Next.js chat UI backed by NAMS memory, with a live memory sidebar.
 * xref:how-to/typescript/mcp.adoc[Use the MCP tools] -- Call the hosted MCP server's tools from a TypeScript MCP client.
 * xref:how-to/typescript/langchain.adoc[Integrate with LangChain JS] -- Wire the TypeScript client into a LangChain JS agent as memory.

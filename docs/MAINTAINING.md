@@ -82,7 +82,7 @@ Use `python-tutorial-setup.adoc` for the reusable local folder/environment setup
 
 `extensions/example-files.json` maps Antora example resource names to repository-relative standalone scripts and templates. The `extensions/example-files.js` extension and Python snippet checker both read this manifest, so rendered pages and source checks resolve the same files. The extension registers these resources during `contentClassified`; it creates no downloadable archive. Keep the extension enabled in publishing playbooks and build from the accepted full repository checkout so those sources are available. Fresh-build tests compare the named, rendered files with their canonical source and verify that the tutorial programs' local imports are supplied on the same page.
 
-Package availability and API compatibility must be verified independently of the repository version. Python 0.6.0 still has the older active-ontology metadata inference; the ontology lesson explicitly reads the authoritative REST response through its maintained helper. TypeScript retains its source build instructions until a compatible npm artifact is published; Python's version does not identify an npm release. Contributor development, SDK builds and release checks remain source workflows.
+Package availability and API compatibility must be verified independently of the repository version. Python 0.6.0 still has the older active-ontology metadata inference; the ontology lesson explicitly reads the authoritative REST response through its maintained helper. Application instructions install the verified npm releases (`@neo4j-labs/agent-memory@0.5.0`, `@neo4j-labs/nams-ai-provider@0.3.0`), pinned to an exact version the same way the Python instructions pin `neo4j-agent-memory==0.6.0`. Tutorials and example projects run from the checkout because their `package.json` pins the SDK with `file:../..`, not because no npm release exists. Contributor development, SDK builds and release checks remain source workflows.
 
 The framework documentation contracts run in Python CI's `integration-test` job, which installs all framework extras. Run the same offline checks locally with:
 
@@ -130,6 +130,10 @@ Root, PyPI and site entry points carry the full Labs support disclaimer. Nested 
 ## API generation and publication
 
 TypeScript JSDoc and source types feed `.github/workflows/docs-typedoc.yml`, which regenerates committed attachments under `docs/modules/ROOT/attachments/api/typescript`. Fix source comments when they misdescribe behavior; do not hand-edit generated HTML. Inspect generation into temporary output before relying on the normal workflow. Generated OpenWiki follows its own scheduled workflow and must not be manually repaired.
+
+TypeScript publishing uses two independent tag families: `typescript-v*` publishes `@neo4j-labs/agent-memory` to npm via `.github/workflows/publish-typescript.yml`, and `nams-ai-provider-v*` publishes `@neo4j-labs/nams-ai-provider` (`typescript/packages/vercel-ai-provider/`) via `.github/workflows/publish-nams-ai-provider.yml`. The provider is versioned and released independently of the SDK. It has no TypeDoc generation, so `reference/nams-ai-provider.adoc` is a hand-maintained reference page — update it directly when the provider's API changes, rather than expecting a generation workflow to catch drift.
+
+Release checklist: after a TypeScript version bump, confirm `.github/workflows/docs-typedoc.yml` regenerated `docs/modules/ROOT/attachments/api/typescript/` (its banner carries the version). If the banner is stale, run `npm run docs:api` in `typescript/` or dispatch the workflow.
 
 The repository identifies labs-pages as the publication route for these docs and TypeDoc attachments. The external hosting owner must confirm the actual publication configuration, base path and cache behavior. There is no maintained `docs/vercel.json` or in-repository GitHub Pages publication workflow to configure here.
 

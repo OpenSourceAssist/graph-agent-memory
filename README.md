@@ -46,7 +46,9 @@ TypeScript agents read and write the same memory.
 | Language | Package | Install | Docs |
 |---|---|---|---|
 | Python | [`neo4j-agent-memory`](https://pypi.org/project/neo4j-agent-memory/) | `pip install 'neo4j-agent-memory==0.6.0'` | [Python SDK docs](https://neo4j.com/labs/agent-memory/sdks/python) |
-| TypeScript | [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory) | `npm install @neo4j-labs/agent-memory` | [TypeScript SDK docs](https://neo4j.com/labs/agent-memory/sdks/typescript) |
+| TypeScript | [`@neo4j-labs/agent-memory`](https://www.npmjs.com/package/@neo4j-labs/agent-memory) | `npm install @neo4j-labs/agent-memory@0.5.0` | [TypeScript SDK docs](https://neo4j.com/labs/agent-memory/sdks/typescript) |
+
+Related package: [`@neo4j-labs/nams-ai-provider`](https://www.npmjs.com/package/@neo4j-labs/nams-ai-provider) (npm, `0.3.0`) wraps the TypeScript SDK for the Vercel AI SDK — a provider, middleware, tools and lifecycle hooks for NAMS-backed agents. Source: [`typescript/packages/vercel-ai-provider/`](typescript/packages/vercel-ai-provider/).
 
 The Python SDK lives at the repo root (`src/neo4j_agent_memory/`,
 `examples/`); the TypeScript SDK lives at `typescript/`. The two SDKs are
@@ -56,7 +58,7 @@ is enforced by the
 [`agent-memory-tck`](https://github.com/neo4j-labs/agent-memory-tck)
 spec suite, which consumes both SDKs as external dependencies.
 
-> **Python release:** These Python instructions use the published `neo4j-agent-memory==0.6.0` package. The [Python tutorials](https://neo4j.com/labs/agent-memory/sdks/python) show the complete example programs and helpers to copy into local files, so running them does not require a repository clone or code download. TypeScript tutorials retain their [documented source setup](https://neo4j.com/labs/agent-memory/sdks/typescript); Python and npm release versions are independent.
+> **Package releases:** These Python instructions use the published `neo4j-agent-memory==0.6.0` package. The [Python tutorials](https://neo4j.com/labs/agent-memory/sdks/python) show the complete example programs and helpers to copy into local files, so running them does not require a repository clone or code download. Application code installs the TypeScript SDK the same way, from the published `@neo4j-labs/agent-memory@0.5.0` package on npm; the [TypeScript tutorials](https://neo4j.com/labs/agent-memory/sdks/typescript) instead run from the shared example-project checkout, which pins the SDK with `file:../..` so lessons always exercise current source.
 
 ## Quick start
 

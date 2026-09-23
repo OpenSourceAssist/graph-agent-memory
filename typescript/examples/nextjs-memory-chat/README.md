@@ -19,11 +19,17 @@ operate, no vector store, no database migrations.
 
 ## What it shows
 
-- **Memory is one wrapped model.** `app/api/chat/route.ts` wraps
-  `openai(…)` with `agentMemoryMiddleware` and calls `streamText`. After that
-  line there is no memory-specific code in the request path: context injection,
-  user-turn persistence and assistant-turn persistence (streamed included) are
-  the middleware's job.
+- **Memory is one wrapped model.** `lib/handlers.ts` wraps `openai(…)` in a
+  `createNamsProvider(...)` from `@neo4j-labs/nams-ai-provider` and calls
+  `streamText`. After that line there is no memory-specific code in the
+  request path: retrieval (conversation history, entities, graph
+  relationships, reasoning history), user-turn persistence and assistant-turn
+  persistence (streamed included) are the provider's job. This app wants that
+  cross-session, graph-expanded retrieval — if a conversation's own
+  reflections, observations and recent messages were enough, the SDK's own
+  `agentMemoryMiddleware` (see
+  [How-to: Vercel AI SDK](https://neo4j.com/labs/agent-memory/how-to/typescript/vercel-ai))
+  is the simpler, single-package alternative.
 - **The browser is not the source of truth.** The route forwards *only the newest
   user turn* to the model; the history the model sees comes back out of the graph.
   Reload the tab, or open the same `/c/<id>` URL on another device, and the
@@ -66,7 +72,7 @@ reasoning-trace drawer open, one step per answered turn.
 app/
   page.tsx                     mint a conversation → redirect to /c/<id>
   c/[conversationId]/page.tsx  the app (Next 16: params is a promise)
-  api/chat/route.ts            wrapLanguageModel + agentMemoryMiddleware + streamText
+  api/chat/route.ts            createNamsProvider + streamText
   api/conversation/route.ts    shortTerm.createConversation
   api/memory/context/route.ts  shortTerm.getContext        → the three tiers
   api/memory/graph/route.ts    GET  longTerm.getEntityGraph
@@ -76,7 +82,7 @@ app/
 components/
   Workspace, ChatPanel, MemoryRail, GraphView, ExtractionBadge, TraceDrawer
 lib/
-  memory.ts    the MemoryClient, the model, the user id (server-only)
+  memory.ts    the MemoryClient, the provider config, the model, the user id (server-only)
   handlers.ts  every route's behaviour as (deps, Request) => Response
   types.ts     the DTOs shared by the routes and the components
 ```
@@ -98,31 +104,47 @@ booting Next.
 
 ## Streaming persistence boundary
 
-This minimal route uses the core middleware's background assistant write. A
-completed client stream does not prove NAMS storage finished before a serverless
-runtime stops; the middleware exposes no persistence-completion promise. For
-application-owned, awaited writes and explicit abort/error handling, follow the
-[Cloudflare lifecycle example](../cloudflare-agents-edge/README.md) and adapt its
-runtime hook to your deployment. Disable automatic assistant writes when adding
-that explicit write, so the response is not stored twice.
+`createNamsProvider`'s stream wrapper awaits the assistant-turn write as part of
+closing the response stream, so a fully-drained client stream implies the write
+was attempted — not skipped, unlike a plain fire-and-forget write. It is still
+best-effort: a failed write is logged and swallowed, not surfaced to the caller,
+and nothing in the response tells the client whether it succeeded. For
+application-owned, explicitly awaited writes with error handling the client can
+see, follow the [Cloudflare lifecycle example](../cloudflare-agents-edge/README.md)
+and adapt its runtime hook to your deployment; pass `persistInteractions: false`
+to `createNamsProvider` when adding that explicit write, so the response is not
+stored twice.
 
-## Build the shared SDK first
+## Build the shared packages first
 
-This is a source-checkout example. Its `file:../..` dependency and shared
-`../tsconfig.base.json` require the repository layout. From the repository root:
+This is a source-checkout example. Its `file:../..` and
+`file:../../packages/vercel-ai-provider` dependencies and shared
+`../tsconfig.base.json` require the repository layout. In an application (not
+this checkout) these are two separate npm installs —
+`@neo4j-labs/nams-ai-provider@0.3.0` (the provider `lib/handlers.ts` wraps the
+chat model in) and `@neo4j-labs/agent-memory@0.5.0` (the SDK the memory rail's
+routes call directly) — but this example pins both to the packages in this
+repository via `file:` links, so it always runs against current source. From
+the repository root:
 
 ```bash
 cd typescript
 npm ci
 npm run build
-cd examples/nextjs-memory-chat
+cd packages/vercel-ai-provider
+npm ci
+npm run build
+cd ../../examples/nextjs-memory-chat
 ```
 
-Run the commands below from `typescript/examples/nextjs-memory-chat/`. Build **before**
-installing this example; package exports point at `typescript/dist/` and npm does
-not build the local SDK on installation. For standalone copies, follow the
-[copy checklist](../README.md#copying-an-example) and verify the selected npm
-artifact supplies every API used here.
+Run the commands below from `typescript/examples/nextjs-memory-chat/`. Build **both
+packages before** installing this example; their exports point at
+`typescript/dist/` and `typescript/packages/vercel-ai-provider/dist/`, and npm
+does not build local `file:` dependencies on installation. For standalone
+copies, follow the [copy checklist](../README.md#copying-an-example), install
+`@neo4j-labs/nams-ai-provider@0.3.0` and `@neo4j-labs/agent-memory@0.5.0` from
+npm instead of the `file:` links, and verify the selected artifacts supply
+every API used here.
 
 ## Run it
 
@@ -212,20 +234,23 @@ npm run build     # next build (Turbopack)
 network**:
 
 - NAMS is a mock REST service served by [msw](https://mswjs.io)
-  (`test/nams-server.ts`), driven through the *real* `MemoryClient` and
-  `RestTransport` — so a wrong URL, verb or body shape fails the suite, and any
-  endpoint the example starts calling without a handler answers 501 rather than
-  passing silently;
+  (`test/nams-server.ts`), driven through the *real* `MemoryClient`,
+  `RestTransport` **and** `createNamsProvider` from `@neo4j-labs/nams-ai-provider`
+  — so a wrong URL, verb or body shape fails the suite, and any endpoint the
+  example starts calling without a handler answers 501 rather than passing
+  silently;
 - the model is the AI SDK's own `MockLanguageModelV4` from `ai/test`, which
   records every call it receives.
 
 The assertions are the ones that fail if memory stops working: both sides of a
-turn are persisted, the prompt carries history the request never sent,
-`expandGraph` receives the accumulated `loadedIds` (and the delta excludes what
-is already loaded), the extraction probe waits for an entity it has not seen
-before the rail refetches, and the answered turn lands in the reasoning trace. A
-source-level check also asserts no `node:` imports reach `app/`, `components/` or
-`lib/`, so the app stays edge-deployable.
+turn are persisted, the prompt carries memory the request never sent —
+conversation history retrieved by the provider's search, plus a matching
+entity's graph relationship — `expandGraph` receives the accumulated
+`loadedIds` (and the delta excludes what is already loaded), the extraction
+probe waits for an entity it has not seen before the rail refetches, and the
+answered turn lands in the reasoning trace. A source-level check also asserts
+no `node:` imports reach `app/`, `components/` or `lib/`, so the app stays
+edge-deployable.
 
 ## Where this sits
 
