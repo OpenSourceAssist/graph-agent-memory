@@ -186,6 +186,10 @@ class TestGetActive:
             {**_version(), "schema_json": "not json"},
             {**_version(), "schema_json": "null"},
             {**_version(), "schema_json": "{}"},
+            # schema_json is a JSON string on the wire; an inline object is
+            # rejected, as the TypeScript SDK rejects it.
+            {**_version(), "schema_json": {"domain": {"id": "d", "name": "D"}}},
+            {**_version(), "schema_json": ["not", "a", "string"]},
             {**_version(), "schema_hash": 7},
         ],
     )

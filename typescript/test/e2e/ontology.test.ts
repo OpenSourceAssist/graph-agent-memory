@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { MemoryClient } from "../../src/client.js";
-import { NotFoundError } from "../../src/errors.js";
+import { TransportError } from "../../src/errors.js";
 import type { ActiveOntology } from "../../src/ontology/index.js";
 
 const API_KEY = (process.env.MEMORY_API_KEY ?? "").trim();
@@ -52,7 +52,10 @@ describeOrSkip("ontology lifecycle (hosted)", () => {
       for (const id of ownedIds) {
         expect(await client!.ontology.getActive()).toEqual(before);
         await client!.ontology.delete(id);
-        await expect(client!.ontology.get(id)).rejects.toBeInstanceOf(NotFoundError);
+        // The REST transport maps HTTP 404 to TransportError, not NotFoundError.
+        const missing = client!.ontology.get(id);
+        await expect(missing).rejects.toBeInstanceOf(TransportError);
+        await expect(missing).rejects.toMatchObject({ statusCode: 404 });
       }
     } finally {
       await client.close();

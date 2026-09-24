@@ -4,10 +4,13 @@ Exercises the live ontology lifecycle against the staging deployment:
 list → clone → update (new revision) → activate → get_active → delete,
 with exact active-version and mode readback. No entity validation probe runs.
 
-These tests **mutate workspace-global active-ontology state**, so the
-``restore_active_ontology`` fixture snapshots the active version before
-each test and rebinds it afterward. Created ontologies are tracked and
-deleted on teardown.
+The read-only checks (``list`` and ``get_active`` metadata) run whenever the
+NAMS suite runs. The lifecycle tests **mutate workspace-global
+active-ontology state**, so they run only with
+``RUN_ISOLATED_ONTOLOGY_TESTS=1`` against a workspace the run owns
+exclusively. Their ``restore_active_ontology`` fixture snapshots the active
+version before each test and rebinds it afterward. Created ontologies are
+tracked and deleted on teardown.
 """
 
 from __future__ import annotations
@@ -22,13 +25,13 @@ from neo4j_agent_memory import MemoryClient
 from neo4j_agent_memory.core.exceptions import NotFoundError
 from neo4j_agent_memory.nams import OntologyDocument
 
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.skipif(
-        os.environ.get("RUN_ISOLATED_ONTOLOGY_TESTS") != "1",
-        reason="Set RUN_ISOLATED_ONTOLOGY_TESTS=1 only for an exclusively owned test workspace",
-    ),
-]
+pytestmark = pytest.mark.integration
+
+# Applied to every test that changes the workspace's active ontology.
+mutates_active_ontology = pytest.mark.skipif(
+    os.environ.get("RUN_ISOLATED_ONTOLOGY_TESTS") != "1",
+    reason="Set RUN_ISOLATED_ONTOLOGY_TESTS=1 only for an exclusively owned test workspace",
+)
 
 # A template unlikely to clash with other suites; its clone is "<name>-clone".
 TEMPLATE = "conservation"
@@ -94,6 +97,34 @@ async def test_list_includes_system_templates(nams_client: MemoryClient) -> None
 
 
 @pytest.mark.asyncio
+async def test_get_active_reports_version_metadata(nams_client: MemoryClient) -> None:
+    """Read-only: the active response carries the binding's version metadata.
+
+    ``get_active()`` reads version_id, ontology_id, revision and
+    validation_mode only from the ``version`` object in the
+    ``GET /ontologies/active`` response. If the service stopped sending it,
+    every caller would silently see None for all four.
+    """
+    onto = nams_client.ontology
+    active = await onto.get_active()
+    assert active.document is not None
+    assert active.version_id, "GET /ontologies/active returned no version metadata"
+    assert active.ontology_id
+    assert isinstance(active.revision, int) and active.revision >= 1
+    assert active.validation_mode in {"permissive", "strict"}
+
+    # Cross-check against the catalog, the lookup get_active() used before it
+    # read the response's version object.
+    flagged = [summary.id for summary in await onto.list() if summary.is_active]
+    assert flagged == [active.ontology_id]
+    versions = {version.id: version for version in (await onto.get(active.ontology_id)).versions}
+    assert active.version_id in versions
+    assert versions[active.version_id].revision == active.revision
+    assert versions[active.version_id].validation_mode == active.validation_mode
+
+
+@mutates_active_ontology
+@pytest.mark.asyncio
 async def test_clone_returns_revision_1_version(fresh_clone) -> None:
     assert fresh_clone.revision == 1
     assert fresh_clone.ontology_id.startswith("ont_")
@@ -102,6 +133,7 @@ async def test_clone_returns_revision_1_version(fresh_clone) -> None:
     assert len(fresh_clone.document.entity_types) > 0
 
 
+@mutates_active_ontology
 @pytest.mark.asyncio
 async def test_update_creates_new_revision_preserving_schema(
     nams_client: MemoryClient, fresh_clone
@@ -115,6 +147,7 @@ async def test_update_creates_new_revision_preserving_schema(
     assert len(v2.document.entity_types) == original_types
 
 
+@mutates_active_ontology
 @pytest.mark.asyncio
 async def test_activate_and_get_active_surface_validation_mode(
     nams_client: MemoryClient, fresh_clone, restore_active_ontology: dict
@@ -134,6 +167,7 @@ async def test_activate_and_get_active_surface_validation_mode(
     assert active.version_id == strict.id
 
 
+@mutates_active_ontology
 @pytest.mark.asyncio
 async def test_create_from_document(
     nams_client: MemoryClient, restore_active_ontology: dict

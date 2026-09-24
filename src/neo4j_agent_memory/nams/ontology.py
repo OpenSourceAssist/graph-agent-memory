@@ -282,6 +282,8 @@ def _parse_active_version(raw: Any) -> OntologyVersion:
         )
     if raw.get("validation_mode") not in ("permissive", "strict"):
         raise ValueError("Invalid active ontology version metadata: unknown validation_mode.")
+    if raw.get("schema_json") is not None and not isinstance(raw["schema_json"], str):
+        raise ValueError("Invalid active ontology version metadata: schema_json must be a string.")
     version = _parse_version(raw)
     if raw.get("schema_json") is not None and version.document is None:
         raise ValueError("Invalid active ontology version metadata: schema_json is not a document.")

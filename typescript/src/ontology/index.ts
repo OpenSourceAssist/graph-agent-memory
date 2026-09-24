@@ -93,13 +93,21 @@ export interface Ontology {
   versions: OntologyVersion[];
 }
 
-/** Legacy document-only responses leave the binding metadata absent. */
+/**
+ * The active ontology document plus the version it is bound to.
+ *
+ * Unreleased behaviour (not in 0.5.0; see CHANGELOG [Unreleased]): the binding
+ * metadata comes from the `version` object on the active response, and a
+ * legacy document-only response leaves it all undefined. In 0.5.0 these fields
+ * were composed from extra `list()`/`get()` calls using the latest revision.
+ */
 export interface ActiveOntology {
   document: OntologyDocument;
   validationMode?: string;
   revision?: number;
   ontologyId?: string;
   versionId?: string;
+  /** Unreleased: not present in 0.5.0; see CHANGELOG [Unreleased]. */
   schemaHash?: string;
 }
 
@@ -459,7 +467,17 @@ export class OntologyClient {
     };
   }
 
-  /** Return the exact active binding; malformed or conflicting metadata throws. */
+  /**
+   * Return the active document and the version it is bound to, read from the
+   * active response (which can be older than the latest revision).
+   *
+   * Unreleased behaviour (not in 0.5.0; see CHANGELOG [Unreleased]): malformed
+   * version metadata, or a version whose schema conflicts with the active
+   * document, throws a plain `Error` (not a `MemoryError` subclass). 0.5.0
+   * composed the metadata from `list()`/`get()` instead.
+   *
+   * @throws {@link NotSupportedError} when no ontology is bound.
+   */
   async getActive(): Promise<ActiveOntology> {
     const raw = await this.transport.request<{ ontology?: WireDocument; version?: unknown }>(
       "get_active_ontology",
