@@ -90,6 +90,7 @@ docs/node_modules/
 # Local plans and research
 plans/
 .mcp.json
+.cursor/mcp.json
 
 # Generated reference doc (not for checkin)
 agent-memory-info.adoc

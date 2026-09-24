@@ -121,15 +121,22 @@ jobs:
           npm ci
           npm run build
 
-      # nams-ai-provider depends on @neo4j-labs/nams-ai-provider via
-      # file:../../packages/vercel-ai-provider, whose dist/ is gitignored —
-      # build it before installing that example.
-      - name: 'Build vercel-ai-provider package (populates dist for nams-ai-provider example)'
-        if: matrix.example == 'nams-ai-provider'
-        working-directory: typescript/packages/vercel-ai-provider
+      # Examples that depend on @neo4j-labs/nams-ai-provider via
+      # file:../../packages/vercel-ai-provider (nams-ai-provider and
+      # nextjs-memory-chat) need its dist/, which is gitignored. Build it
+      # before installing any example whose package.json links the package.
+      - name: 'Build vercel-ai-provider package (populates dist for examples that link it)'
+        working-directory: typescript
+        env:
+          EXAMPLE: ${{ matrix.example }}
         run: |
-          npm ci
-          npm run build
+          if grep -q 'packages/vercel-ai-provider' "examples/$EXAMPLE/package.json"; then
+            cd packages/vercel-ai-provider
+            npm ci
+            npm run build
+          else
+            echo "$EXAMPLE does not link packages/vercel-ai-provider; skipping"
+          fi
 
       # `npm ci` where the example commits a lockfile, `npm install` otherwise.
       # See the lockfile policy in typescript/examples/README.md: a committed
@@ -149,7 +156,7 @@ jobs:
         working-directory: typescript/examples/${{ matrix.example }}
         run: npx tsc --noEmit
 
-      # Nine of the ten ship an offline vitest suite that CI never ran.
+      # All ten ship an offline vitest suite.
       - name: Test example
         working-directory: typescript/examples/${{ matrix.example }}
         run: npm test --if-present

@@ -186,6 +186,6 @@ Image to add: `images/screenshots/entity-graph.png`
 ```bash
 cd docs
 npm run build      # Build all pages
-npm run serve      # Preview the existing build; rebuild after edits
+npm run serve      # Build once and serve a static preview
 npm run lint       # Fresh build plus source/rendered checks
 ```

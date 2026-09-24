@@ -3,12 +3,16 @@
 
 Use --build for one clean temporary build, or --site-dir for an already built
 artifact. External URLs and shared UI chrome are outside the content-link check.
+
+A rendered check also confirms that every section id recorded in
+scripts/docs_section_ids.json still resolves on its page, so a renamed or
+removed section keeps a compatibility anchor. --record-section-ids adds the
+section ids of the checked build to that baseline; it never removes one.
 """
 
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
 import re
@@ -21,6 +25,7 @@ from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = ROOT / "docs/modules/ROOT/pages"
+SECTION_BASELINE = ROOT / "scripts/docs_section_ids.json"
 QUADRANTS = ("tutorials", "how-to", "reference", "explanation")
 XREF = re.compile(r"xref:([^\s\[]+)\[")
 
@@ -36,6 +41,39 @@ def page_target(target: str, source: str) -> str | None:
     if target.startswith("./") or target.startswith("../"):
         return os.path.normpath(str(Path(source).parent / target))
     return target.lstrip("/")
+
+
+NAMED = re.compile(r"\s*[A-Za-z_][\w-]*=")
+QUOTED = {quote: re.compile(rf"{quote}(?:\\.|[^{quote}\\])*{quote}") for quote in "\"'"}
+
+
+def split_attributes(attributes: str) -> list[str]:
+    """Split an AsciiDoc attribute list on commas, as Asciidoctor does.
+
+    A double or single quote opens a quoted value at the start of a field or
+    directly after ``name=``, so ``title="One, two"`` stays one field. A quote
+    that is never closed is literal text.
+    """
+    fields: list[str] = []
+    field = ""
+    index = 0
+    while index < len(attributes):
+        char = attributes[index]
+        if char == ",":
+            fields.append(field)
+            field = ""
+            index += 1
+            continue
+        if char in QUOTED and (not field.strip() or NAMED.fullmatch(field)):
+            quoted = QUOTED[char].match(attributes, index)
+            if quoted:
+                field += quoted.group()
+                index = quoted.end()
+                continue
+        field += char
+        index += 1
+    fields.append(field)
+    return fields
 
 
 def source_report(pages: Path = PAGES) -> dict:
@@ -54,12 +92,10 @@ def source_report(pages: Path = PAGES) -> dict:
             for heading in re.findall(r"^={1,6}[ \t]+(.*Earlier section.*)$", text, re.M)
         )
         for line, attributes in re.findall(r"^(image::?[^\[]+\[([^\n]*)\])", text, re.M):
-            try:
-                fields = next(csv.reader([attributes]))
-            except csv.Error as error:
-                errors.append(f"{name}: invalid image attributes: {error}")
-                continue
-            positional = [field.strip() for field in fields[1:] if "=" not in field]
+            fields = split_attributes(attributes)
+            positional = [
+                field.strip().strip("\"'") for field in fields[1:] if not NAMED.match(field)
+            ]
             if any(not re.fullmatch(r"\d+(?:%|px)?", field) for field in positional):
                 errors.append(f"{name}: quote comma-containing image alt text: {line}")
         inventory.append(
@@ -119,6 +155,7 @@ class Document(HTMLParser):
     def __init__(self, html: str):
         super().__init__(convert_charrefs=True)
         self.ids: set[str] = set()
+        self.section_ids: list[str] = []
         self.links: list[str] = []
         self.images: list[dict[str, str | None]] = []
         self.unrendered_headings: list[str] = []
@@ -144,6 +181,8 @@ class Document(HTMLParser):
             self.links.append(attrs["href"])
         if self.in_article and tag == "img":
             self.images.append(attrs)
+        if self.in_article and tag in {"h2", "h3", "h4", "h5", "h6"} and attrs.get("id"):
+            self.section_ids.append(attrs["id"])
 
     def handle_endtag(self, tag: str):
         if tag == "p" and self.paragraph is not None:
@@ -161,7 +200,13 @@ class Document(HTMLParser):
             self.paragraph.append(data)
 
 
-def rendered_report(site: Path) -> dict:
+def rendered_report(site: Path, section_baseline: dict[str, list[str]] | None = None) -> dict:
+    """Check rendered links, fragments, images and headings under ``site``.
+
+    Pass ``section_baseline`` (usually ``load_section_baseline()``) for a full
+    Antora build, so a recorded section id that stops resolving is an error too.
+    Leave it out for a partial or synthetic site that does not hold every page.
+    """
     site = site.resolve()
     documents = {p.resolve(): Document(p.read_text()) for p in site.rglob("*.html")}
     errors = []
@@ -215,12 +260,67 @@ def rendered_report(site: Path) -> dict:
                     )
     if not documents:
         errors.append(f"No HTML files in {site}")
+    if section_baseline is not None:
+        errors.extend(section_baseline_errors(site, section_baseline))
     return {
         "html_files": len(documents),
         "content_links": links,
         "images": images,
         "errors": errors,
     }
+
+
+def section_ids(site: Path) -> dict[str, list[str]]:
+    """Map each rendered page (relative to the site root) to its section ids."""
+    site = site.resolve()
+    pages = {}
+    for path in sorted(site.rglob("*.html")):
+        ids = Document(path.read_text()).section_ids
+        if ids:
+            pages[path.relative_to(site).as_posix()] = sorted(set(ids))
+    return pages
+
+
+def load_section_baseline(path: Path = SECTION_BASELINE) -> dict[str, list[str]]:
+    return json.loads(path.read_text())["pages"] if path.exists() else {}
+
+
+def section_baseline_errors(site: Path, baseline: dict[str, list[str]]) -> list[str]:
+    """Every recorded section id must still resolve on its page.
+
+    Readers and other sites link to these fragments. When a section is renamed
+    or merged, keep the old id with an ``anchor:<old-id>[]`` macro at the
+    section that now covers the content.
+    """
+    site = site.resolve()
+    errors = []
+    for page, ids in sorted(baseline.items()):
+        path = site / page
+        if not path.exists():
+            errors.append(f"{page}: page with recorded section ids is missing")
+            continue
+        present = Document(path.read_text()).ids
+        errors.extend(
+            f"{page}#{section}: recorded section id no longer resolves; add an anchor"
+            for section in ids
+            if section not in present
+        )
+    return errors
+
+
+def record_section_ids(site: Path, path: Path = SECTION_BASELINE) -> int:
+    """Add the built site's section ids to the baseline; never drop a recorded id."""
+    data = (
+        json.loads(path.read_text())
+        if path.exists()
+        else {"description": "Rendered section ids that must keep resolving.", "pages": {}}
+    )
+    before = sum(len(ids) for ids in data["pages"].values())
+    for page, ids in section_ids(site).items():
+        data["pages"][page] = sorted(set(data["pages"].get(page, [])) | set(ids))
+    data["pages"] = dict(sorted(data["pages"].items()))
+    path.write_text(json.dumps(data, indent=1) + "\n")
+    return sum(len(ids) for ids in data["pages"].values()) - before
 
 
 def build_site(destination: Path, *, root: Path = ROOT) -> tuple[str, list[str]]:
@@ -262,7 +362,14 @@ def main() -> int:
         type=Path,
         help="Write inventory, full build log and validation evidence as JSON",
     )
+    parser.add_argument(
+        "--record-section-ids",
+        action="store_true",
+        help=f"Add the checked build's section ids to {SECTION_BASELINE.relative_to(ROOT)}",
+    )
     args = parser.parse_args()
+    if args.record_section_ids and not (args.build or args.site_dir):
+        parser.error("--record-section-ids needs --build or --site-dir")
     sys.path.insert(0, str(ROOT))
     from scripts.manage_diagrams import check_manifest
 
@@ -275,8 +382,12 @@ def main() -> int:
             report["build_log"], build_errors = build_site(site)
             errors.extend(build_errors)
         if site is not None:
-            report["rendered"] = rendered_report(site)
+            report["rendered"] = rendered_report(site, load_section_baseline())
             errors.extend(report["rendered"]["errors"])
+            # Record only from a clean build, so a broken page cannot seed the baseline.
+            if args.record_section_ids and not errors:
+                added = record_section_ids(site)
+                print(f"Recorded {added} new section ids in {SECTION_BASELINE.relative_to(ROOT)}")
     report["errors"] = errors
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)

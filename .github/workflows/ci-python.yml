@@ -235,6 +235,17 @@ jobs:
           restore-keys: |
             hf-cache-${{ runner.os }}-
 
+      # The maintained tutorial and how-to programs in
+      # docs/modules/ROOT/examples, run phase by phase against this job's Neo4j.
+      - name: Run documentation programs against Neo4j
+        run: |
+          uv run --no-sync pytest tests/docs/test_tutorial_examples.py tests/docs/test_howto_examples.py \
+            -v --tb=short --timeout=600
+        env:
+          NEO4J_URI: bolt://localhost:7687
+          NEO4J_USERNAME: neo4j
+          NEO4J_PASSWORD: test-password
+
       - name: Run integration tests with coverage
         # NAMS integration tests have a dedicated workflow
         # (.github/workflows/nams-integration.yml) so we exclude them here.
@@ -676,6 +687,7 @@ jobs:
       - name: Run documentation link validation
         run: |
           uv run pytest tests/docs/test_links.py tests/docs/test_docs_checker.py \
+            tests/docs/test_nav_labels.py \
             -v \
             --tb=short \
             --timeout=60
@@ -701,6 +713,13 @@ jobs:
             -v \
             --tb=short \
             --timeout=180
+
+      # The same gate as `make docs-lint` minus Playwright: source coverage, the
+      # diagram manifest, one clean Antora build, rendered links and images, and
+      # every section id recorded in scripts/docs_section_ids.json. A renamed
+      # section must keep its old id as an anchor, or this step fails.
+      - name: Check docs sources, a fresh build and recorded section ids
+        run: uv run python scripts/check_docs.py --build
 
   # Merge coverage from unit and integration tests, check threshold
   coverage-report:

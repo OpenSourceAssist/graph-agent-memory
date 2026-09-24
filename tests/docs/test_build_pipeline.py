@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.check_docs import build_site, rendered_report
+from scripts.check_docs import build_site, load_section_baseline, rendered_report
 
 
 @pytest.fixture(scope="session")
@@ -34,7 +34,7 @@ def test_all_pages_render(built_docs: Path, docs_dir: Path):
 
 @pytest.mark.docs
 def test_rendered_content_links_fragments_and_images(built_docs: Path):
-    report = rendered_report(built_docs)
+    report = rendered_report(built_docs, section_baseline=load_section_baseline())
     assert report["content_links"] > 0
     assert not report["errors"], "\n".join(report["errors"])
 

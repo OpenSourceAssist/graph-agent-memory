@@ -23,10 +23,6 @@ H1_RE = re.compile(r"^=\s+(.+?)\s*$", re.MULTILINE)
 # Keep this list explicit and commented; it is the record of every deliberate
 # shortening or prose-style reference, not a way to silence real drift.
 ALLOWED_DIVERGENCE = {
-    # how-to/index.adoc references its own sibling integrations index inline
-    # ("See also ... the integration chooser") as natural prose, not as a
-    # peer list row, so it doesn't repeat the page's H1 verbatim.
-    "how-to/integrations/index.adoc": "prose cross-reference ('the integration chooser'), not a list entry",
     # Quadrant index pages refer to each other inline as common nouns
     # ("a tutorial", "how-to guides", "reference") rather than by their own H1.
     "tutorials/index.adoc": "inline prose reference to the Tutorials quadrant, not a list entry",
@@ -122,65 +118,81 @@ def quadrant_index(request) -> tuple[str, dict[str, list[str]]]:
     return quadrant, _extract_xrefs(text)
 
 
+def _index_mismatches(
+    nav_xrefs: dict[str, list[str]], index_xrefs: dict[str, list[str]]
+) -> list[str]:
+    """Pages whose nav link text differs from their quadrant-index link text."""
+    mismatches = []
+    for path, index_labels in index_xrefs.items():
+        if path not in nav_xrefs or path in ALLOWED_DIVERGENCE:
+            continue
+        nav_labels = set(nav_xrefs[path])
+        if nav_labels != set(index_labels):
+            mismatches.append(f"{path}: nav={sorted(nav_labels)} index={sorted(set(index_labels))}")
+    return mismatches
+
+
+def _h1_mismatches(xrefs: dict[str, list[str]], source: str) -> list[str]:
+    """Pages whose link text in ``source`` differs from the page's own H1."""
+    mismatches = []
+    for path, labels in xrefs.items():
+        if path in ALLOWED_DIVERGENCE:
+            continue
+        h1 = _page_h1(path)
+        if h1 is None:
+            continue
+        mismatches.extend(
+            f"{path}: {source}={label!r} h1={h1!r}" for label in set(labels) if label != h1
+        )
+    return mismatches
+
+
 @pytest.mark.docs
 class TestNavIndexH1Alignment:
     """nav.adoc, each quadrant index, and target H1s must read as one name."""
 
     def test_nav_label_matches_quadrant_index_label(
-        self, strict_nav_xrefs: dict[str, list[str]], quadrant_index: tuple[str, dict[str, list[str]]]
+        self,
+        strict_nav_xrefs: dict[str, list[str]],
+        quadrant_index: tuple[str, dict[str, list[str]]],
     ) -> None:
         _quadrant, index_xrefs = quadrant_index
-        mismatches = []
-        for path, index_labels in index_xrefs.items():
-            if path not in strict_nav_xrefs:
-                continue
-            if path in ALLOWED_DIVERGENCE:
-                continue
-            nav_labels = set(strict_nav_xrefs[path])
-            if nav_labels != set(index_labels):
-                mismatches.append(f"{path}: nav={sorted(nav_labels)} index={sorted(set(index_labels))}")
+        mismatches = _index_mismatches(strict_nav_xrefs, index_xrefs)
         assert not mismatches, "nav.adoc and index link text disagree:\n" + "\n".join(mismatches)
 
     def test_nav_label_matches_target_h1(self, strict_nav_xrefs: dict[str, list[str]]) -> None:
-        mismatches = []
-        for path, labels in strict_nav_xrefs.items():
-            if path in ALLOWED_DIVERGENCE:
-                continue
-            h1 = _page_h1(path)
-            if h1 is None:
-                continue
-            for label in set(labels):
-                if label != h1:
-                    mismatches.append(f"{path}: nav={label!r} h1={h1!r}")
-        assert not mismatches, "nav.adoc link text disagrees with the target page's H1:\n" + "\n".join(mismatches)
-
-    def test_index_label_matches_target_h1(self, quadrant_index: tuple[str, dict[str, list[str]]]) -> None:
-        quadrant, index_xrefs = quadrant_index
-        mismatches = []
-        for path, labels in index_xrefs.items():
-            if path in ALLOWED_DIVERGENCE:
-                continue
-            h1 = _page_h1(path)
-            if h1 is None:
-                continue
-            for label in set(labels):
-                if label != h1:
-                    mismatches.append(f"{path}: {quadrant}/index={label!r} h1={h1!r}")
-        assert not mismatches, "Quadrant index link text disagrees with the target page's H1:\n" + "\n".join(
-            mismatches
+        mismatches = _h1_mismatches(strict_nav_xrefs, "nav")
+        assert not mismatches, (
+            "nav.adoc link text disagrees with the target page's H1:\n" + "\n".join(mismatches)
         )
 
-    def test_perturbed_label_is_caught(self, strict_nav_xrefs: dict[str, list[str]]) -> None:
-        """Sanity check that the alignment assertion actually fails on a real divergence."""
+    def test_index_label_matches_target_h1(
+        self, quadrant_index: tuple[str, dict[str, list[str]]]
+    ) -> None:
+        quadrant, index_xrefs = quadrant_index
+        mismatches = _h1_mismatches(index_xrefs, f"{quadrant}/index")
+        assert not mismatches, (
+            "Quadrant index link text disagrees with the target page's H1:\n"
+            + "\n".join(mismatches)
+        )
+
+    def test_perturbed_label_is_caught(self, nav_text: str) -> None:
+        """A changed nav label must be reported by the same checks the tests above run."""
         path = "explanation/memory-types.adoc"
         h1 = _page_h1(path)
         assert h1 is not None
-        nav_labels = set(strict_nav_xrefs[path])
-        assert nav_labels == {h1}, "fixture page must currently be aligned for this sanity check to be meaningful"
-        perturbed = h1 + " (perturbed)"
-        assert perturbed not in nav_labels
-        with pytest.raises(AssertionError):
-            assert nav_labels == {perturbed}
+        original = f"xref:{path}[{h1}]"
+        assert original in _strict_scope_nav_text(nav_text), (
+            "fixture page must currently be aligned for this check to be meaningful"
+        )
+        perturbed = _extract_xrefs(
+            _strict_scope_nav_text(nav_text.replace(original, f"xref:{path}[{h1} (perturbed)]"))
+        )
+        index_xrefs = _extract_xrefs(
+            (_pages_dir() / QUADRANT_INDEXES["explanation"]).read_text(encoding="utf-8")
+        )
+        assert [m for m in _h1_mismatches(perturbed, "nav") if m.startswith(path)]
+        assert [m for m in _index_mismatches(perturbed, index_xrefs) if m.startswith(path)]
 
 
 @pytest.mark.docs
@@ -239,11 +251,15 @@ class TestExplanationIndexAnchors:
         assert not missing, f"Legacy anchors removed from explanation/index.adoc: {missing}"
 
     def test_anchor_line_has_a_provenance_comment_above_it(self) -> None:
-        lines = (_pages_dir() / "explanation" / "index.adoc").read_text(encoding="utf-8").split("\n")
-        anchor_line_idx = next(i for i, line in enumerate(lines) if line.startswith("anchor:_core_concepts"))
+        lines = (
+            (_pages_dir() / "explanation" / "index.adoc").read_text(encoding="utf-8").split("\n")
+        )
+        anchor_line_idx = next(
+            i for i, line in enumerate(lines) if line.startswith("anchor:_core_concepts")
+        )
         # At least one of the lines immediately above the anchor line must be a
         # "//" comment that names where the anchors came from.
         preceding = lines[max(0, anchor_line_idx - 5) : anchor_line_idx]
-        assert any(
-            line.strip().startswith("//") and "index.adoc" in line for line in preceding
-        ), "explanation/index.adoc's anchor line needs a provenance comment above it, like explanation/backends.adoc:9"
+        assert any(line.strip().startswith("//") and "index.adoc" in line for line in preceding), (
+            "explanation/index.adoc's anchor line needs a provenance comment above it, like explanation/backends.adoc:9"
+        )

@@ -1,17 +1,21 @@
 """Check the rendered site's layout for defect classes a source-only check
 cannot see: inline TOC duplication, images shrunk far below their natural
 size, mobile horizontal overflow, leftover scaffolding headings and
-inconsistent closing sections. See docs/audit-evidence/2026-09-17/
-rendered-site-review-plan.md (finding F1) and scripts/render_docs.mjs.
+inconsistent closing sections. The browser pass lives in
+scripts/render_docs.mjs.
 
 Runs against a fresh `docs/build/site`; `make docs-render-check` builds it
-first. Skips cleanly (with a clear reason) when the build or Playwright is
-absent, rather than building or installing anything itself.
+first. A plain `pytest tests/docs` run skips cleanly (with a clear reason)
+when the build or Playwright is absent, rather than building or installing
+anything itself. `make docs-render-check` sets DOCS_RENDER_CHECK_REQUIRED=1,
+which turns those skips into failures so the gate cannot pass unchecked.
+Install Playwright with `make docs-render-install`.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -21,24 +25,101 @@ import pytest
 pytestmark = pytest.mark.rendered
 
 PRODUCT_ALLOWLIST = {
-    "neo4j", "nams", "langchain", "llamaindex", "crewai", "pydanticai",
-    "pydantic", "openai", "mcp", "typescript", "javascript", "python",
-    "aws", "gcp", "azure", "api", "apis", "sdk", "sdks", "cli", "json",
-    "yaml", "rest", "llm", "llms", "gliner", "glirel", "agent", "skills",
-    "bedrock", "vertex", "adk", "faq", "docker", "graphql", "cypher",
-    "tck", "poleo", "pole+o", "strands", "google", "microsoft", "framework",
-    "next.js", "nextjs", "react", "vercel", "fastmcp", "diffbot",
-    "wikimedia", "wikipedia", "opentelemetry", "opik", "gds", "ollama",
-    "litellm", "aura", "agents",
+    "neo4j",
+    "nams",
+    "langchain",
+    "llamaindex",
+    "crewai",
+    "pydanticai",
+    "pydantic",
+    "openai",
+    "mcp",
+    "typescript",
+    "javascript",
+    "python",
+    "aws",
+    "gcp",
+    "azure",
+    "api",
+    "apis",
+    "sdk",
+    "sdks",
+    "cli",
+    "json",
+    "yaml",
+    "rest",
+    "llm",
+    "llms",
+    "gliner",
+    "glirel",
+    "agent",
+    "skills",
+    "bedrock",
+    "vertex",
+    "adk",
+    "faq",
+    "docker",
+    "graphql",
+    "cypher",
+    "tck",
+    "poleo",
+    "pole+o",
+    "strands",
+    "google",
+    "microsoft",
+    "framework",
+    "next.js",
+    "nextjs",
+    "react",
+    "vercel",
+    "fastmcp",
+    "diffbot",
+    "wikimedia",
+    "wikipedia",
+    "opentelemetry",
+    "opik",
+    "gds",
+    "ollama",
+    "litellm",
+    "aura",
+    "agents",
 }
 CONNECTOR_WORDS = {
-    "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into",
-    "nor", "of", "on", "or", "over", "per", "the", "to", "via", "with",
-    "vs", "is", "are", "your", "you",
+    "a",
+    "an",
+    "and",
+    "as",
+    "at",
+    "but",
+    "by",
+    "for",
+    "from",
+    "in",
+    "into",
+    "nor",
+    "of",
+    "on",
+    "or",
+    "over",
+    "per",
+    "the",
+    "to",
+    "via",
+    "with",
+    "vs",
+    "is",
+    "are",
+    "your",
+    "you",
 }
 CLOSING_HEADING_CANDIDATES = {
-    "see also", "next steps", "related", "related tasks",
-    "related documentation", "where to go next", "related links",
+    "see also",
+    "next steps",
+    "related",
+    "related tasks",
+    "related documentation",
+    "where to go next",
+    "related links",
     "further reading",
 }
 ALLOWED_CLOSING_HEADINGS = {"See also", "Next steps"}
@@ -56,13 +137,22 @@ def looks_title_case(text: str) -> bool:
     return len(non_product) >= 2
 
 
+def _missing_prerequisite(reason: str) -> None:
+    """Skip by default; fail when `make docs-render-check` requires the checks."""
+    if os.environ.get("DOCS_RENDER_CHECK_REQUIRED") == "1":
+        pytest.fail(reason, pytrace=False)
+    pytest.skip(reason)
+
+
 @pytest.fixture(scope="session")
 def render_report(project_root: Path, tmp_path_factory) -> dict:
     site = project_root / "docs" / "build" / "site" / "agent-memory"
     if not site.is_dir():
-        pytest.skip("docs/build/site/agent-memory not found; run `make docs` first")
+        _missing_prerequisite("docs/build/site/agent-memory not found; run `make docs` first")
     if not (project_root / "docs/diagrams/node_modules/playwright").is_dir():
-        pytest.skip("Playwright not installed under docs/diagrams; run `make docs-install`")
+        _missing_prerequisite(
+            "Playwright not installed under docs/diagrams; run `make docs-render-install`"
+        )
 
     out_dir = tmp_path_factory.mktemp("render-report")
     result = subprocess.run(

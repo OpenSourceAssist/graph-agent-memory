@@ -51,8 +51,8 @@ class DiagramPlaceholder:
 
     @property
     def expected_image_path(self) -> Path:
-        """Expected path for the exported PNG image."""
-        return DIAGRAMS_DIR / f"{self.slug}.png"
+        """Expected path for the exported SVG image."""
+        return DIAGRAMS_DIR / f"{self.slug}.svg"
 
     @property
     def has_excalidraw(self) -> bool:
@@ -98,12 +98,14 @@ def check_manifest(root: Path = PROJECT_ROOT) -> dict[str, Any]:
     if len(outputs) != len(records):
         errors.append("Duplicate output entries in diagram manifest")
     referenced_outputs: set[str] = set()
+    pages_by_output: dict[str, set[str]] = {}
     for page in (root / "docs/modules/ROOT/pages").rglob("*.adoc"):
         for target in re.findall(r"image::([^\[]+)\[", page.read_text()):
             if target.startswith("http"):
                 continue
             output = "docs/modules/ROOT/images/" + target
             referenced_outputs.add(output)
+            pages_by_output.setdefault(output, set()).add(str(page.relative_to(root)))
             if output not in outputs:
                 errors.append(f"{page.relative_to(root)}: untracked published image {target}")
     diagrams_dir = root / "docs/modules/ROOT/images/diagrams"
@@ -117,6 +119,12 @@ def check_manifest(root: Path = PROJECT_ROOT) -> dict[str, Any]:
                     f"Orphaned file (in neither the manifest nor a page reference): {output}"
                 )
     for record in records:
+        listed = sorted(record.get("referring_pages", []))
+        actual = sorted(pages_by_output.get(record["output"], ()))
+        if listed != actual:
+            errors.append(
+                f"{record['output']}: referring_pages {listed} do not match embedding pages {actual}"
+            )
         for kind in ("source", "output"):
             name = record.get(kind)
             if not name:
@@ -301,14 +309,17 @@ def add_image_reference(placeholder: DiagramPlaceholder) -> bool:
         print(f"  Warning: Could not find table for {placeholder.title}")
         return False
 
-    # Insert image reference after table
+    # Insert a captioned SVG embed after the table (see docs/MAINTAINING.md).
     table_end = table_match.end()
-    image_ref = f'\n\nimage::{placeholder.expected_image_path.relative_to(ASSETS_DIR)}["{placeholder.title}",width=100%,link=self]\n'
+    target = placeholder.expected_image_path.relative_to(ASSETS_DIR)
+    alt = placeholder.title.replace('"', "'")
+    image_ref = f'\n\n.{placeholder.title}\nimage::{target}["{alt}",width=100%,link=self]\n'
 
     new_content = content[:table_end] + image_ref + content[table_end:]
     placeholder.file_path.write_text(new_content, encoding="utf-8")
 
     print(f"  Added image reference for: {placeholder.title}")
+    print("    Rewrite its alt text to describe what the diagram shows.")
     return True
 
 

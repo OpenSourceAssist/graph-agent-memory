@@ -15,17 +15,33 @@ const require = createRequire(path.join(toolsDir, 'package.json'));
 const { build } = require('esbuild');
 const { chromium } = process.env.PLAYWRIGHT_MODULE_PATH ? require(process.env.PLAYWRIGHT_MODULE_PATH) : require('playwright');
 const renderer = path.dirname(require.resolve('@excalidraw/excalidraw'));
+// Only files the manifest tracks may land in images/diagrams: an untracked file
+// fails the orphan check in scripts/manage_diagrams.py. So the SVG is always
+// written, and its sibling PNG only with --png or when the manifest tracks it.
+const manifest = JSON.parse(await readFile(path.join(root, 'docs/diagrams/manifest.json'), 'utf8'));
+const exportable = record => record.status !== 'unresolved-provenance';
+const trackedPngs = new Set(manifest.diagrams.filter(record => record.output.endsWith('.png') && exportable(record))
+  .map(record => path.join(root, record.output)));
 const args = process.argv.slice(2);
+const forcePng = args.includes('--png');
+const positional = args.filter(value => value !== '--png');
 let jobs;
-if (args.length === 1 && args[0] === '--all') {
-  const manifest = JSON.parse(await readFile(path.join(root, 'docs/diagrams/manifest.json'), 'utf8'));
-  jobs = manifest.diagrams.filter(record => record.source).map(record => [
-    path.join(root, record.source), path.join(root, record.output).replace(/\.(png|svg)$/, '.svg')]);
+if (positional.length === 1 && positional[0] === '--all') {
+  // Re-export the SVGs the manifest records. PNG records and records whose
+  // provenance is unresolved keep their committed files.
+  jobs = manifest.diagrams.filter(record => record.source && record.output.endsWith('.svg') && exportable(record))
+    .map(record => [path.join(root, record.source), path.join(root, record.output)]);
 } else {
-  if (args.length !== 2) throw new Error('Usage: node scripts/export_diagrams.mjs SOURCE.excalidraw OUTPUT.svg (or --all)');
-  jobs = [args.map(value => path.resolve(value))];
+  if (positional.length !== 2) {
+    throw new Error('Usage: node scripts/export_diagrams.mjs SOURCE.excalidraw OUTPUT.svg [--png] (or --all)');
+  }
+  jobs = [positional.map(value => path.resolve(value))];
 }
-if (jobs.some(([, output]) => !output.endsWith('.svg'))) throw new Error('Use an .svg output path; a matching PNG is also exported.');
+if (jobs.some(([, output]) => !output.endsWith('.svg'))) throw new Error('Use an .svg output path.');
+const pngFor = output => {
+  const png = output.replace(/\.svg$/, '.png');
+  return forcePng || trackedPngs.has(png) ? png : null;
+};
 const directory = await mkdtemp(path.join(os.tmpdir(), 'agent-memory-excalidraw-'));
 let browser;
 let server;
@@ -75,8 +91,9 @@ try {
     const result = await page.evaluate(scene => window.render(scene), JSON.parse(await readFile(source, 'utf8')));
     await mkdir(path.dirname(output), {recursive: true});
     await writeFile(output, result.svg + '\n');
-    await writeFile(output.replace(/\.svg$/, '.png'), Buffer.from(result.png, 'base64'));
-    console.log(`Exported ${path.relative(root, output)} and PNG from ${path.relative(root, source)}`);
+    const png = pngFor(output);
+    if (png) await writeFile(png, Buffer.from(result.png, 'base64'));
+    console.log(`Exported ${path.relative(root, output)}${png ? ' and PNG' : ''} from ${path.relative(root, source)}`);
   }
 } finally {
   if (browser) await browser.close();

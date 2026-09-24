@@ -307,6 +307,7 @@ markers = [
     "syntax: marks tests as syntax-only validation (fast)",
     "imports: marks tests as import validation (medium)",
     "slow: marks tests as slow (external link checks, full builds)",
+    "rendered: marks tests that check the rendered docs site (Playwright and a docs build)",
     "aws: marks tests as AWS integration tests (require AWS credentials)",
 ]
 filterwarnings = [

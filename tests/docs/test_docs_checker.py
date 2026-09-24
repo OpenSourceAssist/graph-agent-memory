@@ -1,11 +1,19 @@
 """Regression fixtures for the failures missed by the old docs checks."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
 
-from scripts.check_docs import build_site, rendered_report, source_report
+from scripts.check_docs import (
+    build_site,
+    record_section_ids,
+    rendered_report,
+    section_baseline_errors,
+    source_report,
+    split_attributes,
+)
 
 pytestmark = pytest.mark.docs
 
@@ -119,7 +127,9 @@ def test_leftover_scaffolding_heading_is_rejected(tmp_path):
     errors = source_report(tmp_path)["errors"]
     assert any("leftover scaffolding heading" in error for error in errors)
     entry.write_text("= Home\n\nanchor:_x[]\n== See also\n")
-    assert not any("leftover scaffolding heading" in error for error in source_report(tmp_path)["errors"])
+    assert not any(
+        "leftover scaffolding heading" in error for error in source_report(tmp_path)["errors"]
+    )
 
 
 def test_syntax_checker_reads_the_actual_example_include(tmp_path):
@@ -156,13 +166,83 @@ def test_import_checker_uses_the_module_and_rejects_missing_names(tmp_path):
     assert local_import_errors("from neo4j_agent_memory.adapter import Missing", tmp_path)
 
 
-def test_complete_async_helper_keeps_future_import_at_module_level():
+def test_import_checker_ignores_names_imported_only_for_type_checking(tmp_path):
+    from tests.docs.utils.extract_code import local_import_errors
+
+    package = tmp_path / "neo4j_agent_memory"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "adapter.py").write_text(
+        "import typing\n"
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n    from elsewhere import OnlyTyped\n"
+        "else:\n    from elsewhere import RuntimeName\n"
+        "if typing.TYPE_CHECKING:\n    from elsewhere import AlsoTyped\n"
+    )
+    assert not local_import_errors("from neo4j_agent_memory.adapter import RuntimeName", tmp_path)
+    for name in ("OnlyTyped", "AlsoTyped"):
+        assert local_import_errors(f"from neo4j_agent_memory.adapter import {name}", tmp_path) == [
+            f"neo4j_agent_memory.adapter does not declare {name}"
+        ]
+
+
+def test_snippet_parse_keeps_future_import_and_top_level_await(tmp_path):
+    """The syntax and settings-drift checks share this parse; it must not wrap the program."""
     import ast
 
-    program = (
-        '"""Helper."""\nfrom __future__ import annotations\nasync def work():\n    await action()\n'
+    from tests.docs.test_code_snippets import TestSettingsFieldDrift
+    from tests.docs.utils import extract_python_snippets
+
+    page = tmp_path / "page.adoc"
+    page.write_text(
+        "= Page\n\n[source,python]\n----\n"
+        '"""Helper."""\n'
+        "from __future__ import annotations\n"
+        "from neo4j_agent_memory import MemorySettings\n"
+        "settings = MemorySettings(not_a_field=1)\n"
+        "await action(settings)\n"
+        "----\n"
     )
-    compile(program, "helper.py", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    [snippet] = extract_python_snippets(tmp_path)
+    tree = snippet.parse()
+    assert isinstance(tree.body[1], ast.ImportFrom) and tree.body[1].module == "__future__"
+
+    with pytest.raises(AssertionError, match=r"MemorySettings\(not_a_field=\.\.\.\)"):
+        TestSettingsFieldDrift().test_no_unknown_kwargs_in_doc_constructions([snippet])
+
+
+@pytest.mark.parametrize(
+    ("code", "message"),
+    [
+        ("def f():\n    await g()\n", "'await' outside async function"),
+        ("return x\n", "'return' outside function"),
+        ("break\n", "'break' outside loop"),
+        ("def f(a, a):\n    pass\n", "duplicate argument"),
+    ],
+)
+def test_snippet_syntax_check_catches_compile_phase_errors(tmp_path, code, message):
+    """The syntax check must run the full compiler, not only the parser.
+
+    These errors come from the symbol table and compiler pass, so a
+    parse-only check (``PyCF_ONLY_AST``) accepts them.
+    """
+    from tests.docs.test_code_snippets import TestSnippetSyntax
+    from tests.docs.utils import extract_python_snippets
+
+    page = tmp_path / "page.adoc"
+    page.write_text(f"= Page\n\n[source,python]\n----\n{code}----\n")
+    [snippet] = extract_python_snippets(tmp_path)
+
+    snippet.parse()  # the parser alone accepts it
+    with pytest.raises(SyntaxError, match=re.escape(message)):
+        snippet.check_compiles()
+    with pytest.raises(pytest.fail.Exception, match=re.escape(message)):
+        TestSnippetSyntax().test_snippet_is_valid_python(snippet)
+
+    # Top-level await stays legal under the full compile.
+    page.write_text("= Page\n\n[source,python]\n----\nawait g()\n----\n")
+    [ok] = extract_python_snippets(tmp_path)
+    ok.check_compiles()
 
 
 def test_tagged_example_includes_select_real_regions(tmp_path):
@@ -256,3 +336,38 @@ def test_registered_examples_preserve_include_path_boundaries(registered_example
     manifest.write_text(json.dumps({"team-memory/program.py": "../outside.py"}))
     with pytest.raises(ValueError, match="Registered example escapes repository"):
         expand_example_includes("include::example$team-memory/program.py[]", page)
+
+
+def test_section_baseline_reports_a_missing_id_and_a_missing_page(tmp_path):
+    (tmp_path / "page.html").write_text(
+        '<article class="doc"><h2 id="_kept">Kept</h2><a id="_legacy"></a></article>'
+    )
+    baseline = {"page.html": ["_kept", "_legacy", "_gone"], "removed.html": ["_x"]}
+    assert section_baseline_errors(tmp_path, baseline) == [
+        "page.html#_gone: recorded section id no longer resolves; add an anchor",
+        "removed.html: page with recorded section ids is missing",
+    ]
+    errors = rendered_report(tmp_path, section_baseline=baseline)["errors"]
+    assert any("#_gone" in error for error in errors)
+    assert not rendered_report(tmp_path)["errors"]
+
+
+def test_record_section_ids_never_drops_a_recorded_id(tmp_path):
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "page.html").write_text('<article class="doc"><h2 id="_new">New</h2></article>')
+    baseline = tmp_path / "ids.json"
+    baseline.write_text(json.dumps({"pages": {"page.html": ["_old"], "gone.html": ["_y"]}}))
+    assert record_section_ids(site, baseline) == 1
+    assert json.loads(baseline.read_text())["pages"] == {
+        "gone.html": ["_y"],
+        "page.html": ["_new", "_old"],
+    }
+
+
+def test_split_attributes_keeps_a_quoted_comma_in_one_field():
+    assert split_attributes('source,python,title="One, two"') == [
+        "source",
+        "python",
+        'title="One, two"',
+    ]

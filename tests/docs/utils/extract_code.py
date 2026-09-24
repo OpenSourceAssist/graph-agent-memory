@@ -52,52 +52,6 @@ class CodeSnippet:
         return has_import and not is_continuation and not is_partial and not is_class_method
 
     @property
-    def is_signature_doc(self) -> bool:
-        """Check if this is an API signature documentation snippet.
-
-        These are used in reference docs to show method parameters and are not
-        meant to be runnable Python code.
-        """
-        if self.language != "python":
-            return False
-
-        lines = self.code.strip().split("\n")
-        if not lines:
-            return False
-
-        first_line = lines[0].strip()
-
-        # Pattern 1: Single-line signature with type annotation in params
-        # Example: "entity = await long_term.get_entity(entity_id: str)"
-        # This has a colon inside the parentheses which is not valid Python
-        import re
-
-        if re.search(r"\([^)]*\w+:\s*\w+[^)]*\)", first_line):
-            # Has pattern like (param: type) which is signature notation
-            return True
-
-        # Pattern 2: Multi-line signature documentation
-        if len(lines) >= 2 and first_line.endswith("("):
-            # Check if subsequent lines look like parameter docs (name: type,)
-            param_pattern_count = 0
-            for line in lines[1:]:
-                line = line.strip()
-                if line and ":" in line and (line.endswith(",") or line.endswith(")")):
-                    # Looks like "param_name: type," - this is a signature doc
-                    # Must have type annotation pattern: word followed by colon then type
-                    parts = line.rstrip(",)").split(":")
-                    if len(parts) >= 2:
-                        param_name = parts[0].strip()
-                        # Param names are simple identifiers (no quotes, operators, etc.)
-                        if param_name.isidentifier():
-                            param_pattern_count += 1
-            # If we have parameter-like lines, this is a signature doc
-            if param_pattern_count >= 1:
-                return True
-
-        return False
-
-    @property
     def is_placeholder_snippet(self) -> bool:
         """Check if this snippet uses placeholder ellipsis that isn't valid Python.
 
@@ -129,68 +83,38 @@ class CodeSnippet:
         section_slug = self.section.replace(" ", "_").lower()[:30] if self.section else "unknown"
         return f"{filename}:{self.line_number}:{section_slug}"
 
-    @property
-    def needs_async_wrapper(self) -> bool:
-        """Check if this snippet contains async code that needs wrapping.
+    def parse(self) -> ast.Module:
+        """Parse the snippet as a reader's program runs it.
 
-        This checks for await/async with/async for at the module level
-        (not inside a function). If such code exists, it needs to be wrapped.
+        Top-level ``await`` is allowed, the way ``python -m asyncio`` and
+        notebooks accept it, so snippets are compiled as written and a
+        ``from __future__`` import stays at the top of the module.
+
+        This runs the parser only. Errors raised later, by the symbol table
+        and compiler (``await`` outside an async function, ``return`` outside
+        a function, duplicate arguments), pass here; use
+        :meth:`check_compiles` to validate the snippet.
         """
-        if self.language != "python":
-            return False
+        return compile(
+            self.code,
+            f"{self.file_path}:{self.line_number}",
+            "exec",
+            flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT | ast.PyCF_ONLY_AST,
+        )
 
-        lines = self.code.split("\n")
-        in_function = False
-        indent_stack: list[int] = []
+    def check_compiles(self) -> None:
+        """Compile the snippet to bytecode, raising ``SyntaxError`` if it cannot run.
 
-        for line in lines:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-
-            # Calculate current indentation
-            indent = len(line) - len(line.lstrip())
-
-            # Track function scope
-            if stripped.startswith(("def ", "async def ")):
-                in_function = True
-                indent_stack.append(indent)
-            elif indent_stack and indent <= indent_stack[-1]:
-                # We've dedented past the function
-                indent_stack.pop()
-                if not indent_stack:
-                    in_function = False
-
-            # Check for async operations at module level
-            if not in_function:
-                if "await " in stripped:
-                    return True
-                if stripped.startswith("async with "):
-                    return True
-                if stripped.startswith("async for "):
-                    return True
-
-        return False
-
-    def get_syntax_checkable_code(self) -> str:
-        """Return code suitable for syntax validation.
-
-        For async snippets without a wrapper function, wraps them in an async
-        function to enable syntax checking.
+        Same rules as :meth:`parse` (top-level ``await`` allowed, compiled as
+        written), but through the full compiler, so compile-phase errors such
+        as ``await`` inside a plain ``def`` are caught too.
         """
-        if not self.needs_async_wrapper:
-            return self.code
-
-        # Indent all lines and wrap in async function
-        indented_lines = []
-        for line in self.code.split("\n"):
-            if line.strip():  # Non-empty lines get indented
-                indented_lines.append("    " + line)
-            else:  # Preserve empty lines
-                indented_lines.append("")
-
-        wrapped = "async def __doc_snippet__():\n" + "\n".join(indented_lines)
-        return wrapped
+        compile(
+            self.code,
+            f"{self.file_path}:{self.line_number}",
+            "exec",
+            flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT,
+        )
 
     def __repr__(self) -> str:
         preview = (
@@ -384,6 +308,18 @@ def get_complete_python_snippets() -> list[CodeSnippet]:
     return [s for s in get_all_python_snippets() if s.is_complete]
 
 
+def _is_type_checking(test: ast.expr) -> bool:
+    """True for ``TYPE_CHECKING`` and ``typing.TYPE_CHECKING`` guards."""
+    if isinstance(test, ast.Name):
+        return test.id == "TYPE_CHECKING"
+    return (
+        isinstance(test, ast.Attribute)
+        and test.attr == "TYPE_CHECKING"
+        and isinstance(test.value, ast.Name)
+        and test.value.id == "typing"
+    )
+
+
 def local_import_errors(code: str, source_root: Path) -> list[str]:
     """Check SDK imports against source declarations without loading providers."""
     declarations: dict[str, set[str] | None] = {}
@@ -427,7 +363,9 @@ def local_import_errors(code: str, source_root: Path) -> list[str]:
                 elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
                     names.add(node.target.id)
                 elif isinstance(node, ast.If):
-                    visit(node.body)
+                    # Names imported only under ``if TYPE_CHECKING:`` do not exist at runtime.
+                    if not _is_type_checking(node.test):
+                        visit(node.body)
                     visit(node.orelse)
                 elif isinstance(node, ast.Try):
                     visit(node.body)

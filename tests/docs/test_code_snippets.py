@@ -47,38 +47,21 @@ class TestSnippetSyntax:
     def test_snippet_is_valid_python(self, snippet: CodeSnippet):
         """Every Python snippet should be valid Python syntax.
 
-        For async snippets without a wrapper function, the code is automatically
-        wrapped in an async function for syntax checking.
-
-        Signature documentation snippets (used in API reference to show method
-        parameters) are skipped as they are intentionally not runnable Python.
+        Snippets are compiled as written, with top-level ``await`` allowed, so
+        reference signatures written as ``def ...: ...`` stubs are checked too.
+        Only snippets that use ``...`` as a stand-in for omitted arguments or
+        items are skipped.
         """
-        # Skip signature documentation snippets (used in API reference docs)
-        if snippet.is_signature_doc:
-            pytest.skip("Signature documentation snippet - not runnable Python")
-
-        # Skip placeholder snippets that use ... as a placeholder
         if snippet.is_placeholder_snippet:
             pytest.skip("Placeholder snippet with ellipsis - not runnable Python")
 
-        # Use syntax-checkable code which wraps async snippets if needed
-        checkable_code = snippet.code
         try:
-            compile(
-                checkable_code,
-                f"{snippet.file_path}:{snippet.line_number}",
-                "exec",
-                flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT,
-            )
+            snippet.check_compiles()
         except SyntaxError as e:
-            # Provide helpful error message
-            error_line = e.lineno
-            # Adjust line number if we wrapped the code
-
             pytest.fail(
                 f"Syntax error in {snippet.file_path.name} line {snippet.line_number}\n"
                 f"Section: {snippet.section}\n"
-                f"Error: {e.msg} at line {error_line}\n"
+                f"Error: {e.msg} at line {e.lineno}\n"
                 f"Code:\n{snippet.code[:500]}"
             )
 
@@ -244,8 +227,10 @@ class TestSnippetCoverage:
 @pytest.mark.imports
 class TestStrandsDocImports:
     """Guard: docs import these names from integrations.strands.
-    allowed_missing in TestSnippetImports would silently mask a rename, so
-    verify the real import path whenever strands-agents is installed."""
+
+    The static import check reads source declarations, which a lazy export or a
+    failing optional import can satisfy, so import the real path whenever
+    strands-agents is installed."""
 
     def test_strands_session_manager_doc_imports_resolve(self) -> None:
         pytest.importorskip("strands", reason="strands-agents not installed")
@@ -387,10 +372,10 @@ class TestSettingsFieldDrift:
         violations: list[str] = []
 
         for snippet in python_snippets:
-            if snippet.is_signature_doc or snippet.is_placeholder_snippet:
+            if snippet.is_placeholder_snippet:
                 continue
             try:
-                tree = ast.parse(snippet.get_syntax_checkable_code())
+                tree = snippet.parse()
             except SyntaxError:
                 # Syntax test owns this — skip here so we only report drift.
                 continue
