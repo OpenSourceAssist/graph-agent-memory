@@ -363,16 +363,15 @@
     {
       "output": "docs/modules/ROOT/images/diagrams/the-three-layer-memory-architecture.svg",
       "source": "docs/assets/diagrams/excalidraw/the-three-layer-memory-architecture.excalidraw",
-      "referring_pages": [
-        "docs/modules/ROOT/pages/index.adoc"
-      ],
+      "referring_pages": [],
       "owner": "documentation maintainers",
-      "status": "exported-and-visually-reviewed",
+      "status": "pending-placement",
       "source_sha256": "e290160d657c642c960f66923ba3e8cba201a8366ecaa34ae058c331f1df0ebf",
       "output_sha256": "3cc4ddb3dc07173cd3ce6a9c540ba6d960f620c0589b3eab74957e0df4f71049",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
-      "reviewed_on": "2026-09-18"
+      "reviewed_on": "2026-09-18",
+      "note": "Removed from index.adoc on 2026-09-24 at the maintainer's request; the main page now embeds memory-chat-request-flow.png and memory-graph-model.png. The PNG export of the same scene is still referenced by README.md."
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/three-extraction-approaches.png",
@@ -567,6 +566,32 @@
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "reviewed_on": "2026-09-23",
       "referring_documents": []
+    },
+    {
+      "output": "docs/modules/ROOT/images/diagrams/memory-chat-request-flow.png",
+      "referring_pages": [
+        "docs/modules/ROOT/pages/index.adoc"
+      ],
+      "owner": "documentation maintainers",
+      "status": "exported-and-visually-reviewed",
+      "output_sha256": "3c37daa617a44ef933d5eceeb5815fd5b0867f1eaa342aa36d8bfad8482d05f8",
+      "derived_from": "img/memory-architecture.png",
+      "reviewed_on": "2026-09-24",
+      "referring_documents": [],
+      "note": "Raster diagram chosen by the maintainer for the main page (2026-09-24). No editable .excalidraw scene is in the repository; this file is img/memory-architecture.png resized from 2880px to 1400px wide with Pillow (Lanczos) so the 648px column renders it above the 0.45x size threshold. Its colours (short-term yellow, long-term purple, reasoning red) differ from the house palette."
+    },
+    {
+      "output": "docs/modules/ROOT/images/diagrams/memory-graph-model.png",
+      "referring_pages": [
+        "docs/modules/ROOT/pages/index.adoc"
+      ],
+      "owner": "documentation maintainers",
+      "status": "exported-and-visually-reviewed",
+      "output_sha256": "ad95ff04bcb8a02d7ed02494126e605b8e9e0f5ef9f2038ec425a7c2a5650f89",
+      "derived_from": "img/memory-graph-model.png",
+      "reviewed_on": "2026-09-24",
+      "referring_documents": [],
+      "note": "Raster diagram chosen by the maintainer for the main page (2026-09-24). No editable .excalidraw scene is in the repository; this file is img/memory-graph-model.png resized from 3434px to 1400px wide with Pillow (Lanczos). Several relationship names are simplified (MENTIONED_IN, TRIGGERED, USED_TOOL, CALL_OF, RETRIEVED, WORKS_AT); index.adoc carries a note with the stored names (MENTIONS, INITIATED_BY, USES_TOOL, INSTANCE_OF, TOUCHED, RELATED_TO)."
     }
   ]
 }

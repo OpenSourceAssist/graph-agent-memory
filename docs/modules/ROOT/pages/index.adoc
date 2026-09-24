@@ -57,8 +57,12 @@ xref:getting-started.adoc[Setup and learning paths] · xref:sdks/python.adoc[Pyt
 
 anchor:_architecture[]
 
-.Library memory layers and backend boundaries
-image::diagrams/the-three-layer-memory-architecture.svg["Conversations, entities and reasoning records connected through the selected memory backend",width=100%,link=self]
+An agent that uses this library works with three kinds of memory on every turn of a conversation. All three live in one Neo4j graph: in your own database when you connect through Bolt, or in a NAMS workspace, which stores them in Neo4j for you.
+
+.Three memory types in a chat request
+image::diagrams/memory-chat-request-flow.png["A user message goes to an AI agent. The agent reads and writes short-term memory, the conversation messages, through store_message() and get_context(). It queries long-term memory, a POLE+O knowledge graph, with Cypher tool queries. It records reasoning memory as decision traces of thought, action and observation. All three are stored in Neo4j, and the agent returns its response to the user",width=100%,link=self]
+
+On each turn the agent stores the incoming message and loads recent context, looks up the entities and relationships it needs, and records what it did and which tools it called. `store_message()` and `get_context()` are `MemoryIntegration` helpers, which the MCP server also uses. With the client directly, the same steps are `client.short_term.add_message()` and `client.get_context()`.
 
 [cols="1,2,3",options="header"]
 |===
@@ -73,6 +77,24 @@ image::diagrams/the-three-layer-memory-architecture.svg["Conversations, entities
 |Application-supplied traces, steps and tool calls
 |Inspect recorded actions and results; this does not expose a model's hidden reasoning
 |===
+
+Because the three types share one graph, you can follow an answer back to its sources. A message links to the entities it mentions, a reasoning trace links to the message that started it, and each step links to its tool calls and to the entities it used.
+
+.How the three memory types connect in the graph
+image::diagrams/memory-graph-model.png["Short-term memory: a Conversation node links to its first Message, and each Message links to the next. Long-term memory: an Entity:Person works at an Entity:Organization and is mentioned in a Message. Reasoning memory: a Message triggers a ReasoningTrace, which has a ReasoningStep that uses a ToolCall; the ToolCall is a call of a Tool and retrieved the Entity:Organization",width=100%,link=self]
+
+[NOTE]
+====
+The diagram simplifies some relationship names. In the stored graph:
+
+* a `Message` points to each entity it mentions with `MENTIONS`;
+* a `ReasoningTrace` points to the message that started it with `INITIATED_BY`;
+* a `ReasoningStep` reaches its tool calls through `USES_TOOL`, and each `ToolCall` points to its `Tool` with `INSTANCE_OF`;
+* a step links the entities it used with `TOUCHED`;
+* relationships between entities are `RELATED_TO` edges whose `type` holds a name such as `WORKS_AT`.
+
+Conversations also link every message with `HAS_MESSAGE`. See xref:explanation/graph-architecture.adoc[graph architecture] for the full schema.
+====
 
 See xref:explanation/memory-types.adoc[memory types] for the conceptual model and xref:reference/index.adoc[reference] for exact APIs. Persistence stores data; retrieval and a model call must be wired into the application for that data to influence a later answer.
 
