@@ -21,6 +21,7 @@ include::partial$python-tutorial-setup.adoc[]
 python -m pip install 'neo4j-agent-memory[nams]==0.6.0'
 ----
 
+[#get-active-note]
 [NOTE]
 ====
 Python 0.6.0's `get_active()` can report the latest revision when an older one is active — do not use its `version_id` or `validation_mode` as a rollback target. The program below reads the authoritative binding through a `read_active_binding` helper instead. See xref:reference/ontology-api.adoc#python-0-6-active-binding[the release limitation].
@@ -117,7 +118,7 @@ Use a bounded wait tied to its returned conversation ID or exact expected names.
 [#_appendix_helper_files]
 == Appendix: helper files
 
-`activate_ontology.py` above imports these two modules. `hosted_tutorial_state.py` provides the shared HTTP client and the on-disk run ledger; `hosted_tutorial_helpers.py` provides `read_active_binding`, which reads the authoritative `GET /ontologies/active` binding directly rather than trusting the SDK's `get_active()` metadata (see the note in <<_list_the_catalog>>). Save both files in `agent-memory-tutorials/` before running the activation program. For a guided walkthrough of what this code does and why, see xref:tutorials/ontology-quickstart.adoc[the ontology tutorial].
+`activate_ontology.py` above imports these two modules. `hosted_tutorial_state.py` provides the shared HTTP client and the on-disk run ledger; `hosted_tutorial_helpers.py` provides `read_active_binding`, which reads the authoritative `GET /ontologies/active` binding directly rather than trusting the SDK's `get_active()` metadata (see <<get-active-note,the `get_active()` note under Prerequisites>>). Save both files in `agent-memory-tutorials/` before running the activation program. For a guided walkthrough of what this code does and why, see xref:tutorials/ontology-quickstart.adoc[the ontology tutorial].
 
 include::partial$python-hosted-state-file.adoc[]
 

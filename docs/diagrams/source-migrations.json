@@ -37,7 +37,8 @@
   },
   {
     "previous_source": "docs/modules/ROOT/images/assets/images/diagrams/excalidraw/extraction-pipeline.excalidraw",
-    "source": "docs/assets/diagrams/excalidraw/extraction-pipeline.excalidraw"
+    "source": "docs/assets/diagrams/excalidraw/three-extraction-approaches.excalidraw",
+    "note": "Replaced, not moved. The staged spaCy/GLiNER/LLM scene was retired; extraction-pipeline.svg is now exported from three-extraction-approaches.excalidraw."
   },
   {
     "previous_source": "docs/modules/ROOT/images/assets/images/diagrams/excalidraw/gds-algorithms-retail.excalidraw",

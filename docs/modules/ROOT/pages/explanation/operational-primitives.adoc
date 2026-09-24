@@ -16,11 +16,16 @@ xref:how-to/evaluation.adoc[Evaluate memory quality].
 
 None of these primitives change behavior until an application asks for them:
 
-* Buffered writes require `write_mode="buffered"` in `MemorySettings`; the
+* Buffered writes require `MemorySettings.memory.write_mode="buffered"`; the
   default is synchronous, where every write awaits its Neo4j round-trip.
-* Multi-tenant scoping requires `MemorySettings.memory.multi_tenant=True`
-  plus a `user_identifier=` kwarg on the specific call; unscoped calls keep
-  working exactly as before.
+* User scoping is per call: passing `user_identifier=` to a supported write
+  method associates the conversation, preference, or trace with a `:User`
+  whether or not any setting is changed. Calls without it behave as before.
+  `MemorySettings.memory.multi_tenant=True` does not turn scoping on; it is a
+  guard that makes `add_message`, `add_messages_batch`, `add_preference`, and
+  `start_trace` raise `ValueError` when `user_identifier=` is omitted, so an
+  accidental unscoped write fails instead of landing unowned. Turning it on
+  therefore breaks existing unscoped writes until they pass a user.
 * Consolidation, evaluation, and audit recording are methods on
   `client.consolidation` and `client.eval` that an application calls
   explicitly — nothing runs on a timer inside the library.

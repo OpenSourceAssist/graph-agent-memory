@@ -8,11 +8,11 @@ from uuid import UUID
 from core_memory_settings import settings
 
 from neo4j_agent_memory import MemoryClient
-from neo4j_agent_memory.extraction.gliner_extractor import (
+from neo4j_agent_memory.extraction import (
     DomainSchema,
+    ExtractionResult,
     GLiNEREntityExtractor,
-    GLiNERWithRelationsExtractor,
-    GLiRELExtractor,
+    LLMEntityExtractor,
 )
 
 SESSION = "docs-knowledge-sources"
@@ -34,6 +34,20 @@ SCHEMA = DomainSchema(
         "partner_of": "Company partners with another company",
     },
 )
+LABELS = {
+    "person": ("PERSON", None),
+    "company": ("ORGANIZATION", None),
+    "location": ("LOCATION", None),
+}
+# LLMEntityExtractor fills {entity_types} and {text}; relation names come from SCHEMA.
+RELATION_PROMPT = (
+    "Extract named entities of these types: {entity_types}.\n"
+    "Then extract relations between those entities. Use only these relation types:\n"
+    + "".join(f"- {name.upper()}: {text}\n" for name, text in SCHEMA.relation_types.items())
+    + "Copy entity names exactly as they appear in the text. Return JSON with "
+    '"entities" (name, type, confidence) and "relations" '
+    "(source, target, relation_type, confidence).\n\nText:\n{text}"
+)
 EDGES_QUERY = (
     "MATCH (a:Entity)-[r:RELATED_TO]->(b:Entity) "
     "WHERE a.name IN $names AND b.name IN $names "
@@ -41,18 +55,36 @@ EDGES_QUERY = (
 )
 
 
-def extractor():
-    return GLiNERWithRelationsExtractor(
-        GLiNEREntityExtractor(
-            schema=SCHEMA,
-            label_mapping={
-                "person": ("PERSON", None),
-                "company": ("ORGANIZATION", None),
-                "location": ("LOCATION", None),
-            },
-            threshold=0.5,
+class DocumentExtractor:
+    """Take mentions from GLiNER and schema relations from the chat model."""
+
+    def __init__(self, entity_extractor, relation_extractor):
+        self.entity_extractor = entity_extractor
+        self.relation_extractor = relation_extractor
+
+    async def extract(self, text):
+        mentions = await self.entity_extractor.extract(text)
+        proposed = await self.relation_extractor.extract(text)
+        relations = []
+        for relation in proposed.relations:
+            if relation.relation_type.lower() in SCHEMA.relation_types:
+                relations.append(relation)
+            else:
+                print(f"Dropped relation outside the schema: {relation.as_triple}")
+        return ExtractionResult(entities=mentions.entities, relations=relations, source_text=text)
+
+
+def extractor(model):
+    return DocumentExtractor(
+        GLiNEREntityExtractor(schema=SCHEMA, label_mapping=LABELS, threshold=0.5),
+        LLMEntityExtractor(
+            model=f"openai/{model}",
+            entity_types=["PERSON", "ORGANIZATION", "LOCATION"],
+            subtypes={},
+            extraction_prompt=RELATION_PROMPT,
+            extract_preferences=False,
+            temperature=1.0,
         ),
-        GLiRELExtractor(relation_types=SCHEMA.relation_types, threshold=0.5),
     )
 
 
@@ -118,11 +150,15 @@ async def store_document(client, filename, text, result):
 async def ingest(client, selected_extractor):
     if (await client.short_term.get_conversation(SESSION)).messages:
         raise RuntimeError("Already ingested; run inspect or use a fresh database")
+    # Extract every document before the first write, so a model or download
+    # failure leaves the database empty and ingest can simply be rerun.
+    results = {}
+    for filename, text in DOCUMENTS.items():
+        results[filename] = await selected_extractor.extract(text)
+        print(f"Candidates for {filename}: {[e.name for e in results[filename].entities]}")
     total = 0
     for filename, text in DOCUMENTS.items():
-        result = await selected_extractor.extract(text)
-        print(f"Candidates for {filename}: {[e.name for e in result.entities]}")
-        total += await store_document(client, filename, text, result)
+        total += await store_document(client, filename, text, results[filename])
     if total == 0:
         raise RuntimeError("No resolved relationships were stored; inspect extraction output")
     print("Verified: extraction produced storable relationships")
@@ -183,12 +219,11 @@ async def main():
     args = parser.parse_args()
     async with MemoryClient(settings()) as client:
         if args.command == "ingest":
-            await ingest(client, extractor())
+            await ingest(client, extractor(os.environ["OPENAI_MODEL"]))
         elif args.command == "inspect":
             await inspect_graph(client)
         else:
-            # Imported here: only this branch calls a model, so `ingest` and
-            # `inspect` run without the openai package installed.
+            # Imported here: `inspect` never contacts a model.
             from openai import AsyncOpenAI
 
             async with AsyncOpenAI() as llm:

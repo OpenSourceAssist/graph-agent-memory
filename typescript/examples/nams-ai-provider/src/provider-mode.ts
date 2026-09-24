@@ -19,6 +19,8 @@
  *   assistant: You work at TechCorp, on the graph platform team.
  */
 
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { createNamsProvider, type NamsProviderOptions } from '@neo4j-labs/nams-ai-provider';
 import { openai } from '@ai-sdk/openai';
 import { ToolLoopAgent, stepCountIs } from 'ai';
@@ -82,7 +84,9 @@ export async function providerModeDemo(
   return { taught, recalled };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run only when executed directly, not when a test imports this file.
+const entry = process.argv[1];
+if (entry && import.meta.url === pathToFileURL(realpathSync(entry)).href) {
   providerModeDemo().catch(err => {
     console.error(err);
     process.exit(1);

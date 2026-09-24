@@ -8,6 +8,10 @@ from aura_connection import aura_config
 
 
 async def main():
+    model = os.environ.get("OPENAI_MODEL", "").strip()
+    if not model or model.startswith("replace-with-"):
+        raise ValueError("Export an accessible OPENAI_MODEL before storing the preference")
+
     from agent_framework.openai import OpenAIChatClient
 
     from neo4j_agent_memory import BoltSettings, MemoryClient
@@ -35,9 +39,7 @@ async def main():
             include_reasoning=False,
             similarity_threshold=0.0,
         )
-        chat = OpenAIChatClient(
-            model=os.environ["OPENAI_MODEL"], api_key=os.environ["OPENAI_API_KEY"]
-        )
+        chat = OpenAIChatClient(model=model, api_key=os.environ["OPENAI_API_KEY"])
         agent = chat.as_agent(
             name="TutorialShoppingAssistant",
             instructions=(

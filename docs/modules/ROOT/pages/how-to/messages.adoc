@@ -13,17 +13,27 @@ image::diagrams/message-chain.svg["A conversation with linked messages in chrono
 
 For the rationale, see xref:explanation/memory-types.adoc[Understanding the three memory types].
 
-anchor:_prerequisites[]
+[NOTE]
+====
+This recipe targets Bolt. The Python NAMS client stores and reads conversations with these differences in 0.6.0:
+
+* Create the conversation with `create_conversation(label)`, then pass `str(conversation.id)` as `session_id` to later calls. NAMS issues conversation IDs; your label is not sent to the service and cannot address the conversation.
+* `add_message` sends only `role` and `content`; metadata is dropped. For batches, use `bulk_add_messages(session_id, messages)` (at most 100 per call). `add_messages_batch` is not defined on NAMS and raises `AttributeError`.
+* `search_messages` searches one conversation and raises `ValueError` without a `session_id`.
+* `list_sessions` and `get_conversation_summary` raise `NotSupportedError`; use `list_conversations`, and summarize `get_conversation(...).messages` in your application. Preference reads such as `get_preferences_for` are also unavailable.
+====
 
 == 1. Prepare the Bolt client
 
-Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra:
+anchor:_prerequisites[]
+
+Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra plus `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra:
 
 include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'
 ----
 
 include::partial$python-core-recipe-intro.adoc[]
@@ -32,7 +42,9 @@ include::partial$python-core-recipe-files.adoc[]
 
 == 2. Apply the task function
 
-The batch supplies explicit roles and searchable metadata. `get_conversation(session).messages` performs the session-specific readback. The custom summarizer demonstrates the callable contract; replace its fixed demonstration text with a summarizer that processes the supplied transcript.
+anchor:_store_messages[]anchor:_basic_message_storage[]anchor:_store_with_metadata[]anchor:_batch_message_loading[]
+
+The batch supplies explicit roles, searchable metadata, and increasing ISO `timestamp` values. `get_conversation` orders messages by timestamp; in 0.6.0, batch rows without a `timestamp` share one write time, so their readback order is not defined. `get_conversation(session).messages` performs the session-specific readback. The custom summarizer demonstrates the callable contract; replace its fixed demonstration text with a summarizer that processes the supplied transcript.
 
 The function below is included from the complete maintained program, which already supplies imports, client setup, unique IDs, and `asyncio.run`. Run the file in step 3; this extract is not a separate top-level script.
 
@@ -48,13 +60,13 @@ include::example$core_memory_recipes.py[tag=messages]
 python core_memory_recipes.py messages
 ----
 
-Expected: the summary text, up to five search candidates with similarity values, and `Verified: ordered message IDs and summary count; session=...`. The ID assertion checks order and persistence. Search scores/order can vary and are not the storage assertion.
+Expected: the summary text, up to five search candidates with similarity values, and `Verified: ordered message IDs and summary count; session=...`. The ID assertion checks persistence and the timestamp order. Search scores/order can vary and are not the storage assertion.
 
 The command retains its example records for inspection. Remove the disposable tutorial database using that tutorial's cleanup command when finished. Do not substitute an unrestricted delete query against an existing database.
 
-anchor:_filter_by_session[]
-
 == Retrieve only the intended conversation
+
+anchor:_filter_by_session[]anchor:_search_messages[]anchor:_semantic_search[]anchor:_filter_by_metadata[]anchor:_time_based_filtering[]anchor:_get_session_messages[]
 
 [WARNING]
 ====
@@ -63,18 +75,18 @@ anchor:_filter_by_session[]
 
 `get_conversation` accepts `limit` and `since`; `limit=None` currently fetches at most 1,000 messages, then applies the timestamp filter in Python. For larger histories, specify the intended bound or implement a scoped Cypher pagination query. See xref:reference/api/short-term.adoc[exact message contracts].
 
-anchor:_manage_sessions[]
-
 == Choose the related operation
+
+anchor:_manage_sessions[]anchor:_list_sessions[]anchor:_delete_sessions[]anchor:_generate_summaries[]anchor:_auto_summarize_session[]anchor:_custom_summary_prompt[]anchor:_build_conversation_context[]anchor:_get_combined_context[]anchor:_format_for_llm[]
 
 [cols="2,4",options="header"]
 |===
 |Task |Supported approach
-|Bulk import |`add_messages_batch`; inspect returned IDs and progress callbacks. `bulk_add_messages` is a separate backend-dependent compatibility method.
+|Bulk import |`add_messages_batch`; inspect returned IDs and progress callbacks. On NAMS, use `bulk_add_messages` instead.
 |Discover a user's conversations |`list_conversations(user_identifier=...)`; this is association filtering, not caller authorization.
-|Discover session identifiers |`list_sessions(prefix=..., limit=..., offset=...)`; a naming prefix is not access control.
-|Generate a summary |`get_conversation_summary`; an explicit callable overrides the configured provider. There is no `generate_summary`/`get_summary` pair.
-|Build a model request |Read the selected conversation and `get_preferences_for(user_identifier)` explicitly; see xref:tutorials/conversation-memory.adoc[the complete chatbot].
+|Discover session identifiers |`list_sessions(prefix=..., limit=..., offset=...)` on Bolt; a naming prefix is not access control. NAMS raises `NotSupportedError`; use `list_conversations`.
+|Generate a summary |`get_conversation_summary` on Bolt; an explicit callable overrides the configured provider. There is no `generate_summary`/`get_summary` pair. NAMS raises `NotSupportedError`.
+|Build a model request |Read the selected conversation and, on Bolt, `get_preferences_for(user_identifier)` explicitly; see xref:tutorials/conversation-memory.adoc[the complete chatbot].
 |Remove a session |`clear_session(session_id)` affects linked data; inspect its reference contract before deletion. There is no `delete_session` wrapper.
 |===
 
@@ -85,23 +97,6 @@ anchor:_typescript_equivalents_at_a_glance[]
 
 include::partial$python-typescript-equivalents.adoc[]
 
-anchor:_store_messages[]
-anchor:_basic_message_storage[]
-anchor:_store_with_metadata[]
-anchor:_batch_message_loading[]
-anchor:_search_messages[]
-anchor:_semantic_search[]
-anchor:_filter_by_metadata[]
-anchor:_time_based_filtering[]
-anchor:_list_sessions[]
-anchor:_get_session_messages[]
-anchor:_delete_sessions[]
-anchor:_generate_summaries[]
-anchor:_auto_summarize_session[]
-anchor:_custom_summary_prompt[]
-anchor:_build_conversation_context[]
-anchor:_get_combined_context[]
-anchor:_format_for_llm[]
 anchor:_best_practices[]
 anchor:_1_use_meaningful_session_ids[]
 anchor:_2_include_searchable_metadata[]

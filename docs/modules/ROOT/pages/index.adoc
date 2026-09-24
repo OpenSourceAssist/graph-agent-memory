@@ -22,7 +22,7 @@ include::partial$labs-disclaimer.adoc[]
 // Retain former section URLs at the current related topic.
 == Choose your starting path
 
-anchor:_pick_your_install[]anchor:_quick_start[]
+anchor:_pick_your_install[]anchor:_quick_start[]anchor:_requirements[]
 
 [cols="1,2,3",options="header"]
 |===
@@ -55,7 +55,7 @@ xref:getting-started.adoc[Setup and learning paths] · xref:sdks/python.adoc[Pyt
 // Retain former section URLs at the current related topic.
 == Three memory types, one graph
 
-anchor:_framework_integrations[]anchor:_python_neo4j_agent_memory[]
+anchor:_architecture[]
 
 .Library memory layers and backend boundaries
 image::diagrams/the-three-layer-memory-architecture.svg["Conversations, entities and reasoning records connected through the selected memory backend",width=100%,link=self]
@@ -80,15 +80,13 @@ See xref:explanation/memory-types.adoc[memory types] for the conceptual model an
 // Retain former section URLs at the current related topic.
 == Sharing memory between agents
 
-anchor:_podcast_lennys_podcast_memory_explorer_flagship[]anchor:_newspaper_full_stack_chat_agent[]anchor:_typescript_neo4j_labsagent_memory[]anchor:_architecture[]anchor:_requirements[]
-
 Several agents can use the same workspace or database. Shared entities can connect their work, while conversation IDs identify individual conversations rather than enforce access control — see xref:reference/backend-capabilities.adoc#scope[identity and retrieval scope] for exactly what each identifier does and does not guarantee. See xref:how-to/multi-tenancy.adoc[associate users and select scoped reads] and xref:explanation/multi-agent-sharing.adoc[sharing tradeoffs].
 
 [#_what_makes_this_different]
 // Retain former section URLs at the current related topic.
 == Graph and extraction capabilities
 
-anchor:_entity_extraction_pipeline[]
+anchor:_entity_extraction_pipeline[]anchor:_framework_integrations[]anchor:_python_neo4j_agent_memory[]anchor:_typescript_neo4j_labsagent_memory[]
 
 * Connect conversation messages to entities and recorded actions in a graph.
 * Combine semantic retrieval with graph queries supported by the chosen backend.
@@ -112,7 +110,7 @@ anchor:_documentation[]
 // Retain former section URLs at the current related topic.
 == Community and examples
 
-anchor:_demos[]anchor:_flask_domain_schema_examples[]anchor:_quick_links[]
+anchor:_demos[]anchor:_lennys_podcast_memory_explorer_flagship[]anchor:_full_stack_chat_agent[]anchor:_domain_schema_examples[]anchor:_quick_links[]
 
 Run the Python lessons with the published `neo4j-agent-memory==0.6.0` package and the complete programs shown on each tutorial page. The xref:sdks/python.adoc[Python SDK guide] links the setup paths. Explore https://github.com/neo4j-labs/agent-memory/tree/main/examples[larger Python applications] and https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples[TypeScript source examples] using their own dependency and build instructions.
 

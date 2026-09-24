@@ -15,14 +15,13 @@ Choose *Bolt* when you operate Neo4j, need custom write Cypher, want to configur
 
 Choose *NAMS* when a managed workspace and REST API suit the application. The service manages the storage and extraction pipeline. Applications use supported conversation, entity, graph, reasoning and ontology operations; they do not gain every Bolt method by changing the connection settings. The TypeScript SDK's normal transport is NAMS REST.
 
-[#_when_to_choose_which]
 [#_use_both_at_once]
 One client has one backend. An application can create separate clients for separate stores, but moving data, reconciling identifiers and authorizing access are application responsibilities.
 
 [#capability-matrix]
 == Capability boundaries
 
-The canonical xref:reference/backend-capabilities.adoc[backend capabilities reference] lists language, operation, return-shape and scope differences. A method can satisfy a Python protocol or appear in a TypeScript compatibility interface while raising `NotSupportedError` on the selected backend. Interface similarity is useful for adapters; it is not proof of behavioral portability.
+The canonical xref:reference/backend-capabilities.adoc[backend capabilities reference] lists language, operation, return-shape and scope differences. A method can satisfy a Python protocol or appear in a TypeScript compatibility interface while raising `NotSupportedError` on the selected backend. A Bolt-only Python method can also be absent from the NAMS store, so calling it raises `AttributeError`, and some Bolt options are silently dropped. Interface similarity is useful for adapters; it is not proof of behavioral portability.
 
 Preferences, facts, client-created relationships and extraction-pipeline configuration are Bolt capabilities. Hosted applications can retrieve information from messages and extracted entities instead, but should not describe that as an equivalent preference/fact API. The hosted Cypher endpoint is read-only.
 
@@ -49,13 +48,10 @@ A NAMS client calls the service over HTTPS. Writes and background extraction hav
 [#_wire_protocols_nams_only]
 The hosted API uses REST `/v1`. A TCK bridge exists for development and conformance testing; it is not an alternative hosted feature surface. Conformance labels describe clients, not paid service tiers.
 
-[#_error_semantics]
-[#_the_unified_api_contract]
-[#_whats_not_on_either_backend]
 // Retain former section URLs at the current related topic.
 == Errors and migration
 
-anchor:_error_semantics[]anchor:_the_unified_api_contract[]
+anchor:_error_semantics[]anchor:_the_unified_api_contract[]anchor:_whats_not_on_either_backend[]
 
 Backend-specific failures and retry behavior belong to each SDK's reference: xref:reference/api/memory-client.adoc[Python] and xref:reference/typescript-api.adoc[TypeScript]. Do not copy one language's error class or retry promise into the other language's guide.
 

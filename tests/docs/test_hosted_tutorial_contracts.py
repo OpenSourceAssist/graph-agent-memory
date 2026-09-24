@@ -123,6 +123,64 @@ def test_skill_poll_timeout_is_finite_while_queued():
 
 # Ontology restoration/recovery contracts live in test_ontology_tutorial.py.
 
+HOSTED_PROGRAMS = [
+    "nams_quickstart",
+    "nams_first_write",
+    "skills_quickstart",
+    "hosted_tutorial_state",
+    "hosted_tutorial_cleanup",
+    "hosted_tutorial_helpers",
+]
+
+
+def hosted_calls():
+    """Every ``client.<layer>.<method>(...)`` call in the hosted lesson programs."""
+    import ast
+
+    from neo4j_agent_memory.nams.long_term import NamsLongTermMemory
+    from neo4j_agent_memory.nams.reasoning import NamsReasoningMemory
+    from neo4j_agent_memory.nams.short_term import NamsShortTermMemory
+
+    owners = {
+        "short_term": NamsShortTermMemory,
+        "long_term": NamsLongTermMemory,
+        "reasoning": NamsReasoningMemory,
+    }
+    for name in HOSTED_PROGRAMS:
+        for node in ast.walk(ast.parse((EXAMPLES / f"{name}.py").read_text())):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            receiver = node.func.value
+            if (
+                isinstance(receiver, ast.Attribute)
+                and isinstance(receiver.value, ast.Name)
+                and receiver.value.id == "client"
+                and receiver.attr in owners
+            ):
+                yield pytest.param(
+                    owners[receiver.attr], node, id=f"{name}:{node.lineno}:{node.func.attr}"
+                )
+
+
+def test_hosted_programs_make_sdk_calls():
+    """Guard the parametrization below against silently matching nothing."""
+    assert {param.id.split(":")[0] for param in hosted_calls()} >= {
+        "nams_quickstart",
+        "skills_quickstart",
+    }
+
+
+@pytest.mark.parametrize("owner,node", list(hosted_calls()))
+def test_hosted_calls_bind_to_current_nams_api(owner, node):
+    """The fakes in this module accept any arguments, so bind each call to the real class."""
+    import inspect
+
+    method = getattr(owner, node.func.attr)  # A renamed or removed method fails here.
+    assert not any(keyword.arg is None for keyword in node.keywords), "unpack not checked"
+    inspect.signature(method).bind(
+        None, *[None for _ in node.args], **{keyword.arg: None for keyword in node.keywords}
+    )
+
 
 class ShortTerm:
     def __init__(self):
@@ -176,7 +234,7 @@ class Reasoning:
 
 
 def test_hosted_exercise_reuses_server_ids_and_checks_reads(tmp_path):
-    short_term, reasoning = ShortTerm(), Reasoning()
+    short_term = ShortTerm()
     seen = []
 
     async def wait(**kwargs):
@@ -188,30 +246,35 @@ def test_hosted_exercise_reuses_server_ids_and_checks_reads(tmp_path):
 
     client = SimpleNamespace(
         short_term=short_term,
-        reasoning=reasoning,
         long_term=SimpleNamespace(wait_for_extraction=wait, search_entities=search),
     )
     state = make_state(tmp_path, "nams")
     assert asyncio.run(nams.exercise(client, state)) == "server-conversation-id"
-    assert set(short_term.ids + reasoning.sessions) == {"server-conversation-id"}
-    assert not reasoning.sessions
+    assert set(short_term.ids) == {"server-conversation-id"}
     assert len(state.data["resources"]["message"]) == 2
+    assert state.data["seed_verified"] is True
     assert seen[0]["session_id"] == "server-conversation-id"
     assert seen[0]["timeout"] == 60.0
 
 
-def test_hosted_extraction_timeout_stops_before_reasoning(tmp_path):
+def test_hosted_extraction_timeout_is_not_verified_and_keeps_cleanup_records(tmp_path):
     async def wait(**kwargs):
         return False
 
     client = SimpleNamespace(
         short_term=ShortTerm(),
-        reasoning=Reasoning(),
         long_term=SimpleNamespace(wait_for_extraction=wait),
     )
+    state = make_state(tmp_path, "nams")
     with pytest.raises(TimeoutError):
-        asyncio.run(nams.exercise(client, make_state(tmp_path, "nams")))
-    assert not client.reasoning.sessions
+        asyncio.run(nams.exercise(client, state))
+    assert not state.data.get("seed_verified")
+    resources = state.data["resources"]
+    assert list(resources["conversation"]) == ["server-conversation-id"]
+    assert len(resources["message"]) == 2
+    saved = json.loads(state.path.read_text())
+    assert not saved.get("seed_verified")
+    assert saved["resources"] == resources
 
 
 def test_skills_fixture_is_one_procedure_and_records_real_conversation(tmp_path, monkeypatch):
@@ -308,6 +371,96 @@ def test_skills_withheld_and_http_failure_do_not_publish(tmp_path, monkeypatch):
 
     asyncio.run(run())
     assert calls == ["/v1/skills/runs/returned-run"]
+
+
+class FirstWriteService:
+    """In-memory NAMS routes that ``nams_first_write.py`` calls, served through httpx."""
+
+    def __init__(self, extraction_summary):
+        self.extraction_summary = extraction_summary
+        self.log = []
+        self.conversations = {}
+
+    def __call__(self, request):
+        import uuid
+
+        path = request.url.path.removeprefix("/v1")
+        body = json.loads(request.content) if request.content else None
+        parts = path.strip("/").split("/")
+        if request.method == "GET" and path == "/conversations":
+            response = httpx.Response(200, json={"conversations": []})
+        elif request.method == "POST" and path == "/conversations":
+            conversation_id = str(uuid.uuid4())
+            self.conversations[conversation_id] = []
+            response = httpx.Response(201, json={"id": conversation_id, "metadata": {}})
+        elif request.method == "POST" and path == "/query":
+            response = httpx.Response(200, json={"columns": ["id"], "rows": []})
+        elif parts[0] == "conversations" and parts[1] not in self.conversations:
+            response = httpx.Response(404, json={"error": "conversation not found"})
+        elif parts[0] == "conversations" and request.method == "DELETE" and len(parts) == 2:
+            del self.conversations[parts[1]]
+            response = httpx.Response(204)
+        elif parts[0] == "conversations" and request.method == "GET" and len(parts) == 2:
+            response = httpx.Response(200, json={"id": parts[1], "metadata": {}})
+        elif parts[2:] == ["messages"] and request.method == "POST":
+            message = {"id": str(uuid.uuid4()), "conversationId": parts[1], **body}
+            self.conversations[parts[1]].append(message)
+            response = httpx.Response(201, json=message)
+        elif parts[2:] == ["messages"] and request.method == "GET":
+            response = httpx.Response(200, json={"messages": self.conversations[parts[1]]})
+        elif parts[2:] == ["extraction-status"]:
+            response = httpx.Response(200, json={"summary": self.extraction_summary})
+        else:
+            response = httpx.Response(500, json={"error": f"unexpected {request.method} {path}"})
+        self.log.append((request.method, path, response.status_code))
+        return response
+
+
+def run_first_write(monkeypatch, tmp_path, service):
+    import neo4j_agent_memory.nams.long_term as nams_long_term
+    import neo4j_agent_memory.nams.transport as transport
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        transport.httpx,
+        "AsyncClient",
+        lambda **kwargs: real_client(transport=httpx.MockTransport(service), **kwargs),
+    )
+    clock = Clock()
+    monkeypatch.setattr(nams_long_term, "time", SimpleNamespace(monotonic=clock))
+    monkeypatch.setattr(nams_long_term, "asyncio", SimpleNamespace(sleep=clock.sleep))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MEMORY_API_KEY", "nams_fixture")
+    monkeypatch.setenv("MEMORY_ENDPOINT", "https://service.invalid/v1")
+    monkeypatch.delenv("MEMORY_WORKSPACE_ID", raising=False)
+    asyncio.run(load_fixture("nams_first_write").main())
+
+
+def test_first_write_uses_returned_id_and_confirms_delete(monkeypatch, tmp_path, capsys):
+    service = FirstWriteService({"completed": 1})
+    run_first_write(monkeypatch, tmp_path, service)
+    methods = [(method, path) for method, path, _status in service.log]
+    created = methods.index(("POST", "/conversations"))
+    first_write = next(i for i, (m, p) in enumerate(methods) if m == "POST" and "/messages" in p)
+    assert created < first_write
+    conversation_paths = [p for _m, p in methods if p.startswith("/conversations/")]
+    assert conversation_paths
+    assert all("docs-nams-first-write" not in path for path in conversation_paths)
+    delete = next(i for i, (m, p) in enumerate(methods) if m == "DELETE")
+    method, path, status = service.log[delete + 1]
+    assert method == "GET" and path.startswith(methods[delete][1]) and status == 404
+    assert not service.conversations
+    assert "Stored and read back: user said 'Hello from my first hosted write.'" in (
+        capsys.readouterr().out
+    )
+
+
+def test_first_write_keeps_conversation_while_extraction_is_pending(monkeypatch, tmp_path):
+    service = FirstWriteService({"pending": 1})
+    with pytest.raises(TimeoutError, match="Extraction still pending"):
+        run_first_write(monkeypatch, tmp_path, service)
+    assert all(method != "DELETE" for method, _path, _status in service.log)
+    assert len(service.conversations) == 1
 
 
 @pytest.mark.parametrize("path", sorted(EXAMPLES.glob("*.py")), ids=lambda path: path.name)

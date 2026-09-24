@@ -14,7 +14,7 @@ Python examples use the published `neo4j-agent-memory==0.6.0` package and comple
 // Retain former section URLs at the current related topic.
 == Hosted memory with NAMS
 
-anchor:_path_a_hosted_nams_fastest_start[]anchor:_1_get_an_api_key[]anchor:_3_first_operations[]anchor:_working_with_entities[]anchor:_storing_preferences[]anchor:_getting_context_for_llm_prompts[]
+anchor:_path_a_hosted_nams_fastest_start[]anchor:_1_get_an_api_key[]anchor:_2_install_the_sdk[]anchor:_3_first_operations[]anchor:_working_with_entities[]anchor:_storing_preferences[]anchor:_getting_context_for_llm_prompts[]
 
 Use a workspace-bound API key from https://memory.neo4jlabs.com[the NAMS dashboard] — sign up for a workspace, no local database to run. Keep the key on the server and select the intended workspace before writing memory. See xref:reference/authentication.adoc[authentication and key categories].
 
@@ -27,7 +27,7 @@ Store the conversation ID returned by the service when you want to resume it. A 
 [#_python_with_a_neo4j_database]
 == Python with Neo4j Aura
 
-anchor:_path_b_self_hosted_neo4j_bolt[]anchor:_install_with_extras[]anchor:_download_spacy_model[]anchor:_setting_up_neo4j[]anchor:_option_1_docker_recommended_for_development[]anchor:_option_2_neo4j_desktop[]anchor:_option_3_neo4j_auradb_cloud[]anchor:_connecting_to_neo4j[]anchor:_configuration_with_environment_variables[]
+anchor:_path_b_self_hosted_neo4j_bolt[]anchor:_prerequisites[]anchor:_install_with_extras[]anchor:_download_spacy_model[]anchor:_setting_up_neo4j[]anchor:_option_1_docker_recommended_for_development[]anchor:_option_2_neo4j_desktop[]anchor:_option_3_neo4j_auradb_cloud[]anchor:_connecting_to_neo4j[]anchor:_configuration_with_environment_variables[]
 
 Use a dedicated AuraDB instance with the `bolt` backend when you need client-side extraction, preferences, facts, geospatial queries or custom write Cypher — you provide and connect to the Neo4j instance yourself. Start with xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup].
 
@@ -35,7 +35,7 @@ Use a dedicated AuraDB instance with the `bolt` backend when you need client-sid
 * xref:tutorials/conversation-memory.adoc[Build a conversation application] continues into model use.
 * xref:tutorials/anthropic-and-local-embeddings.adoc[Use Anthropic and local embeddings] teaches a different provider setup in its own lesson.
 
-Provider dependencies are explicit extras. The Python `[all]` bundle does not include every local model package; install the extra named by the selected lesson rather than relying on packages already in your environment.
+Provider dependencies are explicit extras. The Python `[all]` bundle does not include every local model package; install the extra named by the selected lesson rather than relying on packages already in your environment. The xref:sdks/python.adoc#_optional_extras[Python extras table] lists each extra and what it enables.
 
 // Retain former section URLs at the current related topic.
 == Configure and integrate
@@ -65,7 +65,7 @@ Finish the selected tutorial's storage/readback check before adding a framework 
 // Retain former section URLs at the current related topic.
 == See also
 
-anchor:_2_install_the_sdk[]anchor:_prerequisites[]
+anchor:_next_steps[]
 
 * xref:how-to/index.adoc[Complete another memory task].
 * xref:explanation/memory-types.adoc[Understand memory types].

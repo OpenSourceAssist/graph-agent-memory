@@ -12,15 +12,20 @@ Install the AWS CLI before running the identity check below.
 
 anchor:_prerequisites[]
 anchor:_authentication[]
+anchor:_using_a_named_profile[]
+anchor:_using_explicit_credentials[]
+anchor:_iam_permissions[]
 
 Use Python 3.10+ and a POSIX shell. Prepare a dedicated AuraDB instance; its existing vectors and indexes must match the selected model and dimensions. The program disables entity extraction and does not require a chat model.
 Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] for a dedicated test instance, then copy its URI, username and password into the exports below.
 
 include::partial$python-tutorial-setup.adoc[]
 
+Configure an AWS profile, role or environment credentials before running the block below; its final command checks them. The identity must be allowed to invoke `amazon.titan-embed-text-v2:0` in the selected region; successful STS identity lookup alone does not establish model access. The chosen model emits 1024-dimensional vectors in this adapter configuration. The install command adds `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
+
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[bedrock]==0.6.0'
+python -m pip install 'neo4j-agent-memory[bedrock]==0.6.0' 'httpx>=0.27'
 export AWS_REGION='us-east-1'
 export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
 export NEO4J_USERNAME='neo4j'
@@ -29,9 +34,9 @@ export NEO4J_DATABASE='neo4j'
 aws sts get-caller-identity
 ----
 
-Configure an AWS profile, role or environment credentials before the final command. The identity must be allowed to invoke `amazon.titan-embed-text-v2:0` in the selected region; successful STS identity lookup alone does not establish model access. The chosen model emits 1024-dimensional vectors in this adapter configuration.
-
 == 2. Read the complete recipe
+
+anchor:_using_bedrockembedder_directly[]anchor:_using_with_memoryclient[]
 
 Create the subdirectory below, then save both complete files under the displayed names. Run commands from `agent-memory-tutorials/`; Python resolves `common` from the script's `integrations/` directory.
 
@@ -65,19 +70,6 @@ include::example$integrations/cloud_embeddings_recipe.py[]
 
 == 3. Run and verify persistence
 
-anchor:_using_bedrockembedder_directly[]
-anchor:_using_with_memoryclient[]
-anchor:_using_a_named_profile[]
-anchor:_using_explicit_credentials[]
-anchor:_batch_processing[]
-anchor:_iam_permissions[]
-anchor:_choosing_a_model[]
-anchor:_titan_text_v2_recommended[]
-anchor:_cohere_multilingual[]
-anchor:_accessdeniedexception[]
-anchor:_validationexception[]
-anchor:_region_not_available[]
-
 [source,bash]
 ----
 python integrations/cloud_embeddings_recipe.py bedrock
@@ -87,23 +79,23 @@ Expected: `Verified 2 vectors of 1024 dimensions`, then stored-message verificat
 
 == Troubleshooting and cleanup
 
-anchor:_troubleshooting[]
+anchor:_troubleshooting[]anchor:_accessdeniedexception[]anchor:_validationexception[]anchor:_region_not_available[]
 anchor:_slow_performance[]
 
 include::partial$python-integration-troubleshooting.adoc[tag=troubleshooting]
 
 == Adapt the integration
 
-anchor:_supported_models[]
+anchor:_supported_models[]anchor:_choosing_a_model[]anchor:_titan_text_v2_recommended[]anchor:_cohere_multilingual[]anchor:_batch_processing[]
 anchor:_basic_configuration[]
 anchor:_using_with_environment_variables[]
 anchor:_configuration_options[]
 anchor:_see_also[]
 
-`BedrockEmbedder` accepts `model`, `region_name`, optional `profile_name`, `batch_size` and `normalize`. The current adapter's `embed_batch()` coordinates individual `embed()` calls in bounded groups; it is not a promise that Titan accepts a 25-document payload. Embedding execution is a remote API operation, not a CPU-bound Lambda workload by definition.
+`BedrockEmbeddingProvider` accepts the model string, `aws_region`, optional `aws_profile` or explicit keys, `dimensions`, `batch_size` and `normalize`, and delegates to `BedrockEmbedder`. In 0.6.0, `dimensions` only declares the vector size used to create the index; it is not sent to Bedrock, so leave it unset (Titan V2 returns 1024) unless it matches the model's actual output. The provider's `embed()` call coordinates individual Titan requests in bounded groups; it is not a promise that Titan accepts a 25-document payload. Embedding execution is a remote API operation, not a CPU-bound Lambda workload by definition.
 
 The adapter contains mappings for Titan V1/V2 and Cohere embedding models. Mapping a model ID is not proof that it is available in every AWS region or account. Check access for the selected model instead of relying on a static region list. Provider error codes distinguish authentication, access, throttling and invalid configuration; changing regions blindly can make the mismatch worse.
 
-See xref:how-to/integrations/aws-strands.adoc[Use with Strands] for agent integration and xref:how-to/configure-embedding-provider.adoc[Configure embeddings] before changing an existing vector model. The recipe's shared setup accepts the explicit embedder object, so OpenAI credentials are not required here.
+See xref:how-to/integrations/aws-strands.adoc[Use with Strands] for agent integration and xref:how-to/configure-embedding-provider.adoc[Configure embeddings] before changing an existing vector model. The recipe passes the provider object as `embedding=` in the shared settings, so OpenAI credentials are not required here.
 
 include::partial$python-integration-troubleshooting.adoc[tag=closing]

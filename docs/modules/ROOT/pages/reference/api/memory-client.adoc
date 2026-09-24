@@ -77,10 +77,10 @@ def MemoryClient(
 | `backend` | `str` | Resolved `bolt` or `nams` backend.
 | `is_nams` | `bool` | Whether NAMS is selected.
 | `is_connected` | `bool` | Whether the backend is connected.
-| `query` | `CypherQueryProtocol` | Read-only `await client.query.cypher(query, parameters)` on either backend; returns records as dictionaries.
-| `graph` | `Neo4jClient`, bolt only | Deprecated direct graph access; see <<graph>>.
+| `query` | `CypherQueryProtocol` | Read-only `await client.query.cypher(query, params)` on either backend; returns records as dictionaries.
+| `graph` | `Neo4jClient`, bolt only | Deprecated direct graph access; see <<graph,the `graph` property>>.
 | `schema` | Graph `SchemaManager`, bolt only | Constraints/index inspection and management; see xref:reference/schema-objects.adoc[Schema objects].
-| `users` | `UserMemory`, bolt only | User nodes and explicit user-scoped operations; see xref:how-to/multi-tenancy.adoc[Multi-tenant memory].
+| `users` | `UserMemory`, bolt only | User nodes and explicit user-scoped operations; see xref:how-to/multi-tenancy.adoc#_manage_user_records[Manage user records].
 | `buffered` | `BufferedWriter`, bolt only | Explicit buffered writes; see xref:how-to/buffered-writes.adoc[Buffered writes].
 | `consolidation` | `ConsolidationMemory`, bolt only | Conversation hygiene and audit operations; see xref:how-to/consolidation.adoc[Consolidation].
 | `eval` | `EvalMemory` | Retrieval evaluation; the operations evaluated must be supported by the selected backend.
@@ -89,9 +89,7 @@ def MemoryClient(
 | `write_errors` | `list[BufferedWriteError]` | Errors collected by explicit buffered writes on bolt; always an empty list on NAMS.
 |===
 
-Store access before connection raises `NotConnectedError`. Unsupported accessors or calls raise `NotSupportedError`; a property being present is not evidence of backend support. Keep the `MemorySettings` object you passed to the constructor if you need to inspect configuration; there is no public `client.settings` property.
-
-anchor:_parameters_2[]
+Store access before connection raises `NotConnectedError`. A property being present is not evidence of backend support. On NAMS, the bolt-only `users`, `buffered`, `consolidation` and `schema` accessors return a placeholder whose method calls raise `NotSupportedError`, and `graph` raises `NotSupportedError` on access. Unsupported store methods that NAMS defines raise `NotSupportedError`; bolt-only methods it does not define, for example `long_term.get_preferences_by_category`, raise `AttributeError`. The NAMS placeholder `long_term.get_preferences_for` takes keyword arguments only, so the bolt positional form `get_preferences_for(user)` raises `TypeError` instead. The NAMS `long_term.supersede_preference` takes one `preference_id` plus keyword arguments, so the bolt two-argument call raises `TypeError` whether it is written positionally or with the `old_preference_id`/`new_preference_id` keywords. The NAMS `long_term.get_facts_about` takes one positional `entity_name` and no keyword arguments, so a bolt call that passes `subject=` or `limit=` raises `TypeError`. Keep the `MemorySettings` object you passed to the constructor if you need to inspect configuration; there is no public `client.settings` property.
 
 == Methods
 
@@ -135,7 +133,9 @@ await client.graph.execute_write(
 
 `Neo4jClient` also provides `execute_batch` and `vector_search`. Use graph operations only while the client is connected. NAMS does not expose direct bolt access or write Cypher.
 
+anchor:_parameters_2[]
 anchor:_returns[]
+anchor:_example[]
 
 === get_context
 
@@ -161,7 +161,7 @@ async def get_context(
 | `query` | The query to search for relevant context
 | `session_id` | Optional session ID for short-term filtering
 | `include_short_term` | Whether to include conversation history
-| `include_long_term` | Whether to include facts and preferences
+| `include_long_term` | Whether to include matching entities and preferences on bolt (facts are not included). On NAMS, long-term context is an empty string.
 | `include_reasoning` | Whether to include similar task traces
 | `max_items` | Maximum items per memory type
 |===
@@ -233,7 +233,7 @@ async def get_graph(
 
 === get_locations
 
-Bolt only. Return location dictionaries with coordinates, enrichment details, and conversation references for map rendering.
+Bolt only; on NAMS it raises `NotSupportedError`. Return location dictionaries with coordinates, enrichment details, and conversation references for map rendering.
 
 // contract: __init__.py:MemoryClient.get_locations
 [source,python]
@@ -256,7 +256,7 @@ async def get_locations(
 
 === flush
 
-Wait for writes submitted through `client.buffered`. Bolt only; ordinary store methods do not become buffered automatically.
+Wait for writes submitted through `client.buffered`. Bolt only; ordinary store methods do not become buffered automatically. On NAMS, `flush` raises `NotSupportedError`.
 
 // contract: __init__.py:MemoryClient.flush
 [source,python]
@@ -266,7 +266,7 @@ async def flush() -> None: ...
 
 === wait_for_pending
 
-Alias for flushing explicit buffered writes. Bolt only.
+Alias for flushing explicit buffered writes. Bolt only; on NAMS it raises `NotSupportedError`.
 
 // contract: __init__.py:MemoryClient.wait_for_pending
 [source,python]
@@ -320,8 +320,6 @@ Fields and defaults:
 | `relationships` | `list[GraphRelationship]` | `[]` | Graph relationships
 | `metadata` | `dict[str, Any]` | `{}` | Export metadata (filters applied, counts, etc.)
 |===
-
-anchor:_example[]
 
 == See also
 

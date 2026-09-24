@@ -40,7 +40,7 @@ try {
 
 Not every error extends `MemoryError`. Normal request timeouts can propagate a
 `DOMException` named `TimeoutError`; token providers and response parsing can
-also throw raw errors. Fetch `TypeError`s are wrapped in `ConnectionError`.
+also throw raw errors. Fetch `TypeError` exceptions are wrapped in `ConnectionError`.
 The optional `connect()` probe differs: it also wraps timeouts and 5xx responses
 in `ConnectionError`. Bulk writes of more than 100 messages raise a plain `Error`.
 

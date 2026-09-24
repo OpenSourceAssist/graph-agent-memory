@@ -111,15 +111,43 @@ def test_shared_settings_construct_without_optional_extraction_models(lessons, m
 
 
 def test_custom_extractor_uses_domain_schema_and_tuple_label_mapping(lessons):
-    pipeline = lessons["knowledge_graph"].extractor()
-    ner = pipeline._entity_extractor
-    assert ner.entity_labels == lessons["knowledge_graph"].SCHEMA.entity_types
+    from neo4j_agent_memory.extraction import LLMEntityExtractor
+
+    lesson = lessons["knowledge_graph"]
+    pipeline = lesson.extractor("docs-test-model")
+    ner = pipeline.entity_extractor
+    assert ner.entity_labels == lesson.SCHEMA.entity_types
     assert ner.label_mapping["company"] == ("ORGANIZATION", None)
-    assert (
-        pipeline._relation_extractor.relation_types
-        == lessons["knowledge_graph"].SCHEMA.relation_types
-    )
     assert ner._model is None  # Constructor does not download the model.
+    relations = pipeline.relation_extractor
+    assert isinstance(relations, LLMEntityExtractor)
+    assert relations._model_label == "openai/docs-test-model"
+    assert relations._prompt == lesson.RELATION_PROMPT
+    assert relations._extract_preferences is False
+    for name in lesson.SCHEMA.relation_types:
+        assert f"- {name.upper()}:" in lesson.RELATION_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_document_extractor_keeps_mentions_and_only_schema_relations(lessons, capsys):
+    lesson = lessons["knowledge_graph"]
+    mentions = ExtractionResult(
+        entities=[ExtractedEntity(name="Maya Chen", type="PERSON", start_pos=0, end_pos=9)]
+    )
+    proposed = ExtractionResult(
+        relations=[
+            ExtractedRelation(source="Maya Chen", target="Northstar", relation_type="CEO_OF"),
+            ExtractedRelation(source="Maya Chen", target="Denver", relation_type="LIVES_IN"),
+        ]
+    )
+    pipeline = lesson.DocumentExtractor(
+        SimpleNamespace(extract=AsyncMock(return_value=mentions)),
+        SimpleNamespace(extract=AsyncMock(return_value=proposed)),
+    )
+    result = await pipeline.extract("Maya Chen is CEO of Northstar.")
+    assert result.entities == mentions.entities
+    assert [relation.relation_type for relation in result.relations] == ["CEO_OF"]
+    assert "Dropped relation outside the schema" in capsys.readouterr().out
 
 
 def client_double():
@@ -376,7 +404,7 @@ def test_pages_include_the_complete_maintained_programs():
     [
         ("first-agent-memory", {"openai"}, "first_agent_memory.py"),
         ("conversation-memory", {"openai"}, "conversation_memory.py"),
-        ("knowledge-graph", {"openai", "gliner", "spacy"}, "knowledge_graph.py"),
+        ("knowledge-graph", {"openai", "gliner"}, "knowledge_graph.py"),
         (
             "anthropic-and-local-embeddings",
             {"anthropic", "sentence-transformers"},
@@ -426,9 +454,9 @@ def test_python_tutorials_install_published_sdk_and_run_local_files(page, extras
         assert not path.is_absolute() and ".." not in path.parts
         assert (EXAMPLES / path).is_file(), f"Missing maintained local program: {script}"
     if page == "knowledge-graph":
-        requirements = {requirement.name: requirement for requirement in installed}
-        assert "glirel" in requirements
-        assert str(requirements["loguru"].specifier) == "<1,>=0.7"
+        # Relations come from the chat model, so no GLiREL stack is installed.
+        names = {requirement.name for requirement in installed}
+        assert not names & {"glirel", "loguru"}
     if page == "microsoft-agent-memory":
         assert any(requirement.name == "agent-framework-openai" for requirement in installed)
 

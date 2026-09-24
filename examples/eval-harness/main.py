@@ -40,12 +40,15 @@ expected-vs-actual breakdown of the failing cases) when the overall score
 falls below the threshold. ``ci_gate.py`` in this directory wraps that in a
 JSON-reporting CI step.
 
-**Backend boundary.** ``client.eval.run()`` is backend-portable, but this
-example's *seed* is bolt-only: ``client.users`` and ``client.graph.execute_write``
-both raise ``NotSupportedError`` on the hosted NAMS backend, and the
-``:TOUCHED`` audit edges the audit dimension reads are a bolt-side schema
-feature. On NAMS, seed through the memory APIs and run
-``--dimensions retrieval,preference``.
+**Backend boundary.** This script is bolt-only: ``build_settings()`` pins
+``backend="bolt"``, and its seed uses ``client.users`` and
+``client.graph.execute_write``, which both raise ``NotSupportedError`` on the
+hosted NAMS backend. On NAMS only the retrieval dimension can run. The audit
+dimension reads ``:TOUCHED`` edges, a bolt-side schema feature, and the
+preference dimension calls ``long_term.get_preferences_for()``, which raises
+``NotSupportedError`` there. To evaluate a NAMS workspace, seed it through the
+memory APIs from your own NAMS client and call
+``client.eval.run(suite, dimensions=["retrieval"])``.
 """
 
 from __future__ import annotations

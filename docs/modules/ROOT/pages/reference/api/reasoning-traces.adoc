@@ -3,7 +3,7 @@
 :page-pagination:
 :toclevels: 2
 
-Reasoning trace lifecycle operations from xref:reference/api/reasoning.adoc[ReasoningMemory API reference]. Bolt only unless noted. Signatures show types, keyword-only arguments (`*`), and defaults; they are reference declarations, not calls to execute directly.
+Reasoning trace lifecycle operations from xref:reference/api/reasoning.adoc[ReasoningMemory API reference]. The signatures and behavior here are for bolt. On NAMS, `start_trace`, `complete_trace`, `get_trace`, and `get_trace_with_steps` work on synthetic traces held by the client instance; `get_session_traces` returns the conversation's server-stored steps as one aggregate trace; `list_traces` raises `NotSupportedError`. See xref:reference/api/reasoning-search-stats.adoc#_nams_lifecycle_and_operations[NAMS lifecycle and operations] for hosted behavior. Signatures show types, keyword-only arguments (`*`), and defaults; they are reference declarations, not calls to execute directly.
 
 anchor:_trace_operations[]
 anchor:_parameters[]
@@ -149,7 +149,7 @@ async def list_traces(
 
 anchor:_get_traces[]
 anchor:_delete_trace[]
-There are no public `get_traces` or `delete_trace` methods. Use `get_session_traces` or `list_traces` to list traces. `get_trace_with_steps` loads steps and their tool calls; `list_traces` returns trace metadata without loading steps. Clearing a bolt session deletes traces connected through its conversation's `:HAS_TRACE` relationship.
+There are no public `get_traces` or `delete_trace` methods. Use `get_session_traces` or `list_traces` to list traces. `get_trace_with_steps` loads steps and their tool calls; `list_traces` returns trace metadata without loading steps. Clearing a bolt session with `clear_session` does not delete its traces; see xref:reference/api/short-term-sessions.adoc#_clear_session[`clear_session`] for a query that removes a session's traces, steps, and tool calls.
 
 
 == See also

@@ -7,11 +7,37 @@ Command-line interface for local extraction, bolt schema/statistics commands, an
 
 == Installation
 
-Install with CLI extras:
+Install the `cli` extra and PyYAML. The `cli` extra does not include PyYAML, but the CLI needs it to read YAML schema files (`extract --schema`, `schemas validate`) and for the default YAML output of `schemas show`:
 
 [source,bash]
 ----
-pip install 'neo4j-agent-memory[cli]==0.6.0'
+pip install 'neo4j-agent-memory[cli]==0.6.0' pyyaml
+----
+
+Add the extras for the commands you run:
+
+[cols="2,3",options="header"]
+|===
+| Command | Extras to add
+| `extract` (default `--extractor gliner`) | `gliner`. The GLiNER model downloads on first use.
+| `extract --extractor llm` | `openai`, with `OPENAI_API_KEY` set.
+| `extract --extractor hybrid` | `gliner` and `openai`.
+| `mcp serve` | `mcp`. On bolt, also add the provider extras your `--llm` and `--embedding` strings need; without those flags the server uses the default OpenAI embedder, so add `openai` and set `OPENAI_API_KEY`. Release 0.6.0 also imports `httpx` when connecting over Bolt but declares it only in the `nams` extra, so install `httpx>=0.27` alongside. On NAMS, add the `nams` extra instead; no provider extras are needed.
+| `schemas`, `stats` | None.
+|===
+
+For example, to run every `extract` example on this page:
+
+[source,bash]
+----
+pip install 'neo4j-agent-memory[cli,gliner,openai]==0.6.0' pyyaml
+----
+
+To run the MCP server against NAMS:
+
+[source,bash]
+----
+pip install 'neo4j-agent-memory[cli,mcp,nams]==0.6.0' pyyaml
 ----
 
 == Commands
@@ -219,7 +245,7 @@ The table contains an Extraction Statistics panel, an entity-type breakdown, and
 
 === mcp serve
 
-Start the MCP server for Claude Desktop and other MCP hosts. Install the `mcp` extra. Bolt requires a Neo4j password; NAMS requires an API key. `--backend` pins selection; otherwise a supplied key selects NAMS. Local provider/extraction options do not configure the hosted pipeline.
+Start the MCP server for Claude Desktop and other MCP hosts. Install the `mcp` extra, plus `nams` for the hosted backend. Bolt requires a Neo4j password; NAMS requires an API key. `--backend` pins selection; otherwise a supplied key selects NAMS. Local provider/extraction options do not configure the hosted pipeline.
 
 [source,bash]
 ----
@@ -240,8 +266,8 @@ The runnable Bolt commands below use the Aura environment in <<_environment_vari
 | `--database` | `neo4j` | Neo4j database name. Environment: `NEO4J_DATABASE`.
 | `--transport` | `stdio` | MCP transport (default: stdio). 'http' is Streamable HTTP; 'streamable-http' is a synonym. 'sse' is deprecated and serves Streamable HTTP with a warning. Choices: `stdio`, `http`, `streamable-http`, `sse`.
 | `--host` | `127.0.0.1` | Host to bind for --transport http (use 0.0.0.0 to expose it).
-| `--port` | `8080` | Port to bind for --transport http. The MCP endpoint is /mcp/.
-| `--profile` | `extended` | Tool profile: core (6 tools) or extended (16 tools). Choices: `core`, `extended`.
+| `--port` | `8080` | Port to bind for --transport http. The MCP endpoint is /mcp.
+| `--profile` | `extended` | Tool profile: core (6 tools) or extended (16 tools on bolt, 20 on NAMS). Choices: `core`, `extended`.
 | `--session-strategy` | `per_conversation` | Session identity strategy. Choices: `per_conversation`, `per_day`, `persistent`.
 | `--user-id` | `unset` | User ID for per_day/persistent session strategies. Environment: `MCP_USER_ID`.
 | `--observation-threshold` | `30000` | Token threshold for observational memory compression.
@@ -283,7 +309,7 @@ neo4j-agent-memory mcp serve --backend bolt \
   --user-id alice
 
 # Streamable HTTP, for a networked deployment (Cloud Run, Kubernetes).
-# The MCP endpoint is POST/GET http://<host>:8080/mcp/
+# The MCP endpoint is POST/GET http://<host>:8080/mcp
 neo4j-agent-memory mcp serve --backend bolt \
   --uri "$NEO4J_URI" --user "$NEO4J_USERNAME" \
   --transport http \
@@ -299,7 +325,7 @@ neo4j-agent-memory mcp serve --backend nams --transport stdio
 
 NOTE: `--transport sse` is deprecated. The MCP specification replaced the legacy
 HTTP+SSE transport with Streamable HTTP; the flag still starts a server but logs
-a warning and serves Streamable HTTP at `/mcp/`. See
+a warning and serves Streamable HTTP at `/mcp`. See
 xref:reference/mcp-tools.adoc#_transports[Transports].
 
 == Environment variables

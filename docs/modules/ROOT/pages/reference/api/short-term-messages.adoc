@@ -121,7 +121,9 @@ There are no public `get_messages` or `get_message` methods. Read the conversati
 
 === delete_message
 
-Attempt to delete one message; `cascade=True` also removes its `:MENTIONS` relationships. Returns whether deletion succeeded. Not supported on NAMS. The current query does not remove conversation/sequential/other links, so deletion can fail when those relationships remain; it does not reconnect neighboring messages.
+Attempt to delete one message; `cascade=True` also removes its `:MENTIONS` relationships. Returns `False` for an ID that is not a UUID or matches no message. Not supported on NAMS.
+
+The query removes only `:MENTIONS` relationships, not the conversation and sequence links that `add_message` always creates. For a message stored through `add_message`, the call therefore raises a Neo4j `ConstraintError` ("still has relationships") instead of returning `False`. It never reconnects neighboring messages. To remove a whole conversation, use xref:reference/api/short-term-sessions.adoc#_clear_session[`clear_session`].
 
 // contract: memory/short_term.py:ShortTermMemory.delete_message
 [source,python]
@@ -144,7 +146,9 @@ On NAMS, `session_id` means the server-issued conversation ID. `conversation_id`
 
 === create_conversation
 
-Create a conversation. NAMS sends `user_identifier` and `metadata` from kwargs; it returns a server-issued ID, and a supplied `session_id` is not sent as the identity. On bolt, pass a required session ID: the method idempotently creates local metadata and honors `user_identifier`.
+Create a conversation. Pass `session_id` on both backends. NAMS also accepts the `conversation_id` alias and raises `TypeError` when both are omitted, even though its signature defaults them to `None`.
+
+On NAMS, the name is not sent: the request carries only `user_identifier` and `metadata` from kwargs. The name only fills the local `Conversation.session_id` field. Pass the server-issued `Conversation.id` as the `session_id` of later calls. On bolt, the method idempotently creates local metadata under the given session ID and honors `user_identifier`.
 
 // contract: nams/short_term.py:NamsShortTermMemory.create_conversation
 [source,python]
@@ -237,11 +241,11 @@ Pydantic model; inherited memory-entry fields are included.
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `id` | `UUID` | `new UUID` |
-| `created_at` | `datetime` | `current UTC time` |
-| `updated_at` | `datetime \| None` | `None` |
-| `embedding` | `list[float] \| None` | `None` |
-| `metadata` | `dict[str, Any]` | `{}` |
+| `id` | `UUID` | `new UUID` | Unique identifier.
+| `created_at` | `datetime` | `current UTC time` | Creation time.
+| `updated_at` | `datetime \| None` | `None` | Last update time, if updated.
+| `embedding` | `list[float] \| None` | `None` | Embedding vector, if one was generated.
+| `metadata` | `dict[str, Any]` | `{}` | Arbitrary key-value metadata, stored as JSON.
 | `role` | `MessageRole` | `required` | Message role
 | `content` | `str` | `required` | Message content
 | `conversation_id` | `UUID \| None` | `None` | Parent conversation ID
@@ -255,13 +259,13 @@ Fields and defaults:
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `id` | `UUID` | `new UUID` |
+| `id` | `UUID` | `new UUID` | Unique identifier.
 | `session_id` | `str` | `required` | User/agent session identifier
 | `title` | `str \| None` | `None` | Conversation title
-| `messages` | `list[Message]` | `[]` |
-| `created_at` | `datetime` | `current UTC time` |
-| `updated_at` | `datetime \| None` | `None` |
-| `metadata` | `dict[str, Any]` | `{}` |
+| `messages` | `list[Message]` | `[]` | Messages in the conversation
+| `created_at` | `datetime` | `current UTC time` | Creation time.
+| `updated_at` | `datetime \| None` | `None` | Last update time, if updated.
+| `metadata` | `dict[str, Any]` | `{}` | Arbitrary key-value metadata.
 |===
 
 === ExtractionStatus
@@ -271,8 +275,8 @@ Fields and defaults:
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `messages` | `list[dict[str, Any]]` | `[]` |
-| `summary` | `dict[str, int]` | `{}` |
+| `messages` | `list[dict[str, Any]]` | `[]` | Per-message extraction detail
+| `summary` | `dict[str, int]` | `{}` | Count of messages per extraction status (`pending`, `completed`, `failed`, and so on)
 |===
 
 == See also

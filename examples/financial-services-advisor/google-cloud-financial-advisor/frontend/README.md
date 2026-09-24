@@ -140,7 +140,7 @@ Double-clicking any node expands its neighbours instead.
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > _Verified against `neo4j-agent-memory` 0.6.0-dev (editable path install in the
 > backend), Vite 8.3, React 19.2, react-router 7.18, Chakra UI 3.37, motion 13.2,

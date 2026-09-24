@@ -33,7 +33,7 @@ description, nothing about how that entity connects to anything else. This is
 the retrieval a flat vector store cannot do: after the entity search, the
 `graphExpansionLimit` best matches (default 2) are expanded with one
 `getEntity` request each, and their stored relationships are turned into
-triples added to the prompt as `(from)-[TYPE]->(target)` lines — the entity's
+triples added to the prompt as `+(from)-[TYPE]->(target)+` lines — the entity's
 canonical name, the relationship type, and the related entity's name.
 
 Two caps keep this bounded: at most 5 relationships are taken from any one
@@ -83,10 +83,13 @@ Provider and middleware modes persist the turn automatically —
 `persistInteractions` (default `true`) is the only switch. Hooks mode always
 persists what `onFinish()` is given: `persistUserPrompt: false` on its scope
 drops only the user turn, and a `PreMemoryWrite` hook can block or rewrite
-the write. The user's message
-is saved once per turn, not once per step of a tool-calling loop; the
-assistant's answer is saved after the model finishes, and is skipped when a
-step only produced tool calls with no answer text. In tools mode, the model
+the write. In provider and middleware modes the user's message is saved once
+per turn, not once per step of a tool-calling loop, and the assistant's
+answer is saved from the step that produces it. A step that calls an app
+tool (one your application executes, not one the model provider runs) saves
+no assistant text, even if that step also produced text — persistence waits
+for a step with no app tool calls. With `streamText`, the text deltas are
+accumulated and saved when the stream finishes. In tools mode, the model
 decides whether to call `store_memory` at all — `enforceQueryMemory()` and
 `ensureMemoryStored()` narrow but do not remove that gap; see
 xref:reference/nams-ai-provider.adoc[the API reference].
@@ -97,8 +100,10 @@ never call an extraction model. Tools mode is the exception: a `store_memory`
 write of type `fact`, `user_preference`, or `pattern` goes straight to the
 entity graph rather than through a conversation message, so there is no
 server-side turn for NAMS to extract from. Passing `extractionModel` to
-`createNams`/`createNamsMemoryTools` in tools mode runs a real
-entities-and-relationships extraction over that memory. `createNamsProvider`
+`createNams`/`createNamsMemoryTools` in tools mode runs a real entity
+extraction over that memory and stores each named entity it finds. The
+relationships it proposes are dropped with one logged warning, because the
+hosted REST API accepts no relationship writes. `createNamsProvider`
 and `createNamsMemory` do not accept it at all (removed in 0.3.0); setting it
 on `createNams()` and then calling `.wrap()` or `.hooks()` is a no-op that
 logs one warning, because extracting again on

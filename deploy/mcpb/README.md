@@ -14,16 +14,24 @@ MCP server extension for Claude Desktop that provides persistent graph memory ba
 ## Requirements
 
 - A dedicated [AuraDB instance and its connection credentials](../../examples/AURA_SETUP.md)
-- Python 3.10+ (for `uvx` runtime)
+- [uv](https://docs.astral.sh/uv/) on the `PATH` that Claude Desktop sees. The extension starts the server with `uvx`, which installs `neo4j-agent-memory[mcp,openai]==0.6.0` from PyPI (Python 3.10+).
 - An OpenAI API key for the default embedding provider
+- Node.js, to pack the bundle with the [MCPB CLI](https://github.com/anthropics/mcpb)
 
-## Quick Start
+## Quick start
 
-1. Install from Claude Desktop extension directory
-2. Configure `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE` and `OPENAI_API_KEY` in the extension environment. Copy the Aura setup's username into `NEO4J_USER`.
-3. Request a storage tool call and verify its record in Aura Query. The [maintained Claude Desktop tutorial](../../docs/modules/ROOT/pages/tutorials/mcp-server.adoc) gives the complete storage/readback flow.
+1. From the repository root, pack this directory into a bundle:
 
-## Alternative Installation (Developer Path)
+   ```bash
+   npx -y @anthropic-ai/mcpb@2.1.2 pack deploy/mcpb dist/neo4j-agent-memory.mcpb
+   ```
+
+   `pack` validates `manifest.json` before it writes the file. It creates `dist/` if needed, and git ignores that directory. The [team memory example](../../examples/claude-code-team-memory/) wraps the same manifest in `bundle/build.sh`.
+2. In Claude Desktop, open **Settings → Extensions**, choose **Install from file** and select `dist/neo4j-agent-memory.mcpb`.
+3. Fill in the fields Desktop shows for the extension: Neo4j URI, username, password, database and OpenAI API key. Copy the Aura setup's `NEO4J_USERNAME` value into the username field. Desktop stores the password and API key as sensitive values and passes all five to the server as `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE` and `OPENAI_API_KEY`.
+4. Request a storage tool call and verify its record in Aura Query. The [maintained Claude Desktop tutorial](../../docs/modules/ROOT/pages/tutorials/mcp-server.adoc) gives the complete storage/readback flow.
+
+## Alternative installation (developer path)
 
 Add to your Claude Desktop configuration (`claude_desktop_config.json`). Replace the literal placeholders with the Aura credentials; Desktop does not inherit terminal exports. Keep the populated configuration private:
 
@@ -33,7 +41,7 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`). Replace
     "neo4j-agent-memory": {
       "command": "uvx",
       "args": [
-        "neo4j-agent-memory[mcp,openai]",
+        "neo4j-agent-memory[mcp,openai]==0.6.0",
         "mcp",
         "serve",
         "--backend", "bolt"
@@ -50,7 +58,7 @@ Add to your Claude Desktop configuration (`claude_desktop_config.json`). Replace
 }
 ```
 
-## Tool Profiles
+## Tool profiles
 
 ### Core (6 tools)
 | Tool | Description |

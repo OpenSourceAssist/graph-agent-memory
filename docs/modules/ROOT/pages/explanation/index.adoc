@@ -29,4 +29,4 @@ anchor:_core_concepts[]anchor:_technical_deep_dives[]anchor:_key_design_decision
 * xref:explanation/context-tiers.adoc[Understanding the three-tier context model] -- How recent messages compress into observations, and observations into reflections, as context grows.
 * xref:explanation/nams-ai-provider-retrieval.adoc[How the NAMS AI provider retrieves memory] -- Why the separate NAMS AI provider package merges five memory sources by taking turns instead of ranking them by confidence.
 * xref:explanation/ontologies.adoc[Ontologies] -- What a NAMS ontology is and how it constrains extraction for a workspace.
-* xref:explanation/skills.adoc[Agent Skills] -- What a NAMS Agent Skill is and how it differs from an ontology.
+* xref:explanation/skills.adoc[Agent Skills (Preview)] -- What a NAMS Agent Skill is and how it differs from an ontology.

@@ -40,7 +40,7 @@ async def get_similar_traces(
 
 === search_steps
 
-Search step embeddings. Returns `ReasoningStepWithContext` wrappers with `step`, `similarity`, and parent task/outcome fields. Generate step embeddings with `complete_trace(..., generate_step_embeddings=True)` before relying on step search.
+Search step embeddings. Returns `ReasoningStepWithContext` wrappers with `step`, `similarity`, and parent task/outcome fields. Step search needs a configured embedder. `add_step` embeds each step by default; steps recorded with `generate_embedding=False`, which is the `StreamingTraceRecorder` default, have no embedding until `complete_trace(..., generate_step_embeddings=True)` embeds them.
 
 // contract: memory/reasoning.py:ReasoningMemory.search_steps
 [source,python]
@@ -132,13 +132,14 @@ NAMS exposes flat steps belonging to a conversation and tool calls belonging to 
 | `start_trace(session_id, task, **kwargs)` | Creates local trace metadata and a UUID; `metadata` is held locally. No request stores a trace, task, trigger link, or outcome.
 | `add_step(trace_id, **kwargs)` | Requires a trace started by this client instance. Sends `thought` as `reasoning`, `action` as `actionTaken`, and `observation` as `result` with the conversation ID. Empty thought/action become a single space.
 | `record_tool_call(step_id, tool_name, arguments, **kwargs)` | Sends status, result, and duration when supplied. Arguments and result are JSON strings in the request; bolt error/auto-observation/message/provenance kwargs are not sent.
-| `complete_trace(trace_id, **kwargs)` | Updates local outcome, success, and completion time; returns None. It does not persist completion to the service.
+| `complete_trace(trace_id, **kwargs)` | Updates local outcome, success, and completion time; returns None. It does not persist completion to the service. `success` is set only from a `success=` keyword. Pass `outcome` as a string: a `TraceOutcome` object makes later `get_trace` and `get_trace_with_steps` calls fail validation.
 | `get_trace(trace_id)` | Returns local trace metadata, or None when unknown to this client instance.
 | `get_trace_with_steps(trace_id)` | Requires the local mapping, then fetches all steps for that conversation. Two synthetic traces in the same conversation do not partition the server's steps.
 | `get_session_traces(session_id)` | Fetches the conversation's steps as one aggregate trace with a new local ID and task text `Aggregated session reasoning`.
 | `get_context` | Returns an empty string.
 | `link_trace_to_message` | No-op.
-| `search_steps`, `get_similar_traces`, `list_traces`, tool statistics | Raise `NotSupportedError`.
+| `search_steps`, `get_similar_traces`, `list_traces`, `get_tool_stats` | Raise `NotSupportedError`.
+| `migrate_tool_stats`, `get_tool_usage_stats`, `on_tool_call_recorded` | Not defined on the NAMS reasoning store; accessing them raises `AttributeError`.
 |===
 
 Save conversation IDs for later retrieval. Synthetic trace IDs, task labels, and outcomes are not durable across client instances. For durable hosted reasoning data, consume the recorded conversation steps and tool calls. See xref:reference/rest-api.adoc[REST endpoint mappings].

@@ -5,12 +5,14 @@ These are the maintained method names on each SDK's client (`client.<layer>` in 
 |===
 |Python |TypeScript
 |`add_message` |`addMessage`
-|`add_messages_batch` |`bulkAddMessages`
+|`bulk_add_messages` |`bulkAddMessages`
 |`get_conversation` |`getConversation`
 |`search_messages` |`searchMessages`
 |`list_sessions` |`listSessions`
 |`clear_session` |`clearSession`
 |===
+
+On a Bolt-connected Python client, `bulk_add_messages` forwards to `add_messages_batch`, the Bolt-only form that also accepts `batch_size` and `on_progress`. The NAMS Python client has only `bulk_add_messages`.
 
 .Long-term memory: `client.long_term` / `client.longTerm`
 [cols="1,1",options="header"]

@@ -7,8 +7,8 @@ Operational and runtime-behavior settings for xref:reference/configuration.adoc[
 
 anchor:memory[]
 
-anchor:_python_configuration_6[]
-anchor:_environment_variables_6[]
+anchor:_python_configuration_7[]
+anchor:_environment_variables_7[]
 anchor:_memory_configuration[]
 
 == Memory behavior
@@ -30,16 +30,16 @@ The tables distinguish declared values from automatic runtime behavior. MemoryCl
 | `multi_tenant` | `bool` | `False` | — | pass:[<code>NAM_<wbr>MEMORY__<wbr>MULTI_<wbr>TENANT</code>] | Require user_identifier on the guarded bolt writes; does not add read authorization or scope semantic search.
 | `write_mode` | `Literal['sync', 'buffered']` | `'sync'` | — | `NAM_MEMORY__WRITE_MODE` | How fire-and-forget writes via `client.buffered.submit(...)` are persisted. `'sync'` (default): each submit awaits the underlying execute_write — useful for tests and small loads. `'buffered'`: submits enqueue and a background task drains to Neo4j; callers use `client.flush()` / `client.wait_for_pending()` at shutdown.
 | `max_pending` | `int` | `200` | ge 1 | `NAM_MEMORY__MAX_PENDING` | Maximum number of buffered writes that can be in flight. When the queue is full, `client.buffered.submit(...)` blocks until a worker drains an item.
-| `conversation_ttl_days` | `int \| None` | `None` | ge 1 | pass:[<code>NAM_<wbr>MEMORY__<wbr>CONVERSATION_<wbr>TTL_<wbr>DAYS</code>] | Available to application code as a TTL value; pass it explicitly to `archive_expired_conversations()` via `older_than_days`. †
-| `audit_read` | `bool` | `False` | — | `NAM_MEMORY__AUDIT_READ` | Available to application code as an audit preference; call consolidation.audit_reads(...) explicitly. †
+| `conversation_ttl_days` | `int \| None` | `None` | ge 1 | pass:[<code>NAM_<wbr>MEMORY__<wbr>CONVERSATION_<wbr>TTL_<wbr>DAYS</code>] | Available to application code as a TTL value; pass it explicitly as `archive_expired_conversations(ttl_days=settings.memory.conversation_ttl_days)`. †
+| `audit_read` | `bool` | `False` | — | `NAM_MEMORY__AUDIT_READ` | Available to application code as an audit preference; call `client.consolidation.record_read_audit(...)` explicitly. †
 |===
 
-† Not automatically applied by MemoryClient; see <<integration-limits>>.
+† Not automatically applied by MemoryClient; see <<integration-limits,Integration limits>>.
 
 anchor:search[]
 
-anchor:_python_configuration_7[]
-anchor:_environment_variables_7[]
+anchor:_python_configuration_8[]
+anchor:_environment_variables_8[]
 
 == Search configuration
 
@@ -55,12 +55,10 @@ These fields are accepted settings values but are not automatically read by the 
 | `graph_depth` | `int` | `2` | ge 1 | `NAM_SEARCH__GRAPH_DEPTH` | Graph traversal depth for search †
 |===
 
-† Not automatically applied by MemoryClient; see <<integration-limits>>.
+† Not automatically applied by MemoryClient; see <<integration-limits,Integration limits>>.
 
 anchor:geocoding[]
 
-anchor:_python_configuration_8[]
-anchor:_environment_variables_8[]
 anchor:_python_configuration_nominatim_free[]
 anchor:_python_configuration_google_maps_higher_accuracy[]
 anchor:_environment_variables_9[]

@@ -36,8 +36,9 @@ hosted [Neo4j Agent Memory Service](https://memory.neo4jlabs.com) reached over
   assistant turn without exposing a completion promise, so a runtime can stop
   before that write finishes. This example sets `persistResponses: false`, writes
   the turn in `streamText`'s `onEnd`, and hands that promise to
-  `ctx.waitUntil`. On abort it settles without storing a partial response; on
-  error it settles and logs the failure. The suite checks this lifecycle.
+  `ctx.waitUntil`. If the client disconnects mid-stream it settles without
+  storing a partial response; if the model fails it settles and logs the
+  failure. The suite checks all three endings.
 - **Memory costs are measured, not guessed.** Each response carries a
   `Server-Timing: nams;dur=…;desc="N requests"` header, summed from the SDK's own
   `logger` events. You can see what context assembly costs per turn without
@@ -254,7 +255,7 @@ with no `nodejs_compat` flag.)
 npm test          # vitest, running inside workerd
 ```
 
-19 tests, no API key, no network, no Neo4j. They run in the real Workers runtime
+22 tests, no API key, no network, no Neo4j. They run in the real Workers runtime
 via `@cloudflare/vitest-pool-workers`, so loading the SDK at all is part of the
 assertion. `test/fake-nams.ts` stubs `globalThis.fetch` and answers the hosted
 REST API's own routes — deliberately *not* a fake `Transport`, because the
@@ -266,7 +267,8 @@ The assertions that fail if memory stops working:
 - turn two's prompt carries turn one's text and NAMS's observation, neither of
   which the request body contained;
 - nothing at all is written to memory before the handler returns — so the single
-  `waitUntil` promise owns the writes and settles on completion, abort or error;
+  `waitUntil` promise owns the writes and settles on completion, on a client
+  disconnect and on a model error, with no partial answer stored;
 - the exact NAMS request trace, each call bearing `Authorization: Bearer nams_…`;
 - no `node:` import and no Node global anywhere under `src/`.
 

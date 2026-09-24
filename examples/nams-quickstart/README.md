@@ -153,6 +153,6 @@ layers (preferences and facts search, geospatial, consolidation, eval). See
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > _Verified against `neo4j-agent-memory` 0.6.0-dev (branch `examples-updates`), Python 3.12, with the NAMS transport mocked (`tests/examples/test_nams_quickstart_example.py`) — 2026-09-10. `NamsSettings`/`connect()`, `short_term.get_extraction_status` and `long_term.expand_graph` ship in the 0.6 line; until it is released, install the library from this repository (`uv pip install -e ../..`) rather than from PyPI._

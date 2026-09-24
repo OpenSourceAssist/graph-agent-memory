@@ -3,7 +3,7 @@
 :page-pagination:
 :toclevels: 2
 
-Step and tool-call recording, message-linking, and the `StreamingTraceRecorder` context manager from xref:reference/api/reasoning.adoc[ReasoningMemory API reference]. Bolt only. Signatures show types, keyword-only arguments (`*`), and defaults; they are reference declarations, not calls to execute directly.
+Step and tool-call recording, message-linking, and the `StreamingTraceRecorder` context manager from xref:reference/api/reasoning.adoc[ReasoningMemory API reference]. The signatures and behavior here are for bolt. NAMS implements `add_step` and `record_tool_call` against conversation-level steps, returns an empty string from `get_context`, and treats `link_trace_to_message` as a no-op. See xref:reference/api/reasoning-search-stats.adoc#_nams_lifecycle_and_operations[NAMS lifecycle and operations] for hosted behavior. Signatures show types, keyword-only arguments (`*`), and defaults; they are reference declarations, not calls to execute directly.
 
 anchor:_step_operations[]
 anchor:_parameters_2[]
@@ -75,7 +75,7 @@ async def record_tool_call(
 | `error` | Error message if failed
 | `auto_observation` | If True, automatically set the step's observation field from the tool result. Useful for ReAct-style agents where the observation is the tool's output.
 | `message_id` | Optional message ID that triggered this tool call. Creates a `:TRIGGERED_BY` relationship from ToolCall to Message.
-| `touched_entities` | Optional list of `EntityRef` describing entities this tool call touched. Each ref is materialized as a `(:ReasoningStep)-[:TOUCHED]->(:Entity)` edge so audit queries can reach the entity in one hop instead of three. See `how-to/audit-reasoning.adoc`.
+| `touched_entities` | Optional list of `EntityRef` describing entities this tool call touched. Each ref is materialized as a `(:ReasoningStep)-[:TOUCHED]->(:Entity)` edge so audit queries can reach the entity in one hop instead of three. See xref:how-to/audit-reasoning.adoc[Audit reasoning with `:TOUCHED` edges].
 |===
 
 anchor:_get_steps[]

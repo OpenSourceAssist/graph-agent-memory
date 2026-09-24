@@ -65,8 +65,11 @@ Never put a key in either note.
 
 Before building the tutorial's stateful ledger, confirm the SDK itself works
 end to end: build settings from the API key exported in Step 2, open a
-client, write a message, and read it back.
+client, create a conversation, write a message, and read it back by the IDs
+NAMS returns. The program then deletes that conversation, so this check leaves
+nothing for the later cleanup to find.
 
+.Save as `nams_first_write.py`
 [source,python]
 ----
 include::example$nams_first_write.py[]
@@ -77,7 +80,27 @@ include::example$nams_first_write.py[]
 python nams_first_write.py
 ----
 
-You should see `Stored and read back: user said 'Hello, NAMS!'`.
+Expected output (placeholder IDs):
+
+[source,text]
+----
+Created conversation <conversation-id>
+Stored and read back: user said 'Hello from my first hosted write.'
+Deleted conversation <conversation-id>; readback returned 404
+----
+
+NAMS assigns the conversation ID. The `docs-nams-first-write` argument is not
+sent to the service, so it cannot be used to find or reopen the conversation;
+use the printed ID. The program waits for background extraction
+before deleting, because deleting a conversation does not delete entities
+extracted from it. The greeting names no person, place or organization, so
+extraction is unlikely to produce any. If it does, a
+`Kept entities extracted from the message` line lists entity IDs that remain
+in the workspace. An extracted entity can be
+shared with other records, so give those IDs to the workspace owner instead of
+deleting them. An error after the `Created conversation` line leaves that
+conversation in the workspace; record its ID for the workspace owner before
+continuing.
 
 [[_3_connect]]
 == Step 4: Read the complete program
@@ -293,4 +316,12 @@ The Python Bolt and NAMS APIs have different creation and return contracts. Do n
 
 anchor:_8_the_active_ontology[]anchor:_9_portable_read_only_cypher[]anchor:_what_now[]
 
-Context assembly, graph expansion, ontology management, and read-only Cypher are separate tasks. Their commands and result contracts belong in xref:how-to/use-nams.adoc[Use NAMS] and xref:reference/rest-api.adoc[REST API]. Continue with xref:tutorials/ontology-quickstart.adoc[the ontology lesson] after this conversation path succeeds.
+Context assembly, graph expansion, ontology management, and read-only Cypher are separate tasks:
+
+* Hosted context, observations and reflections: xref:reference/api/short-term-messages.adoc#_nams_and_shared_conversation_operations[NAMS conversation operations].
+* Graph expansion: xref:reference/api/long-term-geospatial.adoc#_expand_graph[`expand_graph`].
+* Read-only Cypher: `client.query.cypher` in the xref:reference/api/memory-client.adoc#_properties[MemoryClient properties].
+* Endpoint paths for all of these: xref:reference/rest-api.adoc[REST API].
+* Ontology management: xref:how-to/use-ontologies.adoc[Activate and verify a workspace ontology].
+
+Continue with xref:tutorials/ontology-quickstart.adoc[the ontology lesson] after this conversation path succeeds.

@@ -38,7 +38,7 @@ against the hosted [Neo4j Agent Memory Service (NAMS)](https://memory.neo4jlabs.
 
 The Python gallery — twenty-five examples including the bolt backend, the
 framework integrations and four full-stack apps — is at
-[`../../../examples/`](../../../examples/).
+[`../../examples/`](../../examples/).
 
 ## Running an example
 
@@ -46,19 +46,25 @@ framework integrations and four full-stack apps — is at
 # From the repository root
 cd typescript
 npm ci
-npm run build
-cd examples/nextjs-memory-chat
+npm run build                        # the SDK every example links to
+cd packages/vercel-ai-provider       # nextjs-memory-chat and nams-ai-provider only
 npm ci
-cp .env.example .env       # edit .env with your MEMORY_API_KEY
-npm run dev               # or npm start for script examples
+npm run build
+cd ../../examples/nextjs-memory-chat
+npm ci
+cp .env.example .env.local           # set MEMORY_API_KEY and OPENAI_API_KEY
+npm run dev                          # or npm start for script examples
 ```
 
-Each example's own README has the full step-by-step.
+Each example's own README has the full step-by-step, including which keys it
+needs and whether it reads `.env` or `.env.local`.
 
 ## Notes
 
 These examples use `"@neo4j-labs/agent-memory": "file:../.."`. Build the SDK
-before example installation. Strands' `install-links=true` copies the package,
+before example installation. `nextjs-memory-chat/` and `nams-ai-provider/` also
+link `"@neo4j-labs/nams-ai-provider": "file:../../packages/vercel-ai-provider"`,
+so build that package as well. Strands' `install-links=true` copies the package,
 so rebuild and reinstall after SDK changes. An install cannot create missing
 `dist` exports for you.
 
@@ -79,7 +85,7 @@ so rebuild and reinstall after SDK changes. An install cannot create missing
   delete a committed lockfile to "float" an example — say so in the example's
   README instead.
 - Every example is **type-checked in CI** by the `type-check-examples`
-  matrix in [`.github/workflows/ci-typescript.yml`](../../../.github/workflows/ci-typescript.yml),
+  matrix in [`.github/workflows/ci-typescript.yml`](../../.github/workflows/ci-typescript.yml),
   against a freshly built `typescript/dist/` — drift between an example and
   the SDK's public API fails the PR that introduces it. The same job runs each
   example's `npm test` (all suites are offline). Runtime execution

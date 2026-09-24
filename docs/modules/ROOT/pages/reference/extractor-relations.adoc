@@ -5,11 +5,14 @@
 
 Relation extraction that consumes previously extracted entities, from xref:reference/extractors.adoc[Extractor classes reference]. Import from `neo4j_agent_memory.extraction`.
 
+anchor:_constructor_5[]
+anchor:_example_5[]
+
 == GLiRELExtractor
 
 Relation extraction consumes previously extracted entities with span positions. Import from `neo4j_agent_memory.extraction`.
 
-The SDK does not define a `glirel` extra, so install the `glirel` package separately alongside `neo4j-agent-memory`. Its current release also requires `loguru` at import time without declaring that dependency, so install `loguru` explicitly too.
+The SDK does not define a `glirel` extra, so install the `glirel` package separately alongside `neo4j-agent-memory`. Its current release also requires `loguru` at import time without declaring that dependency, so install `loguru` explicitly too. GLiREL 1.2.1 also needs `protobuf` and `huggingface-hub` below 1.0 to load its model. `GLiRELExtractor` tokenizes text with spaCy, so it also needs the `spacy` extra and the `en_core_web_sm` model (`python -m spacy download en_core_web_sm`); without them `extract_relations` raises `ImportError` or `RuntimeError`. In `neo4j-agent-memory` 0.6.0, `extract_relations` passes character offsets where GLiREL expects token positions, so it returns no relations; use the LLM extractor for relations on that release. xref:how-to/entity-extraction-schemas.adoc#_relationship_extraction[Extract relationships] shows the install command for the SDK, `glirel`, `loguru`, and spaCy.
 
 // contract: extraction/gliner_extractor.py:GLiRELExtractor.__init__
 [source,python]
@@ -26,7 +29,7 @@ def GLiRELExtractor(
 |===
 | Parameter | Description
 | `model` | GLiREL model name from HuggingFace
-| `relation_types` | Relation types to extract. Can be: - dict[str, str]: Relation names with descriptions (recommended) - list[str]: Simple list of relation names - None: Use default POLE+O relation types
+| `relation_types` | Relation types to extract: a `dict[str, str]` of names to descriptions (recommended), a `list[str]` of names, or `None` for the default POLE+O relation types.
 | `threshold` | Confidence threshold for including relations
 | `device` | Device to run on (cpu, cuda, mps)
 |===
@@ -172,7 +175,7 @@ result = await extractor.extract("John works at Acme Corp")
 print(result.entities, result.relations)
 ----
 
-`DEFAULT_GLIREL_MODEL` is `jackboyla/glirel_base`. Model output varies; validate entity names, types, and relation endpoints on representative data.
+`DEFAULT_GLIREL_MODEL` is `jackboyla/glirel-large-v0`. The combined extractor calls `GLiRELExtractor.extract_relations`, so on 0.6.0 `result.relations` is empty for the reason given under <<_glirelextractor,GLiRELExtractor>>. Model output varies; validate entity names, types, and relation endpoints on representative data.
 
 
 == See also

@@ -19,12 +19,12 @@ This page configures *client-side* embedding on the **bolt** backend. On
 **NAMS**, embedding runs server-side — the workspace's embedding model and
 vector dimension are service/workspace configuration. Read those values from
 your service configuration instead of inferring them from this SDK. `MemorySettings.embedding` is therefore ignored on
-NAMS. See xref:explanation/backends.adoc[Bolt vs NAMS].
+NAMS. See xref:explanation/backends.adoc[Bolt and NAMS backends].
 ====
 
 == Prerequisites
 
-* Install the extras for each selected provider and configure its credentials. Quote package extras in shell commands, for example `pip install 'neo4j-agent-memory[openai]==0.6.0'`.
+* Install the extras for each selected provider and configure its credentials. Quote package extras in shell commands, for example `pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'`. Keep `httpx` in the command: release 0.6.0 imports it when connecting over Bolt but declares it only in the `nams` extra.
 * Use a dedicated AuraDB instance and export `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` as shown in xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. These examples use the `bolt` backend; `NEO4J_DATABASE` defaults to `neo4j` when omitted.
 * Model identifiers below illustrate adapter routing. Confirm the chosen model is available to your account before making a live request; successful provider construction does not verify model access.
 * Run snippets containing `await` in an async function. The `provider`, `messages`, and connected `client` in later fragments come from your application's setup.
@@ -39,10 +39,34 @@ NAMS. See xref:explanation/backends.adoc[Bolt vs NAMS].
 
 anchor:_set_via_a_provider_string[]anchor:_set_via_an_explicit_provider_instance[]
 
-`MemorySettings.embedding` accepts a provider string or an explicit Provider instance. xref:how-to/bring-your-own-model.adoc#_three_ways_to_wire_a_provider[Bring your own model — Three ways to wire a provider] is the canonical walkthrough with runnable code for both (pattern C, framework pass-through, applies to `llm=` only); the deltas specific to the embedding field are below.
+`MemorySettings.embedding` accepts a provider string or an explicit Provider instance. xref:how-to/bring-your-own-model.adoc#_three_ways_to_wire_a_provider[Bring your own model — Three ways to wire a provider] walks through both forms for `llm=`; framework pass-through (pattern C) applies to `llm=` only. The embedding field works the same way:
 
 * **Provider string** (recommended for most users) — `embedding="openai/text-embedding-3-small"` resolves via `from_provider(model, kind="embedding")`. The factory looks up the model in `neo4j_agent_memory.llm.defaults.EMBEDDING_DIMENSIONS` to populate `dimensions` automatically. For unknown models, pass an explicit instance with `dimensions=N` (see below).
-* **Explicit Provider instance** — construct the adapter directly for kwargs the string form can't express, for example `OpenAIEmbeddingProvider("openai/text-embedding-3-large", dimensions=1024, batch_size=200)` to request OpenAI's dimension reduction and a larger embedding batch size.
+* **Explicit Provider instance** — construct the adapter directly for kwargs the string form can't express. This example requests OpenAI's dimension reduction and a larger embedding batch size:
+
+[source,python]
+----
+import os
+from neo4j_agent_memory import MemorySettings
+from neo4j_agent_memory.llm.adapters.openai import OpenAIEmbeddingProvider
+
+settings = MemorySettings(
+    backend="bolt",
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": os.environ["NEO4J_PASSWORD"],
+        "database": os.getenv("NEO4J_DATABASE", "neo4j"),
+    },
+    embedding=OpenAIEmbeddingProvider(
+        "openai/text-embedding-3-large",
+        dimensions=1024,    # sent to OpenAI as the requested output size
+        batch_size=200,
+    ),
+)
+----
+
+The Bedrock and Vertex AI sections below show the same pattern with their adapters.
 
 == Use local sentence-transformers
 
@@ -161,9 +185,16 @@ For other dimensions, use an application-owned `EmbeddingProvider` that actually
 produces the declared shape; this page does not supply a wrapper fix.
 
 Vertex AI chat calls route through LiteLLM; this native adapter covers embeddings.
-See xref:how-to/integrations/google-cloud.adoc#vertex-ai-embedding-models[the Vertex AI model table] for the underlying embedder configuration.
+See xref:how-to/integrations/google-cloud.adoc#vertex-ai-embedding-models[the Vertex AI model table] for the supported and retired model IDs and the `task_type` values.
 
 == Configure via the MCP CLI
+
+The `neo4j-agent-memory` command needs the `cli` extra, and `mcp serve` also needs the `mcp` extra. This example selects a local sentence-transformers model and keeps the default OpenAI LLM provider:
+
+[source,bash]
+----
+pip install 'neo4j-agent-memory[cli,mcp,sentence-transformers,openai]==0.6.0'
+----
 
 [source,bash]
 ----
@@ -204,6 +235,8 @@ See xref:how-to/migrate-embedding-model.adoc[Migrate to a new embedding model] f
 
 == See also
 
+anchor:_related[]
+
 * xref:how-to/bring-your-own-model.adoc[Bring your own model] — overview.
 * xref:how-to/migrate-embedding-model.adoc[Migrate to a new embedding model] — when changing dimensions.
-* xref:reference/configuration.adoc[Configuration Reference].
+* xref:reference/configuration.adoc[Configuration reference].

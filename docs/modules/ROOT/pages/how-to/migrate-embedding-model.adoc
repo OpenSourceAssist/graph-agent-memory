@@ -18,9 +18,11 @@ vectors are not interchangeable.
 * A database backup or disposable test copy, plus the original model identifier and settings.
 * Source text for every vector you intend to preserve, and access to the new embedding provider.
 * A maintenance window that pauses writes and vector searches until backfill and validation finish.
-* The checked-out Python SDK. This runbook uses public Bolt graph/schema APIs; it is not a hosted workspace migration tool.
+* The Python SDK with the extra for the new embedding provider, for example `pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'`. Keep `httpx` in the command: release 0.6.0 imports it when connecting over Bolt but declares it only in the `nams` extra. This runbook uses public Bolt graph/schema APIs; it is not a hosted workspace migration tool.
 
 == 1. Inspect the existing indexes and choose a migration path
+
+anchor:_the_error[]anchor:_decision_rebuild_or_revert[]anchor:_option_1_rebuild_from_scratch_lose_existing_embeddings[]anchor:_option_2_revert_to_the_previous_embedding_model[]
 
 Run in Neo4j Query or through a connected Bolt client's `graph.execute_read`:
 
@@ -84,6 +86,8 @@ a prefix can also be selected.
 
 == 3. Connect with the new model and backfill from source text
 
+anchor:_option_3_re_embed_existing_nodes_no_data_loss[]
+
 Configure the new provider as in xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider].
 After the old incompatible indexes are gone, connecting with the new settings
 creates missing indexes at the new dimensions. Keep traffic paused: this step
@@ -139,7 +143,7 @@ Match the source text used by the normal write APIs:
 | `Preference` | `embedding` | `category + ": " + preference`, followed by `" (" + context + ")"` when context is present
 | `Fact` | `embedding` | `subject + " " + predicate + " " + object`
 | `ReasoningTrace` | `task_embedding` | `task`
-| `ReasoningStep` | `embedding` | Nonempty thought, action, and observation values prefixed with `Thought: `, `Action: `, and `Observation: `, joined with a space
+| `ReasoningStep` | `embedding` | Nonempty thought, action, and observation values prefixed with `++Thought: ++`, `++Action: ++`, and `++Observation: ++` (each followed by a space), joined with a space
 |===
 
 Inspect records with missing source text rather than silently counting them as
@@ -151,6 +155,8 @@ calls. An explicit buffered migration would need separate submission, draining,
 and error handling; synchronous batch writes make completion easier to verify.
 
 == 4. Verify the migration before restoring traffic
+
+anchor:_verifying_the_migration[]anchor:_what_the_validator_actually_checks[]
 
 . Compare expected and updated node counts for every populated layer. Audit missing IDs and missing source text separately.
 . Check vector lengths and missing-vector counts. For example:
@@ -175,15 +181,8 @@ would leave mixed-model vectors.
 
 == See also
 
+anchor:_related[]
+
 * xref:how-to/migrate-to-providers.adoc[Migrate to pluggable providers]
 * xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider]
-* xref:reference/configuration.adoc[Configuration Reference]
-
-// Preserve historical section links after the procedure was reorganized.
-anchor:_the_error[]
-anchor:_decision_rebuild_or_revert[]
-anchor:_option_1_rebuild_from_scratch_lose_existing_embeddings[]
-anchor:_option_2_revert_to_the_previous_embedding_model[]
-anchor:_option_3_re_embed_existing_nodes_no_data_loss[]
-anchor:_verifying_the_migration[]
-anchor:_what_the_validator_actually_checks[]
+* xref:reference/configuration.adoc[Configuration reference]

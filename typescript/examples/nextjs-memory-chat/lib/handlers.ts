@@ -28,7 +28,7 @@ import type {
  */
 export const INSTRUCTIONS = [
   "You are a travel planning assistant with a long memory.",
-  "Earlier turns of this conversation, and summaries of it, are supplied to you",
+  "Memories retrieved from earlier turns and conversations are supplied to you",
   "as context. Treat any constraint you find there (budget, dates, dietary needs,",
   "places already ruled out) as still binding, and say when you are relying on",
   "something the traveller told you earlier.",
@@ -80,11 +80,14 @@ export function uiMessageText(message: UIMessage): string {
  *
  * Two things are worth staring at:
  *
- *  1. Only the newest user turn is forwarded to the model. The history the
- *     model sees is retrieved by the NAMS provider — entities, graph
- *     relationships, reasoning history and past turns — so the browser is not
- *     the source of truth for the conversation — reload the tab, open the URL
- *     on another device, and the thread is still there.
+ *  1. Only the newest user turn is forwarded to the model. Anything earlier
+ *     reaches it only as a memory the NAMS provider retrieves for that turn —
+ *     messages from this and the user's other conversations, entities and
+ *     their graph relationships (all matched against the question), plus any
+ *     `'direct response'` reasoning steps from this and recent conversations
+ *     (not matched), capped at `maxMemories` — so the browser is not the
+ *     source of truth for the conversation: reload the tab, open the URL on
+ *     another device, and the thread is still there.
  *  2. There is no memory-specific code after `createNamsProvider`. Persisting
  *     both sides of the turn (including the streamed one) is the provider's
  *     job. `baseProvider` ignores the `modelId` it is handed and always
@@ -112,7 +115,7 @@ export async function handleChat(deps: ChatDeps, request: Request): Promise<Resp
   const latest = uiMessages.filter((m) => m.role === "user").slice(-1);
   if (latest.length === 0) return badRequest("No user message to answer.");
 
-  // Memory supplies the history; the client only has to send the new turn.
+  // Memory retrieval supplies earlier context; the client only has to send the new turn.
   const messages = await convertToModelMessages(latest);
   const question = uiMessageText(latest[0]!);
 
@@ -173,9 +176,10 @@ export async function handleCreateConversation(deps: MemoryDeps): Promise<Respon
 /**
  * `GET /api/memory/context?conversationId=…` — the three tiers NAMS stores for
  * this conversation: reflections, observations, recent messages. The chat
- * route's own retrieval (entities, graph relationships, reasoning history and
- * past turns, via the NAMS provider) draws on a wider set of sources than
- * this endpoint shows.
+ * route's own retrieval is different: the NAMS provider searches messages,
+ * entities and graph relationships with the new question, adds any
+ * `'direct response'` reasoning steps, and prepends the best hits, rather than
+ * replaying these tiers.
  */
 export async function handleContext(deps: MemoryDeps, request: Request): Promise<Response> {
   const conversationId = new URL(request.url).searchParams.get("conversationId");

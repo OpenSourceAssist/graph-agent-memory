@@ -253,8 +253,19 @@ python skills_quickstart.py publish --state .tutorial-state/skills.json
 ----
 
 This command rechecks the saved skill and provenance. If they changed since
-inspection, it saves the new report and stops for another review. Otherwise,
-it submits approval and publication for the saved `skillId`.
+inspection, it saves the new report and stops with
+`Skill or provenance changed; inspect the new report before publication`.
+Review the new `skills-review.json` as in Step 3, then run the Step 2
+`inspect` command again before rerunning `publish`:
+
+[source,bash]
+----
+python skills_quickstart.py inspect --state .tutorial-state/skills.json
+python skills_quickstart.py publish --state .tutorial-state/skills.json
+----
+
+A second `publish` without that inspection is refused. When nothing changed,
+`publish` submits approval and publication for the saved `skillId`.
 Expected: `Published skill ID:` followed by that ID.
 
 Publication is deliberately separate from reading or generating a draft.
@@ -272,7 +283,9 @@ python -m json.tool .tutorial-state/skills-attestation.json
 ----
 
 Expected: `Verified ZIP contains SKILL.md; saved` followed by the path to
-`.tutorial-state/simulated-refund-skill.zip`, then the archive listing.
+`.tutorial-state/simulated-refund-skill.zip`, then
+`Inspect skills-attestation.json; ZIP validation does not verify its signature`,
+then the archive listing and the attestation JSON.
 The program saves the ZIP privately and inspects its members without extracting
 arbitrary paths.
 

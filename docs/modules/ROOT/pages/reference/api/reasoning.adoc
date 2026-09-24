@@ -31,7 +31,7 @@ await client.reasoning.complete_trace(
 )
 ----
 
-For NAMS, first create a conversation and replace `example` with its server-issued ID. Read the hosted lifecycle limits below before relying on trace persistence.
+For NAMS, first create a conversation and replace `example` with its server-issued ID. Read xref:reference/api/reasoning-search-stats.adoc#_nams_lifecycle_and_operations[NAMS lifecycle and operations] before relying on trace persistence.
 
 == On this subsystem
 

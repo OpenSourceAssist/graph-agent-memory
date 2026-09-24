@@ -76,7 +76,7 @@ async def get_entity_by_name(name: str) -> Entity | None: ...
 
 === search_entities
 
-Semantic search with type, subtype, and similarity controls.
+Semantic search with entity-type and similarity-threshold controls.
 
 // contract: memory/long_term.py:LongTermMemory.search_entities
 [source,python]
@@ -195,11 +195,11 @@ Pydantic model; inherited memory-entry fields are included.
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `id` | `UUID` | `new UUID` |
-| `created_at` | `datetime` | `current UTC time` |
-| `updated_at` | `datetime \| None` | `None` |
-| `embedding` | `list[float] \| None` | `None` |
-| `metadata` | `dict[str, Any]` | `{}` |
+| `id` | `UUID` | `new UUID` | Unique identifier.
+| `created_at` | `datetime` | `current UTC time` | Creation time.
+| `updated_at` | `datetime \| None` | `None` | Last update time, if updated.
+| `embedding` | `list[float] \| None` | `None` | Embedding vector, if one was generated.
+| `metadata` | `dict[str, Any]` | `{}` | Arbitrary key-value metadata, stored as JSON.
 | `name` | `str` | `required` | Entity name
 | `canonical_name` | `str \| None` | `None` | Resolved canonical name
 | `type` | `str` | `required` | Entity type (PERSON, OBJECT, LOCATION, EVENT, ORGANIZATION)
@@ -218,11 +218,11 @@ Pydantic model; inherited memory-entry fields are included.
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `id` | `UUID` | `new UUID` |
-| `created_at` | `datetime` | `current UTC time` |
-| `updated_at` | `datetime \| None` | `None` |
-| `embedding` | `list[float] \| None` | `None` |
-| `metadata` | `dict[str, Any]` | `{}` |
+| `id` | `UUID` | `new UUID` | Unique identifier.
+| `created_at` | `datetime` | `current UTC time` | Creation time.
+| `updated_at` | `datetime \| None` | `None` | Last update time, if updated.
+| `embedding` | `list[float] \| None` | `None` | Embedding vector, if one was generated.
+| `metadata` | `dict[str, Any]` | `{}` | Arbitrary key-value metadata, stored as JSON.
 | `source_id` | `UUID` | `required` | Source entity ID
 | `target_id` | `UUID` | `required` | Target entity ID
 | `type` | `str` | `required` | Relationship type

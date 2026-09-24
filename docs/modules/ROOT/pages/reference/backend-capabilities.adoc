@@ -2,17 +2,17 @@
 :page-product: agent-memory
 :toclevels: 2
 
-This reference describes the SDK implementations in this source tree. Check the installed SDK's API reference before using a method introduced after its release. NAMS is a continuously shipped service; `/v1` identifies its REST API, not an SDK release.
+This reference describes the released SDKs, Python `neo4j-agent-memory` 0.6.0 and TypeScript `@neo4j-labs/agent-memory` 0.5.0. Check the installed SDK's API reference before using a method introduced after its release. NAMS is a continuously shipped service; `/v1` identifies its REST API, not an SDK release.
 
 == Backend and language
 
-Each section below covers one data type. Within it, one description-list term per operation names the backend/language and its description gives that backend's behavior for that operation. This avoids wide tables, so nothing scrolls horizontally on a phone-width column.
+Each section below covers one data type. Within it, each term names a backend and language, and its description gives that combination's behavior for the operation.
 
 === Conversations and messages
 
 [horizontal]
 Python with Bolt:: Session-oriented writes and conversation readback
-Python with NAMS:: Create a conversation and use its returned ID
+Python with NAMS:: Create a conversation and pass its returned `id` as `session_id`. Use `bulk_add_messages` (no `add_messages_batch`, which raises `AttributeError`); `search_messages` requires a conversation ID; `list_sessions` and `get_conversation_summary` raise `NotSupportedError`; message metadata is not sent
 TypeScript with NAMS REST:: Create a conversation and use its returned ID
 
 === Entities and relationships
@@ -27,7 +27,7 @@ TypeScript with NAMS REST::: `longTerm.addEntity` / `searchEntities`; server-man
 Client-created relationships::
 +
 [horizontal]
-Python with Bolt::: Supported with `add_relationship()`, passing source, target, relationship_type, and attributes
+Python with Bolt::: Supported with `add_relationship(source, target, relationship_type, ...)`; `attributes` are returned on the model but not persisted in 0.6.0
 Python with NAMS::: Unsupported; inspect relationships produced by supported service processing
 TypeScript with NAMS REST::: Direct relationship-write methods are unsupported on REST
 
@@ -35,21 +35,21 @@ Geospatial search and graph adoption::
 +
 [horizontal]
 Python with Bolt::: Supported Bolt-specific operations
-Python with NAMS::: Not exposed as equivalent SDK operations
+Python with NAMS::: Not exposed. The `long_term` location methods are not defined (`AttributeError`). `get_locations` on the client and `adopt_existing_graph` on `client.schema` raise `NotSupportedError`
 TypeScript with NAMS REST::: Not exposed as equivalent REST operations
 
 === Preferences and facts
 
 [horizontal]
 Python with Bolt:: Supported; see the long-term API for user-scoped preference reads
-Python with NAMS:: Unsupported; methods raise `NotSupportedError`
+Python with NAMS:: Unsupported. The preference and fact methods NAMS defines raise `NotSupportedError`, with three exceptions that raise `TypeError`. The first is the positional Bolt form of `get_preferences_for`, passing a user. The second is the Bolt two-argument call to `supersede_preference`, whether written positionally or with the `old_preference_id` and `new_preference_id` keywords. The third is a Bolt call to `get_facts_about` that passes the `subject` or `limit` keyword: the NAMS method takes one positional `entity_name` and no keyword arguments. The category lookup `get_preferences_by_category` is not defined (`AttributeError`)
 TypeScript with NAMS REST:: Unsupported on REST; bridge compatibility methods are not hosted APIs
 
 === Reasoning
 
 [horizontal]
 Python with Bolt:: Traces, steps, and tool calls
-Python with NAMS:: Python accessors adapt supported service records; check each accessor's contract
+Python with NAMS:: Steps and tool calls are stored on a conversation; the trace lifecycle and outcome are held in the client instance. `list_traces`, `get_similar_traces`, `search_steps` and `get_tool_stats` raise `NotSupportedError`; `touched_entities` is dropped, and the tool-call hook and other tool-statistics methods are not defined (`AttributeError`). See xref:reference/api/reasoning-search-stats.adoc#_nams_lifecycle_and_operations[NAMS lifecycle and operations]
 TypeScript with NAMS REST:: Use `recordStep` and `getTraceByConversation`; legacy trace lifecycle calls are not REST operations
 
 === Extraction
@@ -58,7 +58,7 @@ Extraction configuration and local models::
 +
 [horizontal]
 Python with Bolt::: Client-side pipeline, providers and schema settings
-Python with NAMS::: Server-managed; Bolt pipeline options do not configure the service
+Python with NAMS::: Server-managed; `MemorySettings` `embedding`, `extraction` and `resolution` values are ignored with a `UserWarning`. Standalone extractors still run in your process
 TypeScript with NAMS REST::: Server-managed
 
 Extraction readiness::
@@ -81,7 +81,7 @@ User registry, buffered writer, consolidation::
 +
 [horizontal]
 Python with Bolt::: Python `users`, `buffered`, and `consolidation` accessors
-Python with NAMS::: Not portable Bolt features
+Python with NAMS::: Not portable Bolt features; the accessors return a placeholder whose method calls raise `NotSupportedError`
 TypeScript with NAMS REST::: Not equivalent REST subclients
 
 === Ontologies and agent skills
@@ -103,20 +103,11 @@ no verified public DELETE route for reasoning steps, tool calls, skill runs or
 skills. Conversation deletion is not proof that these records or extracted
 entities were removed. Closing an SDK client deletes no service data.
 
-The maintained hosted tutorials retain returned IDs and verify supported
-deletion through exact readback. Derived or explicitly added entities are
-deleted only when creation and complete source/neighbor evidence establish
-exclusive ownership; shared, merged or uncertain entities remain recorded.
-A resource-disposition report distinguishes verified absence from retention.
-
-Skills generation operates over the selected workspace. Its lesson requires
-a newly provisioned empty workspace and an identified owner/operator with a
-verified disposal procedure or explicitly agreed retention before seeding.
-A workspace data key does not grant workspace administration. No step/skill
-DELETE route, entity-delete substitution, or write-through-Cypher cleanup is
-assumed. See xref:tutorials/nams-quickstart.adoc[the hosted conversation lesson]
-and xref:tutorials/skills-quickstart.adoc[the Skills workflow] for their exact
-commands and remaining resource classes.
+Skills generation operates over the selected workspace, and a workspace data
+key does not grant workspace administration. Read-only Cypher cannot delete
+records. See xref:tutorials/nams-quickstart.adoc[the hosted conversation lesson]
+and xref:tutorials/skills-quickstart.adoc[the Skills workflow] for the cleanup
+each lesson performs and the resources it retains.
 
 [#scope]
 == Identity and retrieval scope

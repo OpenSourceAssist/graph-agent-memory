@@ -8,9 +8,9 @@
       "owner": "documentation maintainers",
       "status": "pending-placement",
       "source_sha256": "b7f556a55d3a15a47dd9ffeb63b42406442604ac5d07c4564ac1ede8eaad01c8",
-      "output_sha256": "805ee5e2aa78a92a2a300cc932ad3b217d0138acd18f7df6d73b9e76960f5b2e",
+      "output_sha256": "56aa663c3bad2c949f78609108740ff5c5e1580a07df11c7fa99dbb77854e011",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-13",
+      "reviewed_on": "2026-09-24",
       "referring_documents": []
     },
     {
@@ -18,12 +18,12 @@
       "source": "docs/assets/diagrams/excalidraw/1-natural-relationship-modeling.excalidraw",
       "referring_pages": [],
       "owner": "documentation maintainers",
-      "status": "unresolved-provenance",
+      "status": "pending-placement",
       "source_sha256": "b7f556a55d3a15a47dd9ffeb63b42406442604ac5d07c4564ac1ede8eaad01c8",
       "output_sha256": "7fb55ae9526d8daf7ca900d9871d38ec9e4ceb0103016c60436a5f9951466501",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
-      "note": "Untracked file alongside the already-unreferenced, pending-placement 1-natural-relationship-modeling.png; neither is embedded on any page. Left on disk pending maintainer triage."
+      "reviewed_on": "2026-09-24"
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/a-three-layer-solution.png",
@@ -62,9 +62,9 @@
       "owner": "documentation maintainers",
       "status": "pending-placement",
       "source_sha256": "16990f00d00443bd0f00aa385434090dc1c87dac974316b7932780a362f0d561",
-      "output_sha256": "b081c2ee6d32fa34b11a80137f591189dafa04069af114ac1127eac7c268deee",
+      "output_sha256": "55bf3f022fa394100398ae0fbfcff788e928dcaee2f4b0053d18049f8246dc99",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-13",
+      "reviewed_on": "2026-09-24",
       "referring_documents": []
     },
     {
@@ -72,12 +72,12 @@
       "source": "docs/assets/diagrams/excalidraw/background-entity-enrichment.excalidraw",
       "referring_pages": [],
       "owner": "documentation maintainers",
-      "status": "unresolved-provenance",
+      "status": "pending-placement",
       "source_sha256": "16990f00d00443bd0f00aa385434090dc1c87dac974316b7932780a362f0d561",
       "output_sha256": "2c1b15df831e440208dd6bfc25635d2474550c54bd53b7f091a1264a782b9c08",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
-      "note": "Untracked file alongside the already-unreferenced, pending-placement background-entity-enrichment.png; neither is embedded on any page. Left on disk pending maintainer triage."
+      "reviewed_on": "2026-09-24"
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/buffered-write-flow.svg",
@@ -115,10 +115,10 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "dde48c9c6ecd7d09b9d129fbd319c714c94af44eb884958053b2d78247e09f48",
-      "output_sha256": "7d4d6c8f4e2e12d1f5cd6b370371005860444af93c2aa6f4255156abc6141507",
+      "source_sha256": "d3d9fdcfefe6fb775be4001c123357153c7c07990e8f3cc1d1a05489c614bcac",
+      "output_sha256": "c611a8f51727593954013d472cecc466fb59a987c10e162b6377dd2f0211bb55",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-18",
+      "reviewed_on": "2026-09-24",
       "referring_documents": []
     },
     {
@@ -152,22 +152,24 @@
       "owner": "documentation maintainers",
       "status": "pending-placement",
       "source_sha256": "5c18d62a35166af8ed63d6d814e15168f3689d9b88d8a6c19d754cbcd24828c9",
-      "output_sha256": "72433bc7232f821323610c9eac212b003d76e3265e8beb4cebd011c0f12ce398",
+      "output_sha256": "35f56d2bdb1d98f744a8da35edf46ce99a28b308a3c337c2838446ae00f23479",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-13",
-      "referring_documents": []
+      "reviewed_on": "2026-09-24",
+      "referring_documents": [],
+      "note": "Not embedded on any page. The second WORKS_AT arrow (from Sarah Lee) stops short of its target; fix the scene before placing this export."
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/graph-schema.svg",
       "source": "docs/assets/diagrams/excalidraw/graph-schema.excalidraw",
       "referring_pages": [],
       "owner": "documentation maintainers",
-      "status": "unresolved-provenance",
+      "status": "pending-placement",
       "source_sha256": "5c18d62a35166af8ed63d6d814e15168f3689d9b88d8a6c19d754cbcd24828c9",
       "output_sha256": "0a8ff47f4b68d022822900f600c359c0e6d03da6fa27d9a283046777e7054d2d",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
-      "note": "Untracked file alongside the already-unreferenced, pending-placement graph-schema.png; neither is embedded on any page. Left on disk pending maintainer triage."
+      "reviewed_on": "2026-09-24",
+      "note": "Not embedded on any page. The second WORKS_AT arrow (from Sarah Lee) stops short of its target; fix the scene before placing this export."
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/mcp-server-architecture.png",
@@ -202,15 +204,16 @@
       "output": "docs/modules/ROOT/images/diagrams/memory-architecture.svg",
       "source": "docs/assets/diagrams/excalidraw/memory-architecture.excalidraw",
       "referring_pages": [
-        "docs/modules/ROOT/pages/explanation/graph-architecture.adoc"
+        "docs/modules/ROOT/pages/explanation/graph-architecture.adoc",
+        "docs/modules/ROOT/pages/explanation/memory-types.adoc"
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "d88cebef58cabc7b84d8457f3b3bcf9d9fef2d9526d9e316c0ddc1c46f7fdc6e",
-      "output_sha256": "27c6d2313f26742c6990495f2def8d1e0ab5625bbc1fdebac419f9ab51c13fc8",
+      "source_sha256": "804878ea1537d49d02dc94ba247a44268993c2f1e489aa3ed66d025a6fe7cce7",
+      "output_sha256": "ff3804ae54892c5c9a83381d36e6cf5817dc03117262b0307be03cacf517f826",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
-      "reviewed_on": "2026-09-18"
+      "reviewed_on": "2026-09-24"
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/message-chain.svg",
@@ -267,11 +270,11 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "6a0d7956a345b44e112c3ab0c7593201c94105f7086fb338a5ca2d0effc89c23",
-      "output_sha256": "ecfb0e3f17a4d555fd3db3b65118fffa0dcfd376ab19c4885e1cfcd3096d7fbe",
+      "source_sha256": "cb1844b4b1c83a2cc2ad924681d3becada2c95e7b30455abd8fa05f8f26ad7c8",
+      "output_sha256": "d68ddf5eba7364035668095eca43237d4e799f9b5c9e2b3631b9154f867899b0",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
       "referring_documents": [],
-      "reviewed_on": "2026-09-18"
+      "reviewed_on": "2026-09-24"
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/preference-aware-context-graph.svg",
@@ -281,10 +284,10 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "f5b668963f15cf40d3c5ca990845568b3c777b9cfe132bd84759923c92666ffc",
-      "output_sha256": "8eabe03d5d508440148daee878d556dc8f16c406fe9f9d9bb3b5d3820fff9024",
+      "source_sha256": "e84f6c0bbb27b61fb5f2953cd681fb8351d23501c39d17ecaaba0478ff1aa839",
+      "output_sha256": "6160e078de6d7f114f3c6a09bb805396d55278b50fc2e66257592b806d457063",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-18",
+      "reviewed_on": "2026-09-24",
       "referring_documents": []
     },
     {
@@ -326,13 +329,11 @@
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/tfl-explorer-app-screenshot.png",
-      "referring_pages": [
-        "docs/modules/ROOT/pages/how-to/integrations/microsoft-agent.adoc"
-      ],
+      "referring_pages": [],
       "owner": "documentation maintainers",
-      "status": "captured-example-image",
+      "status": "pending-placement",
       "output_sha256": "3a850938493f0a2eb46fb6aab97725c437fac34a14d32a38954aaec42bf7eed0",
-      "note": "Captured application illustration; editable source not available in this checkout. Retain as a dated example, not the library architecture.",
+      "note": "Captured application screenshot; editable source not available in this checkout. No longer embedded on any page: the application it shows is not in this repository.",
       "referring_documents": []
     },
     {
@@ -386,20 +387,7 @@
       "referring_documents": [
         "README.md"
       ],
-      "note": "Referenced by README.md; re-exported from the current scene."
-    },
-    {
-      "output": "docs/modules/ROOT/images/diagrams/three-extraction-approaches.svg",
-      "source": "docs/assets/diagrams/excalidraw/three-extraction-approaches.excalidraw",
-      "referring_pages": [],
-      "owner": "documentation maintainers",
-      "status": "pending-placement",
-      "source_sha256": "c7c64e54cda813709fa046c251cffe99d776ee3a053250e6f28d0a7414721c4c",
-      "output_sha256": "ecd84f6dd97719c2780f4116f95dbd56f98f4558a293c036a59dd937a39e8ed1",
-      "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "referring_documents": [],
-      "note": "Exporter sibling of a README-referenced PNG; not embedded by any page.",
-      "reviewed_on": "2026-09-18"
+      "note": "Referenced by README.md. The pages embed extraction-pipeline.svg, exported from the same scene; regenerate this PNG by exporting the scene to a scratch .svg path with --png and copying the PNG here."
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/multi-tenant-scoping.svg",
@@ -409,10 +397,10 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "dfcd3cfb9024deccefdab808feb0e10e84e5319321f4cc4d218f0fe4560339a6",
-      "output_sha256": "d3835176f62f8c23ad22335e3b12afe132b088253ab039b699bd9d2722b56aaa",
+      "source_sha256": "928d835bd8a57036b6395ddb8ca2fd6a0e5b6af732fffa9812f3af1cf05a7da6",
+      "output_sha256": "9d92db69111509f08cd7e7ac94d48aa51a7c8242f37d5b3eeab774502ea8b638",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-18"
+      "reviewed_on": "2026-09-24"
     },
     {
       "output": "docs/modules/ROOT/images/diagrams/bolt-vs-nams-data-flow.svg",
@@ -476,10 +464,10 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "ae757c2d5eed7d053faf42dc439f08a46af82ef6b23d7f69a70991b60d6a6c95",
-      "output_sha256": "0ef0e9b6164bba07cb4cbad700f549403317377ed9627a7daab1b6b966ddd6bb",
+      "source_sha256": "e218d32f23df057df902a5a402e00fc55e0b672ac5088740fad581625f807e50",
+      "output_sha256": "c8219d2aa48c302018964711e77a6152327adaed8cfe8db68bdf832fcf7aa361",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-18",
+      "reviewed_on": "2026-09-24",
       "referring_documents": []
     },
     {
@@ -546,10 +534,10 @@
       ],
       "owner": "documentation maintainers",
       "status": "exported-and-visually-reviewed",
-      "source_sha256": "db3a0f48fa296d31f26f1d5985b9e32c508bf33ed729c8fd5e9787f1ba11ca06",
-      "output_sha256": "444dd2d1f33d053bf2c0a6464003816ecd8d9f36044fc41629a186701433aa86",
+      "source_sha256": "67a1484184a75b9c82426defc68c401b42bded8e0e17ba9e35b5b1ef1b4b4164",
+      "output_sha256": "3446f9779933077bb596a42c6b40111ec93a7dfb2c553660e1e31c735ae0c1c3",
       "exporter": "@excalidraw/excalidraw 0.18.1; scripts/export_diagrams.mjs",
-      "reviewed_on": "2026-09-23",
+      "reviewed_on": "2026-09-24",
       "referring_documents": []
     },
     {

@@ -6,8 +6,6 @@
 Build a local extractor from enabled stages, from xref:reference/extractors.adoc[Extractor classes reference]. Import `ExtractorBuilder` from `neo4j_agent_memory.extraction`.
 
 anchor:_builder_methods[]
-anchor:_constructor_5[]
-anchor:_example_5[]
 
 == ExtractorBuilder
 
@@ -90,7 +88,7 @@ def with_gliner_schema(
 
 === with_llm
 
-Add an LLM extractor (alias of :meth:`with_llm_fallback`).
+Add an LLM extractor (alias of `with_llm_fallback`).
 
 // contract: extraction/factory.py:ExtractorBuilder.with_llm
 [source,python]
@@ -100,7 +98,7 @@ def with_llm(model: str='gpt-4o-mini') -> ExtractorBuilder: ...
 
 === with_llm_fallback
 
-Add LLM extractor as fallback.
+Add an LLM extractor stage. Despite the name, the stage is not a fallback: the pipeline that `build()` returns runs every stage on every call and merges the results with the selected merge strategy, so the LLM is called for every text even when spaCy or GLiNER find entities. The builder has no early-stop option. For true fallback behaviour, construct xref:reference/extractor-pipeline.adoc[`ExtractionPipeline`] directly with `stop_on_success=True` or `MergeStrategy.FIRST_SUCCESS`.
 
 // contract: extraction/factory.py:ExtractorBuilder.with_llm_fallback
 [source,python]
@@ -120,7 +118,7 @@ def with_entity_types(types: list[str]) -> ExtractorBuilder: ...
 
 === with_schema
 
-Configure entity types from an :class:`EntitySchemaConfig`.
+Configure entity types from an `EntitySchemaConfig`.
 
 // contract: extraction/factory.py:ExtractorBuilder.with_schema
 [source,python]

@@ -13,17 +13,17 @@ image::diagrams/entity-relationship-recipe.svg["A Person and an Organization ent
 
 For the rationale, see xref:explanation/poleo-model.adoc[The POLE+O data model].
 
-anchor:_prerequisites[]
-
 == 1. Prepare the Bolt client
 
-Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra:
+anchor:_prerequisites[]
+
+Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra plus `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra:
 
 include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'
 ----
 
 include::partial$python-core-recipe-intro.adoc[]
@@ -31,6 +31,8 @@ include::partial$python-core-recipe-intro.adoc[]
 include::partial$python-core-recipe-files.adoc[]
 
 == 2. Apply the task function
+
+anchor:_add_entities_manually[]anchor:_basic_entity_creation[]anchor:_entity_with_properties[]anchor:_entity_with_description[]anchor:_work_with_facts[]anchor:_add_facts[]anchor:_query_facts[]anchor:_1_use_consistent_entity_types[]anchor:_3_include_searchable_descriptions[]
 
 Create a source and target entity, link them with an explicit relationship, and attach a fact to one of them. `add_entity` returns `(Entity, DeduplicationResult)` on Bolt. Repeated exact name/type writes merge at storage even with `deduplicate=False`. Python 0.6.0 returns the existing stored ID for SDK-created entities, so the returned entity can be used as a relationship endpoint. The recipe disables resolution and deduplication for its isolated example names, then verifies the stored edge. `add_fact` takes `obj` (or its third positional argument), and `Fact.as_triple` is a property.
 
@@ -52,24 +54,23 @@ Expected: `Verified: entity relationship and fact readback; person=...`. The rec
 
 The command retains its example records for inspection. Remove the disposable tutorial database using that tutorial's cleanup command when finished. Do not substitute an unrestricted delete query against an existing database.
 
-anchor:_search_entities[]
-
 == Search or list entities
+
+anchor:_search_entities[]anchor:_semantic_search[]anchor:_filter_by_type[]anchor:_filter_by_properties[]anchor:_2_design_for_queries[]
 
 Use `search_entities(query, entity_types=["PERSON"], threshold=0.7, limit=10)` for semantic candidates. Similarity is in `entity.metadata["similarity"]`, not a top-level `score` field. An empty semantic query is not an all-entities listing.
 
 For an exact ID/type/property lookup on Bolt, use `client.query.cypher` with parameters. Entity `attributes` and metadata may be serialized fields; inspect xref:reference/schema-objects.adoc[the stored schema] before writing a property filter. `get_entity_by_name` checks names/canonical names/aliases but has no type argument.
 
-anchor:_create_relationships[]
-
 == Preserve relationship and source meaning
+
+anchor:_create_relationships[]anchor:_direct_relationships[]anchor:_find_related_entities[]anchor:_graph_traversal[]anchor:_4_track_provenance[]
 
 Explicit `add_relationship` calls store the logical relationship name in `RELATED_TO.type`; automatic message extraction uses the separate `RELATED_TO.relation_type` property. Python 0.6.0 returns the stored relationship ID when an existing edge is matched and raises `NotFoundError` when an endpoint is absent. Its write does not persist the `attributes` argument — a documented limitation of 0.6.0; do not depend on a provenance attribute surviving that call. Use `link_entity_to_message` for `EXTRACTED_FROM` links and `get_entity_provenance` for inspection. The xref:tutorials/knowledge-graph.adoc[document tutorial] demonstrates complete extraction and provenance storage.
 
-anchor:_update_entities[]
-anchor:_delete_entities[]
-
 == Update an existing graph deliberately
+
+anchor:_update_entities[]anchor:_delete_entities[]anchor:_modify_properties[]anchor:_merge_entities[]anchor:_remove_single_entity[]anchor:_bulk_delete[]anchor:_entity_enrichment[]anchor:_enable_enrichment[]anchor:_manual_enrichment[]
 
 There are no Python `update_entity`, `delete_entity`, `merge_entities`, or `get_entity` wrappers in these stores. For manual duplicate resolution use xref:how-to/deduplication.adoc[`merge_duplicate_entities`]. For another Bolt mutation, implement a parameterized application query through `client.graph.execute_write`, validate the exact affected IDs, and consider any linked provenance. `client.query.cypher` is read-only; hosted query access does not provide an equivalent write path.
 
@@ -80,30 +81,6 @@ anchor:_typescript_equivalents_at_a_glance[]
 
 include::partial$python-typescript-equivalents.adoc[]
 
-anchor:_add_entities_manually[]
-anchor:_basic_entity_creation[]
-anchor:_entity_with_properties[]
-anchor:_entity_with_description[]
-anchor:_semantic_search[]
-anchor:_filter_by_type[]
-anchor:_filter_by_properties[]
-anchor:_direct_relationships[]
-anchor:_find_related_entities[]
-anchor:_graph_traversal[]
-anchor:_modify_properties[]
-anchor:_merge_entities[]
-anchor:_remove_single_entity[]
-anchor:_bulk_delete[]
-anchor:_work_with_facts[]
-anchor:_add_facts[]
-anchor:_query_facts[]
-anchor:_entity_enrichment[]
-anchor:_enable_enrichment[]
-anchor:_manual_enrichment[]
 anchor:_entity_statistics[]
 anchor:_best_practices[]
-anchor:_1_use_consistent_entity_types[]
-anchor:_2_design_for_queries[]
-anchor:_3_include_searchable_descriptions[]
-anchor:_4_track_provenance[]
 anchor:_see_also[]

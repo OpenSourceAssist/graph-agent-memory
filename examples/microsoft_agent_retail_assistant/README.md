@@ -366,7 +366,12 @@ Install the chat-client distribution as well as the core package: `pip install -
 
 ### `ImportError: cannot import name 'BaseContextProvider'`
 
-Check the installed memory SDK and Agent Framework packages against this checkout's backend setup. A broad `neo4j-agent-memory>=0.5.0` constraint does not establish that the installed artifact exposes the expected GA integration names. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting a published SDK.
+The installed `neo4j-agent-memory` predates the Agent Framework GA rename (`BaseContextProvider` -> `ContextProvider`). Release 0.5.0 still imports the preview name, which Agent Framework 1.x no longer exports; 0.6.0 uses the GA names. Upgrade, then reinstall the rest of the backend requirements:
+
+```bash
+pip install -U "neo4j-agent-memory[openai,microsoft-agent,extraction,fuzzy]==0.6.0"
+pip install -r requirements.txt
+```
 
 ### Product search returns no results
 
@@ -409,6 +414,6 @@ Apache 2.0
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
-> _Verified against `neo4j-agent-memory` 0.6.0-dev (the Agent Framework GA rename is unreleased; pin `>=0.5.0,<0.7`), `agent-framework-core` 1.18.0, `agent-framework-openai` 1.14.3, `fastapi` 0.141.1, `sse-starlette` 3.2.0 and Neo4j 5.26.19 on 2026-09-10. Every REST endpoint was exercised against a live Neo4j via `httpx.ASGITransport`, and the chat turn (message persistence, reasoning trace, `TOUCHED` audit edges, failure recording) against a fake chat client — a full LLM run additionally needs `OPENAI_API_KEY`._
+> _Verified against `neo4j-agent-memory` 0.6.0-dev (the Agent Framework GA rename shipped in 0.6.0; `backend/requirements.txt` pins `>=0.6.0,<0.7`), `agent-framework-core` 1.18.0, `agent-framework-openai` 1.14.3, `fastapi` 0.141.1, `sse-starlette` 3.2.0 and Neo4j 5.26.19 on 2026-09-10. Every REST endpoint was exercised against a live Neo4j via `httpx.ASGITransport`, and the chat turn (message persistence, reasoning trace, `TOUCHED` audit edges, failure recording) against a fake chat client — a full LLM run additionally needs `OPENAI_API_KEY`._

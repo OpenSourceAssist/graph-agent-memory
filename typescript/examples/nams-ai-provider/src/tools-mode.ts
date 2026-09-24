@@ -10,22 +10,30 @@
  *
  *   MEMORY_API_KEY=nams_... OPENAI_API_KEY=sk-... npx tsx src/tools-mode.ts
  *
- * Expected output (arguments and wording vary):
+ * Expected output (arguments, steps and wording vary with the model). Each
+ * ensureMemoryStored line is printed by onFinish inside agent.generate(), so
+ * it appears above the header of its turn:
+ *
+ *   ensureMemoryStored: already-stored
  *
  *   --- Turn 1 -- teach it something
  *   step 0 [enforced: some tool required]
- *     tool call: query_memory({"query":"user editor preferences","limit":5})
+ *     tool call: query_memory({"query":"editor preferences","limit":5})
  *   step 1 [unconstrained]
- *     tool call: store_memory({"content":"User prefers very short answers", ...
- *   ensureMemoryStored: already-stored
+ *     tool call: store_memory({"content":"User uses Neovim and prefers short answers","type":"user_preference","confidence":0.9,"tags":[]})
+ *   step 2 [unconstrained]
  *   assistant: Got it -- short answers, and I'll remember you use Neovim.
+ *   ensureMemoryStored: persisted the turn
  *
  *   --- Turn 2 -- fresh tool set, same user
  *   step 0 [enforced: some tool required]
  *     tool call: query_memory({"query":"editor preferences","limit":5})
+ *   step 1 [unconstrained]
  *   assistant: You use Neovim, and you like short answers.
  */
 
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { createNams, enforceQueryMemory, ensureMemoryStored } from '@neo4j-labs/nams-ai-provider';
 import { openai } from '@ai-sdk/openai';
 import { ToolLoopAgent, stepCountIs, type LanguageModel } from 'ai';
@@ -103,7 +111,9 @@ export async function toolsModeDemo(
   return { taught, recalled };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run only when executed directly, not when a test imports this file.
+const entry = process.argv[1];
+if (entry && import.meta.url === pathToFileURL(realpathSync(entry)).href) {
   toolsModeDemo().catch(err => {
     console.error(err);
     process.exit(1);

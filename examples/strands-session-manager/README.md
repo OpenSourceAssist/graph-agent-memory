@@ -18,10 +18,6 @@ database — the "shared brain" pattern.
 >
 > This example is part of [`neo4j-agent-memory`](https://github.com/neo4j-labs/agent-memory), a Neo4j Labs project. It is actively maintained but not officially supported. APIs may change. Community support is available via the [Neo4j Community Forum](https://community.neo4j.com).
 
-> ℹ️ **Unreleased API.** `Neo4jSessionManager` is not in PyPI 0.5.0 — it ships
-> in the next release. Until then, install the library from this repository
-> (see *In your own project* below).
-
 ## What this demonstrates
 
 - **Automatic persistence + restore** — messages written by one manager
@@ -49,7 +45,8 @@ database — the "shared brain" pattern.
 ## Prerequisites
 
 - A dedicated empty AuraDB instance with its connection variables exported; follow [Aura setup and cleanup](../AURA_SETUP.md).
-- `strands-agents` 1.52–1.55 (the range this integration is pinned to).
+- `strands-agents` 1.52 or later, below 2 (the range the `strands` extra
+  pins).
 - No LLM or API key of any kind.
 
 ### From this repo
@@ -61,11 +58,10 @@ uv sync --all-extras
 ### In your own project
 
 ```bash
-uv pip install "neo4j-agent-memory[strands,sentence-transformers] @ git+https://github.com/neo4j-labs/agent-memory@main"
+uv pip install "neo4j-agent-memory[strands,sentence-transformers]==0.6.0"
 ```
 
-Switch to `uv pip install "neo4j-agent-memory[strands,sentence-transformers]>=0.6.0"`
-once the release carrying `Neo4jSessionManager` is on PyPI.
+`Neo4jSessionManager` ships in the 0.6.0 release on PyPI.
 
 ## Run
 
@@ -190,9 +186,6 @@ search are bolt-only, so `Neo4jRetrievalConfig.include_preferences` /
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
-
-> _Verified against `neo4j-agent-memory` 0.6.0-dev (branch `examples-updates`),
-> `strands-agents` 1.55.1, `sentence-transformers` 6.0.1 and Neo4j 5.26
-> (Docker, with APOC) on 2026-09-10. `Neo4jSessionManager` is unreleased —
-> it is not in PyPI 0.5.0._
+> _Verified against `neo4j-agent-memory` 0.6.0 from PyPI, `strands-agents`
+> 1.57.0, `sentence-transformers` 6.1.0 and Neo4j 5.26 (Docker, with APOC) on
+> 2026-09-24: `main.py` ran end to end against a live database, with no mocks._

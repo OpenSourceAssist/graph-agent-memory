@@ -206,6 +206,45 @@ def test_rotated_key_allows_only_redacted_local_inspection_without_sdk_or_enviro
         TutorialState.load(state.path, settings(api_key="rotated-synthetic-key"), "nams")
 
 
+def test_local_inspection_shows_ontology_restoration_target_without_schema(tmp_path):
+    state = TutorialState.create(tmp_path / "state.json", settings(), "ontology")
+    state.data["ontology"] = {
+        "previous": {
+            "version_id": "ORIGINAL-VERSION",
+            "ontology_id": "o",
+            "revision": 1,
+            "validation_mode": "permissive",
+            "document": {"marker": "SCHEMA-DOC"},
+        },
+        "clone_id": "clone",
+    }
+    state.save()
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-S",
+            str(EXAMPLES / "hosted_tutorial_state.py"),
+            "inspect-file",
+            str(state.path),
+        ],
+        cwd=tmp_path,
+        env={},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    shown = json.loads(result.stdout)
+    assert shown["ontology"]["previous"] == {
+        "version_id": "ORIGINAL-VERSION",
+        "ontology_id": "o",
+        "revision": 1,
+        "validation_mode": "permissive",
+    }
+    assert shown["ontology"]["clone_id"] == "clone"
+    assert "SCHEMA-DOC" not in result.stdout
+
+
 def test_local_inspection_strips_credential_bearing_url_but_keeps_port(tmp_path):
     state = TutorialState.create(tmp_path / "state.json", settings(), "nams")
     state.data["identity"]["endpoint"] = (

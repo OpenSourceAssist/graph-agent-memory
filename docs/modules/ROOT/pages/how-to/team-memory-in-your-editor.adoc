@@ -157,7 +157,10 @@ Key management requires an administrator credential or user token. The editor it
 The current Python `create_api_key()` accessor does not send `category`. Do not use it to provision a workspace editor key: an uncategorized service request defaults to an admin key. If using REST provisioning, explicitly send `category: "workspace"` and `workspaceId` as described in xref:reference/authentication.adoc[key categories]. Verify service-side category/scope behavior before provisioning a team.
 ====
 
+// Retain former section URLs at the current related topic.
 == Step 2: seed a synthetic conversation and retain its ID
+
+anchor:_step_2_seed_what_the_editors_should_already_know[]
 
 The complete `team-memory/seed_workspace.py` defines its full `DECISIONS` transcript and handles the client lifecycle. From `agent-memory-tutorials/`:
 
@@ -167,18 +170,15 @@ python team-memory/seed_workspace.py --dry-run
 python team-memory/seed_workspace.py
 ----
 
-The first command prints fictional fixture decisions without writes. Review them before running the second command, which creates a conversation in the configured workspace and waits for extraction. Keep the printed conversation ID. A timeout exits unsuccessfully; do not treat a generic nonempty entity search as proof that this seed completed.
+The first command prints fictional fixture decisions without writes. Review them before running the second command, which creates a conversation in the configured workspace, adds two fixture entities (`Atlas` and `Helios`) and waits for extraction. Keep the printed conversation ID. A timeout exits unsuccessfully; do not treat a generic nonempty entity search as proof that this seed completed.
 
 The fixture contains example architecture choices and invented benchmark anecdotes, not recommendations or measurements for your system. Replace it with approved team content only when ready. Preferences and facts are Bolt-only records; recording the same prose as a message does not recreate those APIs on NAMS.
 
-// Retain former section URLs at the current related topic.
 == Step 3: wire the editors
-
-anchor:_step_2_seed_what_the_editors_should_already_know[]
 
 === Claude Code — `.mcp.json` at the project root
 
-This is a project-scoped template. Configure the hosted or self-hosted entry you selected; do not assume both address the same storage. For the stdio entry, follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its URI, username and password into the literal JSON values. Also supply an OpenAI key for the selected embedding provider. The CLI's `NEO4J_USER` receives the value exported as `NEO4J_USERNAME` by the Aura setup; these JSON fields do not require shell interpolation. Keep the populated credential file private.
+This is the project-scoped file that teams commit, so it holds variable references rather than secrets: Claude Code expands `$\{VAR}` and `${VAR:-default}` in `.mcp.json` from the environment it was launched in. Configure the hosted or self-hosted entry you selected; do not assume both address the same storage. For the stdio entry, follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup], which exports `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE`, and export `OPENAI_API_KEY` for the embedding provider, all in the shell that launches Claude Code. The CLI reads `NEO4J_USER`, so the entry maps it from `NEO4J_USERNAME`. To keep the values out of the project entirely, add the entry to your user-scoped Claude Code configuration instead.
 
 [source,json]
 ----
@@ -191,16 +191,17 @@ This is a project-scoped template. Configure the hosted or self-hosted entry you
     "team-memory-self-hosted": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "neo4j-agent-memory[mcp,openai]==0.6.0", "neo4j-agent-memory",
+      "args": ["--from", "neo4j-agent-memory[mcp,openai]==0.6.0", "--with", "httpx>=0.27",
+               "neo4j-agent-memory",
                "mcp", "serve", "--backend", "bolt", "--transport", "stdio",
                "--profile", "core", "--session-strategy", "per_day"],
       "env": {
-        "NEO4J_URI": "neo4j+s://<instance-id>.databases.neo4j.io",
-        "NEO4J_USER": "neo4j",
-        "NEO4J_DATABASE": "neo4j",
-        "NEO4J_PASSWORD": "replace-with-your-Aura-password",
-        "OPENAI_API_KEY": "replace-with-your-OpenAI-key",
-        "MCP_USER_ID": "replace-with-your-user-id"
+        "NEO4J_URI": "${NEO4J_URI}",
+        "NEO4J_USER": "${NEO4J_USERNAME}",
+        "NEO4J_PASSWORD": "${NEO4J_PASSWORD}",
+        "MCP_USER_ID": "${USER}",
+        "NEO4J_DATABASE": "${NEO4J_DATABASE:-neo4j}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}"
       }
     }
   }
@@ -209,6 +210,8 @@ This is a project-scoped template. Configure the hosted or self-hosted entry you
 
 The hosted entry carries no credential: the host runs the OAuth ceremony,
 including a workspace-selector step.
+In the self-hosted entry, `--with httpx>=0.27` adds `httpx`, which release
+0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
 
 === Claude Desktop — `claude_desktop_config.json`
 
@@ -226,18 +229,20 @@ For a desktop host configuration that launches stdio commands, a remote server c
 }
 ----
 
-GUI hosts may have a different environment from your shell. Use the installed host's supported secret mechanism and verify the executable path.
+GUI hosts may have a different environment from your shell. Claude Desktop does not inherit your shell exports or expand `$\{VAR}`, so the self-hosted entry in `claude_desktop_config.json.example` takes literal `REPLACE_WITH_…` values. Keep the populated file private and out of version control, or use the hosted OAuth entry, which needs no credential. Verify the executable path.
 
 === Cursor — `.cursor/mcp.json`
 
-Same `mcpServers` shape. If your build does not expand `$\{VAR}`, paste the key
-into the `Authorization` header and keep the file untracked.
+Same `mcpServers` shape. Replace `REPLACE_WITH_YOUR_NAMS_KEY` in the
+`Authorization` header and the other `REPLACE_WITH_…` values (or use
+`$\{MEMORY_API_KEY}` and similar references if your Cursor build expands
+variables), and keep the populated file untracked.
 
 == Step 4: diagnose before you debug
 
 `team-memory/doctor.py` runs five checks in
 failure-frequency order: key present and well-shaped, config files parse and name
-a real command or URL (and contain no pasted key), the tool surface each server
+a real command or URL (and contain no pasted `nams_` key; it does not detect a pasted Neo4j password or OpenAI key), the tool surface each server
 will expose, endpoint reachability with the workspace header, and whether
 extraction has settled for the seeded conversation.
 

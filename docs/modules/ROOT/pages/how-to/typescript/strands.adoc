@@ -62,7 +62,7 @@ const agent = new Agent({
 });
 ----
 
-`extraction` is off by default and `MemoryManager`'s `add_memory` tool is
+`extraction` is off by default and ``MemoryManager``'s `add_memory` tool is
 opt-in, so a store left at both defaults recalls but never writes. Three ways
 to get memories in:
 
@@ -95,7 +95,7 @@ graph.
 `description`:: Shown in tool descriptions. Defaults to a generic "entities extracted from conversations" line.
 `maxSearchResults`:: Default result cap when a caller doesn't pass a per-call limit.
 `writable`:: Defaults to `true`.
-`extraction`:: `boolean \| ExtractionConfig`. Defaults to `false` (recall-only).
+`extraction`:: `boolean | ExtractionConfig`. Defaults to `false` (recall-only).
 `conversationId`:: Explicit write sink. Omit to use a deterministic, name-derived sink conversation.
 `userId`:: Scopes the *sink conversation*: it names the sink, is recorded on it, and filters the scan that finds it. Nothing else is narrowed — `searchEntities` takes no user filter, and `add({ kind: "entity" })` reaches the workspace-wide `addEntity`. Not tenant isolation.
 `includeEntities`:: Defaults to `true`. `false` turns off automatic recall only; set `graphTools: false` as well to stop the model reading the graph through the tool.
@@ -116,7 +116,7 @@ graph.
   is never silently dropped.
 
 **`addMessages(messages, context)`** — the extraction write path. Chunks
-into batches of 100 (`bulkAddMessages`'s limit) and dedupes retried batches
+into batches of 100 (the `bulkAddMessages` limit) and dedupes retried batches
 using the manager's per-message sequence numbers, so a retried save doesn't
 double-write. The dedupe is **in-process**: the bookkeeping does not survive a
 restart, so a process that dies mid-retry can leave duplicate messages in the
@@ -228,6 +228,7 @@ For finer control:
 import {
   SessionManager,
   SlidingWindowConversationManager,
+  type ConversationManager,
 } from "@strands-agents/sdk";
 import {
   Neo4jSessionStorage,
@@ -247,7 +248,14 @@ const conversationManager = new Neo4jConversationManager(memory, {
   includeObservations: true,
 });
 
-const agent = new Agent({ sessionManager, conversationManager, model, tools });
+// Neo4jConversationManager matches ConversationManager's public surface but
+// does not extend Strands' abstract class, so strict TypeScript needs a cast.
+const agent = new Agent({
+  sessionManager,
+  conversationManager: conversationManager as unknown as ConversationManager,
+  model,
+  tools,
+});
 
 // If you skipped connectMemoryToAgent, attach reasoning hooks explicitly:
 await registerReasoningHooks(memory, agent, { conversationId: conv.id });
@@ -327,9 +335,10 @@ The source declares `@strands-agents/sdk >=1.16 <2` and Node.js 22+.
 The tests check installed typings; this describes source compatibility, not
 a verified npm artifact. Strands' v1 API
 is stable under semver, and `typescript/test/unit/strands/type-compatibility.test.ts`
-asserts each of our classes still satisfies the interface it implements, so an
-`npm install` that reshapes one of them fails a test rather than drifting
-silently. We will not break the integration API across minor releases of
+asserts each of our classes still matches the Strands interface it implements
+(for `Neo4jConversationManager`, the `name`, `reduce` and `initAgent` members of
+the abstract `ConversationManager`), so an `npm install` that reshapes one of
+them fails a test rather than drifting silently. We will not break the integration API across minor releases of
 `@neo4j-labs/agent-memory` without a CHANGELOG callout.
 
 `Neo4jMemoryStore` needs `@strands-agents/sdk >= 1.16.0`, the release that

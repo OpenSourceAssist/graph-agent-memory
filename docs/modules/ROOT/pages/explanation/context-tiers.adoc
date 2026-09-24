@@ -2,19 +2,24 @@
 :page-product: agent-memory
 :toclevels: 2
 
-The hosted TypeScript client (`@neo4j-labs/agent-memory` against NAMS)
-assembles a conversation's context as three tiers of increasing
-compression: recent messages, observations, and reflections. Every
-TypeScript how-to page that calls `getContext()` or wires the Vercel AI SDK,
-Mastra, or AWS Strands middleware assumes this model — this page explains
+The hosted service (NAMS) assembles a conversation's context as three tiers
+of increasing compression: recent messages, observations, and reflections.
+Every TypeScript how-to page that calls `getContext()` or wires the Vercel AI
+SDK, Mastra, or AWS Strands integration assumes this model. This page explains
 what each tier is, where it comes from, and how the three fit together.
 
-NOTE: This is a hosted-service (NAMS) concept, verified against
-xref:reference/typescript-api.adoc[the TypeScript API reference]. These
-operations are hosted-native, with no equivalent in the TCK bridge
-protocol, so a client on `BridgeTransport` cannot use them; the
-integrations that consume them fall back to flat conversation history
-instead.
+Both SDKs read the tiers from NAMS. The TypeScript client exposes
+`client.shortTerm.getContext()`, `getObservations()`, and `getReflections()`.
+The Python client on the NAMS backend exposes `client.short_term.get_context()`,
+`get_observations()`, and `get_reflections()`; its `get_context()` returns the
+three sections formatted as one text block rather than a structured object.
+
+NOTE: This is a hosted-service concept. The tiers are computed by NAMS, so
+they are not available on Python's Bolt backend, where `get_observations()`
+and `get_reflections()` raise `NotSupportedError`, or to a TypeScript client on
+`BridgeTransport`, since the TCK bridge protocol has no equivalent operation.
+The Python MCP server has a separate, local observational memory with its own
+observations and reflections; see <<_mcp_observations,the MCP server's observational memory>>.
 
 == The three tiers
 
@@ -54,32 +59,46 @@ interface ConversationContext {
 }
 ----
 
-This is the shape every three-tier integration in the TypeScript SDK
-consumes — the Vercel AI SDK middleware
-(xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK]), the Strands
-`ConversationManager` (xref:how-to/typescript/strands.adoc[AWS Strands]),
-and the Mastra recipe (xref:how-to/typescript/mastra.adoc[Mastra]) all call
-`getContext()` (directly or through `getReflections()`/`getObservations()`)
-and fold reflections and observations into a single prepended context
-block, then replay recent messages as ordinary turns.
+The TypeScript integrations use it in different ways:
 
-If `getContext()` is unavailable — the client is on the bridge transport,
-or the hosted call fails — that middleware falls back to flat conversation
-history instead of failing the model call. See
-xref:how-to/typescript/troubleshooting.adoc[Troubleshooting] for what to do
-when that happens.
+* The xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK] middleware folds
+  reflections and observations into one prepended system message
+  ("Relevant memory for this conversation") and replays `recentMessages` as
+  ordinary turns. If `getContext()` fails, or the client is on the bridge
+  transport, or the context comes back empty, it falls back to flat
+  conversation history from `getConversation()` instead of failing the model
+  call.
+* The xref:how-to/typescript/strands.adoc[AWS Strands] `ConversationManager`
+  prepends one system message per reflection and one per observation to the
+  messages that its inner manager (a sliding window by default) already
+  holds. It does not replay `recentMessages`. If `getContext()` fails, it
+  injects nothing and leaves the inner manager's messages unchanged.
+* The xref:how-to/typescript/mastra.adoc[Mastra] recipe does no prompt
+  assembly: the application calls `getContext()` itself and decides what to
+  do with the result.
 
-== A different sense of "observation"
+See xref:how-to/typescript/troubleshooting.adoc[Troubleshooting] for what to
+do when the context tiers are unavailable.
 
-The reasoning-memory layer also records "observations" as part of a tool
-call's thought/action/observation triple (see
+== Other senses of "observation"
+
+The reasoning-memory layer also records an "observation" on each reasoning
+step, alongside the step's thought and action (see
 xref:explanation/memory-types.adoc[Understanding the three memory types]
-and the xref:glossary.adoc[glossary]'s Reasoning memory entry). That is an
-unrelated, older usage: a reasoning-step observation is what a tool
-returned during one recorded task execution, not a compressed summary of a
-conversation. The two senses are not interchangeable, and nothing here
-implies reasoning-memory observations feed the context-tier observations
+and the xref:glossary.adoc[glossary]'s Reasoning memory entry). A step
+observation is often derived from a tool result, for example with
+`record_tool_call(auto_observation=True)`, but it describes one recorded task
+execution, not a compressed summary of a conversation. Nothing here implies
+that reasoning-step observations feed the context-tier observations
 described above.
+
+[[_mcp_observations]]
+The Python MCP server's `memory_get_observations` tool uses a third sense. Its
+local observational memory tracks each session inside the server process,
+extracts observations (facts and decisions) from stored user
+messages, and generates reflections once the session's accumulated context
+crosses a token threshold. It works on the Bolt backend and does not call the
+NAMS tiers. See xref:reference/mcp-tools.adoc[MCP tools].
 
 == See also
 

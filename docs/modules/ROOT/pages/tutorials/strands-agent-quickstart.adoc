@@ -46,7 +46,7 @@ Create each file below in `~/agent-memory-tutorials`. All complete sources follo
 [cols="4,3,2",options="header"]
 |===
 |File |Purpose |Returning reader
-|`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
+|`aura_connection.py` |Read explicit Aura credentials; the database defaults to `neo4j`. |Reuse unchanged
 |`wait_for_tutorial_neo4j.py` |Probe the selected database and close the driver. |Reuse unchanged
 |`strands_memory_tutorial.py` |Record, inspect, or recall the saved Strands session. This is the lesson entry point. |New for this lesson; retain it with unfinished state
 |===

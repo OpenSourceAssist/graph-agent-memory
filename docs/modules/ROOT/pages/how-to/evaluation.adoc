@@ -287,5 +287,5 @@ guarantee.
 
 == See also
 
-* xref:how-to/consolidation.adoc[Memory Consolidation]
+* xref:how-to/consolidation.adoc[Memory consolidation]
 * link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/eval-harness[Evaluation harness example] — the runnable example.

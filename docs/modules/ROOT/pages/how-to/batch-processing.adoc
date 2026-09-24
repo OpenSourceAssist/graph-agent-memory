@@ -20,9 +20,13 @@ The first sections use `documents: list[str]`. The financial and catalog variati
 
 == Goal
 
+anchor:_overview[]
+
 Extract a collection of texts, inspect per-document failures, and store successful entities with source-message provenance. The storage procedure uses Bolt APIs. Local extraction can also run independently, but it does not configure extraction on the hosted service.
 
 == 1. Extract and inspect a batch
+
+anchor:_basic_batch_extraction[]anchor:_process_multiple_texts[]anchor:_with_progress_tracking[]anchor:_access_individual_results[]
 
 xref:how-to/entity-extraction-batch.adoc[Account for batch and chunk extraction results] covers `ExtractionPipeline.extract_batch` in full, with a maintained runnable program: progress tracking, per-item result access, and the distinction between a failed item and an empty successful result. Read that guide first if you have not already.
 
@@ -57,7 +61,9 @@ print(f"Total relations: {result.total_relations}")
 
 == 2. Choose chunked extraction for long documents
 
-xref:how-to/entity-extraction-batch.adoc[Account for batch and chunk extraction results] also covers `StreamingExtractor` and chunk sizing. This page only adds the storage step: writing each chunk's entities as they arrive, instead of waiting for the combined deduplicated result, using the `deduplicate` keyword shown below.
+anchor:_streaming_extraction_for_long_documents[]anchor:_process_large_documents_in_chunks[]anchor:_get_complete_deduplicated_result[]
+
+xref:how-to/entity-extraction-batch.adoc[Account for batch and chunk extraction results] also covers `StreamingExtractor` and chunk sizing. This page only adds the storage step: writing each chunk's entities as they arrive, instead of waiting for the combined result. The alternative `extract(..., deduplicate=True)` path is described after the example.
 
 [source,python]
 ----
@@ -89,6 +95,8 @@ async for chunk_result in streamer.extract_streaming(long_document):
 To store the cross-chunk deduplicated result instead of storing per chunk, call `await streamer.extract(long_document, deduplicate=True)` and store from the returned `result.entities` once extraction completes.
 
 == 3. Store successful batch results
+
+anchor:_store_batch_results_in_context_graph[]
 
 The Bolt write merges entities by exact name and type. As of SDK 0.6.0,
 `add_entity` re-reads the matched node when that MERGE matches an existing
@@ -178,7 +186,7 @@ print(f"Merged with existing: {merged_count}")
 `add_entity` accepts the per-call `deduplicate` boolean, not a
 `deduplication` configuration keyword. Its deduplication actions are `none`,
 `merged`, and `flagged`; `none` is not an insertion-count guarantee. For
-threshold configuration see xref:how-to/deduplication.adoc[Handle duplicate entities].
+threshold configuration see xref:how-to/deduplication.adoc[Merge a reviewed entity pair].
 
 === With provenance tracking
 
@@ -233,6 +241,8 @@ for item in result.results:
 ----
 
 == Optional: Process financial documents
+
+anchor:_financial_document_processing[]
 
 Example for processing financial documents:
 
@@ -343,6 +353,8 @@ result = await process_financial_documents(documents)
 
 == Optional: Import an ecommerce catalog
 
+anchor:_ecommerce_catalog_import[]
+
 Example for a one-time product catalog import. `sku` is an attribute, not a uniqueness constraint. Two distinct SKUs with the same product name and type can match the same entity, and re-running does not update every attribute. Define an explicit SKU-to-entity identity and update policy before using this as a recurring import.
 
 [source,python]
@@ -414,21 +426,25 @@ async def import_product_catalog(products: list[dict]):
                 relationship_type="IN_CATEGORY",
             )
 
-        # Link extracted entities to product
+        # Link extracted entities to product. The business schema returns the
+        # product as OBJECT:PRODUCT and the brand as ORGANIZATION:COMPANY, so skip
+        # them by name rather than by the PRODUCT/BRAND types stored above.
+        already_stored = {product["name"].casefold(), (product.get("brand") or "").casefold()}
         if result.results[i].success:
             for entity in result.results[i].result.entities:
-                if entity.type not in ["PRODUCT", "BRAND"]:  # Avoid duplicates
-                    linked, _ = await store_entity(
-                        client,
-                        name=entity.name,
-                        entity_type=entity.type,
-                    )
+                if entity.name.casefold() in already_stored:
+                    continue
+                linked, _ = await store_entity(
+                    client,
+                    name=entity.name,
+                    entity_type=entity.type,
+                )
 
-                    await client.long_term.add_relationship(
-                        source=product_entity.id,
-                        target=linked.id,
-                        relationship_type="RELATED_TO",
-                    )
+                await client.long_term.add_relationship(
+                    source=product_entity.id,
+                    target=linked.id,
+                    relationship_type="RELATED_TO",
+                )
 
     print(f"Imported {len(products)} products")
 
@@ -451,6 +467,8 @@ await import_product_catalog(products)
 
 == 4. Tune throughput and handle failures
 
+anchor:_performance_optimization[]
+
 === Tune batch size
 
 [source,python]
@@ -471,6 +489,8 @@ result = await pipeline.extract_batch(
 ----
 
 === Choose an extractor for your data
+
+anchor:_use_appropriate_extractor[]
 
 Measure extraction quality and throughput on labeled samples before choosing
 spaCy, GLiNER, or an LLM stage. The settings above are starting points, not
@@ -495,6 +515,8 @@ for item in failed:
 ----
 
 == Optional: Prepare larger imports
+
+anchor:_best_practices[]
 
 === 1. Validate before processing
 
@@ -592,18 +614,7 @@ source IDs and completed batches outside this example before adding retries.
 
 == See also
 
-* xref:how-to/entity-extraction.adoc[Configure entity extraction]
+* xref:how-to/entity-extraction.adoc[Extract and inspect entity candidates]
 * xref:how-to/entity-extraction-batch.adoc[Account for batch and chunk extraction results] — the `extract_batch`/`StreamingExtractor` API and its result bookkeeping in depth; this page covers ingesting and storing the documents that feed it.
-* xref:how-to/deduplication.adoc[Handle duplicate entities]
+* xref:how-to/deduplication.adoc[Merge a reviewed entity pair]
 * xref:reference/extractors.adoc[Extractor classes reference]
-
-// Preserve historical section links after the procedure was reorganized.
-anchor:_overview[]
-anchor:_basic_batch_extraction[]
-anchor:_streaming_extraction_for_long_documents[]
-anchor:_store_batch_results_in_context_graph[]
-anchor:_financial_document_processing[]
-anchor:_ecommerce_catalog_import[]
-anchor:_performance_optimization[]
-anchor:_use_appropriate_extractor[]
-anchor:_best_practices[]

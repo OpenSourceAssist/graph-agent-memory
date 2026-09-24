@@ -314,7 +314,7 @@ required only by the `./mcp/register` subpath (the MCP SDK already depends on
 
 == Verify the integration
 
-In `typescript/examples/mcp/`, run `npm run lint` and `npm test`. The offline
+In `typescript/examples/mcp/`, run `npm run typecheck` and `npm test`. The offline
 suite assembles the tutorial's base server with the custom-tool and
 restricted-tool recipes on this page, compiles each variant to `dist/server.js`,
 connects over stdio, and checks tool counts: 6 base tools, 7 with

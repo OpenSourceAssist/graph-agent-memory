@@ -55,11 +55,19 @@ Every demo is a flag, so any schema can exercise any of them: `--relations`, `--
 uv sync --all-extras
 
 # Or with pip
-pip install "neo4j-agent-memory[gliner,sentence-transformers]"
+pip install "neo4j-agent-memory[gliner,sentence-transformers]==0.6.0"
 ```
 
 - GLiNER downloads its model (~500 MB) on first use; later runs read the cache.
-- **GLiREL is opt-in** and is not in any extra (last released 2025-04): `pip install glirel`. Without it `--relations` prints a skip notice instead of running.
+- **GLiREL is opt-in** and is not in any extra (last released 2025-04). Without it `--relations` prints a skip notice instead of running. GLiREL also needs spaCy's `en_core_web_sm` model for tokenization, `loguru` (imported but not declared), `protobuf`, and `huggingface-hub` below 1.0 (GLiREL 1.2.1 cannot load its model with 1.x):
+
+  ```bash
+  pip install "neo4j-agent-memory[gliner,spacy,sentence-transformers]==0.6.0" \
+    glirel "loguru>=0.7,<1" "huggingface-hub<1" protobuf
+  python -m spacy download en_core_web_sm
+  ```
+
+  With `neo4j-agent-memory` 0.6.0 the GLiREL stage runs but reports `No relationships extracted`: that release passes character offsets where GLiREL expects token positions. For relations on 0.6.0, use the LLM extractor stage instead: `ExtractionConfig(extractor_type=ExtractorType.PIPELINE, enable_llm_fallback=True)`, which needs an OpenAI key.
 - Neo4j is **optional** — extraction runs with no database. Storage needs one (see below) and uses a local sentence-transformers embedder, so no API key is involved either way.
 
 For the optional storage step, follow [Aura setup and cleanup](../AURA_SETUP.md) and export the connection variables. The extraction-only commands below explicitly use `--no-store` so exported credentials do not turn them into writes.
@@ -216,6 +224,8 @@ if is_glirel_available():
 
 With `--store`, the relations found this way are persisted as `(:Entity)-[:RELATED_TO {relation_type}]->(:Entity)` via `long_term.add_relationship`.
 
+On `neo4j-agent-memory` 0.6.0 this stage finds no relations (see [Prerequisites](#prerequisites)), so `--relations --store` adds no `RELATED_TO` edges. Use the LLM extractor stage for relations on that release.
+
 ### Batch extraction (native GLiNER inference)
 
 ```python
@@ -340,7 +350,7 @@ Install it and re-run. The first run downloads the model (~500 MB).
 
 ### GLiREL skipped
 
-`--relations` prints `GLiREL is not installed, so this demo is skipped.` — install the optional package with `pip install glirel`. It is not part of `--all-extras`.
+`--relations` prints `GLiREL is not installed, so this demo is skipped.` — install GLiREL and its undeclared dependencies with the command under [Prerequisites](#prerequisites). It is not part of `--all-extras`, and `pip install glirel` alone is not enough: without `loguru` the package fails to import and the demo is skipped.
 
 ### Neo4j authentication fails
 
@@ -365,6 +375,6 @@ Verify the generated Aura URI, username and password from [the shared setup](../
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > _Verified against `neo4j-agent-memory` v0.5.0 with gliner 0.2.x on 2026-09-10: all eight schemas run end to end on CPU, and `--store` was exercised against Neo4j 5.26 (GLiREL is not installed in the repo environment, so `--relations` was verified through its skip path and with a stubbed extractor in `tests/examples/test_domain_schemas.py`)._

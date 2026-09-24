@@ -235,8 +235,9 @@ This project uses GitHub Actions for continuous integration and deployment.
 | **TypeScript E2E** (`e2e-typescript.yml`) | Push, PR, nightly | Run TypeScript SDK e2e suite against live NAMS sandbox (uses `MEMORY_API_KEY` secret) |
 | **Publish Python** (`publish-python.yml`) | Git tags `python-v*` | Build and publish to PyPI, create GitHub releases |
 | **Publish TypeScript** (`publish-typescript.yml`) | Git tags `typescript-v*` | Build and publish to npm with provenance |
+| **Publish NAMS AI provider** (`publish-nams-ai-provider.yml`) | Git tags `nams-ai-provider-v*` | Type-check, test, build and publish `@neo4j-labs/nams-ai-provider` to npm with provenance, then create a GitHub Release |
 | **TypeDoc** (`docs-typedoc.yml`) | Push to `main` (TS docs paths) | Regenerate TypeDoc API reference into `docs/modules/ROOT/attachments/api/typescript/`, commit to `main`, and dispatch the labs-pages docs rebuild |
-| **TCK Conformance** (`tck-conformance.yml`) | Nightly + workflow_dispatch | Run agent-memory-tck Bronze suite against the published `@neo4j-labs/agent-memory` package |
+| **TCK Conformance** (`tck-conformance.yml`) | workflow_dispatch (nightly schedule inactive) | Run agent-memory-tck Bronze suite against the published `@neo4j-labs/agent-memory` package |
 | **NAMS Integration** (`nams-integration.yml`) | Push, PR, nightly | Run NAMS sandbox integration tests (Python side, uses `NAMS_SANDBOX_KEY` secret) |
 
 ### CI Jobs
@@ -291,7 +292,7 @@ All PRs must pass these checks before merging:
 
 ## Publishing
 
-This repo ships two independently versioned packages. Each has its own
+This repo ships three independently versioned packages. Each has its own
 tag prefix and publish workflow.
 
 ### Python (neo4j-agent-memory → PyPI)
@@ -327,6 +328,25 @@ tag prefix and publish workflow.
    should create and push the matching `typescript-v<X.Y.Z>` tag.
    `publish-typescript.yml` publishes the package with npm provenance and creates
    a GitHub Release. Do not infer publication from the source version alone.
+
+### NAMS AI provider (@neo4j-labs/nams-ai-provider → npm)
+
+The Vercel AI SDK provider in `typescript/packages/vercel-ai-provider/` is
+released independently of the SDK.
+
+1. Update `version` in `typescript/packages/vercel-ai-provider/package.json`
+   (and its `package-lock.json` entry). If the release needs a newer SDK, widen
+   the `@neo4j-labs/agent-memory` peer range there too.
+2. Add the release section to `typescript/packages/vercel-ai-provider/CHANGELOG.md`.
+3. From `typescript/packages/vercel-ai-provider/`, run `npm ci`,
+   `npm run typecheck`, `npm test`, `npm run build` and `npm pack --dry-run`.
+4. Update the hand-maintained `docs/modules/ROOT/pages/reference/nams-ai-provider.adoc`
+   if the provider's API changed; it has no TypeDoc generation.
+5. Only an authorized release should create and push the matching
+   `nams-ai-provider-v<X.Y.Z>` tag. `publish-nams-ai-provider.yml` publishes
+   the package with npm provenance and creates a GitHub Release. The workflow
+   does not compare the tag with `package.json`, so check that they match
+   before pushing.
 
 > Tag prefixes are enforced by the publish workflows. Plain `v*` tags
 > will not trigger a publish.
@@ -374,9 +394,10 @@ The TypeScript SDK is verified against the cross-language
 [`agent-memory-tck`](https://github.com/neo4j-labs/agent-memory-tck)
 behavioral spec. The in-tree bridge suite at `typescript/test/tck/` is opt-in through
 `npm run test:tck`; the regular `npm test` command runs unit and integration tests.
-A nightly job
-(`tck-conformance.yml`) runs the TCK against the **published** npm
-package to catch packaging regressions.
+The `tck-conformance.yml` workflow runs the TCK Bronze suite against the
+**published** npm package to catch packaging regressions. It has a nightly
+schedule, but its job runs only on manual `workflow_dispatch` until the
+TCK-side package runner lands.
 
 To run the bridge server locally for cross-language testing:
 
@@ -411,6 +432,7 @@ Follow the repository's four documentation skills in `.claude/skills` and [Maint
 
 ```bash
 make docs-install
+make docs-render-install
 make docs
 make docs-lint
 make docs-serve

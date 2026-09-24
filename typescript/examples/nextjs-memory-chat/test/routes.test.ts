@@ -196,7 +196,7 @@ describe("POST /api/chat", () => {
     // The memory block's own header, so this is provably retrieved memory and
     // not a message the request happened to send.
     expect(prompt).toContain("Relevant long-term memory about this user");
-    // The retrieved turns are appended to the last user message as a second
+    // The retrieved turns are prepended to the last user message as its first
     // text part, which is the shape spec v4 requires.
     expect(prompt).toContain('"type":"text"');
 

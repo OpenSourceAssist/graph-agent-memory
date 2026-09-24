@@ -20,6 +20,8 @@ Jump to a section: <<choosing-a-backend,Choosing a backend>> • <<installing-an
 [[choosing-a-backend]]
 == Choosing a backend
 
+anchor:_general_questions[]
+
 [[what-is-neo4j-agent-memory]]
 === What is neo4j-agent-memory?
 
@@ -48,10 +50,12 @@ Choose by language and backend. Python supports Bolt and NAMS; TypeScript target
 [[neo4j-versions]]
 === Which Neo4j versions are supported?
 
-For Bolt, use the database prerequisites in xref:getting-started.adoc[Getting started] and the vector-index requirements in xref:reference/configuration.adoc[Configuration]. The Python Neo4j driver version is not the database server version. NAMS users do not manage the service's Neo4j version.
+For Bolt, use Neo4j 5.26 or later (including 2025.x releases), or Neo4j AuraDB. The test suite runs against 5.26. Semantic search needs vector indexes (Neo4j 5.11 and later), and merging confirmed duplicate entities (`merge_duplicate_entities()`, `review_duplicate(confirm=True)`) uses the `CALL (source, target) { ... }` subquery syntax that Neo4j added in 5.23; older servers reject it as a syntax error. The Python Neo4j driver version is not the database server version. NAMS users do not manage the service's Neo4j version.
 
 [[installing-and-versions]]
 == Installing and versions
+
+anchor:_cli_tool[]
 
 [[cli-installation]]
 === How do I install the CLI?
@@ -67,6 +71,8 @@ The CLI supports extraction and related utilities through its implemented comman
 === How do I configure the CLI?
 
 The current CLI constructs `MemorySettings`, which supports the documented environment variables and `.env` loading. It does not automatically load a `.neo4j-memory.yaml` configuration file. See xref:reference/cli.adoc[CLI configuration] and xref:reference/environment-variables.adoc[Environment variables].
+
+anchor:_troubleshooting[]
 
 [[gliner-not-installed]]
 === ImportError: GLiNER not installed
@@ -86,10 +92,21 @@ Check the selected model identifier, access permissions, network access, and any
 [[extra-forbidden-from-env]]
 === Why does `MemorySettings(...)` raise `extra_forbidden` for `neo4j_uri` / `openai_api_key`?
 
-Check for misspelled settings and the environment-loading behavior of the installed package. Current source filters unrelated `.env` keys while retaining strict validation of settings fields. Do not globally disable validation merely to hide an unknown key. See xref:reference/configuration.adoc[Settings] and xref:reference/environment-variables.adoc[Environment variables]; compare the installed release against https://github.com/neo4j-labs/agent-memory/blob/main/CHANGELOG.md[the changelog] or https://pypi.org/project/neo4j-agent-memory/#history[PyPI's release history] before assuming a source fix is available there.
+Releases before 0.2.1 raised this error when a `.env` file held unprefixed keys such as `NEO4J_URI` or `OPENAI_API_KEY`. From 0.2.1, including 0.6.0, `MemorySettings` ignores `.env` keys that are not its own settings, so upgrading fixes that case:
+
+[source,bash]
+----
+pip install --upgrade 'neo4j-agent-memory==0.6.0' 'httpx>=0.27'
+----
+
+The command also installs `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
+
+If the error persists on 0.6.0, a keyword argument is misspelled or flattened: `MemorySettings(neo4j_uri=...)` still raises `extra_forbidden`, because the field is `MemorySettings(neo4j={"uri": ...})`, or `NAM_NEO4J__URI` in the environment. Validation stays strict so that typos fail; do not disable it to hide an unknown key. See xref:reference/configuration.adoc[Settings] and xref:reference/environment-variables.adoc[Environment variables].
 
 [[storing-and-retrieving-memory]]
 == Storing and retrieving memory
+
+anchor:_neo4j_and_storage[]
 
 [[indexes]]
 === What indexes does the package create?
@@ -105,6 +122,8 @@ On Bolt, managed entities carry `:Entity`, a type property, and supported type/s
 === Can I query entities by type directly?
 
 Supported type filters and, on permitted Cypher surfaces, node labels can select entity categories. The query must match the actual backend schema and scope. See xref:how-to/entities.adoc[Work with entities] and xref:reference/backend-capabilities.adoc[Backend capabilities].
+
+anchor:_entity_resolution_and_deduplication[]
 
 [[what-is-resolution]]
 === What is entity resolution?
@@ -130,6 +149,8 @@ Bolt's `DeduplicationConfig` uses separate automatic-merge and review thresholds
 === What are SAME_AS relationships?
 
 A `:SAME_AS` edge can record a candidate duplicate for review while preserving both records. Its presence is not a completed merge or a guarantee of identity. See xref:explanation/resolution-deduplication.adoc[the review pattern] and xref:how-to/deduplication.adoc[Review duplicates].
+
+anchor:_geocoding_and_geospatial_queries[]
 
 [[geocoding-enable]]
 === How do I enable geocoding for LOCATION entities?
@@ -159,6 +180,8 @@ Use the supported per-entity geocoding controls when adding an entity on Bolt. E
 [[extraction-and-entities]]
 == Extraction and entities
 
+anchor:_entity_extraction_pipeline[]
+
 [[how-pipeline-works]]
 === How does the extraction pipeline work?
 
@@ -178,6 +201,8 @@ Pipeline merge strategies combine candidates from extraction stages. The impleme
 === Which extractor should I use?
 
 Compare the required labels and relationships, local versus remote processing, resource limits, and quality on representative text. No extractor is universally fastest or most accurate. GLiREL and LLM extraction can both produce relationships. See xref:explanation/extraction-pipeline.adoc[Extraction tradeoffs].
+
+anchor:_gliner_and_domain_schemas[]
 
 [[schemas-gliner-only]]
 === Are domain schemas only used with GLiNER?
@@ -209,6 +234,8 @@ Yes. Define the entity labels and descriptions for the GLiNER task, using the ac
 
 Extractor label mappings translate selected labels into POLE+O types and subtypes. A mapping does not prove that the model identified the entity correctly. See xref:reference/schemas.adoc[Schema mappings] and xref:explanation/poleo-model.adoc[POLE+O].
 
+anchor:_spacy_extraction[]
+
 [[spacy-entity-types]]
 === What entity types does spaCy recognize?
 
@@ -223,6 +250,8 @@ Changing a GLiNER schema does not change spaCy's trained NER labels. A custom sp
 === Which spaCy model should I use?
 
 Use a model for the document language and label requirements, and compare it on representative text. Download size, runtime memory, speed, and quality vary by model release and workload. Follow xref:how-to/entity-extraction.adoc[the extraction guide] for the configured model and installation steps.
+
+anchor:_llm_extraction[]
 
 [[when-use-llm]]
 === When should I use the LLM extractor?
@@ -243,6 +272,8 @@ Yes, through a supported provider adapter or a custom provider implementation. A
 === Why is LLM extraction slow?
 
 Generation time, network latency, input size, retries, and provider limits contribute to extraction latency. Compare the required quality against that cost, and use bounded concurrency. See xref:explanation/structured-extraction.adoc[Structured extraction] and xref:how-to/entity-extraction-batch.adoc[Batch extraction].
+
+anchor:_batch_and_streaming_extraction[]
 
 [[batch-extraction]]
 === How do I process multiple documents at once?
@@ -308,6 +339,8 @@ Use Strands tools when an agent should choose a memory operation through its too
 [[operations]]
 == Operations
 
+anchor:_observability_and_tracing[]
+
 [[observability-setup]]
 === How do I enable tracing?
 
@@ -322,6 +355,8 @@ Only operations connected to the selected instrumentation are traced. Available 
 === Should I use OpenTelemetry or Opik?
 
 Choose an observability integration that matches the application's monitoring system and required data. OpenTelemetry provides general tracing interfaces; Opik's integration targets LLM application observability. The selected instrumentation still determines which spans and attributes exist.
+
+anchor:_performance_and_optimization[]
 
 [[speed-up-extraction]]
 === How can I speed up extraction?

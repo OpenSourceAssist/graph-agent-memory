@@ -4,15 +4,15 @@
 :toclevels: 2
 :sectanchors:
 
-include::partial$backend-bolt-only.adoc[]
+include::partial$backend-client-side.adoc[]
 
 To identify customer and product mentions, provide domain descriptions and an explicit mapping from extraction labels to persisted entity types. Test the mapping against a representative sentence before writing graph data.
 
 For the rationale, see xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline].
 
-anchor:_prerequisites[]
-
 == 1. Install the local extractor
+
+anchor:_prerequisites[]
 
 Use Python 3.10 or newer and a POSIX shell. Prepare the example files and install the required extra:
 
@@ -28,6 +28,8 @@ The maintained program `extraction_recipes.py` supplies its own imports, source 
 include::partial$python-extraction-recipe-file.adoc[]
 
 == 2. Configure and run the extraction
+
+anchor:_custom_schema_financial_services[]anchor:_custom_schema_ecommerce_retail[]anchor:_custom_domain_schemas[]anchor:_define_entity_types[]
 
 The custom schema names `customer` and `product`. Its mapping uses `(TYPE, SUBTYPE)` tuples: a customer maps to PERSON and a product to OBJECT/PRODUCT. `for_schema` is reserved for registry names; a custom `DomainSchema` is passed to the constructor.
 
@@ -49,39 +51,29 @@ Expected: candidates from “Maya Chen bought a Trail Starter shoe,” with PERS
 
 The command raises on the documented failure conditions. Inspect candidate names, types, and confidence against source text before storing them. Counts alone do not measure extraction accuracy.
 
-anchor:_available_built_in_schemas[]
-
 == Select a registered schema when it fits
+
+anchor:_available_built_in_schemas[]anchor:_extend_built_in_schemas[]
 
 Registered names are `poleo`, `podcast`, `news`, `scientific`, `business`, `entertainment`, `medical`, and `legal`. The exact label inventories and descriptions are in xref:reference/schemas.adoc[built-in schemas]. There are no registered `financial` or `ecommerce` names. Use a custom schema for those domains.
 
 `DomainSchema` configures GLiNER label descriptions and optional relation descriptions. `EntitySchemaConfig` is the separate SDK schema configuration model; do not interchange the two or pass unsupported `examples` fields. `ExtractorBuilder.with_schema` forwards type names, not every constraint and relation in a schema configuration. See xref:reference/schemas.adoc[schema models and persistence] before relying on validation.
 
-anchor:_relationship_extraction[]
-
 == Extract relationships and persist schema configuration
 
-For GLiREL, install `glirel` and `loguru` explicitly — the SDK does not define a `glirel` extra, and GLiREL's current package requires `loguru` at import time without declaring that dependency — plus spaCy and the `en_core_web_sm` tokenizer model:
+anchor:_relationship_extraction[]anchor:_persist_schemas_to_neo4j[]anchor:_glirel_no_llm_required[]anchor:_custom_relationship_types[]
+
+For GLiREL, install `glirel` and `loguru` explicitly — the SDK does not define a `glirel` extra, and GLiREL's current package requires `loguru` at import time without declaring that dependency — plus spaCy and the `en_core_web_sm` tokenizer model. GLiREL 1.2.1 also needs `protobuf` and `huggingface-hub` below 1.0, because it cannot load its model with 1.x:
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[gliner,spacy]==0.6.0' glirel 'loguru>=0.7,<1'
+python -m pip install 'neo4j-agent-memory[gliner,spacy]==0.6.0' glirel 'loguru>=0.7,<1' 'huggingface-hub<1' protobuf
 python -m spacy download en_core_web_sm
 ----
 
-Then construct `GLiRELExtractor(relation_types=...)` and compose it with the entity extractor. A custom domain object's existence does not automatically wire a relation extractor. The xref:tutorials/knowledge-graph.adoc[knowledge-graph tutorial] includes the complete constructor/storage path.
+Then construct `GLiRELExtractor(relation_types=...)` and compose it with the entity extractor. A custom domain object's existence does not automatically wire a relation extractor. With `neo4j-agent-memory` 0.6.0 the GLiREL stage runs but returns no relations, because that release passes character offsets where GLiREL expects token positions; for relations on 0.6.0 use the LLM extractor stage (`LLMEntityExtractor`). The xref:tutorials/knowledge-graph.adoc[knowledge-graph tutorial] shows a complete storage path that takes relations from a chat model instead.
 
 Persisting an `EntitySchemaConfig` through the Bolt schema manager stores configuration; it does not automatically validate every existing graph node or deploy a hosted ontology. Select/load the intended configuration explicitly when constructing extraction. See xref:reference/schemas.adoc[the persistence API] and xref:how-to/use-ontologies.adoc[hosted ontology tasks] for the separate contracts.
-
-// Historical section links resolve to the maintained task and reference pointers.
-anchor:_custom_schema_financial_services[]
-anchor:_custom_schema_ecommerce_retail[]
-anchor:_custom_domain_schemas[]
-anchor:_define_entity_types[]
-anchor:_extend_built_in_schemas[]
-anchor:_persist_schemas_to_neo4j[]
-anchor:_glirel_no_llm_required[]
-anchor:_custom_relationship_types[]
 
 == Write effective schema descriptions
 

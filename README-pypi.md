@@ -3,7 +3,7 @@
 A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and record and retrieve application-supplied reasoning — backed either by the hosted **NAMS** service (zero infrastructure) or your own Neo4j.
 
 [![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)](https://neo4j.com/labs/)
-[![Status: Experimental](https://img.shields.io/badge/Status-Experimental-F59E0B)](https://neo4j.com/labs/)
+[![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)](https://neo4j.com/labs/)
 [![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)](https://community.neo4j.com)
 [![PyPI version](https://badge.fury.io/py/neo4j-agent-memory.svg)](https://pypi.org/project/neo4j-agent-memory/)
 [![Python versions](https://img.shields.io/pypi/pyversions/neo4j-agent-memory.svg)](https://pypi.org/project/neo4j-agent-memory/)
@@ -77,7 +77,7 @@ asyncio.run(main())
 
 ## Quick start — Neo4j Aura (bolt)
 
-Use a dedicated [AuraDB instance](https://neo4j.com/labs/agent-memory/tutorials/first-agent-memory.html#_step_2_set_up_neo4j) and copy its connection values. Aura uses the `bolt` backend. Install the selected adapters with `pip install 'neo4j-agent-memory[anthropic,openai]==0.6.0'` and set their keys:
+Use a dedicated [AuraDB instance](https://neo4j.com/labs/agent-memory/tutorials/first-agent-memory.html#_step_2_set_up_neo4j) and copy its connection values. Aura uses the `bolt` backend. Install the selected adapters with `pip install 'neo4j-agent-memory[anthropic,openai]==0.6.0' 'httpx>=0.27'` (release 0.6.0 imports `httpx` over Bolt but declares it only in the `nams` extra) and set their keys:
 
 ```bash
 export NEO4J_URI="neo4j+s://<instance-id>.databases.neo4j.io"
@@ -85,6 +85,7 @@ export NEO4J_USERNAME="neo4j"
 export NEO4J_PASSWORD="replace-with-your-Aura-password"
 export NEO4J_DATABASE="neo4j"
 export ANTHROPIC_API_KEY="replace-with-your-Anthropic-key"
+export ANTHROPIC_MODEL="claude-sonnet-4-6"  # or any Claude API model ID your workspace can use
 export OPENAI_API_KEY="replace-with-your-OpenAI-key"
 ```
 
@@ -104,7 +105,7 @@ async def main():
             "password": os.environ["NEO4J_PASSWORD"],
             "database": os.getenv("NEO4J_DATABASE", "neo4j"),
         },
-        llm="anthropic/claude-3-5-sonnet-latest",
+        llm=f"anthropic/{os.environ['ANTHROPIC_MODEL']}",
         embedding="openai/text-embedding-3-small",
     )
     async with MemoryClient(settings) as memory:
@@ -128,17 +129,19 @@ pip install 'neo4j-agent-memory[anthropic]==0.6.0'                      # + Anth
 pip install 'neo4j-agent-memory[bedrock]==0.6.0'                        # + AWS Bedrock native adapter
 pip install 'neo4j-agent-memory[sentence-transformers]==0.6.0'          # + local HF embeddings
 pip install 'neo4j-agent-memory[litellm]==0.6.0'                        # + LiteLLM universal fallback (100+ providers)
-pip install 'neo4j-agent-memory[mcp,openai]==0.6.0'                     # + MCP server
+pip install 'neo4j-agent-memory[mcp,openai]==0.6.0' 'httpx>=0.27'       # + MCP server
 pip install 'neo4j-agent-memory[all]==0.6.0'                            # Everything except heavy local ML
 pip install 'neo4j-agent-memory[full]==0.6.0'                           # Everything including spaCy, GLiNER, sentence-transformers
 ```
+
+Release 0.6.0 imports `httpx` when connecting to Neo4j over Bolt but declares it only in the `[nams]` extra, so add `'httpx>=0.27'` to any Bolt install whose extras do not include `nams`.
 
 ## MCP Server
 
 Give any MCP-compatible assistant (Claude Desktop, Claude Code, Cursor) persistent graph-backed memory. Use the Aura and OpenAI environment variables from the quickstart above; the explicit `--user` maps the exported Aura username to the CLI option:
 
 ```bash
-uvx "neo4j-agent-memory[mcp,openai]" mcp serve --backend bolt --user "$NEO4J_USERNAME"
+uvx --from 'neo4j-agent-memory[mcp,openai]==0.6.0' --with 'httpx>=0.27' neo4j-agent-memory mcp serve --backend bolt --user "$NEO4J_USERNAME"
 ```
 
 See the [MCP tools reference](https://neo4j.com/labs/agent-memory/reference/mcp-tools).
@@ -156,6 +159,7 @@ Full documentation: **[neo4j.com/labs/agent-memory](https://neo4j.com/labs/agent
 
 - Python 3.10+
 - A Neo4j AuraDB instance for the `bolt` quickstart, or a NAMS workspace for the hosted path
+- Self-managed Neo4j 5.26+ (including 2025.x) for the `bolt` backend
 
 ## License
 

@@ -2,7 +2,7 @@
  * An in-memory stand-in for the hosted Neo4j Agent Memory Service.
  *
  * `MemoryClient` accepts any `Transport`, so the whole example runs in CI with
- * no API key and no network. The fake keeps messages per conversation, which is
+ * no API key and no network. The fake keeps messages per conversation, which
  * proves the program explicitly reads the selected prior thread. Bridge-only
  * preference/fact operations are rejected.
  */

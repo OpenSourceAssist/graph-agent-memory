@@ -17,7 +17,7 @@
 *** Python and NAMS
 **** xref:tutorials/nams-quickstart.adoc[Store memory with Python/NAMS]
 **** xref:tutorials/ontology-quickstart.adoc[Activate and restore an ontology]
-**** xref:tutorials/skills-quickstart.adoc[Distil and download a skill]
+**** xref:tutorials/skills-quickstart.adoc[Distil and download a skill (Preview)]
 *** TypeScript and NAMS
 **** xref:tutorials/hosted-quickstart-typescript.adoc[Store memory with TypeScript/NAMS]
 **** xref:tutorials/first-agent-memory-typescript.adoc[Build an agent with memory]
@@ -155,7 +155,7 @@
 *** xref:explanation/backends.adoc[Bolt and NAMS backends]
 *** xref:explanation/poleo-model.adoc[The POLE+O data model]
 *** xref:explanation/ontologies.adoc[Ontologies]
-*** xref:explanation/skills.adoc[Agent Skills]
+*** xref:explanation/skills.adoc[Agent Skills (Preview)]
 *** xref:explanation/graph-architecture.adoc[Why Neo4j? Graph memory architecture]
 *** xref:explanation/extraction-pipeline.adoc[How entity extraction works]
 *** xref:explanation/resolution-deduplication.adoc[Entity resolution and deduplication]

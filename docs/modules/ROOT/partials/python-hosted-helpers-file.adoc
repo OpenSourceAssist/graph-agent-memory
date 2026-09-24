@@ -1,4 +1,4 @@
-Open the helper below and save its complete source as `hosted_tutorial_helpers.py` in your lesson folder.
+Open the helper below and save its complete source as `hosted_tutorial_helpers.py` in `~/agent-memory-tutorials`.
 
 .Show `hosted_tutorial_helpers.py`
 [%collapsible]

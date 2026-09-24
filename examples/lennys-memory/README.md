@@ -127,7 +127,7 @@ The right sidebar displays static agent configuration info:
 
 ### 1. Configure AuraDB
 
-Follow [Aura setup and cleanup](../AURA_SETUP.md), using a dedicated empty instance. Start with the sample transcript load; check capacity before loading the full dataset. The backend and loading scripts read `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, and `NEO4J_DATABASE`. The application runs locally while Aura hosts the database.
+Follow [Aura setup and cleanup](../AURA_SETUP.md), using a dedicated empty instance. Start with the sample transcript load; check capacity before loading the full dataset. The backend and loading scripts read `NEO4J_URI`, `NEO4J_USERNAME` and `NEO4J_PASSWORD`. The loading scripts also read `NEO4J_DATABASE` (default `neo4j`); the backend always uses the default `neo4j` database, so load into that one. The application runs locally while Aura hosts the database.
 
 ### 2. Install Dependencies
 
@@ -254,12 +254,7 @@ Visit http://localhost:3000 to start exploring.
 
 You can also query the Lenny's Podcast knowledge graph directly from Claude Desktop using the MCP server. This connects to the same Neo4j instance as the web app.
 
-Start the MCP server:
-```bash
-make mcp-server
-```
-
-Then add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Claude Desktop starts the server itself from its config, and it does not inherit your shell exports, so the config carries the Aura connection. Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`), using the values from `backend/.env`:
 
 ```json
 {
@@ -267,17 +262,23 @@ Then add to your Claude Desktop config (`~/Library/Application Support/Claude/cl
     "lennys-memory": {
       "command": "neo4j-agent-memory",
       "args": ["mcp", "serve",
-               "--password", "password",
+               "--backend", "bolt",
                "--profile", "extended",
                "--session-strategy", "per_day",
                "--user-id", "lenny-desktop"],
       "env": {
+        "NEO4J_URI": "neo4j+s://<instance-id>.databases.neo4j.io",
+        "NEO4J_USER": "neo4j",
+        "NEO4J_PASSWORD": "<your-Aura-password>",
+        "NEO4J_DATABASE": "neo4j",
         "OPENAI_API_KEY": "sk-..."
       }
     }
   }
 }
 ```
+
+The CLI reads `NEO4J_USER`, not the backend's `NEO4J_USERNAME`. The populated file holds your Aura password and OpenAI key, so keep it private. To check the command from a terminal first, export the same four `NEO4J_*` variables and run `make mcp-server`.
 
 After restarting Claude Desktop, you can ask questions like:
 - "Search for episodes about product-market fit"
@@ -1318,7 +1319,7 @@ This example is part of the [neo4j-agent-memory](https://github.com/neo4j-labs/a
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > _Verified against `neo4j-agent-memory` 0.6.0-dev (editable checkout; manifest pins `>=0.5.0,<0.7`), PydanticAI 2.42, FastAPI 0.141, sse-starlette 3.4, Neo4j driver 6.1, Neo4j 5.26, on 2026-09-10._
 >

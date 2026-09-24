@@ -18,7 +18,7 @@ attempts each write against Neo4j. Existing memory API calls still persist inlin
 == Prerequisites
 
 * A connected Bolt client and a Neo4j database on which you can run parameterized writes.
-* `MemorySettings` configured as in xref:how-to/messages.adoc[Store and Search Messages].
+* `MemorySettings` configured as in xref:how-to/messages.adoc[Store, retrieve, and summarize messages].
 * An application shutdown path that awaits `flush()` or `close()` and inspects background errors.
 
 The snippets run inside an async function. `generate_response` below represents your application's response function; it is not a library method.
@@ -167,7 +167,7 @@ opt-in and what the other v0.2 primitives trade away for the same reasons.
 
 == See also
 
-* xref:how-to/multi-tenancy.adoc[Multi-Tenant Memory]
+* xref:how-to/multi-tenancy.adoc[Associate memory with users and select scoped reads]
 * link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/buffered-writes[`examples/buffered-writes/`] — a runnable
   example that times a 50-turn conversation in `sync` mode against the same
   conversation in `buffered` mode, then drops `max_pending` to 4 so the bounded

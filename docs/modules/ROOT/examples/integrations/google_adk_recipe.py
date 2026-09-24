@@ -36,7 +36,7 @@ async def exercise(client):
     ):
         if event.error_code:
             raise RuntimeError(f"ADK run failed: {event.error_code}")
-        if event.is_final_response() and event.content:
+        if event.is_final_response() and event.content and event.content.parts:
             print("".join(part.text or "" for part in event.content.parts))
     stored_session = await sessions.get_session(
         app_name=app_name, user_id=user_id, session_id=session.id

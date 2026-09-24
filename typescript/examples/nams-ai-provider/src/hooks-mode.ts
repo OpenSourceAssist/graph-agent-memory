@@ -1,8 +1,10 @@
 /**
  * Lifecycle hooks mode: your code loads and saves the session transcript
  * around every generation (`prepare` / `onFinish`); nothing memory-related is
- * shown to the model. Lifecycle hooks add control around that. Each event
- * fires once across the four turns below:
+ * shown to the model. Lifecycle hooks add control around that. The four turns
+ * below exercise all eight events. SessionStart and SessionEnd run once per
+ * session; UserPromptSubmit, PreMemoryWrite and Stop run on every turn; the
+ * three tool events run when their tool is called:
  *
  *   SessionStart         adds a note about the user
  *   UserPromptSubmit      redacts card numbers before the model sees them
@@ -18,6 +20,8 @@
  *   MEMORY_API_KEY=nams_... OPENAI_API_KEY=sk-... npx tsx src/hooks-mode.ts
  */
 
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { createNams, type NamsHookConfig } from '@neo4j-labs/nams-ai-provider';
 import { openai } from '@ai-sdk/openai';
 import { ToolLoopAgent, stepCountIs, tool, type LanguageModel } from 'ai';
@@ -118,7 +122,9 @@ export async function hooksModeDemo(buildModel: (id: string) => LanguageModel = 
   await session.end({ userId, reason: 'demo_complete' });
   return answers;
 }
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run only when executed directly, not when a test imports this file.
+const entry = process.argv[1];
+if (entry && import.meta.url === pathToFileURL(realpathSync(entry)).href) {
   hooksModeDemo().catch(err => {
     console.error(err);
     process.exit(1);

@@ -1,6 +1,13 @@
-/** Compile the tutorial's base server plus the how-to's custom/restricted recipes, and exercise real stdio against an offline REST fixture. */
+/**
+ * Compile the tutorial's base server plus the how-to's custom/restricted recipes, and exercise real stdio against an offline REST fixture.
+ *
+ * The temporary project follows the page's install. By default it stays offline: the SDK is `npm pack`ed and unpacked into
+ * `node_modules` the way a registry install lays it out (no nested `node_modules`, so it shares the project's single `zod`), and
+ * the page's other packages are linked in from the SDK checkout. Set `DOCS_READER_INSTALL=1` to run the page's own `npm init` and
+ * `npm install` commands against the registry instead, which checks the pinned published release exactly as a reader installs it.
+ */
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile, copyFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, writeFile, copyFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +19,8 @@ import { startHostedStub } from "../../vercel-ai/test/docs-hosted-stub.js";
 
 const exec = promisify(execFile);
 const sdkRoot = fileURLToPath(new URL("../../../", import.meta.url));
+const readerInstall = process.env.DOCS_READER_INSTALL === "1";
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 const names = ["memory_create_conversation", "memory_add_messages", "memory_get_context", "memory_search_messages", "memory_get_entity", "memory_add_entity"];
 
 it("assembles base/custom/restricted lessons, records tool IDs immediately, restarts and verifies scoped cleanup", async () => {
@@ -26,6 +35,18 @@ it("assembles base/custom/restricted lessons, records tool IDs immediately, rest
   const custom = howToBlocks.find(block => block.includes('"memory_tutorial_graph"'))!;
   const restricted = howToBlocks.find(block => block.startsWith("const toolNames ="))!;
   const json = tutorialBlocks.filter(block => block.trim().startsWith("{")).map(block => JSON.parse(block));
+  const packageFields = json.find(value => value.scripts?.build && value.type === "module");
+  expect(packageFields).toBeDefined();
+  // The page's setup block: it must install the published SDK (a `../typescript` link resolves a second `zod`
+  // from the checkout and breaks `npm run build`), plus the MCP SDK and zod that share one copy with it.
+  const setup = [...tutorialPage.matchAll(/\[source,bash\]\n----\n([\s\S]*?)\n----/g)].map(match => match[1]!).find(block => block.includes("npm init -y"))!;
+  const installs = setup.split("\n").filter(line => /^npm (init|install)\b/.test(line));
+  const runtimeInstall = installs.find(line => line.startsWith("npm install ") && !line.includes("--save-dev"))!;
+  const sdkSpec = runtimeInstall.split(/\s+/).find(arg => arg.startsWith("@neo4j-labs/agent-memory@"));
+  expect(sdkSpec, "the lesson installs a pinned published SDK release").toMatch(/^@neo4j-labs\/agent-memory@\d+\.\d+\.\d+$/);
+  expect(runtimeInstall).not.toContain("../typescript");
+  expect(runtimeInstall).toMatch(/@modelcontextprotocol\/sdk@/);
+  expect(runtimeInstall).toMatch(/ zod@/);
   const conversationArgs = json.find(value => value.user_id === "<printed userId>");
   const entityArgs = json.find(value => value.name === "<printed entityName>");
   const messageArgs = json.find(value => value.conversation_id === "<returned conversation ID>");
@@ -45,19 +66,34 @@ it("assembles base/custom/restricted lessons, records tool IDs immediately, rest
   let runId = "";
   try {
     await mkdir(join(directory, "src"));
-    await mkdir(join(directory, "node_modules", "@neo4j-labs"), { recursive: true });
-    await symlink(sdkRoot, join(directory, "node_modules", "@neo4j-labs", "agent-memory"));
-    for (const name of ["@modelcontextprotocol", "@types", "zod"]) await symlink(join(sdkRoot, "node_modules", name), join(directory, "node_modules", name));
+    if (readerInstall) {
+      for (const line of installs) await exec(npm, line.split(/\s+/).slice(1), { cwd: directory, timeout: 240_000 });
+    } else {
+      // What `npm install @neo4j-labs/agent-memory@x.y.z ...` lays out: the packed package with no nested node_modules.
+      const packDir = join(directory, ".pack");
+      await mkdir(packDir);
+      const { stdout } = await exec(npm, ["pack", "--ignore-scripts", "--silent", "--pack-destination", packDir], { cwd: sdkRoot });
+      const tarball = join(packDir, stdout.trim().split("\n").at(-1)!);
+      await exec("tar", ["-xzf", tarball, "-C", packDir]);
+      await mkdir(join(directory, "node_modules", "@neo4j-labs"), { recursive: true });
+      await rename(join(packDir, "package"), join(directory, "node_modules", "@neo4j-labs", "agent-memory"));
+      expect(await readdir(join(directory, "node_modules", "@neo4j-labs", "agent-memory"))).not.toContain("node_modules");
+      for (const name of ["@modelcontextprotocol", "@types", "zod"]) await symlink(join(sdkRoot, "node_modules", name), join(directory, "node_modules", name));
+      await writeFile(join(directory, "package.json"), JSON.stringify({ name: "my-memory-mcp", version: "1.0.0" }));
+    }
     for (const name of ["tutorial-state", "tutorial-cleanup", "tutorial-mcp"]) await copyFile(join(sdkRoot, "examples", "shared", `${name}.ts`), join(directory, "src", `${name}.ts`));
-    await writeFile(join(directory, "package.json"), JSON.stringify({ type: "module" }));
+    // Merge the page's package fields into the project's package.json, as the lesson tells the reader to.
+    const manifest = JSON.parse(await readFile(join(directory, "package.json"), "utf8"));
+    await writeFile(join(directory, "package.json"), JSON.stringify({ ...manifest, ...packageFields }, null, 2));
     await writeFile(join(directory, "tsconfig.json"), config);
+    const tsc = readerInstall ? join(directory, "node_modules", "typescript", "bin", "tsc") : join(sdkRoot, "node_modules", "typescript", "bin", "tsc");
     for (const variant of ["base", "custom", "restricted"] as const) {
       const registration = /  const toolNames = registerMemoryTools\(server, memory, \{[\s\S]*?\n  \}\);/;
       const assembled = variant === "custom" ? customImports + "\n" + source.replace("  const transport =", custom + "\n  const transport =")
         : variant === "restricted" ? source.replace(registration, restricted) : source;
       expect(assembled).toContain(variant === "custom" ? "memory_tutorial_graph" : "registerMemoryTools");
       await writeFile(join(directory, "src", "server.ts"), assembled);
-      await exec(process.execPath, [join(sdkRoot, "node_modules", "typescript", "bin", "tsc"), "-p", join(directory, "tsconfig.json")]);
+      await exec(process.execPath, [tsc, "-p", join(directory, "tsconfig.json")]);
       if (variant === "base") {
         const initialized = JSON.parse((await cli("init", path)).stdout);
         userId = initialized.userId; runId = initialized.runId;
@@ -114,4 +150,4 @@ it("assembles base/custom/restricted lessons, records tool IDs immediately, rest
     expect(stub.requests.every(r => r.authorization === "Bearer nams_offline_docs" && r.workspace === "offline-workspace")).toBe(true);
     expect((await cli("cleanup", path)).stdout).toContain('"complete":true');
   } finally { await stub.close(); await rm(directory, { recursive: true, force: true }); }
-}, 30_000);
+}, readerInstall ? 600_000 : 60_000);

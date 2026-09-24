@@ -4,7 +4,7 @@ Run the Python MCP server as an authenticated Cloud Run service connected to Neo
 
 ## Prerequisites
 
-- A checkout of this repository, Docker, and Google Cloud CLI.
+- A checkout of this repository, Docker, Google Cloud CLI, and [uv](https://docs.astral.sh/uv/) for the host-side `fastmcp` checks.
 - A test Google Cloud project with billing and Cloud Run, Cloud Build, Artifact Registry, Secret Manager, and Vertex AI APIs enabled.
 - Permission to create the required resources, deploy using the runtime service account, and grant the intended developer/service identity `roles/run.invoker`.
 - A dedicated [AuraDB instance](../../examples/AURA_SETUP.md) reachable from Cloud Run and credentials stored in Secret Manager. Use a fresh test database with 768-dimensional vector indexes for the selected embedding configuration.
@@ -12,7 +12,7 @@ Run the Python MCP server as an authenticated Cloud Run service connected to Neo
 
 The image explicitly selects Vertex AI embeddings (`gemini-embedding-001`, 768 dimensions) and the Bolt backend. It disables automatic entity extraction and preference detection, so this path needs no OpenAI key or separate LLM. Message storage, embedding search and explicit graph tools remain available. Installing `[mcp,google]` alone would not select Google providers: the SDK defaults still select OpenAI embeddings, and provider credentials are checked lazily when a tool uses them.
 
-The container uses Streamable HTTP at `/mcp/`. It does not implement application authentication itself; Cloud Run IAM protects the endpoint. The local proxy below supplies the developer's Cloud Run identity. A production MCP client needs its own supported service-to-service authentication path.
+The container serves Streamable HTTP at `/mcp`, with no trailing slash. A request to `/mcp/` is redirected to an absolute `http://` URL, which loses HTTPS behind Cloud Run's TLS termination, so give clients the exact path. The container does not implement application authentication itself; Cloud Run IAM protects the endpoint. The local proxy below supplies the developer's Cloud Run identity. A production MCP client needs its own supported service-to-service authentication path.
 
 ## 1. Verify the image locally
 
@@ -25,7 +25,7 @@ docker run --rm neo4j-memory-mcp:local neo4j-agent-memory mcp serve --help
 
 The Dockerfile must copy `README-pypi.md`, because that is the packaging readme declared by `pyproject.toml`. The context is the repository root, not the `deploy/cloudrun` directory.
 
-For a protocol smoke test, supply the Aura `neo4j+s://` URI, username and password as `NEO4J_URI`, `NEO4J_USER`, and `NEO4J_PASSWORD` through a local, uncommitted environment file. Map the Aura setup's `NEO4J_USERNAME` value to the CLI's `NEO4J_USER` key. Docker runs the MCP application here; the database remains in Aura. Configure local Application Default Credentials (ADC) and select the Vertex AI project. The following mount passes the ADC file read-only; the local process uses your UID/GID so it can read the file without widening its permissions:
+For a protocol smoke test, supply the Aura `neo4j+s://` URI, username and password as `NEO4J_URI`, `NEO4J_USER`, and `NEO4J_PASSWORD` through a local, uncommitted environment file. Copy `deploy/cloudrun/env.yaml.example` outside the repository as a starting point; despite its suffix it is a `KEY=VALUE` file for `docker run --env-file`. Map the Aura setup's `NEO4J_USERNAME` value to the CLI's `NEO4J_USER` key. Docker runs the MCP application here; the database remains in Aura. Configure local Application Default Credentials (ADC) and select the Vertex AI project. The following mount passes the ADC file read-only; the local process uses your UID/GID so it can read the file without widening its permissions:
 
 ```bash
 export PROJECT_ID=your-test-project
@@ -39,10 +39,10 @@ docker run --rm --user "$(id -u):$(id -g)" \
   -p 8080:8080 neo4j-memory-mcp:local
 ```
 
-In another terminal, use the CLI installed by the selected `[mcp]` dependency set:
+In another terminal, run the `fastmcp` CLI from the same `[mcp]` dependency set on the host. `uvx` installs it into a temporary environment; `python -m pip install "neo4j-agent-memory[mcp]==0.6.0"` in a virtual environment works too:
 
 ```bash
-fastmcp list http://127.0.0.1:8080/mcp/ --prompts --resources
+uvx --from "neo4j-agent-memory[mcp]==0.6.0" fastmcp list http://127.0.0.1:8080/mcp --prompts --resources
 ```
 
 Expect the extended profile's registered Bolt tools, prompts and resources. Then call `memory_store_message` with a synthetic message and use `memory_search` with that session ID; confirm the returned text and inspect the stored record in the test database. Registration or a TCP listener does not exercise embedding credentials. Automatic extraction/preference detection remains disabled even though generic tool descriptions mention those optional behaviors. Check supported operations, not just registration counts; the NAMS backend has different applicability. Keep the full build and protocol output with deployment evidence. A metadata check alone does not prove the complete image runs.
@@ -114,12 +114,10 @@ gcloud run services proxy neo4j-memory-mcp \
 In another terminal:
 
 ```bash
-fastmcp list http://127.0.0.1:8081/mcp/ --prompts --resources
+uvx --from "neo4j-agent-memory[mcp]==0.6.0" fastmcp list http://127.0.0.1:8081/mcp --prompts --resources
 ```
 
 Then use a synthetic conversation to verify one supported write/read round trip and confirm it reaches the intended database. A public unauthenticated request should be denied. Stop the local proxy when the check finishes. Google's [developer authentication guide](https://docs.cloud.google.com/run/docs/authenticating/developers) describes the proxy and its limitations; use the [service-to-service authentication guide](https://docs.cloud.google.com/run/docs/authenticating/service-to-service) for deployed callers.
-
-This documentation repair verified package metadata, CLI/settings selection and provider construction with offline mocks locally. A complete Docker build and live Cloud Run/proxy round trip remain deployment checks to execute in the selected environment; they are not certified by a local documentation build.
 
 ## Existing public services
 
@@ -142,10 +140,10 @@ Also review any `allAuthenticatedUsers` grant and recheck anonymous and authoriz
 | Vertex AI identity | Attached runtime service account with model-invocation permission; local smoke test uses mounted ADC |
 | Embedding model / location / dimensions | Image selects `vertex_ai/gemini-embedding-001`, `us-central1`, 768 |
 | Automatic extraction / preferences | `NAM_EXTRACTION__EXTRACTOR_TYPE=none` and `--no-auto-preferences`; no LLM configured |
-| Listener | `0.0.0.0:8080`, Streamable HTTP `/mcp/` |
+| Listener | `0.0.0.0:8080`, Streamable HTTP `/mcp` |
 | Memory / CPU | 1 GiB / 1 CPU in the example deployment |
 | Instances | 0–10; size and concurrency require workload testing |
 
-For secret denial, check all three secret grants against the configured runtime identity. For database failures, verify TLS, network reachability and credentials. For embedding failures, check ADC, the configured project, Vertex AI API enablement, model access and quotas in `us-central1`. Matching dimensions alone does not make an existing model's vectors compatible; use a fresh database or perform the documented embedding migration. To enable extraction later, configure an explicit LLM/provider and its dependencies/credentials as a separate change. For startup, inspect container logs; the service template uses a TCP startup probe because `/mcp/` is a protocol endpoint, not a health page. Old `/sse` or `/messages` client URLs must be changed to `/mcp/`.
+For secret denial, check all three secret grants against the configured runtime identity. For database failures, verify TLS, network reachability and credentials. For embedding failures, check ADC, the configured project, Vertex AI API enablement, model access and quotas in `us-central1`. Matching dimensions alone does not make an existing model's vectors compatible; use a fresh database or perform the documented embedding migration. To enable extraction later, configure an explicit LLM/provider and its dependencies/credentials as a separate change. For startup, inspect container logs; the service template uses a TCP startup probe because `/mcp` is a protocol endpoint, not a health page. Old `/sse` or `/messages` client URLs must be changed to `/mcp`.
 
 Cloud identity and command references were checked against Google's documentation on 13 September 2026. Record the source commit, image digest, package dependencies, service revision, successful protocol output and cleanup with each actual deployment verification.

@@ -15,7 +15,7 @@ Configure an LLM or embedding provider — native adapters for OpenAI, Anthropic
 
 == Prerequisites
 
-* Install the extras for each selected provider and configure its credentials. Quote package extras in shell commands, for example `pip install 'neo4j-agent-memory[openai]==0.6.0'`.
+* Install the extras for each selected provider and configure its credentials. Quote package extras in shell commands, for example `pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'`. Keep `httpx` in the command: release 0.6.0 imports it when connecting over Bolt but declares it only in the `nams` extra.
 * Use a dedicated AuraDB instance and export `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` as shown in xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. These examples use the `bolt` backend; `NEO4J_DATABASE` defaults to `neo4j` when omitted.
 * Model identifiers below illustrate adapter routing. Confirm the chosen model is available to your account before making a live request; successful provider construction does not verify model access.
 * Run snippets containing `await` in an async function. The `provider`, `messages`, and connected `client` in later fragments come from your application's setup.
@@ -27,6 +27,8 @@ Configure an LLM or embedding provider — native adapters for OpenAI, Anthropic
 . Run the verification at the end before applying the configuration to an existing graph.
 
 == Configure a provider string
+
+anchor:_tldr_string_shorthand[]
 
 [source,python]
 ----
@@ -49,7 +51,7 @@ async with MemoryClient(settings) as client:
     ...
 ----
 
-* Install: `pip install 'neo4j-agent-memory[anthropic,openai]==0.6.0'`
+* Install: `pip install 'neo4j-agent-memory[anthropic,openai]==0.6.0' 'httpx>=0.27'`
 * The factory picks a native adapter when the matching extra is installed, and falls back to LiteLLM for unsupported providers.
 * Returned Providers implement the `LLMProvider` / `EmbeddingProvider` Protocols.
 
@@ -301,6 +303,13 @@ The full hierarchy:
 
 == Configure via the MCP CLI
 
+The `neo4j-agent-memory` command needs the `cli` extra, and `mcp serve` also needs the `mcp` extra. Install them with the extras for the providers the command selects:
+
+[source,bash]
+----
+pip install 'neo4j-agent-memory[cli,mcp,anthropic,sentence-transformers]==0.6.0'
+----
+
 Match the Python API surface from the command line:
 
 [source,bash]
@@ -321,7 +330,7 @@ export NAM_EMBEDDING=BAAI/bge-small-en-v1.5
 neo4j-agent-memory mcp serve --backend bolt --uri "$NEO4J_URI" --user "$NEO4J_USERNAME"
 ----
 
-See xref:reference/cli.adoc[CLI Reference] for the full flag set.
+See xref:reference/cli.adoc[CLI reference] for the full flag set.
 
 == Verify the configuration
 
@@ -333,11 +342,10 @@ vector dimension stays the same; see xref:how-to/migrate-embedding-model.adoc[th
 
 == See also
 
+anchor:_related[]
+
 * xref:tutorials/anthropic-and-local-embeddings.adoc[Tutorial: Anthropic + local embeddings] — a copy-paste-runnable walkthrough.
 * xref:how-to/configure-llm-provider.adoc[Configure an LLM provider].
 * xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider].
-* xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?] — design rationale.
+* xref:explanation/why-provider-protocol.adoc[Why the provider protocol?] — design rationale.
 * xref:how-to/migrate-to-providers.adoc[Migrate to pluggable providers] — backward compat and side-by-side examples.
-
-// Preserve historical section links after the procedure was reorganized.
-anchor:_tldr_string_shorthand[]

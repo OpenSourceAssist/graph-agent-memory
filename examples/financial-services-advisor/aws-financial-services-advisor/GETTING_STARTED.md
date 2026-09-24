@@ -12,8 +12,8 @@ Before starting, ensure you have:
 |------------|---------|-------|
 | **Python** | 3.11+ | 3.10 is EOL as of 2026-10 |
 | **uv** | Latest | Python package manager ([install](https://docs.astral.sh/uv/getting-started/installation/)) |
-| **Node.js** | 18+ | For the frontend |
-| **npm** | 9+ | Comes with Node.js |
+| **Node.js** | 22.13+ on the 22 line, or 24 | For the frontend development toolchain |
+| **npm** | 10+ | Comes with Node.js |
 | **AWS CLI** | v2 | Configured with valid credentials |
 | **Neo4j AuraDB** | Managed Neo4j | Dedicated empty instance; see Step 2 |
 

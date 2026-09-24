@@ -9,8 +9,8 @@ different operations, and the TypeScript SDK is REST/NAMS-only.
 
 == Options and constraints
 
-Each option below lists the same facts the comparison used to show in table
-form: transport, backend, credentials, and requirements and constraints.
+Each option lists its transport, backend, credentials, and requirements and
+constraints.
 
 === Hosted NAMS workspace (Python or TypeScript)
 
@@ -23,21 +23,21 @@ Requirements and constraints:: No Neo4j instance or extraction pipeline to run y
 
 Transport:: Bolt (`bolt://`, `neo4j+s://`) from your own process — no MCP server
 Backend:: Bolt, against a Neo4j instance you operate (self-managed or AuraDB)
-Credentials:: `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD`, plus embedding/LLM provider credentials for the selected providers (`MemorySettings` implicitly selects OpenAI embeddings)
+Credentials:: `NAM_NEO4J__URI` / `NAM_NEO4J__USERNAME` / `NAM_NEO4J__PASSWORD`, which `MemorySettings()` reads from the environment, plus embedding/LLM provider credentials for the selected providers (`MemorySettings` implicitly selects OpenAI embeddings). Plain `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` are not read by `MemorySettings`; an application that uses them must pass the values itself, for example `MemorySettings(neo4j=...)`. See xref:reference/environment-variables.adoc#_neo4j_connection[environment variables].
 Requirements and constraints:: Full Bolt operation set, including preferences, facts, client-created relationships, geospatial search and custom Cypher; you operate the database and the extraction pipeline. See xref:reference/configuration.adoc[configuration reference].
 
 === Self-hosted Python MCP server, stdio transport
 
 Transport:: stdio (the CLI default)
-Backend:: Bolt, against a Neo4j instance you operate
-Credentials:: `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` for the database; provider credentials (for example an OpenAI key) only if extraction or embeddings are enabled
+Backend:: Bolt, against a Neo4j instance you operate, or NAMS (`--backend nams`, the default when `MEMORY_API_KEY` is set)
+Credentials:: For Bolt, `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` (the `mcp serve` options read these names); for NAMS, `MEMORY_API_KEY` (and `MEMORY_ENDPOINT` to override the default endpoint). Provider credentials (for example an OpenAI key) only if extraction or embeddings are enabled
 Requirements and constraints:: For local MCP hosts — Claude Desktop, Claude Code, Cursor. Not a network-reachable deployment: the host process owns stdio.
 
 === Self-hosted Python MCP server, Streamable HTTP transport
 
 Transport:: `http` (`streamable-http` is an explicit spelling of the same transport; `sse` is accepted but deprecated and served as `http`)
-Backend:: Bolt, against a Neo4j instance you operate (for example AuraDB)
-Credentials:: Database credentials plus embedding/LLM provider credentials for whichever provider you select
+Backend:: Bolt, against a Neo4j instance you operate (for example AuraDB), or NAMS (`--backend nams`, the default when `MEMORY_API_KEY` is set)
+Credentials:: For Bolt, `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD`; for NAMS, `MEMORY_API_KEY`. Plus embedding/LLM provider credentials for whichever provider you select
 Requirements and constraints:: The documented example (https://github.com/neo4j-labs/agent-memory/blob/main/deploy/cloudrun/README.md[Cloud Run MCP deployment]) runs this transport on Cloud Run with Vertex AI embeddings (`gemini-embedding-001`, 768 dimensions), Secret Manager for `NEO4J_URI`/`NEO4J_USER`/`NEO4J_PASSWORD`, Cloud Run IAM for endpoint authentication, and automatic extraction/preference detection disabled by default. It has no built-in application-level authentication — the platform (Cloud Run IAM, or your own reverse proxy) must supply that.
 
 === TypeScript REST client on an edge runtime (Cloudflare Workers, Vercel Edge)

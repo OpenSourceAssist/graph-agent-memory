@@ -28,9 +28,10 @@ graph — no checkpointer, no in-process message buffer.
 - **Extraction is asynchronous** — the script awaits
   `longTerm.waitForExtraction()` before querying entities, instead of racing a
   fixed delay.
-- **Graph, not buffer** — the run ends by printing three-tier context counts, a
-  explicitly scoped conversation readback, and one `longTerm.expandGraph()` hop
-  out of the entity the retriever found.
+- **Graph, not buffer** — after the two turns the script reads the
+  conversation back from NAMS, scoped explicitly to its ID. The run ends by
+  printing three-tier context counts and one `longTerm.expandGraph()` hop out
+  of the entity the retriever found.
 
 ### The adapter bridge
 
@@ -83,8 +84,9 @@ than a transport 401.
 conversation: 0f4c…
 
 user> I'm evaluating graph databases for a recommendation engine. Neo4j is top of my list.
-memory: injected 4 lines of graph context
+memory: nothing recalled yet (first turn)
 tool search_memory_entities("graph database") -> 0 entities
+memory: nothing recalled yet (first turn)
 memory: persisted human message (84 chars)
 memory: persisted ai message (287 chars)
 agent> Neo4j is a strong fit for relationship-heavy recommendations …
@@ -111,8 +113,12 @@ Three-tier context: 1 reflections, 2 observations, 4 recent messages
 One hop from Neo4j: nodes=4 edges=3
 ```
 
-Exact wording varies with the model; the structure does not. Entity names come
-out of the messages the agent just persisted — nothing is hand-seeded. Entity search is workspace-wide, not a private user-profile lookup.
+Exact wording varies with the model; the structure does not. The middleware
+logs once per model call, so a turn that calls the tool logs twice. In a fresh
+workspace turn one has nothing to recall; in a workspace that already holds
+matching entities it reads `memory: injected N lines of graph context` instead.
+Entity names come out of the messages the agent just persisted — nothing is
+hand-seeded. Entity search is workspace-wide, not a private user-profile lookup.
 Hosted preference/fact methods are deliberately excluded and rejected by the fake.
 
 ## Tests

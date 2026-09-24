@@ -9,7 +9,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, create_autospec
 
 import pytest
@@ -70,7 +70,8 @@ class Client:
         return SimpleNamespace(messages=[m for sid, m in self.messages if sid == session_id])
 
     async def search(self, query, **kwargs):
-        return [m for sid, m in self.messages if kwargs.get("session_id", sid) == sid]
+        scope = kwargs.get("session_id")
+        return [m for sid, m in self.messages if scope in (None, sid)]
 
     async def start_trace(self, session_id, task, **kwargs):
         trace = ReasoningTrace(session_id=session_id, task=task)
@@ -107,6 +108,7 @@ def test_crewai_boundary_passes_context_and_verifies_actual_public_readback():
     assert asyncio.run(crew.exercise(client, kickoff)) == "Checklist ready"
     assert threads != [main_thread]
     assert [m.role.value for _, m in client.messages] == ["user", "assistant"]
+    assert len(client.traces) == 1
     assert all(trace.success is True for trace in client.traces.values())
 
 
@@ -119,6 +121,7 @@ def test_crewai_failure_is_recorded_without_assistant_reply():
     with pytest.raises(RuntimeError, match="framework failed"):
         asyncio.run(crew.exercise(client, fail))
     assert [m.role.value for _, m in client.messages] == ["user"]
+    assert len(client.traces) == 1
     assert all(trace.success is False for trace in client.traces.values())
 
 
@@ -128,6 +131,7 @@ def test_missing_readback_cannot_produce_successful_task_trace():
     client.short_term.get_conversation.return_value = SimpleNamespace(messages=[])
     with pytest.raises(RuntimeError, match="readback failed"):
         asyncio.run(crew.exercise(client, lambda _context: "Checklist"))
+    assert len(client.traces) == 1
     assert all(trace.success is False for trace in client.traces.values())
 
 
@@ -138,6 +142,7 @@ def test_pydantic_real_agent_and_dependency_complete_recipe():
     result = asyncio.run(pydantic_recipe.exercise(client, TestModel(call_tools=[])))
     assert result
     assert len(client.messages) == 2
+    assert len(client.traces) == 1
     assert all(trace.success is True for trace in client.traces.values())
 
 
@@ -171,8 +176,55 @@ def test_openai_recipe_uses_actual_adapter_and_correct_task_outcome(fail):
             asyncio.run(openai_recipe.exercise(client, run))
     else:
         assert asyncio.run(openai_recipe.exercise(client, run)) == "Checklist ready"
+    assert len(client.traces) == 1
     assert all(trace.success is not fail for trace in client.traces.values())
     assert len(client.messages) == (1 if fail else 2)
+
+
+def test_openai_main_registers_recall_tool_and_runs_agent(monkeypatch):
+    seen = {}
+
+    def function_tool(fn):
+        seen["tool"] = fn
+        return SimpleNamespace(name=fn.__name__, fn=fn)
+
+    class Agent:
+        def __init__(self, *, name, model, instructions, tools):
+            self.name, self.model, self.tools = name, model, tools
+            seen["agent"] = self
+
+    class Runner:
+        @staticmethod
+        async def run(agent, prompt):
+            assert agent is seen["agent"]
+            assert "checklist" in prompt
+            assert [tool.name for tool in agent.tools] == ["recall_context"]
+            assert await seen["tool"]("checklist") == "Stored project background"
+            return SimpleNamespace(final_output="Checklist ready")
+
+    agents = ModuleType("agents")
+    agents.Agent, agents.Runner, agents.function_tool = Agent, Runner, function_tool
+    monkeypatch.setitem(sys.modules, "agents", agents)
+    monkeypatch.setenv("OPENAI_MODEL", "fixture-model")
+    client = Client()
+
+    class MemoryClient:
+        def __init__(self, settings):
+            pass
+
+        async def __aenter__(self):
+            return client
+
+        async def __aexit__(self, *exc):
+            return False
+
+    monkeypatch.setattr("neo4j_agent_memory.MemoryClient", MemoryClient)
+    monkeypatch.setattr(openai_recipe, "settings", lambda: None)
+    asyncio.run(openai_recipe.main())
+    assert seen["agent"].model == "fixture-model"
+    assert len(client.messages) == 2
+    assert len(client.traces) == 1
+    assert all(trace.success is True for trace in client.traces.values())
 
 
 @pytest.mark.parametrize("fail", [False, True])
@@ -255,17 +307,17 @@ def test_hybrid_empty_readback_is_not_verified_as_persistence():
         asyncio.run(hybrid.exercise(client))
 
 
-def test_bedrock_actual_adapter_emits_validated_batch_dimensions():
-    from neo4j_agent_memory.embeddings import BedrockEmbedder
-
+def test_bedrock_actual_adapter_emits_validated_batch_dimensions(monkeypatch):
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
     calls = []
 
     def invoke_model(**kwargs):
         calls.append(json.loads(kwargs["body"]))
         return {"body": io.BytesIO(json.dumps({"embedding": [0.1] * 1024}).encode())}
 
-    embedder = BedrockEmbedder(model="amazon.titan-embed-text-v2:0")
-    embedder._client = SimpleNamespace(invoke_model=invoke_model)
+    embedder = cloud.build_embedder("bedrock")
+    assert embedder.dimensions == 1024
+    embedder._ensure_underlying()._client = SimpleNamespace(invoke_model=invoke_model)
     asyncio.run(cloud.verify_vectors(embedder))
     assert len(calls) == 2
     assert all("inputText" in call for call in calls)
@@ -277,8 +329,26 @@ def test_vertex_recipe_selects_exact_dimension_without_network(monkeypatch):
     assert cloud.build_embedder("vertex").dimensions == 768
 
 
+@pytest.mark.parametrize(("provider", "dimensions"), [("bedrock", 1024), ("vertex", 768)])
+def test_common_settings_accepts_each_cloud_embedder(monkeypatch, tmp_path, provider, dimensions):
+    monkeypatch.chdir(tmp_path)
+    for key, value in {
+        "NEO4J_URI": "neo4j+s://tutorial.databases.neo4j.io",
+        "NEO4J_USERNAME": "tutorial-user",
+        "NEO4J_PASSWORD": "synthetic-tutorial-password",
+        "AWS_REGION": "us-east-1",
+        "GOOGLE_CLOUD_PROJECT": "fixture-project",
+        "GOOGLE_CLOUD_LOCATION": "us-central1",
+    }.items():
+        monkeypatch.setenv(key, value)
+    embedder = cloud.build_embedder(provider)
+    config = common.settings(embedding=embedder)
+    assert config.embedding is embedder
+    assert config.embedding.dimensions == dimensions
+
+
 def test_cloud_dimension_mismatch_stops_before_database_setup():
-    embedder = SimpleNamespace(dimensions=768, embed_batch=AsyncMock(return_value=[[0.1], [0.1]]))
+    embedder = SimpleNamespace(dimensions=768, embed=AsyncMock(return_value=[[0.1], [0.1]]))
     with pytest.raises(RuntimeError, match="dimensions"):
         asyncio.run(cloud.verify_vectors(embedder))
 

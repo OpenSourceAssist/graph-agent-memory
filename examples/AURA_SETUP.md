@@ -27,7 +27,7 @@ Expect `connected = 1` and `node_count = 0`. This check is for the newly created
 
 Keep these variables exported while following the example's installation and run commands. Some full applications use `NEO4J_USER` instead of `NEO4J_USERNAME`, or separate credentials for a domain graph; their README gives the required mapping. When a README asks for a private `.env` file, replace its template's local connection values with these Aura values. Remove any `MEMORY_API_KEY` entry from the private `.env` files that the example loads: `unset` alone is insufficient because dotenv can load the key again and select NAMS. Keep `NAM_BACKEND=bolt` for this Aura run and replace any conflicting backend selector in those private files. Never commit credentials.
 
-Start each example with an empty instance. Vector indexes from another embedding model can be incompatible even when dimensions match. Large datasets or optional graph algorithms can also have requirements beyond AuraDB Free; check the example before loading more than its starter dataset. This setup change does not claim a live Aura run of every example.
+Start each example with an empty instance. Vector indexes from another embedding model can be incompatible even when dimensions match. Large datasets or optional graph algorithms can also have requirements beyond AuraDB Free; check the example before loading more than its starter dataset.
 
 ## Clean up this example
 
@@ -40,3 +40,14 @@ unset NEO4J_URI NEO4J_USERNAME NEO4J_PASSWORD NEO4J_DATABASE NAM_BACKEND
 ```
 
 Also clear application-specific aliases you set, such as `NEO4J_USER` or `NEWS_GRAPH_*`. Keep the repository and installed dependencies for the next example.
+
+## Local alternative: Docker
+
+For a key-free local run of the repository's standalone and v0.2 examples, use the throwaway Neo4j from `docker-compose.test.yml` instead of Aura. The `make example-*` targets (and `make examples`) start it when `NEO4J_URI` is set neither in your shell nor in `examples/.env`, then export `NEO4J_URI=bolt://localhost:7687`, `NEO4J_USERNAME=neo4j` and `NEO4J_PASSWORD=test-password` for the script:
+
+```bash
+unset NEO4J_URI MEMORY_API_KEY
+make example-basic
+```
+
+To run a script directly, start the container with `make neo4j-start` and export the same three values. The container needs ports 7474 and 7687 free. Stop it with `make neo4j-stop`, or remove it and its data with `make neo4j-clean`.

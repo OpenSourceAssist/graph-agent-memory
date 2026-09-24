@@ -113,7 +113,26 @@ describe("scoped supported cleanup", () => {
     try { const count = deletes().length; expect((await cleanupTutorial(second)).complete).toBe(true); expect(deletes()).toHaveLength(count); }
     finally { await second.client.close(); }
   });
-  it.each(["pending", "failed", "error", "unknown"])("retains all resources for extraction status %s", async status => {
+  it.each(["done", "completed", "skipped"])("treats extraction status %s as finished and cleans up", async status => {
+    await seed(); stub.behavior.extraction = status;
+    expect((await cleanupTutorial(run, { timeoutMs: 1_000, intervalMs: 50 })).complete).toBe(true);
+    expect(deletes().at(-1)).toBe(`DELETE /conversations/${run.conversationId}`);
+  });
+  it("reads the summary counts when the per-message list is empty", async () => {
+    await seed(); stub.behavior.derive = false;
+    vi.spyOn(run, "request").mockResolvedValue({ messages: [], summary: { completed: 1 } });
+    expect((await cleanupTutorial(run)).complete).toBe(true);
+  });
+  it("rejects a summary that does not count exactly the recorded messages", async () => {
+    await seed(); vi.spyOn(run, "request").mockResolvedValue({ messages: [], summary: { completed: 2 } });
+    await expect(cleanupTutorial(run)).rejects.toThrow("exactly"); expect(deletes()).toEqual([]);
+  });
+  it.each(["failed", "error", "cancelled", "unknown"])("fails fast and retains all resources for extraction status %s", async status => {
+    await seed(); stub.behavior.extraction = status;
+    await expect(cleanupTutorial(run, { timeoutMs: 60_000 })).rejects.toThrow(/failed|Unknown/);
+    expect(deletes()).toEqual([]); expect(run.state.cleanup?.complete).toBe(false);
+  });
+  it.each(["pending", "failed", "error", "cancelled", "unknown"])("retains all resources for extraction status %s", async status => {
     await seed(); stub.behavior.extraction = status;
     await expect(cleanupTutorial(run, { timeoutMs: 0 })).rejects.toThrow();
     expect(deletes()).toEqual([]); expect(run.state.cleanup?.complete).toBe(false);

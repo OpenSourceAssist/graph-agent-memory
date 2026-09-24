@@ -8,7 +8,7 @@
 
 The Python provider interfaces separate model access from memory storage. They let client-side extraction and embeddings use a selected adapter while keeping a common interface for the caller.
 
-NOTE: These are Bolt-side provider choices. NAMS manages extraction and embeddings server-side. See xref:explanation/backends.adoc[Bolt and NAMS]. Current source and a published SDK artifact may expose different provider surfaces; use the reference for the version you have installed. Check your installed version with `pip show neo4j-agent-memory` and compare it against the version banner on this docs site.
+NOTE: These are Bolt-side provider choices. NAMS manages extraction and embeddings server-side. See xref:explanation/backends.adoc[Bolt and NAMS]. This page describes `neo4j-agent-memory` 0.6.0; check the version you have installed with `pip show neo4j-agent-memory`.
 
 [[_the_problem_v0_2_had]]
 == Why separate model access from extraction?
@@ -78,13 +78,15 @@ Bronze, Silver, Gold, and Platinum terminology refers to client conformance in t
 [[_how_migration_resolves_provider_settings]]
 == How migration resolves provider settings
 
-The migration from legacy `EmbeddingConfig` / `LLMConfig` types to provider strings and instances is implemented by a `@model_validator(mode="after")` on `MemorySettings` (named `_resolve_providers`). It:
+The migration from legacy `EmbeddingConfig` / `LLMConfig` types to provider strings and instances is implemented by two `@model_validator(mode="after")` validators on `MemorySettings`. The first, `_resolve_providers`:
 
 . Coerces dict input to legacy configs (so `MemorySettings(embedding={...})` still works).
 . Resolves provider strings via `from_provider`.
 . Emits `DeprecationWarning` when the user explicitly passed legacy `EmbeddingConfig` / `LLMConfig` instances.
 . Validates Provider instances against the runtime-checkable `EmbeddingProvider` / `LLMProvider` Protocols.
-. Keeps explicit `llm=None` only when extraction does not require an LLM; otherwise construction raises. An omitted LLM field may be auto-filled when the configured extraction pipeline needs it.
+. Passes `llm=None` through unchanged.
+
+The second, `_validate_llm_consistency`, then checks `llm=None` against the extraction settings. When the configured extractor needs an LLM (`extractor_type=LLM`, or `PIPELINE` with `enable_llm_fallback=True`), an explicit `llm=None` makes construction fail with a `ValidationError`, and an omitted `llm` is filled in with a default `LLMConfig()`. Otherwise `llm=None` is kept.
 
 After resolution, `MemoryClient._create_embedder` and `_create_extractor` consume either shape transparently. A small adapter (`_ProviderToEmbedderAdapter`) bridges new Provider instances back to the legacy `Embedder` API so downstream memory layers keep working unchanged.
 

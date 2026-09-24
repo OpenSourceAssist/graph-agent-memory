@@ -20,11 +20,17 @@ Prerequisites:
 
 * Node.js 22 or newer (the package's declared floor).
 * A `MEMORY_API_KEY` from https://memory.neo4jlabs.com[memory.neo4jlabs.com].
-* The packages installed:
+* An `OPENAI_API_KEY`. The program uses `@ai-sdk/openai` by default; to use
+  another provider, pass its model factory to the `middlewareModeDemo()` call at the
+  bottom of the file.
+* A Node.js project set up as an ES module, with the packages installed:
 +
 [source,bash]
 ----
+npm init -y   # only if the directory has no package.json yet
+npm pkg set type=module
 npm install @neo4j-labs/nams-ai-provider@0.3.0 @neo4j-labs/agent-memory@0.5.0 ai@^7 @ai-sdk/openai@^4 zod@^4
+npm install --save-dev tsx
 ----
 
 == The program
@@ -53,6 +59,8 @@ npm install @neo4j-labs/nams-ai-provider@0.3.0 @neo4j-labs/agent-memory@0.5.0 ai
  *   assistant: Your favourite programming language is Rust.
  */
 
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { createNams, type NamsProviderOptions } from '@neo4j-labs/nams-ai-provider';
 import { openai } from '@ai-sdk/openai';
 import { ToolLoopAgent, stepCountIs } from 'ai';
@@ -107,7 +115,9 @@ export async function middlewareModeDemo(
   return { taught, recalled };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run only when executed directly, not when a test imports this file.
+const entry = process.argv[1];
+if (entry && import.meta.url === pathToFileURL(realpathSync(entry)).href) {
   middlewareModeDemo().catch(err => {
     console.error(err);
     process.exit(1);
@@ -115,7 +125,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 ----
 
-== Procedure
+== How the program works
 
 . Read the demo `userId` and model id from the environment, falling back to
   `demo-user-middleware-mode` and `gpt-5.4-mini`.
@@ -141,7 +151,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   stepCountIs(1) })` — `stepCountIs(1)` because middleware mode needs no
   tool-calling loop; retrieval and persistence happen inside the wrapped
   model itself.
-* `agent.generate({ prompt: message })` runs the call.
+* `agent.generate({ prompt: message })` runs the call. The wrapped model
+  retrieves memories for the last user message and prepends them to it
+  before the model runs, then saves the user message and the answer after
+  it returns. xref:explanation/nams-ai-provider-retrieval.adoc[How the NAMS
+  AI provider retrieves memory] covers what is searched, what the memory
+  block looks like, and when a step's answer is not saved.
 --
 . Call `turn()` twice:
 +
@@ -152,19 +167,32 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   no JavaScript object is shared with turn 1 — for the same `userId`, then
   asks a question whose answer only exists in what NAMS stored from turn 1.
 --
++
+A fresh model instance is not a new NAMS conversation. Neither turn passes a
+`conversationId`, so both continue the user's most recent NAMS conversation
+(turn 1 creates it on the first run) and write to the same conversation. To
+give a session its own conversation, create one and pass its id in the
+`scope` argument of `wrap()`; see
+xref:how-to/typescript/nams-ai-provider.adoc#choose-conversation[Choose the
+conversation each instance writes to].
 . Return `{ taught, recalled }` so a caller (here, the offline test suite) can
-  assert on both answers. The `if (import.meta.url === ...)` guard runs the
+  assert on both answers. The `import.meta.url` check at the bottom runs the
   demo only when the file is executed directly, not when it's imported.
 
 == Run and verify
 
-From `typescript/examples/nams-ai-provider/`, after the workspace build and
-`.env` setup described in the example's README:
+Run the saved file with both keys set:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/middleware-mode.ts
+MEMORY_API_KEY=nams_... OPENAI_API_KEY=sk-... npx tsx middleware-mode.ts
 ----
+
+To run the copy in the repository instead, follow the setup in the
+link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/nams-ai-provider[example's
+README], then run `npm run middleware-mode` from
+`typescript/examples/nams-ai-provider/`. The `Run with` comment at the top of
+the program shows the path of that copy.
 
 Expected output (wording varies with the model):
 
@@ -184,32 +212,6 @@ Recalled: NAMS retrieved turn 1 and injected it before the model saw turn 2.
 The second answer is the actual check: nothing in the script passes "Rust" to
 turn 2 directly, so the model can only have gotten it from what NAMS stored
 and re-injected.
-
-== Middleware mode specifics
-
-`createNams(config).wrap(model, scope)` returns a model wrapped with
-`LanguageModelV4Middleware`; provider mode calls this same function
-internally, so the two modes share retrieval and persistence behaviour.
-
-* `transformParams` runs once per model call. It finds the **last
-  user-role message** in the prompt, retrieves memories for its text, and
-  prepends a formatted memory block to that message (a `graph`-sourced hit
-  is explained inline as a stored relationship written
-  `(subject)-[RELATIONSHIP]->(object)`, but only when one is actually
-  present).
-* In a tool-calling loop, a later step's prompt still ends with the same
-  user message — tool results are appended after it — so the middleware
-  recognises the step as continuing the current turn and reuses the
-  memories it already found rather than searching again per step.
-* `wrapGenerate` and `wrapStream` persist the turn: the user's message on the
-  step that starts the turn, and the assistant's final text on the step that
-  actually produces an answer. A step whose output includes a call to an app
-  tool persists **no assistant text** for that step, even if the model also
-  produced text alongside the call — persistence waits for a step whose
-  output is free of app tool calls, and `wrapStream` accumulates text deltas
-  and flushes on stream finish.
-* Defaults, set by `createNamsMemory`: `maxMemories` 6 per turn (capped at 12
-  by the package), `persistInteractions` true.
 
 == See also
 

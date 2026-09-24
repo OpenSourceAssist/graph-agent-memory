@@ -46,8 +46,9 @@ xref:explanation/skills.adoc[Agent Skills].
 
 == MCP tools
 
-The hosted NAMS MCP server (see xref:reference/nams-mcp.adoc[Hosted NAMS MCP server]) exposes the same surface as 13 tools. They appear in `tools/list` only
-for a principal whose scopes permit them.
+The hosted NAMS MCP server (see xref:reference/nams-mcp.adoc[Hosted NAMS MCP server]) exposes the same surface as the `skill_*` tools below, per the service contract.
+They appear in `tools/list` only for a principal whose scopes permit them; use
+authenticated `tools/list` to confirm the inventory on your deployment.
 
 [cols="2,3",options="header"]
 |===

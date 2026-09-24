@@ -15,17 +15,17 @@ The illustration is conceptual. This recipe's physical path is `(User)-[:HAS_PRE
 
 For the rationale, see xref:explanation/memory-types.adoc[Understanding the three memory types].
 
-anchor:_prerequisites[]
-
 == 1. Prepare the Bolt client
 
-Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra:
+anchor:_prerequisites[]anchor:_overview[]
+
+Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra plus `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra:
 
 include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'
 ----
 
 include::partial$python-core-recipe-intro.adoc[]
@@ -33,6 +33,8 @@ include::partial$python-core-recipe-intro.adoc[]
 include::partial$python-core-recipe-files.adoc[]
 
 == 2. Apply the task function
+
+anchor:_store_preferences[]anchor:_basic_preference_storage[]anchor:_categorized_preferences[]anchor:_preference_with_source_tracking[]anchor:_update_and_manage_preferences[]anchor:_update_preference[]
 
 Store a preference for a user, then supersede it with a revised value while keeping both records in history. The recipe disables embedding-based preference deduplication for these independent user revisions. The current duplicate lookup can reuse a preference node across users; superseding a shared node can therefore affect every linked user's active view. `generate_embedding=False` avoids that lookup here, at the cost of omitting vectors for semantic preference search.
 
@@ -54,17 +56,17 @@ Expected: `budget: Spend at most USD 80` and `Verified: current preference and r
 
 The command retains its example records for inspection. Remove the disposable tutorial database using that tutorial's cleanup command when finished. Do not substitute an unrestricted delete query against an existing database.
 
-anchor:_retrieve_preferences[]
-
 == Retrieve preferences for an authorized user
+
+anchor:_retrieve_preferences[]anchor:_get_all_user_preferences[]anchor:_filter_by_category[]anchor:_search_preferences_semantically[]
 
 `get_preferences_for(user_identifier, applies_to=...)` follows the explicit user association. `active_only=False` includes superseded records; `as_of` filters validity intervals. Validate the caller before selecting the identifier. `get_preferences_by_category` and `search_preferences` are broader queries without the same user-scoped contract.
 
 The returned `Preference` model has `category`, `preference`, `context`, `confidence`, and inherited memory fields. It has no `value` or `source_message_id` argument. Use `context` and metadata to record application evidence; do not present that metadata as a graph provenance edge.
 
-anchor:_automatic_preference_learning[]
-
 == Use preferences in an application
+
+anchor:_automatic_preference_learning[]anchor:_use_preferences_in_agent_context[]anchor:_build_preference_aware_prompts[]anchor:_context_specific_preference_selection[]anchor:_combined_context_with_preferences[]anchor:_decay_confidence_over_time[]anchor:_delete_preference[]anchor:_extract_preferences_from_conversations[]anchor:_learn_from_behavior_patterns[]
 
 The task above records explicit statements. Inferring preferences from behavior requires your own extraction and validation policy; there is no `extract_preferences` convenience method on `long_term`, nor does this task automatically learn a user's budget. For a complete application that includes saved preferences in its model request, use xref:tutorials/conversation-memory.adoc[the conversation tutorial].
 
@@ -75,24 +77,6 @@ anchor:_typescript_equivalents_at_a_glance[]
 
 include::partial$python-typescript-equivalents.adoc[]
 
-anchor:_overview[]
-anchor:_store_preferences[]
-anchor:_basic_preference_storage[]
-anchor:_categorized_preferences[]
-anchor:_preference_with_source_tracking[]
-anchor:_get_all_user_preferences[]
-anchor:_filter_by_category[]
-anchor:_search_preferences_semantically[]
-anchor:_use_preferences_in_agent_context[]
-anchor:_build_preference_aware_prompts[]
-anchor:_context_specific_preference_selection[]
-anchor:_combined_context_with_preferences[]
-anchor:_update_and_manage_preferences[]
-anchor:_update_preference[]
-anchor:_decay_confidence_over_time[]
-anchor:_delete_preference[]
-anchor:_extract_preferences_from_conversations[]
-anchor:_learn_from_behavior_patterns[]
 anchor:_preference_based_recommendations[]
 anchor:_filter_products_by_preferences[]
 anchor:_best_practices[]

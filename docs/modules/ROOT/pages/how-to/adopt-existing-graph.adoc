@@ -21,8 +21,8 @@ and is idempotent.
 == Prerequisites
 
 * A running Neo4j 5.x with your existing domain graph already loaded.
-* A Python SDK artifact containing `client.schema.adopt_existing_graph`; verify the method against the installed version before use.
-* A `MemorySettings` configured for the database (see xref:reference/configuration.adoc[Configuration Reference]), and an already-open `async with MemoryClient(settings) as client:` block — every snippet below shares that one connected `client`.
+* The Python SDK plus the extra for your configured embedding provider, for example `pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'`, which provides `client.schema.adopt_existing_graph`. Keep `httpx` in the command: release 0.6.0 imports it when connecting over Bolt but declares it only in the `nams` extra.
+* A `MemorySettings` configured for the database (see xref:reference/configuration.adoc[Configuration reference]), and an already-open `async with MemoryClient(settings) as client:` block — every snippet below shares that one connected `client`.
 
 If your domain types differ from the POLE+O default ontology, also configure `SchemaModel.CUSTOM`:
 
@@ -46,10 +46,7 @@ settings = MemorySettings(
 Inspect the intended label/type mapping, preview changes without writes, then adopt the selected nodes and verify their identity.
 
 [[Limitations]]
-// Retain former section URLs at the current related topic.
 == Limitations
-
-anchor:_3_dry_run_before_mutating[]
 
 Limitations of the Bolt implementation:
 
@@ -67,6 +64,11 @@ rejected today.
 without a pre-existing `id` get a deterministic `<label_lc>:<name>` id;
 helpers that hydrate `Entity.id` as a `UUID` (such as `search_entities()`)
 raise `ValueError` on those rows. Read them with `client.query.cypher`.
+* **Adoption writes no embedding.** Semantic search such as
+`search_entities()` does not find adopted nodes until you backfill their
+embeddings. The
+https://github.com/neo4j-labs/agent-memory/blob/main/examples/existing-graph/retrieve.py[`retrieve.py` script in the existing graph example]
+shows a backfill that skips nodes with non-UUID ids.
 
 == Steps
 
@@ -79,6 +81,7 @@ For each Neo4j label in your existing graph, decide:
 
 === 2. Preview the full mapping
 
+anchor:_3_dry_run_before_mutating[]
 Pass `dry_run=True` to see what would change without mutating the graph:
 
 [source,python]
@@ -94,6 +97,9 @@ print(f"Would migrate {report.total_migrated} nodes.")
 Review the counts and skipped nodes before applying the same mapping.
 
 === 3. Apply the reviewed mapping
+
+anchor:_2_call_adopt_existing_graph[]
+Run the same mapping without `dry_run` to write the changes:
 
 [source,python]
 ----
@@ -132,10 +138,7 @@ The helper is idempotent. Re-running attaches `:Entity` to any new nodes
 of the configured labels added since the last run, and reports the
 already-adopted count for the rest.
 
-// Retain former section URLs at the current related topic.
 == Verification
-
-anchor:_2_call_adopt_existing_graph[]
 
 After adoption, library writes that MERGE on `(:Entity {name, type})`
 land on your existing nodes. Name the entities explicitly so the write is
@@ -197,5 +200,5 @@ for row in rows:
 == See also
 
 * xref:reference/api/memory-client.adoc[MemoryClient API reference]
-* xref:explanation/poleo-model.adoc[POLE+O Entity Model] — the default ontology you're either keeping or overriding with `SchemaModel.CUSTOM`.
+* xref:explanation/poleo-model.adoc[The POLE+O data model] — the default ontology you're either keeping or overriding with `SchemaModel.CUSTOM`.
 * https://github.com/neo4j-labs/agent-memory/tree/main/examples/existing-graph[Existing graph example] — a runnable end-to-end example using a small Movies-style domain.

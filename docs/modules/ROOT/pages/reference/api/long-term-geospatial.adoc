@@ -130,13 +130,13 @@ NAMS manages extraction and resolution on the server. These are the client wrapp
 |===
 | Operation | Hosted behavior
 | `add_entity` | Returns one `Entity`, not a deduplication tuple. Sends only name, type, and description. Bolt subtype, aliases, attributes, metadata, and provider-control kwargs are not sent.
-| `search_entities` | Sends query, limit, and a single type via `entity_type` (aliases `type` and `label`). Bolt `entity_types`, `subtypes`, and `threshold` are not sent. Search is workspace-wide.
+| `search_entities` | Sends query, limit, and a single type via `entity_type` (aliases `type` and `label`). Bolt `entity_types` (list) and `threshold` are not sent. Search is workspace-wide.
 | `get_entity_by_name` | Searches up to 20 results and returns the first exact case-sensitive name match, or None.
 | `get_related_entities` | Returns identifying relationship dictionaries (`relType`, `targetId`, `targetName`, `targetType`), not full Entity models. Traversal kwargs are not sent.
-| `get_entity_relationships` | Adapts inline relationships into Relationship models. IDs and creation times are synthesized locally; they are not stable server relationship identities.
+| `get_entity_relationships` | Takes an entity id (not a name) and returns `list[Relationship]`, not `(Entity, Relationship)` tuples. Adapts inline relationships into Relationship models. IDs and creation times are synthesized locally; they are not stable server relationship identities.
 | `get_context` | Returns an empty string. Use entity search and conversation context explicitly.
-| Preferences, facts, `add_relationship` | Raise `NotSupportedError`; no corresponding hosted public operation is provided by these wrappers.
-| Deduplication administration, local geocoding, extractor registration/linking/statistics | Bolt-only methods; not exposed by `NamsLongTermMemory`.
+| `add_preference`, `search_preferences`, `get_preferences_for`, `supersede_preference`, `add_fact`, `search_facts`, `get_facts_about`, `add_relationship` | Raise `NotSupportedError`; no corresponding hosted public operation is provided by these wrappers. `get_preferences_for` takes keyword arguments only, so the positional bolt form raises `TypeError` instead. `supersede_preference` takes one `preference_id` plus keyword arguments, so the bolt two-argument call raises `TypeError`, whether positional or with the `old_preference_id`/`new_preference_id` keywords. `get_facts_about` takes one positional `entity_name` and no keyword arguments, so a bolt call that passes `subject=` or `limit=` raises `TypeError`.
+| `get_preferences_by_category`, deduplication administration, local geocoding and location search, extractor registration/linking/statistics | Bolt-only methods; not defined on `NamsLongTermMemory`, so calling them raises `AttributeError`.
 |===
 
 [source,python]

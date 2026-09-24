@@ -103,10 +103,12 @@ const hits = await client.shortTerm.searchMessages("where is the trip to", {
 // Reusing resourceId alone does not inject that thread into the new one.
 const second = await memory.createThread({ resourceId: "alice", title: "Follow-up" });
 const prior = await memory.getMessages(thread.id, { limit: 20 });
+const question = "What did I want to book first?";
 const followUp = await agent.generate([
   ...toMastraMessages(prior),
-  { role: "user", content: "What did I want to book first?" },
+  { role: "user", content: question },
 ]);
+await memory.saveMessage({ threadId: second.id, role: "user", content: question });
 await memory.saveMessage({ threadId: second.id, role: "assistant", content: followUp.text });
 ----
 

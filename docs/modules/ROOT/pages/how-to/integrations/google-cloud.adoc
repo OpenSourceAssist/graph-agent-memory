@@ -32,7 +32,7 @@ export NEO4J_DATABASE='neo4j'
 gcloud auth application-default login
 ----
 
-The project needs Vertex AI enabled, billing and a principal authorized to invoke the selected model in that location. This recipe uses Application Default Credentials. The selected `gemini-embedding-001` configuration explicitly requests 768 dimensions; its native dimension count is not the effective value used by this program.
+The project needs Vertex AI enabled, billing and a principal authorized to invoke the selected model in that location. This recipe uses Application Default Credentials. The recipe declares 768 dimensions for `gemini-embedding-001`, which matches the 768-dimension output the underlying `VertexAIEmbedder` requests by default; the model's native 3072 dimensions are not used by this program.
 
 == 2. Read the complete recipe
 
@@ -103,8 +103,6 @@ include::partial$python-integration-troubleshooting.adoc[tag=troubleshooting]
 == Adapt the integration
 
 anchor:_pass_through_your_google_adk_gemini_model[]
-anchor:vertex-ai-embedding-models[]
-anchor:_task_types[]
 anchor:_api_reference[]
 anchor:_mcp_server[]
 anchor:_available_tools[]
@@ -117,9 +115,37 @@ anchor:_examples[]
 anchor:_financial_advisor_full_application[]
 anchor:_see_also[]
 
-`VertexAIEmbedder` accepts `project_id`, `location`, `task_type` and `output_dimensionality`. Use one consistent model/configuration for both stored document vectors and retrieval. Changing dimensions requires an intentional index/data migration; matching dimension counts alone does not make embeddings from different models compatible. See xref:how-to/configure-embedding-provider.adoc[Configure embeddings] for the canonical model and configuration guidance.
+`VertexAIEmbeddingProvider` accepts the model string, `project_id`, `location`, `task_type`, `dimensions` and `batch_size`, and delegates to `VertexAIEmbedder`. In 0.6.0 it does not forward `dimensions` as `output_dimensionality`, so keep it at 768. For 1536 or 3072 dimensions, construct `VertexAIEmbedder(output_dimensionality=...)` directly and pass it as `embedder=` to `MemoryClient`. Use one consistent model/configuration for both stored document vectors and retrieval. Changing dimensions requires an intentional index/data migration; matching dimension counts alone does not make embeddings from different models compatible. xref:how-to/configure-embedding-provider.adoc#_use_vertex_ai_embeddings[Configure embeddings] shows the adapter in `MemorySettings`.
 
-For ADK, use xref:how-to/integrations/google-adk.adoc[the complete Runner recipe]. For memory tools, use xref:how-to/create-context-graph-mcp.adoc[the MCP server guide] and xref:reference/mcp-tools.adoc[the canonical tool reference]. Use xref:reference/deployment.adoc[the deployment reference] and https://github.com/neo4j-labs/agent-memory/tree/main/deploy/cloudrun[the maintained Cloud Run assets] for service deployment, environment configuration and verification; this page does not duplicate a Dockerfile or grant public access.
+`VertexAIEmbedder` accepts the model IDs below. Each model's native dimensions apply only with `output_dimensionality=None`; the embedder requests 768 dimensions by default.
+
+[[vertex-ai-embedding-models]]
+.Supported Vertex AI embedding models
+[cols="2,1,3",options="header"]
+|===
+|Model |Native dimensions |Notes
+
+|`gemini-embedding-001`
+|3072
+|Default. Truncatable to 1536 or 768 with `output_dimensionality`; one text per request.
+
+|`text-embedding-005`
+|768
+|English and code; up to 250 texts per request.
+
+|`text-multilingual-embedding-002`
+|768
+|Multilingual; up to 250 texts per request.
+|===
+
+[IMPORTANT]
+====
+Google shut down `text-embedding-004` on 2026-01-14 and the `textembedding-gecko*` family on 2025-04-09. Passing one of those IDs to `VertexAIEmbedder` raises `EmbeddingError`, and passing one to `EmbeddingConfig(provider="vertex_ai", model=...)` fails validation. Both errors name the supported replacements.
+====
+
+anchor:_task_types[]`task_type` defaults to `RETRIEVAL_DOCUMENT`, for indexing stored documents. The other values are `RETRIEVAL_QUERY` for search queries, `SEMANTIC_SIMILARITY`, `CLASSIFICATION` and `CLUSTERING`.
+
+For ADK, use xref:how-to/integrations/google-adk.adoc[the complete Runner recipe]. For memory tools, use xref:how-to/create-context-graph-mcp.adoc[the MCP server guide] and xref:reference/mcp-tools.adoc[the canonical tool reference]. Use xref:reference/deploy-an-application.adoc[the deployment reference] and https://github.com/neo4j-labs/agent-memory/tree/main/deploy/cloudrun[the maintained Cloud Run assets] for service deployment, environment configuration and verification; this page does not duplicate a Dockerfile or grant public access.
 
 https://github.com/neo4j-labs/agent-memory/tree/main/examples/google_cloud_integration[The Google Cloud scripts] demonstrate cloud embedding and ADK APIs. https://github.com/neo4j-labs/agent-memory/tree/main/examples/financial-services-advisor/google-cloud-financial-advisor[The financial-advisor application] adds its own specialist agents, domain tools, UI and infrastructure. Those application components are not installed automatically by the memory library, and any real deployment requires the example's own setup and checks.
 

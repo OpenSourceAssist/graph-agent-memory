@@ -38,6 +38,16 @@ anchor:_tracing_providers[]
 
 There is no `ObservabilityConfig` on MemorySettings and no `NAM_OBSERVABILITY__...` family. Use the observability factory and provider SDK settings.
 
+Install the extra for the provider you use: `opentelemetry` adds the OpenTelemetry API, SDK and OTLP exporter, and `opik` adds Opik. See xref:sdks/python.adoc#_optional_extras[Python extras].
+
+[source,bash]
+----
+pip install 'neo4j-agent-memory[opentelemetry]==0.6.0'
+# Or: pip install 'neo4j-agent-memory[opik]==0.6.0'
+----
+
+This fragment assumes a connected MemoryClient named `client` and a `query` string, inside an async function:
+
 [source,python]
 ----
 from neo4j_agent_memory.observability import get_tracer

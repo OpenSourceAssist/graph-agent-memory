@@ -4,15 +4,15 @@
 # Build:
 #   docker build -f deploy/cloudrun/Dockerfile -t neo4j-memory-mcp .
 #
-# Run locally:
+# Run locally (Neo4j stays in AuraDB):
 #   docker run -p 8080:8080 \
-#     -e NEO4J_URI=bolt://host.docker.internal:7687 \
+#     -e NEO4J_URI=neo4j+s://<instance-id>.databases.neo4j.io \
 #     -e NEO4J_USER=neo4j \
-#     -e NEO4J_PASSWORD=password \
+#     -e NEO4J_PASSWORD=your-aura-password \
 #     -e GOOGLE_CLOUD_PROJECT=your-test-project \
 #     neo4j-memory-mcp
 #   Local embedding calls also require readable Application Default Credentials;
-#   see deploy/cloudrun/README.md for the read-only credential mount.
+#   see deploy/cloudrun/README.md for the env file and read-only credential mount.
 
 FROM python:3.11-slim
 
@@ -49,7 +49,8 @@ ENV NAM_EXTRACTION__EXTRACTOR_TYPE=none
 #
 # Transport is Streamable HTTP ("http"), the network transport in the current MCP
 # spec and the only one FastMCP 4 serves besides stdio. The MCP endpoint is
-# POST/GET /mcp/ — not the /sse + /messages pair the retired HTTP+SSE transport
+# POST/GET /mcp, with no trailing slash (/mcp/ answers with a redirect to an
+# http:// URL) — not the /sse + /messages pair the retired HTTP+SSE transport
 # used. Update client URLs if you are migrating from an older image.
 CMD ["neo4j-agent-memory", "mcp", "serve", \
      "--transport", "http", "--host", "0.0.0.0", "--port", "8080", \

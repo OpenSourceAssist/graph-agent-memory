@@ -6,13 +6,14 @@
 :icons: font
 :source-highlighter: highlight.js
 
-The shape of `@neo4j-labs/agent-memory`'s public surface, with deep links into the auto-generated TypeDoc reference for each symbol.
+The shape of the public surface of `@neo4j-labs/agent-memory`, with deep links into the auto-generated TypeDoc reference for each symbol.
 
 [NOTE]
 ====
-This map describes the current TypeScript source. It shares a memory model with
-the Python SDK, but method availability differs by backend and language. The
-normal TypeScript application uses hosted REST; the optional bridge transport
+This map describes the released `@neo4j-labs/agent-memory@0.5.0` package. Where
+the repository source already behaves differently, the affected entry says so.
+The SDK shares a memory model with the Python SDK, but method availability
+differs by backend and language. The normal TypeScript application uses hosted REST; the optional bridge transport
 exists for development and TCK conformance. A bridge method's presence does not
 establish a hosted endpoint. See xref:reference/backend-capabilities.adoc[backend capabilities].
 
@@ -38,9 +39,9 @@ that touches `typescript/src/**` (see `.github/workflows/docs-typedoc.yml`).
 
 [source,bash]
 ----
-npm install @neo4j-labs/agent-memory
-# pnpm add @neo4j-labs/agent-memory
-# bun add @neo4j-labs/agent-memory
+npm install @neo4j-labs/agent-memory@0.5.0
+# pnpm add @neo4j-labs/agent-memory@0.5.0
+# bun add @neo4j-labs/agent-memory@0.5.0
 ----
 
 Requires Node.js 22+. The core REST transport uses `fetch`; pass credentials explicitly where environment access differs. Framework adapters retain their own runtime and peer requirements.
@@ -263,8 +264,8 @@ raise `NotSupportedError` on REST. They are not substitutes for hosted entity AP
 |Poll `searchEntities` for a predicate, exact expected names, or a minimum result count. See readiness constraints below.
 |===
 
-**Hosted entity auto-merge**: NAMS resolves-before-create. When `addEntity`'s
-name is a sufficiently close match to an existing entity, the hosted service
+**Hosted entity auto-merge**: NAMS resolves-before-create. When the name passed to
+`addEntity` is a sufficiently close match to an existing entity, the hosted service
 responds `{id, resolution: "merged", merged_into, confidence}` instead of a
 full entity record — with no `name`/`type` at all. The client detects
 `resolution === "merged"` and follows up with `+GET /entities/{id}+` (using
@@ -318,11 +319,12 @@ is `T | undefined` at runtime, matching its declared type.
 
 `waitForExtraction` requires `query`, `expectedNames` or `predicate`.
 Defaults are 30,000 ms timeout, 1,000 ms interval and `minResults: 1`; the search
-limit is at least 10 and grows to cover the requested count/names. Prefer a
+limit defaults to 10 and is raised to at least `minResults` and the number of
+expected names. Prefer a
 predicate or case-insensitive `expectedNames` for this ingestion: unrelated
 nearest-neighbor results can satisfy a mere count. Returns `false` on timeout;
-validation and transport failures propagate. This helper and graph expansion
-must be present in the artifact you install; this page maps current source.
+validation and transport failures propagate. Both this helper and graph
+expansion ship in 0.5.0.
 
 **Entity types**: hosted service uses lowercase strings — `"person"`, `"organization"`, `"location"`, `"concept"`, `"tool"`, `"custom"`. The bridge protocol uses POLE+O uppercase — `"PERSON"`, `"ORGANIZATION"`, `"LOCATION"`, `"EVENT"`, `"OBJECT"`. The SDK normalizes both directions.
 
@@ -438,7 +440,7 @@ xref:how-to/use-ontologies.adoc[Use ontologies].
 |One ontology with its full revision history.
 
 |`getActive()`
-|Active version's parsed document + composed `validationMode` / `revision` / `versionId`.
+|Active parsed document plus `ontologyId` / `versionId` / `revision` / `validationMode`. In 0.5.0 that metadata is composed from a `list()` / `get()` lookup and can name the latest revision rather than the bound one; read `GET /ontologies/active` directly for a rollback target (see xref:reference/ontology-api.adoc#python-0-6-active-binding[active binding in the released SDKs]). The repository source, not yet released, reads the metadata from the active response's bound version and adds `schemaHash`.
 
 |`clone(templateName)`
 |Editable workspace copy of a system template (rev 1).
@@ -450,7 +452,7 @@ xref:how-to/use-ontologies.adoc[Use ontologies].
 |New immutable revision.
 
 |`activate(versionId)`
-|Bind a version; subsequent entity writes validate against it.
+|Bind the version to the workspace. Validation enforcement is a service behavior, separate from successful activation.
 
 |`delete(id)`
 |Delete a workspace-owned ontology.

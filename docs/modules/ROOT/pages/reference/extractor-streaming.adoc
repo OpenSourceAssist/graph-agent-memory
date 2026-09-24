@@ -7,7 +7,7 @@ Chunk long documents and combine extraction results, from xref:reference/extract
 
 == StreamingExtractor
 
-Chunk long documents and combine extraction results. Import from `neo4j_agent_memory.extraction`. `DEFAULT_CHUNK_SIZE` is 4000 characters and `DEFAULT_OVERLAP` is 200, unless token-based chunking is selected.
+Chunk long documents and combine extraction results. Import from `neo4j_agent_memory.extraction`. The constructor defaults are `DEFAULT_CHUNK_SIZE` (4000) and `DEFAULT_OVERLAP` (200) in either chunking mode, so `chunk_by_tokens=True` without an explicit `chunk_size` gives 4000-token chunks. Pass `chunk_size` and `overlap` with `chunk_by_tokens=True`, or use `create_streaming_extractor(extractor, chunk_by_tokens=True)`, which defaults to 1000 tokens with a 50-token overlap.
 
 // contract: extraction/streaming.py:StreamingExtractor.__init__
 [source,python]
@@ -70,8 +70,10 @@ async def extract_streaming(
 | `text` | Text to extract from
 | `entity_types` | Optional list of entity types to extract
 | `extract_relations` | Whether to extract relations
-| `on_chunk_complete` | Optional callback for each completed chunk Yields: StreamingChunkResult for each chunk
+| `on_chunk_complete` | Optional callback for each completed chunk
 |===
+
+Yields one `StreamingChunkResult` for each chunk.
 
 === extract
 

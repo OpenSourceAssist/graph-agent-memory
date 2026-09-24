@@ -148,9 +148,12 @@ A previously stored identical string cannot satisfy this check. If the model
 answers but message storage cannot be verified, the command fails that milestone
 and preserves state for inspection and cleanup.
 
-The introductory path creates no reasoning steps. See
-xref:reference/typescript-api.adoc[the API reference] before adding reasoning
-records whose service cleanup is not established.
+The introductory path creates no reasoning steps: the service has no
+verified delete route for steps or tool calls, so lesson cleanup could not
+remove them (see
+xref:reference/backend-capabilities.adoc#hosted-cleanup[Hosted cleanup and retained resources]).
+Decide how long such records are kept before adding them with the reasoning
+methods in xref:reference/typescript-api.adoc[the API reference].
 
 == Verify in a fresh process
 

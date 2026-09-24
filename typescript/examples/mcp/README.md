@@ -21,11 +21,11 @@ and a per-call audit log. Speaks **stdio** (Claude Desktop, IDE plugins) or
 ## Do you need this? Probably not
 
 The hosted **NAMS MCP server** at `https://mcp.memory.neo4jlabs.com/mcp`
-exposes a much larger, scope-gated surface — 47 tools spanning memory, entity
-review, ontology, workspace administration and Skills, filtered to the scopes
-your key or token carries — and it supports OAuth 2.0 with Dynamic Client
-Registration, so an interactive client can connect with no long-lived key in a
-config file. Adding it as a remote MCP server in your client is **zero code**:
+exposes a much larger, scope-dependent surface spanning memory, entity review,
+ontology, workspace administration and Skills — an authenticated `tools/list`
+returns only the tools your key or token's scopes permit — and it supports
+OAuth 2.0 with Dynamic Client Registration, so an interactive client can
+connect with no long-lived key in a config file. Adding it as a remote MCP server in your client is **zero code**:
 no process to run, no key to store on disk, nothing to keep up to date.
 
 See [the hosted NAMS MCP reference](https://neo4j.com/labs/agent-memory/reference/nams-mcp)
@@ -205,7 +205,7 @@ low-level `Server` API and want JSON Schema instead.
 ## Test it
 
 ```bash
-npm test        # 9 in-process tests, no API key and no network
+npm test        # 10 tests, no API key and no network
 npm run typecheck
 ```
 
@@ -215,6 +215,17 @@ The tests link a real MCP `Client` to the server over
 round trip, `isError: true` on backend failure, Zod rejection of malformed
 arguments before dispatch, the allow-list, and that audit records carry
 argument keys but never values.
+
+`test/docs-assembly.test.ts` assembles the
+[tutorial's](https://neo4j.com/labs/agent-memory/tutorials/mcp-server-typescript)
+server from the page in a temporary project, compiles it and drives it over
+stdio against an offline REST fixture. By default the SDK is packed and
+unpacked as a registry install lays it out. To run the page's own `npm install`
+of the pinned published release instead (this needs network access):
+
+```bash
+DOCS_READER_INSTALL=1 npx vitest run test/docs-assembly.test.ts
+```
 
 ## See also
 

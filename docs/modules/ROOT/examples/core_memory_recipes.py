@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from core_memory_settings import settings
@@ -15,6 +16,8 @@ from neo4j_agent_memory.schema.models import EntityRef, TraceOutcome
 # tag::messages[]
 async def messages(client, run_id):
     session = f"docs-messages-{run_id}"
+    # Explicit timestamps fix the readback order; in 0.6.0 untimed batch rows share one time.
+    start = datetime.now(timezone.utc)
     stored = await client.short_term.add_messages_batch(
         session,
         [
@@ -22,8 +25,13 @@ async def messages(client, run_id):
                 "role": "user",
                 "content": "Please find wide walking shoes.",
                 "metadata": {"topic": "shopping"},
+                "timestamp": start.isoformat(),
             },
-            {"role": "assistant", "content": "I will look for wide fits."},
+            {
+                "role": "assistant",
+                "content": "I will look for wide fits.",
+                "timestamp": (start + timedelta(seconds=1)).isoformat(),
+            },
         ],
         user_identifier=f"docs-user-{run_id}",
         extract_entities=False,

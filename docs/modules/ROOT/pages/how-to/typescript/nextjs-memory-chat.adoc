@@ -157,16 +157,23 @@ hands the answered turn to the small `recordTurn` helper in the same file,
 which records it as a reasoning step; that is the only call this route makes
 to `MemoryClient` directly.
 
-`createNamsProvider`'s stream wrapper awaits the assistant-turn write as part
+The `createNamsProvider` stream wrapper awaits the assistant-turn write as part
 of closing the response stream, so a fully drained client stream implies the
 write was attempted — not skipped, unlike a plain fire-and-forget write. It is
 still best-effort: a failed write is logged and swallowed, not surfaced to the
 caller, and nothing in the response tells the client whether it succeeded. For
 a route that must coordinate storage with its lifecycle and give the client a
-visible success signal, use the
-xref:how-to/typescript/edge-runtime.adoc[application-owned write pattern] and
-pass `persistInteractions: false` to `createNamsProvider` so the response is
-not stored twice.
+visible success signal, pass `persistInteractions: false` to
+`createNamsProvider` and write the turn yourself, following the
+xref:how-to/typescript/edge-runtime.adoc[application-owned write pattern].
+That option turns off both of the provider's writes, the user message as well
+as the answer, so the route must store both: when the stream ends, call
+`deps.client.shortTerm.addMessage(conversationId, "user", question)` and then
+store the assembled answer, and keep those writes alive until they settle.
+This is the same order the provider uses; a user message stored before the
+model call can come back from the provider's own session search and repeat the
+question in the memory block. Writing only the answer leaves every user turn
+out of the transcript and out of the provider's later retrieval.
 
 On the client, `useChat` with `DefaultChatTransport` sends the conversation id in
 the request body:
@@ -289,7 +296,7 @@ handlers use only `fetch`, `Request` and `Response`, so they are edge-deployable
 pass `apiKey` to `MemoryClient` explicitly, because on edge runtimes
 `process.env` is only populated inside the request scope. See
 xref:how-to/typescript/edge-runtime.adoc[Deploy to edge runtimes].
-Current-source example dependency declarations (not a release or live-service
+anchor:_compatibility[]Current-source example dependency declarations (not a release or live-service
 verification): `@neo4j-labs/nams-ai-provider` 0.3.0, `@neo4j-labs/agent-memory`
 0.5.0, `next` 16.3.4, `react` 19.3.0, `ai` 7.0.97, `@ai-sdk/openai` 4.0.65,
 `@ai-sdk/react` 4.0.100, `@chakra-ui/react` 3.37.0, `@neo4j-nvl/react` 1.2.2,

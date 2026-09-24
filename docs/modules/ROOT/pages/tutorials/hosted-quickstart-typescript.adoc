@@ -76,8 +76,11 @@ prints its actual IDs; search ranking and model output are not part of this
 storage check. A successful write does not mean asynchronous extraction has
 finished.
 
-This introductory path creates no reasoning steps. Their supported API and
-current cleanup limits are described in
+This introductory path creates no reasoning steps: the service has no
+verified delete route for steps or tool calls, so lesson cleanup could not
+remove them (see
+xref:reference/backend-capabilities.adoc#hosted-cleanup[Hosted cleanup and retained resources]).
+The reasoning methods are listed in
 xref:reference/typescript-api.adoc[the TypeScript API reference].
 
 == Verify in a fresh process
@@ -125,11 +128,11 @@ Keep the state until every resource has a verified disposition. Closing the
 client alone does not delete data. Do not remove the state file to bypass an
 unfinished run or bulk-delete workspace entities.
 
-anchor:_step_4_inspect_the_entity_graph[]
-
 include::partial$typescript-tutorial-lifecycle.adoc[]
 
 == Next steps
+
+anchor:_step_4_inspect_the_entity_graph[]
 
 * xref:tutorials/first-agent-memory-typescript.adoc[Use stored context in a model call].
 * xref:tutorials/knowledge-graph-typescript.adoc[Ingest documents and inspect extracted entities].

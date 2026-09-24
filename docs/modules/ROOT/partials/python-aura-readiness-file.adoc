@@ -1,4 +1,4 @@
-Open the helper below and save its complete source as `wait_for_tutorial_neo4j.py` in your lesson folder.
+Open the helper below and save its complete source as `wait_for_tutorial_neo4j.py` in `~/agent-memory-tutorials`.
 
 .Show `wait_for_tutorial_neo4j.py`
 [%collapsible]

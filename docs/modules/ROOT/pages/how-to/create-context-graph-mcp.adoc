@@ -14,7 +14,7 @@ To let an MCP client inspect a context graph application's memory, run the self-
 anchor:_prerequisites[]
 
 * A working application, such as one scaffolded with https://create-context-graph.dev[create-context-graph], with its database URI, database name and authorized credentials.
-* Python 3.10+ and an OpenAI key for this example's embedding provider. The command below installs `neo4j-agent-memory[mcp,openai]==0.6.0`.
+* Python 3.10+ and an OpenAI key for this example's embedding provider. The command below installs `neo4j-agent-memory[mcp,openai]==0.6.0` and `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
 * An MCP client that supports launching a local stdio process.
 * For an existing non-memory graph, complete xref:how-to/adopt-existing-graph.adoc[graph adoption] and its dry run first.
 
@@ -28,7 +28,7 @@ In the application's Python project, add the MCP and OpenAI extras with its norm
 
 [source,bash]
 ----
-uv add 'neo4j-agent-memory[mcp,openai]==0.6.0'
+uv add 'neo4j-agent-memory[mcp,openai]==0.6.0' 'httpx>=0.27'
 uv run neo4j-agent-memory mcp serve --help
 ----
 
@@ -63,7 +63,7 @@ Use xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connect
 
 Use the same supported embedding provider/index dimensions as the application. This CLI's default model-backed setup needs its provider key; other provider choices require explicit configuration as described in xref:reference/cli.adoc[CLI reference]. Store secrets using the host's supported configuration mechanism and do not commit this populated file.
 
-For an HTTP deployment, use `--transport http` with the `/mcp/` endpoint and an explicit authentication arrangement. See xref:reference/mcp-tools.adoc#_transports[transports] and xref:reference/deployment.adoc[deployment routes] rather than exposing a local example as a public service.
+For an HTTP deployment, use `--transport http` with the `/mcp` endpoint and an explicit authentication arrangement. See xref:reference/mcp-tools.adoc#_transports[transports] and xref:reference/deployment.adoc[deployment routes] rather than exposing a local example as a public service.
 
 == 3. Verify tool registration and memory readback
 

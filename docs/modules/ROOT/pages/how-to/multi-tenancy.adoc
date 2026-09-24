@@ -9,7 +9,7 @@ To associate Bolt conversation writes and preferences with a user, pass the iden
 // Retain former section URLs at the current related topic.
 == Prerequisites
 
-anchor:_steps[]
+anchor:_goal[]
 
 * A connected Python `MemoryClient` using Bolt and a database intended for this application.
 * An application-authenticated user identifier. Do not accept another user's identifier directly from an untrusted request.
@@ -18,7 +18,7 @@ anchor:_steps[]
 // Retain former section URLs at the current related topic.
 == 1. Associate supported writes with a user
 
-anchor:_1_upsert_the_user[]anchor:_2_pass_user_identifier_on_writes[]anchor:_what_ports_cleanly[]
+anchor:_steps[]anchor:_1_upsert_the_user[]anchor:_2_pass_user_identifier_on_writes[]
 
 .Two `:User` nodes, each with its own conversation, messages, and preferences in one shared Neo4j instance
 image::diagrams/multi-tenant-scoping.svg["Two :User nodes, each linked by a HAS_CONVERSATION relationship to its own Conversation, with that user's messages and preferences shown alongside, all held in one shared Neo4j instance. A caption notes that user_identifier= scopes only the operations that accept it",width=100%,link=self]
@@ -63,10 +63,7 @@ These writes disable embedding-based preference deduplication so the fixture cre
 
 `get_preferences_for` selects preferences connected to the requested user. `search_preferences` instead performs semantic search and does not automatically use that user. Entity search and trace similarity search also have their own scopes.
 
-// Retain former section URLs at the current related topic.
 == 3. Read the intended conversation
-
-anchor:_bridging_the_two_patterns[]
 
 [source,python]
 ----
@@ -99,11 +96,40 @@ print("Only the replacement is active.")
 
 For `applies_to`, historical `as_of` reads, validity fields and constraints, see xref:reference/api/long-term.adoc[the long-term reference].
 
+== Manage user records
+
+anchor:_schema[]
+
+`client.users` (`UserMemory`) manages the `:User` nodes that `user_identifier=` links to. Supported write methods MERGE the `:User` node by identifier, so an explicit upsert is needed only to store attributes or to create the user before its first write. A user created implicitly by a write takes its identifier as its `id`; `upsert_user` assigns a UUID when it creates the node.
+
+[source,python]
+----
+user = await client.users.upsert_user(
+    identifier="sara-demo",
+    attributes={"role": "manager", "team": "consulting"},
+)
+same_user = await client.users.get_user("sara-demo")  # None when absent
+assert same_user is not None and same_user.id == user.id
+recent_users = await client.users.list_users(limit=100)  # newest first
+----
+
+`upsert_user(*, identifier, attributes=None)` is idempotent. Calling it again with `attributes` replaces the stored attributes; calling it without them keeps the existing attributes. The schema setup creates a unique constraint on `User.identifier`, so each identifier maps to one `:User` node.
+
+User-scoped writes produce this graph shape:
+
+* `(:User {id, identifier, attributes_json, created_at})`: one node per identifier.
+* `(:User)-[:HAS_CONVERSATION]->(:Conversation)`: written by message and conversation writes that pass `user_identifier=`.
+* `(:User)-[:HAS_TRACE]->(:ReasoningTrace)`: written by `start_trace(user_identifier=...)`.
+* `(:User)-[:HAS_PREFERENCE]->(:Preference)`: written by `add_preference(user_identifier=...)`.
+* `(:Preference)-[:APPLIES_TO]->(:Entity)`: written by `add_preference(applies_to=[...])`.
+* `(:Preference)-[:SUPERSEDED_BY]->(:Preference)`: written by `supersede_preference`, which also sets `valid_until` on the old preference.
+* `Preference.valid_from` and `Preference.valid_until`: the validity interval that `get_preferences_for(as_of=...)` reads.
+
 [#typescript-counterpart]
 // Retain former section URLs at the current related topic.
 == TypeScript counterpart (NAMS)
 
-anchor:_goal[]anchor:_schema[]anchor:_roadmap[]
+anchor:_roadmap[]anchor:_what_ports_cleanly[]anchor:_bridging_the_two_patterns[]
 
 NAMS separates workspaces through authentication. Within one workspace, explicitly create and retain a conversation ID; `userId` alone does not resume it or authorize the caller.
 

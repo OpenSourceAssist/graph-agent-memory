@@ -22,18 +22,26 @@ operate, no vector store, no database migrations.
 - **Memory is one wrapped model.** `lib/handlers.ts` wraps `openai(…)` in a
   `createNamsProvider(...)` from `@neo4j-labs/nams-ai-provider` and calls
   `streamText`. After that line there is no memory-specific code in the
-  request path: retrieval (conversation history, entities, graph
-  relationships, reasoning history), user-turn persistence and assistant-turn
-  persistence (streamed included) are the provider's job. This app wants that
-  cross-session, graph-expanded retrieval — if a conversation's own
-  reflections, observations and recent messages were enough, the SDK's own
-  `agentMemoryMiddleware` (see
+  request path: retrieval, user-turn persistence and assistant-turn
+  persistence (streamed included) are the provider's job. Before each call the
+  provider searches with the new question — messages in this conversation,
+  matching entities and their graph relationships, and messages in the
+  user's other conversations — and also reads back reasoning steps recorded
+  with `actionTaken: 'direct response'` in this and the user's recent
+  conversations, which are not matched against the question (this app's own
+  steps use `generate_answer`, so the provider skips them). It prepends at
+  most `maxMemories` (default 6) of those hits. It does not replay recent
+  turns, observations or reflections.
+  The SDK's own `agentMemoryMiddleware` (see
   [How-to: Vercel AI SDK](https://neo4j.com/labs/agent-memory/how-to/typescript/vercel-ai))
-  is the simpler, single-package alternative.
+  does replay a conversation's reflections, observations and recent messages;
+  use it instead when that continuity matters more than cross-session,
+  graph-expanded search.
 - **The browser is not the source of truth.** The route forwards *only the newest
-  user turn* to the model; the history the model sees comes back out of the graph.
-  Reload the tab, or open the same `/c/<id>` URL on another device, and the
-  thread is intact — the panel rehydrates from `shortTerm.getContext`.
+  user turn* to the model; anything earlier reaches the model only when the
+  provider's retrieval brings it back from the graph. Reload the tab, or open the
+  same `/c/<id>` URL on another device, and the thread is intact — the panel
+  rehydrates from `shortTerm.getContext`.
 - **The memory rail is the argument.** Entities appear on the right from the
   traveller's own sentences. Double-click one and
   `longTerm.expandGraph(nodeId, loadedIds)` fetches *only* the neighbours not
@@ -109,23 +117,30 @@ closing the response stream, so a fully-drained client stream implies the write
 was attempted — not skipped, unlike a plain fire-and-forget write. It is still
 best-effort: a failed write is logged and swallowed, not surfaced to the caller,
 and nothing in the response tells the client whether it succeeded. For
-application-owned, explicitly awaited writes with error handling the client can
-see, follow the [Cloudflare lifecycle example](../cloudflare-agents-edge/README.md)
-and adapt its runtime hook to your deployment; pass `persistInteractions: false`
-to `createNamsProvider` when adding that explicit write, so the response is not
-stored twice.
+application-owned writes whose completion and errors the server observes, follow
+the [Cloudflare lifecycle example](../cloudflare-agents-edge/README.md) and adapt
+its runtime hook to your deployment. That example awaits the write in
+`streamText`'s `onEnd` and logs a failure on the server; the client still is not
+told. If you move persistence into your own code, pass
+`persistInteractions: false` to `createNamsProvider`. That flag turns off the
+provider's writes for **both** the user turn and the assistant turn, so your
+explicit write must store both. (The Cloudflare example uses the SDK
+middleware's `persistResponses: false`, which turns off only the assistant
+write.)
 
 ## Build the shared packages first
 
 This is a source-checkout example. Its `file:../..` and
-`file:../../packages/vercel-ai-provider` dependencies and shared
-`../tsconfig.base.json` require the repository layout. In an application (not
-this checkout) these are two separate npm installs —
-`@neo4j-labs/nams-ai-provider@0.3.0` (the provider `lib/handlers.ts` wraps the
-chat model in) and `@neo4j-labs/agent-memory@0.5.0` (the SDK the memory rail's
-routes call directly) — but this example pins both to the packages in this
-repository via `file:` links, so it always runs against current source. From
-the repository root:
+`file:../../packages/vercel-ai-provider` dependencies require the repository
+layout. In an application (not this checkout) these are two separate npm
+installs — `@neo4j-labs/nams-ai-provider@0.3.0` (the provider `lib/handlers.ts`
+wraps the chat model in) and `@neo4j-labs/agent-memory@0.5.0` (the SDK the
+memory rail's routes call directly). This example links both to the packages in
+this repository instead. The memory rail's routes therefore run against the
+in-tree SDK. The provider link is a symlink, so the provider loads
+`@neo4j-labs/agent-memory` from its own `node_modules`: the npm release it
+installs as a development dependency, not the in-tree SDK. From the repository
+root:
 
 ```bash
 cd typescript
@@ -211,8 +226,9 @@ Open http://localhost:3000/c/6b21f0ac-…
 
 In the browser, after the three suggested turns:
 
-- the rail reads **0 reflections · 1 observation · 6 recent messages** — exactly
-  what the next model call will have prepended to it;
+- the rail reads **0 reflections · 1 observation · 6 recent messages** — what
+  NAMS stores for the conversation, not what the next model call receives (that
+  is the provider's search hits for the new question);
 - the badge turns green (**new entities**) and reports how many entities matched
   the last turn;
 - the graph holds the places and organisations from your own sentences, and

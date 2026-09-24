@@ -13,31 +13,39 @@ Prerequisites: a configured `MemoryClient` — see xref:sdks/typescript.adoc[the
 |===
 | Framework | What it gives you
 
-| xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK]
+| [[_vercel_ai_sdk_typescript]]xref:how-to/typescript/vercel-ai.adoc[Vercel AI SDK]
 | `agentMemoryMiddleware` injects three-tier context into each model call and persists both the user's input and the assistant's response — streamed or not.
 
 | xref:how-to/typescript/nams-ai-provider.adoc[NAMS AI provider]
-| A separate package (`@neo4j-labs/nams-ai-provider`) with four selectable modes — cross-session search, graph-expanded retrieval, explicit memory tools, and lifecycle hooks, all on the same NAMS backend.
+| A separate package (`@neo4j-labs/nams-ai-provider`) with four selectable modes — provider, middleware, tools and hooks — all on the same NAMS backend. Cross-session search and graph expansion are retrieval settings (`crossSessionLimit`, `graphExpansionLimit`) that the provider, middleware and tools modes share.
 
-| xref:how-to/typescript/langchain.adoc[LangChain JS]
+| [[_langchain_js_typescript]]xref:how-to/typescript/langchain.adoc[LangChain JS]
 | `Neo4jChatMessageHistory` and `Neo4jEntityRetriever` supply framework-neutral history and retrieval objects that you adapt to LangChain's APIs.
 
-| xref:how-to/typescript/mastra.adoc[Mastra]
+| [[_mastra_typescript]]xref:how-to/typescript/mastra.adoc[Mastra]
 | `Neo4jMastraMemory` is a thin thread-and-message-history adapter in Mastra's vocabulary, driven alongside your agent rather than passed as its `memory`.
 
-| xref:how-to/typescript/strands.adoc[Strands Agents]
+| [[_strands_agents_typescript]]xref:how-to/typescript/strands.adoc[Strands Agents]
 | `Neo4jMemoryStore` is a Strands `MemoryStore`, and `connectMemoryToAgent` wires session state and three-tier context injection into a Strands `Agent` in one call.
 |===
 
 == Other languages
 
-Agent Memory also ships clients for languages besides TypeScript.
+Agent Memory also ships clients for languages besides TypeScript. The hosted
+Python, C# and R clients below live in the `clients/` directory of the
+link:https://github.com/neo4j-labs/agent-memory-tck[agent-memory-tck]
+repository and are not published to PyPI, NuGet or CRAN, so install them from a
+checkout of that repository.
 
-* [[_langgraph_python]][[_pydanticai_python]]**Python** — LangGraph
-  (`MemoryCheckpointSaver`) and PydanticAI (`MemoryToolset`,
-  `inject_memory_context`) integrations are available through the hosted
-  client (`neo4j_agent_memory_client`). For the self-hosted package's Python
-  framework integrations, see xref:how-to/integrations/index.adoc[].
+* [[_langgraph_python]][[_pydanticai_python]]**Python** — the
+  `neo4j-agent-memory` package connects to Neo4j over Bolt or to hosted NAMS
+  over HTTP and ships its own framework integrations; see
+  xref:how-to/integrations/index.adoc[] and
+  xref:reference/backend-capabilities.adoc[backend capabilities] for what each
+  backend supports. LangGraph (`MemoryCheckpointSaver`) and PydanticAI
+  (`MemoryToolset`, `inject_memory_context`) integrations are also available
+  through the separate hosted client `neo4j_agent_memory_client`
+  (`pip install ./clients/python`):
 +
 [source,python]
 ----
@@ -51,8 +59,10 @@ graph = StateGraph(MyState)
 graph.compile(checkpointer=saver)
 ----
 
-* [[_semantic_kernel_c]]**C#** — `MemoryConnector` provides save/search and a
-  `GetContextPrefixAsync` helper for Semantic Kernel functions:
+* [[_semantic_kernel_c]]**C#** — in the `Neo4j.AgentMemory` project
+  (`clients/csharp/src/Neo4j.AgentMemory`, added as a project reference),
+  `MemoryConnector` provides save/search and a `GetContextPrefixAsync` helper
+  for Semantic Kernel functions:
 +
 [source,csharp]
 ----
@@ -66,7 +76,9 @@ var hits = await connector.SearchAsync("microservice patterns", limit: 5);
 var contextPrefix = await connector.GetContextPrefixAsync(conversationId);
 ----
 
-* [[_ellmer]]**R** — `register_memory_tools(client)` returns a list of
+* [[_ellmer]]**R** — in the `neo4j.memory` package
+  (`install.packages("clients/rlang/neo4j.memory", repos = NULL, type = "source")`),
+  `register_memory_tools(client)` returns a list of
   https://ellmer.tidyverse.org/[ellmer] `tool()` definitions wrapping all 12
   memory tools:
 +

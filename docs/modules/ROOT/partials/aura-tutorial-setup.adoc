@@ -19,7 +19,7 @@ python wait_for_tutorial_neo4j.py
 
 Expected: `Verified: Neo4j Aura answered the readiness query`. The helper checks connectivity and executes `RETURN 1` in the selected database, retrying temporary connection failures for up to three minutes. Authentication failures stop immediately. If the check fails, confirm the instance is Running and recopy its connection settings.
 
-The examples read these exported variables through `aura_connection.py`. They require Aura credentials and do not supply a fallback database. Keep this shell and virtual environment active for the remaining commands. See https://neo4j.com/docs/aura/getting-started/connect-instance/[Aura connection instructions] for help locating the settings.
+The examples read these exported variables through `aura_connection.py`. They require the Aura URI, username and password and never fall back to a local instance. When `NEO4J_DATABASE` is unset, they use the `neo4j` database, which is the Aura default. Keep this shell and virtual environment active for the remaining commands. See https://neo4j.com/docs/aura/getting-started/connect-instance/[Aura connection instructions] for help locating the settings.
 
 In the Aura console, open *Query*, select this instance and database in the connection bar, and connect using the same credentials. Run:
 

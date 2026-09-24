@@ -143,3 +143,78 @@ def test_cloudrun_templates_supply_adc_project_and_document_real_substitutions(p
     environment = {item["name"]: item.get("value") for item in container["env"]}
     assert environment["GOOGLE_CLOUD_PROJECT"] == "PROJECT_ID"
     assert environment["NAM_EXTRACTION__EXTRACTOR_TYPE"] == "none"
+
+
+@pytest.mark.docs
+def test_cloudrun_image_installs_the_vertex_provider_dependency(project_root):
+    """The CMD selects vertex_ai/..., which needs the vertexai module inside the image.
+
+    ``test_cloudrun_command_builds_vertex_provider_without_implicit_llm`` emulates that
+    module, so this checks the image really installs an extra that provides it.
+    """
+    import re
+
+    from packaging.requirements import Requirement
+
+    dockerfile = (project_root / "deploy/cloudrun/Dockerfile").read_text().replace("\\\n", "")
+    installs = [
+        shlex.split(line[len("RUN ") :])
+        for line in dockerfile.splitlines()
+        if line.startswith("RUN pip install")
+    ]
+    extras = {
+        extra.strip()
+        for command in installs
+        for argument in command
+        for match in [re.fullmatch(r"\.\[(.+)\]", argument)]
+        if match
+        for extra in match.group(1).split(",")
+    }
+    assert "mcp" in extras, f"The image serves MCP but installs extras {sorted(extras)}"
+    vertex_extras = extras & {"google", "vertex-ai"}
+    assert vertex_extras, f"No Vertex AI extra in the image's extras {sorted(extras)}"
+    optional = tomllib.loads((project_root / "pyproject.toml").read_text())["project"][
+        "optional-dependencies"
+    ]
+    for extra in vertex_extras:
+        names = {Requirement(requirement).name for requirement in optional[extra]}
+        assert "google-cloud-aiplatform" in names, f"[{extra}] no longer provides vertexai"
+
+
+@pytest.mark.docs
+def test_cloudrun_secret_names_and_runtime_identity_agree(project_root):
+    """cloudbuild.yaml, service.yaml and the README name the same secrets and identity."""
+    import re
+
+    import yaml
+
+    cloudrun = project_root / "deploy/cloudrun"
+    build = yaml.safe_load((cloudrun / "cloudbuild.yaml").read_text())
+    deploy = next(step for step in build["steps"] if step.get("entrypoint") == "gcloud")
+    args = deploy["args"]
+    build_secrets = dict(
+        pair.split("=", 1) for pair in args[args.index("--set-secrets") + 1].split(",")
+    )
+    build_secrets = {env: secret.rsplit(":", 1)[0] for env, secret in build_secrets.items()}
+
+    service = yaml.safe_load((cloudrun / "service.yaml").read_text())
+    template = service["spec"]["template"]["spec"]
+    service_secrets = {
+        item["name"]: item["valueFrom"]["secretKeyRef"]["name"]
+        for item in template["containers"][0]["env"]
+        if "secretKeyRef" in item.get("valueFrom", {})
+    }
+    assert build_secrets == service_secrets
+
+    readme = (cloudrun / "README.md").read_text()
+    loop = re.search(r"for SECRET_NAME in ([^;]+);", readme)
+    assert loop, "README no longer grants secret access in a loop"
+    assert set(loop.group(1).split()) == set(service_secrets.values())
+
+    def normalise(identity):
+        return identity.replace("$PROJECT_ID", "PROJECT_ID")
+
+    build_identity = normalise(args[args.index("--service-account") + 1])
+    assert normalise(template["serviceAccountName"]) == build_identity
+    readme_identity = re.search(r'RUNTIME_SA="([^"]+)"', readme)
+    assert readme_identity and normalise(readme_identity.group(1)) == build_identity

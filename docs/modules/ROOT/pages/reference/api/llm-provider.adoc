@@ -12,7 +12,7 @@ Every adapter in `neo4j_agent_memory.llm.adapters` implements one or more of the
 
 == Overview
 
-The module exposes three Protocols (`LLMProvider`, `StructuredExtractor`, `EmbeddingProvider`), the Pydantic types they use, an exception hierarchy, the `from_provider` factory, and the `schema_aligned_extract` helper. The sections below cover each in the order they appear in `neo4j_agent_memory.llm`'s public exports.
+The module exposes three Protocols (`LLMProvider`, `StructuredExtractor`, `EmbeddingProvider`), the Pydantic types they use, an exception hierarchy, the `from_provider` factory, and the `schema_aligned_extract` helper. The sections below cover each in the order they appear in the public exports of `neo4j_agent_memory.llm`.
 
 == Module
 
@@ -212,7 +212,7 @@ Generic structured-output path. Builds a system message containing the schema, p
 
 == Tolerant JSON parser
 
-`schema_aligned_extract` strips markdown fences, smart quotes, trailing commas, and finds the largest balanced `\{...}` block. Truncated JSON (mid-string cutoff) surfaces as `json.JSONDecodeError` — the correct outcome, since it must trigger a retry.
+`schema_aligned_extract` strips markdown fences, smart quotes, trailing commas, and finds the largest balanced `+{...}+` block. Truncated JSON (mid-string cutoff) surfaces as `json.JSONDecodeError` — the correct outcome, since it must trigger a retry.
 
 == Default model dimensions
 

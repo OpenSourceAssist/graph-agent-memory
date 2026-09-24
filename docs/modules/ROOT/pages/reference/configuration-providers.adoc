@@ -8,8 +8,9 @@ Provider and extraction-pipeline settings for xref:reference/configuration.adoc[
 anchor:embedding[]
 
 anchor:_embedding_providers[]
-anchor:_python_configuration_3[]
-anchor:_environment_variables_3[]
+anchor:_python_configuration_2[]
+anchor:_environment_variables_2[]
+anchor:_parameters_2[]
 
 == Embedding configuration
 
@@ -37,6 +38,9 @@ When a legacy Vertex AI config is constructed, its validator changes an unset mo
 
 anchor:llm[]
 
+anchor:_python_configuration_6[]
+anchor:_environment_variables_6[]
+
 == LLM configuration
 
 Legacy LLM field inventory. The extraction factory forwards the selected provider/model/API key; it does not forward these legacy temperature/max_tokens fields. Use the extractor/provider APIs for their supported generation controls. `extraction.llm_model` is the fallback only when the factory receives no LLM config/provider.
@@ -55,6 +59,11 @@ Legacy LLM field inventory. The extraction factory forwards the selected provide
 † Not automatically applied by MemoryClient; see xref:reference/configuration-operations.adoc#integration-limits[integration limits].
 
 anchor:schema[]
+
+anchor:_schema_configuration[]
+anchor:_python_configuration_4[]
+anchor:_environment_variables_4[]
+anchor:_schema_models[]
 
 == Graph schema configuration
 
@@ -77,10 +86,8 @@ anchor:extraction[]
 
 anchor:_extractor_types[]
 anchor:_merge_strategies[]
-anchor:_schema_configuration[]
-anchor:_python_configuration_4[]
-anchor:_environment_variables_4[]
-anchor:_schema_models[]
+anchor:_python_configuration_3[]
+anchor:_environment_variables_3[]
 
 == Extraction configuration
 

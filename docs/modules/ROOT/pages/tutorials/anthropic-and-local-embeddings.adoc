@@ -44,7 +44,7 @@ Create each file below in `~/agent-memory-tutorials`. All complete sources follo
 [cols="4,3,2",options="header"]
 |===
 |File |Purpose |Returning reader
-|`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
+|`aura_connection.py` |Read explicit Aura credentials; the database defaults to `neo4j`. |Reuse unchanged
 |`wait_for_tutorial_neo4j.py` |Probe the selected database and close the driver. |Reuse unchanged
 |`anthropic_local_memory.py` |Run extraction and verify local embedding dimensions and context. This is the lesson entry point. |New for this lesson; retain it with unfinished state
 |===
@@ -124,9 +124,11 @@ Expected milestones:
 . `LLM adapter: AnthropicProvider`.
 . `Embedding adapter: SentenceTransformersProvider; dimensions=384`.
 . `Verified message readback; session=...` with the created session identifier.
-. One or more `Entity candidate:` lines, then `Verified: context assembly returned text`.
+. One or more `Entity candidate:` lines, one for each entity that extraction created or updated during this run, then `Verified: context assembly returned text`.
 
 Read the candidate names and context; model output is variable. A schema-valid response can still misidentify the source. Empty results stop the exercise rather than being presented as verified extraction.
+
+The program reads the entities back with an exact graph query rather than `search_entities()`. In 0.6.0, entities created by automatic extraction are stored without an embedding, so a semantic entity search does not return them. Messages are embedded, which the next step checks.
 
 [[_step_6_inspect_the_graph]]
 == 6. Inspect the stored vectors
@@ -137,13 +139,13 @@ In the Aura console, open *Query*, select this lesson's instance, connect with i
 
 [source,cypher]
 ----
-MATCH (entity:Entity)
-WHERE entity.embedding IS NOT NULL
-RETURN entity.name, entity.type, size(entity.embedding) AS dimensions
+MATCH (message:Message)
+WHERE message.embedding IS NOT NULL
+RETURN message.role, message.content, size(message.embedding) AS dimensions
 LIMIT 10
 ----
 
-Expected: the returned entity vectors have 384 dimensions. Then inspect the indexes:
+Expected: each stored message vector has 384 dimensions. Then inspect the indexes:
 
 [source,cypher]
 ----

@@ -1,4 +1,4 @@
-Open the helper below and save its complete source as `aura_connection.py` in your lesson folder.
+Open the helper below and save its complete source as `aura_connection.py` in `~/agent-memory-tutorials`.
 
 .Show `aura_connection.py`
 [%collapsible]

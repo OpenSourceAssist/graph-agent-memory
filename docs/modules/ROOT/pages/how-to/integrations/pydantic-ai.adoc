@@ -11,13 +11,13 @@ Give a PydanticAI 2.x agent retrieved context and the library's shipped memory t
 anchor:_overview[]
 anchor:_prerequisites[]
 
-Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
+Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment. The install command adds `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
 
 include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[pydantic-ai,openai]==0.6.0'
+python -m pip install 'neo4j-agent-memory[pydantic-ai,openai]==0.6.0' 'httpx>=0.27'
 export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
 export NEO4J_USERNAME='neo4j'
 export NEO4J_PASSWORD='replace-with-your-Aura-password'
@@ -93,7 +93,7 @@ anchor:_financial_advisory_agent[]
 anchor:_best_practices[]
 anchor:_see_also[]
 
-`MemoryDependency(client=..., session_id=...)` provides context and preference helpers. `create_memory_tools(client)` returns async functions accepted by `Agent(tools=...)`. The agent uses `output_type=str` and the result's `output` property. The recipe retrieves context once per run; for a tool loop that needs fresh context before every model request, use an `@agent.instructions` function receiving `RunContext[MemoryDependency]` and call `ctx.deps.get_context(str(ctx.prompt))`.
+`MemoryDependency(client=..., session_id=...)` provides context and preference helpers. `create_memory_tools(client)` returns async functions accepted by `Agent(tools=...)`: `search_memory`, `save_preference` and `recall_preferences`. For the hosted backend, `nams_memory_tools(client)` returns those three plus four NAMS tools: `set_entity_feedback`, `get_entity_history`, `get_entity_provenance` and `cypher_query` (read-only Cypher). On the Bolt backend, a tool whose operation is NAMS-only, such as `set_entity_feedback`, raises `NotSupportedError` when the model calls it. The agent uses `output_type=str` and the result's `output` property. The recipe retrieves context once per run; for a tool loop that needs fresh context before every model request, use an `@agent.instructions` function receiving `RunContext[MemoryDependency]` and call `ctx.deps.get_context(str(ctx.prompt))`.
 
 Choose one message writer: this recipe uses the shared orchestration helper; a custom application can instead call `deps.save_interaction(user_input, response)` once after its run. For detailed tool-call records, the shipped `record_agent_trace(reasoning, session_id=..., result=..., task=...)` adapter consumes an actual `AgentRunResult`; do not invent steps from an unobserved internal reasoning process.
 

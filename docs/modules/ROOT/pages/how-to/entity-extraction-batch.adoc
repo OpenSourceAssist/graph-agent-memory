@@ -4,15 +4,15 @@
 :toclevels: 2
 :sectanchors:
 
-include::partial$backend-bolt-only.adoc[]
+include::partial$backend-client-side.adoc[]
 
 To process multiple source texts without losing failed inputs, use the pipeline's batch result wrappers and retain the input index for every result. For longer individual texts, select explicit chunk units and inspect per-chunk errors.
 
 For the rationale, see xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline].
 
-anchor:_prerequisites[]
-
 == 1. Install the local extractor
+
+anchor:_prerequisites[]
 
 Use Python 3.10 or newer and a POSIX shell. Prepare the example files and install the required extra:
 
@@ -28,6 +28,8 @@ The maintained program `extraction_recipes.py` supplies its own imports, source 
 include::partial$python-extraction-recipe-file.adoc[]
 
 == 2. Configure and run the extraction
+
+anchor:_batch_extraction[]anchor:_high_volume_ecommerce_speed_priority[]anchor:_financial_compliance_accuracy_priority[]
 
 The runner selects the `business` GLiNER schema. `ExtractionPipeline(..., fallback_on_error=False)` propagates an extractor error to the batch wrapper; `fail_fast=False` then collects the item error instead of abandoning the remaining inputs. The example starts with one worker and a batch size of two; tune after measuring your workload.
 
@@ -49,9 +51,9 @@ Expected: progress for both inputs, an `Input ...` line for each result, and `Ve
 
 The command raises on the documented failure conditions. Inspect candidate names, types, and confidence against source text before storing them. Counts alone do not measure extraction accuracy.
 
-anchor:_streaming_extraction[]
-
 == Process a long text in chunks
+
+anchor:_streaming_extraction[]anchor:_get_complete_deduplicated_result[]anchor:_token_based_chunking[]
 
 . Read the maintained streaming function:
 +
@@ -71,20 +73,13 @@ python extraction_recipes.py streaming
 
 The API accepts the complete input string and computes its chunks. It is not a file-streaming reader that avoids loading the document text into memory. `extract_streaming` yields `StreamingChunkResult` objects with `.result.entities`; `extract` returns `StreamingExtractionResult`, and `to_extraction_result` converts it to the common result model. Calling extraction twice repeats model work.
 
-anchor:_track_extraction_quality[]
-
 == Preserve source indexes and measure quality
+
+anchor:_track_extraction_quality[]
 
 The batch API shown here belongs to `ExtractionPipeline`. `GLiNEREntityExtractor.extract_batch` has a different signature and returns a list of `ExtractionResult`, not the aggregate wrapper. Keep the two APIs distinct.
 
 Before persistence, associate each successful `BatchItemResult.index` with its source document; log errors against that same input identifier. The xref:tutorials/knowledge-graph.adoc[document program] demonstrates message provenance and safe relationship endpoint matching. Measure precision/recall on reviewed samples and inspect chunk boundaries; a 100% completed-item rate is not a claim of extraction accuracy.
-
-// Historical section links resolve to the maintained task and reference pointers.
-anchor:_batch_extraction[]
-anchor:_high_volume_ecommerce_speed_priority[]
-anchor:_financial_compliance_accuracy_priority[]
-anchor:_get_complete_deduplicated_result[]
-anchor:_token_based_chunking[]
 
 == See also
 

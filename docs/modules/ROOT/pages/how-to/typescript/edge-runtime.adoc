@@ -61,6 +61,8 @@ export async function GET(req: Request) {
 [#streaming-memory-persistence]
 == Streaming + memory persistence
 
+anchor:_streaming_memory_persistence[]
+
 Non-streaming `generateText` uses `wrapGenerate`, which awaits its assistant
 write. Streaming uses `wrapStream`: it launches a background write and exposes
 no completion promise. Draining or awaiting the model stream does not prove
@@ -76,7 +78,12 @@ link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/cl
 abort and logs write failures; it does not guarantee storage if the runtime is terminated.
 
 This avoids duplicate assistant writes. It is application code, not a hidden
-SDK flush method. Keep the client alive until that write settles. See
+SDK flush method. `persistResponses: false` turns off only the assistant write;
+the middleware still stores the user message. `createNamsProvider` from
+`@neo4j-labs/nams-ai-provider` has no such split: its `persistInteractions: false`
+turns off both writes, so with that provider also store the user message
+yourself, just before the assembled answer when the stream ends. Keep the
+client alive until those writes settle. See
 xref:how-to/typescript/vercel-ai.adoc[the middleware streaming example].
 
 == Verifying

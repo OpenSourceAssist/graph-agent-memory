@@ -24,6 +24,8 @@ async def main():
     )
     session_id = f"anthropic-tutorial-{uuid4().hex[:8]}"
     async with MemoryClient(settings) as client:
+        # Database time before the write: extraction creates or updates entities after it.
+        [started] = await client.query.cypher("RETURN datetime() AS now")
         message = await client.short_term.add_message(
             session_id=session_id,
             role="user",
@@ -34,13 +36,20 @@ async def main():
         if not any(stored.id == message.id for stored in history):
             raise RuntimeError("The saved message was missing from readback")
         print(f"Verified message readback; session={session_id}")
-        entities = await client.long_term.search_entities("Maya Chen", limit=5)
+        # Read back the entities extraction wrote. In 0.6.0 extracted entities are
+        # stored without vectors, so an exact graph read checks them, not search_entities.
+        entities = await client.query.cypher(
+            "MATCH (entity:Entity) "
+            "WHERE coalesce(entity.updated_at, entity.created_at) >= $since "
+            "RETURN entity.name AS name, entity.type AS type ORDER BY name",
+            {"since": started["now"]},
+        )
         if not entities:
             raise RuntimeError(
                 "No entity candidates returned; inspect extraction before continuing"
             )
         for entity in entities:
-            print(f"Entity candidate: {entity.name} ({entity.full_type})")
+            print(f"Entity candidate: {entity['name']} ({entity['type']})")
         context = await client.get_context("Maya Chen", session_id=session_id)
         if not context.strip():
             raise RuntimeError("Context assembly returned empty text")

@@ -51,7 +51,7 @@ export async function startHostedStub() {
         send({ messages: conversation.messages.filter(message => String(message.content).includes(String(body.query))) });
       } else if (conversation && path.endsWith("/extraction-status")) {
         if (behavior.failStatus) { send({ error: "Injected status failure" }, behavior.failStatus); return; }
-        if (conversation.messages.length > 0 && behavior.derive && behavior.extraction === "done" && ![...sources.values()].some(ids => ids.includes(String(conversation.messages[0]?.id)))) {
+        if (conversation.messages.length > 0 && behavior.derive && ["done", "completed"].includes(behavior.extraction) && ![...sources.values()].some(ids => ids.includes(String(conversation.messages[0]?.id)))) {
           const entityId = `derived-${++sequence}`;
           const createdAt = new Date().toISOString();
           const name = String(conversation.messages[0]?.content).match(/Lantern Orchard [a-f0-9-]{36}/)?.[0] ?? "Fictional extracted entity";

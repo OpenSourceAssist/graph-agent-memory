@@ -223,8 +223,8 @@ See xref:reference/configuration-providers.adoc#resolution[Resolution configurat
 | pass:[<code>NAM_<wbr>MEMORY__<wbr>MULTI_<wbr>TENANT</code>] | `false` | Require `user_identifier` on the guarded bolt writes
 | `NAM_MEMORY__WRITE_MODE` | `sync` | `sync` or `buffered` — controls `client.buffered.submit(...)`
 | `NAM_MEMORY__MAX_PENDING` | `200` | Maximum in-flight buffered writes
-| pass:[<code>NAM_<wbr>MEMORY__<wbr>CONVERSATION_<wbr>TTL_<wbr>DAYS</code>] | unset | TTL value for `archive_expired_conversations(older_than_days=...)` — not automatically applied
-| `NAM_MEMORY__AUDIT_READ` | `false` | Audit preference for `consolidation.audit_reads(...)` — not automatically applied
+| pass:[<code>NAM_<wbr>MEMORY__<wbr>CONVERSATION_<wbr>TTL_<wbr>DAYS</code>] | unset | TTL value for `archive_expired_conversations(ttl_days=...)` — not automatically applied
+| `NAM_MEMORY__AUDIT_READ` | `false` | Audit preference for `client.consolidation.record_read_audit(...)` — not automatically applied
 |===
 
 See xref:reference/configuration-operations.adoc#memory[Memory behavior] for the full field table, including `write_mode`/`max_pending` (buffered writes) and the integration limits on the remaining fields.

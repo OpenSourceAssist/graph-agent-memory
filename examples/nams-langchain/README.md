@@ -131,6 +131,6 @@ memory-backed agent tools and a reasoning-trace middleware.
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > _Verified against `neo4j-agent-memory` 0.6.0-dev (branch `examples-updates`), `langchain` 1.4.0, `langchain-core` 1.6.2, with the NAMS transport mocked (`tests/examples/test_nams_langchain_example.py`) — 2026-09-10._

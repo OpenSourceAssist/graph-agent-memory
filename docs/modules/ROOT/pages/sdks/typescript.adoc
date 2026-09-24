@@ -104,6 +104,8 @@ prove npm artifact availability or live-service behavior.
 
 == See also
 
+anchor:_where_to_go_next[]
+
 * xref:tutorials/first-agent-memory-typescript.adoc[Tutorial: First agent memory (TypeScript)]
 * xref:tutorials/hosted-quickstart-typescript.adoc[Tutorial: Hosted quickstart]
 * xref:how-to/typescript/authenticate.adoc[Authenticate a TypeScript client]

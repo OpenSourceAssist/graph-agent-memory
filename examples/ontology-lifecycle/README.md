@@ -166,7 +166,7 @@ Migrating existing entities onto revision 2:
 Active: Support Desk revision 2 (strict)
 Label counts after migration: [{'labels': ['Entity', 'SupportCase'], 'count': 2}]
 
-Retained ontology: ont_01J…. The new version remains active; deleting it alone does not restore the previous schema or migrated entities.
+Done. Inspect support-desk at https://memory.neo4jlabs.com. Retained ontology: ont_01J…. The new version remains active; deleting it alone does not restore the previous schema or migrated entities.
 ```
 
 This is illustrative output for the successful path, not a captured live run; the numbers depend on your workspace.
@@ -213,6 +213,6 @@ bolt — you own the Cypher.
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > _Verified against `neo4j-agent-memory` 0.6.0-dev (branch `examples-updates`), Python 3.12, with the NAMS transport mocked (`tests/examples/test_ontology_lifecycle_example.py`) — 2026-09-10. `ontology.import_`, `ontology.diff`, `ontology.migrate` and `ontology.get_migration` ship in the 0.6 line; until it is released, install the library from this repository (`uv pip install -e ../..`) rather than from PyPI. The migration path has not been exercised against the production deployment — run the dry run first._

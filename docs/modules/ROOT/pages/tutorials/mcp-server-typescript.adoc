@@ -34,7 +34,7 @@ anchor:_prerequisites[]
 
 == Before you begin
 
-* macOS, Git, Node.js 22 or later with npm, and a POSIX shell. This lesson is
+* macOS, Git, Node.js 22.9 or later with npm, and a POSIX shell. This lesson is
   macOS-only because Step 4 edits the Claude Desktop config file at its macOS
   path (`~/Library/Application Support/Claude/claude_desktop_config.json`). On
   Windows or Linux, follow xref:reference/nams-mcp.adoc[Hosted NAMS MCP]
@@ -59,7 +59,7 @@ Create a separate project at the repository root:
 mkdir my-memory-mcp
 cd my-memory-mcp
 npm init -y
-npm install ../typescript @modelcontextprotocol/sdk@^1.30 zod@^4
+npm install @neo4j-labs/agent-memory@0.5.0 @modelcontextprotocol/sdk@^1.30 zod@^4
 npm install --save-dev typescript@^5.9 tsx@^4 @types/node@^22
 mkdir src
 cp ../typescript/examples/shared/tutorial-state.ts src/
@@ -67,12 +67,15 @@ cp ../typescript/examples/shared/tutorial-cleanup.ts src/
 cp ../typescript/examples/shared/tutorial-mcp.ts src/
 ----
 
-The three maintained helpers are copied into `src/`, inside this project's
-TypeScript `rootDir`. They retain lesson IDs, verify saved records and clean up
-only resources whose ownership is established. Keep this project for the restart
-and cleanup steps; do not recreate it midway through the lesson.
+This project is a standalone application, so it installs the published
+`@neo4j-labs/agent-memory@0.5.0` package from npm; the checkout supplies only
+the helper files and the `.env` template. The three maintained helpers are
+copied into `src/`, inside this project's TypeScript `rootDir`. They retain
+lesson IDs, verify saved records and clean up only resources whose ownership is
+established. Keep this project for the restart and cleanup steps; do not
+recreate it midway through the lesson.
 
-`zod` is what `McpServer` validates tool arguments with; it is an optional peer of the memory SDK and a direct dependency of the MCP SDK.
+`zod` is what `McpServer` validates tool arguments with; it is an optional peer of the memory SDK and a direct dependency of the MCP SDK. Installing all three from npm lets them share one copy of `zod`, which `npm run build` needs: the memory tool schemas and `McpServer` must use the same `zod` types.
 
 Add `"type": "module"`, an engine floor and the scripts to `package.json`:
 
@@ -80,7 +83,7 @@ Add `"type": "module"`, an engine floor and the scripts to `package.json`:
 ----
 {
   "type": "module",
-  "engines": { "node": ">=22.0.0" },
+  "engines": { "node": ">=22.9.0" },
   "scripts": {
     "start": "tsx --env-file-if-exists=.env src/server.ts",
     "build": "tsc -p tsconfig.json"
@@ -197,10 +200,11 @@ main().catch((err) => {
 
 The SDK defines 12 standard memory tools. This lesson registers six of them,
 with validation and dispatch supplied by `registerMemoryTools`. Reasoning writes
-are excluded because the service does not provide a verified complete cleanup
-route for those records. The SDK APIs remain available for applications with an
-established retention policy; see xref:reference/typescript-api.adoc[the API
-reference] before adding them.
+are excluded because the service has no verified delete route for steps or
+tool calls, so lesson cleanup could not remove them (see
+xref:reference/backend-capabilities.adoc#hosted-cleanup[Hosted cleanup and retained resources]).
+Applications that decide how long such records are kept can use the reasoning
+methods listed in xref:reference/typescript-api.adoc[the API reference].
 
 Diagnostics go to **stderr** because stdout carries the stdio protocol. A
 dispatch failure returns a tool result with `isError: true`. Inspect that
@@ -521,6 +525,8 @@ workspaces, keep each server's credential and ledger separate; a different
 Desktop chat alone does not create a workspace boundary.
 
 == Next steps
+
+anchor:_see_also[]
 
 * xref:tutorials/conversation-memory-typescript.adoc[Recall conversation memory after a restart] — verify an application uses its saved conversation.
 * xref:tutorials/knowledge-graph-typescript.adoc[Ingest documents and inspect extracted entities] — inspect extraction through the lesson’s scoped message IDs.

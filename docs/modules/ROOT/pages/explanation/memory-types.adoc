@@ -34,7 +34,7 @@ image::diagrams/memory-architecture.svg["Memory architecture: MemoryClient with 
 
 These are product terms. Human-memory analogies are approximate: both a conversation and a task trace can describe an episode; the current prompt is closer to working memory than any one persisted layer.
 
-NOTE: "Observation" above is a reasoning-memory tool-call result. The hosted TypeScript client also uses "observation" and "reflection" in an unrelated sense, for the compressed tiers of a conversation's short-term context. See xref:explanation/context-tiers.adoc[Understanding the three-tier context model] and the xref:glossary.adoc[glossary] for both senses.
+NOTE: "Observation" above is a reasoning step's recorded observation, often derived from a tool result. NAMS also uses "observation" and "reflection" in an unrelated sense, for the compressed tiers of a conversation's short-term context, which both SDKs can read on the hosted backend. See xref:explanation/context-tiers.adoc[Understanding the three-tier context model] and the xref:glossary.adoc[glossary] for each sense.
 
 [[_why_three_layers]]
 == Why separate the layers?

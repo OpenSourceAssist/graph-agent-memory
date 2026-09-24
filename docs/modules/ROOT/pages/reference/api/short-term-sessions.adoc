@@ -41,12 +41,28 @@ anchor:_delete_session[]
 
 === clear_session
 
-Delete the matching conversation, its linked messages, and any traces, steps, and tool calls connected through its `:HAS_TRACE` relationships. This is the supported session-clearing name; `delete_session` does not exist.
+Delete the matching conversation and its messages, with all their relationships (including `:MENTIONS`); the mentioned entities stay. This is the supported session-clearing name; `delete_session` does not exist.
 
 // contract: memory/short_term.py:ShortTermMemory.clear_session
 [source,python]
 ----
 async def clear_session(session_id: str) -> None: ...
+----
+
+`clear_session` does not delete the session's reasoning data. `start_trace` stores `session_id` on the trace but does not link the trace to the conversation, so the traces, steps, and tool calls recorded for the session remain. To remove them as well, delete the traces by `session_id`:
+
+[source,python]
+----
+await client.short_term.clear_session(session_id)
+await client.graph.execute_write(
+    """
+    MATCH (rt:ReasoningTrace {session_id: $session_id})
+    OPTIONAL MATCH (rt)-[:HAS_STEP]->(rs:ReasoningStep)
+    OPTIONAL MATCH (rs)-[:USES_TOOL]->(tc:ToolCall)
+    DETACH DELETE rt, rs, tc
+    """,
+    {"session_id": session_id},
+)
 ----
 
 anchor:_conversation_summaries[]

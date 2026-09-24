@@ -121,8 +121,8 @@ async def main():
         if args.command == "seed":
             await seed(client)
         else:
-            # Imported here: only this branch calls a model, so `seed` runs
-            # without the openai package installed.
+            # Imported here: only this branch calls the chat model. Both branches
+            # still need the openai extra, which the settings use for embeddings.
             from openai import AsyncOpenAI
 
             async with AsyncOpenAI() as llm:

@@ -11,13 +11,13 @@ include::partial$backend-bolt-only.adoc[]
 Configure an LLM provider through `MemorySettings.llm` and verify which adapter handles requests.
 
 [.lead]
-For the bigger-picture choice between providers, see xref:how-to/bring-your-own-model.adoc[Bring your own model]. For the conceptual rationale, see xref:explanation/why-provider-protocol.adoc[Why the Provider Protocol?].
+For the bigger-picture choice between providers, see xref:how-to/bring-your-own-model.adoc[Bring your own model]. For the conceptual rationale, see xref:explanation/why-provider-protocol.adoc[Why the provider protocol?].
 
 CAUTION: Setting only `MemorySettings.llm` does not configure embeddings. `MemorySettings.embedding` defaults to `EmbeddingConfig()`, whose provider defaults to OpenAI's `text-embedding-3-small` — so an LLM-only configuration still needs `OPENAI_API_KEY` set for extraction and search to embed text. Set `embedding=` explicitly (see xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider]) to use a different embedding provider.
 
 == Prerequisites
 
-* Install the extras for each selected provider and configure its credentials. Quote package extras in shell commands, for example `pip install 'neo4j-agent-memory[openai]==0.6.0'`.
+* Install the extras for each selected provider and configure its credentials. Quote package extras in shell commands, for example `pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'`. Keep `httpx` in the command: release 0.6.0 imports it when connecting over Bolt but declares it only in the `nams` extra.
 * Use a dedicated AuraDB instance and export `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` as shown in xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. These examples use the `bolt` backend; `NEO4J_DATABASE` defaults to `neo4j` when omitted.
 * Model identifiers below illustrate adapter routing. Confirm the chosen model is available to your account before making a live request; successful provider construction does not verify model access.
 * Run snippets containing `await` in an async function. The `provider`, `messages`, and connected `client` in later fragments come from your application's setup.
@@ -36,7 +36,7 @@ anchor:_set_the_llm_via_a_provider_string[]anchor:_set_the_llm_via_an_explicit_p
 
 * **Provider string** (recommended for most users) — `llm="anthropic/claude-3-5-sonnet-latest"` resolves via `from_provider(model, kind="llm")` with native-first dispatch.
 * **Explicit Provider instance** — construct the adapter directly for kwargs the string form can't express, for example `AnthropicProvider(..., cache_system=True, timeout=120.0, max_retries=5)` for Anthropic prompt caching, request timeout, and retry count.
-* **Framework pass-through** — wrap an already-configured `ChatOpenAI`, `ChatAnthropic`, etc. with the matching `llm_provider_from_<framework>` helper. Pass-through helpers exist for every supported integration; see xref:how-to/migrate-to-providers.adoc[Migrate to pluggable providers — Pattern 5] for the full list.
+* **Framework pass-through** — wrap an already-configured `ChatOpenAI`, `ChatAnthropic`, etc. with the matching `llm_provider_from_<framework>` helper. Pass-through helpers exist for every supported integration; see xref:how-to/migrate-to-providers.adoc#_pattern_5_pass_through_a_framework_native_model[Migrate to pluggable providers — Pattern 5] for the full list.
 
 == Use no LLM at all
 
@@ -62,7 +62,7 @@ settings = MemorySettings(
 )
 ----
 
-See xref:how-to/running-without-an-llm.adoc[Run Without an LLM] for the full guide.
+See xref:how-to/running-without-an-llm.adoc[Run without an LLM] for the full guide.
 
 == Override the API key
 
@@ -113,6 +113,13 @@ provider = from_provider(
 Useful for consistency tests, observability standardisation across providers, or when you want LiteLLM's cost tracking.
 
 == Configure via the MCP CLI
+
+The `neo4j-agent-memory` command needs the `cli` extra, and `mcp serve` also needs the `mcp` extra. This example selects Anthropic for the LLM and keeps the default OpenAI embedding provider:
+
+[source,bash]
+----
+pip install 'neo4j-agent-memory[cli,mcp,anthropic,openai]==0.6.0' 'httpx>=0.27'
+----
 
 [source,bash]
 ----
@@ -175,7 +182,9 @@ If you add retries, bound their number and account for adapter-level retries.
 
 == See also
 
+anchor:_related[]
+
 * xref:how-to/bring-your-own-model.adoc[Bring your own model] — the headline overview.
 * xref:how-to/configure-embedding-provider.adoc[Configure an embedding provider].
-* xref:reference/configuration.adoc[Configuration Reference].
-* xref:reference/cli.adoc[CLI Reference].
+* xref:reference/configuration.adoc[Configuration reference].
+* xref:reference/cli.adoc[CLI reference].

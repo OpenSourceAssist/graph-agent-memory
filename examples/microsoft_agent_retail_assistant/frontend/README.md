@@ -130,7 +130,7 @@ src/
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > _Verified against `next` 16.3.4, `react` 19.3.0, `@chakra-ui/react` 3.37.0,
 > `react-force-graph-2d` 1.29.1, `eslint` 9.39.5, `typescript` 5.9.3 on Node

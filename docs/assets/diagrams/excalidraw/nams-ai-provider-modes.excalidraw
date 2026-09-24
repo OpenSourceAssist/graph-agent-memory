@@ -742,7 +742,7 @@
       "type": "rectangle",
       "id": "ws-box",
       "x": 100,
-      "y": 390,
+      "y": 470,
       "width": 1060,
       "height": 140,
       "angle": 0,
@@ -788,7 +788,7 @@
       "type": "text",
       "id": "ws-title",
       "x": 545.3,
-      "y": 417.25,
+      "y": 497.25,
       "width": 169.4,
       "height": 27.5,
       "angle": 0,
@@ -824,9 +824,9 @@
     {
       "type": "text",
       "id": "ws-detail",
-      "x": 371.5,
-      "y": 452.75,
-      "width": 517.0,
+      "x": 400,
+      "y": 532.75,
+      "width": 460,
       "height": 50.0,
       "angle": 0,
       "strokeColor": "#1971c2",
@@ -849,8 +849,8 @@
       "updated": 1,
       "link": null,
       "locked": false,
-      "text": "Retrieves relevant memory before the model call\nPersists the turn and extracts entities after",
-      "originalText": "Retrieves relevant memory before the model call\nPersists the turn and extracts entities after",
+      "text": "Retrieves relevant memory\nStores turns and extracts entities from them",
+      "originalText": "Retrieves relevant memory\nStores turns and extracts entities from them",
       "fontSize": 20,
       "fontFamily": 2,
       "textAlign": "center",
@@ -864,7 +864,7 @@
       "x": 165.0,
       "y": 330,
       "width": 1,
-      "height": 60,
+      "height": 140,
       "angle": 0,
       "strokeColor": "#1971c2",
       "backgroundColor": "transparent",
@@ -882,7 +882,12 @@
       "version": 1,
       "versionNonce": 1044,
       "isDeleted": false,
-      "boundElements": [],
+      "boundElements": [
+        {
+          "id": "arr-ws-0-label",
+          "type": "text"
+        }
+      ],
       "updated": 1,
       "link": null,
       "locked": false,
@@ -893,7 +898,7 @@
         ],
         [
           0,
-          60
+          140
         ]
       ],
       "startArrowhead": null,
@@ -915,7 +920,7 @@
       "x": 475.0,
       "y": 330,
       "width": 1,
-      "height": 60,
+      "height": 140,
       "angle": 0,
       "strokeColor": "#1971c2",
       "backgroundColor": "transparent",
@@ -933,7 +938,12 @@
       "version": 1,
       "versionNonce": 1046,
       "isDeleted": false,
-      "boundElements": [],
+      "boundElements": [
+        {
+          "id": "arr-ws-1-label",
+          "type": "text"
+        }
+      ],
       "updated": 1,
       "link": null,
       "locked": false,
@@ -944,7 +954,7 @@
         ],
         [
           0,
-          60
+          140
         ]
       ],
       "startArrowhead": null,
@@ -966,7 +976,7 @@
       "x": 785.0,
       "y": 330,
       "width": 1,
-      "height": 60,
+      "height": 140,
       "angle": 0,
       "strokeColor": "#1971c2",
       "backgroundColor": "transparent",
@@ -984,7 +994,12 @@
       "version": 1,
       "versionNonce": 1048,
       "isDeleted": false,
-      "boundElements": [],
+      "boundElements": [
+        {
+          "id": "arr-ws-2-label",
+          "type": "text"
+        }
+      ],
       "updated": 1,
       "link": null,
       "locked": false,
@@ -995,7 +1010,7 @@
         ],
         [
           0,
-          60
+          140
         ]
       ],
       "startArrowhead": null,
@@ -1017,7 +1032,7 @@
       "x": 1095.0,
       "y": 330,
       "width": 1,
-      "height": 60,
+      "height": 140,
       "angle": 0,
       "strokeColor": "#1971c2",
       "backgroundColor": "transparent",
@@ -1035,7 +1050,12 @@
       "version": 1,
       "versionNonce": 1050,
       "isDeleted": false,
-      "boundElements": [],
+      "boundElements": [
+        {
+          "id": "arr-ws-3-label",
+          "type": "text"
+        }
+      ],
       "updated": 1,
       "link": null,
       "locked": false,
@@ -1046,7 +1066,7 @@
         ],
         [
           0,
-          60
+          140
         ]
       ],
       "startArrowhead": null,
@@ -1061,6 +1081,154 @@
         "focus": 0,
         "gap": 4
       }
+    },
+    {
+      "type": "text",
+      "id": "arr-ws-0-label",
+      "x": 112.5,
+      "y": 375.0,
+      "width": 105.0,
+      "height": 50,
+      "angle": 0,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2002,
+      "version": 1,
+      "versionNonce": 2003,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1,
+      "link": null,
+      "locked": false,
+      "text": "Automatic,\nevery call",
+      "originalText": "Automatic,\nevery call",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "lineHeight": 1.25,
+      "containerId": "arr-ws-0"
+    },
+    {
+      "type": "text",
+      "id": "arr-ws-1-label",
+      "x": 422.5,
+      "y": 375.0,
+      "width": 105.0,
+      "height": 50,
+      "angle": 0,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2004,
+      "version": 1,
+      "versionNonce": 2005,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1,
+      "link": null,
+      "locked": false,
+      "text": "Automatic,\nevery call",
+      "originalText": "Automatic,\nevery call",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "lineHeight": 1.25,
+      "containerId": "arr-ws-1"
+    },
+    {
+      "type": "text",
+      "id": "arr-ws-2-label",
+      "x": 685.25,
+      "y": 375.0,
+      "width": 199.5,
+      "height": 50,
+      "angle": 0,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2006,
+      "version": 1,
+      "versionNonce": 2007,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1,
+      "link": null,
+      "locked": false,
+      "text": "When the model\ncalls a memory tool",
+      "originalText": "When the model\ncalls a memory tool",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "lineHeight": 1.25,
+      "containerId": "arr-ws-2"
+    },
+    {
+      "type": "text",
+      "id": "arr-ws-3-label",
+      "x": 990.0,
+      "y": 375.0,
+      "width": 210.0,
+      "height": 50,
+      "angle": 0,
+      "strokeColor": "#1971c2",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2008,
+      "version": 1,
+      "versionNonce": 2009,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1,
+      "link": null,
+      "locked": false,
+      "text": "When your code calls\nprepare / onFinish",
+      "originalText": "When your code calls\nprepare / onFinish",
+      "fontSize": 20,
+      "fontFamily": 2,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "lineHeight": 1.25,
+      "containerId": "arr-ws-3"
     }
   ],
   "appState": {

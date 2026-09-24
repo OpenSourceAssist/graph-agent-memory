@@ -21,7 +21,7 @@ An intelligent compliance assistant powered by **Google ADK** (Agent Development
 
 ## Overview
 
-This example application showcases the Google Cloud-Neo4j integration through a example architecture for financial services compliance. It demonstrates how AI agents can use graph memory for explainable, auditable decision-making.
+This example application showcases the Google Cloud-Neo4j integration through an example architecture for financial services compliance. It demonstrates how AI agents can use graph memory for explainable, auditable decision-making.
 
 ### Key Features
 
@@ -718,7 +718,7 @@ This example is part of the neo4j-agent-memory project and is licensed under the
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > _Verified against `neo4j-agent-memory` 0.6.0-dev (PyPI floor `>=0.5.0,<0.7`), google-adk 2.9.0, google-genai 2.23.0, google-cloud-aiplatform 2.1.0, FastAPI 0.141.1, neo4j 6.3.0 on Python 3.12 — 2026-09-10._
 > _Checked: `uv sync`, `uv run ruff check src/ tests/`, `uv run pytest` (42 offline tests), `docker build ./backend`. A full end-to-end investigation additionally needs Gemini credentials and a GCP project with the Vertex AI API enabled._

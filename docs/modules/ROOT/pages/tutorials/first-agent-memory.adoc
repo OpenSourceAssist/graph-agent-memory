@@ -12,7 +12,7 @@ image::diagrams/message-chain.svg["A conversation linked to an ordered chain of 
 
 This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI, the complete programs on this page, and a dedicated Neo4j AuraDB instance over Bolt. We will use the seed, verification, and search commands to check provider access and persisted data in this environment.
 
-anchor:_prerequisites[]
+anchor:_prerequisites[]anchor:_what_youll_learn[]anchor:_time_required[]
 
 == Before you begin
 
@@ -29,9 +29,11 @@ anchor:_step_1_install_dependencies[]
 
 include::partial$python-tutorial-setup.adoc[]
 
+We also install `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
+
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'
 python -c "from importlib.metadata import version; import neo4j_agent_memory; assert version('neo4j-agent-memory') == '0.6.0'; print('SDK 0.6.0 import verified')"
 ----
 
@@ -44,7 +46,7 @@ Create each file below in `~/agent-memory-tutorials`. All complete sources follo
 [cols="2,4,2",options="header"]
 |===
 |File |Purpose |Returning reader
-|`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
+|`aura_connection.py` |Read explicit Aura credentials; the database defaults to `neo4j`. |Reuse unchanged
 |`wait_for_tutorial_neo4j.py` |Probe the selected database and close the driver. |Reuse unchanged
 |`core_memory_settings.py` |Construct the explicit Bolt and OpenAI embedding settings. |Reuse unchanged
 |`first_agent_memory.py` |Store, verify, and search the small memory context. This is the lesson entry point. |New for this lesson; retain it with unfinished state
@@ -78,7 +80,7 @@ include::partial$python-tutorial-import-check.adoc[tag=expected]
 
 :cli-help-suffix!:
 
-anchor:_step_2_set_up_neo4j[]
+anchor:_step_2_set_up_neo4j[]anchor:_option_a_docker_recommended_for_learning[]anchor:_option_b_neo4j_aura_free[]
 
 == 2. Create and connect to the Aura database
 
@@ -101,7 +103,7 @@ The `core_memory_settings.py` file copied above is imported by the lesson progra
 
 The helper uses the exported Aura connection, explicitly selects the Bolt backend, disables automatic extraction and enrichment, and selects the embedding adapter. This lesson stores the supplied entities directly. The next step runs the complete program from the tutorial folder.
 
-anchor:_step_4_create_your_first_memory_client[]
+anchor:_step_4_create_your_first_memory_client[]anchor:_step_5_add_entity_extraction[]
 
 == 4. Read and run the complete storage program
 
@@ -142,7 +144,7 @@ python first_agent_memory.py search
 
 Expected: up to five entity names and their `metadata["similarity"]` values, followed by the candidate count. Scores and order vary between runs; the exact readback in step 5 remains the persistence check. An empty search string does not list all entities. See xref:explanation/memory-types.adoc[] for how ranked semantic search differs from exact lookup.
 
-anchor:_step_7_view_your_context_graph_in_neo4j_browser[]
+anchor:_step_7_view_your_context_graph_in_neo4j_browser[]anchor:_view_all_nodes[]anchor:_view_messages_and_their_entities[]anchor:_view_user_preferences[]anchor:_view_the_full_context_graph[]
 
 == 7. Inspect the stored relationship
 
@@ -174,7 +176,7 @@ include::partial$aura-tutorial-cleanup.adoc[]
 
 With this environment still active and `agent-memory-tutorials` as your working directory, continue at xref:tutorials/conversation-memory.adoc#_step_1_project_setup[step 1 of the next lesson] to copy its new entry point and reuse unchanged helpers after checking its additional chat-model prerequisite.
 
-anchor:_troubleshooting[]
+anchor:_troubleshooting[]anchor:_connection_refused[]anchor:_authentication_failed[]anchor:_gliner_download_slow[]
 
 == If a check fails
 
@@ -186,17 +188,3 @@ anchor:_see_also[]
 
 * xref:reference/api/memory-client.adoc[Python API reference]
 * xref:reference/backend-capabilities.adoc#scope[Identity and retrieval scope]
-
-// Retain section URLs from the earlier fragmented lesson.
-anchor:_what_youll_learn[]
-anchor:_time_required[]
-anchor:_option_a_docker_recommended_for_learning[]
-anchor:_option_b_neo4j_aura_free[]
-anchor:_step_5_add_entity_extraction[]
-anchor:_view_all_nodes[]
-anchor:_view_messages_and_their_entities[]
-anchor:_view_user_preferences[]
-anchor:_view_the_full_context_graph[]
-anchor:_connection_refused[]
-anchor:_authentication_failed[]
-anchor:_gliner_download_slow[]

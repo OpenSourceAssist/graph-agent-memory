@@ -503,7 +503,7 @@ The flag is still accepted so existing launch configurations keep starting, but
 it logs a warning and serves Streamable HTTP. Switch to `--transport http`.
 
 The endpoint path also changed with it: Streamable HTTP serves a single
-`POST`/`GET` endpoint at `/mcp/`, not the old `/sse` + `/messages` pair. Update
+`POST`/`GET` endpoint at `/mcp` (no trailing slash; `/mcp/` answers with a redirect), not the old `/sse` + `/messages` pair. Update
 client URLs alongside the flag.
 ====
 

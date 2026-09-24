@@ -10,7 +10,7 @@ not implement `client.consolidation`.
 
 == Prerequisites
 
-* A connected Bolt `client`, with `settings` configured as in xref:how-to/messages.adoc[Store and search messages].
+* A connected Bolt `client`, with `settings` configured as in xref:how-to/messages.adoc[Store, retrieve, and summarize messages].
 * A test user and seeded preferences for the read example.
 * A retention policy that distinguishes archival markers from deletion and access controls.
 
@@ -18,6 +18,8 @@ Run the fragments in an async function. The encryption section describes a
 protocol boundary; there is no client setting that installs an encrypter.
 
 == 1. Record a read audit
+
+anchor:_read_auditing[]
 
 For sensitive read paths (preference lookups, exports, cross-tenant
 queries), record an audit node alongside the actual read:
@@ -46,6 +48,8 @@ record reads the agent doesn't care about. Auditing is callsite-explicit
 on purpose.
 
 == 2. Preview and apply conversation archival
+
+anchor:_conversation_ttl[]
 
 Configure a default TTL via settings, then run the archival job
 periodically:
@@ -92,6 +96,8 @@ A dry run should produce no new archive markers.
 
 == Optional: Implement content encryption in your application
 
+anchor:_at_rest_encryption_protocol[]
+
 `neo4j_agent_memory.core.encryption.MessageContentEncrypter` defines
 `encrypt(plaintext: str) -> str` and `decrypt(ciphertext: str) -> str`.
 It is a runtime-checkable protocol, not middleware wired into message storage.
@@ -111,10 +117,5 @@ Database encryption at rest is a separate deployment control.
 
 == See also
 
-* xref:how-to/consolidation.adoc[Memory Consolidation] — `archive_expired_conversations` and the underlying audit-run pattern.
-* xref:how-to/multi-tenancy.adoc[Multi-Tenant Memory] — the `:User` node that audit edges attach to.
-
-// Preserve historical section links after the procedure was reorganized.
-anchor:_read_auditing[]
-anchor:_conversation_ttl[]
-anchor:_at_rest_encryption_protocol[]
+* xref:how-to/consolidation.adoc[Memory consolidation] — `archive_expired_conversations` and the underlying audit-run pattern.
+* xref:how-to/multi-tenancy.adoc[Associate memory with users and select scoped reads] — the `:User` node that audit edges attach to.

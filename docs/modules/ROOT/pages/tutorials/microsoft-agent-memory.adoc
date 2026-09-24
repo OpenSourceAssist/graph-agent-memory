@@ -9,7 +9,7 @@ We will store an explicit shopping preference in AuraDB, attach a Neo4j context 
 
 [NOTE]
 ====
-icon:flask[] *Preview.* The Microsoft Agent Framework integration tracks a framework that is itself pre-1.0; APIs on either side can change between releases. Pin both packages explicitly and re-check this page before upgrading a deployment.
+icon:flask[] *Preview.* This adapter is a preview integration. It targets the Microsoft Agent Framework 1.x GA line (`agent-framework-core>=1.13,<2`); adapter and framework APIs can change between releases. Pin the versions you tested and re-check the integration guide before upgrading a deployment.
 ====
 
 This lesson uses `neo4j-agent-memory` 0.6.0 from PyPI and the complete programs on this page in a POSIX shell. Create the local files shown below; the checks below verify the results in your environment.
@@ -30,9 +30,11 @@ This path uses the OpenAI client. The SDK’s Microsoft integration targets `age
 
 include::partial$python-tutorial-setup.adoc[]
 
+We also install `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
+
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[microsoft-agent,openai]==0.6.0'
+python -m pip install 'neo4j-agent-memory[microsoft-agent,openai]==0.6.0' 'httpx>=0.27'
 python -c "from importlib.metadata import version; \
 import neo4j_agent_memory; \
 assert version('neo4j-agent-memory') == '0.6.0'; \
@@ -57,7 +59,7 @@ Create each file below in `~/agent-memory-tutorials`. All complete sources follo
 [cols="4,3,2",options="header"]
 |===
 |File |Purpose |Returning reader
-|`aura_connection.py` |Read explicit Aura credentials; no database fallback. |Reuse unchanged
+|`aura_connection.py` |Read explicit Aura credentials; the database defaults to `neo4j`. |Reuse unchanged
 |`wait_for_tutorial_neo4j.py` |Probe the selected database and close the driver. |Reuse unchanged
 |`microsoft_shopping_tutorial.py` |Run the shopping agent and verify framework persistence and its trace. This is the lesson entry point. |New for this lesson; retain it with unfinished state
 |===
@@ -95,11 +97,20 @@ anchor:_step_4_create_the_agent[]anchor:_step_5_create_the_main_application[]anc
 
 include::partial$python-openai-model-selection.adoc[]
 
+Unlike the other OpenAI lessons, this one uses `OpenAIChatClient`, which calls the OpenAI *Responses* API rather than Chat Completions. On the model page, check for *Responses* support instead.
+
 [source,bash]
 ----
 export OPENAI_API_KEY="replace-with-your-key"
 export OPENAI_MODEL="replace-with-your-accessible-OpenAI-model-id"
+python -c "import os; \
+assert os.environ['OPENAI_API_KEY'].strip(); \
+model = os.environ['OPENAI_MODEL']; \
+assert model.strip() and not model.startswith('replace-with-'); \
+print('Provider variables present')"
 ----
+
+Expected: `Provider variables present`. This checks configuration presence; the model request in the program verifies access. The program repeats the `OPENAI_MODEL` check before it stores the preference, so a missing model ID stops the run before any write.
 
 The complete file is `microsoft_shopping_tutorial.py`. It reads the exported Aura connection variables through the shared `aura_config()` helper and contains the fictional catalog, explicit preference write, agent configuration, trace handling, and client cleanup.
 

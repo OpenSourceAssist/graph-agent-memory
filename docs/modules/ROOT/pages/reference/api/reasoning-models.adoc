@@ -16,11 +16,11 @@ Pydantic model; inherited memory-entry fields are included.
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `id` | `UUID` | `new UUID` |
-| `created_at` | `datetime` | `current UTC time` |
-| `updated_at` | `datetime \| None` | `None` |
-| `embedding` | `list[float] \| None` | `None` |
-| `metadata` | `dict[str, Any]` | `{}` |
+| `id` | `UUID` | `new UUID` | Unique identifier.
+| `created_at` | `datetime` | `current UTC time` | Creation time.
+| `updated_at` | `datetime \| None` | `None` | Last update time, if updated.
+| `embedding` | `list[float] \| None` | `None` | Embedding vector, if one was generated.
+| `metadata` | `dict[str, Any]` | `{}` | Arbitrary key-value metadata, stored as JSON.
 | `session_id` | `str` | `required` | Session identifier
 | `task` | `str` | `required` | Task description
 | `task_embedding` | `list[float] \| None` | `None` | Task embedding
@@ -38,11 +38,11 @@ Pydantic model; inherited memory-entry fields are included.
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `id` | `UUID` | `new UUID` |
-| `created_at` | `datetime` | `current UTC time` |
-| `updated_at` | `datetime \| None` | `None` |
-| `embedding` | `list[float] \| None` | `None` |
-| `metadata` | `dict[str, Any]` | `{}` |
+| `id` | `UUID` | `new UUID` | Unique identifier.
+| `created_at` | `datetime` | `current UTC time` | Creation time.
+| `updated_at` | `datetime \| None` | `None` | Last update time, if updated.
+| `embedding` | `list[float] \| None` | `None` | Embedding vector, if one was generated.
+| `metadata` | `dict[str, Any]` | `{}` | Arbitrary key-value metadata, stored as JSON.
 | `trace_id` | `UUID \| str` | `required` | Parent trace ID
 | `step_number` | `int` | `required` | Step number in sequence
 | `thought` | `str \| None` | `None` | Agent's thought/reasoning
@@ -58,11 +58,11 @@ Pydantic model; inherited memory-entry fields are included.
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `id` | `UUID` | `new UUID` |
-| `created_at` | `datetime` | `current UTC time` |
-| `updated_at` | `datetime \| None` | `None` |
-| `embedding` | `list[float] \| None` | `None` |
-| `metadata` | `dict[str, Any]` | `{}` |
+| `id` | `UUID` | `new UUID` | Unique identifier.
+| `created_at` | `datetime` | `current UTC time` | Creation time.
+| `updated_at` | `datetime \| None` | `None` | Last update time, if updated.
+| `embedding` | `list[float] \| None` | `None` | Embedding vector, if one was generated.
+| `metadata` | `dict[str, Any]` | `{}` | Arbitrary key-value metadata.
 | `tool_name` | `str` | `required` | Name of the tool
 | `arguments` | `dict[str, Any]` | `{}` | Tool arguments
 | `result` | `Any \| None` | `None` | Tool result
@@ -106,7 +106,7 @@ Fields and defaults:
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `step` | `ReasoningStep` | `required` |
+| `step` | `ReasoningStep` | `required` | The matching reasoning step
 | `similarity` | `float` | `required` | Cosine similarity to the query (0-1)
 | `parent_task` | `str` | `required` | Task of the parent ReasoningTrace
 | `parent_outcome` | `str \| None` | `None` | Outcome of the parent ReasoningTrace, if completed

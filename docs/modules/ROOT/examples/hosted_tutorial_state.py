@@ -68,6 +68,19 @@ def new_run_status(data):
     return "owner_disposition_required"
 
 
+# Restoration target and exercise outcome shown by inspect-file.
+ONTOLOGY_SUMMARY_KEYS = (
+    "previous",
+    "strict",
+    "clone_id",
+    "template",
+    "status",
+    "restored",
+    "deleted",
+    "exercise_error",
+)
+
+
 def inspect_file(path):
     """Return a redacted local summary; this never authenticates or enables writes."""
     data = read_state(path)
@@ -76,7 +89,7 @@ def inspect_file(path):
     endpoint = urlunsplit(
         (endpoint.scheme, endpoint.netloc.rsplit("@", 1)[-1], endpoint.path, "", "")
     )
-    return {
+    summary = {
         "local_only": True,
         "service_checked": False,
         "lesson": data.get("lesson"),
@@ -99,6 +112,21 @@ def inspect_file(path):
             for kind, entries in data["resources"].items()
         },
     }
+    ontology = data.get("ontology")
+    if isinstance(ontology, dict):
+        # The owner needs the saved prior binding to restore the workspace.
+        # Schema documents are omitted; the IDs identify them exactly.
+        binding_keys = ("version_id", "ontology_id", "revision", "validation_mode")
+        summary["ontology"] = {
+            key: (
+                {k: value[k] for k in binding_keys if k in value}
+                if isinstance(value, dict)
+                else value
+            )
+            for key, value in ontology.items()
+            if key in ONTOLOGY_SUMMARY_KEYS
+        }
+    return summary
 
 
 def check_new_run(path, next_state):

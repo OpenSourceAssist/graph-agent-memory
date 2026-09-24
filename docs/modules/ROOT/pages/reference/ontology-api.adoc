@@ -19,7 +19,7 @@ TypeScript: `ontology.get(id)`
 
 | Python: `ontology.get_active()` +
 TypeScript: `ontology.getActive()`
-| Parsed active document. Python 0.6.0 has a binding-metadata limitation; see <<python-0-6-active-binding>> before restoration. Current TypeScript source reads the authoritative response `version`.
+| Parsed active document plus binding metadata. In Python 0.6.0 and TypeScript 0.5.0 the metadata can name the wrong revision; see <<python-0-6-active-binding>> before restoration.
 
 | Python: `ontology.clone(template_name)` +
 TypeScript: `ontology.clone(templateName)`
@@ -61,8 +61,10 @@ TypeScript: `ontology.getMigration(jobId)`
 == Return types
 
 `list()` returns `OntologySummary[]`. `get()` returns `Ontology` (`{record,
-versions[]}`). `get_active()` returns `ActiveOntology`. `clone` / `create` /
-`update` / `activate` return an `OntologyVersion`.
+versions[]}`). `get_active()` returns `ActiveOntology` (`{document,
+validation_mode?, revision?, ontology_id?, version_id?}`; TypeScript uses the
+camelCase names). `clone` / `create` / `update` / `activate` return an
+`OntologyVersion`.
 
 `import_()` returns an `OntologyImportResult` (`{document?, warnings[]
 (ImportWarning), detected_format?, suggested_name?}`). `diff()` returns an
@@ -72,28 +74,47 @@ mode_change?}`). `migrate()` and `get_migration()` return a `MigrationJob`
 errored, …}`).
 
 [#python-0-6-active-binding]
-=== Python 0.6.0 active binding
+=== Active binding in the released SDKs
 
-The REST response's `version` identifies the actual bound revision. Python
-`neo4j-agent-memory==0.6.0` does not use that field consistently: its
-`get_active()` metadata can report the latest revision when an older revision
-is active. Do not use that accessor's `version_id` or `validation_mode` to
+The `GET /ontologies/active` response carries a `version` object (`id`,
+`ontology_id`, `revision`, `validation_mode`, …) that identifies the bound
+revision. Python `neo4j-agent-memory==0.6.0` and TypeScript
+`@neo4j-labs/agent-memory@0.5.0` ignore it: `get_active()` / `getActive()`
+compose the version metadata from a second `list()` / `get()` lookup, which
+picks the ontology's current (latest) revision rather than the bound one. When an older revision is active, the
+returned `version_id` / `versionId`, `revision` and `validation_mode` /
+`validationMode` describe the latest revision instead. Do not use them to
 capture a rollback target or certify restoration.
 
-The self-contained xref:tutorials/ontology-quickstart.adoc[ontology lesson] uses
-`read_active_binding(http)` from `hosted_tutorial_helpers.py` to read
-`GET /ontologies/active` directly. It uses the same resolved NAMS settings as
-the SDK, validates the authoritative `version` and schema, and stops before
-mutation if the binding is incomplete. Use that path with Python 0.6.0;
-see xref:how-to/use-ontologies.adoc[the activation recipe] for its imports and
-client lifecycle. The helper is example code displayed on those pages, not an SDK method.
+Read `GET /ontologies/active` directly instead:
 
-Current TypeScript source exposes `versionId`, `revision` and `validationMode`
-from the authoritative response. Legacy document-only responses, or responses
-with a missing/null `version`, leave optional metadata absent. Partial,
-malformed or contradictory supplied metadata is rejected. Follow
-xref:sdks/typescript.adoc[the TypeScript source setup]; this is not a statement
-that a corresponding npm release is available.
+* Python: the self-contained xref:tutorials/ontology-quickstart.adoc[ontology
+  lesson] uses `read_active_binding(http)` from `hosted_tutorial_helpers.py`. It
+  uses the same resolved NAMS settings as the SDK, validates the authoritative
+  `version` and schema, and stops before mutation if the binding is incomplete.
+  See xref:how-to/use-ontologies.adoc[the activation recipe] for its imports and
+  client lifecycle. The helper is example code displayed on those pages, not an
+  SDK method.
+* TypeScript: send the same request with the workspace API key and read
+  `version` from the JSON body. The response's `version` uses the snake_case
+  wire names.
++
+[source,typescript]
+----
+const response = await fetch("https://memory.neo4jlabs.com/v1/ontologies/active", {
+  headers: { Authorization: `Bearer ${process.env.MEMORY_API_KEY}` },
+});
+if (!response.ok) throw new Error(`GET /ontologies/active: ${response.status}`);
+const { version } = (await response.json()) as {
+  ontology: unknown;
+  version?: { id: string; ontology_id: string; revision: number; validation_mode: string };
+};
+// version.id, version.revision and version.validation_mode name the bound revision.
+----
+
+The repository source for both SDKs reads the authoritative `version` (and adds
+`schema_hash` / `schemaHash` to `ActiveOntology`); that change is not in the
+releases above.
 
 == Import formats
 

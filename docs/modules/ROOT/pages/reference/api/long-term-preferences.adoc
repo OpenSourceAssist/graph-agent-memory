@@ -166,7 +166,7 @@ anchor:_get_facts[]
 
 === get_facts_about
 
-Return facts where the entity name occurs as the subject or object. There is no `get_facts` wrapper.
+Return facts whose subject exactly equals `subject`. Facts where the name appears as the object are not returned. There is no `get_facts` wrapper.
 
 // contract: memory/long_term.py:LongTermMemory.get_facts_about
 [source,python]
@@ -177,7 +177,7 @@ async def get_facts_about(subject: str, *, limit: int=100) -> list[Fact]: ...
 [cols="1,4",options="header"]
 |===
 | Parameter | Description
-| `subject` | The fact subject
+| `subject` | Exact subject value to match
 | `limit` | Maximum results
 |===
 
@@ -218,11 +218,11 @@ Pydantic model; inherited memory-entry fields are included.
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `id` | `UUID` | `new UUID` |
-| `created_at` | `datetime` | `current UTC time` |
-| `updated_at` | `datetime \| None` | `None` |
-| `embedding` | `list[float] \| None` | `None` |
-| `metadata` | `dict[str, Any]` | `{}` |
+| `id` | `UUID` | `new UUID` | Unique identifier.
+| `created_at` | `datetime` | `current UTC time` | Creation time.
+| `updated_at` | `datetime \| None` | `None` | Last update time, if updated.
+| `embedding` | `list[float] \| None` | `None` | Embedding vector, if one was generated.
+| `metadata` | `dict[str, Any]` | `{}` | Arbitrary key-value metadata, stored as JSON.
 | `category` | `str` | `required` | Preference category
 | `preference` | `str` | `required` | The preference statement
 | `context` | `str \| None` | `None` | When/where preference applies
@@ -237,11 +237,11 @@ Pydantic model; inherited memory-entry fields are included.
 [cols="2,3,2,4",options="header"]
 |===
 | Field | Type | Default | Description
-| `id` | `UUID` | `new UUID` |
-| `created_at` | `datetime` | `current UTC time` |
-| `updated_at` | `datetime \| None` | `None` |
-| `embedding` | `list[float] \| None` | `None` |
-| `metadata` | `dict[str, Any]` | `{}` |
+| `id` | `UUID` | `new UUID` | Unique identifier.
+| `created_at` | `datetime` | `current UTC time` | Creation time.
+| `updated_at` | `datetime \| None` | `None` | Last update time, if updated.
+| `embedding` | `list[float] \| None` | `None` | Embedding vector, if one was generated.
+| `metadata` | `dict[str, Any]` | `{}` | Arbitrary key-value metadata, stored as JSON.
 | `subject` | `str` | `required` | Fact subject
 | `predicate` | `str` | `required` | Fact predicate/relationship
 | `object` | `str` | `required` | Fact object

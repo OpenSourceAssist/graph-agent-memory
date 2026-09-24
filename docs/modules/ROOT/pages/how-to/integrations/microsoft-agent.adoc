@@ -8,7 +8,9 @@ Give a Microsoft Agent Framework agent retrieved Neo4j context, persist its turn
 
 [NOTE]
 ====
-icon:flask[] *Preview.* The Microsoft Agent Framework integration tracks a framework that is itself pre-1.0; APIs on either side can change between releases. Pin both packages explicitly and re-check this page before upgrading a deployment.
+icon:flask[] *Preview.* This adapter is a preview integration. It targets the Microsoft Agent Framework 1.x GA line (`agent-framework-core>=1.13,<2`); adapter and framework APIs can change between releases. Pin the versions you tested and re-check this page before upgrading a deployment.
+
+Upgrading from the framework's `1.0.0b260212` public preview? The GA line renamed the provider base classes (`BaseContextProvider` -> `ContextProvider`, `BaseHistoryProvider` -> `HistoryProvider`), so the preview pin no longer imports. The adapter builds on the GA names; your own code only needs the dependency bump. The `before_run` / `after_run` hook signatures are unchanged.
 ====
 
 == 1. Prepare the selected environment
@@ -16,13 +18,13 @@ icon:flask[] *Preview.* The Microsoft Agent Framework integration tracks a frame
 anchor:_overview[]
 anchor:_installation[]
 
-Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
+Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment. The install command adds `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
 
 include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[microsoft-agent,openai]==0.6.0' "agent-framework-openai>=1.13,<2"
+python -m pip install 'neo4j-agent-memory[microsoft-agent,openai]==0.6.0' "agent-framework-openai>=1.13,<2" 'httpx>=0.27'
 export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
 export NEO4J_USERNAME='neo4j'
 export NEO4J_PASSWORD='replace-with-your-Aura-password'
@@ -33,7 +35,7 @@ export OPENAI_MODEL='replace-with-an-available-model-id'
 
 The OpenAI-backed recipes require access to `text-embedding-3-small`; it produces 1536-dimensional vectors in this configuration. Configure the selected chat model separately where required. Credentials are read from the environment, never printed by the programs.
 
-The repository's `microsoft-agent` extra pins `agent-framework-core>=1.13,<2`. The program imports `OpenAIChatClient` from `agent_framework.openai`; an OpenAI key is appropriate for that client. An Azure client would require its own deployment, endpoint and credentials.
+The repository's `microsoft-agent` extra pins `agent-framework-core>=1.13,<2`. The program imports `OpenAIChatClient` from `agent_framework.openai`; an OpenAI key is appropriate for that client. In `agent-framework-openai` 1.x, `OpenAIChatClient` calls the OpenAI *Responses* API (the Chat Completions client is the separate `OpenAIChatCompletionClient`), so choose a model that supports Responses. An Azure client would require its own deployment, endpoint and credentials.
 
 == 2. Read the complete integration
 
@@ -57,20 +59,10 @@ The program seeds an explicit preference and places two fictional products in ag
 == 3. Run and verify stored records
 
 anchor:_quick_start[]
-anchor:_using_neo4jcontextprovider[]
-anchor:_using_neo4jchatmessagestore[]
-anchor:_using_neo4jmicrosoftmemory_unified_interface[]
-anchor:_tool_execution[]
-anchor:_gds_integration[]
-anchor:_gds_fallback_behavior[]
 anchor:_reasoning_traces[]
 anchor:_target_version[]
 anchor:_version_matrix[]
 anchor:_breaking_change_detection[]
-anchor:_neo4jcontextprovider[]
-anchor:_neo4jchatmessagestore[]
-anchor:_neo4jmicrosoftmemory[]
-anchor:_functions[]
 
 [source,bash]
 ----
@@ -93,30 +85,144 @@ Check that the installed framework exposes the current `Agent` and `ContextProvi
 == Adapt the integration and inspect example applications
 
 anchor:_pass_through_your_agent_framework_client[]
-anchor:_memory_tools[]
-anchor:_available_tools[]
 anchor:_context_composition[]
-anchor:_serialization[]
 anchor:_complete_example[]
 anchor:api-compatibility[]
 anchor:_apis_used[]
-anchor:_api_reference[]
-anchor:_see_also[]
 
 `Neo4jContextProvider` uses `before_run()` to supply context and `after_run()` to persist messages. `Neo4jChatMessageStore` supports explicit history storage; using it in addition to the writing context provider requires you to avoid duplicate writes. `Neo4jMicrosoftMemory` composes the two surfaces and exposes its `context_provider` for `Agent(context_providers=[...])`.
 
-The context provider can include short-term history, long-term knowledge and similar recorded traces with configured limits. Session and user identifiers are personalization/grouping inputs, not a universal access boundary. Serialized provider state records configuration; it is not a database backup or a credential export.
+The context provider can include short-term history, long-term knowledge and similar recorded traces with configured limits. The session identifier groups stored messages; neither it nor `user_id` is an access boundary. Serialized provider state records configuration; it is not a database backup or a credential export.
 
 .Integration components; graph analytics are optional
 image::diagrams/microsoft-agent-architecture.svg["Microsoft Agent Framework context hooks and optional memory tools connect to Neo4j Agent Memory",width=100%,link=self]
 
-The optional GDS helper requires suitable domain data and a supported graph surface. A Cypher fallback is a different retrieval/ranking method, not an equivalent execution of PageRank or Node Similarity. The minimal script above does not enable GDS; see `get_gds_config()` in https://github.com/neo4j-labs/agent-memory/blob/main/examples/microsoft_agent_retail_assistant/backend/memory_config.py[the retail application's `memory_config.py`] for a working `GDSConfig` that enables `GDSAlgorithm.SHORTEST_PATH`, `NODE_SIMILARITY` and `PAGERANK`. `create_memory_tools(...)` returns tool definitions that require the corresponding execution path; inspect the installed adapter before translating them into framework tool objects.
+The optional GDS helper requires suitable domain data and a supported graph surface. A Cypher fallback is a different retrieval/ranking method, not an equivalent execution of PageRank or Node Similarity. The minimal script above does not enable GDS; see `get_gds_config()` in https://github.com/neo4j-labs/agent-memory/blob/main/examples/microsoft_agent_retail_assistant/backend/memory_config.py[the retail application's `memory_config.py`] for a working `GDSConfig` that enables `GDSAlgorithm.SHORTEST_PATH`, `NODE_SIMILARITY` and `PAGERANK`. To give the agent memory tools, pass `create_memory_tools(memory)` to `as_agent(tools=...)`; see <<_memory_tools,Memory tools>>.
 
 https://github.com/neo4j-labs/agent-memory/tree/main/examples/microsoft_agent_retail_assistant[The maintained retail application] adds inventory, cart and product-search tools plus a UI and domain graph, and is also the GDS-enabled example referenced above. Those features belong to the example application, not to `MemoryClient` automatically.
 
-.Screenshot of the separate TfL Explorer example application
-image::diagrams/tfl-explorer-app-screenshot.png["TfL Explorer example interface showing a route-planning conversation",width=540,align=left,link=self]
+== Adapter reference
 
-The screenshot illustrates a separate application (capture date not recorded in the repository); it is not the output of the shopping recipe or evidence that the memory library itself provides live transit data.
+anchor:_api_reference[]
+anchor:_neo4jmicrosoftmemory[]
+anchor:_neo4jcontextprovider[]
+anchor:_using_neo4jmicrosoftmemory_unified_interface[]
+anchor:_using_neo4jcontextprovider[]
+anchor:_functions[]
+
+This section lists the adapter surface of the published 0.6.0 package. Import every name below from `neo4j_agent_memory.integrations.microsoft_agent`.
+
+=== Constructor options
+
+`Neo4jMicrosoftMemory(memory_client, session_id, ...)` and `Neo4jContextProvider(memory_client, session_id, ...)` accept the same keyword-only options. `Neo4jContextProvider` also accepts `source_id` (default `"neo4j-context"`) and `context_template`, a string with a `+{context}+` placeholder that wraps the retrieved block.
+
+[cols="2,1,4",options="header"]
+|===
+|Option |Default |Effect
+
+|`user_id` |`None` |Optional user identifier stored on the provider, exposed as `user_id` and kept by `serialize()`. The 0.6.0 adapter does not apply it to reads or writes, so it neither groups records nor acts as an access boundary.
+|`include_short_term` |`True` |Add recent and similar conversation messages to the context.
+|`include_long_term` |`True` |Add matching preferences and entities.
+|`include_reasoning` |`True` |Add similar past task traces.
+|`max_context_items` |`10` |Limit for retrieved preferences and entities; similar messages use half of it and traces a third (at most 100).
+|`max_recent_messages` |`5` |Number of recent session messages included (at most 50).
+|`similarity_threshold` |`0.7` |Minimum similarity for message search. The recipe lowers it to `0.0` so that earlier session messages always qualify. Preference and entity retrieval keep the library's default threshold; this option does not change it.
+|`extract_entities` |`True` |Run entity extraction on persisted messages.
+|`extract_entities_async` |`True` |Queue extraction in the background instead of running it while the turn is saved.
+|`gds_config` |`None` |A `GDSConfig`. On `Neo4jMicrosoftMemory`, `enabled=True` creates `memory.gds` and allows the graph-algorithm tools. `Neo4jContextProvider` only stores it; retrieval does not use it.
+|===
+
+anchor:_using_neo4jchatmessagestore[]
+anchor:_neo4jchatmessagestore[]
+
+`Neo4jChatMessageStore(memory_client, session_id, ...)` is a framework `HistoryProvider`. Its options are `source_id` (`"neo4j-history"`), `max_messages` (`None`, which loads up to 1,000 messages), `extract_entities` (`False`), `generate_embeddings` (`True`), `load_messages`, `store_inputs` and `store_outputs` (all `True`).
+
+`Neo4jMicrosoftMemory` also exposes `context_provider`, `chat_store` and `gds`, and async helpers for direct use: `get_context()`, `save_message()`, `get_conversation()`, `search_memory()`, `add_preference()`, `add_fact()`, `get_similar_traces()`, `clear_session()`, `find_entity_path()`, `find_similar_entities()` and `get_important_entities()`.
+
+=== Memory tools
+
+anchor:_available_tools[]
+anchor:_tool_execution[]
+
+`create_memory_tools(memory, include_gds_tools=True)` returns `agent_framework.FunctionTool` instances bound to `memory`. Pass them straight to the agent; the framework calls them itself during `agent.run()`, so no dispatch code is needed:
+
+[source,python]
+----
+tools = create_memory_tools(memory)
+agent = chat.as_agent(
+    name="ShoppingAssistant",
+    instructions="Use the memory tools to recall and store the user's preferences.",
+    tools=tools,
+    context_providers=[memory.context_provider],
+)
+----
+
+[cols="2,4",options="header"]
+|===
+|Tool |Purpose
+
+|`search_memory` |Search messages, entities and preferences.
+|`remember_preference` |Store a user preference with a category.
+|`recall_preferences` |Retrieve stored preferences.
+|`search_knowledge` |Search the entity graph.
+|`remember_fact` |Store a subject-predicate-object fact.
+|`find_similar_tasks` |Find similar recorded task traces.
+|`find_connection_path` |Shortest path between two entities. GDS tool.
+|`find_similar_items` |Entities that share relationships with a given entity. GDS tool.
+|`find_important_entities` |Most central entities. GDS tool.
+|===
+
+The three GDS tools are added only when `include_gds_tools=True` and the memory was created with `GDSConfig(enabled=True)`. `find_connection_path` and `find_similar_items` are added when `expose_as_tools` lists them or is empty; `find_important_entities` needs `GDSAlgorithm.PAGERANK` in `expose_as_tools`. Register write tools only when the application intends the agent to store data. `execute_memory_tool()` is deprecated; it is kept for code that dispatches tool calls by hand.
+
+=== GDS configuration
+
+anchor:_gds_integration[]
+
+`GDSConfig` is a dataclass:
+
+[cols="2,1,4",options="header"]
+|===
+|Field |Default |Effect
+
+|`enabled` |`False` |Create the `memory.gds` helper and allow the GDS tools.
+|`expose_as_tools` |`[]` |`GDSAlgorithm` members to offer as tools; see the rules above.
+|`fallback_to_basic` |`True` |Use the Cypher fallbacks below when the GDS library is not installed. When `False`, the helpers return neutral results instead (equal scores, one community, no similar entities). In 0.6.0 community detection returns one community with either setting, because its Cypher fallback fails.
+|`warn_on_fallback` |`True` |Log one warning when GDS is not available.
+|`pagerank_damping_factor` |`0.85` |Damping factor for GDS PageRank.
+|`use_pagerank_for_ranking`, `pagerank_weight`, `use_community_grouping` |`True`, `0.3`, `False` |Accepted but not applied by the 0.6.0 context provider; context retrieval does not rerank by PageRank or community.
+|===
+
+`GDSAlgorithm` has the members `PAGERANK`, `COMMUNITY_DETECTION`, `SHORTEST_PATH`, `NODE_SIMILARITY`, `BETWEENNESS` and `CLOSENESS`. Only the first four are wired to helpers or tools.
+
+anchor:_gds_fallback_behavior[]
+
+.Algorithms and their Cypher fallbacks
+[cols="2,4",options="header"]
+|===
+|Algorithm |What runs without the GDS library
+
+|PageRank |Degree centrality, normalized to the highest-degree entity.
+|Community detection |In 0.6.0 the Cypher fallback query fails with an implicit-grouping error. The helper catches the error and puts every entity in community `0`, the same result as `fallback_to_basic=False`.
+|Node similarity |Overlap of shared relationships. In 0.6.0 this Cypher method is used even when GDS is installed.
+|Shortest path |Cypher `shortestPath()`. It never needs GDS.
+|===
+
+=== Serialization
+
+`Neo4jContextProvider.serialize()` returns a JSON string, and `Neo4jChatMessageStore.serialize()` returns a dictionary. Both record configuration such as the session ID and limits, not stored memory, and never the database connection. Restore them with a connected client:
+
+[source,python]
+----
+provider = Neo4jContextProvider.deserialize(saved_provider, memory_client=client)
+store = Neo4jChatMessageStore.deserialize(saved_store, memory_client=client)
+----
+
+`Neo4jContextProvider.deserialize()` does not restore `context_template` or `gds_config`; pass them again as keyword arguments. Background extraction work still queued when you serialize is not saved.
+
+=== Traces
+
+`record_agent_trace(memory, messages, task, tool_calls=None, outcome=None, success=True)` stores a task trace, as in the recipe. `await get_similar_traces(memory, task, limit=5)` finds past traces for a similar task, and `format_traces_for_prompt(traces)` turns them into text for agent instructions. `llm_provider_from_microsoft_agent(chat)` passes a configured framework chat client to memory extraction; see xref:how-to/migrate-to-providers.adoc[Provider configuration].
+
+== See also
 
 See xref:reference/api/adapters.adoc[Provider adapter reference], xref:how-to/migrate-to-providers.adoc[Provider configuration], xref:reference/backend-capabilities.adoc[Backend capabilities] and xref:explanation/memory-types.adoc[Memory concepts]. Neo4j Agent Memory is a community-supported Neo4j Labs project.

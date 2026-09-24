@@ -324,9 +324,9 @@ class TestStructure:
         assert "docs/.../" not in readme, "no placeholder doc paths"
 
     def test_readme_states_the_two_tool_surfaces_once(self):
-        """ts-mcp-F01: the hosted surface is 47 tools, not the self-hosted 6/16."""
+        """ts-mcp-F01: the hosted surface is scope-dependent, not the self-hosted 6/16."""
         readme = (EXAMPLE_DIR / "README.md").read_text(encoding="utf-8")
-        assert "**47**" in readme or "47" in readme
+        assert "Scope-dependent" in readme
         assert "`--profile core`" in readme and "`--profile extended`" in readme
         # One table, one place: the count must not be restated in WALKTHROUGH as
         # a competing claim.
@@ -367,7 +367,7 @@ class TestClaims:
 
     def test_hosted_count_is_distinct_from_the_self_hosted_profiles(self, script):
         doctor = script("doctor.py")
-        assert doctor.HOSTED_NAMS_TOOL_COUNT not in doctor.SELF_HOSTED_PROFILES.values()
+        assert not hasattr(doctor, "HOSTED_NAMS_TOOL_COUNT"), "the hosted count is scope-dependent"
         assert doctor.HOSTED_NAMS_MCP_URL == "https://mcp.memory.neo4jlabs.com/mcp"
 
     def test_seed_data_is_synthetic_and_fits_one_bulk_call(self, script):
@@ -395,7 +395,7 @@ class TestDoctorOffline:
             assert f"[PASS] {filename}" in out
         assert "self-hosted --profile core: 6 tool(s)" in out
         assert "self-hosted --profile extended: 16 tool(s)" in out
-        assert "47 scope-gated tools" in out
+        assert "scope-dependent tool surface" in out
         assert "skipped the live NAMS checks" in out
 
     async def test_missing_key_fails_a_full_run(self, script, monkeypatch, capsys):

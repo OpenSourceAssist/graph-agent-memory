@@ -10,41 +10,45 @@ Neo4j Agent Memory provides official integrations for eleven popular agent frame
 
 == Available integrations
 
+// Historical section links: the former Quick start, Quick examples and
+// Integration guides sections are now this table.
+anchor:_quick_start[]anchor:_quick_examples[]anchor:_integration_guides[]
+
 [cols="2,3", options="header"]
 |===
 | Framework | Use Case
 
-| xref:how-to/integrations/langchain.adoc[Use with LangChain]
+| anchor:_langchain[]xref:how-to/integrations/langchain.adoc[Use with LangChain]
 | Chains and agents with conversation memory
 
-| xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex]
+| anchor:_llamaindex[]xref:how-to/integrations/llamaindex.adoc[Use with LlamaIndex]
 | RAG applications with document + graph retrieval
 
-| xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI]
+| anchor:_pydanticai[]xref:how-to/integrations/pydantic-ai.adoc[Use with PydanticAI]
 | Modern type-safe agents with automatic tracing
 
-| xref:how-to/integrations/crewai.adoc[Use with CrewAI]
+| anchor:_crewai[]xref:how-to/integrations/crewai.adoc[Use with CrewAI]
 | Multi-agent systems with shared memory
 
-| xref:how-to/integrations/openai-agents.adoc[Use with the OpenAI Agents SDK]
+| anchor:_openai_agents_sdk[]xref:how-to/integrations/openai-agents.adoc[Use with the OpenAI Agents SDK]
 | OpenAI function calling with persistent memory
 
 | xref:how-to/integrations/google-cloud.adoc[Use Vertex AI embeddings with Neo4j]
-| Vertex AI embeddings, ADK agents, MCP server
+| Vertex AI embeddings for a Neo4j-backed client, with links to the ADK and MCP guides
 
-| xref:how-to/integrations/google-adk.adoc[Use with Google ADK]
+| anchor:_google_adk[]xref:how-to/integrations/google-adk.adoc[Use with Google ADK]
 | Memory service for ADK `Runner` agents
 
-| xref:how-to/integrations/aws-strands.adoc[Use with Strands agents]
+| anchor:_aws_strands_agents[]xref:how-to/integrations/aws-strands.adoc[Use with Strands agents]
 | AWS Strands SDK with Bedrock and Context Graph tools
 
 | xref:how-to/integrations/aws-bedrock-embeddings.adoc[Use Amazon Bedrock embeddings]
 | Titan and Cohere embeddings via Bedrock
 
 | xref:how-to/integrations/aws-hybrid-memory.adoc[Route memory searches with the hybrid provider]
-| AgentCore + Context Graphs combined
+| Route message, entity and preference searches inside one Neo4j-backed client
 
-| xref:how-to/integrations/microsoft-agent.adoc[Use with Microsoft Agent Framework]
+| anchor:_microsoft_agent_framework[]xref:how-to/integrations/microsoft-agent.adoc[Use with Microsoft Agent Framework]
 | Context providers, GDS algorithms, and graph-enhanced memory
 |===
 

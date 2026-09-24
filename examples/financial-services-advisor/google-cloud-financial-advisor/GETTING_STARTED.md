@@ -10,7 +10,7 @@ This guide walks you through setting up and running the Google Cloud Financial A
 |------------|---------|-------|
 | **Python** | 3.12+ | The backend declares `requires-python = ">=3.12"` |
 | **uv** | Latest | [Install](https://docs.astral.sh/uv/getting-started/installation/) |
-| **Node.js** | 20+ | For the frontend |
+| **Node.js** | 22.13+ on the 22 line, or 24 | For the frontend development toolchain |
 | **Google Cloud CLI** | Latest | Only for the Vertex AI path and Cloud Run — [install gcloud](https://cloud.google.com/sdk/docs/install) |
 | **Neo4j AuraDB** | Managed Neo4j | Dedicated empty instance; see Step 2 |
 

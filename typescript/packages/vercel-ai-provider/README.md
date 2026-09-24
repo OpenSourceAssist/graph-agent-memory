@@ -54,18 +54,17 @@ User message
 
 ## Setup
 
-**1. Choose an artifact and install its peer dependencies**
+**1. Install the provider and its peer dependencies**
 
-The commands below name the package, but this source review does not verify npm
-publication or deployed-service behavior. Check the selected artifact before
-using the registry command, or build this checkout using the source instructions.
-The provider manifest is version 0.2.0 and declares Node >=20; its core SDK peer
-currently requires Node >=22, so use Node 22+ for this combination. Respect the
-declared AI SDK 7 / provider 4 peer versions.
+Requires Node.js 22+. Install version 0.3.0 with the core SDK it builds on:
 
 ```bash
-npm install @neo4j-labs/nams-ai-provider ai @neo4j-labs/agent-memory zod
+npm install @neo4j-labs/nams-ai-provider@0.3.0 @neo4j-labs/agent-memory@0.5.0 ai@^7 zod@^4
 ```
+
+The peer dependencies are `ai` `^7.0.0`, `zod` `^3.25.76 || ^4.1.8` and
+`@neo4j-labs/agent-memory` `~0.4.0 || ~0.5.0`. `@ai-sdk/mcp` `^2.0.0` is an
+optional peer, needed only for [MCP tool merging](#tools-mode-with-mcp-optional).
 
 **2. Get a free API key** at [memory.neo4jlabs.com](https://memory.neo4jlabs.com)
 

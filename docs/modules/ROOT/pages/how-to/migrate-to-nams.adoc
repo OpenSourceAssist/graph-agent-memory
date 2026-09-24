@@ -8,16 +8,16 @@ To change an existing Bolt application to NAMS, inventory its operations and dat
 // Retain former section URLs at the current related topic.
 == Prerequisites
 
-anchor:_6_run_your_tests[]
+anchor:_1_install_the_nams_extra[]anchor:_2_provision_an_api_key[]
 
 * An application with a passing Bolt baseline and identified memory reads/writes.
-* Python 3.10+ with `neo4j-agent-memory[nams]==0.6.0`; use xref:how-to/use-nams.adoc[the installation and connection check] below.
+* Python 3.10+ with `neo4j-agent-memory[nams]==0.6.0`; follow the installation and connection check in xref:how-to/use-nams.adoc[Connect a Python application to NAMS].
 * A NAMS sandbox workspace key and a synthetic test dataset. Use a separate workspace for migration tests.
 * A data-migration decision. Keep the source database until any separately planned import and rollback procedure has been verified.
 
 == 1. Inventory operations before changing configuration
 
-anchor:_tl_dr[]anchor:_step_by_step[]
+anchor:_tl_dr[]anchor:_tldr[]anchor:_step_by_step[]anchor:_4_audit_your_code_for_bolt_only_calls[]anchor:_full_notsupportederror_reference[]anchor:_backendnams_bolt_only_features_raise[]anchor:_backendbolt_nams_only_methods_raise[]
 
 Use xref:reference/backend-capabilities.adoc[the capability matrix] as the canonical inventory. Search application code for graph writes, preferences/facts, user registry calls, buffering, consolidation, geospatial queries, schema setup and legacy reasoning traces.
 
@@ -37,7 +37,7 @@ If an essential behavior has no supported replacement, finish that design before
 // Retain former section URLs at the current related topic.
 == 2. Configure a sandbox connection
 
-anchor:_1_install_the_nams_extra[]anchor:_2_provision_an_api_key[]anchor:_3_decide_on_env_vs_explicit_config[]anchor:_4_audit_your_code_for_bolt_only_calls[]anchor:_geocoding_and_enrichment[]
+anchor:_3_decide_on_env_vs_explicit_config[]
 
 Follow xref:how-to/use-nams.adoc[Connect a Python application to NAMS] and run its message write/readback check. Use explicit `NamsSettings` for migration code so an unrelated environment variable cannot silently select a different backend.
 
@@ -58,16 +58,10 @@ client = MemoryClient(settings)
 
 Connect and close this client through its async context manager or application lifecycle.
 
-[#_behavior_differences_subtle_but_important]
-[#_deduplication]
-[#_embeddings_and_vector_indexes]
-[#_entity_resolution]
-[#_geocoding_and_enrichment]
-[#_audit_edges_touched]
 // Retain former section URLs at the current related topic.
 == 3. Adapt identifiers, results and readiness
 
-anchor:_backendnams_bolt_only_features_raise[]anchor:_embeddings_and_vector_indexes[]
+anchor:_behavior_differences_subtle_but_important[]anchor:_deduplication[]anchor:_embeddings_and_vector_indexes[]anchor:_entity_resolution[]anchor:_geocoding_and_enrichment[]anchor:_audit_edges_touched[]
 
 . Persist the ID returned by `create_conversation`; do not continue using its display name as the message session ID.
 . Handle entity creation correctly: Bolt returns `(Entity, DeduplicationResult)`, while NAMS returns an `Entity`. Keep backend-specific code explicit when the application needs merge details.
@@ -75,13 +69,10 @@ anchor:_backendnams_bolt_only_features_raise[]anchor:_embeddings_and_vector_inde
 . Remove inactive client-side embedding/extraction/resolution settings from the NAMS configuration. Configure an LLM provider separately only for client-side summary or application model work.
 . Replace combined-context isolation assumptions with explicit retrieval and application authorization. Test a second conversation with different synthetic content.
 
-[#_full_notsupportederror_reference]
-[#_backendnams_bolt_only_features_raise]
-[#_backendbolt_nams_only_methods_raise]
 // Retain former section URLs at the current related topic.
 == 4. Verify the ported application
 
-anchor:_behavior_differences_subtle_but_important[]anchor:_deduplication[]anchor:_entity_resolution[]
+anchor:_6_run_your_tests[]
 
 Run the following checks in the sandbox and retain the returned IDs and failures:
 
@@ -98,7 +89,7 @@ Only switch the application after these application-specific checks pass. The de
 // Retain former section URLs at the current related topic.
 == Keep raw-write requirements explicit
 
-anchor:_full_notsupportederror_reference[]
+anchor:_5_migrate_raw_cypher_calls[]
 
 `client.graph.execute_read` currently warns on Bolt; use `client.query.cypher` as the preferred read accessor. `client.graph.execute_write` remains the Bolt write path.
 
@@ -113,8 +104,6 @@ anchor:_full_notsupportederror_reference[]
 [#_need_help]
 // Retain former section URLs at the current related topic.
 == See also
-
-anchor:_tldr[]anchor:_5_migrate_raw_cypher_calls[]
 
 * xref:how-to/use-nams.adoc[Connect to NAMS]
 * xref:reference/rest-api.adoc[REST transport and result mapping]

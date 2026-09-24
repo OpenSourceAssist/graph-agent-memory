@@ -55,14 +55,7 @@ The manager is constructed from settings, owns its client and closes it through 
 == 3. Run and verify a fresh process
 
 anchor:_quick_start[]
-anchor:_memory_store[]
 anchor:_search_add_add_messages[]
-anchor:_pairing_with_the_session_manager[]
-anchor:_using_strandsconfig[]
-anchor:_tool_details[]
-anchor:_search_context[]
-anchor:_get_entity_graph[]
-anchor:_add_memory[]
 anchor:_agent_system_prompts[]
 anchor:_session_manager_push_based[]
 anchor:_construction[]
@@ -74,6 +67,13 @@ python strands_memory_tutorial.py recall
 ----
 
 Expected on recall: `Verified: prior message restored before the model call`. If that explicit check fails, a plausible model answer does not prove restoration. For Aura setup and cleanup, follow xref:tutorials/strands-agent-quickstart.adoc[the complete Strands tutorial].
+
+`record` refuses to run when `strands-tutorial-session.txt` already exists, for example after you finished the Strands tutorial in the same folder or after an interrupted first turn. Run the read-only check below, then follow the tutorial's xref:tutorials/strands-agent-quickstart.adoc#_inspect_an_interrupted_first_turn[recovery table] for its result:
+
+[source,bash]
+----
+python strands_memory_tutorial.py inspect
+----
 
 == Troubleshooting and cleanup
 
@@ -87,37 +87,158 @@ Confirm account/region/model access separately from authentication. `BedrockMode
 == Choose retrieval and sharing behavior
 
 anchor:_configuration[]
-anchor:_graph_tools[]
+
+Pick a surface before configuring either class: use `Neo4jSessionManager` to transparently persist and restore the whole conversation transcript, and add `Neo4jMemoryStore` only when the agent also needs to pull retrieved memory into its own reasoning loop through `MemoryManager`. `context_graph_tools(...)` is a third, pull-based option: the model decides when to call the tools. The subsections below cover each surface, how to combine them, how to share memory across agents and their limits.
+
+.Session manager, memory store and graph tools over one Neo4j database, with Bedrock Titan V2 embeddings feeding the memory store and graph tools
+image::diagrams/strands-session-memory.svg["The Strands agent reaching Neo4jSessionManager, Neo4jMemoryStore and context_graph_tools, all three backed by the same Neo4j or Aura database, with Bedrock Titan V2 embeddings feeding the memory store and the graph tools",width=100%,link=self]
+
+=== Session manager options
+
+anchor:_constructor_reference[]
+
+`Neo4jSessionManager` persists and restores transcripts; it does not require the model to invoke a memory tool. One Strands session maps to one `Conversation`. Its constructor requires exactly one of `settings=` or `memory_client=`. Prefer settings-owned lifecycle for a synchronous Strands application.
+
+[cols="1,1,3",options="header"]
+|===
+|Argument |Default |Effect
+
+|`session_id` |required |Strands session identifier; maps to one `Conversation`.
+|`settings` / `memory_client` |`None` |Exactly one. With `settings`, the manager constructs and closes its own client. A `memory_client` must not already be connected on another event loop.
+|`user_id` |`None` |Scopes writes, and the preference lookup used for injection, to one user.
+|`retrieval_config` |`None` |A `Neo4jRetrievalConfig` turns on per-turn context injection. `None` means persistence only.
+|`extract_entities` |`True` |Runs entity extraction on stored messages (Bolt only; NAMS extracts server-side).
+|`record_tool_calls` |`False` |Records observed tool-use blocks in reasoning memory for audit.
+|`request_timeout` |`30.0` |Seconds to wait for each backend call made from Strands' synchronous hooks.
+|`restore_limit` |`None` |Maximum messages restored into the agent. `None` uses the backend default; Bolt returns up to 1000.
+|===
+
+`Neo4jSessionManager.for_nams(session_id, **kwargs)` builds a manager for the hosted service from `MEMORY_API_KEY` and optional `MEMORY_ENDPOINT`; `Neo4jMemoryStore.for_nams(config)` does the same for a store. The Bolt program above uses settings instead.
+
+=== Inject retrieved context per turn
+
+anchor:_retrieval_injection[]
+
+Pass `retrieval_config=` to have the session manager search long-term memory on every user message and prepend the matches to that message inside a `<user_context>` block. The stored message stays the user's original text, and nothing is prepended when no result passes `min_score`. Each turn costs one to three extra backend searches, which is why injection is off by default.
+
+This partial snippet reuses `session_id` and `settings` from `strands_memory_tutorial.py` and shows only the manager construction.
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.strands import (
+    Neo4jRetrievalConfig,
+    Neo4jSessionManager,
+)
+
+manager = Neo4jSessionManager(
+    session_id,
+    settings=settings,
+    retrieval_config=Neo4jRetrievalConfig(
+        top_k=10,                    # results per memory kind
+        min_score=0.2,               # similarity floor (Bolt only)
+        include_entities=True,
+        include_preferences=True,
+        include_facts=False,
+        context_tag="user_context",  # wrapper tag
+    ),
+)
+----
+
+On NAMS only entity search runs: preferences and facts are skipped, and `min_score` is not applied.
+
+=== Memory store options
+
+anchor:_memory_store[]
 anchor:_store_limitations[]
+
+`Neo4jMemoryStore(Neo4jMemoryStoreConfig(...))` implements Strands' memory-store surface. Configure it on `MemoryManager(stores=[store])` for agent-loop retrieval. `Neo4jMemoryStoreConfig` takes:
+
+* `name` (required) identifies the store, and `description` describes it to the model.
+* Exactly one of `client` (borrowed and left open) or `settings` (the store constructs and closes its client).
+* `max_search_results`, `min_score` (default `0.2`) and the `include_entities`, `include_preferences` and `include_facts` switches (all `True`) control retrieval.
+* `writable` (default `True`) and `extraction` (default `False`) control writes. Store extraction is off by default, so a store with the defaults does not capture every turn.
+* `conversation_id` selects the sink conversation for writes, and `user_id` scopes them.
+* `graph_tools` (default `True`) adds the store's graph tools to the agent.
+
+Reuse one configuration for several stores with `dataclasses.replace(config, name="team")`. See https://github.com/neo4j-labs/agent-memory/tree/main/examples/strands-memory-store[the maintained memory-store example] for its lifecycle and verified settings.
+
+=== Combine the store and the session manager
+
+anchor:_pairing_with_the_session_manager[]
+
+Choose one writer when combining a store and session manager. Leave store extraction disabled when the session manager owns transcript writes; otherwise a turn is written and extracted twice, and the session manager raises `ValueError` when it detects that pairing. Inject retrieved memory from one side only: either omit `retrieval_config` on the session manager, or pass `injection=False` to `MemoryManager`. The session manager logs a warning when both inject. Strands invocation-triggered extraction and backend entity extraction are separate stages; a successful write does not prove every derived entity is ready.
+
+See https://github.com/neo4j-labs/agent-memory/tree/main/examples/strands-session-manager[the maintained session-manager example] for two agents with separate sessions over one graph.
+
+=== Add graph tools
+
+anchor:_graph_tools[]
 anchor:_memory_tools_pull_based[]
 anchor:_configuration_2[]
 anchor:_basic_configuration[]
+anchor:_using_strandsconfig[]
 anchor:_from_environment_variables[]
 anchor:_pass_through_your_strands_model[]
+anchor:_tool_details[]
+anchor:_search_context[]
+anchor:_get_entity_graph[]
+anchor:_add_memory[]
 anchor:_get_user_preferences[]
-anchor:_retrieval_injection[]
-anchor:_constructor_reference[]
-anchor:_limitations[]
+
+`context_graph_tools(...)` returns four Strands tools for a Bolt database. Tool names describe available actions; the model can choose not to call them.
+
+[source,python]
+----
+import os
+
+from strands import Agent
+
+from neo4j_agent_memory.integrations.strands import context_graph_tools
+
+tools = context_graph_tools(
+    neo4j_uri=os.environ["NEO4J_URI"],
+    neo4j_user=os.environ["NEO4J_USERNAME"],
+    neo4j_password=os.environ["NEO4J_PASSWORD"],
+    neo4j_database=os.getenv("NEO4J_DATABASE", "neo4j"),
+    embedding_provider="bedrock",                  # or "openai", "vertex_ai"
+    embedding_model="amazon.titan-embed-text-v2:0",
+    aws_region=os.environ["AWS_REGION"],
+)
+agent = Agent(model=os.environ["BEDROCK_MODEL_ID"], tools=tools)
+----
+
+`neo4j_uri` and `neo4j_password` fall back to `NEO4J_URI` and `NEO4J_PASSWORD`. `StrandsConfig.from_env()` reads the whole configuration from the environment and is passed as `context_graph_tools(**config.to_dict())`. It reads `NEO4J_USER`, not `NEO4J_USERNAME`, and also `NEO4J_DATABASE`, `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `AWS_REGION` and `AWS_PROFILE`.
+
+[cols="1,3",options="header"]
+|===
+|Tool |Parameters and behavior
+
+|`search_context` |`query`, `user_id`, `top_k=10`, `min_score=0.5`, `include_relationships=True`. Searches messages, entities and preferences.
+|`get_entity_graph` |`entity_name`, `user_id`, `depth=2`, `relationship_types=None`. Returns the relationships around one entity.
+|`add_memory` |`content`, `user_id`, `session_id=None`, `extract_entities=True`. Stores a user message, in session `strands-<user_id>` when no session is given.
+|`get_user_preferences` |`user_id`, `category=None`. Searches stored preferences, optionally by category. The results are not filtered by `user_id`.
+|===
+
+The factory caches one client per URI, user and database; call `clear_client_cache()` when ending their lifecycle. `nams_context_graph_tools(...)` exposes hosted operations with a workspace key. `bedrock_llm_model()` and `bedrock_embedding_model()` return Bedrock model IDs, honoring `BEDROCK_MODEL_ID` and `BEDROCK_EMBEDDING_MODEL_ID`. `llm_provider_from_strands(model)` turns a Strands model ID into an `LLMProvider` when you want the same model for memory extraction.
+
+=== Share memory across agents
+
 anchor:_multi_user_support[]
 anchor:_the_shared_brain_pattern[]
-anchor:_see_also[]
-
-Pick a surface before configuring either class: use `Neo4jSessionManager` to transparently persist and restore the whole conversation transcript, and add `Neo4jMemoryStore` only when the agent also needs to pull retrieved memory into its own reasoning loop through `MemoryManager`. The two paragraphs below cover each in turn.
-
-`Neo4jSessionManager` persists and restores transcripts; it does not require the model to invoke a memory tool. Its constructor requires exactly one of `settings=` or `memory_client=`. Prefer settings-owned lifecycle for a synchronous Strands application. Optional `record_tool_calls=True` records observed calls; `restore_limit` controls how much history is loaded.
-
-`Neo4jMemoryStore(Neo4jMemoryStoreConfig(...))` implements Strands' memory-store surface. Configure it on `MemoryManager(stores=[store])` for agent-loop retrieval. `name` identifies a store, `settings` or `client` supplies a backend, and `conversation_id` selects the sink where applicable. Store extraction is off by default; a read-only configuration should not be described as capturing every turn. See https://github.com/neo4j-labs/agent-memory/tree/main/examples/strands-memory-store[the complete maintained memory-store example] for its lifecycle and verified settings.
-
-Choose one writer when combining a store and session manager. Leave store extraction disabled when the session manager owns transcript writes; otherwise a turn can be written/extracted twice. Avoid duplicate retrieval injection from both adapters. Strands invocation-triggered extraction and backend entity extraction are separate stages; a successful write does not prove every derived entity is ready.
-
-`context_graph_tools(...)` exposes the pull-based tools `search_context`, `get_entity_graph`, `add_memory` and `get_user_preferences` for Bolt. `nams_context_graph_tools(...)` exposes hosted operations with a workspace key. Tool names describe available actions; the model can choose not to call them. Tool factories cache clients; call `clear_client_cache()` when ending their lifecycle. Provider pass-through helpers configure extraction separately from Strands' own inference.
-
-.Session manager, memory store and graph tools over one Neo4j database, with Bedrock Titan V2 embeddings feeding all three surfaces
-image::diagrams/strands-session-memory.svg["The Strands agent reaching Neo4jSessionManager, Neo4jMemoryStore and context_graph_tools, all three backed by the same Neo4j or Aura database, with Bedrock Titan V2 embeddings feeding all three surfaces",width=100%,link=self]
 
 .Persistence and extraction readiness before dependent retrieval
 image::diagrams/shared-memory-data-flow-kyc-graph-credit.svg["One agent's writes are persisted and derived entities become ready before a second agent retrieves authorized context",width=100%,link=self]
 
 Await writes, check the applicable extraction lifecycle, and apply workspace/database authorization before another agent retrieves results. A shared graph makes permitted records available through retrieval; it does not broadcast every fact immediately to every agent. `user_id` and session grouping do not provide universal entity isolation.
+
+=== Limitations
+
+* One `Agent` per session manager. Attaching `Neo4jSessionManager` to a Strands Graph, Swarm or `BidiAgent` raises `NotImplementedError` at the first dispatch; use one of Strands' repository-backed managers for those topologies.
+* Text turns are restored; tool-use blocks and `agent.state` are not. Set `record_tool_calls=True` to keep an audit record of tool use.
+* Pass `settings=` or an unconnected `memory_client=`. A client already connected on another event loop cannot be driven from the manager's background loop.
+* Guardrail redaction rewrites the latest message before it is stored. After it is stored, Bolt deletes and re-adds the redacted message at the end of the history; NAMS cannot redact a stored message and logs a warning.
+* Hooks for `AfterInvocationEvent` registered after the session manager run before the final turn is stored; read persisted state on the next turn.
+
+== See also
 
 See xref:reference/backend-capabilities.adoc[Backend capabilities], xref:explanation/multi-agent-sharing.adoc[Multi-agent sharing] and xref:how-to/integrations/aws-bedrock-embeddings.adoc[Bedrock embeddings]. Neo4j Agent Memory is community-supported Neo4j Labs software.

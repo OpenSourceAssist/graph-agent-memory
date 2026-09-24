@@ -3,15 +3,15 @@
 :page-pagination:
 :toclevels: 2
 
-Building a custom `DomainSchema`, the Bolt-only schema persistence overview, GLiNER-to-POLE+O entity type mapping, and the schema models, from xref:reference/schemas.adoc[Domain schemas reference].
+A custom `DomainSchema` example, the Bolt-only schema persistence overview, GLiNER-to-POLE+O entity type mapping, and the schema models, from xref:reference/schemas.adoc[Domain schemas reference].
 
-== Creating custom schemas
+== Custom DomainSchema example
 
-=== DomainSchema class
+A `DomainSchema` maps GLiNER label names to the descriptions the model scores against. Pass it to `GLiNEREntityExtractor` as `schema`. The step-by-step procedure is in xref:how-to/entity-extraction-schemas.adoc[Apply a custom entity extraction schema].
 
 [source,python]
 ----
-from neo4j_agent_memory.extraction.gliner_extractor import DomainSchema
+from neo4j_agent_memory.extraction import DomainSchema, GLiNEREntityExtractor
 
 real_estate_schema = DomainSchema(
     name="real_estate",
@@ -29,6 +29,7 @@ extractor = GLiNEREntityExtractor(schema=real_estate_schema, threshold=0.5)
 ----
 
 anchor:_schema_description_guidance[]
+anchor:_schema_best_practices[]
 
 See xref:how-to/entity-extraction-schemas.adoc#_write_effective_schema_descriptions[writing effective schema descriptions] for guidance on wording `DomainSchema` entity-type descriptions.
 
@@ -38,9 +39,12 @@ Bolt only. Store EntitySchemaConfig documents in Neo4j using `neo4j_agent_memory
 
 [source,python]
 ----
-from neo4j_agent_memory.schema import SchemaManager, EntitySchemaConfig, EntityTypeConfig
+import asyncio
+import os
 
-# Create schema config
+from neo4j_agent_memory import Neo4jClient, Neo4jConfig
+from neo4j_agent_memory.schema import EntitySchemaConfig, EntityTypeConfig, SchemaManager
+
 config = EntitySchemaConfig(
     name="real_estate",
     version="1.0",
@@ -51,17 +55,26 @@ config = EntitySchemaConfig(
     ],
 )
 
-# Save to Neo4j
-manager = SchemaManager(client.graph)
-stored = await manager.save_schema(config, created_by="admin")
 
-# Load later
-schema = await manager.load_schema("real_estate")
+async def main() -> None:
+    neo4j = Neo4jConfig(
+        uri=os.environ["NEO4J_URI"],
+        username=os.environ["NEO4J_USERNAME"],
+        password=os.environ["NEO4J_PASSWORD"],
+        database=os.getenv("NEO4J_DATABASE", "neo4j"),
+    )
+    async with Neo4jClient(neo4j) as graph:  # <1>
+        manager = SchemaManager(graph)
+        stored = await manager.save_schema(config, created_by="admin")
+        schema = await manager.load_schema("real_estate")
+        print(stored.name, stored.version, schema.get_entity_type_names())
+
+
+asyncio.run(main())
 ----
+<1> `SchemaManager` takes a connected `Neo4jClient`. `MemoryClient.graph` also wraps one on Bolt, but the wrapper's `execute_read`, which the load and list methods call, emits a `DeprecationWarning`.
 
 The full CRUD surface — `save_schema`, `load_schema`, `list_schemas`, `set_active_version`, `delete_schema`, and the rest — is on xref:reference/schemas-api.adoc[SchemaManager persistence API].
-
-anchor:_schema_best_practices[]
 
 == Entity type mapping
 

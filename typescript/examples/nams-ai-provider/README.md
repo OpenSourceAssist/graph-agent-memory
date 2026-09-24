@@ -109,9 +109,13 @@ assistant: You work at TechCorp, on the graph platform team.
 ```
 
 Tools mode prints each tool call as it happens, then the fallback-storage
-outcome and the final answer. Hooks mode prints one `[hook]` line per event
-that fires, across three turns (an allowed tool call, a denied one, and a
-redacted one). Exact wording varies with the model; the structure does not.
+outcome and the final answer. Hooks mode runs four turns: an allowed tool call,
+a flaky tool the hooks retry, a denied tool call, and a card number the hooks
+redact. The `Stop` hook prints a `[hook] saved N turns` line after every turn
+and the `SessionEnd` hook prints one `[hook] session ended` line at the end.
+The other hooks print nothing themselves; their `systemMessage` text goes to
+the provider's logger as `[nams] ...` warnings. Exact wording varies with the
+model; the structure does not.
 
 ## Tests
 
@@ -124,16 +128,19 @@ Two things are checked:
 1. **Doc-page fidelity.** `test/docs-pages.test.ts` asserts each program is
    embedded byte-for-byte on its how-to page
    (`docs/modules/ROOT/pages/how-to/typescript/nams-ai-provider-<mode>-mode.adoc`).
-   Those pages are written separately from this example; until they exist (or
-   until they are re-embedded after an edit here), this half of the suite
-   fails with a clear diff rather than silently skipping.
+   Whenever a program and its page drift apart, this half of the suite fails
+   with a diff; re-embed the program on the page after editing it here.
 2. **Offline behavior.** Each program runs against the offline hosted-service
    stub shared with `typescript/examples/vercel-ai`
-   (`../vercel-ai/test/docs-hosted-stub.js`) and the AI SDK's own
-   `MockLanguageModelV4` from `ai/test` — no API key, no network, no Neo4j.
-   The assertions are the ones that fail if memory stops working: the second
-   session/turn's prompt (or its retrieved memories) carries what the first
-   one stored, and the stub recorded the underlying NAMS calls.
+   ([`../vercel-ai/test/docs-hosted-stub.ts`](../vercel-ai/test/docs-hosted-stub.ts))
+   and the AI SDK's own `MockLanguageModelV4` from `ai/test` — no API key, no
+   network, no Neo4j. The assertions are the ones that fail if memory stops
+   working: the second session/turn's prompt (or its `query_memory` result)
+   carries what the first one stored, and the stub recorded the underlying
+   NAMS calls. Hooks mode checks the effect of each of the eight lifecycle
+   events: the denied tool's blocked result, the retried tool's output, the
+   carried-over context, the redacted prompt and transcript, and the `Stop` and
+   `SessionEnd` log lines.
 
 ## Support
 

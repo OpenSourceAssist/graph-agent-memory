@@ -21,11 +21,11 @@ each job last ran.
 * A representative test graph with embeddings and the relevant vector indexes.
 * A scheduler owned by your application; the library does not start periodic jobs.
 
-Do not apply `detect_superseded_preferences` to a database containing multiple
-users' preferences in the current source. Even with `user_identifier`, its
+In 0.6.0, do not apply `detect_superseded_preferences` to a database that holds
+more than one user's preferences. Even with `user_identifier`, its
 candidate query scopes the old preference but does not enforce the same owner
 on the proposed replacement. Review candidates and use explicit, owner-checked
-superseding in xref:how-to/preferences.adoc[Manage Preferences] instead.
+superseding in xref:how-to/preferences.adoc[Store and revise a user preference] instead.
 
 == Goal
 
@@ -132,5 +132,5 @@ can make multiple writes; a mid-run failure is not an atomic rollback.
 
 == See also
 
-* xref:how-to/preferences.adoc[Manage a user preference]
+* xref:how-to/preferences.adoc[Store and revise a user preference]
 * xref:how-to/audit-reasoning.adoc[Audit reasoning with `:TOUCHED` edges]

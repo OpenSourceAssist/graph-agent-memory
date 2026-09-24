@@ -11,13 +11,13 @@ Run an actual `agents.Agent` through `Runner.run`, then save and verify its conv
 anchor:_overview[]
 anchor:_installation[]
 
-Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment.
+Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.6.0 package; provider access and database execution must be verified in your environment. The install command adds `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
 
 include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai-agents]==0.6.0' openai-agents
+python -m pip install 'neo4j-agent-memory[openai-agents]==0.6.0' openai-agents 'httpx>=0.27'
 export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
 export NEO4J_USERNAME='neo4j'
 export NEO4J_PASSWORD='replace-with-your-Aura-password'
@@ -65,17 +65,7 @@ include::example$integrations/openai_agents_recipe.py[]
 anchor:_basic_usage[]
 anchor:_initialize_memory[]
 anchor:_save_and_retrieve_messages[]
-anchor:_search_memory[]
-anchor:_search_entities[]
-anchor:_reasoning_traces[]
-anchor:_find_similar_past_tasks[]
 anchor:_search_operations[]
-anchor:_system_prompt_enhancement[]
-anchor:_message_persistence[]
-anchor:_trace_recording[]
-anchor:_tool_calls_not_working[]
-anchor:_neo4jopenaimemory[]
-anchor:_functions[]
 
 [source,bash]
 ----
@@ -86,7 +76,7 @@ Expected: stored-message and task-trace verification followed by a nonempty `fin
 
 == Troubleshooting and cleanup
 
-anchor:_troubleshooting[]
+anchor:_troubleshooting[]anchor:_tool_calls_not_working[]
 anchor:_importerror_openai_not_found[]
 anchor:_empty_context[]
 
@@ -94,16 +84,11 @@ include::partial$python-integration-troubleshooting.adoc[tag=troubleshooting]
 
 == Adapt the integration
 
-anchor:_pass_through_your_agents_model[]
+anchor:_pass_through_your_agents_model[]anchor:_system_prompt_enhancement[]anchor:_message_persistence[]anchor:_trace_recording[]
 anchor:_memory_tools[]
-anchor:_available_tools[]
-anchor:_save_preference[]
-anchor:_recall_preferences[]
-anchor:_execute_tools[]
 anchor:_complete_example[]
 anchor:_context_retrieval[]
 anchor:_best_practices[]
-anchor:_api_reference[]
 
 The repository's `[openai-agents]` extra installs the underlying `openai` client used by its adapter. The command above also installs the separate `openai-agents` distribution that supplies `agents.Agent` and `Runner`.
 
@@ -116,8 +101,86 @@ The repository's `[openai-agents]` extra installs the underlying `openai` client
 include::example$integrations/openai_agents_recipe.py[tag=function_tool]
 ----
 
-`integrations/openai_agents_recipe.py` wires this in: `main()` passes `tools=[make_recall_tool(memory)]` into `Agent(...)`, so the shipped recipe exercises the wrapper on every run, not just the surrounding get/save calls.
+`main()` in `integrations/openai_agents_recipe.py` registers the wrapper with `Agent(tools=[make_recall_tool(...)])`. The model decides whether to call a registered tool, so a successful run does not show that `recall_context` was called; the recipe's own checks cover the explicit get and save calls.
 
-For Chat Completions, dispatch returned tool calls with `execute_memory_tool(memory, tool_name, arguments)` and retain matched call IDs and responses in conversation history. Merely sending a schema to a model does not execute the function. Provider selection is covered by xref:how-to/migrate-to-providers.adoc[Configure providers]. Product search and payment operations remain application code.
+For Chat Completions, dispatch returned tool calls with `execute_memory_tool(memory, tool_name, arguments)` and retain matched call IDs and responses in conversation history. Import it from the adapter's `memory` module; the package root does not export it. This fragment assumes a connected `memory` and a `tool_call` taken from a Chat Completions response:
+
+[source,python]
+----
+import json
+
+from neo4j_agent_memory.integrations.openai_agents.memory import execute_memory_tool
+
+result = await execute_memory_tool(
+    memory,
+    tool_call.function.name,
+    json.loads(tool_call.function.arguments),
+)
+----
+
+`execute_memory_tool` is a coroutine function. Await it; it returns a JSON string to send back as the tool message. Merely sending a schema to a model does not execute the function. Provider selection is covered by xref:how-to/migrate-to-providers.adoc[Configure providers]. Product search and payment operations remain application code.
+
+== Adapter reference
+
+anchor:_api_reference[]
+anchor:_neo4jopenaimemory[]
+anchor:_functions[]
+
+This section lists the adapter surface of the published 0.6.0 package. `Neo4jOpenAIMemory`, `create_memory_tools`, `record_agent_trace` and `llm_provider_from_openai_agents` are exported from `neo4j_agent_memory.integrations.openai_agents`.
+
+`Neo4jOpenAIMemory(memory_client, session_id, user_id=None)` provides these async methods:
+
+[cols="2,4",options="header"]
+|===
+|Method |Returns
+
+|`get_context(query, max_items=10, ...)` |A context string; `include_short_term`, `include_long_term` and `include_reasoning` select the layers.
+|`save_message(role, content, ...)` |The stored message. Optional `tool_calls`, `tool_call_id`, `extract_entities` and `generate_embedding`.
+|`get_conversation(limit=50, include_system=True)` |The session's messages as role/content dictionaries.
+|`search(query, limit=10, ...)` |Matching messages, entities and preferences as dictionaries.
+|`add_preference(category, preference)` |The stored preference.
+|`search_preferences(query, category=None, limit=10)` |Matching preferences as dictionaries.
+|`clear_session()` |Nothing; removes the session's messages.
+|===
+
+=== Chat Completions tools
+
+anchor:_available_tools[]anchor:_search_memory[]anchor:_search_entities[]
+anchor:_save_preference[]
+anchor:_recall_preferences[]
+anchor:_execute_tools[]
+
+`create_memory_tools(memory)` returns four function schemas. `execute_memory_tool(memory, tool_name, arguments)` runs the named tool with the decoded argument dictionary.
+
+[cols="2,2,3",options="header"]
+|===
+|Tool |Arguments |Purpose
+
+|`search_memory` |`query`, `limit` |Search messages, entities and preferences.
+|`save_preference` |`category`, `preference` |Store a user preference. This is a write tool.
+|`recall_preferences` |`query`, `category` |Retrieve stored preferences.
+|`search_entities` |`query`, `entity_type`, `limit` |Search the entity graph; `entity_type` is one of `PERSON`, `LOCATION`, `ORGANIZATION`, `EVENT` or `OBJECT`.
+|===
+
+=== Traces
+
+anchor:_find_similar_past_tasks[]anchor:_reasoning_traces[]
+
+`record_agent_trace(memory, messages, task, tool_calls=None, outcome=None, success=True)` stores a task trace, as in the recipe. To reuse past outcomes, import the lookup helpers from the adapter's `tracing` module:
+
+[source,python]
+----
+from neo4j_agent_memory.integrations.openai_agents.tracing import (
+    format_traces_for_prompt,
+    get_similar_traces,
+)
+
+traces = await get_similar_traces(memory, task="Plan a project kickoff", limit=3)
+background = format_traces_for_prompt(traces)
+----
+
+`format_traces_for_prompt` returns an empty string when no traces match. `llm_provider_from_openai_agents(model)` passes a configured model to memory extraction.
+
+== See also
 
 include::partial$python-integration-troubleshooting.adoc[tag=closing]

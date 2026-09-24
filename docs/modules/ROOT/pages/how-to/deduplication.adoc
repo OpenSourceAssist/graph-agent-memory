@@ -11,17 +11,17 @@ include::partial$backend-bolt-only.adoc[]
 .Entity similarity can trigger an automatic merge or a review flag
 image::diagrams/entity-dedup-flow.svg["Entity similarity can trigger merging or a review flag",width=100%,link=self]
 
-anchor:_prerequisites[]
-
 == Prerequisites
 
-Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra:
+anchor:_overview[]
+
+Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra plus `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra:
 
 include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'
 ----
 
 include::partial$python-core-recipe-intro.adoc[]
@@ -29,6 +29,8 @@ include::partial$python-core-recipe-intro.adoc[]
 include::partial$python-core-recipe-files.adoc[]
 
 == 1. Apply the task function
+
+anchor:_configure_deduplication[]anchor:_basic_configuration[]anchor:_domain_specific_thresholds[]anchor:_disable_deduplication[]anchor:_per_entity_bypass[]anchor:_bulk_import_without_deduplication[]
 
 Configure custom deduplication thresholds and merge a reviewed duplicate pair. `DeduplicationConfig` is imported from `neo4j_agent_memory.memory.long_term`. For custom thresholds, construct `LongTermMemory` with the connected Bolt graph and embedder. `MemoryClient` does not accept a `deduplication=` argument, and `MemorySettings.deduplication` is not a setting. The example uses a deliberately created pair and bypasses automatic deduplication so the manual review step is reproducible.
 
@@ -48,51 +50,29 @@ python core_memory_recipes.py deduplication
 
 The command retains its example records for inspection. Remove the disposable tutorial database using that tutorial's cleanup command when finished. Do not substitute an unrestricted delete query against an existing database.
 
-anchor:_review_flagged_duplicates[]
-
 == Review semantic candidates
+
+anchor:_review_flagged_duplicates[]anchor:_find_pending_reviews[]anchor:_confirm_or_reject_duplicates[]anchor:_automated_review_rules[]anchor:_get_statistics[]anchor:_4_regular_review_cycles[]
 
 To let new writes use the configured policy, leave `deduplicate=True` on `store.add_entity`. Inspect the returned `DeduplicationResult.action`, `matched_entity_id`, and `similarity_score`. Default thresholds are 0.95 for automatic merging and 0.85 for review; their suitability depends on the corpus and embedding model.
 
-`find_potential_duplicates(limit=...)` returns `(entity1, entity2, confidence)` tuples for pending pairs. After an application review, call `review_duplicate(source_id, target_id, confirm=True)` to merge or `confirm=False` to reject the flag. An empty review queue is a valid result. `get_deduplication_stats()` returns a dataclass with `total_entities`, `merged_entities`, `same_as_relationships`, and `pending_reviews`.
-
-anchor:_manual_entity_merging[]
+`find_potential_duplicates(limit=...)` returns `(entity1, entity2, confidence)` tuples for pending pairs. In 0.6.0 on Bolt, `confidence` is always `0.0` and each pending pair appears twice, once in each direction, so do not rank or filter candidates by that value; read the `confidence` property of the `SAME_AS` relationship with a Cypher query if you need it. After an application review, call `review_duplicate(source_id, target_id, confirm=True)` to merge or `confirm=False` to reject the flag. An empty review queue is a valid result. `get_deduplication_stats()` returns a dataclass with `total_entities`, `merged_entities`, `same_as_relationships`, and `pending_reviews`.
 
 == Check relationship coverage before merging
 
-As of SDK 0.6.0, the merge query adds the source name as a target alias and copies the source's edges of these types onto the target — inbound `MENTIONS`, `RELATED_TO` in both directions, `SAME_AS`, outbound `EXTRACTED_FROM` and `EXTRACTED_BY` provenance, inbound `APPLIES_TO`, and inbound `TOUCHED` — then marks the source with `merged_into`/`merged_at`. It copies rather than deletes: the source keeps its own edges so the merge stays reversible and auditable, and each copied edge carries the source edge's `id` plus a `migrated_from` property. Relationship types outside that list are not transferred automatically; inspect those edges and decide how your application will reconcile them before merging a populated graph.
+anchor:_manual_entity_merging[]anchor:_merge_specific_entities[]anchor:_merge_with_property_strategy[]anchor:_best_practices[]anchor:_1_start_conservative[]anchor:_2_use_specific_entity_types[]anchor:_3_add_known_aliases_upfront[]anchor:_adjust_thresholds_based_on_quality[]
+
+As of SDK 0.6.0, the merge query adds the source name as a target alias and copies the source's edges of these types onto the target — inbound `MENTIONS`, `RELATED_TO` in both directions, `SAME_AS`, outbound `EXTRACTED_FROM` and `EXTRACTED_BY` provenance, inbound `APPLIES_TO`, and inbound `TOUCHED` — then marks the source with `merged_into`/`merged_at`. It copies rather than deletes, so the source keeps its own edges. The copies are marked differently by type: `RELATED_TO` copies keep the source edge's `id` and gain a `migrated_from` property set to the source entity ID; `EXTRACTED_FROM`, `EXTRACTED_BY`, `APPLIES_TO`, and `TOUCHED` copies gain `migrated_from` only; `MENTIONS` copies carry no marker, and `SAME_AS` copies are recorded with `match_type: 'merged'` but no source reference. To audit or undo a merge, rely on the source's `merged_into` marker and the retained source edges rather than on a marker on every copy. Relationship types outside that list are not transferred automatically; inspect those edges and decide how your application will reconcile them before merging a populated graph.
 
 Known aliases, type consistency, and a labeled sample of true/false duplicates help assess a policy. Do not choose automatic thresholds from an unmeasured "safe" universal value.
 
 == Verification
 
-Expected: `Verified: reviewed pair merged into ...; merged nodes=...`. The assertions check the source's `merged_into` value and the target's alias list rather than assuming a particular embedding score.
+anchor:_monitor_deduplication_quality[]
 
-anchor:_see_also[]
+Expected: `Verified: reviewed pair merged into ...; merged nodes=...`. The assertions check the source's `merged_into` value and the target's alias list rather than assuming a particular embedding score.
 
 == See also
 
 * xref:explanation/resolution-deduplication.adoc[Resolution and deduplication] — the distinction between the two mechanisms.
 * xref:reference/api/long-term.adoc[The long-term API reference] — configuration and return models.
-
-// Historical section links resolve to the maintained task and reference pointers.
-anchor:_overview[]
-anchor:_configure_deduplication[]
-anchor:_basic_configuration[]
-anchor:_domain_specific_thresholds[]
-anchor:_find_pending_reviews[]
-anchor:_confirm_or_reject_duplicates[]
-anchor:_automated_review_rules[]
-anchor:_merge_specific_entities[]
-anchor:_merge_with_property_strategy[]
-anchor:_disable_deduplication[]
-anchor:_per_entity_bypass[]
-anchor:_bulk_import_without_deduplication[]
-anchor:_monitor_deduplication_quality[]
-anchor:_get_statistics[]
-anchor:_adjust_thresholds_based_on_quality[]
-anchor:_best_practices[]
-anchor:_1_start_conservative[]
-anchor:_2_use_specific_entity_types[]
-anchor:_3_add_known_aliases_upfront[]
-anchor:_4_regular_review_cycles[]

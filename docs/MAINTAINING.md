@@ -8,11 +8,12 @@ From the repository root, use Node.js 22 and Python 3.10 or later for the combin
 
 ```bash
 make docs-install
+make docs-render-install
 make docs
 make docs-lint
 ```
 
-`make docs-install` uses the committed npm lockfile. Antora's package itself permits Node 18+, but the current SDK/examples have separate runtime requirements. `make docs` writes `docs/build/site`. `make docs-lint` checks source/index routes, builds once into a fresh temporary directory, and validates rendered content links, fragments, image attributes, warnings and diagram provenance/freshness. It does not contact NAMS or execute embedded model/database/deployment commands.
+`make docs-install` uses the committed npm lockfile. Antora's package itself permits Node 18+, but the current SDK/examples have separate runtime requirements. `make docs-render-install` installs the optional Playwright toolchain in `docs/diagrams` (shared with the diagram exporter) and its Chromium browser, which the rendered-layout checks need. `make docs` writes `docs/build/site`. `make docs-lint` first runs `make docs-render-check`, which builds `docs/build/site` and checks its rendered layout (below). It then checks source/index routes, runs a second clean build into a temporary directory, and validates rendered content links, fragments, image attributes, warnings and diagram provenance/freshness. It does not contact NAMS or execute embedded model/database/deployment commands.
 
 To retain the complete build log and page inventory:
 
@@ -40,10 +41,12 @@ Run `scripts/render_docs.mjs` directly to render a specific build without the
 pytest checks — `node scripts/render_docs.mjs [siteDir] [outDir]`; siteDir
 defaults to `docs/build/site/agent-memory`, outDir to
 `docs/build/render-report`. Pass `--screenshots` to also capture a PNG per
-page (skipped by default; `report.json` is what the checks read). The pytest
-module skips cleanly, with a reason, when `docs/build/site` has not been
-built yet or when Playwright is not installed under `docs/diagrams`
-(`make docs-install`).
+page (skipped by default; `report.json` is what the checks read). A plain
+`pytest tests/docs` run skips this module cleanly, with a reason, when
+`docs/build/site` has not been built yet or when Playwright is not installed
+under `docs/diagrams`. `make docs-render-check` (and so `make docs-lint`)
+sets `DOCS_RENDER_CHECK_REQUIRED=1`, which turns a missing Playwright install
+into a failure; run `make docs-render-install` once to install it.
 
 For a local preview:
 
@@ -57,7 +60,7 @@ The command builds once and serves static files on port 8080. After an edit, run
 
 Follow the four repository skills in `.claude/skills`. Tutorials follow one complete path with named files, exact setup/run commands and observable milestones. How-tos state a task, prerequisites, ordered solution and final verification. Reference follows the actual API and includes options, defaults, constraints and backend applicability. Explanations focus on rationale and tradeoffs.
 
-Use Neo4j AuraDB for examples that connect directly to Neo4j through the Bolt backend. The shared `aura-tutorial-setup.adoc` and `aura-tutorial-cleanup.adoc` partials provide the tutorial path. Executable tutorial helpers read the exported `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE` through `docs/modules/ROOT/examples/aura_connection.py`; never supply a local database or fixed password as a fallback. NAMS examples retain their NAMS service configuration. Reference tables must still document actual SDK defaults, and Docker instructions for application packaging or contributor tests serve a separate purpose.
+Use Neo4j AuraDB for examples that connect directly to Neo4j through the Bolt backend. The shared `aura-tutorial-setup.adoc` and `aura-tutorial-cleanup.adoc` partials provide the tutorial path. Executable tutorial helpers read the exported `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE` through `docs/modules/ROOT/examples/aura_connection.py`; never supply a local database or fixed password as a fallback. Only `NEO4J_DATABASE` has a default (`neo4j`, the Aura default), and pages that describe the helper say so. NAMS examples retain their NAMS service configuration. Reference tables must still document actual SDK defaults, and Docker instructions for application packaging or contributor tests serve a separate purpose.
 
 Keep a complete executable counterpart for programs assembled across several tutorial steps. Identify partial snippets and signature displays as such. Use a named deterministic fixture for automated checks; never run every extracted code block indiscriminately. Keep source-contract checks, local integration, paid-model calls, live service checks and public-site verification separate.
 
@@ -82,7 +85,7 @@ Use `python-tutorial-setup.adoc` for the reusable local folder/environment setup
 
 `extensions/example-files.json` maps Antora example resource names to repository-relative standalone scripts and templates. The `extensions/example-files.js` extension and Python snippet checker both read this manifest, so rendered pages and source checks resolve the same files. The extension registers these resources during `contentClassified`; it creates no downloadable archive. Keep the extension enabled in publishing playbooks and build from the accepted full repository checkout so those sources are available. Fresh-build tests compare the named, rendered files with their canonical source and verify that the tutorial programs' local imports are supplied on the same page.
 
-Package availability and API compatibility must be verified independently of the repository version. Python 0.6.0 still has the older active-ontology metadata inference; the ontology lesson explicitly reads the authoritative REST response through its maintained helper. Application instructions install the verified npm releases (`@neo4j-labs/agent-memory@0.5.0`, `@neo4j-labs/nams-ai-provider@0.3.0`), pinned to an exact version the same way the Python instructions pin `neo4j-agent-memory==0.6.0`. Tutorials and example projects run from the checkout because their `package.json` pins the SDK with `file:../..`, not because no npm release exists. Contributor development, SDK builds and release checks remain source workflows.
+Package availability and API compatibility must be verified independently of the repository version. Python 0.6.0 still has the older active-ontology metadata inference; so does `@neo4j-labs/agent-memory@0.5.0` (`getActive()` composes version metadata from a list/get lookup). Pages for either SDK must read `GET /ontologies/active` directly for the bound revision, as the ontology lesson does through its maintained helper (see `reference/ontology-api.adoc#python-0-6-active-binding`). Application instructions install the verified npm releases (`@neo4j-labs/agent-memory@0.5.0`, `@neo4j-labs/nams-ai-provider@0.3.0`), pinned to an exact version the same way the Python instructions pin `neo4j-agent-memory==0.6.0`. Tutorials and example projects run from the checkout because their `package.json` pins the SDK with `file:../..`, not because no npm release exists. Contributor development, SDK builds and release checks remain source workflows.
 
 The framework documentation contracts run in Python CI's `integration-test` job, which installs all framework extras. Run the same offline checks locally with:
 
@@ -121,7 +124,7 @@ node scripts/export_diagrams.mjs docs/assets/diagrams/excalidraw/the-three-layer
 python3 scripts/manage_diagrams.py status
 ```
 
-The exporter uses Excalidraw's own renderer and writes SVG plus PNG with an opaque white background matched to the current light-only site theme. `DIAGRAM_TOOLS_DIR` can select a temporary dependency installation; `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select an existing compatible Chromium executable. Review the output at actual page size and a narrow viewport before recording fresh hashes. Do not mark unknown legacy source/export pairs as verified merely because their filenames match.
+The exporter uses Excalidraw's own renderer and writes the SVG (and a sibling PNG only when you pass `--png` or the manifest already tracks one) with an opaque white background matched to the current light-only site theme. `--all` re-exports every SVG the manifest records; export a new diagram with the single-file form shown above, then record it in `docs/diagrams/manifest.json`. `DIAGRAM_TOOLS_DIR` can select a temporary dependency installation; `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` can select an existing compatible Chromium executable. Review the output at actual page size and a narrow viewport before recording fresh hashes. Do not mark unknown legacy source/export pairs as verified merely because their filenames match.
 
 Quote comma-containing image descriptions, for example `image::diagrams/example.svg["Conversations, entities and traces",width=100%]`. Alt text is an accessible description; a preceding `.Diagram title` is a visible caption.
 

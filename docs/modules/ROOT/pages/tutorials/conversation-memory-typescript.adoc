@@ -118,10 +118,11 @@ npx tsx --env-file-if-exists=.env \
   src/tutorials/conversation.ts recall .tutorial-state/conversation.json
 ----
 
-Expect the retrieved memory to contain the seeded full club name and size 10,
-then a model answer recalling both, including the name’s unique identifier. The
-question asks for that precision without supplying either fact. Surrounding
-wording varies; inspect recall separately from the storage milestone.
+Expect `Stored messages verified before this question: 1`, then a
+`Model returned:` answer recalling the seeded full club name, including its
+unique identifier, and size 10. The question asks for that precision without
+supplying either fact. Surrounding wording varies; inspect recall separately
+from the storage milestone.
 
 Expect `New user and assistant messages verified in storage.` and
 `Recall verified against the run-specific club and shoe size.`
@@ -179,12 +180,11 @@ Keep the state until every resource has a verified disposition. Closing the
 client alone does not delete data. Do not remove the state file to bypass an
 unfinished run or bulk-delete workspace entities.
 
-anchor:_extending_the_assistant[]
-anchor:_see_also[]
-
 include::partial$typescript-tutorial-lifecycle.adoc[]
 
 == Next steps
+
+anchor:_extending_the_assistant[]anchor:_see_also[]
 
 * xref:tutorials/knowledge-graph-typescript.adoc[Ingest documents and inspect extracted entities].
 * xref:how-to/typescript/mastra.adoc[Select prior conversation context explicitly with Mastra].

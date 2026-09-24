@@ -129,7 +129,7 @@ Apache 2.0 — see the main `neo4j-agent-memory` repository.
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > **Verified against:** `neo4j-agent-memory` 0.6.0-dev (backend), Next 16.3.4,
 > React 19.3.0, Chakra UI 3.37.0, `@neo4j-nvl/*` 1.2.1, react-leaflet 5.0.0,

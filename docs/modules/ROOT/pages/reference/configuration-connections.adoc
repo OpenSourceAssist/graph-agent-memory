@@ -34,10 +34,6 @@ Bolt only. Standalone `Neo4jConfig` requires a password; the implicit MemorySett
 
 anchor:nams[]
 
-anchor:_python_configuration_2[]
-anchor:_environment_variables_2[]
-anchor:_parameters_2[]
-
 == NAMS connection
 
 NAMS only. This config controls HTTP transport, not server extraction settings. Pin NamsSettings to avoid accidental backend selection. The `transport_mode="bridge"` option is intended for conformance/reference implementations.

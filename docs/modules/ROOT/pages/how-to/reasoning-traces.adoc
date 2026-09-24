@@ -4,26 +4,38 @@
 :toclevels: 2
 :sectanchors:
 
-include::partial$backend-bolt-only.adoc[]
+include::partial$backend-both.adoc[]
 
 To diagnose an unsuccessful tool action, create a trace, add the action as a step, record its error with `ToolCallStatus`, and complete the trace with a structured outcome. Read back the step and tool call to verify that the failure was retained.
 
-.A reasoning trace linked to a message and ordered steps with tool calls and touched entities
-image::diagrams/reasoning-trace-graph.svg["Trace links to a message and ordered steps with tool calls and touched entities",width=100%,link=self]
+.A reasoning trace linked to a message and ordered steps with tool calls
+image::diagrams/reasoning-trace-graph.svg["Trace links to a message and ordered steps with tool calls",width=100%,link=self]
 
 For the rationale, see xref:explanation/memory-types.adoc[Understanding the three memory types].
+
+[NOTE]
+====
+This recipe targets Bolt, which persists the trace and its structured outcome. The Python NAMS client also accepts `start_trace`, `add_step`, `record_tool_call`, `complete_trace`, `get_trace_with_steps` and `get_session_traces`, with these differences in 0.6.0:
+
+* Pass the conversation ID that NAMS issued as `session_id`. Steps and tool calls are stored on that conversation; the trace itself, its task and its outcome exist only in the client instance that started it.
+* `complete_trace` sets `success` only from a `success=` keyword. Pass the outcome as a string: a `TraceOutcome` object makes the later `get_trace_with_steps` call fail validation.
+* `record_tool_call` does not send `error`, `touched_entities` or `message_id`.
+* `list_traces`, `get_similar_traces`, `search_steps` and `get_tool_stats` raise `NotSupportedError`.
+
+See xref:reference/api/reasoning-search-stats.adoc#_nams_lifecycle_and_operations[NAMS lifecycle and operations] for each call's hosted behavior.
+====
 
 anchor:_prerequisites[]
 
 == 1. Prepare the Bolt client
 
-Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra:
+Use a dedicated AuraDB instance from xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup], with exported `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`. Set `OPENAI_API_KEY` for the selected embedding provider. Prepare the example files below and install the provider extra plus `httpx`, which release 0.6.0 imports when connecting over Bolt but declares only in the `nams` extra:
 
 include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.6.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.6.0' 'httpx>=0.27'
 ----
 
 include::partial$python-core-recipe-intro.adoc[]
@@ -60,13 +72,13 @@ anchor:_complete_the_trace[]
 
 Always pair a started trace with a matching `complete_trace` call, whichever way the tool action goes. In real tool code, wrap the actual operation in `try`/`except`, record the appropriate `ToolCallStatus`, and call `complete_trace` on success and failure paths. `record_tool_call` accepts `status`, `error`, and integer `duration_ms`; it has no `success` keyword. `complete_trace` accepts an outcome string or `TraceOutcome`; it has no `error` keyword.
 
-The xref:tutorials/conversation-memory.adoc[chatbot tutorial] provides a complete success path and completion after a failed model request. Optional `triggered_by_message_id` creates an `INITIATED_BY` link. Use `touched_entities`/`EntityRef` for explicit action provenance, and async hooks for follow-up writes.
+The xref:tutorials/conversation-memory.adoc[chatbot tutorial] provides a complete success path and completion after a failed model request. Optional `triggered_by_message_id` creates an `INITIATED_BY` link. On Bolt, use `touched_entities`/`EntityRef` for explicit action provenance, and async hooks for follow-up writes.
 
 anchor:_query_past_traces[]
 
 == Inspect recorded outcomes
 
-Use `get_trace_with_steps(trace_id)` and inspect `trace.steps` and `step.tool_calls`. Use `get_session_traces` for a known session, `list_traces` for supported filters, and `get_similar_traces` for ranked candidates. There are no `get_steps`, `get_tool_calls`, `get_traces`, `search_traces`, or `delete_trace` wrappers.
+Use `get_trace_with_steps(trace_id)` and inspect `trace.steps` and `step.tool_calls`. Use `get_session_traces` for a known session. On Bolt, use `list_traces` for supported filters and `get_similar_traces` for ranked candidates. There are no `get_steps`, `get_tool_calls`, `get_traces`, `search_traces`, or `delete_trace` wrappers.
 
 Similarity is stored in trace metadata; `search_steps` returns result wrappers with step and parent-task information. A similar successful trace is evidence for the application to assess, not proof that a new action will succeed. For evaluation and pruning, follow xref:how-to/evaluation.adoc[memory evaluation] and xref:how-to/audit-reasoning.adoc[reasoning audit tasks]. Exact filters and hooks are in xref:reference/api/reasoning.adoc[the reasoning reference].
 

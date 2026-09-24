@@ -21,11 +21,17 @@ Prerequisites:
 
 * Node.js 22 or newer (the package's declared floor).
 * A `MEMORY_API_KEY` from https://memory.neo4jlabs.com[memory.neo4jlabs.com].
-* The packages installed:
+* An `OPENAI_API_KEY`. The program uses `@ai-sdk/openai` by default; to use
+  another provider, pass its model factory to the `toolsModeDemo()` call at the
+  bottom of the file.
+* A Node.js project set up as an ES module, with the packages installed:
 +
 [source,bash]
 ----
+npm init -y   # only if the directory has no package.json yet
+npm pkg set type=module
 npm install @neo4j-labs/nams-ai-provider@0.3.0 @neo4j-labs/agent-memory@0.5.0 ai@^7 @ai-sdk/openai@^4 zod@^4
+npm install --save-dev tsx
 ----
 
 == The program
@@ -45,22 +51,30 @@ npm install @neo4j-labs/nams-ai-provider@0.3.0 @neo4j-labs/agent-memory@0.5.0 ai
  *
  *   MEMORY_API_KEY=nams_... OPENAI_API_KEY=sk-... npx tsx src/tools-mode.ts
  *
- * Expected output (arguments and wording vary):
+ * Expected output (arguments, steps and wording vary with the model). Each
+ * ensureMemoryStored line is printed by onFinish inside agent.generate(), so
+ * it appears above the header of its turn:
+ *
+ *   ensureMemoryStored: already-stored
  *
  *   --- Turn 1 -- teach it something
  *   step 0 [enforced: some tool required]
- *     tool call: query_memory({"query":"user editor preferences","limit":5})
+ *     tool call: query_memory({"query":"editor preferences","limit":5})
  *   step 1 [unconstrained]
- *     tool call: store_memory({"content":"User prefers very short answers", ...
- *   ensureMemoryStored: already-stored
+ *     tool call: store_memory({"content":"User uses Neovim and prefers short answers","type":"user_preference","confidence":0.9,"tags":[]})
+ *   step 2 [unconstrained]
  *   assistant: Got it -- short answers, and I'll remember you use Neovim.
+ *   ensureMemoryStored: persisted the turn
  *
  *   --- Turn 2 -- fresh tool set, same user
  *   step 0 [enforced: some tool required]
  *     tool call: query_memory({"query":"editor preferences","limit":5})
+ *   step 1 [unconstrained]
  *   assistant: You use Neovim, and you like short answers.
  */
 
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { createNams, enforceQueryMemory, ensureMemoryStored } from '@neo4j-labs/nams-ai-provider';
 import { openai } from '@ai-sdk/openai';
 import { ToolLoopAgent, stepCountIs, type LanguageModel } from 'ai';
@@ -138,7 +152,9 @@ export async function toolsModeDemo(
   return { taught, recalled };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run only when executed directly, not when a test imports this file.
+const entry = process.argv[1];
+if (entry && import.meta.url === pathToFileURL(realpathSync(entry)).href) {
   toolsModeDemo().catch(err => {
     console.error(err);
     process.exit(1);
@@ -146,7 +162,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 ----
 
-== Procedure
+== How the program works
 
 . Read the demo `userId` and model id from the environment, falling back to
   `demo-user-tools-mode` and `gpt-5.4-mini`.
@@ -157,8 +173,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   environment variables.
 . Define a `turn(label, prompt, instructions)` helper that builds a **fresh
   tool set each turn** — `store_memory`/`query_memory` read and write the
-  same NAMS-side conversation for this user, found by `userId` — and runs an
-  agent loop:
+  same NAMS-side conversation for this user, the most recent one found by
+  `userId`, because no `conversationId` is passed — and runs an agent loop:
 +
 --
 * `nams.tools({ userId })` returns `{ query_memory, store_memory }`.
@@ -169,12 +185,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   `query_memory` has run, then forces `query_memory` directly if it still
   hasn't run by step 3.
 * `onFinish` calls `ensureMemoryStored(tools)(event)` and logs whether it
-  persisted the turn or found nothing to do — the fallback for when the
-  model answered without ever calling `store_memory`.
-* `agent.generate({ prompt })` runs the loop. The program then logs each
-  step's tool calls, prefixed with whether `query_memory` had already run by
-  that step (`enforced: some tool required` before it has, `unconstrained`
-  after), and finally the assistant's text.
+  persisted the turn or why it did not — the fallback for when the model
+  answered without ever calling `store_memory`. By default it saves the
+  final answer as an `interaction`. It must receive the exact `tools` object
+  `nams.tools()` returned; a spread copy (`+{ ...tools }+`) throws.
+* `agent.generate({ prompt })` runs the loop, and `onFinish` runs inside it.
+  The program then logs each step, labelled with whether `query_memory` had
+  already run before that step (`enforced: some tool required` until it has,
+  `unconstrained` after), and the step's tool calls, and finally the
+  assistant's text. The last step of each turn is the text answer, so it
+  has no tool calls.
 --
 . Call `turn()` twice with different instructions:
 +
@@ -192,97 +212,76 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 == Run and verify
 
-From `typescript/examples/nams-ai-provider/`, after the workspace build and
-`.env` setup described in the example's README:
+Run the saved file with both keys set:
 
 [source,bash]
 ----
-npx tsx --env-file-if-exists=.env src/tools-mode.ts
+MEMORY_API_KEY=nams_... OPENAI_API_KEY=sk-... npx tsx tools-mode.ts
 ----
 
-Expected output (arguments and wording vary with the model):
+To run the copy in the repository instead, follow the setup in the
+link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/nams-ai-provider[example's
+README], then run `npm run tools-mode` from
+`typescript/examples/nams-ai-provider/`. The `Run with` comment at the top of
+the program shows the path of that copy.
+
+Expected output (arguments, steps and wording vary with the model):
 
 [source,text]
 ----
+ensureMemoryStored: already-stored
+
 --- Turn 1 -- teach it something
 step 0 [enforced: some tool required]
-  tool call: query_memory({"query":"user editor preferences","limit":5})
+  tool call: query_memory({"query":"editor preferences","limit":5})
 step 1 [unconstrained]
-  tool call: store_memory({"content":"User prefers very short answers", ...
-ensureMemoryStored: already-stored
+  tool call: store_memory({"content":"User uses Neovim and prefers short answers","type":"user_preference","confidence":0.9,"tags":[]})
+step 2 [unconstrained]
 assistant: Got it -- short answers, and I'll remember you use Neovim.
+ensureMemoryStored: persisted the turn
 
 --- Turn 2 -- fresh tool set, same user
 step 0 [enforced: some tool required]
   tool call: query_memory({"query":"editor preferences","limit":5})
+step 1 [unconstrained]
 assistant: You use Neovim, and you like short answers.
 ----
+
+Each `ensureMemoryStored` line is printed by `onFinish`, which runs inside
+`agent.generate()`, so it appears above the header of the turn it belongs
+to. In turn 1 the model called `store_memory` itself (`already-stored`). In
+turn 2 it only queried, so `ensureMemoryStored` saved the answer
+(`persisted the turn`).
 
 Turn 2's answer is the actual check: no local state carries the preference
 from turn 1 to turn 2, so the model can only answer by calling
 `query_memory` and reading back what turn 1's `store_memory` call wrote.
 
-== Tools mode specifics
+The `query_memory` and `store_memory` input schemas, what each memory type
+is stored as, and the full `enforceQueryMemory` and `ensureMemoryStored`
+options are in the
+xref:reference/nams-ai-provider.adoc#tools-mode[API reference].
 
-`createNams(config).tools(scope)` (synchronous, no MCP) returns a plain AI
-SDK `ToolSet`, `{ query_memory, store_memory }`.
+== Merge tools from an MCP server
 
-`query_memory`:: Input `{ query: string, limit: number (1–20, default 5) }`.
-Searches the same five memory sources as the other modes and returns each
-match as a `MemoryHit`, so a result with `source: "graph"` is a stored
-relationship, written `(subject)-[RELATIONSHIP]->(object)`.
-`store_memory`:: Input `{ content: string (≤2000 chars), type:
-"fact"|"interaction"|"pattern"|"user_preference", confidence: number (0–1,
-default 0.7), tags: string[] (≤10, ≤40 chars each) }`. `type: "interaction"`
-is saved as a plain conversation message; every other type creates (or
-reuses) a flat `Entity` — unless `extractionModel` is set, see below.
+`nams.toolsWithMcp(scope, mcpConfig)` is still tools mode: it connects to an
+MCP server and returns its tools merged with `query_memory` and
+`store_memory` in one `ToolSet`.
 
-`enforceQueryMemory({ graceSteps = 3 })` is a `prepareStep` hook that makes
-retrieval mechanical instead of advisory. Until a step's tool calls have
-included `query_memory`, it sets `toolChoice: 'required'` — the model can
-still call other tools in any order, but cannot finish with a text-only
-answer before querying memory. Once `stepNumber` reaches `graceSteps`
-without a query having run, that step's `toolChoice` becomes `{ type:
-'tool', toolName: 'query_memory' }` — with the default `3`, steps 0 to 2 get
-`'required'` and step 3 itself is forced — so the loop can
-never exhaust its step budget without the query having run. Keep
-`graceSteps` at least two below your `stopWhen` budget so the forced query
-and the final answer both still fit; `{ graceSteps: 0 }` forces the query as
-the literal first step.
-
-`ensureMemoryStored(tools, { fallback? })` is an `onFinish` hook that closes
-the write-side gap `prepareStep` can't: the loop ends the moment the model
-emits final text, so there's no later step left to force `store_memory`
-into. It **must** receive the exact `tools` object returned by `.tools()`
-(or `.toolsWithMcp()` / `createNamsMemoryTools()`) — spreading it into a copy
-(`{ ...tools }`) loses the binding to the memory client and the call throws
-immediately. If `store_memory` already ran this turn it does nothing
-(`{ stored: false, reason: 'already-stored' }`); otherwise it calls
-`fallback({ text, toolNames })` (default: the final assistant text saved as
-an `interaction`, or nothing if `text` is empty) and persists the result,
-returning `{ stored: true, input }`, `{ stored: false, reason:
-'nothing-to-store' }`, or `{ stored: false, reason: 'failed' }` on a caught
-write error.
-
-=== MCP tool merging
-
-Still tools mode, not a fifth mode: `nams.toolsWithMcp(scope, { url,
-headers?, toolPrefix?, optional? })` connects to an MCP server and merges its
-tools with `query_memory`/`store_memory` into one `ToolSet`. It lazily
-imports the optional peer `@ai-sdk/mcp` — only when an MCP config is passed —
-so it adds no dependency weight for callers who never use it. `toolPrefix`
-namespaces the MCP tool names to avoid clashing with the NAMS tools; without
-a prefix, a name collision is logged as a warning and the MCP tool wins.
-With `optional: true`, a connection failure degrades to memory-only tools
-instead of throwing: `close()` becomes a no-op and the result's `mcp.error`
-carries a `NamsMcpConnectionError` whose message names the required auth
-scheme when the server answered with a 401. No runnable example in this
-repository exercises `toolsWithMcp` yet, so treat the snippet below as a
-partial illustration, not a complete program:
-
+. Install the optional peer. npm does not install optional peers for you, and
+  `toolsWithMcp` loads it only when you pass an MCP config:
++
+[source,bash]
+----
+npm install @ai-sdk/mcp@^2
+----
+. Replace `nams.tools({ userId })` with `toolsWithMcp`, and close the
+  connection when the turn is done. This partial snippet shows only the
+  changed lines:
++
 [source,typescript]
 ----
-const { tools, close } = await nams.toolsWithMcp(
+const { tools, close, mcp } = await nams.toolsWithMcp(
   { userId },
   {
     url: 'https://mcp.example.com/mcp',
@@ -291,27 +290,71 @@ const { tools, close } = await nams.toolsWithMcp(
     optional: true,
   },
 );
-// tools: query_memory, store_memory, mcp_* -- or memory-only if the
-// connection failed and optional: true degraded it.
+if (mcp?.error) {
+  // optional: true hid a failed connection, so `tools` holds only the NAMS tools.
+  console.warn(mcp.error.message);
+}
+try {
+  // Pass `tools` to the agent exactly as the program above does.
+} finally {
+  await close();
+}
+----
++
+`toolPrefix` keeps MCP tool names from clashing with `query_memory` and
+`store_memory`. With `optional: true`, a failed connection falls back to the
+NAMS tools instead of throwing `NamsMcpConnectionError`; on an HTTP 401 the
+error message names the authentication scheme the server asked for.
+. Verify the merge: `mcp.connected` is `true` and `mcp.toolNames` lists the
+  MCP tools with their `mcp_` prefix.
+
+The xref:reference/nams-ai-provider.adoc#tools-mode[API reference] lists
+every `McpConfig` field and the `NamsToolsResult` shape.
+
+== Extract entities from stored memories
+
+By default, a `store_memory` call of type `fact`, `user_preference`, or
+`pattern` is stored as one flat entity holding the memory's text. To store
+the named entities in it instead, pass an `extractionModel` to
+`createNams()`:
+
+[source,typescript]
+----
+const nams = createNams({
+  apiKey,
+  extractionModel: openai('gpt-5.4-mini'),
+});
 ----
 
-=== Graph extraction (`extractionModel`)
+Each such write then costs one extra model call. Tools mode is the only mode
+that uses `extractionModel`: provider, middleware, and hooks modes save
+conversation messages, which NAMS extracts entities from on the server, so
+`.wrap()` and `.hooks()` ignore it with one logged warning. To keep certain
+entities out of the graph, pass `extractionOptions: { skipEntity }`; see the
+xref:reference/nams-ai-provider.adoc#tools-mode[API reference].
 
-Tools mode is the only mode that accepts `extractionModel` /
-`extractionOptions` (on `createNams({ extractionModel, extractionOptions })`
-or directly on `createNamsMemoryTools`). When set, a `store_memory` call of
-type `fact`, `user_preference`, or `pattern` runs through
-`createGraphExtractor(extractionModel, extractionOptions)` — one extra model
-call per memory that pulls out named entities and the relationships between
-them and writes them as graph nodes and edges, instead of one flat
-sentence-shaped `Entity`. The extractor skips self-referential entities (an
-agent's summary of what it remembers about "remembering" itself) by default;
-`extractionOptions.skipEntity` overrides that filter. `createNamsProvider`
-and `createNamsMemory` do not accept `extractionModel` or `extractionOptions`
-(removed in 0.3.0); setting them on `createNams()` and then calling `.wrap()`
-or `.hooks()` is a no-op that logs one warning — those modes persist turns as
-short-term messages, which NAMS already extracts server-side, so extracting
-again client-side would just duplicate that work.
+The extractor also proposes relationships between the entities, but the
+hosted service does not accept relationship writes from the SDK, so the
+provider skips them and logs one warning. The memory's entities are stored
+without edges between them. NAMS builds edges only from saved conversation
+turns, such as `interaction` memories or the turns the other modes save.
+
+To verify, have the model store a fact that names something, such as
+"User edits code in Neovim". Then search long-term memory for `Neovim` with a
+`MemoryClient` from `@neo4j-labs/agent-memory`, built with the same API key
+as the provider:
+
+[source,typescript]
+----
+import { MemoryClient } from '@neo4j-labs/agent-memory';
+
+const apiKey = process.env.MEMORY_API_KEY ?? '';
+const client = new MemoryClient({ endpoint: 'https://memory.neo4jlabs.com/v1', apiKey });
+console.log(await client.longTerm.searchEntities('Neovim'));
+----
+
+`Neovim` comes back as an entity of its own, not only inside one entity
+named after the whole memory.
 
 == See also
 

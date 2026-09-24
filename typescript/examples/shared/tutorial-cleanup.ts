@@ -24,18 +24,43 @@ export function is404(error: unknown): boolean {
 async function absent(read: () => Promise<unknown>): Promise<boolean> {
   try { await read(); return false; } catch (error) { if (is404(error)) return true; throw error; }
 }
+// Per-message extraction statuses, matching the Python tutorial helper. Any
+// other value is unknown, so the run is retained rather than guessed at.
+const TERMINAL_EXTRACTION = new Set(["done", "completed", "skipped"]);
+const PENDING_EXTRACTION = new Set(["pending", "processing", "running", "in_progress", "queued"]);
+const FAILED_EXTRACTION = new Set(["failed", "error", "cancelled"]);
+type ExtractionStatusResponse = { messages?: Array<{ id?: string; status?: string }>; summary?: Record<string, unknown> };
+/** Count statuses from the per-message list, or from `summary` when the list is absent or empty. */
+function extractionCounts(value: ExtractionStatusResponse, ids: string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (Array.isArray(value.messages) && value.messages.length > 0) {
+    if (value.messages.some(m => typeof m.id !== "string" || typeof m.status !== "string")) throw new Error("Malformed extraction status; retain the run for inspection.");
+    const returned = value.messages.map(m => m.id!).sort();
+    if (JSON.stringify(returned) !== JSON.stringify(ids)) throw new Error("Extraction status does not cover exactly the recorded messages.");
+    for (const m of value.messages) counts.set(m.status!, (counts.get(m.status!) ?? 0) + 1);
+    return counts;
+  }
+  if (value.messages !== undefined && !Array.isArray(value.messages)) throw new Error("Malformed extraction status; retain the run for inspection.");
+  const summary = value.summary;
+  if (summary === undefined && Array.isArray(value.messages) && ids.length === 0) return counts;
+  if (!summary || typeof summary !== "object" || Array.isArray(summary) ||
+    Object.values(summary).some(n => !Number.isInteger(n) || (n as number) < 0)) throw new Error("Malformed extraction status; retain the run for inspection.");
+  for (const [status, n] of Object.entries(summary)) if (n) counts.set(status, n as number);
+  const total = [...counts.values()].reduce((a, b) => a + b, 0);
+  if (total !== ids.length) throw new Error("Extraction status does not cover exactly the recorded messages.");
+  return counts;
+}
 export async function waitForTerminalExtraction(run: TutorialRun, timeoutMs = 60_000, intervalMs = 1_000): Promise<void> {
   const ids = run.state.resources.filter(r => r.kind === "message").map(r => r.id).sort();
   const deadline = Date.now() + timeoutMs;
   do {
     const remaining = deadline - Date.now();
     if (remaining <= 0) break;
-    const value = await run.request(`/conversations/${encodeURIComponent(run.conversationId)}/extraction-status`, Math.min(30_000, remaining)) as { messages?: Array<{ id?: string; status?: string }> };
-    if (!Array.isArray(value.messages) || value.messages.some(m => typeof m.id !== "string" || typeof m.status !== "string")) throw new Error("Malformed extraction status; retain the run for inspection.");
-    const returned = value.messages.map(m => m.id!).sort();
-    if (JSON.stringify(returned) !== JSON.stringify(ids)) throw new Error("Extraction status does not cover exactly the recorded messages.");
-    if (value.messages.some(m => ["error", "failed"].includes(m.status!))) throw new Error("Extraction failed; retain the run for inspection before cleanup.");
-    if (value.messages.every(m => m.status === "done")) return;
+    const value = await run.request(`/conversations/${encodeURIComponent(run.conversationId)}/extraction-status`, Math.min(30_000, remaining)) as ExtractionStatusResponse;
+    const statuses = [...extractionCounts(value, ids).keys()];
+    if (statuses.some(s => FAILED_EXTRACTION.has(s))) throw new Error("Extraction failed; retain the run for inspection before cleanup.");
+    if (statuses.some(s => !TERMINAL_EXTRACTION.has(s) && !PENDING_EXTRACTION.has(s))) throw new Error("Unknown extraction status; retain the run for inspection before cleanup.");
+    if (statuses.every(s => TERMINAL_EXTRACTION.has(s))) return;
     if (Date.now() >= deadline) break;
     await new Promise(resolve => setTimeout(resolve, Math.min(intervalMs, Math.max(0, deadline - Date.now()))));
   } while (Date.now() <= deadline);

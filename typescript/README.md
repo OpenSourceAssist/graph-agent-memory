@@ -4,10 +4,7 @@
 ![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)
 ![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)
 
-> The TypeScript and Python SDKs are tracked with separate maturity levels: this
-> package is Beta, while the Python SDK (`neo4j-agent-memory`) is Experimental.
-
-> **Package installation.** Install with `npm install @neo4j-labs/agent-memory`
+> **Package installation.** Install with `npm install @neo4j-labs/agent-memory@0.5.0`
 > ([package page](https://www.npmjs.com/package/@neo4j-labs/agent-memory)).
 > Source lives alongside the Python SDK at
 > [`neo4j-labs/agent-memory`](https://github.com/neo4j-labs/agent-memory)
@@ -47,11 +44,13 @@
 ## 📦 Installation
 
 ```bash
-npm install @neo4j-labs/agent-memory
+npm install @neo4j-labs/agent-memory@0.5.0
 ```
 
-Requires Node.js 22+. This README maps current source; verify a selected npm
-artifact before assuming it includes newer in-tree APIs. The [source examples](https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples)
+Requires Node.js 22+. This README describes the current source; changes made
+since the 0.5.0 release are listed under *Unreleased* in the
+[CHANGELOG](https://github.com/neo4j-labs/agent-memory/blob/main/typescript/CHANGELOG.md).
+The [source examples](https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples)
 build the SDK before installing their local `file:` dependency.
 
 ## 🚀 Quick start
@@ -77,9 +76,9 @@ console.log(ctx.recentMessages, ctx.observations, ctx.reflections);
 
 ### On the edge
 
-Edge runtimes (Cloudflare Workers, Vercel Edge) expose environment
-differ by runtime; Cloudflare exposes bindings through the handler, while other
-runtimes may provide `process.env`. Pass the key explicitly:
+Edge runtimes differ in how they expose environment variables: Cloudflare
+Workers pass bindings to the handler, while others (such as Vercel Edge) may
+provide `process.env`. Pass the key explicitly:
 
 ```ts
 export default {
@@ -106,8 +105,8 @@ All five ship as subpath exports. See each integration's
 ## 📖 Documentation
 
 - [TypeScript SDK landing page](https://neo4j.com/labs/agent-memory/sdks/typescript)
-- [Start here: store and read back hosted memory](../docs/modules/ROOT/pages/tutorials/hosted-quickstart-typescript.adoc)
-- [Build an agent with memory](../docs/modules/ROOT/pages/tutorials/first-agent-memory-typescript.adoc)
+- [Start here: store and read back hosted memory](https://neo4j.com/labs/agent-memory/tutorials/hosted-quickstart-typescript)
+- [Build an agent with memory](https://neo4j.com/labs/agent-memory/tutorials/first-agent-memory-typescript)
 - [How-to guides](https://neo4j.com/labs/agent-memory/how-to/typescript) — authentication,
   edge deployment, error handling, observability, framework integrations
 - [Concept: short-term vs long-term vs reasoning memory](https://neo4j.com/labs/agent-memory/explanation/memory-types)
@@ -161,4 +160,4 @@ spec repo, which consumes this package from npm.
 
 ## 📝 License
 
-Apache-2.0 — see [LICENSE](./LICENSE).
+Apache-2.0 — see [LICENSE](https://github.com/neo4j-labs/agent-memory/blob/main/typescript/LICENSE).

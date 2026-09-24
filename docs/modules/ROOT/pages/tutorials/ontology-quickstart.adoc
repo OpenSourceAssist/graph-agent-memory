@@ -231,6 +231,12 @@ has a verified disposition.
 
 include::partial$python-hosted-lifecycle.adoc[]
 
+For this lesson, the summary also has an `ontology` section. Its `previous`
+entry is the binding to restore: the version ID to reactivate and its
+validation mode. `clone_id` and `strict` identify the exercise clone and its
+strict revision. Give the owner that section with the resource IDs; schema
+documents are omitted.
+
 == Keep the old run and start a separate exercise
 
 See xref:how-to/use-nams.adoc#_recover_from_an_interrupted_tutorial_run[Recover from an interrupted tutorial run] to check the recorded state before reseeding. For a pending or uncertain mutation with known IDs, prefer the `recover` command above over owner reconciliation.

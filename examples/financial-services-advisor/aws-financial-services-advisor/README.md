@@ -14,7 +14,7 @@ An intelligent compliance assistant powered by **AWS Strands Agents** and **Neo4
 
 ## Overview
 
-This example application showcases the AWS-Neo4j partnership through a example architecture for financial services compliance. It demonstrates how AI agents can use graph memory for explainable, auditable decision-making.
+This example application showcases the AWS-Neo4j partnership through an example architecture for financial services compliance. It demonstrates how AI agents can use graph memory for explainable, auditable decision-making.
 
 ### Key Features
 
@@ -257,6 +257,6 @@ This example is part of the neo4j-agent-memory project and is licensed under the
 
 ---
 
-**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility. See the [current source and artifact evidence](../../../DOCUMENTATION_REMEDIATION_STATUS.md) before selecting an SDK artifact.
+**Historical verification report — 2026-09-10.** The following records a prior checkout/test report. Its development-version labels, passing counts, and release-availability statements are historical, not evidence of current package compatibility.
 
 > _Verified against `neo4j-agent-memory` v0.5.0, strands-agents 1.55.1, fastapi 0.141.1, aws-cdk-lib 2.269.0 on 2026-09-10 — 151 backend tests pass (124 unit, 27 integration against Neo4j 5.26), `cdk synth` succeeds with no AWS credentials, and the domain API was exercised end to end. A full chat run additionally needs AWS Bedrock credentials._

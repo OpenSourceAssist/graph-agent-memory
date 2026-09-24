@@ -179,13 +179,11 @@ Keep the state until every resource has a verified disposition. Closing the
 client alone does not delete data. Do not remove the state file to bypass an
 unfinished run or bulk-delete workspace entities.
 
-anchor:_step_7_use_the_graph_from_a_different_agent[]
-anchor:_extending_the_knowledge_graph[]
-anchor:_see_also[]
-
 include::partial$typescript-tutorial-lifecycle.adoc[]
 
 == Next steps
+
+anchor:_step_7_use_the_graph_from_a_different_agent[]anchor:_extending_the_knowledge_graph[]anchor:_see_also[]
 
 * xref:tutorials/mcp-server-typescript.adoc[Expose memory through MCP].
 * xref:reference/typescript-api.adoc[TypeScript entities and reasoning reference].
