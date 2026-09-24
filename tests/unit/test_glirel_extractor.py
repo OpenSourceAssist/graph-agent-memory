@@ -1,5 +1,6 @@
 """Tests for GLiREL relation extraction."""
 
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -13,6 +14,57 @@ from neo4j_agent_memory.extraction.gliner_extractor import (
     GLiRELExtractor,
     is_glirel_available,
 )
+
+
+class _FakeSpan:
+    def __init__(self, doc: "_FakeDoc", start: int, end: int) -> None:
+        self.start = start
+        self.end = end
+        self.text = doc.text[doc.offsets[start][0] : doc.offsets[end - 1][1]] if end > start else ""
+
+    def __len__(self) -> int:
+        return self.end - self.start
+
+
+class _FakeToken:
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+
+class _FakeDoc:
+    """Just enough of a spaCy Doc: word/punctuation tokens with character offsets."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.offsets = [(m.start(), m.end()) for m in re.finditer(r"\w+|\S", text)]
+
+    def __len__(self) -> int:
+        return len(self.offsets)
+
+    def __iter__(self):
+        return iter(_FakeToken(self.text[s:e]) for s, e in self.offsets)
+
+    def __getitem__(self, item: slice) -> _FakeSpan:
+        return _FakeSpan(self, item.start, item.stop)
+
+    def char_span(self, start: int, end: int, alignment_mode: str = "strict") -> _FakeSpan | None:
+        assert alignment_mode == "expand"
+        covered = [i for i, (s, e) in enumerate(self.offsets) if s < end and e > start]
+        if not covered:
+            return None
+        return _FakeSpan(self, covered[0], covered[-1] + 1)
+
+
+class _FakeGLiREL:
+    """Stands in for glirel.GLiREL and records what predict_relations received."""
+
+    def __init__(self, predictions: list[dict]) -> None:
+        self.predictions = predictions
+        self.calls: list[dict] = []
+
+    def predict_relations(self, tokens, labels, threshold=0.5, ner=None):
+        self.calls.append({"tokens": tokens, "labels": labels, "ner": ner})
+        return self.predictions
 
 
 class TestIsGlirelAvailable:
@@ -129,9 +181,10 @@ class TestGLiRELExtractor:
         assert extractor.threshold == 0.6
         assert extractor.relation_types == DEFAULT_RELATION_TYPES
 
-    def test_entities_to_glirel_format(self):
-        """Test converting entities to GLiREL format."""
+    def test_entities_to_glirel_format_uses_token_indices(self):
+        """Character offsets become GLiREL token spans with an inclusive end."""
         extractor = GLiRELExtractor()
+        text = "John Smith joined Acme Corp in 2020."
         entities = [
             ExtractedEntity(
                 name="John Smith",
@@ -143,17 +196,155 @@ class TestGLiRELExtractor:
             ExtractedEntity(
                 name="Acme Corp",
                 type="ORGANIZATION",
-                start_pos=20,
-                end_pos=29,
+                start_pos=18,
+                end_pos=27,
                 confidence=0.85,
             ),
         ]
 
-        result = extractor._entities_to_glirel_format(entities)
+        result = extractor._entities_to_glirel_format(entities, _FakeDoc(text))
 
-        assert len(result) == 2
-        assert result[0] == [0, 10, "PERSON", "John Smith"]
-        assert result[1] == [20, 29, "ORGANIZATION", "Acme Corp"]
+        # Tokens: John(0) Smith(1) joined(2) Acme(3) Corp(4) in(5) 2020(6) .(7)
+        assert result == [
+            [0, 1, "PERSON", "John Smith"],
+            [3, 4, "ORGANIZATION", "Acme Corp"],
+        ]
+
+    def test_entities_to_glirel_format_locates_entities_without_offsets(self):
+        """Entities without offsets are placed by name; unplaceable ones are dropped."""
+        extractor = GLiRELExtractor()
+        text = "Maya Chen leads Northstar Robotics."
+        entities = [
+            ExtractedEntity(name="Northstar Robotics", type="ORGANIZATION", confidence=0.9),
+            ExtractedEntity(name="Maya Chen", type="PERSON", confidence=0.9),
+            ExtractedEntity(name="Denver", type="LOCATION", confidence=0.9),
+        ]
+
+        result = extractor._entities_to_glirel_format(entities, _FakeDoc(text))
+
+        assert result == [
+            [3, 4, "ORGANIZATION", "Northstar Robotics"],
+            [0, 1, "PERSON", "Maya Chen"],
+        ]
+
+    def test_entities_to_glirel_format_matches_spacy_tokens(self):
+        """The spans index the tokens of a real spaCy tokenizer."""
+        spacy = pytest.importorskip("spacy")
+        extractor = GLiRELExtractor()
+        text = "Maya Chen is CEO of Northstar Robotics. Northstar Robotics is in Denver."
+        entities = [
+            ExtractedEntity(name="Maya Chen", type="PERSON", start_pos=0, end_pos=9),
+            ExtractedEntity(
+                name="Northstar Robotics", type="ORGANIZATION", start_pos=20, end_pos=38
+            ),
+            ExtractedEntity(name="Denver", type="LOCATION", start_pos=65, end_pos=71),
+        ]
+        doc = spacy.blank("en")(text)
+
+        result = extractor._entities_to_glirel_format(entities, doc)
+
+        tokens = [token.text for token in doc]
+        for start, end, _type, name in result:
+            assert " ".join(tokens[start : end + 1]) == name
+        assert [entry[:2] for entry in result] == [[0, 1], [5, 6], [12, 12]]
+
+    @pytest.mark.asyncio
+    async def test_extract_relations_passes_token_spans_and_joins_token_text(self):
+        """GLiREL gets token spans and its token-list head/tail text becomes entity names."""
+        extractor = GLiRELExtractor(relation_types=["ceo_of", "located_in"])
+        extractor._nlp = _FakeDoc
+        model = _FakeGLiREL(
+            [
+                {
+                    "head_pos": [0, 2],
+                    "tail_pos": [5, 7],
+                    "head_text": ["Maya", "Chen"],
+                    "tail_text": ["Northstar", "Robotics"],
+                    "label": "ceo of",
+                    "score": 0.9,
+                },
+                {
+                    # A span that matches no supplied entity falls back to its tokens.
+                    "head_pos": [5, 6],
+                    "tail_pos": [12, 13],
+                    "head_text": ["Northstar"],
+                    "tail_text": ["Denver"],
+                    "label": "located_in",
+                    "score": 0.7,
+                },
+            ]
+        )
+        extractor._model = model
+        text = "Maya Chen is CEO of Northstar Robotics. Northstar Robotics is in Denver."
+        entities = [
+            ExtractedEntity(name="Maya Chen", type="PERSON", start_pos=0, end_pos=9),
+            ExtractedEntity(
+                name="Northstar Robotics", type="ORGANIZATION", start_pos=20, end_pos=38
+            ),
+            ExtractedEntity(name="Denver", type="LOCATION", start_pos=65, end_pos=71),
+        ]
+
+        relations = await extractor.extract_relations(text, entities)
+
+        assert model.calls[0]["tokens"][:3] == ["Maya", "Chen", "is"]
+        assert model.calls[0]["ner"] == [
+            [0, 1, "PERSON", "Maya Chen"],
+            [5, 6, "ORGANIZATION", "Northstar Robotics"],
+            [12, 12, "LOCATION", "Denver"],
+        ]
+        assert relations == [
+            ExtractedRelation(
+                source="Maya Chen",
+                target="Northstar Robotics",
+                relation_type="CEO_OF",
+                confidence=0.9,
+            ),
+            ExtractedRelation(
+                source="Northstar",
+                target="Denver",
+                relation_type="LOCATED_IN",
+                confidence=0.7,
+            ),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_extract_relations_accepts_token_list_text_without_positions(self):
+        """Token-list head/tail text is joined into a string, never passed through as a list."""
+        extractor = GLiRELExtractor()
+        extractor._nlp = _FakeDoc
+        extractor._model = _FakeGLiREL(
+            [
+                {
+                    "head_text": ["Maya", "Chen"],
+                    "tail_text": ["Northstar", "Robotics"],
+                    "label": "works_at",
+                    "score": 0.2,
+                }
+            ]
+        )
+        text = "Maya Chen works at Northstar Robotics."
+        entities = [
+            ExtractedEntity(name="Maya Chen", type="PERSON"),
+            ExtractedEntity(name="Northstar Robotics", type="ORGANIZATION"),
+        ]
+
+        relations = await extractor.extract_relations(text, entities)
+
+        assert [(r.source, r.target) for r in relations] == [("Maya Chen", "Northstar Robotics")]
+
+    @pytest.mark.asyncio
+    async def test_extract_relations_skips_model_when_fewer_than_two_entities_place(self):
+        extractor = GLiRELExtractor()
+        extractor._nlp = _FakeDoc
+        model = _FakeGLiREL([])
+        extractor._model = model
+        entities = [
+            ExtractedEntity(name="Maya Chen", type="PERSON"),
+            ExtractedEntity(name="Nowhere Inc", type="ORGANIZATION"),
+        ]
+
+        assert await extractor.extract_relations("Maya Chen spoke.", entities) == []
+        assert model.calls == []
 
     @pytest.mark.asyncio
     async def test_extract_relations_empty_text(self):

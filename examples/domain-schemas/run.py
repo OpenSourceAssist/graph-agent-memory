@@ -77,7 +77,7 @@ RELATIONS_NOTE = """
     runner's entity pass to change:
 
       * GLiREL, locally and with no LLM call — `python run.py --schema {schema}
-        --relations` (install the optional `glirel` package first).
+        --relations` (install GLiREL as README.md, Prerequisites, shows).
       * The LLM extractor stage, when you need free-form relation types —
         `ExtractionConfig(extractor_type=ExtractorType.PIPELINE,
         enable_llm_fallback=True)`.
@@ -374,7 +374,9 @@ async def demo_relations(
     print(RULE)
     if not is_glirel_available():
         print("\n  GLiREL is not installed, so this demo is skipped.")
-        print("  It is opt-in (last released 2025-04): pip install glirel")
+        print("  It is opt-in (last released 2025-04) and has undeclared dependencies:")
+        print("    pip install glirel 'loguru>=0.7,<1' 'huggingface-hub<1' protobuf")
+        print("  plus spaCy's en_core_web_sm model; see README.md, Prerequisites.")
         print("  GLiREL extracts relationships locally, without LLM calls.\n")
         return []
 

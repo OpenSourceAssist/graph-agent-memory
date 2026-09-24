@@ -423,7 +423,7 @@ class TestLongTermMemoryDeduplication:
                     "type": "PERSON",
                     "metadata": None,
                 },
-                "r": {"confidence": 0.88, "match_type": "embedding"},
+                "confidence": 0.88,
             }
         ]
 

@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (behavioural): `client.ontology.get_active()` reports the bound
+  revision.** It now reads `version_id`, `ontology_id`, `revision` and
+  `validation_mode` from the `version` object in the `GET /ontologies/active`
+  response, in one request. 0.6.0 ignored
+  that object and composed the metadata from `list()` and `get()`, which describe
+  the ontology's latest revision. When an older revision was active, those fields
+  named the wrong one. A response without a `version` object now leaves the four
+  fields `None` instead of inferring them. Malformed version metadata (a missing
+  id, a non-positive `revision`, an unknown `validation_mode`, a `schema_json` that
+  is not a JSON string holding a document) raises `ValueError`, and so does a
+  version schema that differs from the active document. `ActiveOntology` gains
+  `schema_hash`.
+- **Clock-stamped message timestamps never sort before the tail.** A single or
+  batch append whose clock reads earlier than the stored tail's timestamp (for
+  example after a batch imported with future explicit timestamps) is stamped one
+  microsecond after the tail, so timestamp order and `NEXT_MESSAGE` order agree.
+  Explicit `timestamp` values passed to `add_messages_batch` are stored exactly
+  as given and are not clamped, so a batch message with an explicit timestamp
+  earlier than the tail, or an implicit one that follows a future explicit one,
+  can still sort out of `NEXT_MESSAGE` order.
+
+### Fixed
+
+- **`add_messages_batch` reads back in input order.** The batch query stamped
+  every message without an explicit `timestamp` with the same `datetime()`, and
+  `get_conversation` orders by timestamp, so batched messages came back in
+  arbitrary order. They now get strictly increasing timestamps in input order,
+  starting after the conversation's tail. Explicit timestamps are kept, and
+  `get_conversation` breaks remaining ties by message id so readback is stable.
+- **Concurrent appends no longer fork a conversation's message chain.**
+  `add_message` takes a write lock on the conversation before it reads the tail,
+  so concurrent appends serialize. `add_messages_batch` read the tail, created the
+  messages and linked them in three transactions, so an `add_message` in between
+  forked the chain. It now does all three in one transaction under the same lock.
+  Finding the tail inside that transaction reads every message in the
+  conversation, once per batch, which is what one `add_message` call costs.
+- **Appending to an already-forked conversation no longer raises
+  `ConstraintError`.** A chain forked by an earlier concurrent append has several
+  tails; `add_message` created its message once per tail and hit the uniqueness
+  constraint on `Message.id`, wedging every later append. It now links to the
+  newest tail. Finding the tail reads every message in the conversation, as
+  `add_message` already did.
+- **`short_term.migrate_message_links()` leaves one linear chain.** It links each
+  conversation's messages in timestamp order and deletes every `FIRST_MESSAGE` or
+  `NEXT_MESSAGE` link that disagrees, so a chain forked by concurrent appends is
+  repaired. Messages that share a timestamp, as every batch written by
+  `add_messages_batch` in 0.6.0 does, keep the order of the single chain that
+  already links them; tied messages that no chain start reaches, or that are
+  not linked at all, fall back to message id order. On a batch where the 0.6.0
+  migration overlaid its id-ordered links, the tied messages still end up in
+  one chain, but their order can mix input and id order. Previously it only
+  added links: it left a fork's stale branch in place, and on a batch with tied
+  timestamps it could add the reverse link and a second `FIRST_MESSAGE`,
+  leaving a cycle with no tail that the next append could not attach to.
+  Running the new migration on such a conversation repairs it. Links that are
+  already correct are left alone, so a rerun writes nothing. The migration's
+  cost grows linearly with the number of messages, including databases where
+  many messages share one timestamp.
+- **Entities created by message auto-extraction are embedded.**
+  `add_message(..., extract_entities=True)`, `add_messages_batch(...,
+  extract_entities=True)` and `extract_entities_from_session()` stored extracted
+  entities with no embedding, so `long_term.search_entities()`, a vector search,
+  never returned them. When an embedder is configured, the entity names from each
+  extraction are now embedded in one `embed_batch` call, as `add_entity` embeds a
+  name. `add_message(generate_embedding=False)` and
+  `add_messages_batch(generate_embeddings=False)` never call the embedder: their
+  extracted entities are stored without an embedding (an entity that already has
+  one keeps it), and a later `extract_entities_from_session(skip_existing=False)`
+  embeds them. Extraction runs after the message is written, so with embeddings
+  on, an embedder error raises after the message is stored, as an extractor error
+  already did in 0.6.0. A caller that retries `add_message` on that error writes
+  the message again under a new id; retry `extract_entities_from_session()`
+  instead.
+- **`GLiRELExtractor` finds relations.** It passed entity character offsets to
+  GLiREL, which indexes entity spans by token (inclusive end), so the spans
+  pointed at the wrong tokens and relations were rarely found. At low thresholds
+  it crashed with a pydantic `ValidationError`, because GLiREL returns
+  `head_text`/`tail_text` as token lists. Character offsets are now mapped onto
+  the spaCy tokens passed to GLiREL, entities without offsets are located by name
+  (and skipped if absent), and relation endpoints use the supplied entity names.
+- **A Bolt client no longer needs `httpx`.** `MemoryClient.connect()` on Bolt
+  imported `neo4j_agent_memory.nams` for its unsupported-accessor sentinel, and
+  that package imports `httpx`, which only the `nams` extra installs. With no
+  extra providing `httpx`, connecting failed with `ModuleNotFoundError: No module
+  named 'httpx'`. The sentinel now lives in `core`, and Bolt never imports the
+  `nams` package.
+- **Auto-extraction links every message to an entity that already exists.**
+  The extracted-entity write MERGEs on name and type and sets `id` only when it
+  creates the node, but `add_message(..., extract_entities=True)`,
+  `add_messages_batch(..., extract_entities=True)` and
+  `extract_entities_from_session()` linked the message with the id they had just
+  generated. When the entity already existed, that id named no node, so the
+  message got no `MENTIONS` edge and relations between such entities were not
+  stored by id. Links and relations now use the id the write returned.
+- **`long_term.find_potential_duplicates()` returns each flagged pair once, with
+  its score.** It matched the `SAME_AS` edge in both directions, so every pair
+  came back twice, and it read `confidence` off a relationship that the driver
+  had already flattened, so the score was always `0.0`. Each pair now comes back
+  once, as the flagged entity then its match, with the edge's `confidence`.
+- The `mcp serve --port` help now names the endpoint `/mcp`, the path FastMCP
+  serves. It said `/mcp/`, which FastMCP redirects.
+
+### Removed
+
+- The `GET_LAST_MESSAGE` and `CREATE_MESSAGE_LINKS` constants are gone from
+  `neo4j_agent_memory.graph.queries`. `CREATE_MESSAGES_BATCH` now reads the tail
+  and links the batch itself.
+- The `docs` dependency group no longer installs MkDocs. The documentation is an
+  Antora site built from `docs/package.json`.
+
 ## [0.6.0] - 2026-09-14
 
 ### Added

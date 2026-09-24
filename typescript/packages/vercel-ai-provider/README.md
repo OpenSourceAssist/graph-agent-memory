@@ -9,11 +9,13 @@ Community provider for the [Vercel AI SDK](https://ai-sdk.dev) that adds persist
 > ⚠️ **Neo4j Labs Project**
 >
 > This project is part of Neo4j Labs and is actively maintained, but not
-> officially supported. There are no SLAs or guarantees around backwards
-> compatibility and deprecation. For questions and support, please use
+> officially supported. There are no SLAs, backward-compatibility guarantees,
+> or scheduled deprecation commitments. APIs may change without notice. For questions and support, please use
 > the [Neo4j Community Forum](https://community.neo4j.com).
 
-On every turn, NAMS automatically retrieves relevant memories from the user's history and injects them into the prompt — then persists the response so future sessions remember it. No Neo4j infrastructure to manage.
+The wrapper retrieves selected conversation history, workspace entities and
+configured cross-conversation results, then attempts to store the exchange.
+Retrieval scope and persistence/error behavior depend on the selected mode. No Neo4j infrastructure to manage.
 
 ## What does it do?
 
@@ -24,7 +26,10 @@ Without this package, every chat session starts fresh — the model has no recol
 1. **Before the model responds** — NAMS searches its memory store for facts, preferences, and past interactions relevant to the current message, reads back the relationships around whatever matched, and injects both into the prompt automatically.
 2. **After the model responds** — NAMS persists the exchange so the next session can recall it, and extracts entities from those messages into a Neo4j knowledge graph server-side.
 
-The result: your AI remembers users across sessions without you changing your application logic.
+Cross-conversation selection is this package's application policy, not automatic
+behavior of the core middleware. Workspace entity retrieval can return shared
+data; do not treat a user id or conversation id as authorization. Verify failure
+handling and stream completion before promising durable storage to callers.
 
 ```
 User message
@@ -51,14 +56,20 @@ User message
 
 **1. Install the provider and its peer dependencies**
 
+Requires Node.js 22+. Install version 0.3.0 with the core SDK it builds on:
+
 ```bash
-npm install @neo4j-labs/nams-ai-provider ai @neo4j-labs/agent-memory zod
+npm install @neo4j-labs/nams-ai-provider@0.3.0 @neo4j-labs/agent-memory@0.5.0 ai@^7 zod@^4
 ```
+
+The peer dependencies are `ai` `^7.0.0`, `zod` `^3.25.76 || ^4.1.8` and
+`@neo4j-labs/agent-memory` `~0.4.0 || ~0.5.0`. `@ai-sdk/mcp` `^2.0.0` is an
+optional peer, needed only for [MCP tool merging](#tools-mode-with-mcp-optional).
 
 **2. Get a free API key** at [memory.neo4jlabs.com](https://memory.neo4jlabs.com)
 
 ```env
-MEMORY_API_KEY=sk-nams-...
+MEMORY_API_KEY=nams_...
 ```
 
 ---
@@ -142,7 +153,7 @@ There are four ways to integrate NAMS depending on how much control you want:
 | **Provider** | Swap your model for a NAMS-wrapped one | Simplest integration, fully transparent |
 | **Middleware** | Wrap an existing model instance | When you already have a model configured |
 | **Tools** | Expose memory as explicit AI SDK tools (optionally merged with tools from an MCP server) | When you want the model to decide when to remember |
-| **Hooks** | The runtime reads/writes the session transcript around every generation via AI SDK hooks — nothing memory-related is shown to the LLM | Production agents that need a deterministic, complete transcript |
+| **Hooks** | The runtime reads/writes the session transcript around every generation via AI SDK hooks — nothing memory-related is shown to the LLM | Applications that explicitly coordinate transcript writes |
 
 Switching modes is purely a code-level choice — all four use the same API key
 and environment variables (see [Environment variables](#environment-variables)).
@@ -155,11 +166,12 @@ Middleware and tools modes can also be
 injected baseline context plus explicit memory tools.
 
 > **How does this relate to `@neo4j-labs/agent-memory/middleware/vercel-ai`?**
-> The core SDK ships a minimal middleware for the AI SDK 4.x-era
-> `LanguageModelV1Middleware` shape that injects current-conversation context.
-> This package targets AI SDK v7 / `LanguageModelV4` and adds a registrable
-> `ProviderV4`, cross-session retrieval, optional graph extraction, explicit
-> memory tools, and MCP tool merging. New projects should prefer this package.
+> Both the current core middleware and this provider package target AI SDK 7 /
+> provider specification 4. The core middleware reads the selected conversation
+> and persists messages. This separate package adds a registrable `ProviderV4`,
+> retrieval policies, optional graph extraction, explicit tools, and MCP tool
+> merging. Choose by those features and validate the selected artifact; the
+> core middleware is not obsolete because of its model-interface version.
 
 ---
 
@@ -302,7 +314,7 @@ without the query having run; `{ graceSteps: 0 }` forces it as the literal
 first step. Keep `graceSteps` at least two below your `stopWhen` budget so the
 forced query and the final answer both fit.
 
-### Guaranteeing persistence with `ensureMemoryStored()`
+### Requesting fallback persistence with `ensureMemoryStored()`
 
 `prepareStep` cannot guarantee the *write* side: the loop ends when the model
 emits final text, so there is no later step to force `store_memory` into.
@@ -316,8 +328,8 @@ const tools = nams.tools({ userId: session.userId });
 const agent = new ToolLoopAgent({
   model:       openai('gpt-5.4-mini'),
   tools,
-  prepareStep: enforceQueryMemory(),      // retrieval guaranteed mid-loop
-  onFinish:    ensureMemoryStored(tools), // persistence guaranteed after it
+  prepareStep: enforceQueryMemory(),      // requests retrieval mid-loop
+  onFinish:    ensureMemoryStored(tools), // attempts storage after the loop
   stopWhen:    stepCountIs(10),
 });
 ```
@@ -408,7 +420,7 @@ const agent = new ToolLoopAgent({
 });
 ```
 
-In this setup, skip `enforceQueryMemory()` — the middleware already guarantees
+In this setup, skip `enforceQueryMemory()` — the middleware already attempts
 retrieval unconditionally in code, so forcing `query_memory` as well would
 just spend an extra step re-fetching similar context. The enforcement hook is
 for pure tools mode, where the tool call is the *only* retrieval path.

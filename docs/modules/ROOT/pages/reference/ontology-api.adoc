@@ -5,41 +5,66 @@ NAMS-backend only. All methods raise `NotSupportedError` on bolt.
 
 == Methods
 
-[cols="1,1,3",options="header"]
+[cols="2,3",options="header"]
 |===
-| Python | TypeScript | Semantics
+| Method | Semantics
 
-| `ontology.list()` | `ontology.list()`
+| Python: `ontology.list()` +
+TypeScript: `ontology.list()`
 | System templates + workspace-owned ontologies; the active one is flagged (`is_active`).
-| `ontology.get(id)` | `ontology.get(id)`
+
+| Python: `ontology.get(id)` +
+TypeScript: `ontology.get(id)`
 | One ontology with its full revision history (`{record, versions[]}`).
-| `ontology.get_active()` | `ontology.getActive()`
-| Active version's parsed document + composed `validation_mode` / `revision` / `version_id`.
-| `ontology.clone(template_name)` | `ontology.clone(templateName)`
+
+| Python: `ontology.get_active()` +
+TypeScript: `ontology.getActive()`
+| Parsed active document plus binding metadata. In Python 0.6.0 and TypeScript 0.5.0 the metadata can name the wrong revision; see <<python-0-6-active-binding>> before restoration.
+
+| Python: `ontology.clone(template_name)` +
+TypeScript: `ontology.clone(templateName)`
 | Editable workspace copy of a system template; returns the rev-1 version.
-| `ontology.create(name, schema, validation_mode=None)` | `ontology.create({name, schema, validationMode?})`
+
+| Python: `ontology.create(name, schema, validation_mode=None)` +
+TypeScript: `ontology.create({name, schema, validationMode?})`
 | New workspace ontology from a schema document; returns the rev-1 version.
-| `ontology.update(id, schema, validation_mode=None)` | `ontology.update({id, schema, validationMode?})`
+
+| Python: `ontology.update(id, schema, validation_mode=None)` +
+TypeScript: `ontology.update({id, schema, validationMode?})`
 | New immutable revision (n+1); returns it.
-| `ontology.activate(version_id)` | `ontology.activate(versionId)`
-| Bind a version; subsequent entity writes validate against it.
-| `ontology.delete(id)` | `ontology.delete(id)`
+
+| Python: `ontology.activate(version_id)` +
+TypeScript: `ontology.activate(versionId)`
+| Bind the specified version to the workspace. Validation enforcement is a service behavior, separate from successful activation.
+
+| Python: `ontology.delete(id)` +
+TypeScript: `ontology.delete(id)`
 | Delete a workspace-owned ontology.
-| `ontology.import_(content=/url=, format=)` | `ontology.import({content?, url?, format?})`
+
+| Python: `ontology.import_(content=/url=, format=)` +
+TypeScript: `ontology.import({content?, url?, format?})`
 | Convert an external graph/ontology document into a *non-persisted* draft (`OntologyImportResult`). Nothing is saved until you `create()` / `update()` from the returned document. Note the trailing underscore on the Python name (`import` is a keyword).
-| `ontology.diff(id, from_revision, to_revision)` | `ontology.diff(id, fromRevision, toRevision)`
+
+| Python: `ontology.diff(id, from_revision, to_revision)` +
+TypeScript: `ontology.diff(id, fromRevision, toRevision)`
 | Structural diff between two revisions of an ontology (`OntologyDiff`).
-| `ontology.migrate(id, from_version_id=, to_version_id=, type_mappings=, dry_run=False)` | `ontology.migrate(id, {fromVersionId, toVersionId, typeMappings, dryRun?})`
+
+| Python: `ontology.migrate(id, from_version_id=, to_version_id=, type_mappings=, dry_run=False)` +
+TypeScript: `ontology.migrate(id, {fromVersionId, toVersionId, typeMappings, dryRun?})`
 | Enqueue an *async* label-rename migration from one version to another; returns a `MigrationJob`. Pass `dry_run=True` to preview without writing.
-| `ontology.get_migration(job_id)` | `ontology.getMigration(jobId)`
+
+| Python: `ontology.get_migration(job_id)` +
+TypeScript: `ontology.getMigration(jobId)`
 | Poll a migration job's status and progress (`MigrationJob`).
 |===
 
 == Return types
 
 `list()` returns `OntologySummary[]`. `get()` returns `Ontology` (`{record,
-versions[]}`). `get_active()` returns `ActiveOntology`. `clone` / `create` /
-`update` / `activate` return an `OntologyVersion`.
+versions[]}`). `get_active()` returns `ActiveOntology` (`{document,
+validation_mode?, revision?, ontology_id?, version_id?}`; TypeScript uses the
+camelCase names). `clone` / `create` / `update` / `activate` return an
+`OntologyVersion`.
 
 `import_()` returns an `OntologyImportResult` (`{document?, warnings[]
 (ImportWarning), detected_format?, suggested_name?}`). `diff()` returns an
@@ -47,6 +72,49 @@ versions[]}`). `get_active()` returns `ActiveOntology`. `clone` / `create` /
 mode_change?}`). `migrate()` and `get_migration()` return a `MigrationJob`
 (`{id, status (pending|running|completed|failed|paused), total, processed,
 errored, …}`).
+
+[#python-0-6-active-binding]
+=== Active binding in the released SDKs
+
+The `GET /ontologies/active` response carries a `version` object (`id`,
+`ontology_id`, `revision`, `validation_mode`, …) that identifies the bound
+revision. Python `neo4j-agent-memory==0.6.0` and TypeScript
+`@neo4j-labs/agent-memory@0.5.0` ignore it: `get_active()` / `getActive()`
+compose the version metadata from a second `list()` / `get()` lookup, which
+picks the ontology's current (latest) revision rather than the bound one. When an older revision is active, the
+returned `version_id` / `versionId`, `revision` and `validation_mode` /
+`validationMode` describe the latest revision instead. Do not use them to
+capture a rollback target or certify restoration.
+
+Read `GET /ontologies/active` directly instead:
+
+* Python: the self-contained xref:tutorials/ontology-quickstart.adoc[ontology
+  lesson] uses `read_active_binding(http)` from `hosted_tutorial_helpers.py`. It
+  uses the same resolved NAMS settings as the SDK, validates the authoritative
+  `version` and schema, and stops before mutation if the binding is incomplete.
+  See xref:how-to/use-ontologies.adoc[the activation recipe] for its imports and
+  client lifecycle. The helper is example code displayed on those pages, not an
+  SDK method.
+* TypeScript: send the same request with the workspace API key and read
+  `version` from the JSON body. The response's `version` uses the snake_case
+  wire names.
++
+[source,typescript]
+----
+const response = await fetch("https://memory.neo4jlabs.com/v1/ontologies/active", {
+  headers: { Authorization: `Bearer ${process.env.MEMORY_API_KEY}` },
+});
+if (!response.ok) throw new Error(`GET /ontologies/active: ${response.status}`);
+const { version } = (await response.json()) as {
+  ontology: unknown;
+  version?: { id: string; ontology_id: string; revision: number; validation_mode: string };
+};
+// version.id, version.revision and version.validation_mode name the bound revision.
+----
+
+The repository source for both SDKs reads the authoritative `version` (and adds
+`schema_hash` / `schemaHash` to `ActiveOntology`); that change is not in the
+releases above.
 
 == Import formats
 
@@ -94,26 +162,26 @@ request/response shapes.
 | Method | Path | Maps to
 
 | GET | `/ontologies` | `list()`
-| GET | `/ontologies/{id}` | `get()`
+| GET | `/ontologies/\{id}` | `get()`
 | GET | `/ontologies/active` | `get_active()`
-| POST | `/ontologies/{name}/clone` | `clone()`
+| POST | `/ontologies/\{name}/clone` | `clone()`
 | POST | `/ontologies` — body `{ontology, validation_mode?}` | `create()`
-| PUT | `/ontologies/{id}` — body `{ontology, validation_mode?}` | `update()`
-| POST | `/ontologies/active` — body `{version_id}` | `activate()`
-| DELETE | `/ontologies/{id}` | `delete()`
+| PUT | `/ontologies/\{id}` — body `{ontology, validation_mode?}` | `update()`
+| POST | `/ontologies/active` — body `\{version_id}` | `activate()`
+| DELETE | `/ontologies/\{id}` | `delete()`
 | POST | `/ontologies/import` — body `{content?, url?, format?}` | `import_()` / `import()`
-| GET | `/ontologies/{id}/diff?from={n}&to={m}` | `diff()`
-| POST | `/ontologies/{id}/migrate` | `migrate()`
-| GET | `/ontologies/migrations/{job_id}` | `get_migration()`
+| GET | `/ontologies/\{id}/diff?from=\{n}&to=\{m}` | `diff()`
+| POST | `/ontologies/\{id}/migrate` | `migrate()`
+| GET | `/ontologies/migrations/\{job_id}` | `get_migration()`
 |===
 
 [NOTE]
 ====
-`migrate` runs *asynchronously*: `POST /ontologies/{id}/migrate` returns a
+`migrate` runs *asynchronously*: `POST /ontologies/\{id}/migrate` returns a
 `MigrationJob` you poll with `get_migration()` (the service also exposes
-`/migrations/{job_id}/pause` and `/resume`). The preview/dry-run path of `import`
+`/migrations/\{job_id}/pause` and `/resume`). The preview/dry-run path of `import`
 is rate-limited to 30 requests/hour/workspace (see
-xref:reference/nams-limits.adoc[NAMS Limits & Behavior]).
+xref:reference/nams-limits.adoc[NAMS limits and behavior]).
 ====
 
 == Errors
@@ -146,3 +214,9 @@ xref:reference/nams-limits.adoc[NAMS Limits & Behavior]).
   `query.cypher` read-back.
 * link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/ontology-lifecycle[`typescript/examples/ontology-lifecycle/`] —
   the same lifecycle through `OntologyClient`.
+
+== See also
+
+* xref:explanation/ontologies.adoc[Ontologies] — the concept: system templates, revisions, and validation modes.
+* xref:how-to/use-ontologies.adoc[Use ontologies] — the activation recipe.
+* xref:reference/nams-limits.adoc[NAMS limits and behavior] — the import/preview rate limit.
