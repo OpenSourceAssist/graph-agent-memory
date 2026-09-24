@@ -110,9 +110,16 @@ def test_shared_settings_construct_without_optional_extraction_models(lessons, m
     assert settings.embedding.dimensions == 1536
 
 
-def test_custom_extractor_uses_domain_schema_and_tuple_label_mapping(lessons):
+def test_custom_extractor_uses_domain_schema_and_tuple_label_mapping(lessons, monkeypatch):
     from neo4j_agent_memory.extraction import LLMEntityExtractor
 
+    # LLMEntityExtractor resolves its provider in __init__, which needs the
+    # OpenAI SDK; the offline docs job installs no provider extras.
+    def from_provider(spec, *, kind):
+        assert kind == "llm"
+        return SimpleNamespace(model=spec)
+
+    monkeypatch.setattr("neo4j_agent_memory.llm.from_provider", from_provider)
     lesson = lessons["knowledge_graph"]
     pipeline = lesson.extractor("docs-test-model")
     ner = pipeline.entity_extractor
@@ -124,6 +131,8 @@ def test_custom_extractor_uses_domain_schema_and_tuple_label_mapping(lessons):
     assert relations._model_label == "openai/docs-test-model"
     assert relations._prompt == lesson.RELATION_PROMPT
     assert relations._extract_preferences is False
+    # GPT-5 and o-series models reject the SDK default temperature of 0.
+    assert relations._temperature == 1.0
     for name in lesson.SCHEMA.relation_types:
         assert f"- {name.upper()}:" in lesson.RELATION_PROMPT
 
