@@ -516,6 +516,19 @@ jobs:
           uv run ruff check src tests
           uv run pytest -q --timeout=120
 
+      # The backend image installs from requirements-docker.txt, which is
+      # exported from uv.lock. Dependabot updates uv.lock, not the export (see
+      # `exclude-paths` in .github/dependabot.yml), so a stale export means the
+      # image ships different versions from the ones the tests just ran.
+      - name: Check requirements-docker.txt matches uv.lock
+        working-directory: examples/financial-services-advisor/google-cloud-financial-advisor
+        run: |
+          make docker-requirements
+          if ! git diff --exit-code -- backend/requirements-docker.txt backend/uv.lock; then
+            echo "::error::uv.lock or requirements-docker.txt is stale. In examples/financial-services-advisor/google-cloud-financial-advisor run 'cd backend && uv lock' then 'make docker-requirements', and commit both files."
+            exit 1
+          fi
+
       # Examples must use the public API: `client.query.cypher` for reads,
       # `client.graph.execute_write` for writes. `client._client` and the
       # internal Cypher-constant module are reach-throughs that break on any
