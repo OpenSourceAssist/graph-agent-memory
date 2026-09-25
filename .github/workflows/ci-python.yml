@@ -54,7 +54,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -82,7 +82,7 @@ jobs:
   type-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -129,7 +129,7 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -185,7 +185,7 @@ jobs:
           --health-retries 20
           --health-start-period 30s
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -304,7 +304,7 @@ jobs:
           --health-retries 20
           --health-start-period 30s
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -357,7 +357,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[testcontainers]')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -411,7 +411,7 @@ jobs:
           --health-retries 20
           --health-start-period 30s
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -463,7 +463,7 @@ jobs:
   example-tests-quick:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -545,7 +545,7 @@ jobs:
     outputs:
       frontend: ${{ steps.detect.outputs.frontend }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -596,7 +596,7 @@ jobs:
             dir: examples/financial-services-advisor/aws-financial-services-advisor/infrastructure
             build: synth
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -638,7 +638,7 @@ jobs:
   hosted-tutorial-minimum:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v4
       - name: Install a clean Python 3.10 hosted environment
         run: |
@@ -658,7 +658,7 @@ jobs:
   docs-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -727,7 +727,7 @@ jobs:
     needs: [test, integration-test]
     if: always()
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -775,7 +775,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
