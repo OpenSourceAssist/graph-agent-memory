@@ -976,23 +976,84 @@ class GLiRELExtractor:
         doc = self.nlp(text)
         return [token.text for token in doc]
 
+    @staticmethod
+    def _entity_char_span(entity: ExtractedEntity, text: str) -> tuple[int, int] | None:
+        """Return the entity's character span in ``text``, or None if it can't be placed.
+
+        Uses the extractor's offsets when they fall inside the text, otherwise
+        the first occurrence of the entity name.
+        """
+        start, end = entity.start_pos, entity.end_pos
+        if start is not None and end is not None and 0 <= start < end <= len(text):
+            return start, end
+        found = text.find(entity.name)
+        if found < 0:
+            found = text.lower().find(entity.name.lower())
+        if found < 0 or not entity.name:
+            return None
+        return found, found + len(entity.name)
+
     def _entities_to_glirel_format(
         self,
         entities: list[ExtractedEntity],
+        doc: Any,
     ) -> list[list[int | str]]:
         """Convert ExtractedEntity list to GLiREL NER format.
 
-        GLiREL expects entities as: [[start_token, end_token, type, text], ...]
-        But it also accepts character positions when using predict_relations with text.
+        GLiREL expects ``[[start_token, end_token, type, text], ...]`` with token
+        indices into the tokens passed to ``predict_relations`` and an inclusive
+        end token (its own spaCy pipe passes ``[ent.start, ent.end - 1, ...]``).
+        ExtractedEntity carries character offsets, so they are mapped onto the
+        tokens of ``doc``, the spaCy document the tokens come from. Entities that
+        cannot be placed in the text are left out.
         """
         glirel_entities: list[list[int | str]] = []
+        seen: set[tuple[int, int]] = set()
         for entity in entities:
-            # GLiREL format: [start, end, type, text]
-            # Using character positions
-            start: int = entity.start_pos if entity.start_pos is not None else 0
-            end: int = entity.end_pos if entity.end_pos is not None else len(entity.name)
-            glirel_entities.append([start, end, entity.type, entity.name])
+            char_span = self._entity_char_span(entity, doc.text)
+            if char_span is None:
+                logger.debug(f"GLiREL: cannot place entity {entity.name!r} in the text")
+                continue
+            span = doc.char_span(char_span[0], char_span[1], alignment_mode="expand")
+            if span is None or len(span) == 0:
+                logger.debug(f"GLiREL: entity {entity.name!r} does not align to tokens")
+                continue
+            token_span = (int(span.start), int(span.end) - 1)
+            if token_span in seen:
+                continue
+            seen.add(token_span)
+            glirel_entities.append([token_span[0], token_span[1], entity.type, entity.name])
         return glirel_entities
+
+    @staticmethod
+    def _prediction_argument(
+        position: Any,
+        text: Any,
+        names_by_span: dict[tuple[int, int], str],
+        doc: Any,
+    ) -> str:
+        """Resolve a GLiREL head or tail to entity text.
+
+        GLiREL reports ``head_pos``/``tail_pos`` as ``[start, end)`` token
+        positions and ``head_text``/``tail_text`` as the list of tokens it
+        covers. Prefer the name of the entity supplied at that span so that
+        relations match the stored entity names.
+        """
+        if isinstance(position, (list, tuple)) and len(position) == 2:
+            try:
+                start, end = int(position[0]), int(position[1])
+            except (TypeError, ValueError):
+                start, end = -1, -1
+            name = names_by_span.get((start, end - 1))
+            if name is not None:
+                return name
+            if 0 <= start < end <= len(doc):
+                return str(doc[start:end].text)
+        if isinstance(text, str):
+            return text
+        if isinstance(text, (list, tuple)):
+            return " ".join(str(token) for token in text)
+        return ""
 
     def _extract_relations_sync(
         self,
@@ -1013,11 +1074,15 @@ class GLiRELExtractor:
         else:
             labels = list(self.relation_types.keys())
 
-        # Tokenize text
-        tokens = self._tokenize(text)
+        # Tokenize once, so the NER spans index the same tokens GLiREL sees
+        doc = self.nlp(text)
+        tokens = [token.text for token in doc]
 
-        # Convert entities to GLiREL format
-        ner_entities = self._entities_to_glirel_format(entities)
+        # Convert entities to GLiREL format (token indices)
+        ner_entities = self._entities_to_glirel_format(entities, doc)
+        if len(ner_entities) < 2:
+            return []
+        names_by_span = {(int(entry[0]), int(entry[1])): str(entry[3]) for entry in ner_entities}
 
         # Run GLiREL prediction
         predictions = self.model.predict_relations(
@@ -1029,15 +1094,21 @@ class GLiRELExtractor:
 
         relations = []
         for pred in predictions:
-            head_text = pred.get("head_text", "")
-            tail_text = pred.get("tail_text", "")
+            source = self._prediction_argument(
+                pred.get("head_pos"), pred.get("head_text"), names_by_span, doc
+            )
+            target = self._prediction_argument(
+                pred.get("tail_pos"), pred.get("tail_text"), names_by_span, doc
+            )
+            if not source or not target:
+                continue
             label = pred.get("label", "RELATED_TO")
             score = pred.get("score", 0.0)
 
             # Create relation
             relation = ExtractedRelation(
-                source=head_text,
-                target=tail_text,
+                source=source,
+                target=target,
                 relation_type=label.upper().replace(" ", "_"),
                 confidence=score,
             )

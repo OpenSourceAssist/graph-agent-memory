@@ -1,16 +1,33 @@
-= How to: integrate with Mastra
-:toc: left
+= Store Mastra threads in NAMS
 :source-highlighter: rouge
 
 The `@neo4j-labs/agent-memory/integrations/mastra` subpath exports
-`Neo4jMastraMemory` — a duck-typed Mastra memory provider backed by a
-`MemoryClient`. Hand it to `new Agent({ memory })` and your agent gets
-graph-backed conversation history and entity memory.
+`Neo4jMastraMemory` — a **thin thread-and-message-history adapter** that speaks
+Mastra's vocabulary (`resourceId`, thread, message) against a `MemoryClient`.
 
 A runnable example lives at
-link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/mastra[`clients/typescript/examples/mastra`].
+link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples/mastra[`typescript/examples/mastra`].
+
+[IMPORTANT]
+====
+This is **not** a Mastra `Memory` implementation and **not** a Mastra storage
+adapter. It cannot be passed to `new Agent({ memory })` or
+`new Memory({ storage })`. See <<why-not-a-storage-adapter-yet,Why not a storage adapter yet>>.
+====
+
+Prerequisites: a Mastra agent, Node.js 22+ and NAMS test-workspace credentials.
+
+== Procedure
+
+. Build/install the example using its README and create or select a thread id.
+. Map stored history into the model input with the functions below.
+. Save the new user and assistant messages under that thread id; explicitly select any prior thread you combine.
 
 == Wiring
+
+Drive the adapter alongside your Mastra agent. The agent is constructed as
+usual — the adapter never goes in the `memory` slot — and the graph holds the
+history:
 
 [source,typescript]
 ----
@@ -18,32 +35,126 @@ import { Agent } from "@mastra/core/agent";
 import { MemoryClient } from "@neo4j-labs/agent-memory";
 import { Neo4jMastraMemory } from "@neo4j-labs/agent-memory/integrations/mastra";
 
-const memory = new Neo4jMastraMemory(new MemoryClient());
+const client = new MemoryClient();             // reads MEMORY_API_KEY
+const memory = new Neo4jMastraMemory(client);  // thread + message history
 
 const agent = new Agent({
+  id: "scout",
   name: "scout",
   instructions: "You help users plan trips.",
-  memory,
+  model: "openai/gpt-5-mini",
+  // NOT `memory` — see the IMPORTANT note above.
+});
+
+const thread = await memory.createThread({
+  resourceId: "alice",             // Mastra's resource → NAMS userId
+  title: "Trip planning",
 });
 ----
+
+Per request, replay the thread out of the graph and write the turn back. Mastra
+takes role-discriminated messages, so annotate the one-line bridge rather than
+mapping inline — an unannotated `{ role: m.role, ... }` does not type-check
+against `MessageListItem`:
+
+[source,typescript]
+----
+import type { MastraMemoryMessage } from "@neo4j-labs/agent-memory/integrations/mastra";
+
+type InputMessage =
+  | { role: "system"; content: string }
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string };
+
+const toMastraMessages = (history: MastraMemoryMessage[]): InputMessage[] =>
+  history.map((m) => ({ role: m.role, content: m.content }));
+
+const history = await memory.getMessages(thread.id, { limit: 20 });
+
+const result = await agent.generate([
+  ...toMastraMessages(history),
+  { role: "user", content: userInput },
+]);
+
+await memory.saveMessage({ threadId: thread.id, role: "user", content: userInput });
+await memory.saveMessage({
+  threadId: thread.id,
+  role: "assistant",
+  content: result.text,
+});
+----
+
+There is no in-process buffer: reuse the same thread id across requests and
+processes and a restarted server picks the thread up where it left off.
+
+Everything written this way is a real NAMS conversation, so entity extraction,
+xref:explanation/context-tiers.adoc[three-tier context] and Cypher queries all
+apply to it — which is the reason to
+mirror turns here rather than leave them in Mastra's own store:
+
+[source,typescript]
+----
+const context = await client.shortTerm.getContext(thread.id);
+const hits = await client.shortTerm.searchMessages("where is the trip to", {
+  sessionId: thread.id,
+});
+
+// The application explicitly selects and reads an authorized earlier thread.
+// Reusing resourceId alone does not inject that thread into the new one.
+const second = await memory.createThread({ resourceId: "alice", title: "Follow-up" });
+const prior = await memory.getMessages(thread.id, { limit: 20 });
+const question = "What did I want to book first?";
+const followUp = await agent.generate([
+  ...toMastraMessages(prior),
+  { role: "user", content: question },
+]);
+await memory.saveMessage({ threadId: second.id, role: "user", content: question });
+await memory.saveMessage({ threadId: second.id, role: "assistant", content: followUp.text });
+----
+
+`searchPreferences` and `addPreference` have no hosted REST route. Resource ids
+map to conversation user metadata, not a resource-scoped preference store.
+Authorize both selected thread ids before combining context in an application.
 
 == What the adapter implements
 
 * `createThread({ resourceId, title?, metadata? })` — wraps
-  `createConversation`. `resourceId` becomes the `userId`.
+  `createConversation`. `resourceId` becomes the `userId`; `title` is folded into
+  conversation metadata as `mastraTitle` (and omitted entirely when absent).
+* `getThreadById(threadId)` — wraps `getConversationMetadata` and reads the
+  title back.
 * `getMessages(threadId, { limit? })` — wraps `getConversation`.
 * `saveMessage({ threadId, role, content, metadata? })` — wraps
   `addMessage`.
-* `deleteThread(threadId)` — wraps `deleteConversation`.
+* `deleteThread(threadId)` — wraps `deleteConversation`, falling back to
+  `clearSession` on transports that have no delete.
 
-Bridge transports (TCK conformance servers, local reference) don't
-implement `createConversation`; in that case `createThread` synthesizes
-a thread id from the supplied `resourceId`.
+A transport with no `createConversation` (a TCK conformance server, the local
+reference adapter) makes `createThread` synthesize a session id of the form
+`\{resourceId}:\{uuid}`. It is per-thread, not per-resource: a resource owns many
+threads, and reusing the `resourceId` would collapse them into one.
 
-== Versioning
+[#why-not-a-storage-adapter-yet]
+== Why not a storage adapter yet
 
-Mastra's interfaces are still evolving. We duck-type rather than
-importing `@mastra/core` so this adapter doesn't pin you to a specific
-version. If your Mastra version expects shapes the adapter doesn't
-produce, file an issue with the Mastra version pinned in your
-`package.json`.
+Two methods of Mastra 1.x's nine-method `MastraCompositeStore` contract
+(`listMessagesById`, `updateMessages`) have no NAMS equivalent today, so this
+adapter stays outside Mastra's extension points rather than half-implementing
+that contract; track it in
+link:https://github.com/neo4j-labs/agent-memory/issues[the issue tracker] and say
+which Mastra recall features you depend on.
+
+== Compatibility
+
+This page describes the in-tree adapter and its declared `@mastra/core` 1.x
+contracts, with Node.js 22+ for the example. The adapter imports
+nothing from Mastra (`import type` only), so it adds no dependency to your
+project; `@mastra/core` is a devDependency of this repository and a real
+dependency of `typescript/examples/mastra`, so the adapter gap and executable example are checked against installed typings.
+This does not establish the contents of a published npm artifact.
+
+== Verify the integration
+
+In `typescript/examples/mastra/`, run `npm run lint` and `npm test`. The offline
+suite checks history replay and explicit prior-thread selection, rejects hosted
+preference/fact calls, and verifies cleanup of only the run-created threads.

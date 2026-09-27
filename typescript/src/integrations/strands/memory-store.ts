@@ -95,6 +95,7 @@ export class Neo4jMemoryStore implements MemoryStore {
   readonly description: string;
   readonly maxSearchResults: number | undefined;
   readonly writable: boolean;
+  /** Strands framework extraction setting; does not configure the NAMS server pipeline. */
   readonly extraction: boolean | ExtractionConfig;
 
   readonly userId: string | undefined;
@@ -504,7 +505,7 @@ function readEnv(name: string): string | undefined {
 let runCounter = 0;
 
 function newRunId(): string {
-  // crypto.randomUUID exists on every supported runtime (Node 20+, Bun, Deno,
+  // crypto.randomUUID exists on every supported runtime (Node 22+, Bun, Deno,
   // Workers). The fallback keeps a stripped-down runtime working: this token
   // only has to be unique among one store instance's own runs, so a
   // timestamp-plus-counter suffix is sufficient.

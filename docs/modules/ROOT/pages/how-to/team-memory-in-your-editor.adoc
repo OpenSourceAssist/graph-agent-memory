@@ -1,0 +1,296 @@
+= Share team memory with an editor
+:page-product: agent-memory
+:toclevels: 2
+:icons: font
+:source-highlighter: highlight.js
+
+include::partial$backend-both.adoc[]
+
+How to give Claude Code, Claude Desktop and Cursor a *shared* memory graph, so
+one person's session can recall what another person's session recorded — with no
+agent code.
+
+[.lead]
+Every editor here is an MCP *client*. You point it at one of two MCP servers —
+the hosted NAMS server, or the self-hosted `neo4j-agent-memory mcp serve` — and
+the memory tools appear. The only code involved provisions per-developer keys,
+seeds the workspace, and diagnoses the wiring.
+
+[TIP]
+====
+**Maintained source:**
+link:https://github.com/neo4j-labs/agent-memory/tree/main/examples/claude-code-team-memory[`examples/claude-code-team-memory/`]
+also contains an extended editor-restart walkthrough. This page displays all files needed for its steps; no source download is required. The walkthrough is not a live-service certification.
+====
+
+== Prerequisites
+
+* Python 3.10+ and a POSIX shell; the setup below installs the published Python 0.6.0 package.
+* An intended shared workspace, a workspace administrator for key creation, and a separate data-plane key for each editor that uses key authentication.
+* An installed MCP host. Its configuration and OAuth support must be checked against the installed version.
+* Agreement about what the team will share; user metadata and session naming do not enforce all memory search boundaries.
+
+Prepare a local folder and install the published package:
+
+include::partial$python-tutorial-setup.adoc[]
+
+[source,bash]
+----
+python -m pip install 'neo4j-agent-memory[nams,mcp]==0.6.0'
+----
+
+Keep `agent-memory-tutorials/` as the working directory. Create a subdirectory
+and save all six complete files shown below. The diagnostic program reads the
+three `.json.example` files from its own directory, so retain their exact
+names and placeholders. Export the intended `MEMORY_API_KEY` and, for a private
+deployment, `MEMORY_ENDPOINT` before seeding; keep credentials out of these
+templates. Configure private editor copies separately in step 3.
+
+[source,bash]
+----
+mkdir -p team-memory
+----
+
+.Complete `team-memory/_shared.py`
+[%collapsible]
+====
+.Save as `team-memory/_shared.py`
+[source,python]
+----
+include::example$team-memory/_shared.py[]
+----
+====
+
+.Complete `team-memory/seed_workspace.py`
+[%collapsible]
+====
+.Save as `team-memory/seed_workspace.py`
+[source,python]
+----
+include::example$team-memory/seed_workspace.py[]
+----
+====
+
+.Complete `team-memory/doctor.py`
+[%collapsible]
+====
+.Save as `team-memory/doctor.py`
+[source,python]
+----
+include::example$team-memory/doctor.py[]
+----
+====
+
+.Complete `team-memory/.mcp.json.example`
+[%collapsible]
+====
+.Save as `team-memory/.mcp.json.example`
+[source,json]
+----
+include::example$team-memory/.mcp.json.example[]
+----
+====
+
+.Complete `team-memory/claude_desktop_config.json.example`
+[%collapsible]
+====
+.Save as `team-memory/claude_desktop_config.json.example`
+[source,json]
+----
+include::example$team-memory/claude_desktop_config.json.example[]
+----
+====
+
+.Complete `team-memory/cursor_mcp.json.example`
+[%collapsible]
+====
+.Save as `team-memory/cursor_mcp.json.example`
+[source,json]
+----
+include::example$team-memory/cursor_mcp.json.example[]
+----
+====
+
+
+== Pick a server
+
+The two servers are not the same tool surface. Decide once:
+
+[cols="1,2,2",options="header"]
+|===
+| | Hosted NAMS MCP server | Self-hosted `mcp serve`
+
+| URL / command
+| `+https://mcp.memory.neo4jlabs.com/mcp+`
+| `neo4j-agent-memory mcp serve` (stdio or Streamable HTTP)
+
+| Backend
+| Your NAMS workspace
+| Your own Neo4j, or NAMS with `--backend nams`
+
+| Auth
+| OAuth 2.0 + PKCE, or a `nams_…` Bearer key
+| `NEO4J_PASSWORD`, or `MEMORY_API_KEY` for `--backend nams`
+
+| Tools
+| Scope-dependent; inspect the authenticated `tools/list` result
+| **6** registered with `--profile core`; extended registers **16** on Bolt or **20** on NAMS. Backend support still applies.
+
+| Operate
+| Nothing to run
+| One local process per developer
+|===
+
+Use the hosted server unless you need memory to stay inside a boundary it cannot
+reach. Details: xref:reference/nams-mcp.adoc[Hosted NAMS MCP Server] and
+xref:reference/mcp-tools.adoc[MCP Tools].
+
+// Retain former section URLs at the current related topic.
+== Step 1: create one workspace key per developer
+
+anchor:_step_1_one_key_per_developer[]
+
+Key management requires an administrator credential or user token. The editor itself needs a *workspace* key with the intended data-plane scopes, bound to the team's workspace. Create it in the https://memory.neo4jlabs.com[NAMS dashboard] and store it in that editor's environment. A separate key per developer allows individual revocation.
+
+[IMPORTANT]
+====
+The current Python `create_api_key()` accessor does not send `category`. Do not use it to provision a workspace editor key: an uncategorized service request defaults to an admin key. If using REST provisioning, explicitly send `category: "workspace"` and `workspaceId` as described in xref:reference/authentication.adoc[key categories]. Verify service-side category/scope behavior before provisioning a team.
+====
+
+// Retain former section URLs at the current related topic.
+== Step 2: seed a synthetic conversation and retain its ID
+
+anchor:_step_2_seed_what_the_editors_should_already_know[]
+
+The complete `team-memory/seed_workspace.py` defines its full `DECISIONS` transcript and handles the client lifecycle. From `agent-memory-tutorials/`:
+
+[source,bash]
+----
+python team-memory/seed_workspace.py --dry-run
+python team-memory/seed_workspace.py
+----
+
+The first command prints fictional fixture decisions without writes. Review them before running the second command, which creates a conversation in the configured workspace, adds two fixture entities (`Atlas` and `Helios`) and waits for extraction. Keep the printed conversation ID. A timeout exits unsuccessfully; do not treat a generic nonempty entity search as proof that this seed completed.
+
+The fixture contains example architecture choices and invented benchmark anecdotes, not recommendations or measurements for your system. Replace it with approved team content only when ready. Preferences and facts are Bolt-only records; recording the same prose as a message does not recreate those APIs on NAMS.
+
+== Step 3: wire the editors
+
+=== Claude Code — `.mcp.json` at the project root
+
+This is the project-scoped file that teams commit, so it holds variable references rather than secrets: Claude Code expands `$\{VAR}` and `${VAR:-default}` in `.mcp.json` from the environment it was launched in. Configure the hosted or self-hosted entry you selected; do not assume both address the same storage. For the stdio entry, follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup], which exports `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` and `NEO4J_DATABASE`, and export `OPENAI_API_KEY` for the embedding provider, all in the shell that launches Claude Code. The CLI reads `NEO4J_USER`, so the entry maps it from `NEO4J_USERNAME`. To keep the values out of the project entirely, add the entry to your user-scoped Claude Code configuration instead.
+
+[source,json]
+----
+{
+  "mcpServers": {
+    "team-memory": {
+      "type": "http",
+      "url": "https://mcp.memory.neo4jlabs.com/mcp"
+    },
+    "team-memory-self-hosted": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "neo4j-agent-memory[mcp,openai]==0.6.0", "--with", "httpx>=0.27",
+               "neo4j-agent-memory",
+               "mcp", "serve", "--backend", "bolt", "--transport", "stdio",
+               "--profile", "core", "--session-strategy", "per_day"],
+      "env": {
+        "NEO4J_URI": "${NEO4J_URI}",
+        "NEO4J_USER": "${NEO4J_USERNAME}",
+        "NEO4J_PASSWORD": "${NEO4J_PASSWORD}",
+        "MCP_USER_ID": "${USER}",
+        "NEO4J_DATABASE": "${NEO4J_DATABASE:-neo4j}",
+        "OPENAI_API_KEY": "${OPENAI_API_KEY}"
+      }
+    }
+  }
+}
+----
+
+The hosted entry carries no credential: the host runs the OAuth ceremony,
+including a workspace-selector step.
+In the self-hosted entry, `--with httpx>=0.27` adds `httpx`, which release
+0.6.0 imports when connecting over Bolt but declares only in the `nams` extra.
+
+=== Claude Desktop — `claude_desktop_config.json`
+
+For a desktop host configuration that launches stdio commands, a remote server can use an explicitly selected `mcp-remote` bridge:
+
+[source,json]
+----
+{
+  "mcpServers": {
+    "team-memory": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.memory.neo4jlabs.com/mcp"]
+    }
+  }
+}
+----
+
+GUI hosts may have a different environment from your shell. Claude Desktop does not inherit your shell exports or expand `$\{VAR}`, so the self-hosted entry in `claude_desktop_config.json.example` takes literal `REPLACE_WITH_…` values. Keep the populated file private and out of version control, or use the hosted OAuth entry, which needs no credential. Verify the executable path.
+
+=== Cursor — `.cursor/mcp.json`
+
+Same `mcpServers` shape. Replace `REPLACE_WITH_YOUR_NAMS_KEY` in the
+`Authorization` header and the other `REPLACE_WITH_…` values (or use
+`$\{MEMORY_API_KEY}` and similar references if your Cursor build expands
+variables), and keep the populated file untracked.
+
+== Step 4: diagnose before you debug
+
+`team-memory/doctor.py` runs five checks in
+failure-frequency order: key present and well-shaped, config files parse and name
+a real command or URL (and contain no pasted `nams_` key; it does not detect a pasted Neo4j password or OpenAI key), the tool surface each server
+will expose, endpoint reachability with the workspace header, and whether
+extraction has settled for the seeded conversation.
+
+[source,bash]
+----
+python team-memory/doctor.py --configs-only    # offline: no key, no network
+python team-memory/doctor.py --conversation-id RETURNED_ID
+----
+
+Rather than hard-coding the tool counts, it registers each profile on a throwaway
+`FastMCP` instance with the library's own registrar and lists what came back — so
+the local Bolt core/extended counts can be checked against the installed package. This does not enumerate an authenticated hosted server. Read
+`check_tool_surface()` in `doctor.py` for the dozen lines that do it.
+
+== Choosing a profile
+
+[cols="1,3",options="header"]
+|===
+| Profile | Use it when
+
+| `core` (6)
+| A smaller tool inventory. Preferences/facts are usable with Bolt only; NAMS callers must also avoid unsupported preference searches in default context paths.
+
+| `extended` (16 Bolt / 20 NAMS registrations)
+| Investigating memory itself: `graph_query` for ad-hoc read-only Cypher, the
+reasoning-trace trio, `memory_export_graph`, session browsing.
+
+| Hosted NAMS (scope-dependent)
+| Ontology editing, entity review, Skills, workspace administration. Scopes —
+not a flag — decide what a given key sees.
+|===
+
+`--session-strategy per_day` gives the self-hosted server one session id per user
+per day (`"\{user_id}-YYYY-MM-DD"`), so a day's work is one recallable thread
+instead of a new one per editor restart. Set `MCP_USER_ID` to distinguish people.
+
+== Verify sharing after an editor restart
+
+. Use the retained conversation ID to request its messages through the selected server's actual tool schema. Confirm an exact sentence from the seeded fixture.
+. Quit the editor, reopen it and repeat that read without pasting the sentence into the new prompt.
+. Confirm another authorized team editor can read the same workspace/conversation. Test access to an unauthorized workspace separately; shared user names or matching session strategies are not evidence of authorization.
+
+If the host does not expose a conversation read for your scopes, inspect `tools/list` and use an authorized SDK readback instead of claiming successful recall.
+
+== See also
+
+* xref:reference/nams-mcp.adoc[Hosted NAMS MCP server] — scope-dependent tools and documented service authentication.
+* xref:reference/mcp-tools.adoc[MCP tools] — every self-hosted tool, resource and prompt.
+* xref:tutorials/mcp-server.adoc[Connect Claude Desktop to your knowledge graph] — the self-hosted path end to end.
+* xref:reference/authentication.adoc[Authentication and API keys] — workspace vs admin keys.
+* xref:how-to/use-nams.adoc[Use NAMS] — configuring the hosted backend from code.

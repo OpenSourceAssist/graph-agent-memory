@@ -4,7 +4,7 @@
  */
 
 import { vi } from 'vitest';
-import type { LanguageModelV4 } from '@ai-sdk/provider';
+import type { WrappableModel as LanguageModelV4 } from '../src/vercel-ai-provider-middleware';
 
 export interface FakeClient {
   shortTerm: {
@@ -12,9 +12,12 @@ export interface FakeClient {
     createConversation: ReturnType<typeof vi.fn>;
     addMessage: ReturnType<typeof vi.fn>;
     searchMessages: ReturnType<typeof vi.fn>;
+    getConversation: ReturnType<typeof vi.fn>;
+    bulkAddMessages: ReturnType<typeof vi.fn>;
   };
   longTerm: {
     searchEntities: ReturnType<typeof vi.fn>;
+    getEntity: ReturnType<typeof vi.fn>;
     getEntityByName: ReturnType<typeof vi.fn>;
     addEntity: ReturnType<typeof vi.fn>;
     setEntityFeedback: ReturnType<typeof vi.fn>;
@@ -34,9 +37,13 @@ export function makeFakeClient(): FakeClient {
       })),
       addMessage: vi.fn(async () => ({ id: 'msg-1' })),
       searchMessages: vi.fn(async () => []),
+      getConversation: vi.fn(async (id: string) => ({ id, sessionId: id, messages: [] })),
+      bulkAddMessages: vi.fn(async (_id: string, messages: unknown[]) => messages),
     },
     longTerm: {
       searchEntities: vi.fn(async () => []),
+      // Graph expansion reads an entity's relationships back; none by default.
+      getEntity: vi.fn(async (id: string) => ({ id, name: id, relationships: [] })),
       getEntityByName: vi.fn(async () => null),
       addEntity: vi.fn(async (name: string, type: string) => ({ id: `ent-${name}`, name, type })),
       setEntityFeedback: vi.fn(async () => ({})),

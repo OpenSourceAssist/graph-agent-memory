@@ -7,11 +7,126 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (behavioural): `client.ontology.get_active()` reports the bound
+  revision.** It now reads `version_id`, `ontology_id`, `revision` and
+  `validation_mode` from the `version` object in the `GET /ontologies/active`
+  response, in one request. 0.6.0 ignored
+  that object and composed the metadata from `list()` and `get()`, which describe
+  the ontology's latest revision. When an older revision was active, those fields
+  named the wrong one. A response without a `version` object now leaves the four
+  fields `None` instead of inferring them. Malformed version metadata (a missing
+  id, a non-positive `revision`, an unknown `validation_mode`, a `schema_json` that
+  is not a JSON string holding a document) raises `ValueError`, and so does a
+  version schema that differs from the active document. `ActiveOntology` gains
+  `schema_hash`.
+- **Clock-stamped message timestamps never sort before the tail.** A single or
+  batch append whose clock reads earlier than the stored tail's timestamp (for
+  example after a batch imported with future explicit timestamps) is stamped one
+  microsecond after the tail, so timestamp order and `NEXT_MESSAGE` order agree.
+  Explicit `timestamp` values passed to `add_messages_batch` are stored exactly
+  as given and are not clamped, so a batch message with an explicit timestamp
+  earlier than the tail, or an implicit one that follows a future explicit one,
+  can still sort out of `NEXT_MESSAGE` order.
+
+### Fixed
+
+- **`add_messages_batch` reads back in input order.** The batch query stamped
+  every message without an explicit `timestamp` with the same `datetime()`, and
+  `get_conversation` orders by timestamp, so batched messages came back in
+  arbitrary order. They now get strictly increasing timestamps in input order,
+  starting after the conversation's tail. Explicit timestamps are kept, and
+  `get_conversation` breaks remaining ties by message id so readback is stable.
+- **Concurrent appends no longer fork a conversation's message chain.**
+  `add_message` takes a write lock on the conversation before it reads the tail,
+  so concurrent appends serialize. `add_messages_batch` read the tail, created the
+  messages and linked them in three transactions, so an `add_message` in between
+  forked the chain. It now does all three in one transaction under the same lock.
+  Finding the tail inside that transaction reads every message in the
+  conversation, once per batch, which is what one `add_message` call costs.
+- **Appending to an already-forked conversation no longer raises
+  `ConstraintError`.** A chain forked by an earlier concurrent append has several
+  tails; `add_message` created its message once per tail and hit the uniqueness
+  constraint on `Message.id`, wedging every later append. It now links to the
+  newest tail. Finding the tail reads every message in the conversation, as
+  `add_message` already did.
+- **`short_term.migrate_message_links()` leaves one linear chain.** It links each
+  conversation's messages in timestamp order and deletes every `FIRST_MESSAGE` or
+  `NEXT_MESSAGE` link that disagrees, so a chain forked by concurrent appends is
+  repaired. Messages that share a timestamp, as every batch written by
+  `add_messages_batch` in 0.6.0 does, keep the order of the single chain that
+  already links them; tied messages that no chain start reaches, or that are
+  not linked at all, fall back to message id order. On a batch where the 0.6.0
+  migration overlaid its id-ordered links, the tied messages still end up in
+  one chain, but their order can mix input and id order. Previously it only
+  added links: it left a fork's stale branch in place, and on a batch with tied
+  timestamps it could add the reverse link and a second `FIRST_MESSAGE`,
+  leaving a cycle with no tail that the next append could not attach to.
+  Running the new migration on such a conversation repairs it. Links that are
+  already correct are left alone, so a rerun writes nothing. The migration's
+  cost grows linearly with the number of messages, including databases where
+  many messages share one timestamp.
+- **Entities created by message auto-extraction are embedded.**
+  `add_message(..., extract_entities=True)`, `add_messages_batch(...,
+  extract_entities=True)` and `extract_entities_from_session()` stored extracted
+  entities with no embedding, so `long_term.search_entities()`, a vector search,
+  never returned them. When an embedder is configured, the entity names from each
+  extraction are now embedded in one `embed_batch` call, as `add_entity` embeds a
+  name. `add_message(generate_embedding=False)` and
+  `add_messages_batch(generate_embeddings=False)` never call the embedder: their
+  extracted entities are stored without an embedding (an entity that already has
+  one keeps it), and a later `extract_entities_from_session(skip_existing=False)`
+  embeds them. Extraction runs after the message is written, so with embeddings
+  on, an embedder error raises after the message is stored, as an extractor error
+  already did in 0.6.0. A caller that retries `add_message` on that error writes
+  the message again under a new id; retry `extract_entities_from_session()`
+  instead.
+- **`GLiRELExtractor` finds relations.** It passed entity character offsets to
+  GLiREL, which indexes entity spans by token (inclusive end), so the spans
+  pointed at the wrong tokens and relations were rarely found. At low thresholds
+  it crashed with a pydantic `ValidationError`, because GLiREL returns
+  `head_text`/`tail_text` as token lists. Character offsets are now mapped onto
+  the spaCy tokens passed to GLiREL, entities without offsets are located by name
+  (and skipped if absent), and relation endpoints use the supplied entity names.
+- **A Bolt client no longer needs `httpx`.** `MemoryClient.connect()` on Bolt
+  imported `neo4j_agent_memory.nams` for its unsupported-accessor sentinel, and
+  that package imports `httpx`, which only the `nams` extra installs. With no
+  extra providing `httpx`, connecting failed with `ModuleNotFoundError: No module
+  named 'httpx'`. The sentinel now lives in `core`, and Bolt never imports the
+  `nams` package.
+- **Auto-extraction links every message to an entity that already exists.**
+  The extracted-entity write MERGEs on name and type and sets `id` only when it
+  creates the node, but `add_message(..., extract_entities=True)`,
+  `add_messages_batch(..., extract_entities=True)` and
+  `extract_entities_from_session()` linked the message with the id they had just
+  generated. When the entity already existed, that id named no node, so the
+  message got no `MENTIONS` edge and relations between such entities were not
+  stored by id. Links and relations now use the id the write returned.
+- **`long_term.find_potential_duplicates()` returns each flagged pair once, with
+  its score.** It matched the `SAME_AS` edge in both directions, so every pair
+  came back twice, and it read `confidence` off a relationship that the driver
+  had already flattened, so the score was always `0.0`. Each pair now comes back
+  once, as the flagged entity then its match, with the edge's `confidence`.
+- The `mcp serve --port` help now names the endpoint `/mcp`, the path FastMCP
+  serves. It said `/mcp/`, which FastMCP redirects.
+
+### Removed
+
+- The `GET_LAST_MESSAGE` and `CREATE_MESSAGE_LINKS` constants are gone from
+  `neo4j_agent_memory.graph.queries`. `CREATE_MESSAGES_BATCH` now reads the tail
+  and links the batch itself.
+- The `docs` dependency group no longer installs MkDocs. The documentation is an
+  Antora site built from `docs/package.json`.
+
+## [0.6.0] - 2026-09-14
+
 ### Added
 
 - **Strands MemoryStore** (`Neo4jMemoryStore`) — cross-session recall for Strands
   agents via `MemoryManager(stores=[...])`: long-term search, plus writes that feed
-  server-side extraction. Entities only on NAMS. Needs `strands-agents>=1.44.0`.
+  server-side extraction. Entities only on NAMS. Needs `strands.memory`, added in
+  `strands-agents` 1.44 — the `[strands]` extra floors at 1.52, so it is always there.
   `get_tools()` adds `{name}_get_entity_graph` (multi-hop bolt, 1-hop NAMS) and, bolt-only with a configured user_id, the user-scoped `{name}_get_user_preferences`.
   A store built from `settings=` owns its client and rebinds it when the event
   loop changes (Strands' synchronous `Agent(...)` runs every call on a fresh
@@ -69,6 +184,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Enrichment results now reach `entity.metadata`.** `LongTermMemory._parse_entity`
+  dropped every field background enrichment had written, so
+  `entity.metadata["enriched_description"]` / `["wikipedia_url"]` /
+  `["wikidata_id"]` / `["image_url"]` / `["enriched_at"]` were always missing even
+  after a successful enrichment (CLAUDE.md implementation note 22 promised
+  attributes no code path produced). The node properties and the
+  `enrichment_data` JSON blob are now folded back into `Entity.metadata`, using the
+  same names as `EnrichmentResult.to_entity_attributes()`. Relatedly,
+  `BackgroundEnrichmentService._update_entity` now also writes `e.wikipedia_url`,
+  `e.wikidata_id` and `e.image_url` as node properties — `MemoryClient.get_locations`
+  already selected `e.wikipedia_url` and could only ever return `None` for it.
+- **`ExactMatchResolver` no longer reports `match_type="exact"` when nothing
+  matched.** Both non-matching paths (no candidates supplied, and no candidate
+  equal to the name) now return `match_type="none"`, matching `CompositeResolver`.
+  The field was previously unreadable for this resolver: callers had to re-compare
+  names to tell a hit from a miss.
+- **`LongTermProtocol.wait_for_extraction()` accepts the readiness arguments its
+  implementations do.** The Protocol declared a no-argument method while the NAMS
+  implementation takes `session_id` / `conversation_id` / `query` /
+  `expected_names` / `min_results` / `predicate` / `timeout` / `interval`, so
+  portable code calling it through `client.long_term` failed `mypy --strict`. All
+  parameters are keyword-only and optional; bolt still returns `True` immediately.
+- **Entity aliases are now readable by alias.** `add_entity` wrote `aliases`
+  into the JSON `metadata` blob while `get_entity_by_name` looks for a top-level
+  `aliases` property, so an entity was never findable by an alias passed to
+  `add_entity`. `aliases` is now a top-level list property everywhere, matching
+  what `MERGE_ENTITIES` already wrote; rows written earlier still read back via
+  the `metadata` fallback.
+- **`add_relationship` no longer acknowledges a write that matched nothing.**
+  The query `MATCH`es both endpoints before `MERGE`ing the edge, so ids that
+  address no node wrote zero rows and returned a relationship the graph did not
+  contain. It now raises `NotFoundError` naming both ids, and on a re-add it
+  returns the stored id instead of a newly minted one.
+- **`add_entity` returns the id the graph stored.** The `MERGE` is keyed on
+  `(name, type)`, so a repeat add hits `ON MATCH`, keeps the original `id` and
+  discards the freshly minted one — the returned entity then addressed no node,
+  and every later write keyed on it (`add_relationship`,
+  `link_entity_to_message`) silently did nothing.
+- **`merge_duplicate_entities` no longer orphans edges.** It migrated only
+  `MENTIONS` and `SAME_AS`, so a merge dropped the entity's `RELATED_TO` edges
+  (both directions) and both provenance edges (`EXTRACTED_FROM`,
+  `EXTRACTED_BY`), plus the v0.2 `APPLIES_TO` and `TOUCHED` audit edges. All of
+  them are now copied onto the surviving entity and tagged `migrated_from`; the
+  merged-away entity keeps its own edges so the merge stays reversible.
 - **`add_messages_batch` now accepts `user_identifier`**, enforcing `multi_tenant`
   and linking the conversation to its `:User`; previously the bulk path silently
   wrote unscoped, unlinked conversations — so a bulk write that used to succeed
@@ -82,7 +241,255 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keywords. MCP entity-history and reflection limits and the Pydantic AI
   entity-history limit are now enforced locally and must be at least 1. This
   does not change backend or multi-tenant isolation semantics.
-- `strands` extra requires `strands-agents>=1.44.0` (was `>=0.1.0`).
+- **`[mcp]` extra moves to `fastmcp>=4.0,<5`** (was `>=2.0.0,<3`), which brings MCP
+  Python SDK 2 (`mcp>=2`, `mcp-types`). The self-hosted MCP server was migrated to
+  the FastMCP 4 API; tools, resources, prompts and both profiles are unchanged on
+  the wire.
+  - **Streamable HTTP replaces HTTP+SSE for networked deployments.**
+    `mcp serve --transport http` (or the explicit `streamable-http`) serves the
+    single `POST`/`GET` endpoint at `/mcp/`. `--transport sse` is kept as a
+    **deprecated alias** so existing launch configurations keep starting: it logs a
+    warning and serves Streamable HTTP rather than the retired transport. Client
+    URLs must change from `/sse` + `/messages` to `/mcp/`.
+    `run_server(transport=...)` accepts all four names through the new
+    `mcp.server.normalize_transport()`; `Neo4jMemoryMCPServer.run_sse()` is a
+    deprecated shim for the new `run_http()`.
+  - `deploy/cloudrun` now launches with `--transport http --host 0.0.0.0`, and its
+    `service.yaml` probes the listening socket instead of a `/health` route that the
+    server never served (an `httpGet` startup probe could not pass).
+  - Lifespan access moved to FastMCP 4's `Context.lifespan_context` (it reads the
+    owning server's lifespan result, which stays correct when this server is mounted
+    under another one) instead of `ctx.request_context.lifespan_context`.
+  - Tool annotations key on the MCP SDK 2 field names (`read_only_hint`,
+    `destructive_hint`, `idempotent_hint`). FastMCP still bridges the legacy
+    camelCase spelling through a shim that can be switched off, so the native names
+    keep the hints working either way.
+  - The FastMCP startup banner is suppressed on `stdio`, where the MCP host owns
+    stderr and the banner is only noise in its logs.
+  - `pydantic-ai` stays on the `-slim` distribution, but no longer for collision
+    reasons: `fastmcp` 4 is itself a wrapper over `fastmcp-slim` 4.x, so the two
+    extras now resolve to the same distribution and the suffix is purely about
+    install weight. Installing `[mcp]` alongside `[pydantic-ai]` is supported.
+  - NAMS is unaffected: `mcp` 2 pulls `httpx2`, a separately-named distribution, so
+    the NAMS transport keeps resolving `httpx` 0.28.
+
+- **`[strands]` extra floors at `strands-agents>=1.52,<2`** (was `>=1.44.0`,
+  itself up from `>=0.1.0`). 1.52 is the oldest release carrying every surface the
+  two adapters bind to: the `SessionManager` base class with its multi-agent *and*
+  bidirectional hooks, and the `strands.memory` package (`MemoryStore`,
+  `MemoryManager`, `AddMessagesContext`, `ExtractionConfig`) that `Neo4jMemoryStore`
+  implements. Re-verified against 1.55.1, which the lock now resolves; both
+  adapters are unchanged in behaviour. Documented limitation sharpened: attaching
+  `Neo4jSessionManager` to a Strands Graph/Swarm or a `BidiAgent` raises
+  `NotImplementedError` from the base class (naming the adapter), so those
+  topologies want one of Strands' own repository-backed managers.
+- **Bedrock model ids in `integrations.strands.config` refreshed to
+  inference-profile ids, and made resolvable from the environment.**
+  `BEDROCK_LLM_MODELS` carried `anthropic.claude-sonnet-4-20250514-v1:0`,
+  `anthropic.claude-3-haiku-20240307-v1:0` and `anthropic.claude-3-opus-20240229-v1:0`
+  — two retired generations and three bare foundation-model ids, which current
+  Claude models on Bedrock cannot be invoked by. Values are now
+  `<prefix>.anthropic.…` cross-region inference-profile ids (default prefix `us`),
+  derived from the new `BEDROCK_CLAUDE_BASE_MODELS` map. New resolvers
+  `bedrock_llm_model(alias)` / `bedrock_embedding_model(alias)` honour
+  `BEDROCK_MODEL_ID`, `BEDROCK_INFERENCE_PROFILE_PREFIX` and
+  `BEDROCK_EMBEDDING_MODEL_ID` so a deployment can pin an id without a release.
+  Dict keys are unchanged. `BEDROCK_EMBEDDING_MODELS` is unchanged on purpose: it
+  lists only the payload shapes `BedrockEmbedder` can build (Titan text, Cohere
+  embed v3), so Nova multimodal embedding ids are deliberately absent.
+- **LangChain integration moved to the 1.x line** (BREAKING for the extra). The
+  `[langchain]` extra now installs `langchain-core>=1.0,<2` (was
+  `langchain-core>=0.2.0`, a floor spanning the whole v0→v1 migration), and a new
+  `[langchain-agents]` extra adds `langchain>=1.0,<2` for the agent middleware.
+  What changed, and why:
+
+  - **`Neo4jAgentMemory` now implements `langchain_core.chat_history.BaseChatMessageHistory`.**
+    It previously imitated the pre-v1 `BaseMemory` protocol (`memory_variables` /
+    `load_memory_variables` / `save_context`) while subclassing nothing —
+    and `langchain_core.memory` does not exist in 1.x, so the shape it mimicked
+    was not pluggable into anything. It is now a real chat history: `aget_messages()`,
+    `aadd_messages()`, `aclear()` (plus the sync twins), so it drops straight into
+    `RunnableWithMessageHistory` and into a classic `ConversationBufferMemory(chat_memory=…)`.
+    The context-assembly surface is kept, with public async names:
+    **`aload_memory_variables()` / `asave_context()`** replace
+    `_load_memory_variables_async()` / `_save_context_async()`, which remain as
+    aliases for one release. New `session_id`-scoped `extract_entities` /
+    `generate_embeddings` constructor options. The class is no longer a
+    `pydantic.BaseModel`; it takes the same keyword arguments.
+  - **`Neo4jMemoryRetriever` implements the async hook LangChain actually calls.**
+    Its coroutine was named `_get_relevant_documents_async`, which
+    `BaseRetriever.__init_subclass__` never sees: LangChain synthesised an
+    `_aget_relevant_documents` that ran the *sync* path in a worker thread, so
+    `await retriever.ainvoke(...)` called `asyncio.run()` on a fresh loop against
+    a Neo4j driver bound to the caller's loop. The hook is now
+    `_aget_relevant_documents` and `ainvoke` runs on the caller's loop. New
+    `session_id=` field, threaded into `short_term.search_messages` (required on
+    NAMS, whose message search is conversation-scoped). `_get_relevant_documents_async`
+    remains as an alias for one release.
+  - **New `Neo4jMemoryMiddleware`** — a `langchain.agents.middleware.AgentMiddleware`
+    for `create_agent`. `abefore_model` persists new user turns, `awrap_model_call`
+    appends `client.get_context(...)` to the request's system message (leaving agent
+    state untouched, the way `TodoListMiddleware` does), and `aafter_model` persists
+    the reply, de-duplicated by message id so a tool loop does not re-store the same
+    history. Only the async hooks are implemented; the sync hooks raise
+    `NotImplementedError` naming `ainvoke` rather than silently skipping memory.
+    Requires `[langchain-agents]`; omitted from the package's exports when the
+    `langchain` distribution is absent.
+  - **Both adapters are NAMS-tolerant.** `search_preferences` and
+    `get_similar_traces` are bolt-only and raise `NotSupportedError` on the hosted
+    backend; they now degrade to `[]` / `""` / a skipped retrieval layer instead of
+    failing the call, and `long_term.get_context` returning `""` on NAMS falls back
+    to `long_term.search_entities`. Previously `Neo4jAgentMemory` had to be
+    constructed with `include_long_term=False, include_reasoning=False` on NAMS.
+  - **The sync surfaces no longer deadlock.** `Neo4jAgentMemory` used to schedule a
+    coroutine onto the caller's *running* loop and then block on the result, and the
+    retriever ran `asyncio.run()` in a worker thread against a loop-bound driver.
+    Both now raise a `RuntimeError` naming the coroutine to await when called from
+    inside a running event loop.
+
+  `how-to/integrations/langchain.adoc` is rewritten against 1.x (`create_agent` +
+  middleware, `RunnableWithMessageHistory`, the retriever, async `@tool` functions,
+  a reasoning-trace middleware) and carries a table mapping the retired
+  `ConversationChain` / `AgentExecutor` / `ConversationBufferMemory` imports to their
+  `langchain_classic` locations.
+
+- **Microsoft Agent Framework integration moved to the 1.x GA line** (BREAKING
+  for the extra). The `[microsoft-agent]` extra now installs
+  `agent-framework-core>=1.13,<2` (was `agent-framework>=1.0.0b260212`, the
+  public-preview pin). The GA line removed exactly the two base classes the
+  adapter extended, so the old pin no longer imported at all:
+  `Neo4jContextProvider` now subclasses `agent_framework.ContextProvider`
+  (was `BaseContextProvider`) and `Neo4jChatMessageStore` subclasses
+  `agent_framework.HistoryProvider` (was `BaseHistoryProvider`). The
+  keyword-only `before_run(*, agent, session, context, state)` /
+  `after_run(...)` hook signatures are unchanged, so no caller code changes —
+  `chat_client.as_agent(context_providers=[provider])` works as before.
+  `Neo4jChatMessageStore.get_messages()` / `save_messages()` now declare the
+  GA keyword-only `state` parameter that `HistoryProvider` passes them.
+  `MICROSOFT_AGENT_FRAMEWORK_VERSION` is `1.18.0` and
+  `MICROSOFT_AGENT_FRAMEWORK_MIN_VERSION` is `1.13.0`.
+
+  The extra deliberately requires `agent-framework-core` rather than the
+  `agent-framework` meta-package: at GA the meta-package resolves to
+  `agent-framework-core[all]`, pulling ~30 provider distributions (anthropic,
+  bedrock, gemini, mistral, ollama, redis, devui's fastapi/uvicorn, powerfx, …)
+  that this adapter never imports. Everything it does import is exported from
+  the top-level `agent_framework` package that `-core` ships. Install your chat
+  client alongside it (`agent-framework-openai`, `agent-framework-azure-ai`, or
+  the `agent-framework` meta-package).
+
+  New tests cover the contract that silently broke: the adapters are asserted to
+  subclass the GA base classes, the hook signatures are compared against the
+  framework's own, and three integration tests drive a real `Agent` run loop
+  over a fake chat client (previously every test called `before_run` /
+  `after_run` by hand, so nothing noticed the providers no longer loaded).
+- **Google ADK integration moved to google-adk 2.x** (BREAKING for the extra).
+  The `[google-adk]` extra now installs `google-adk>=2.0,<3` plus
+  `google-genai>=1.0` (was `google-adk>=0.1.0`, which resolved to the 1.1.1
+  preview era); the "Google ADK is in preview" warning on `Neo4jMemoryService`
+  is gone, and the lock also moves OpenTelemetry to 1.42.1 / semconv 0.63b1
+  because `google.adk.runners` imports semantic-convention attributes that
+  0.60b1 does not ship. `Neo4jMemoryService` now implements the full 2.x
+  `BaseMemoryService` contract and really subclasses it, so `Runner` and `App`
+  accept it: `search_memory()` takes ADK's keyword call (`app_name=`,
+  `user_id=`, `query=`; `query` stays positional for 0.5.0 callers) and returns
+  a `SearchMemoryResponse` of ADK `MemoryEntry` objects whose `content` is a
+  `google.genai.types.Content` — with `author`, ISO-8601 `timestamp`, `id` and
+  `custom_metadata` (`memory_type`, `score`) populated, which is what
+  `load_memory` / `preload_memory` render. The 2.x write paths
+  `add_events_to_memory(...)` (incremental event deltas) and
+  `add_memory(app_name=, user_id=, memories=[MemoryEntry(...)])` are
+  implemented; the 0.5.0 convenience form `add_memory(content=...,
+  memory_type=...)` is unchanged and still returns the library's own
+  `MemoryEntry`.
+- **Fixed: ADK agent turns were silently dropped on write.** ADK authors model
+  events with the *agent name* (`memory_demo`, `supervisor`, …), which the
+  adapter passed straight into `short_term.add_message(role=...)`, where it
+  failed `MessageRole` validation — and the per-message `except Exception:
+  logger.warning` hid it, so a real `Runner` session stored only its user
+  turns. Authors are now mapped to `MessageRole` (unknown author → `assistant`,
+  original kept as `adk_author` in the message metadata and re-attributed on
+  search), and write failures are logged at error level with a failure count.
+- **PydanticAI integration moved to PydanticAI 2.x** (BREAKING for the extra).
+  The `[pydantic-ai]` extra now installs `pydantic-ai-slim[openai]>=2.0,<3`
+  (was `pydantic-ai>=0.1.0`) — the same `pydantic_ai` import package as the
+  meta-package, minus the ~20 provider SDKs the adapter never imports. (The
+  original reason was a file collision between the meta-package's
+  `pydantic-ai-slim[mcp]` → `fastmcp-slim>=3` and the `fastmcp<3` distribution
+  behind `[mcp]`; that is moot now that `[mcp]` is on `fastmcp` 4, which itself
+  wraps `fastmcp-slim` 4.x. The two extras can be installed together.)
+  `record_agent_trace` now reads `AgentRunResult.output` (`.data` was removed
+  in PydanticAI 1.0, so the recorded outcome was silently always
+  `"Completed"`), records the model name from `result.response.model_name`,
+  and completes the trace with a `TraceOutcome` whose `metrics` carry the run
+  usage (`input_tokens` / `output_tokens` / `requests` / `tool_calls`) from the
+  `result.usage` property. `create_memory_tools` still returns plain callables
+  — valid `Agent(tools=...)` members on 2.x — and the docstrings now show the
+  2.x idioms (`@agent.instructions` with `ctx.prompt`, model instances,
+  `FunctionToolset` for `toolsets=`). `how-to/integrations/pydantic-ai.adoc`
+  was swept for `result_type=` → `output_type=`, `result.data` →
+  `result.output`, `system_prompt` → `instructions`, `OpenAIModel` →
+  `OpenAIChatModel`, `GeminiModel` → `GoogleModel`, and states the supported
+  range.
+- **Vertex AI embeddings default to `gemini-embedding-001`** (BREAKING).
+  `text-embedding-004` (shut down by Google on 2026-01-14) and the
+  `textembedding-gecko*` family (shut down 2025-04-09) are now rejected with an
+  `EmbeddingError` that names the replacement, instead of failing at request
+  time. Supported ids: `gemini-embedding-001` (default), `text-embedding-005`,
+  `text-multilingual-embedding-002` — see the new
+  `neo4j_agent_memory.embeddings.vertex_models` tables.
+  `VertexAIEmbedder` gains `output_dimensionality`, defaulting to **768** even
+  though `gemini-embedding-001` emits 3072 natively: Neo4j vector index
+  dimensionality is fixed at creation time and `MemoryClient` sizes its indexes
+  from `embedder.dimensions`, so the default keeps existing databases working
+  with no re-embedding. Pass `output_dimensionality=None` (3072) or `1536` on a
+  fresh database for better retrieval quality. `EmbeddingConfig` gains a
+  matching `output_dimensionality` field and, when `provider=VERTEX_AI` with no
+  explicit `model`, defaults to `gemini-embedding-001`/768.
+  `embed_batch` now respects a per-model request cap (`gemini-embedding-001`
+  accepts one text per request; the other two accept 250), and the embedder
+  falls back to the `google-genai` client when `vertexai.language_models` is
+  absent (removed in `google-cloud-aiplatform` 2.x) — the legacy 1.x path is
+  unchanged otherwise.
+- **The remaining provider and framework extras now floor at the current major**
+  (BREAKING for the extras; no API change in this library apart from the Anthropic
+  note below). New ranges, each verified against the newest release it admits:
+  `neo4j>=5.20,<7` (core dependency — floor unchanged, cap added; resolves 6.3),
+  `[openai]` / `[openai-agents]` `openai>=2.0,<4` (was `>=1.0.0`),
+  `[anthropic]` `anthropic>=1.0,<2` (was `>=0.20.0`),
+  `[sentence-transformers]` `sentence-transformers>=3.0,<7` (was `>=2.2.0`),
+  `[vertex-ai]` / `[google]` `google-cloud-aiplatform>=2.0,<3` plus an explicit
+  `google-genai>=1.66` (was `>=1.38.0`), `[crewai]` `crewai>=1.0,<2` (was `>=0.50.0`),
+  `[llamaindex]` `llama-index-core>=0.14,<1` (was `>=0.10.0`),
+  `[instructor]` `instructor>=1.7,<2` and `[litellm]` `litellm>=1.50,<2` (caps
+  normalized). Notes:
+  - **Anthropic 1.x dropped `temperature` / `top_p` / `top_k` from
+    `messages.create()`** — passing one is a `TypeError`, mirroring the API, which
+    rejects sampling parameters on current Claude models. `AnthropicProvider` still
+    accepts `temperature` (it is part of the provider protocol) but no longer sends
+    it, and logs once when a non-default value is discarded; use Anthropic's
+    `output_config.effort` instead. Prompt caching, forced-tool-use structured
+    extraction, usage translation and error mapping are unchanged. anthropic 1.x is
+    also built on `httpx2`, like `mcp` 2 — the NAMS transport keeps resolving `httpx`.
+  - **openai 3.x likewise ships on `httpx2` and no longer installs `httpx`.** Both
+    majors were exercised end-to-end against a mock transport (chat, strict-mode
+    structured output, embeddings with `dimensions=`), and `httpx` 0.28 + `httpx2`
+    2.12 coexist in one process. The lock still resolves openai 2.x because litellm
+    and crewai both cap it at `<3`; the range is what lets an application without
+    those extras run openai 3.
+  - `[openai-agents]` deliberately keeps carrying only the `openai` SDK: the adapter
+    never imports the `agents` package, and pulling `openai-agents` in would force
+    `openai>=3` and make `[all]` unresolvable.
+  - **sentence-transformers 6.0 renamed `get_sentence_embedding_dimension()` to
+    `get_embedding_dimension()`.** `SentenceTransformerEmbedder` now probes for both,
+    so nothing emits a deprecation warning on 6.x while the 3.x-5.x floor still
+    works. `encode(texts, convert_to_numpy=True)` is unchanged.
+  - Lock consequences worth knowing: sentence-transformers 6 pulls `transformers` 5.x
+    and `huggingface-hub` 1.x (GLiNER and spaCy extraction re-verified on both), and
+    the lock holds `crewai` at 1.6.1 — the 1.15.x dev line conflicts with
+    `fastmcp>=4`. The CrewAI test guards still imported `from crewai.memory import
+    Memory`, the path removed in 1.x, so every CrewAI test silently skipped; they now
+    probe `crewai.memory.memory` like the adapter and actually run.
 - **`Neo4jSessionManager` now guards against a paired `Neo4jMemoryStore` duplicating its work**: raises if both would extract the same turns (always, on NAMS), warns once if both would inject context.
 - `ShortTermProtocol.bulk_add_messages` takes explicit keyword-only params
   (`generate_embeddings`, `extract_entities`, `extract_relations`, `user_identifier`)
@@ -210,11 +617,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `merge_confidence` score; fallback entity confidence uses the model default.
   Null confidence and collection fields use meaningful defaults, while invalid
   server IDs and explicit null/invalid creation timestamps fail validation.
-
-> **Docs note:** when this ships, flip the "REST-only / no SDK method" notes in
-> `reference/rest-api.adoc`, `reference/ontology-api.adoc`, and
-> `reference/authentication.adoc`, and the Python↔TS parity note in
-> `reference/typescript-api.adoc`, to reflect the new SDK surface.
 
 ## [0.5.0] - 2026-05-30
 
@@ -714,6 +1116,7 @@ The v0.2 feature drop. Headline feature is **adopting an existing Neo4j graph** 
 - **CLI Tool**: Command-line interface for entity extraction and schema management
 - **Schema Persistence**: Store and version custom entity schemas in Neo4j
 
+[0.6.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/python-v0.6.0
 [0.5.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/python-v0.5.0
 [0.4.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.4.0
 [0.1.0]: https://github.com/neo4j-labs/agent-memory/releases/tag/v0.1.0

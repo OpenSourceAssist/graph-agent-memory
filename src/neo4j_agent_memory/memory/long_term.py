@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
-from neo4j_agent_memory.core.exceptions import NotSupportedError
+from neo4j_agent_memory.core.exceptions import NotFoundError, NotSupportedError
 from neo4j_agent_memory.core.memory import BaseMemory, MemoryEntry
 from neo4j_agent_memory.core.protocols import LongTermProtocol
 from neo4j_agent_memory.graph import queries
@@ -142,6 +142,69 @@ def _deserialize_metadata(metadata_str: str | None) -> dict[str, Any]:
         return result
     except (json.JSONDecodeError, TypeError):
         return {}
+
+
+# Node properties written by ``BackgroundEnrichmentService._update_entity``.
+# They live on the node (not inside the metadata JSON) so Cypher can filter on
+# them; ``_enrichment_metadata`` folds them back into ``Entity.metadata`` so the
+# Python API surfaces them too.
+_ENRICHMENT_NODE_PROPERTIES = (
+    "enriched_description",
+    "enriched_summary",
+    "wikipedia_url",
+    "wikidata_id",
+    "image_url",
+    "enrichment_provider",
+)
+
+# Keys inside the ``enrichment_data`` JSON blob that are renamed on the way out,
+# so ``Entity.metadata`` uses the same names as
+# ``EnrichmentResult.to_entity_attributes()``.
+_ENRICHMENT_DATA_RENAMES = {
+    "description": "enriched_description",
+    "summary": "enriched_summary",
+    "metadata": "enrichment_metadata",
+    "confidence": "enrichment_confidence",
+    "retrieved_at": "enriched_at",
+}
+
+
+def _enrichment_metadata(data: dict[str, Any]) -> dict[str, Any]:
+    """Extract enrichment fields from an entity node into a metadata dict.
+
+    Background enrichment writes its results as node properties plus an
+    ``enrichment_data`` JSON blob (see
+    :meth:`neo4j_agent_memory.enrichment.background.BackgroundEnrichmentService._update_entity`).
+    Without this, every enrichment field was dropped when the node was parsed
+    into an :class:`Entity`, so ``entity.metadata["wikipedia_url"]`` was always
+    missing even after a successful enrichment.
+    """
+    extracted: dict[str, Any] = {}
+
+    raw = data.get("enrichment_data")
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            for raw_key, value in parsed.items():
+                if value is None:
+                    continue
+                key = str(raw_key)
+                extracted[_ENRICHMENT_DATA_RENAMES.get(key, key)] = value
+
+    # Node properties win over the JSON blob: they are what Cypher reads.
+    for prop in _ENRICHMENT_NODE_PROPERTIES:
+        value = data.get(prop)
+        if value is not None:
+            extracted[prop] = value
+
+    enriched_at = data.get("enriched_at")
+    if enriched_at is not None:
+        extracted["enriched_at"] = _to_python_datetime(enriched_at).isoformat()
+
+    return extracted
 
 
 def _to_python_datetime(neo4j_datetime: Any) -> datetime:
@@ -511,16 +574,16 @@ class LongTermMemory(BaseMemory[Entity], LongTermProtocol):
         if location_point is not None:
             entity.attributes["coordinates"] = location_point
 
-        # Merge attributes into metadata for storage
+        # Merge attributes into metadata for storage. ``aliases`` is written as
+        # a top-level list property instead, so that ``GET_ENTITY_BY_NAME``
+        # (``$name IN e.aliases``) can actually find the entity by alias.
         storage_metadata = {**entity.metadata}
         if entity.attributes:
             storage_metadata["attributes"] = entity.attributes
-        if entity.aliases:
-            storage_metadata["aliases"] = entity.aliases
 
         # Store entity with dynamic labels for type/subtype
-        create_query = build_create_entity_query(entity.type, entity.subtype)
-        await self._client.execute_write(
+        create_query = build_create_entity_query(entity.type, entity.subtype, include_aliases=True)
+        results = await self._client.execute_write(
             create_query,
             {
                 "id": str(entity.id),
@@ -531,10 +594,25 @@ class LongTermMemory(BaseMemory[Entity], LongTermProtocol):
                 "description": entity.description,
                 "embedding": entity.embedding,
                 "confidence": entity.confidence,
+                "aliases": entity.aliases or [],
                 "metadata": _serialize_metadata(storage_metadata) if storage_metadata else None,
                 "location": location_point,  # Neo4j Point for LOCATION entities
             },
         )
+
+        # The query MERGEs on (name, type): when a node with that name+type
+        # already exists, ``ON MATCH`` keeps its original ``id`` (and any
+        # property it already had) and discards the freshly minted one. Adopt
+        # what the database actually holds, otherwise callers get an entity
+        # whose id matches no node, and every later write keyed on that id —
+        # ``add_relationship``, ``link_entity_to_message`` — silently does
+        # nothing.
+        #
+        # The ``id`` check keeps a node written by something other than this
+        # library (no ``id`` property) from turning into a KeyError inside
+        # ``_parse_entity`` on the write path. Such a node is left as-is.
+        if results and results[0].get("e") and results[0]["e"].get("id"):
+            entity = self._parse_entity(dict(results[0]["e"]))
 
         # If flagged for review, create SAME_AS relationship
         if dedup_result.action == "flagged" and dedup_result.matched_entity_id:
@@ -964,7 +1042,7 @@ class LongTermMemory(BaseMemory[Entity], LongTermProtocol):
             attributes=attributes or {},
         )
 
-        await self._client.execute_write(
+        results = await self._client.execute_write(
             queries.CREATE_ENTITY_RELATIONSHIP,
             {
                 "id": str(relationship.id),
@@ -977,6 +1055,45 @@ class LongTermMemory(BaseMemory[Entity], LongTermProtocol):
                 "valid_until": valid_until.isoformat() if valid_until else None,
             },
         )
+
+        # ``CREATE_ENTITY_RELATIONSHIP`` MATCHes both endpoints *before* it
+        # MERGEs the edge, so ids that match no node — a stale id, or the
+        # client-minted id ``add_entity`` used to hand back for an existing
+        # node (see #79) — write zero rows without raising. Report that rather
+        # than returning a relationship the graph does not contain.
+        if not results:
+            raise NotFoundError(
+                f"Cannot create {relationship_type!r} relationship: no :Entity node "
+                f"found for source {source_id} or target {target_id}. Use the ids "
+                "stored on the nodes (e.g. the result of add_entity / "
+                "get_entity_by_name), not ids minted client-side."
+            )
+
+        # The MERGE key is (endpoints, relation type), so re-adding an existing
+        # relationship keeps its original id: ``ON CREATE`` did not run, and the
+        # fresh uuid above addresses no edge. Report what the graph holds
+        # instead of echoing the arguments, which would hand back a ghost id.
+        # The query projects these as aliases because ``Result.data()``
+        # flattens a bare ``RETURN r`` to a ``(start, type, end)`` tuple.
+        stored = results[0]
+        stored_id = stored.get("id")
+        if stored_id is not None:
+            stored_confidence = stored.get("confidence")
+            relationship = Relationship(
+                id=UUID(str(stored_id)),
+                source_id=source_id,
+                target_id=target_id,
+                type=relationship_type,
+                # ``description`` falls back to the argument because writing
+                # ``null`` on create is indistinguishable from never having set
+                # it. ``valid_from`` / ``valid_until`` are stored as ISO strings
+                # but read back as ``datetime`` fields, so they stay as passed.
+                description=stored.get("description") or description,
+                confidence=(stored_confidence if stored_confidence is not None else confidence),
+                valid_from=valid_from,
+                valid_until=valid_until,
+                attributes=relationship.attributes,
+            )
 
         return relationship
 
@@ -1377,35 +1494,27 @@ class LongTermMemory(BaseMemory[Entity], LongTermProtocol):
     async def _add_alias_to_entity(self, entity_id: UUID, alias: str) -> None:
         """Add an alias to an existing entity.
 
+        Appends to the entity's top-level ``aliases`` list property in a
+        single write (no read-modify-write of the whole ``metadata`` blob), so
+        two concurrent callers cannot drop each other's alias.
+
         Args:
             entity_id: Entity UUID
             alias: Alias to add
         """
-        # Get current entity
-        entity = await self._get_entity_by_id(entity_id)
-        if entity is None:
-            return
-
-        # Update aliases in metadata
-        current_aliases = entity.aliases or []
-        if alias not in current_aliases:
-            current_aliases.append(alias)
-
-        # Update in database
-        storage_metadata = {**entity.metadata}
-        storage_metadata["aliases"] = current_aliases
-        if entity.attributes:
-            storage_metadata["attributes"] = entity.attributes
-
         await self._client.execute_write(
             """
             MATCH (e:Entity {id: $id})
-            SET e.metadata = $metadata
+            SET e.aliases = CASE
+                WHEN e.aliases IS NULL THEN [$alias]
+                WHEN NOT $alias IN e.aliases THEN e.aliases + $alias
+                ELSE e.aliases
+            END
             RETURN e
             """,
             {
                 "id": str(entity_id),
-                "metadata": _serialize_metadata(storage_metadata),
+                "alias": alias,
             },
         )
 
@@ -1416,7 +1525,8 @@ class LongTermMemory(BaseMemory[Entity], LongTermProtocol):
     ) -> list[tuple[Entity, Entity, float]]:
         """Find entities that are flagged as potential duplicates.
 
-        Returns pairs of entities with SAME_AS relationships in 'pending' status.
+        Returns pairs of entities with SAME_AS relationships in 'pending' status,
+        one tuple per pair: the flagged (newly added) entity, then its existing match.
 
         Args:
             limit: Maximum number of duplicate pairs to return
@@ -1433,18 +1543,8 @@ class LongTermMemory(BaseMemory[Entity], LongTermProtocol):
         for row in results:
             entity1 = self._parse_entity(dict(row["e1"]))
             entity2 = self._parse_entity(dict(row["e2"]))
-
-            # Get relationship properties
-            rel = row["r"]
-            if hasattr(rel, "_properties"):
-                rel_data = dict(rel._properties)
-            elif hasattr(rel, "items"):
-                rel_data = dict(rel)
-            else:
-                rel_data = {}
-
-            confidence = rel_data.get("confidence", 0.0)
-            duplicates.append((entity1, entity2, confidence))
+            confidence = row.get("confidence")
+            duplicates.append((entity1, entity2, float(confidence or 0.0)))
 
         return duplicates
 
@@ -1455,8 +1555,31 @@ class LongTermMemory(BaseMemory[Entity], LongTermProtocol):
     ) -> tuple[Entity, Entity] | None:
         """Merge two entities, keeping the target and marking source as merged.
 
-        The source entity's name is added as an alias to the target.
-        Any relationships pointing to the source are transferred to the target.
+        The source entity's name is added to the target's ``aliases``, and every
+        edge the source carries is copied onto the target so the surviving
+        entity does not lose graph context:
+
+        * ``MENTIONS`` (inbound, from ``Message``)
+        * ``RELATED_TO`` (both directions)
+        * ``SAME_AS``
+        * ``EXTRACTED_FROM`` (outbound provenance to ``Message``)
+        * ``EXTRACTED_BY`` (outbound provenance to ``Extractor``)
+        * ``APPLIES_TO`` (inbound, from ``Preference``)
+        * ``TOUCHED`` (inbound, from ``ReasoningStep``)
+
+        Edges are *copied*, not moved: the merged-away source keeps its own
+        edges so the merge stays reversible and auditable, and the source is
+        marked with ``merged_into`` / ``merged_at`` to exclude it from
+        deduplication candidate scans. How a copy is marked depends on its type:
+
+        * ``RELATED_TO`` copies keep the source edge's ``id`` and gain
+          ``migrated_from`` (the source entity id), so the pair is
+          identifiable; nothing looks a ``RELATED_TO`` edge up by its id.
+        * ``EXTRACTED_FROM``, ``EXTRACTED_BY``, ``APPLIES_TO`` and ``TOUCHED``
+          copies gain ``migrated_from`` only.
+        * ``SAME_AS`` copies carry ``match_type: 'merged'`` and the source
+          edge's ``confidence``, with no ``migrated_from``.
+        * ``MENTIONS`` copies carry no marker.
 
         Args:
             source_id: ID of entity to merge from (will be marked as merged)
@@ -2091,7 +2214,17 @@ class LongTermMemory(BaseMemory[Entity], LongTermProtocol):
         """Parse entity from database result."""
         metadata = _deserialize_metadata(data.get("metadata"))
         attributes = metadata.pop("attributes", {})
-        aliases = metadata.pop("aliases", [])
+        # ``aliases`` lives as a top-level list property. Nodes written before
+        # that became the case kept them inside the ``metadata`` JSON blob, so
+        # fall back to that location for rows that have no top-level list.
+        aliases = data.get("aliases")
+        if isinstance(aliases, list) and aliases:
+            metadata.pop("aliases", None)
+        else:
+            aliases = metadata.pop("aliases", [])
+        # Surface background-enrichment results (stored as node properties)
+        # through ``entity.metadata`` — see CLAUDE.md implementation note 22.
+        metadata.update(_enrichment_metadata(data))
 
         return Entity(
             id=UUID(data["id"]),

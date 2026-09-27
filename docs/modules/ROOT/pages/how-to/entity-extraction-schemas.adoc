@@ -1,292 +1,92 @@
-= Entity Extraction: Domain Schemas
+= Apply a custom entity extraction schema
 :page-product: agent-memory
 :page-pagination:
-:toclevels: 3
+:toclevels: 2
 :sectanchors:
-:icons: font
-:source-highlighter: highlight.js
 
-How to use pre-built domain schemas and define custom entity types for domain-specific extraction.
+include::partial$backend-client-side.adoc[]
 
-[TIP]
-====
-Domain schemas dramatically improve extraction quality for specialized text. A financial schema trained to recognize TICKER vs SECURITY vs AMOUNT will outperform a generic POLE+O schema on financial documents, even with the same underlying model.
-====
+To identify customer and product mentions, provide domain descriptions and an explicit mapping from extraction labels to persisted entity types. Test the mapping against a representative sentence before writing graph data.
 
-== Available Built-In Schemas
+For the rationale, see xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline].
 
-[cols="1,3,2", options="header"]
-|===
-|Schema |Optimized For |Key Entity Types
+== 1. Install the local extractor
 
-|`poleo`
-|General investigations and intelligence
-|PERSON, OBJECT, LOCATION, EVENT, ORGANIZATION
+anchor:_prerequisites[]
 
-|`financial`
-|Investment and financial services
-|SECURITY, TICKER, ACCOUNT, AMOUNT, RISK_PROFILE
+Use Python 3.10 or newer and a POSIX shell. Prepare the example files and install the required extra:
 
-|`ecommerce`
-|Retail and customer support
-|PRODUCT, SKU, ORDER_ID, CARRIER, PROMOTION
+include::partial$python-tutorial-setup.adoc[]
 
-|`podcast`
-|Podcast transcripts
-|PERSON, COMPANY, PRODUCT, CONCEPT, TECHNOLOGY
+[source,bash]
+----
+python -m pip install 'neo4j-agent-memory[gliner]==0.6.0'
+----
 
-|`news`
-|News articles
-|PERSON, ORGANIZATION, LOCATION, EVENT, DATE
+The maintained program `extraction_recipes.py` supplies its own imports, source texts, and event-loop entry point. It downloads the GLiNER model on first inference; allow disk space and network access for the download. These commands do not connect to a database or require an LLM API key.
 
-|`scientific`
-|Research papers
-|AUTHOR, INSTITUTION, METHOD, DATASET, METRIC
+include::partial$python-extraction-recipe-file.adoc[]
 
-|`medical`
-|Healthcare text
-|DISEASE, DRUG, SYMPTOM, PROCEDURE, GENE
+== 2. Configure and run the extraction
 
-|`legal`
-|Legal documents
-|CASE, COURT, LAW, MONETARY_AMOUNT
-|===
+anchor:_custom_schema_financial_services[]anchor:_custom_schema_ecommerce_retail[]anchor:_custom_domain_schemas[]anchor:_define_entity_types[]
 
-== Financial Services Schema
+The custom schema names `customer` and `product`. Its mapping uses `(TYPE, SUBTYPE)` tuples: a customer maps to PERSON and a product to OBJECT/PRODUCT. `for_schema` is reserved for registry names; a custom `DomainSchema` is passed to the constructor.
+
+The following function is included from the complete program. Run the maintained file with the command below it.
 
 [source,python]
 ----
-from neo4j_agent_memory.extraction import GLiNEREntityExtractor
-
-extractor = GLiNEREntityExtractor.for_schema("financial")
-
-text = """
-    Client meeting with Acme Investment Holdings regarding their Q4 portfolio review.
-    They currently hold 10,000 shares of Apple (AAPL) and 5,000 shares of Microsoft (MSFT).
-    The client expressed interest in increasing exposure to the AI sector, specifically
-    mentioning NVIDIA and AMD as potential additions. Risk tolerance remains moderate-growth.
-    Advisor Sarah Johnson recommended a 15% allocation to technology, balanced with
-    fixed income through the Vanguard Total Bond ETF (BND).
-"""
-
-result = await extractor.extract(text)
-for entity in result.entities:
-    print(f"{entity.name}: {entity.type}")
-    # Acme Investment Holdings: ORGANIZATION
-    # Apple: SECURITY  |  AAPL: TICKER
-    # Microsoft: SECURITY  |  NVIDIA: SECURITY
-    # Sarah Johnson: PERSON
-    # Vanguard Total Bond ETF: SECURITY  |  BND: TICKER
+include::example$extraction_recipes.py[tags=schema;extract]
 ----
 
-.Financial Entity Types
-[cols="1,2,2", options="header"]
-|===
-|Type |Description |Examples
-
-|PERSON |Clients, advisors, contacts |"John Smith", "Sarah Johnson"
-|ORGANIZATION |Companies, funds, institutions |"Acme Holdings", "BlackRock"
-|SECURITY |Stocks, bonds, ETFs, funds |"Apple Inc.", "Treasury Bond"
-|TICKER |Stock/fund symbols |"AAPL", "BND", "SPY"
-|ACCOUNT |Account types and numbers |"IRA", "401k", "Account #12345"
-|AMOUNT |Dollar amounts, percentages |"$50,000", "15%", "10,000 shares"
-|DATE |Dates and time periods |"Q4 2024", "next quarter"
-|SECTOR |Industry sectors |"Technology", "Healthcare"
-|RISK_PROFILE |Risk classifications |"moderate-growth", "conservative"
-|===
-
-== Ecommerce Retail Schema
-
-[source,python]
+[source,bash]
 ----
-extractor = GLiNEREntityExtractor.for_schema("ecommerce")
-
-text = """
-    Customer inquiry from Jane Doe (Gold member) about order #ORD-98765.
-    She ordered Nike Air Max 90 in size 9 (SKU: NKE-AM90-WHT-9) from our
-    mobile app. The package was shipped via FedEx (tracking: 1234567890)
-    to her address in Brooklyn, NY.
-"""
-
-result = await extractor.extract(text)
-for entity in result.entities:
-    print(f"{entity.name}: {entity.type}")
-    # Jane Doe: CUSTOMER  |  ORD-98765: ORDER_ID
-    # Nike Air Max 90: PRODUCT  |  NKE-AM90-WHT-9: SKU
-    # FedEx: CARRIER  |  Brooklyn, NY: LOCATION
+python extraction_recipes.py schema
 ----
 
-.Ecommerce Entity Types
-[cols="1,2,2", options="header"]
-|===
-|Type |Description |Examples
+== 3. Verify the result
 
-|CUSTOMER |Customer names and IDs |"Jane Doe", "CUST-12345"
-|PRODUCT |Product names |"Nike Air Max 90", "iPhone 15"
-|SKU |Product identifiers |"NKE-AM90-001"
-|BRAND |Brand names |"Nike", "Apple"
-|CATEGORY |Product categories |"Footwear", "Electronics"
-|ORDER_ID |Order identifiers |"ORD-98765", "#12345"
-|CARRIER |Shipping carriers |"FedEx", "UPS"
-|LOCATION |Addresses, stores, warehouses |"Brooklyn, NY", "Store #42"
-|PAYMENT_METHOD |Payment types |"Apple Pay", "Visa ****1234"
-|PROMOTION |Coupons, discounts |"20% off", "SUMMER2024"
-|===
+Expected: candidates from “Maya Chen bought a Trail Starter shoe,” with PERSON and/or OBJECT/PRODUCT types, then the verified candidate count. Model output can omit or misidentify a mention; inspect it before using the schema on a corpus.
 
-== Custom Domain Schemas
+The command raises on the documented failure conditions. Inspect candidate names, types, and confidence against source text before storing them. Counts alone do not measure extraction accuracy.
 
-=== Define Entity Types
+== Select a registered schema when it fits
 
-[source,python]
+anchor:_available_built_in_schemas[]anchor:_extend_built_in_schemas[]
+
+Registered names are `poleo`, `podcast`, `news`, `scientific`, `business`, `entertainment`, `medical`, and `legal`. The exact label inventories and descriptions are in xref:reference/schemas.adoc[built-in schemas]. There are no registered `financial` or `ecommerce` names. Use a custom schema for those domains.
+
+`DomainSchema` configures GLiNER label descriptions and optional relation descriptions. `EntitySchemaConfig` is the separate SDK schema configuration model; do not interchange the two or pass unsupported `examples` fields. `ExtractorBuilder.with_schema` forwards type names, not every constraint and relation in a schema configuration. See xref:reference/schemas.adoc[schema models and persistence] before relying on validation.
+
+== Extract relationships and persist schema configuration
+
+anchor:_relationship_extraction[]anchor:_persist_schemas_to_neo4j[]anchor:_glirel_no_llm_required[]anchor:_custom_relationship_types[]
+
+For GLiREL, install `glirel` and `loguru` explicitly — the SDK does not define a `glirel` extra, and GLiREL's current package requires `loguru` at import time without declaring that dependency — plus spaCy and the `en_core_web_sm` tokenizer model. GLiREL 1.2.1 also needs `protobuf` and `huggingface-hub` below 1.0, because it cannot load its model with 1.x:
+
+[source,bash]
 ----
-from neo4j_agent_memory.schema import EntitySchemaConfig, EntityTypeConfig
-
-insurance_schema = EntitySchemaConfig(
-    name="insurance",
-    version="1.0",
-    description="Schema for insurance industry context graphs",
-    entity_types=[
-        EntityTypeConfig(
-            name="POLICYHOLDER",
-            description="Insurance policy holder or applicant",
-            examples=["John Smith", "Acme Corporation"],
-        ),
-        EntityTypeConfig(
-            name="POLICY",
-            description="Insurance policy with number",
-            examples=["Policy #INS-2024-001", "Auto Policy 12345"],
-        ),
-        EntityTypeConfig(
-            name="CLAIM",
-            description="Insurance claim reference",
-            examples=["Claim #CLM-98765", "accident claim"],
-        ),
-        EntityTypeConfig(
-            name="COVERAGE",
-            description="Type of insurance coverage",
-            examples=["liability coverage", "comprehensive", "collision"],
-        ),
-        EntityTypeConfig(
-            name="PREMIUM",
-            description="Insurance premium amount",
-            examples=["$500/month", "annual premium of $6,000"],
-        ),
-        EntityTypeConfig(
-            name="VEHICLE",
-            description="Insured vehicle",
-            examples=["2024 Toyota Camry", "Honda Accord"],
-        ),
-    ],
-)
-
-extractor = GLiNEREntityExtractor.for_schema(insurance_schema)
+python -m pip install 'neo4j-agent-memory[gliner,spacy]==0.6.0' glirel 'loguru>=0.7,<1' 'huggingface-hub<1' protobuf
+python -m spacy download en_core_web_sm
 ----
 
-[TIP]
-====
-*Write descriptions as prompts.* The `description` field is what the model reads to decide whether a span matches this type. "Insurance policy holder or applicant" is better than "a person" — it gives the model the domain context it needs to avoid false positives.
+Then construct `GLiRELExtractor(relation_types=...)` and compose it with the entity extractor. A custom domain object's existence does not automatically wire a relation extractor. With `neo4j-agent-memory` 0.6.0 the GLiREL stage runs but returns no relations, because that release passes character offsets where GLiREL expects token positions; for relations on 0.6.0 use the LLM extractor stage (`LLMEntityExtractor`). The xref:tutorials/knowledge-graph.adoc[knowledge-graph tutorial] shows a complete storage path that takes relations from a chat model instead.
 
-Good examples (3-5 representative values) improve accuracy more than longer descriptions.
-====
+Persisting an `EntitySchemaConfig` through the Bolt schema manager stores configuration; it does not automatically validate every existing graph node or deploy a hosted ontology. Select/load the intended configuration explicitly when constructing extraction. See xref:reference/schemas.adoc[the persistence API] and xref:how-to/use-ontologies.adoc[hosted ontology tasks] for the separate contracts.
 
-=== Extend Built-In Schemas
+== Write effective schema descriptions
 
-[source,python]
-----
-from neo4j_agent_memory.schema import get_schema, EntityTypeConfig
+Improve GLiNER's zero-shot accuracy by tuning the description text passed to `DomainSchema`:
 
-base_schema = get_schema("ecommerce")
+1. Use descriptive names — `"A real estate property"` scores better than `"property"`.
+2. Include synonyms in the description — `"A company, startup, or business organization"` catches more of the mentions a plain `"company"` label misses.
+3. Be domain-specific — tailor descriptions to your corpus's vocabulary rather than reusing a generic label.
+4. Test thresholds on a sample document before committing to one — a lower `threshold` catches more entities but can reduce precision.
 
-custom_types = [
-    EntityTypeConfig(
-        name="LOYALTY_TIER",
-        description="Customer loyalty program tier",
-        examples=["Gold member", "Platinum status", "VIP"],
-    ),
-    EntityTypeConfig(
-        name="SUBSCRIPTION",
-        description="Subscription service",
-        examples=["Prime membership", "monthly box subscription"],
-    ),
-]
+== See also
 
-extended_schema = base_schema.extend(
-    name="ecommerce_extended",
-    additional_types=custom_types,
-)
-
-extractor = GLiNEREntityExtractor.for_schema(extended_schema)
-----
-
-=== Persist Schemas to Neo4j
-
-Store schemas in Neo4j for reuse across sessions and applications:
-
-[source,python]
-----
-from neo4j_agent_memory.schema import SchemaManager
-
-manager = SchemaManager(client)
-
-stored = await manager.save_schema(
-    insurance_schema,
-    created_by="admin",
-    set_active=True,
-)
-
-print(f"Schema saved with ID: {stored.id}")
-
-# Load schema in another session
-loaded = await manager.load_schema("insurance")
-extractor = GLiNEREntityExtractor.for_schema(loaded.config)
-----
-
-== Relationship Extraction
-
-=== GLiREL (No LLM Required)
-
-[source,python]
-----
-from neo4j_agent_memory.extraction import GLiNERWithRelationsExtractor
-
-extractor = GLiNERWithRelationsExtractor.for_schema("ecommerce")
-
-text = """
-    Jane Doe purchased Nike Air Max 90 from our Manhattan store.
-    The product was manufactured by Nike and shipped via FedEx.
-"""
-
-result = await extractor.extract(text)
-
-for rel in result.relations:
-    print(f"  ({rel.source}) -[:{rel.type}]-> ({rel.target})")
-    # (Jane Doe) -[:PURCHASED]-> (Nike Air Max 90)
-    # (Nike Air Max 90) -[:SOLD_AT]-> (Manhattan store)
-    # (Nike Air Max 90) -[:MANUFACTURED_BY]-> (Nike)
-    # (Nike Air Max 90) -[:SHIPPED_VIA]-> (FedEx)
-----
-
-=== Custom Relationship Types
-
-[source,python]
-----
-financial_relations = [
-    {"name": "ADVISES",      "description": "Financial advisor advises client"},
-    {"name": "HOLDS",        "description": "Account holds security position"},
-    {"name": "TRADED",       "description": "Executed trade in security"},
-    {"name": "SUBSIDIARY_OF","description": "Company is subsidiary of parent"},
-    {"name": "CUSTODIED_AT", "description": "Assets custodied at institution"},
-]
-
-extractor = GLiNERWithRelationsExtractor(
-    entity_schema="financial",
-    relation_types=financial_relations,
-)
-----
-
-== See Also
-
-* xref:how-to/entity-extraction.adoc[Basic Extraction & Pipelines]
-* xref:how-to/entity-extraction-batch.adoc[Batch & Streaming Extraction]
-* xref:reference/schemas.adoc[Schemas Reference]
-* xref:reference/extractors.adoc[Extractor Classes Reference]
+* xref:explanation/extraction-pipeline.adoc[Understanding the extraction pipeline]
+* xref:reference/schemas.adoc[Schema models and persistence]
+* xref:tutorials/knowledge-graph.adoc[Knowledge-graph tutorial]
+* xref:how-to/use-ontologies.adoc[Hosted ontology tasks]
