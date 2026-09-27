@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING: NAMS feedback wrappers no longer accept the ignored
+  `user_identifier` / `user_id` arguments.** The MCP, Pydantic AI, and Strands
+  surfaces now match the backend contract; callers should stop passing these
+  keywords. MCP entity-history and reflection limits and the Pydantic AI
+  entity-history limit are now enforced locally and must be at least 1. This
+  does not change backend or multi-tenant isolation semantics.
 - **BREAKING (behavioural): `client.ontology.get_active()` reports the bound
   revision.** It now reads `version_id`, `ontology_id`, `revision` and
   `validation_mode` from the `version` object in the `GET /ontologies/active`
@@ -235,12 +241,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING: NAMS feedback wrappers no longer accept the ignored
-  `user_identifier` / `user_id` arguments.** The MCP, Pydantic AI, and Strands
-  surfaces now match the backend contract; callers should stop passing these
-  keywords. MCP entity-history and reflection limits and the Pydantic AI
-  entity-history limit are now enforced locally and must be at least 1. This
-  does not change backend or multi-tenant isolation semantics.
 - **`[mcp]` extra moves to `fastmcp>=4.0,<5`** (was `>=2.0.0,<3`), which brings MCP
   Python SDK 2 (`mcp>=2`, `mcp-types`). The self-hosted MCP server was migrated to
   the FastMCP 4 API; tools, resources, prompts and both profiles are unchanged on
