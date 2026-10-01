@@ -1,5 +1,5 @@
 {
-  "_comment": "Arrows (https://arrows.app) JSON export of a small e-commerce support-desk model. NAMS converts it into a native ontology draft server-side \u2014 Python: client.ontology.import_(content=..., format='arrows'); TypeScript: client.ontology.import({ content, format: 'arrows' }). Node labels become entity types (mapped onto POLE+O), node properties become typed properties, and relationships become typed relationships.",
+  "_comment": "Arrows (https://arrows.app) JSON export of a small e-commerce support-desk model. client.ontology.import_(content=..., format='arrows') converts it into a native ontology draft (server-side on NAMS, locally on bolt); TypeScript: client.ontology.import({ content, format: 'arrows' }). Node labels become entity types (mapped onto POLE+O), node properties become typed properties, and relationships become typed relationships.",
   "nodes": [
     {
       "id": "n0",
