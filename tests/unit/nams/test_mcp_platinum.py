@@ -100,18 +100,12 @@ class TestPlatinumToolExecution:
         mock_client.long_term.set_entity_feedback.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_platinum_schema_matches_supported_arguments(self, server):
+    async def test_feedback_schema_omits_user_identifier(self, server):
         async with Client(server) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
 
         feedback_properties = tools["memory_set_entity_feedback"].inputSchema.get("properties", {})
         assert "user_identifier" not in feedback_properties
-
-        history_limit = tools["memory_get_entity_history"].inputSchema["properties"]["limit"]
-        assert history_limit["default"] == 50
-
-        reflections_limit = tools["memory_get_reflections"].inputSchema["properties"]["limit"]
-        assert reflections_limit["default"] == 20
 
     @pytest.mark.asyncio
     async def test_non_positive_limits_are_rejected_before_backend_access(

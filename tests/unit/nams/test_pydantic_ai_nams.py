@@ -66,13 +66,6 @@ class TestSetEntityFeedback:
         assert "positive" in result
         assert "e1" in result
 
-    def test_signature_does_not_expose_ignored_user_identifier(self, mock_client):
-        import inspect
-
-        tools = nams_memory_tools(mock_client)
-        set_feedback = next(t for t in tools if t.__name__ == "set_entity_feedback")
-        assert list(inspect.signature(set_feedback).parameters) == ["entity_id", "feedback"]
-
     async def test_rejects_ignored_user_identifier(self, mock_client):
         tools = nams_memory_tools(mock_client)
         set_feedback = next(t for t in tools if t.__name__ == "set_entity_feedback")

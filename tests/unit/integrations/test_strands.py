@@ -275,7 +275,6 @@ class TestToolDescriptions:
     def test_nams_feedback_tool_does_not_expose_ignored_user_id(
         self, mock_strands: MagicMock
     ) -> None:
-        # NAMS feedback exposes only arguments honored by the backend.
         with patch.dict("sys.modules", {"strands": mock_strands}):
             from neo4j_agent_memory.integrations.strands.tools import (
                 _nams_set_entity_feedback_tool,

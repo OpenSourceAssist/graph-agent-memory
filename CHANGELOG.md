@@ -9,12 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING: NAMS feedback wrappers no longer accept the ignored
-  `user_identifier` / `user_id` arguments.** The MCP, Pydantic AI, and Strands
-  surfaces now match the backend contract; callers should stop passing these
-  keywords. MCP entity-history and reflection limits and the Pydantic AI
-  entity-history limit are now enforced locally and must be at least 1. This
-  does not change backend or multi-tenant isolation semantics.
+- **Breaking:** Remove the ignored `user_identifier` / `user_id` keywords from
+  NAMS feedback tools in MCP, Pydantic AI, and Strands. Callers must omit them;
+  backend isolation is unchanged.
+- Enforce positive limits for MCP history/reflections and Pydantic AI history.
 
 ## [0.7.0] - 2026-10-07
 
