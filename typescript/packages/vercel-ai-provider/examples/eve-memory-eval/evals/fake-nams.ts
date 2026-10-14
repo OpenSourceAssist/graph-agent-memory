@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 
 interface Conversation { id: string; userId: string; metadata: Record<string, unknown>; createdAt: string; updatedAt: string }
 interface Message { id: string; role: string; content: string; createdAt: string }
+interface Entity { id: string; name: string; type: string; description?: string; userId: string; createdAt: string }
 
 async function readJson(req: IncomingMessage): Promise<any> {
   let raw = "";
@@ -16,16 +17,21 @@ const ACCEPTS: Record<string, string[]> = {
   messages: ["role", "content", "metadata"],
   bulk: ["messages"],
   search: ["query", "limit"],
+  entitySearch: ["query", "type", "limit", "userId"],
 };
 
 /**
  * A small stand-in for the NAMS server, kept in memory.
- * Like the real one, it filters chats by `userId` and rejects unknown fields.
+ * Like the real one, it filters chats and entities by `userId` and rejects
+ * unknown fields. It extracts nothing: a test adds entities to `entities`.
  */
 export async function startFakeNams() {
   const conversations: Conversation[] = [];
   const messages = new Map<string, Message[]>();
+  const entities: Entity[] = [];
   const requests: string[] = [];
+  /** The body of every entity search. */
+  const entitySearches: Record<string, unknown>[] = [];
   /** Requests turned away for an unknown field. Should stay empty. */
   const rejected: string[] = [];
   let ids = 0;
@@ -49,6 +55,17 @@ export async function startFakeNams() {
       res.end(JSON.stringify(payload));
     };
     const [v1, collection, id, sub, sub2] = url.pathname.split("/").filter(Boolean);
+    if (v1 === "v1" && collection === "entities" && id === "search" && req.method === "POST") {
+      const unknown = Object.keys(body).find((f) => !ACCEPTS.entitySearch.includes(f));
+      if (unknown) {
+        rejected.push(`${req.method} ${url.pathname}: unknown field: ${unknown}`);
+        return send(400, { error: `unknown field: ${unknown}` });
+      }
+      entitySearches.push(body);
+      // Like vector search, every entity in scope is a candidate.
+      const found = entities.filter((e) => !body.userId || e.userId === body.userId).slice(0, body.limit ?? 20);
+      return send(200, { entities: found, searchType: "vector" });
+    }
     if (v1 !== "v1" || collection !== "conversations") return send(404, { error: "not found" });
 
     // Like the real server: an unknown field is an error, not ignored.
@@ -97,6 +114,8 @@ export async function startFakeNams() {
     endpoint: `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`,
     conversations,
     messages,
+    entities,
+    entitySearches,
     requests,
     rejected,
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),

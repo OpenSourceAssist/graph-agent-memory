@@ -1,14 +1,17 @@
 /**
  * Tests for the eve memory provider.
  *
- * The fake NAMS below returns every user's chats (the worst case), sends
- * messages newest first, and matches text exactly.
+ * The fake NAMS below returns every user's chats and entities (the worst
+ * case), lists newest first up to the limit, sends messages newest first,
+ * and matches text exactly.
  *
  * Checks:
  *  - each user only sees their own memory
  *  - asking twice gives the same answer
  *  - a bad or missing key stops the chat; other errors don't
- *  - shared workspace facts are used only when turned on
+ *  - the user's own entities are recalled, shared ones only when turned on,
+ *    and other users' never
+ *  - saved notes are found behind any number of newer chats
  *  - each chat is saved once, even after a restart
  *  - search and remember stay with their user
  */
@@ -53,7 +56,7 @@ function makeFakeNams() {
   const conversations: StoredConversation[] = [];
   const messages = new Map<string, StoredMessage[]>();
   const summaries = new Map<string, string[]>();
-  const entities: { name: string; type: string; description?: string }[] = [];
+  const entities: { name: string; type: string; description?: string; userId?: string }[] = [];
 
   const append = (conversationId: string, role: string, content: string): StoredMessage => {
     const message = { id: `msg-${++ids}`, role, content, timestamp: tick() };
@@ -72,9 +75,14 @@ function makeFakeNams() {
 
   const client = {
     shortTerm: {
-      // Worst case: ignores userId and returns everyone's chats.
-      listConversations: vi.fn(async (_options?: { userId?: string; limit?: number }) =>
-        [...conversations].reverse().map(c => ({ ...c, sessionId: c.id, messages: [] }))),
+      // Worst case: ignores userId and returns everyone's chats. Like real NAMS,
+      // newest first by updatedAt, up to the limit.
+      listConversations: vi.fn(async (options?: { userId?: string; limit?: number }) =>
+        [...conversations]
+          .reverse()
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+          .slice(0, options?.limit ?? 100)
+          .map(c => ({ ...c, sessionId: c.id, messages: [] }))),
       createConversation: vi.fn(async (options: { userId: string; metadata: Record<string, string> }) => {
         const conversation = store(options.userId, options.metadata);
         return { ...conversation, sessionId: conversation.id, messages: [] };
@@ -102,7 +110,8 @@ function makeFakeNams() {
       addMessage: vi.fn(async (id: string, role: string, content: string) => append(id, role, content)),
     },
     longTerm: {
-      searchEntities: vi.fn(async (query: string) =>
+      // Worst case: ignores userId and returns everyone's entities.
+      searchEntities: vi.fn(async (query: string, _options?: { limit?: number; userId?: string }) =>
         entities.filter(e => e.name.includes(query)).map((e, i) => ({ id: `ent-${i}`, ...e }))),
     },
   };
@@ -294,9 +303,25 @@ describe('recall', () => {
     expect(await recallText(provider, started(ALICE, 's1', 'op-1', 'hi'))).toContain('could not be read');
   });
 
-  it('fails the turn on a rejected key', async () => {
+  it('fails the turn on a rejected key (401)', async () => {
     nams.client.shortTerm.listConversations.mockRejectedValueOnce(
-      Object.assign(new Error('401 Unauthorized'), { name: 'AuthenticationError' }));
+      Object.assign(new Error('401 Unauthorized'), { name: 'AuthenticationError', statusCode: 401 }));
+    const provider = namsMemory({ apiKey: 'bad-key' });
+
+    await expect(provider.recall['turn.started'](started(ALICE, 's1', 'op-1', 'hi'))).rejects.toThrow('401');
+  });
+
+  it('keeps the turn going on a 403', async () => {
+    nams.client.shortTerm.listConversations.mockRejectedValueOnce(
+      Object.assign(new Error('403 Forbidden'), { name: 'AuthenticationError', statusCode: 403 }));
+    const provider = namsMemory({ apiKey: 'test-key' });
+
+    expect(await recallText(provider, started(ALICE, 's1', 'op-1', 'hi'))).toContain('could not be read');
+  });
+
+  it('fails the turn on an AuthenticationError without a status (SDK 0.5.0)', async () => {
+    nams.client.shortTerm.listConversations.mockRejectedValueOnce(
+      Object.assign(new Error('Authentication failed: 401 Unauthorized'), { name: 'AuthenticationError' }));
     const provider = namsMemory({ apiKey: 'bad-key' });
 
     await expect(provider.recall['turn.started'](started(ALICE, 's1', 'op-1', 'hi'))).rejects.toThrow('401');
@@ -309,18 +334,50 @@ describe('recall', () => {
     await expect(provider.recall['turn.started'](started(ALICE, 's1', 'op-1', 'hi'))).rejects.toThrow(/MEMORY_API_KEY/);
   });
 
-  it('reads the workspace graph only when asked to', async () => {
-    nams.entities.push({ name: 'Lisbon', type: 'LOCATION', description: 'Capital of Portugal' });
+  it("recalls the user's own entities, though NAMS returns everyone's", async () => {
+    nams.entities.push(
+      { name: 'Lisbon', type: 'LOCATION', description: 'Where Alice is moving', userId: ALICE },
+      { name: 'Lisbon office', type: 'LOCATION', userId: BOB },
+      { name: 'Lisbon Tower', type: 'LOCATION', description: 'Shared' },
+    );
 
-    await recallText(namsMemory({ apiKey: 'test-key' }), started(ALICE, 's1', 'op-1', 'Lisbon'));
-    expect(nams.client.longTerm.searchEntities).not.toHaveBeenCalled();
+    const text = await recallText(namsMemory({ apiKey: 'test-key' }), started(ALICE, 's1', 'op-1', 'Lisbon'));
+
+    expect(text).toContain("From this user's knowledge graph:\n- Lisbon — Where Alice is moving");
+    expect(text).not.toContain('Lisbon office');
+    expect(text).not.toContain('Lisbon Tower');
+    expect(nams.client.longTerm.searchEntities.mock.calls.map(([, options]) => options)).toEqual([
+      { limit: 5, userId: ALICE },
+    ]);
+  });
+
+  it("adds shared entities with workspaceGraph, and still no other user's", async () => {
+    nams.entities.push(
+      { name: 'Lisbon', type: 'LOCATION', description: 'Where Alice is moving', userId: ALICE },
+      { name: 'Lisbon office', type: 'LOCATION', userId: BOB },
+      { name: 'Lisbon Tower', type: 'LOCATION', description: 'Shared' },
+    );
 
     const text = await recallText(
       namsMemory({ apiKey: 'test-key', workspaceGraph: true }),
-      started(ALICE, 's1', 'op-2', 'Lisbon'),
+      started(ALICE, 's1', 'op-1', 'Lisbon'),
     );
-    expect(text).toContain('workspace knowledge graph');
-    expect(text).toContain('Lisbon — Capital of Portugal');
+
+    expect(text).toContain('Lisbon — Where Alice is moving');
+    expect(text).toContain('workspace knowledge graph (shared across the workspace, not specific to this user):\n- Lisbon Tower — Shared');
+    expect(text).not.toContain('Lisbon office');
+  });
+
+  it('finds notes behind more newer sessions than one listing holds, looking back once', async () => {
+    nams.seed(ALICE, { kind: 'notes', said: ['Prefers aisle seats'] });
+    for (let i = 0; i < 200; i++) nams.seed(ALICE, { session: `old-${i}` });
+    const provider = namsMemory({ apiKey: 'test-key' });
+
+    expect(await recallText(provider, started(ALICE, 's1', 'op-1', 'hello'))).toContain('Prefers aisle seats');
+    expect(await recallText(provider, started(ALICE, 's1', 'op-2', 'hello'))).toContain('Prefers aisle seats');
+
+    const deep = nams.client.shortTerm.listConversations.mock.calls.filter(([options]) => options!.limit! > 200);
+    expect(deep).toHaveLength(1);
   });
 
   it('after a standalone compaction, recalls notes without searching', async () => {
@@ -410,6 +467,17 @@ describe('tools', () => {
     expect(await recallText(provider, started(BOB, 's3', 'op-2', 'hello'))).not.toContain('aisle');
   });
 
+  it('remember adds to notes older than one listing holds, after a restart too', async () => {
+    const notes = nams.seed(ALICE, { kind: 'notes', said: ['Prefers aisle seats'] });
+    for (let i = 0; i < 200; i++) nams.seed(ALICE, { session: `old-${i}` });
+    const alice = await toolsFor(namsMemory({ apiKey: 'test-key' }), ALICE, 's1');
+
+    await alice.remember({ memory: 'Lives in Oslo' });
+
+    expect(nams.client.shortTerm.createConversation).not.toHaveBeenCalled();
+    expect(nams.messages.get(notes.id)!.map(m => m.content)).toEqual(['Prefers aisle seats', 'Lives in Oslo']);
+  });
+
   it('two remember calls in one step share one notes conversation', async () => {
     const alice = await toolsFor(namsMemory({ apiKey: 'test-key' }), ALICE, 's1');
 
@@ -432,5 +500,18 @@ describe('tools', () => {
       'Book me a peanut-free restaurant',
     ]);
     expect(results.find((r: { content: string }) => r.content === 'Allergic to peanuts').from).toBe('saved note');
+  });
+
+  it("search returns the user's own entities, not other users'", async () => {
+    nams.entities.push(
+      { name: 'Peanuts', type: 'ALLERGEN', description: 'Alice is allergic', userId: ALICE },
+      { name: 'Peanut butter', type: 'FOOD', userId: BOB },
+    );
+    const alice = await toolsFor(namsMemory({ apiKey: 'test-key' }), ALICE, 's1');
+
+    const result = await alice.search({ query: 'Peanut' });
+
+    expect(result.entities).toEqual(['Peanuts — Alice is allergic']);
+    expect(result).not.toHaveProperty('workspaceGraph');
   });
 });

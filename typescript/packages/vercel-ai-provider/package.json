@@ -58,9 +58,9 @@
   },
   "peerDependencies": {
     "@ai-sdk/mcp": "^2.0.0",
-    "@neo4j-labs/agent-memory": "~0.4.0 || ~0.5.0",
+    "@neo4j-labs/agent-memory": "~0.5.0",
     "ai": "^7.0.0",
-    "eve": "~0.69.0 || ~0.70.0 || ~0.71.0",
+    "eve": ">=0.69.0",
     "zod": "^3.25.76 || ^4.1.8"
   },
   "peerDependenciesMeta": {
@@ -74,7 +74,7 @@
   "devDependencies": {
     "@ai-sdk/mcp": "^2.0.66",
     "@ai-sdk/openai": "^4.0.83",
-    "@neo4j-labs/agent-memory": "^0.4.0",
+    "@neo4j-labs/agent-memory": "0.5.0",
     "@types/node": "^22",
     "ai": "^7.0.127",
     "eve": "~0.71.0",
