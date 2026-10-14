@@ -294,7 +294,7 @@ the optional `eve` peer.
 | `workspaceId`
 | `string`
 | `MEMORY_WORKSPACE_ID`
-| Without one, the key's own workspace.
+| _(optional)_ NAMS workspace. Without one, the key's own workspace.
 
 | `logger`
 | `NamsLogger`
@@ -589,7 +589,7 @@ and the eve provider are chosen entirely in code.
 | `^2.0.0` — only needed for `toolsWithMcp()`, loaded lazily.
 
 | `eve` _(optional)_
-| `~0.69.0 \|\| ~0.70.0 \|\| ~0.71.0` — only needed for the `/eve` entry point.
+| `>=0.69.0` — only needed for the `/eve` entry point.
 |===
 
 Requires Node.js 22 or newer (`engines.node: ">=22"`); the `/eve` entry point

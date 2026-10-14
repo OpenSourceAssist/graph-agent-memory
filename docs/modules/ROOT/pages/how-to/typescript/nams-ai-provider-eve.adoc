@@ -16,8 +16,9 @@ context that outlives a session.
 
 Prerequisites:
 
-* An eve project on eve 0.69, 0.70 or 0.71. Earlier releases do not run a
-  provider's capture handler after a completed turn.
+* An eve project on eve 0.69.0 or later. Earlier releases do not run a
+  provider's capture handler after a completed turn. The provider is tested
+  on eve 0.69.0, 0.70.3, 0.71.0, 0.75.1, 0.77.0, 0.78.0 and 0.79.0.
 * Node.js 24 or newer, which eve requires.
 * A `MEMORY_API_KEY` from https://memory.neo4jlabs.com[memory.neo4jlabs.com].
 
@@ -113,7 +114,7 @@ no user id to pass, so it cannot ask for someone else's memory.
 
 | `workspaceId`
 | `MEMORY_WORKSPACE_ID`
-| NAMS workspace. Without one, the key's own workspace.
+| _(optional)_ NAMS workspace. Without one, the key's own workspace.
 
 | `endpoint`
 | hosted NAMS
@@ -158,9 +159,14 @@ before turning it on.
   back empty; notes and summaries still work. It also sends the user filter as
   `user_id`, which hosted NAMS ignores, so reads see only the workspace's
   newest 200 conversations.
-* *No forgetting yet.* Hosted NAMS cannot delete a single message, so there is
-  no `forget` tool. Deleting a NAMS conversation does not delete the entities
-  extracted from it.
+* *No `forget` tool.* Hosted NAMS cannot delete a single message, so the model
+  cannot drop one memory. To erase a scope's memory, call the NAMS endpoint
+  `DELETE /v1/memory?userId=<scope key>`, where the scope key is the `userId`
+  on the scope's conversations. It removes every conversation stored under
+  that `userId` and the entities in that user's memory; entities shared with
+  other users stay. Repeat the call while it answers `status: "incomplete"`.
+  Deleting one conversation keeps the entities extracted from it unless the
+  request adds `purge=extracted`.
 
 == Failures
 
