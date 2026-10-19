@@ -252,6 +252,66 @@ describe("RestTransport — long-term", () => {
     expect(entities[0]!.name).toBe("Alice");
   });
 
+  it("searchEntities sends the userId filter and reads each entity's userId", async () => {
+    let observedBody: unknown = null;
+    server.use(
+      http.post(`${ENDPOINT}/entities/search`, async ({ request }) => {
+        observedBody = await request.json();
+        return HttpResponse.json({
+          entities: [
+            { id: "e1", name: "Alice", type: "person", createdAt: "x", userId: "u-1" },
+            { id: "e2", name: "Acme", type: "organization", createdAt: "x", userId: "" },
+          ],
+        });
+      }),
+    );
+
+    const client = newClient();
+    const entities = await client.longTerm.searchEntities("alice", { userId: "u-1", limit: 5 });
+    await client.close();
+
+    expect(observedBody).toEqual({ query: "alice", limit: 5, userId: "u-1" });
+    expect(entities[0]!.userId).toBe("u-1");
+    expect(entities[1]!.userId).toBeUndefined();
+  });
+
+  it("addEntity sends userId with the fields hosted NAMS accepts", async () => {
+    let observedBody: unknown = null;
+    server.use(
+      http.post(`${ENDPOINT}/entities`, async ({ request }) => {
+        observedBody = await request.json();
+        return HttpResponse.json(
+          { id: "e1", name: "Alice", type: "person", userId: "u-1", resolution: "created" },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const client = newClient();
+    const entity = await client.longTerm.addEntity("Alice", "person", { description: "A user", userId: "u-1" });
+    await client.close();
+
+    expect(observedBody).toEqual({ name: "Alice", type: "person", description: "A user", userId: "u-1" });
+    expect(entity.userId).toBe("u-1");
+  });
+
+  it("getEntity sends the userId filter as a query param", async () => {
+    const searches: string[] = [];
+    server.use(
+      http.get(`${ENDPOINT}/entities/e1`, ({ request }) => {
+        searches.push(new URL(request.url).search);
+        return HttpResponse.json({ id: "e1", name: "Alice", type: "person", userId: "u-1", relationships: [] });
+      }),
+    );
+
+    const client = newClient();
+    await client.longTerm.getEntity("e1", { userId: "u-1" });
+    await client.longTerm.getEntity("e1");
+    await client.close();
+
+    expect(searches).toEqual(["?userId=u-1", ""]);
+  });
+
   it("expandGraph posts nodeId at the top level of the body", async () => {
     // Regression: the route lacked `snakeBody`, so `expandGraph`'s `body`
     // object was nested under a literal `body` key and the live service
@@ -309,6 +369,158 @@ describe("RestTransport — long-term", () => {
     expect(graph.nodes).toHaveLength(1);
     expect(graph.edges).toHaveLength(1);
   });
+
+  it("getEntity reads the hosted relationship shape", async () => {
+    server.use(
+      http.get(`${ENDPOINT}/entities/e1`, () =>
+        HttpResponse.json({
+          id: "e1", name: "Acme", type: "organization", createdAt: "x",
+          relationships: [
+            {
+              id: "r1", relationshipType: "WORKS_AT", relType: "WORKS_AT", direction: "in",
+              targetId: "e2", targetName: "Alice", targetType: "person", confidence: 0.9, predicate: "",
+            },
+            {
+              id: "r2", relationshipType: "RELATED_TO", relType: "RELATED_TO", direction: "out",
+              targetId: "e3", targetName: "Bob", targetType: "person", predicate: "MENTORS",
+            },
+          ],
+        }),
+      ),
+    );
+
+    const client = newClient();
+    const entity = await client.longTerm.getEntity("e1");
+    await client.close();
+
+    expect(entity.relationships).toEqual([
+      {
+        id: "r1", type: "WORKS_AT", direction: "in", targetId: "e2", targetName: "Alice",
+        targetType: "person", confidence: 0.9,
+      },
+      {
+        id: "r2", type: "RELATED_TO", direction: "out", targetId: "e3", targetName: "Bob",
+        targetType: "person", predicate: "MENTORS",
+      },
+    ]);
+    expect(entity.relationships?.[0]).not.toHaveProperty("predicate", "");
+  });
+
+  it("getEntityByName sends name, type and userId and returns the best match", async () => {
+    const searches: string[] = [];
+    let matches: unknown[] = [
+      { id: "e1", name: "Acme Corp", type: "organization", userId: "u-1", matchKind: "name", createdAt: "x" },
+      { id: "e2", name: "ACME", type: "organization", userId: "u-1", matchKind: "alias", createdAt: "x" },
+    ];
+    server.use(
+      http.get(`${ENDPOINT}/entities/by-name`, ({ request }) => {
+        searches.push(new URL(request.url).search);
+        return HttpResponse.json({ entities: matches });
+      }),
+    );
+
+    const client = newClient();
+    const entity = await client.longTerm.getEntityByName("Acme Corporation", {
+      type: "organization", userId: "u-1",
+    });
+    matches = [];
+    const missing = await client.longTerm.getEntityByName("Nobody");
+    await client.close();
+
+    expect(searches).toEqual([
+      "?name=Acme%20Corporation&type=organization&userId=u-1",
+      "?name=Nobody",
+    ]);
+    expect(entity).toMatchObject({ id: "e1", name: "Acme Corp", userId: "u-1" });
+    expect(missing).toBeNull();
+  });
+
+  it("addRelationship posts the fields hosted NAMS accepts", async () => {
+    let observedBody: unknown = null;
+    server.use(
+      http.post(`${ENDPOINT}/relationships`, async ({ request }) => {
+        observedBody = await request.json();
+        return HttpResponse.json(
+          {
+            id: "r1", sourceId: "e1", targetId: "e2", relationshipType: "RELATED_TO",
+            predicate: "MENTORS", confidence: 1, created: true,
+          },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const client = newClient();
+    const relationship = await client.longTerm.addRelationship("e1", "e2", "MENTORS", {
+      properties: { since_year: 2024 },
+      userId: "u-1",
+    });
+    await client.close();
+
+    expect(observedBody).toEqual({
+      sourceId: "e1", targetId: "e2", relationshipType: "MENTORS",
+      properties: { since_year: 2024 }, userId: "u-1",
+    });
+    expect(relationship).toEqual({
+      id: "r1", sourceId: "e1", targetId: "e2", relationshipType: "RELATED_TO",
+      properties: {}, predicate: "MENTORS",
+    });
+  });
+});
+
+describe("RestTransport — message search and metadata", () => {
+  it("searchMessages sends no threshold and applies one to the scores", async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      http.post(`${ENDPOINT}/conversations/c1/search`, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({
+          messages: [
+            { id: "m1", role: "user", content: "close", createdAt: "x", score: 0.683 },
+            { id: "m2", role: "user", content: "far", createdAt: "x", score: 0.2 },
+            { id: "m3", role: "user", content: "text match", createdAt: "x" },
+          ],
+        });
+      }),
+    );
+
+    const client = newClient();
+    const all = await client.shortTerm.searchMessages("editor", { sessionId: "c1", limit: 5 });
+    const filtered = await client.shortTerm.searchMessages("editor", { sessionId: "c1", threshold: 0.5 });
+    await client.close();
+
+    expect(bodies).toEqual([{ query: "editor", limit: 5 }, { query: "editor", limit: 10 }]);
+    expect(all.map((m) => m.id)).toEqual(["m1", "m2", "m3"]);
+    expect(all[0]!.score).toBe(0.683);
+    expect(filtered.map((m) => m.id)).toEqual(["m1", "m3"]);
+  });
+
+  it("sends and reads message metadata keys as written", async () => {
+    const metadata = { namsKind: "tool-call", source_app: "web", nested: { innerKey: 1 } };
+    let observedBody: { metadata?: unknown } = {};
+    server.use(
+      http.post(`${ENDPOINT}/conversations/c1/messages`, async ({ request }) => {
+        observedBody = (await request.json()) as { metadata?: unknown };
+        return HttpResponse.json({
+          id: "m1", role: "assistant", content: "x", createdAt: "x", metadata: observedBody.metadata,
+        });
+      }),
+      http.get(`${ENDPOINT}/conversations/c1/messages`, () =>
+        HttpResponse.json({
+          messages: [{ id: "m1", role: "assistant", content: "x", createdAt: "x", metadata }],
+        }),
+      ),
+    );
+
+    const client = newClient();
+    const added = await client.shortTerm.addMessage("c1", "assistant", "x", { metadata });
+    const conversation = await client.shortTerm.getConversation("c1");
+    await client.close();
+
+    expect(observedBody.metadata).toEqual(metadata);
+    expect(added.metadata).toEqual(metadata);
+    expect(conversation.messages[0]!.metadata).toEqual(metadata);
+  });
 });
 
 describe("RestTransport — merged entity creation", () => {
@@ -330,13 +542,17 @@ describe("RestTransport — merged entity creation", () => {
       id: entityId, name: "Alice", type: "person", confidence: 0.5,
       createdAt: "2026-09-10T12:00:00Z", updatedAt: null,
       metadata: { source: "original", nested: { retained: null } },
-      relationships: [{ id: "r1", type: "KNOWS", targetId: "e2", targetName: null, properties: null }],
+      relationships: [{
+        id: "r1", relationshipType: "KNOWS", relType: "KNOWS", direction: "in",
+        targetId: "e2", targetName: null, targetType: "person",
+      }],
     }));
     const client = newClient();
     const entity = await client.longTerm.addEntity("Alice Smith", "person");
     await client.close();
     expect(entity).toMatchObject({ id: entityId, name: "Alice", type: "person", confidence: 0.5 });
     expect(entity.updatedAt).toBeUndefined();
+    expect(entity.relationships?.[0]).toMatchObject({ type: "KNOWS", direction: "in", targetType: "person" });
     expect(entity.relationships?.[0]?.targetName).toBeUndefined();
     expect(entity.relationships?.[0]?.properties).toBeUndefined();
     expect(entity.metadata).toEqual({
@@ -387,7 +603,7 @@ describe("RestTransport — merged entity creation", () => {
       await expect(client.longTerm.addEntity("Alice Smith", "person")).rejects.toMatchObject({
         name: status === 401 || status === 403 ? "AuthenticationError" : "TransportError",
         requestId: "canonical-request",
-        ...(status === 401 || status === 403 ? {} : { statusCode: status }),
+        statusCode: status,
       });
     } finally {
       await client.close();

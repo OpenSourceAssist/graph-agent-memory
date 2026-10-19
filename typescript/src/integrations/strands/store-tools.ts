@@ -125,8 +125,8 @@ async function entityGraphPayload(
   if (!centre) return { error: `entity not found: ${entityName}` };
 
   // expandGraph is keyed by node id and traverses one hop, so the name is
-  // resolved through entity search first (get_entity_by_name has no REST
-  // route) and the reported depth is always 1.
+  // resolved through entity search first (which, unlike getEntityByName, also
+  // finds near matches) and the reported depth is always 1.
   const expansion = await store.client.longTerm.expandGraph(centre.id);
 
   const nodes = expansion.nodes.slice(0, MAX_ELEMENTS).map((node) => ({

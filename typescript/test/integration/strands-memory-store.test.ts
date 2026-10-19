@@ -93,14 +93,11 @@ describe("Neo4jMemoryStore over REST", () => {
     });
 
     expect(created).toHaveLength(1);
-    // The transport deep-camelCases request bodies (casing.ts's snakeToCamel
-    // recurses into nested objects — see test/unit/casing.test.ts's "metadata"
-    // round-trip case) so the store's snake_case metadata key crosses the wire
-    // camelCased. The store reads it back through the inverse camelToSnake, so
-    // resolveSink()'s STORE_METADATA_KEY lookup still matches.
+    // Metadata keys cross the wire as written (casing.ts leaves `metadata`
+    // alone), and the second batch reusing the sink shows the key read back.
     expect(created[0]).toMatchObject({
       userId: "alice",
-      metadata: { strandsMemoryStore: "strands-memory-store/alice/graph" },
+      metadata: { strands_memory_store: "strands-memory-store/alice/graph" },
     });
     expect(bulk).toHaveLength(2);
   });

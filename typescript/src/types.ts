@@ -33,7 +33,7 @@ export interface Message {
   timestamp: string;
   embedding?: number[];
   metadata: Record<string, unknown>;
-  /** Hosted service: link back to the conversation. */
+  score?: number;
   conversationId?: string;
 }
 
@@ -117,6 +117,8 @@ export interface Entity {
   sourceStage?: string;
   /** Hosted service: relationships referenced by getEntity. */
   relationships?: EntityRelationshipRef[];
+  /** Hosted service: the user whose memory holds the entity; absent when shared. */
+  userId?: string;
   /** Entity metadata; hosted merge provenance is stored under `nams_resolution`. */
   metadata?: Record<string, unknown>;
 }
@@ -124,8 +126,16 @@ export interface Entity {
 export interface EntityRelationshipRef {
   id: string;
   type: string;
+  /**
+   * Hosted service: `"out"` is (entity)-[type]->(target) and `"in"` is
+   * (target)-[type]->(entity). The `target*` fields always describe the other entity.
+   */
+  direction?: "out" | "in";
   targetId: string;
   targetName?: string;
+  targetType?: string;
+  confidence?: number;
+  predicate?: string;
   properties?: Record<string, unknown>;
 }
 
@@ -198,6 +208,7 @@ export interface Relationship {
   targetId: string;
   relationshipType: string;
   properties: Record<string, unknown>;
+  predicate?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -372,6 +383,11 @@ export interface SearchMessagesOptions {
   /** Alias for `sessionId` (NAMS is conversation-scoped). `sessionId` wins. */
   conversationId?: string;
   limit?: number;
+  /**
+   * Minimum search score. No default. On REST the SDK filters the results
+   * itself, since hosted NAMS has no such field; text matches carry no score
+   * and are kept.
+   */
   threshold?: number;
 }
 
@@ -388,6 +404,7 @@ export interface ListSessionsOptions {
 export interface SearchEntitiesOptions {
   limit?: number;
   type?: string;
+  userId?: string;
 }
 
 /** Bounded entity-search polling options. @inline */
@@ -437,6 +454,12 @@ export interface CompleteTraceOptions {
 
 export interface AddRelationshipOptions {
   properties?: Record<string, unknown>;
+  userId?: string;
+}
+
+export interface GetEntityByNameOptions {
+  type?: string;
+  userId?: string;
 }
 
 export interface GetSimilarTracesOptions {

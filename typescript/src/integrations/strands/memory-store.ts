@@ -30,11 +30,11 @@ import { buildStoreTools } from "./store-tools.js";
  *  Written in snake_case. */
 const STORE_METADATA_KEY = "strands_memory_store";
 
-/** The same key camelCased. `RestTransport` deep-camelCases request bodies and
- *  deep-snake_cases responses (transport/rest.ts), so the round trip only closes
- *  if the service echoes the key it was sent and the response passes through that
- *  converter. Reads accept either spelling: were the match to fail, every store
- *  instance in every process would create another sink and scatter ingestion. */
+/** The same key camelCased. `RestTransport` camelCased the keys
+ *  inside `metadata` on the way out, so sinks created by those releases are
+ *  stored under this spelling; later releases send and read metadata as written.
+ *  Reads accept either spelling: were the match to fail, every store instance in
+ *  every process would create another sink and scatter ingestion. */
 const STORE_METADATA_KEY_CAMEL = "strandsMemoryStore";
 
 /** `userId` recorded on a sink conversation when the store is not tenant-scoped.

@@ -64,3 +64,28 @@ describe("camelToSnake", () => {
     expect(camelToSnake(snakeToCamel(original))).toEqual(original);
   });
 });
+
+describe("caller data under metadata and properties", () => {
+  const data = { namsKind: "tool-call", source_app: "web", nested: { innerKey: 1, outer_key: 2 } };
+
+  it("is sent as written", () => {
+    expect(snakeToCamel({ user_id: "u", metadata: data, properties: data })).toEqual({
+      userId: "u", metadata: data, properties: data,
+    });
+    expect(snakeToCamel({ messages: [{ message_id: "m", metadata: data }] })).toEqual({
+      messages: [{ messageId: "m", metadata: data }],
+    });
+  });
+
+  it("is read back as written", () => {
+    expect(camelToSnake({ createdAt: "t", metadata: data, properties: data })).toEqual({
+      created_at: "t", metadata: data, properties: data,
+    });
+  });
+
+  it("still converts a properties list, which is wire structure", () => {
+    expect(camelToSnake({ properties: [{ isRequired: true }] })).toEqual({
+      properties: [{ is_required: true }],
+    });
+  });
+});
