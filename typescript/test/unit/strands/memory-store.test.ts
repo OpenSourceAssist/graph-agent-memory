@@ -15,6 +15,7 @@ export function makeClient(overrides: Record<string, unknown> = {}) {
     connect: 0,
     close: 0,
     searchEntities: [] as Array<{ query: string; options?: { limit?: number } }>,
+    getEntityByName: [] as string[],
     addEntity: [] as unknown[],
     addPreference: [] as unknown[],
     addFact: [] as unknown[],
@@ -44,6 +45,10 @@ export function makeClient(overrides: Record<string, unknown> = {}) {
             createdAt: "2026-01-01T00:00:00Z",
           },
         ];
+      },
+      async getEntityByName(name: string) {
+        calls.getEntityByName.push(name);
+        return { id: "e1", name: "Acme Corp", type: "ORGANIZATION", createdAt: "" };
       },
       async addEntity(name: string, entityType: string) {
         calls.addEntity.push({ name, entityType });
@@ -771,9 +776,6 @@ describe("Neo4jMemoryStore.getTools", () => {
     const { store, calls } = makeStore({
       clientOverrides: {
         longTerm: {
-          async searchEntities() {
-            return [{ id: "e1", name: "Acme Corp", type: "ORGANIZATION", createdAt: "" }];
-          },
           async expandGraph(nodeId: string) {
             calls.expandGraph.push(nodeId);
             return {
@@ -787,6 +789,8 @@ describe("Neo4jMemoryStore.getTools", () => {
 
     const result = await runTool(store.getTools()[0] as never);
     expect(result.status).toBe("success");
+    expect(calls.getEntityByName).toEqual(["Acme Corp"]);
+    expect(calls.searchEntities).toEqual([]);
     expect(calls.expandGraph).toEqual(["e1"]);
     expect(result.content[0]!.json).toEqual({
       center: "Acme Corp",
@@ -800,8 +804,8 @@ describe("Neo4jMemoryStore.getTools", () => {
     const { store } = makeStore({
       clientOverrides: {
         longTerm: {
-          async searchEntities() {
-            return [];
+          async getEntityByName() {
+            return null;
           },
         },
       },
@@ -817,8 +821,8 @@ describe("Neo4jMemoryStore.getTools", () => {
     const { store } = makeStore({
       clientOverrides: {
         longTerm: {
-          async searchEntities() {
-            return [{ id: "centre", name: "Acme Corp", type: "ORGANIZATION", createdAt: "" }];
+          async getEntityByName() {
+            return { id: "centre", name: "Acme Corp", type: "ORGANIZATION", createdAt: "" };
           },
           async expandGraph() {
             return {
@@ -863,8 +867,8 @@ describe("Neo4jMemoryStore.getTools", () => {
     const { store } = makeStore({
       clientOverrides: {
         longTerm: {
-          async searchEntities() {
-            return [{ id: "e1", name: "Acme Corp", type: "ORGANIZATION", createdAt: "" }];
+          async getEntityByName() {
+            return { id: "e1", name: "Acme Corp", type: "ORGANIZATION", createdAt: "" };
           },
           async expandGraph() {
             return {

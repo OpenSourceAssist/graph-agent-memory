@@ -148,11 +148,9 @@ describe("Neo4jMemoryStore over REST", () => {
     const batch = [{ role: "user", content: [{ text: "ok" }] }] as never;
     await newStore().addMessages(batch);
     // A fresh instance holds no cached sink id, so it has to find the first
-    // store's sink by its metadata. That only works because the transport's
-    // request-side snake->camel and response-side camel->snake conversions are
-    // symmetric over nested metadata keys: the key goes out as
-    // `strandsMemoryStore` and comes back as `strands_memory_store`. The unit
-    // fakes echo metadata verbatim and cannot catch an asymmetry here.
+    // store's sink by its metadata. That only works if the transport leaves the
+    // metadata key as written in both directions. The unit fakes echo metadata
+    // verbatim and cannot catch a rename here.
     await newStore().addMessages(batch);
 
     expect(created).toHaveLength(1);

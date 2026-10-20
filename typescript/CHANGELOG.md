@@ -98,6 +98,11 @@ problem it fixes and the code that changed; the tests are in
 
 ### Changed
 
+- **Strands memory store: `get_entity_graph` looks the entity up by name.** It
+  called `searchEntities(name, { limit: 1 })`, which always returns the nearest
+  entity, so an unknown name expanded an unrelated one and `entity not found`
+  was never reported. It now calls `getEntityByName`, which returns no entity
+  when nothing matches. _Code:_ `integrations/strands/store-tools.ts`.
 - **BREAKING (behavioural): `ontology.getActive()` reads the binding from the
   active response.** It returns the `version` object the service sends with the
   active document, which can be older than the ontology's latest revision.
