@@ -1,4 +1,5 @@
 = Route memory searches with the hybrid provider
+:description: Use HybridMemoryProvider to route message, entity and preference retrieval within a Neo4j-backed MemoryClient. Despite its AgentCore integration package...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

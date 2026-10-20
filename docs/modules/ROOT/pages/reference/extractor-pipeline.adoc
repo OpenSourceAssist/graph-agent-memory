@@ -1,4 +1,5 @@
 = Extraction pipeline
+:description: Run multiple extraction stages and merge their results, from Extractor classes reference. Import ExtractionPipeline from neo4jagentmemory.extraction.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

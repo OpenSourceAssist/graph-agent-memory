@@ -1,4 +1,6 @@
 = Configuration reference has moved
+:page-pagination:
+:description: Use the canonical configuration reference for current settings, types, defaults and constraints, or environment variables for configuration from a shell.
 :page-product: agent-memory
 :page-role: legacy-redirect
 

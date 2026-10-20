@@ -1,4 +1,6 @@
 = TypeScript SDK — @neo4j-labs/agent-memory
+:page-product: agent-memory
+:page-pagination:
 :description: Install, configure, and use the TypeScript SDK for Neo4j Agent Memory.
 
 The TypeScript SDK is a thin HTTP client over the

@@ -1,4 +1,5 @@
 = Use Amazon Bedrock embeddings
+:description: Generate Titan V2 vectors, check their size, and persist a message through a MemoryClient using the same embedder. The selected path uses AWS credentials...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

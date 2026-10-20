@@ -1,4 +1,5 @@
 = Use with PydanticAI
+:description: Give a PydanticAI 2.x agent retrieved context and the library's shipped memory tools, then verify the stored conversation and task outcome. This recipe uses...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

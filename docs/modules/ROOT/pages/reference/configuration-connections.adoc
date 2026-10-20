@@ -1,4 +1,5 @@
 = Neo4j and NAMS connection settings
+:description: Backend connection configuration for Configuration reference: the bolt Neo4jConfig and the hosted NamsConfig. See Environment variables for the...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

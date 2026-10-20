@@ -1,4 +1,5 @@
 = Models and structured outcomes
+:description: Pydantic models and the structured-outcome/entity-reference types for ReasoningMemory API reference.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

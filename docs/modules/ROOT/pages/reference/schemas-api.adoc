@@ -1,4 +1,5 @@
 = SchemaManager persistence API
+:description: The neo4jagentmemory.schema.SchemaManager CRUD surface from Domain schemas reference. Signatures show types, keyword-only arguments (*), and defaults; they...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

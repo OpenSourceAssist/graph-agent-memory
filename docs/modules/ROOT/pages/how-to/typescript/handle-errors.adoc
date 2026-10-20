@@ -1,4 +1,7 @@
 = Handle TypeScript REST errors
+:page-product: agent-memory
+:page-pagination:
+:description: Use this procedure to classify an SDK failure and retry a transient, idempotent read. Prerequisites: a configured MemoryClient and Node.js 22 or later. The...
 :source-highlighter: rouge
 
 Use this procedure to classify an SDK failure and retry a transient, idempotent

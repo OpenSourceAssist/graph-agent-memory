@@ -1,4 +1,5 @@
 = Adopt an existing domain graph
+:description: How to layer neo4j-agent-memory on top of a Neo4j graph that already exists in production, so that library writes (MENTIONS edges, relation writes, entity...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

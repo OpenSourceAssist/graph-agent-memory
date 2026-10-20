@@ -1,4 +1,7 @@
 = Use the MCP tools
+:page-product: agent-memory
+:page-pagination:
+:description: The @neo4j-labs/agent-memory/mcp subpath ships 12 neo4j-agent-memory tool definitions plus a dispatcher, and @neo4j-labs/agent-memory/mcp/register registers...
 :source-highlighter: rouge
 
 The `@neo4j-labs/agent-memory/mcp` subpath ships 12 neo4j-agent-memory tool

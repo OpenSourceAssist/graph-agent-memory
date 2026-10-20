@@ -1,4 +1,6 @@
 = Why the v0.2 operational primitives are opt-in
+:page-pagination:
+:description: Buffered writes, consolidation, multi-tenancy scoping, privacy/audit, and the evaluation harness (the v0.2 surface) all share a design stance: each one is...
 :page-product: agent-memory
 :toclevels: 2
 

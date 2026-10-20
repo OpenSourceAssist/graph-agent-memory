@@ -1,4 +1,5 @@
 = Add an MCP server to a context graph project
+:description: To let an MCP client inspect a context graph application's memory, run the self-hosted Python MCP server against the application's Bolt database. The server...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

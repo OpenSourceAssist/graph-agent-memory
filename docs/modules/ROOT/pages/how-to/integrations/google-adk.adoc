@@ -1,4 +1,5 @@
 = Use with Google ADK
+:description: Connect Neo4jMemoryService to an ADK Runner, consume one complete run, persist its session, and verify the user's exact text. This recipe selects Bolt with...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

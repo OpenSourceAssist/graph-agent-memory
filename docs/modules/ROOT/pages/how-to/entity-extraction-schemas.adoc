@@ -1,4 +1,5 @@
 = Apply a custom entity extraction schema
+:description: To identify customer and product mentions, provide domain descriptions and an explicit mapping from extraction labels to persisted entity types. Test the...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

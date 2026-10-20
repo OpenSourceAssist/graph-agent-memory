@@ -1,4 +1,6 @@
 = Cross-agent memory sharing
+:page-pagination:
+:description: Multiple agents can use records stored in a shared backend. Sharing requires compatible operations, the intended workspace or database, and explicit...
 :page-product: agent-memory
 :toclevels: 2
 

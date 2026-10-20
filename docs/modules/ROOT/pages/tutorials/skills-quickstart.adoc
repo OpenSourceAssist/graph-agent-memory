@@ -1,4 +1,5 @@
 = Distil and download a skill from a recorded procedure
+:description: We will seed a simulated refund-decision procedure in an empty test workspace, request distillation, inspect the generated procedure and its provenance...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:

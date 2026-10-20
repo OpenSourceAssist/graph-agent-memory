@@ -1,4 +1,7 @@
 = Integrate with the Vercel AI SDK
+:page-product: agent-memory
+:page-pagination:
+:description: The TypeScript client ships a language-model middleware that auto-injects context and persists messages around any Vercel AI SDK call. It implements...
 :source-highlighter: rouge
 
 The TypeScript client ships a language-model middleware that auto-injects

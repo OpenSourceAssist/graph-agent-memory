@@ -1,4 +1,5 @@
 = Account for batch and chunk extraction results
+:description: To process multiple source texts without losing failed inputs, use the pipeline's batch result wrappers and retain the input index for every result. For...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

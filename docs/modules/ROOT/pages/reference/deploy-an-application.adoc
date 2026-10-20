@@ -1,4 +1,6 @@
 = Deploy a memory application
+:page-pagination:
+:description: This reference compares the deployment paths this repository documents for an application built on the SDKs. See backend capabilities before treating these...
 :page-product: agent-memory
 :toclevels: 2
 

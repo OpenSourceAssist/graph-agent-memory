@@ -1,4 +1,5 @@
 = Geospatial operations and NAMS behavior
+:description: Location search/geocoding, context assembly, and the NAMS wrapper differences for LongTermMemory API reference. Signatures show types, keyword-only...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

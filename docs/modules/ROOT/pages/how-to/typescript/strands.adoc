@@ -1,4 +1,7 @@
 = Integrate with AWS Strands Agents
+:page-product: agent-memory
+:page-pagination:
+:description: The @neo4j-labs/agent-memory/integrations/strands subpath plugs into all four of Strands' orthogonal extension surfaces:
 :source-highlighter: rouge
 
 [NOTE]

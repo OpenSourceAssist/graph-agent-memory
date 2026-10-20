@@ -1,4 +1,5 @@
 = Extract memory with Anthropic and local embeddings
+:description: We will store a message in AuraDB through the Bolt backend, request entity extraction using an Anthropic adapter, and retrieve context using locally...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:

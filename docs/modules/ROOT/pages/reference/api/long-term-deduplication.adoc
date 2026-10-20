@@ -1,4 +1,5 @@
 = Deduplication and provenance
+:description: Ingest-time deduplication and extraction-provenance operations from LongTermMemory API reference. Both are bolt-only. Signatures show types, keyword-only...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

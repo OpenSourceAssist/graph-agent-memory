@@ -1,4 +1,6 @@
 = Documentation publication
+:page-pagination:
+:description: How this documentation site is built, previewed, and published. This page keeps its former section anchors so old links still resolve, even though the...
 :page-product: agent-memory
 :toclevels: 2
 

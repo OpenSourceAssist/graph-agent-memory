@@ -1,4 +1,5 @@
 = LLM provider API reference
+:description: Reference for the neo4jagentmemory.llm Protocols, types, factory, and exception hierarchy.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

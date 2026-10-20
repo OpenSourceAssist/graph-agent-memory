@@ -1,4 +1,5 @@
 = Store and read back memory on NAMS
+:description: We will create a hosted conversation, read its two messages back, wait for extraction, and verify the same messages from a fresh process. We will retain the...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:

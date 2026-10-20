@@ -1,4 +1,5 @@
 = Provider factory reference
+:description: Reference for the from_provider string-shorthand factory.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

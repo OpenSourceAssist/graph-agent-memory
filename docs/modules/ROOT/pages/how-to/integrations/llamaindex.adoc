@@ -1,4 +1,5 @@
 = Use with LlamaIndex
+:description: Persist and restore LlamaIndex ChatMessage objects with Neo4jLlamaIndexMemory. This focused recipe verifies the memory adapter itself without requiring an...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

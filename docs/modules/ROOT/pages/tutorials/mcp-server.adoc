@@ -1,4 +1,5 @@
 = Store and recall a message from Claude Desktop
+:description: We will connect Claude Desktop on macOS to a local stdio MCP server backed by AuraDB, explicitly request a message-storage tool call, and verify that record...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:

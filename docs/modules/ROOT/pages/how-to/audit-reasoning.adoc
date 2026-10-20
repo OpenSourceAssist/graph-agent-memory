@@ -1,4 +1,6 @@
 = Audit reasoning with `:TOUCHED` edges
+:page-pagination:
+:description: NOTE: This procedure requires Bolt. The Python NAMS client accepts touchedentities on recordtoolcall but silently drops it, so no :TOUCHED edges are written...
 :page-product: agent-memory
 :toclevels: 2
 

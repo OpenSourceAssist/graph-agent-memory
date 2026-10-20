@@ -1,4 +1,7 @@
 = Choose a NAMS AI provider mode
+:page-product: agent-memory
+:page-pagination:
+:description: @neo4j-labs/nams-ai-provider is a separate npm package that wraps the TypeScript SDK (@neo4j-labs/agent-memory) for the Vercel AI SDK. It talks only to the...
 :source-highlighter: rouge
 
 `@neo4j-labs/nams-ai-provider` is a separate npm package that wraps the

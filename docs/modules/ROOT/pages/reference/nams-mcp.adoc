@@ -1,4 +1,6 @@
 = Hosted NAMS MCP server
+:page-pagination:
+:description: The hosted NAMS backend ships its own Model Context Protocol (MCP) server, so an MCP-capable agent (Claude Desktop, Claude Code, Cursor, …) can use a NAMS...
 :page-product: agent-memory
 :toclevels: 2
 :icons: font

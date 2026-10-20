@@ -1,4 +1,6 @@
 = Ontologies
+:page-product: agent-memory
+:page-pagination:
 :description: What an ontology is, how it extends POLE+O, how it drives extraction and resolution, and how validation modes and versioning work.
 
 An ontology supplies a domain vocabulary and validation policy. It refines the broad POLE+O categories without requiring every application to treat all entities as generic people, places, or objects.

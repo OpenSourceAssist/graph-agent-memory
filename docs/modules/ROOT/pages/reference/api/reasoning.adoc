@@ -1,4 +1,5 @@
 = ReasoningMemory API reference
+:description: Reasoning trace, step, and tool-call operations exposed through client.reasoning. The main signatures are for bolt; NAMS stores conversation-level steps and...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

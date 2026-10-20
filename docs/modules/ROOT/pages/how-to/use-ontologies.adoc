@@ -1,4 +1,6 @@
 = Activate and verify a workspace ontology
+:page-product: agent-memory
+:page-pagination:
 :description: Clone a NAMS ontology template, select strict validation and verify the active version.
 
 [IMPORTANT]

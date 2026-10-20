@@ -1,4 +1,5 @@
 = Memory, search, geocoding, and enrichment settings
+:description: Operational and runtime-behavior settings for Configuration reference: MemoryConfig, SearchConfig, GeocodingConfig, EnrichmentConfig, and the...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

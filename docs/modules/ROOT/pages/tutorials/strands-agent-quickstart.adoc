@@ -1,4 +1,5 @@
 = Restore a Strands conversation after a process restart
+:description: We will record a passphrase with a Strands agent, exit the process, and start a second process using the saved session ID. Before the second model call, we...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:

@@ -1,4 +1,7 @@
 = Integrate with LangChain JS
+:page-product: agent-memory
+:page-pagination:
+:description: The @neo4j-labs/agent-memory/integrations/langchain subpath exposes two framework-free adapters over MemoryClient:
 :source-highlighter: rouge
 
 The `@neo4j-labs/agent-memory/integrations/langchain` subpath exposes

@@ -1,4 +1,5 @@
 = Migrate to a new embedding model
+:description: Change the embedding model for an existing Bolt database while preserving the source data needed to regenerate vectors. A model change requires a backfill...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

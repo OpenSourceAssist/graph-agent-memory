@@ -1,4 +1,5 @@
 = Use with CrewAI
+:description: Retrieve Neo4j memory for a CrewAI task, run the crew, and persist its result with a verified task outcome. The selected pattern keeps asynchronous memory...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

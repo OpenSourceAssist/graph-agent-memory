@@ -1,4 +1,5 @@
 = Use Vertex AI embeddings with Neo4j
+:description: Check Vertex AI embedding output and store a message in Neo4j using that embedder. ADK orchestration, MCP serving and Cloud Run deployment are linked as...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

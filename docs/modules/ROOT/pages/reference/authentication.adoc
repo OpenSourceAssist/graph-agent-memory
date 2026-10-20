@@ -1,4 +1,6 @@
 = Authentication and API keys
+:page-pagination:
+:description: How the hosted NAMS backend authenticates requests, where API keys come from, and how to handle them safely. This page is language-neutral; for SDK-specific...
 :page-product: agent-memory
 :toclevels: 2
 :icons: font

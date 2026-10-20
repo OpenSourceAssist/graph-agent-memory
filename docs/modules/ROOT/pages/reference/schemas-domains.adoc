@@ -1,4 +1,5 @@
 = Built-in domain schemas
+:description: The eight built-in domain schemas from Domain schemas reference, the relationships their ontology templates declare, and how to select one for extraction.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

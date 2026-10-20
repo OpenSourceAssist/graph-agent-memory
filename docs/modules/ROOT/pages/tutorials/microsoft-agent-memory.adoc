@@ -1,4 +1,5 @@
 = Build a shopping response with Microsoft Agent Framework memory
+:description: We will store an explicit shopping preference in AuraDB, attach a Neo4j context provider to a Microsoft Agent Framework agent, and verify the persisted turn...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:
