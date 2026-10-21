@@ -20,6 +20,7 @@ import type {
   EntityMergeResult,
   EntityRelationshipRef,
   Fact,
+  GetEntityByNameOptions,
   GetRelatedEntitiesOptions,
   ListEntitiesOptions,
   Preference,
@@ -44,14 +45,26 @@ interface WireEntity {
   confidence?: number | null;
   source_stage?: string | null;
   relationships?: WireEntityRelRef[] | null;
+  user_id?: string | null;
   metadata?: Record<string, unknown> | null;
 }
 
+/**
+ * Hosted NAMS names the type `relationship_type` (with the deprecated alias
+ * `rel_type`) and reports each edge relative to the entity (`direction`); the
+ * bridge sends `type`.
+ */
 interface WireEntityRelRef {
   id: string;
-  type: string;
+  relationship_type?: string | null;
+  rel_type?: string | null;
+  type?: string | null;
+  direction?: string | null;
   target_id: string;
   target_name?: string | null;
+  target_type?: string | null;
+  confidence?: number | null;
+  predicate?: string | null;
   properties?: Record<string, unknown> | null;
 }
 
@@ -90,6 +103,7 @@ interface WireRelationship {
   target_id: string;
   relationship_type: string;
   properties?: Record<string, unknown> | null;
+  predicate?: string | null;
 }
 
 interface WireEntityHistory {
@@ -139,16 +153,26 @@ function toEntity(w: WireEntity): Entity {
     confidence: w.confidence ?? undefined,
     sourceStage: w.source_stage ?? undefined,
     relationships: w.relationships?.map(toRelRef) ?? undefined,
+    userId: w.user_id || undefined,
     metadata: w.metadata ?? undefined,
   };
+}
+
+function relRefType(w: Record<string, unknown>): string | undefined {
+  return [w.relationship_type, w.rel_type, w.type].find(isNonemptyString);
 }
 
 function toRelRef(w: WireEntityRelRef): EntityRelationshipRef {
   return {
     id: w.id,
-    type: w.type,
+    type: relRefType(w as unknown as Record<string, unknown>) as string,
+    direction: w.direction === "out" || w.direction === "in" ? w.direction : undefined,
     targetId: w.target_id,
     targetName: w.target_name ?? undefined,
+    targetType: w.target_type ?? undefined,
+    confidence: w.confidence ?? undefined,
+    // The service sends "" when the type was stored as written.
+    predicate: w.predicate || undefined,
     properties: w.properties ?? undefined,
   };
 }
@@ -180,6 +204,7 @@ function toRelationship(w: WireRelationship): Relationship {
     targetId: w.target_id,
     relationshipType: w.relationship_type,
     properties: w.properties ?? {},
+    predicate: w.predicate || undefined,
   };
 }
 
@@ -261,11 +286,20 @@ function mergedEntityDetail(detail: unknown, mergedId: string): WireEntity | und
     requireMergedField(Array.isArray(detail.relationships), "relationships");
     for (const ref of detail.relationships) {
       requireMergedField(isRecord(ref), "relationship reference");
-      for (const field of ["id", "type", "target_id"]) {
+      for (const field of ["id", "target_id"]) {
         requireMergedField(isNonemptyString(ref[field]), `relationship ${field}`);
       }
-      if (ref.target_name != null) {
-        requireMergedField(typeof ref.target_name === "string", "relationship target_name");
+      requireMergedField(relRefType(ref) !== undefined, "relationship type");
+      if (ref.direction != null) {
+        requireMergedField(ref.direction === "out" || ref.direction === "in", "relationship direction");
+      }
+      for (const field of ["target_name", "target_type", "predicate"]) {
+        if (ref[field] != null) {
+          requireMergedField(typeof ref[field] === "string", `relationship ${field}`);
+        }
+      }
+      if (ref.confidence != null) {
+        requireMergedField(isConfidence(ref.confidence), "relationship confidence");
       }
       if (ref.properties != null) {
         requireMergedField(isRecord(ref.properties), "relationship properties");
@@ -286,13 +320,22 @@ export class LongTermMemory {
   async addEntity(
     name: string,
     entityType: string,
-    options?: { description?: string },
+    options?: {
+      description?: string;
+      /**
+       * Hosted service: the user whose memory the entity belongs to. It is
+       * deduplicated only against that user's entities. Omitted, the entity
+       * is shared and deduplicated only against shared ones.
+       */
+      userId?: string;
+    },
   ): Promise<Entity> {
     const wire = await this.transport.request<WireEntity | WireMergedResolution>("add_entity", {
       name,
       entity_type: entityType,
       type: entityType,
       description: options?.description,
+      userId: options?.userId,
     });
     // NAMS resolves-before-create: a sufficiently similar name merges onto an
     // existing entity and the response carries no name/type — follow up with
@@ -378,6 +421,7 @@ export class LongTermMemory {
       query,
       type: options?.type,
       limit: options?.limit ?? 10,
+      userId: options?.userId,
     });
     return wire.map(toEntity);
   }
@@ -448,9 +492,17 @@ export class LongTermMemory {
     return wire.map(toPreference);
   }
 
-  async getEntityByName(name: string): Promise<Entity | null> {
+  /**
+   * Look up an entity by name. On the hosted service the match follows the
+   * resolver (case, punctuation and corporate suffixes are ignored, aliases
+   * count), one name can match entities of several types, and the best match
+   * is returned.
+   */
+  async getEntityByName(name: string, options?: GetEntityByNameOptions): Promise<Entity | null> {
     const wire = await this.transport.request<WireEntity | null>("get_entity_by_name", {
       name,
+      type: options?.type,
+      userId: options?.userId,
     });
     return wire ? toEntity(wire) : null;
   }
@@ -478,6 +530,7 @@ export class LongTermMemory {
       target_id: targetId,
       relationship_type: relationshipType,
       properties: options?.properties,
+      userId: options?.userId,
     });
     return toRelationship(wire);
   }
@@ -506,10 +559,15 @@ export class LongTermMemory {
     return wire.map(toEntity);
   }
 
-  /** Fetch one entity (with relationships) by id. */
-  async getEntity(entityId: string): Promise<Entity> {
+  /**
+   * Fetch one entity (with relationships) by id. With `userId` (hosted service),
+   * an entity outside that user's memory is not found, and only relationships
+   * to that user's entities are returned.
+   */
+  async getEntity(entityId: string, options?: { userId?: string }): Promise<Entity> {
     const wire = await this.transport.request<WireEntity>("get_entity", {
       entity_id: entityId,
+      userId: options?.userId,
     });
     return toEntity(wire);
   }

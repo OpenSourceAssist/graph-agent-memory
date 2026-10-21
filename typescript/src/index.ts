@@ -75,6 +75,7 @@ export type {
   SearchEntitiesOptions,
   SearchPreferencesOptions,
   GetRelatedEntitiesOptions,
+  GetEntityByNameOptions,
   ListTracesOptions,
   RecordToolCallOptions,
   CompleteTraceOptions,

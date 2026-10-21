@@ -70,6 +70,22 @@ describe("LongTermMemory.addEntity merged resolution", () => {
     });
   });
 
+  it("accepts a canonical entity whose relationships have the hosted shape", async () => {
+    const t = mockTransport((method) => method === "add_entity" ? MERGED_WIRE : {
+      ...CANONICAL_WIRE,
+      relationships: [{
+        id: "r1", relationship_type: "WORKS_AT", rel_type: "WORKS_AT", direction: "out",
+        target_id: "e2", target_name: "Acme Corp", target_type: "organization", confidence: 0.9,
+        predicate: "",
+      }],
+    });
+    const entity = await new LongTermMemory(t as never).addEntity("Alice Smith", "person");
+    expect(entity.relationships).toEqual([{
+      id: "r1", type: "WORKS_AT", direction: "out", targetId: "e2", targetName: "Acme Corp",
+      targetType: "organization", confidence: 0.9,
+    }]);
+  });
+
   it("normalizes null fields on the canonical entity to undefined", async () => {
     // NAMS projects unset node properties as JSON null — a manually created
     // entity has no confidence/sourceStage/updatedAt.
@@ -180,6 +196,11 @@ describe("LongTermMemory.addEntity merged resolution", () => {
     { ...CANONICAL_WIRE, metadata: [] },
     { ...CANONICAL_WIRE, relationships: [null] },
     { ...CANONICAL_WIRE, relationships: [{ id: "r1", type: "KNOWS" }] },
+    { ...CANONICAL_WIRE, relationships: [{ id: "r1", target_id: "e2" }] },
+    { ...CANONICAL_WIRE, relationships: [{ id: "r1", relationship_type: "", target_id: "e2" }] },
+    { ...CANONICAL_WIRE, relationships: [{ id: "r1", relationship_type: "KNOWS", target_id: "e2", direction: "up" }] },
+    { ...CANONICAL_WIRE, relationships: [{ id: "r1", relationship_type: "KNOWS", target_id: "e2", confidence: 3 }] },
+    { ...CANONICAL_WIRE, relationships: [{ id: "r1", relationship_type: "KNOWS", target_id: "e2", target_type: 1 }] },
     // A missing name must not hide malformed fields elsewhere in the record.
     { id: "wrong-id" },
     { id: ENTITY_ID, description: {} },

@@ -55,6 +55,7 @@ interface WireMessage {
   embedding?: number[];
   metadata?: Record<string, unknown>;
   conversation_id?: string;
+  score?: number;
 }
 
 interface WireConversation {
@@ -110,6 +111,7 @@ function toMessage(w: WireMessage): Message {
     embedding: w.embedding,
     metadata: w.metadata ?? {},
     conversationId: w.conversation_id,
+    ...(typeof w.score === "number" ? { score: w.score } : {}),
   };
 }
 
@@ -196,13 +198,17 @@ export class ShortTermMemory {
     // bridge/TCK backend, so an absent id is passed through (NAMS rejects it
     // server-side) rather than throwing client-side.
     const conv = options?.sessionId ?? options?.conversationId;
+    const threshold = options?.threshold;
     const wire = await this.transport.request<WireMessage[]>("search_messages", {
       query,
       session_id: conv,
       limit: options?.limit ?? 10,
-      threshold: options?.threshold ?? 0.7,
+      threshold,
     });
-    return wire.map(toMessage);
+    const messages = wire.map(toMessage);
+    // Hosted NAMS takes no threshold, so the score is checked here.
+    if (threshold === undefined) return messages;
+    return messages.filter((m) => m.score === undefined || m.score >= threshold);
   }
 
   async listSessions(options?: ListSessionsOptions): Promise<SessionInfo[]> {

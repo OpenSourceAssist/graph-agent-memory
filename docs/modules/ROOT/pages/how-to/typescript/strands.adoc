@@ -123,7 +123,9 @@ restart, so a process that dies mid-retry can leave duplicate messages in the
 sink conversation.
 
 **`getTools()`** — one tool, `<store-name>_get_entity_graph`, when
-`graphTools` is `true`. Its neighbourhood is capped at 50 nodes and 50 edges,
+`graphTools` is `true`. It finds the starting entity with
+`longTerm.getEntityByName` and returns `{ error: "entity not found: <name>" }`
+when no entity matches. Its neighbourhood is capped at 50 nodes and 50 edges,
 with edges filtered to the nodes that survived the cap; a trimmed result carries
 `truncated: true`.
 
