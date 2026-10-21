@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.23.4"
   },
   "scripts": {
     "provider-mode": "tsx --env-file-if-exists=.env src/provider-mode.ts",

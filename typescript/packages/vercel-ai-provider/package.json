@@ -23,7 +23,7 @@
   "license": "Apache-2.0",
   "sideEffects": false,
   "engines": {
-    "node": ">=22"
+    "node": ">=22.23.4"
   },
   "publishConfig": {
     "access": "public"
