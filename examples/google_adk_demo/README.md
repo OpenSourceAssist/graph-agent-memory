@@ -161,7 +161,7 @@ settings = MemorySettings(
         uri=os.environ["NEO4J_URI"],
         username=os.environ["NEO4J_USERNAME"],
         password=os.environ["NEO4J_PASSWORD"],
-    )
+    ),
 )
 
 async with MemoryClient(settings) as client:
@@ -177,7 +177,7 @@ async with MemoryClient(settings) as client:
             tools=[load_memory],
         ),
         session_service=session_service,
-        memory_service=memory_service,   # memory is a Runner service, not an agent field
+        memory_service=memory_service,  # memory is a Runner service, not an agent field
     )
 
     await session_service.create_session(app_name=APP, user_id=USER, session_id=SID)

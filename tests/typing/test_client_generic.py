@@ -7,7 +7,7 @@ with the concrete backend classes directly, exposing backend-only methods.
 
 from __future__ import annotations
 
-from typing_extensions import assert_type
+from typing import assert_type
 
 from neo4j_agent_memory import BoltMemoryClient, MemoryClient, NamsMemoryClient
 from neo4j_agent_memory.core.protocols import ShortTermProtocol

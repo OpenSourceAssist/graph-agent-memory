@@ -10,10 +10,10 @@ the example look like it worked when it did not.
 
 import ast
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
-import tomllib
 
 from tests.examples._manifests import assert_library_pin
 

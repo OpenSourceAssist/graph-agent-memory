@@ -3,7 +3,7 @@
 Tests the get_graph() method and related graph visualization features.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 
@@ -405,7 +405,7 @@ class TestGraphExportTimeFiltering:
         )
 
         # Get graph with since parameter - should not raise an error
-        past_time = datetime.now(timezone.utc) - timedelta(hours=1)
+        past_time = datetime.now(UTC) - timedelta(hours=1)
         graph = await client.get_graph(since=past_time)
 
         # Verify the call succeeded and returned valid structure
@@ -426,7 +426,7 @@ class TestGraphExportTimeFiltering:
         )
 
         # Get graph with until parameter - should not raise an error
-        future_time = datetime.now(timezone.utc) + timedelta(hours=1)
+        future_time = datetime.now(UTC) + timedelta(hours=1)
         graph = await client.get_graph(until=future_time)
 
         # Verify the call succeeded and returned valid structure

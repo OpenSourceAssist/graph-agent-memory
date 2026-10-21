@@ -32,7 +32,7 @@ from neo4j import AsyncGraphDatabase
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.config import get_settings  # noqa: E402
+from src.config import get_settings
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("load_news_sample")

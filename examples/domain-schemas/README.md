@@ -256,10 +256,10 @@ The storage step is deliberately local and bolt-pinned:
 
 ```python
 settings = MemorySettings(
-    backend="bolt",                                      # MEMORY_API_KEY must not redirect writes
+    backend="bolt",  # MEMORY_API_KEY must not redirect writes
     neo4j=Neo4jConfig(uri=uri, username=..., password=...),
-    llm=None,                                            # no LLM client is constructed
-    embedding="sentence-transformers/all-MiniLM-L6-v2",   # local embeddings (no API key)
+    llm=None,  # no LLM client is constructed
+    embedding="sentence-transformers/all-MiniLM-L6-v2",  # local embeddings (no API key)
     extraction=ExtractionConfig(extractor_type=ExtractorType.NONE),  # already extracted
 )
 ```

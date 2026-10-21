@@ -14,8 +14,8 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
-
 from neo4j_agent_memory.memory.long_term import Preference as LongTermPreference
+
 from src.api.schemas import (
     Entity,
     GraphNode,

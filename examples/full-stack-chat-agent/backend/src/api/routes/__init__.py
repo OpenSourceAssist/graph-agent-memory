@@ -2,4 +2,4 @@
 
 from src.api.routes import chat, memory, threads
 
-__all__ = ["chat", "threads", "memory"]
+__all__ = ["chat", "memory", "threads"]

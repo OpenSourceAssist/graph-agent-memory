@@ -158,7 +158,7 @@ Full documentation: **[neo4j.com/labs/agent-memory](https://neo4j.com/labs/agent
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - A Neo4j AuraDB instance for the `bolt` quickstart, or a NAMS workspace for the hosted path
 - Self-managed Neo4j 5.26+ (including 2025.x) for the `bolt` backend
 

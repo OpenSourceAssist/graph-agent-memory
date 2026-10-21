@@ -18,11 +18,11 @@ import logging
 from typing import Any
 
 from neo4j import AsyncManagedTransaction
-from pydantic_ai import RunContext
-
 from neo4j_agent_memory.core.query import is_read_only_query
 from neo4j_agent_memory.llm import from_provider
 from neo4j_agent_memory.llm.protocol import EmbeddingProvider
+from pydantic_ai import RunContext
+
 from src.agent.dependencies import AgentDeps
 from src.config import get_settings
 
@@ -64,7 +64,7 @@ async def _run_query(
                 session.execute_read(read),
                 timeout=timeout if timeout is not None else settings.cypher_timeout_seconds,
             )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return [{"error": "Query timed out. Narrow the query or lower the limit."}]
     except Exception as e:  # surfaced to the model so it can correct itself
         logger.warning("News graph query failed: %s", e)

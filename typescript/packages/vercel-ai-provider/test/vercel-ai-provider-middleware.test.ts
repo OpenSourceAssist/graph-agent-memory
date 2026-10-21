@@ -16,7 +16,7 @@ import { makeFakeClient, makeFakeModel, drainStream, settle, type FakeClient } f
 const holder = vi.hoisted(() => ({ client: undefined as unknown }));
 
 vi.mock('@neo4j-labs/agent-memory', () => ({
-  MemoryClient: vi.fn().mockImplementation(() => holder.client),
+  MemoryClient: vi.fn().mockImplementation(function () { return holder.client; }),
 }));
 
 import { createNamsMemory } from '../src/vercel-ai-provider-middleware';

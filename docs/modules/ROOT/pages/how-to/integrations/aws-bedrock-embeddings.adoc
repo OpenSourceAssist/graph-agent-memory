@@ -17,7 +17,7 @@ anchor:_using_a_named_profile[]
 anchor:_using_explicit_credentials[]
 anchor:_iam_permissions[]
 
-Use Python 3.10+ and a POSIX shell. Prepare a dedicated AuraDB instance; its existing vectors and indexes must match the selected model and dimensions. The program disables entity extraction and does not require a chat model.
+Use Python 3.11+ and a POSIX shell. Prepare a dedicated AuraDB instance; its existing vectors and indexes must match the selected model and dimensions. The program disables entity extraction and does not require a chat model.
 Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] for a dedicated test instance, then copy its URI, username and password into the exports below.
 
 include::partial$python-tutorial-setup.adoc[]

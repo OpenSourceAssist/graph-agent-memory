@@ -68,9 +68,9 @@
     "@neo4j-labs/agent-memory": "^0.4.0",
     "@types/node": "^22",
     "ai": "^7.0.42",
-    "tsup": "^8.0.0",
+    "tsup": "^9.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^2.0.0",
+    "vitest": "^4.1.12",
     "zod": "^4.4.3"
   }
 }

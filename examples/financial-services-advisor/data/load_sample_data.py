@@ -55,7 +55,7 @@ from neo4j import AsyncGraphDatabase, AsyncManagedTransaction
 if TYPE_CHECKING:
     # The driver types `run(query: LiteralString)`; `from __future__ import
     # annotations` keeps this a type-checking-only import.
-    from typing_extensions import LiteralString
+    from typing import LiteralString
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger("fsa.load")

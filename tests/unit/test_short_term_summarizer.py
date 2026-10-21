@@ -8,6 +8,7 @@ Verifies the module-level :func:`_llm_summarizer` helper and that
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import UTC
 from typing import Any
 
 from neo4j_agent_memory.llm.types import ChatMessage, Completion
@@ -83,7 +84,7 @@ async def test_short_term_summary_uses_default_llm_provider_when_no_summarizer(
 
     # Stub out get_conversation so the test does not require a real graph.
     async def fake_get_conversation(session_id: str, *args: Any, **kwargs: Any) -> Conversation:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         return Conversation(
             session_id=session_id,
             messages=[
@@ -132,7 +133,7 @@ async def test_short_term_summary_falls_back_to_basic_without_provider(monkeypat
     )
 
     async def fake_get_conversation(session_id: str, *args: Any, **kwargs: Any) -> Conversation:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         return Conversation(
             session_id=session_id,
             messages=[
@@ -183,7 +184,7 @@ async def test_short_term_summary_explicit_summarizer_wins_over_default(monkeypa
     )
 
     async def fake_get_conversation(session_id: str, *args: Any, **kwargs: Any) -> Conversation:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         return Conversation(
             session_id=session_id,
             messages=[

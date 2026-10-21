@@ -18,7 +18,7 @@ small and stateless — no global registries of types.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, TypeVar
 from uuid import UUID
 
@@ -42,7 +42,7 @@ def json_safe(value: Any) -> Any:
     if isinstance(value, datetime):
         # Normalize naive datetimes to UTC; emit ISO 8601 with timezone.
         if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
+            value = value.replace(tzinfo=UTC)
         return value.isoformat()
     if isinstance(value, dict):
         return {k: json_safe(v) for k, v in value.items()}
@@ -98,7 +98,7 @@ def parse_datetime(value: str | datetime) -> datetime:
         value = value[:-1] + "+00:00"
     parsed = datetime.fromisoformat(value)
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 

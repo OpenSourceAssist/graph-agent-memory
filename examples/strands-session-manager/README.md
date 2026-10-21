@@ -122,7 +122,7 @@ from neo4j_agent_memory.integrations.strands import (
     nams_context_graph_tools,
 )
 
-manager = Neo4jSessionManager.for_nams(          # MEMORY_API_KEY from env
+manager = Neo4jSessionManager.for_nams(  # MEMORY_API_KEY from env
     "support-42",
     retrieval_config=Neo4jRetrievalConfig(),
 )

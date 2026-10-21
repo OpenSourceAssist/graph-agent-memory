@@ -15,7 +15,7 @@ To let an MCP client inspect a context graph application's memory, run the self-
 anchor:_prerequisites[]
 
 * A working application, such as one scaffolded with https://create-context-graph.dev[create-context-graph], with its database URI, database name and authorized credentials.
-* Python 3.10+ and an OpenAI key for this example's embedding provider. The command below installs `neo4j-agent-memory[mcp,openai]==0.7.0`.
+* Python 3.11+ and an OpenAI key for this example's embedding provider. The command below installs `neo4j-agent-memory[mcp,openai]==0.7.0`.
 * An MCP client that supports launching a local stdio process.
 * For an existing non-memory graph, complete xref:how-to/adopt-existing-graph.adoc[graph adoption] and its dry run first.
 

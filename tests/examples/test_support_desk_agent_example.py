@@ -28,13 +28,13 @@ import contextlib
 import importlib
 import json
 import sys
+import tomllib
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
-import tomllib
 
 from tests.examples._manifests import assert_library_pin
 

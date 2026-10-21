@@ -17,7 +17,7 @@ anchor:_python_and_bolt[]
 
 anchor:_building_real_applications[]
 
-These lessons install `neo4j-agent-memory` 0.7.0 from PyPI and show every local file on the page. All require Python 3.10 or newer, a POSIX shell and capacity for a dedicated Aura instance. Complete cleanup before starting the next lesson with a new empty instance; reuse the local environment and unchanged helpers. Resuming an unfinished lesson uses its *original* instance and saved IDs.
+These lessons install `neo4j-agent-memory` 0.7.0 from PyPI and show every local file on the page. All require Python 3.11 or newer, a POSIX shell and capacity for a dedicated Aura instance. Complete cleanup before starting the next lesson with a new empty instance; reuse the local environment and unchanged helpers. Resuming an unfinished lesson uses its *original* instance and saved IDs.
 
 [cols="2,1,3",options="header"]
 |===

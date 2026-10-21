@@ -12,7 +12,7 @@ the module-level comment in ``neo4j_agent_memory/__init__.py`` above
 
 from __future__ import annotations
 
-from typing_extensions import assert_type
+from typing import assert_type
 
 from neo4j_agent_memory import (
     BoltMemoryClient,

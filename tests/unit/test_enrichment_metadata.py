@@ -15,7 +15,7 @@ apart silently.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
@@ -67,7 +67,7 @@ class FakeEnrichmentProvider:
             image_url="https://example.invalid/einstein.jpg",
             source_url="https://en.wikipedia.org/wiki/Albert_Einstein",
             metadata={"birth_year": 1879},
-            retrieved_at=datetime(2026, 9, 10, 12, 0, tzinfo=timezone.utc),
+            retrieved_at=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
         )
 
 
@@ -90,7 +90,7 @@ def _node_from_write(params: dict[str, Any]) -> dict[str, Any]:
         "type": "PERSON",
         "metadata": json.dumps({"aliases": ["Einstein"], "source": "unit-test"}),
         # ``SET e.enriched_at = datetime()`` — the driver hands back a datetime.
-        "enriched_at": datetime(2026, 9, 10, 12, 0, 1, tzinfo=timezone.utc),
+        "enriched_at": datetime(2026, 9, 10, 12, 0, 1, tzinfo=UTC),
     }
     for prop in (
         "enriched_description",

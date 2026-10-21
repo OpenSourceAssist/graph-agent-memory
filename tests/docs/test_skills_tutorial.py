@@ -13,6 +13,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "docs/modules/ROOT/examples"))
+from datetime import UTC
+
 import skills_quickstart as skills  # noqa: E402
 from hosted_tutorial_state import TutorialState  # noqa: E402
 
@@ -291,7 +293,7 @@ def test_derived_skill_sources_require_complete_provenance_ids(tmp_path, unident
     state.data["run_id"] = "run-id"
     row = {
         "id": "derived-entity",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "sources": ["owned-step"],
         "source_count": 1,
         "neighbors": ["owned-step"],

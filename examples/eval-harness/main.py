@@ -58,7 +58,7 @@ import asyncio
 import json
 import os
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -331,7 +331,7 @@ def report_payload(
 ) -> dict[str, Any]:
     """A JSON-serialisable summary — one trend row, or a CI report body."""
     payload: dict[str, Any] = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "overall": round(report.overall_score, 4),
         "min_score": min_score,
         "passed": report.overall_score >= min_score,

@@ -9,7 +9,7 @@ relationship writes raise :class:`NotSupportedError`.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 import httpx
 import pytest
@@ -448,9 +448,9 @@ class TestMergedEntityResolution:
         respx.get(f"https://memory.test/v1/entities/{SAMPLE_ENTITY['id']}").respond(
             200, json=detail
         )
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         entity = await long_term.add_entity("Alice Smith", "PERSON")
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
         assert str(entity.id) == SAMPLE_ENTITY["id"]
         assert entity.name == "Alice Smith"
         assert entity.type == "PERSON"
@@ -539,7 +539,7 @@ class TestNormalizeEntity:
         assert entity.metadata == {}
         assert entity.description is None
         assert entity.updated_at is None
-        assert entity.created_at == datetime(2026, 5, 17, 12, tzinfo=timezone.utc)
+        assert entity.created_at == datetime(2026, 5, 17, 12, tzinfo=UTC)
 
     @pytest.mark.parametrize(
         "changes", [{"id": None}, {"id": "bad-id"}, {"createdAt": None}, {"createdAt": "bad-date"}]
@@ -555,9 +555,9 @@ class TestNormalizeEntity:
 
     def test_missing_timestamp_keeps_existing_default_behavior(self):
         payload = {key: value for key, value in SAMPLE_ENTITY.items() if key != "createdAt"}
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         entity = Entity.model_validate(_normalize_entity(payload))
-        assert before <= entity.created_at <= datetime.now(timezone.utc)
+        assert before <= entity.created_at <= datetime.now(UTC)
 
 
 class TestSearchEntities:

@@ -41,7 +41,7 @@ def main():
     except AuraConfigurationError as error:
         print(str(error), file=sys.stderr)
         raise SystemExit(1) from None
-    except (asyncio.TimeoutError, DriverError, Neo4jError) as error:
+    except (TimeoutError, DriverError, Neo4jError) as error:
         # Driver exceptions can include connection details. Report the category
         # and next action without echoing credentials or a raw server message.
         print(

@@ -7,7 +7,7 @@ import json
 import os
 import re
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
@@ -244,7 +244,7 @@ class TutorialState:
             "lesson": lesson,
             "identity": identity(settings),
             "run_token": uuid4().hex,
-            "started_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": datetime.now(UTC).isoformat(),
             "resources": {},
             "pending": None,
             # Written durably by begin() before the first remote mutation.

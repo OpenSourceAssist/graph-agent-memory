@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID, uuid4
 
@@ -48,14 +48,14 @@ def _deserialize_json(data_str: str | None) -> dict[str, Any] | list[Any] | None
 def _to_python_datetime(neo4j_datetime: Any) -> datetime:
     """Convert Neo4j DateTime to Python datetime."""
     if neo4j_datetime is None:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
     if isinstance(neo4j_datetime, datetime):
         return neo4j_datetime
     # Neo4j DateTime has to_native() method — cast because neo4j ships no stubs
     try:
         return cast(datetime, neo4j_datetime.to_native())
     except AttributeError:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
 
 if TYPE_CHECKING:
@@ -96,7 +96,7 @@ class ReasoningTrace(MemoryEntry):
     outcome: str | None = Field(default=None, description="Final outcome")
     success: bool | None = Field(default=None, description="Whether task succeeded")
     started_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), description="Start time"
+        default_factory=lambda: datetime.now(UTC), description="Start time"
     )
     completed_at: datetime | None = Field(default=None, description="Completion time")
 
@@ -234,7 +234,7 @@ class StreamingTraceRecorder:
         if self.trace is None:
             raise RuntimeError("Trace not started. Use within 'async with' context.")
 
-        self._step_start_time = datetime.now(timezone.utc)
+        self._step_start_time = datetime.now(UTC)
         self.current_step = await self.memory.add_step(
             self.trace.id,
             thought=thought,
@@ -285,9 +285,7 @@ class StreamingTraceRecorder:
 
         # Calculate duration if not provided
         if duration_ms is None and self._step_start_time is not None:
-            duration_ms = int(
-                (datetime.now(timezone.utc) - self._step_start_time).total_seconds() * 1000
-            )
+            duration_ms = int((datetime.now(UTC) - self._step_start_time).total_seconds() * 1000)
 
         return await self.memory.record_tool_call(
             current_step.id,

@@ -50,10 +50,9 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-
-import tomllib
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 EXAMPLES_DIR = REPO_ROOT / "examples"

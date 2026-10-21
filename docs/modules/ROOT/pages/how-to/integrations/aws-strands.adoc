@@ -15,7 +15,7 @@ anchor:_overview[]
 anchor:_installation[]
 anchor:_model_ids[]
 
-Use Python 3.10+, a POSIX shell, a dedicated AuraDB instance and AWS credentials authorized for both the selected Bedrock chat model/inference profile and Titan V2 embeddings. The `[strands]` extra selects the SDK's supported 1.x range. The TypeScript integration has different surfaces: see xref:how-to/typescript/strands.adoc[Strands for TypeScript].
+Use Python 3.11+, a POSIX shell, a dedicated AuraDB instance and AWS credentials authorized for both the selected Bedrock chat model/inference profile and Titan V2 embeddings. The `[strands]` extra selects the SDK's supported 1.x range. The TypeScript integration has different surfaces: see xref:how-to/typescript/strands.adoc[Strands for TypeScript].
 
 Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] for a dedicated test instance, then copy its URI, username and password into the exports below.
 

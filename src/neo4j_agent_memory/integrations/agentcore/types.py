@@ -6,7 +6,7 @@ These types map Neo4j Agent Memory concepts to the AgentCore MemoryProvider inte
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -46,7 +46,7 @@ class Memory:
     memory_type: MemoryType = MemoryType.MESSAGE
     session_id: str | None = None
     user_id: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     score: float | None = None
@@ -98,9 +98,7 @@ class Memory:
             content=message.content,
             memory_type=MemoryType.MESSAGE,
             session_id=session_id,
-            created_at=message.created_at
-            if hasattr(message, "created_at")
-            else datetime.now(timezone.utc),
+            created_at=message.created_at if hasattr(message, "created_at") else datetime.now(UTC),
             metadata={
                 "role": message.role.value if hasattr(message.role, "value") else str(message.role),
                 **(message.metadata or {}),
@@ -167,9 +165,7 @@ class Memory:
             content=f"Task: {trace.task}\nOutcome: {trace.outcome or 'In progress'}",
             memory_type=MemoryType.TRACE,
             session_id=trace.session_id,
-            created_at=trace.started_at
-            if hasattr(trace, "started_at")
-            else datetime.now(timezone.utc),
+            created_at=trace.started_at if hasattr(trace, "started_at") else datetime.now(UTC),
             metadata={
                 "task": trace.task,
                 "outcome": trace.outcome,
@@ -223,4 +219,4 @@ class SessionContext:
     user_id: str | None = None
     namespace: str = "default"
     metadata: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))

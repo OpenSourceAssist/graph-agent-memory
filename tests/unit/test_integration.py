@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
@@ -54,7 +54,7 @@ class TestSessionStrategy:
             user_id="alice",
         )
         sid = integration.resolve_session_id()
-        today = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         assert sid == f"alice-{today}"
 
     def test_per_day_default_user(self, mock_client):
