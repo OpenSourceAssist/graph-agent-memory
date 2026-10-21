@@ -1,4 +1,5 @@
 = Streaming extraction
+:description: Chunk long documents and combine extraction results, from Extractor classes reference. Import StreamingExtractor from neo4jagentmemory.extraction.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

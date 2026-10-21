@@ -1,4 +1,5 @@
 = TypeScript SDK API reference
+:description: The shape of the public surface of @neo4j-labs/agent-memory, with deep links into the auto-generated TypeDoc reference for each symbol.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

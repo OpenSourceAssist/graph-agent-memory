@@ -1,4 +1,5 @@
 = Build a knowledge graph from documents
+:description: We will extract candidate entities and relationships from two fictional business documents, store their message provenance, inspect the graph after...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:

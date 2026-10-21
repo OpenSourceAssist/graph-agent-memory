@@ -1,4 +1,7 @@
 = Store Mastra threads in NAMS
+:page-product: agent-memory
+:page-pagination:
+:description: The @neo4j-labs/agent-memory/integrations/mastra subpath exports Neo4jMastraMemory — a thin thread-and-message-history adapter that speaks Mastra's...
 :source-highlighter: rouge
 
 The `@neo4j-labs/agent-memory/integrations/mastra` subpath exports

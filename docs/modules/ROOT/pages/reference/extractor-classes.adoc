@@ -1,4 +1,5 @@
 = Built-in extractor classes
+:description: The concrete single-stage extractors from Extractor classes reference: statistical (spaCy), joint entity and relation extraction (GLiNER2.5), and LLM-based....
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

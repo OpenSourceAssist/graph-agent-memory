@@ -1,4 +1,6 @@
 = Getting started
+:page-pagination:
+:description: Set up Neo4j Agent Memory: choose Python or TypeScript, a hosted NAMS workspace or your own Neo4j database, then follow a complete quickstart tutorial.
 :page-product: agent-memory
 :toclevels: 2
 

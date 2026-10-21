@@ -1,4 +1,6 @@
 = How the NAMS AI provider retrieves memory
+:page-pagination:
+:description: @neo4j-labs/nams-ai-provider is a separate, experimental Neo4j Labs package that talks only to the hosted NAMS backend (see choosing a mode). Provider and...
 :page-product: agent-memory
 :toclevels: 2
 

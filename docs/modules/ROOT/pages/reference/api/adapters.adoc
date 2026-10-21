@@ -1,4 +1,5 @@
 = Adapters reference
+:description: Constructor signatures and notes for every adapter shipped in neo4jagentmemory.llm.adapters.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

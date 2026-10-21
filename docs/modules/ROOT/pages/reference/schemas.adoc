@@ -1,4 +1,5 @@
 = Domain schemas reference
+:description: Reference for built-in domain schemas and custom schema creation. This page is a short overview and index; each subsystem has its own page.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

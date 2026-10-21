@@ -1,4 +1,5 @@
 = Embedding, LLM, schema, extraction, and resolution settings
+:description: Provider and extraction-pipeline settings for Configuration reference: EmbeddingConfig, LLMConfig, SchemaConfig, ExtractionConfig, and ResolutionConfig....
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

@@ -1,4 +1,5 @@
 = ShortTermMemory API reference
+:description: Conversation and message operations exposed through client.short_term. Signatures in the bolt sections describe ShortTermMemory; the NAMS table identifies...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

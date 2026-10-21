@@ -1,4 +1,5 @@
 = Add persistent conversation context to a chatbot
+:description: We will store a shopper's first conversation, stop the process, and answer a new question in a second process using the earlier conversation, an explicit...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:

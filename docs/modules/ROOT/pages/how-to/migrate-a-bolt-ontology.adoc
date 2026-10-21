@@ -1,4 +1,5 @@
 = Rename an ontology type and migrate a Bolt graph
+:description: Rename an entity type in an ontology that extraction has already used, and relabel the entities already in the graph, without re-ingesting a message. On...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

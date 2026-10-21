@@ -1,4 +1,5 @@
 = Self-hosted Python MCP reference
+:description: Tool parameters, resource registrations and prompts for the self-hosted Python server in neo4j-agent-memory==0.7.0.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

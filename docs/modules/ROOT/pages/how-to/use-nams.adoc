@@ -1,4 +1,5 @@
 = Connect a Python application to NAMS
+:description: To store and retrieve messages through NAMS, configure the Python client with a workspace key and use the conversation ID returned by the service.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

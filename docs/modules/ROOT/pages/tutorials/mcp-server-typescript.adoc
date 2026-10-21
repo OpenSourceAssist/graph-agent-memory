@@ -1,4 +1,5 @@
 = Connect Claude Desktop to memory with a TypeScript MCP server
+:description: We will run a local TypeScript MCP server, connect Claude Desktop to it, and explicitly store and recall a message and entity in a dedicated NAMS workspace....
 :page-role: code-nocollapse
 :ts-program: src/tutorial-mcp.ts
 :ts-seed: init

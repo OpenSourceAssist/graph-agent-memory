@@ -1,4 +1,5 @@
 = Frequently asked questions
+:description: Answers to common questions about Neo4j Agent Memory: supported backends, Neo4j versions, AWS support, NAMS Agent Skills, and the POLE+O data model.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

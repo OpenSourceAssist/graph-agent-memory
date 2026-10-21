@@ -1,4 +1,5 @@
 = LongTermMemory API reference
+:description: Entity, preference, fact, relationship, provenance, and location operations exposed through client.long_term. The main signatures describe the bolt...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

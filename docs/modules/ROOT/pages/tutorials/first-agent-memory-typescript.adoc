@@ -1,4 +1,7 @@
 = Build your first TypeScript agent with memory
+:page-product: agent-memory
+:page-pagination:
+:description: anchor:whatyoull_build[] We will store a fictional project name and entity, retrieve the same conversation during a model call, then independently verify...
 :page-role: code-nocollapse
 :ts-program: src/tutorials/first-agent.ts
 :ts-seed: seed

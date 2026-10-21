@@ -1,4 +1,5 @@
 = Entity resolution and deduplication
+:description: Entity resolution asks whether two mentions identify the same real-world thing. Deduplication applies that decision to stored records. Both seek a balance...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

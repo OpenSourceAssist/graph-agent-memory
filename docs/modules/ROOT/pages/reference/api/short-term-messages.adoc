@@ -1,4 +1,5 @@
 = Conversation and message operations
+:description: Message CRUD and NAMS conversation operations from ShortTermMemory API reference. Signatures show types, keyword-only arguments (*), and defaults; they are...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

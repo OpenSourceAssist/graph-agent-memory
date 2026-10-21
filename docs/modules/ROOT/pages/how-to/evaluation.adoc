@@ -1,4 +1,6 @@
 = Evaluate memory quality
+:page-pagination:
+:description: How to run labeled regression tests against your memory graph using the evaluation harness.
 :page-product: agent-memory
 :toclevels: 2
 

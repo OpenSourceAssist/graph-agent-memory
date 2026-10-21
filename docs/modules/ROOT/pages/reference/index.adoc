@@ -1,4 +1,6 @@
 = Reference
+:page-pagination:
+:description: Complete Neo4j Agent Memory reference: MemoryClient API, configuration options, environment variables, CLI, MCP tools, and REST endpoints.
 :page-product: agent-memory
 :toclevels: 2
 

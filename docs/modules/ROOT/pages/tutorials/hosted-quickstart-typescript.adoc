@@ -1,4 +1,6 @@
 = Store and read back hosted memory with TypeScript
+:page-product: agent-memory
+:page-pagination:
 :page-role: code-nocollapse
 :ts-program: src/tutorials/hosted-quickstart.ts
 :ts-seed: seed

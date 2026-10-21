@@ -1,4 +1,5 @@
 = Run without an LLM
+:description: Use neo4j-agent-memory with local extraction and embeddings, without constructing an LLM provider or requiring an OPENAIAPIKEY. This example stores its...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

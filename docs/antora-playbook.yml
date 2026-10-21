@@ -6,6 +6,7 @@ antora:
   extensions:
     - require: ./extensions/example-files.js
     - require: ./extensions/tutorial-ui.js
+    - require: ./extensions/sitemap.js
 
 content:
   sources:

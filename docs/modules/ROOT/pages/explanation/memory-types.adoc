@@ -1,4 +1,5 @@
 = Understanding the three memory types
+:description: Understand the three agent memory types — short-term conversation history, long-term entity knowledge, and recorded reasoning traces — and how they share one graph.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

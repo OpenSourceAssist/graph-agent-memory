@@ -1,4 +1,6 @@
 = Python SDK
+:page-product: agent-memory
+:page-pagination:
 :description: Install the published Python SDK and choose Aura or NAMS setup.
 
 The Python SDK connects directly to Neo4j over Bolt or to NAMS over HTTP. Supported methods, result shapes and data scope differ; see xref:reference/backend-capabilities.adoc[backend capabilities].

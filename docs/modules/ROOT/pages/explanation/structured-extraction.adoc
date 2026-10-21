@@ -1,4 +1,5 @@
 = Structured extraction
+:description: Structured extraction separates the shape of a model response from its meaning. A validated response satisfies the declared schema; it can still contain an...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

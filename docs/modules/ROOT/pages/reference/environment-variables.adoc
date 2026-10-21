@@ -1,4 +1,5 @@
 = Environment variables reference
+:description: Environment inputs recognized by Python MemorySettings and its optional integrations. All declared child fields are listed, including settings that the...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

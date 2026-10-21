@@ -1,4 +1,5 @@
 = Migrate a Python application to NAMS
+:description: To change an existing Bolt application to NAMS, inventory its operations and data assumptions, replace unsupported paths, then verify the application...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

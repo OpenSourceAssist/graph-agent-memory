@@ -1,4 +1,6 @@
 = NAMS limits and behavior
+:page-pagination:
+:description: Operational limits, quotas, and runtime behavior for the hosted NAMS backend. These describe what to expect as a client — not internal service metrics. For...
 :page-product: agent-memory
 :toclevels: 2
 :icons: font

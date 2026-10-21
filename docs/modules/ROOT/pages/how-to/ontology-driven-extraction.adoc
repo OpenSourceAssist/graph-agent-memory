@@ -1,4 +1,5 @@
 = Drive extraction from an ontology
+:description: To make extraction produce a predictable, typed graph instead of a pile of loosely labeled nodes, write an ontology and hand it to the client. One document...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

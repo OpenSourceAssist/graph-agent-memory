@@ -1,4 +1,5 @@
 = Extractor builder
+:description: Build a local extractor from enabled stages, from Extractor classes reference. Import ExtractorBuilder from neo4jagentmemory.extraction.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

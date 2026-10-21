@@ -1,4 +1,5 @@
 = Use with Strands agents
+:description: Restore a Strands conversation through Neo4jSessionManager, then choose additional retrieval or tool surfaces only when your application needs them. The...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

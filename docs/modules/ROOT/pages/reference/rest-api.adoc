@@ -1,4 +1,6 @@
 = REST API reference
+:page-product: agent-memory
+:page-pagination:
 :description: Hosted-service REST endpoints mapped to client SDK methods in each language.
 
 The hosted service at `+https://memory.neo4jlabs.com/v1+` exposes a REST API.
