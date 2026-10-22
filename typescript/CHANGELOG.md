@@ -9,9 +9,11 @@ appear in minor versions with a callout in this file.
 
 ## [Unreleased]
 
-The package version stays at 0.5.0 until these ship. Each entry below names the
-problem it fixes and the code that changed; the tests are in
-`test/integration/rest-transport.test.ts` and `test/integration/docs-contract.test.ts`.
+## 0.6.0 — 2026-10-22
+
+Each entry below names the problem it fixes and the code that changed; the
+tests are in `test/integration/rest-transport.test.ts` and
+`test/integration/docs-contract.test.ts`.
 
 ### Fixed
 

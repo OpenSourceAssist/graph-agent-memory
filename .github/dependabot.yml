@@ -170,6 +170,7 @@ updates:
   - package-ecosystem: "npm"
     directories:
       - "/typescript/examples/*"
+      - "/typescript/packages/vercel-ai-provider/examples/eve-memory-eval"
       - "/examples/full-stack-chat-agent/frontend"
       - "/examples/support-desk-agent/frontend"
       - "/examples/lennys-memory/frontend"

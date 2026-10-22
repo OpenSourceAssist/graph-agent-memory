@@ -37,6 +37,8 @@ export interface StoredEntity {
   id: string;
   name: string;
   type: string;
+  /** Owning user; omitted, the entity is shared workspace knowledge. */
+  user_id?: string;
 }
 
 /** Everything the fake service holds, plus a log of what was asked of it. */

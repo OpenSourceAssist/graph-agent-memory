@@ -205,7 +205,9 @@ describe("POST /api/chat", () => {
 
   it("surfaces a matching entity's graph relationship in the prompt", async () => {
     const conversationId = state.seedConversation("traveller@example.com", []);
-    state.entities = [{ id: "e1", name: "Kyoto", type: "LOCATION" }];
+    // The entity belongs to the traveller: the provider only surfaces the
+    // user's own entities, so a userless (shared) seed would be filtered out.
+    state.entities = [{ id: "e1", name: "Kyoto", type: "LOCATION", user_id: "traveller@example.com" }];
     state.relationships.set("e1", [{ type: "SERVED_BY", targetName: "Japan Railways" }]);
     const model = mockModel();
 
