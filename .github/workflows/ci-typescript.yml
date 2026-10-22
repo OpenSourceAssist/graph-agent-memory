@@ -186,6 +186,15 @@ jobs:
           cache: 'npm'
           cache-dependency-path: typescript/packages/vercel-ai-provider/package-lock.json
 
+      # The package's devDependency on @neo4j-labs/agent-memory is a file:../..
+      # link, so type-check and build resolve the checkout's dist — build it
+      # first, exactly as the examples job does.
+      - name: 'Build SDK (populates typescript/dist for the file: dep)'
+        working-directory: typescript
+        run: |
+          npm ci
+          npm run build
+
       - name: Install dependencies
         run: npm ci
 
