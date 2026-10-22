@@ -5,9 +5,10 @@ Releases before 0.3.0 predate this file; see the
 
 ## Unreleased
 
-Requires a `@neo4j-labs/agent-memory` release newer than 0.5.0, one with the
-message-search and per-user-entity fixes. The `~0.5.0` peer range accepts a
-0.5.x release, so the provider needs no change when the SDK ships.
+## 0.4.0 — 2026-10-22
+
+Requires `@neo4j-labs/agent-memory` 0.6.0, the release with the message-search
+and per-user-entity fixes. The peer range is `~0.6.0`.
 
 ### Added
 
@@ -48,12 +49,12 @@ message-search and per-user-entity fixes. The `~0.5.0` peer range accepts a
   user's). `findEntity`, `storeMemory` and `GraphExtractor` take an optional
   `userId` (a new last argument, `opts.userId`, and `scope.userId`); without
   it they behave as before.
-- **The `@neo4j-labs/agent-memory` peer dependency is now `~0.5.0`.** The SDK
-  fixes this release needs ship in a later 0.5.x, which the range accepts.
-  0.5.0 itself installs but fails against hosted NAMS: it sends `threshold`
-  with every message search, sends the conversation user filter as `user_id`,
-  which the service ignores, and has no `userId` on entity search, entity
-  reads or entity writes. 0.4.x is not supported either.
+- **The `@neo4j-labs/agent-memory` peer dependency is now `~0.6.0`.** The SDK
+  fixes this release needs ship in 0.6.0, which the range accepts. 0.5.x is
+  not supported: 0.5.0 installs but fails against hosted NAMS — it sends
+  `threshold` with every message search, sends the conversation user filter
+  as `user_id`, which the service ignores, and has no `userId` on entity
+  search, entity reads or entity writes. 0.4.x is not supported either.
 - **Name lookups are per user.** `findEntity` passes the type and `userId` to
   the SDK's name lookup and, when it returns another user's entity or another
   type, searches the user's entities instead of giving up. The SDK's REST
