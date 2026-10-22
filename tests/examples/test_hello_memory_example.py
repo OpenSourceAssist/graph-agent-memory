@@ -27,11 +27,11 @@ import importlib.util
 import os
 import re
 import sys
+import tomllib
 from pathlib import Path
 from types import ModuleType
 
 import pytest
-import tomllib
 
 pytest.importorskip("respx", reason="respx not installed")
 

@@ -471,9 +471,16 @@ The chat endpoint automatically detects and stores user preferences from natural
 
 ```python
 PREFERENCE_INDICATORS = [
-    "i prefer", "i like", "i want", "i love", "i enjoy",
-    "please always", "please don't", "can you always",
-    "i'm interested in", "i care about",
+    "i prefer",
+    "i like",
+    "i want",
+    "i love",
+    "i enjoy",
+    "please always",
+    "please don't",
+    "can you always",
+    "i'm interested in",
+    "i care about",
 ]
 ```
 

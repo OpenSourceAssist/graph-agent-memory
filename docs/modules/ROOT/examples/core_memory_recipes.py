@@ -2,7 +2,7 @@
 
 import argparse
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from core_memory_settings import settings
@@ -17,7 +17,7 @@ from neo4j_agent_memory.schema.models import EntityRef, TraceOutcome
 async def messages(client, run_id):
     session = f"docs-messages-{run_id}"
     # Explicit timestamps record when each turn happened; untimed rows are stamped in list order.
-    start = datetime.now(timezone.utc)
+    start = datetime.now(UTC)
     stored = await client.short_term.add_messages_batch(
         session,
         [

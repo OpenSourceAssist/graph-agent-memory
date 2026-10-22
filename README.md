@@ -356,7 +356,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide, CI pipeli
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - Neo4j 5.26+ (including 2025.x) or Neo4j AuraDB for the `bolt` backend; merging duplicate entities uses `CALL` subquery syntax that needs 5.23+
 
 ## License

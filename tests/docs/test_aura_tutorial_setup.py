@@ -287,7 +287,7 @@ def test_readiness_cli_sanitizes_timeout(readiness, monkeypatch, capsys):
     monkeypatch.setattr(
         module,
         "wait_until_ready",
-        AsyncMock(side_effect=asyncio.TimeoutError(EXPORTS["NEO4J_PASSWORD"])),
+        AsyncMock(side_effect=TimeoutError(EXPORTS["NEO4J_PASSWORD"])),
     )
     with pytest.raises(SystemExit) as caught:
         module.main()

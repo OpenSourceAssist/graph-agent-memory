@@ -48,9 +48,9 @@ the `name=` argument:
 ```python
 draft = await client.ontology.import_(content=arrows_json, format="arrows")
 document = draft.document
-document.domain.id = "support-desk"          # identity lives here
+document.domain.id = "support-desk"  # identity lives here
 version = await client.ontology.create("Support Desk", document, validation_mode="permissive")
-await client.ontology.activate(version.id)   # activate binds a *version*
+await client.ontology.activate(version.id)  # activate binds a *version*
 ```
 
 ### Migrations are jobs, not calls
@@ -65,7 +65,7 @@ job = await client.ontology.migrate(
     from_version_id=v1.id,
     to_version_id=v2.id,
     type_mappings=[("Ticket", "SupportCase")],
-    dry_run=True,           # counts only, touches nothing
+    dry_run=True,  # counts only, touches nothing
     batch_size=500,
 )
 deadline = time.monotonic() + 120.0

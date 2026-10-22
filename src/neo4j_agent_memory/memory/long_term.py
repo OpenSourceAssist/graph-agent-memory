@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID, uuid4
@@ -252,14 +252,14 @@ def _enrichment_metadata(data: dict[str, Any]) -> dict[str, Any]:
 def _to_python_datetime(neo4j_datetime: Any) -> datetime:
     """Convert Neo4j DateTime to Python datetime."""
     if neo4j_datetime is None:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
     if isinstance(neo4j_datetime, datetime):
         return neo4j_datetime
     # Neo4j DateTime has to_native() method — cast because neo4j ships no stubs
     try:
         return cast(datetime, neo4j_datetime.to_native())
     except AttributeError:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
 
 if TYPE_CHECKING:

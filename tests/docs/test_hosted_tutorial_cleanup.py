@@ -7,7 +7,7 @@ import importlib
 import json
 import stat
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -36,7 +36,7 @@ def settings(**overrides):
 
 def ledger(tmp_path):
     state = TutorialState.create(tmp_path / "state.json", settings(), "test")
-    state.data["started_at"] = (datetime.now(timezone.utc) - timedelta(seconds=10)).isoformat()
+    state.data["started_at"] = (datetime.now(UTC) - timedelta(seconds=10)).isoformat()
     state.data["conversation_id"] = "conv-1"
     state.record("conversation", "conv-1", metadata={"tutorialRun": state.data["run_token"]})
     state.record("message", "msg-1", role="user", content_sha256="test")
@@ -53,7 +53,7 @@ class Service:
         self.provenance = [
             {
                 "id": "entity-1",
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "sources": ["msg-1"],
                 "source_count": 1,
                 "neighbors": ["msg-1"],

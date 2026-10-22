@@ -20,6 +20,7 @@ from neo4j_agent_memory import (
     SessionStrategy,
 )
 from neo4j_agent_memory.llm import from_provider
+
 from src.config import ExtractionMode, get_settings
 
 logger = logging.getLogger(__name__)

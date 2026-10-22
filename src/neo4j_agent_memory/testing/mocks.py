@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID, uuid4
 
@@ -60,7 +60,7 @@ class MockShortTermMemory:
                 id=uuid4(),
                 session_id=session_id,
                 messages=[],
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
 
         conv = self._conversations[session_id]
@@ -70,12 +70,12 @@ class MockShortTermMemory:
             role=role,
             content=content,
             conversation_id=conv.id,
-            created_at=timestamp or datetime.now(timezone.utc),
+            created_at=timestamp or datetime.now(UTC),
             metadata=metadata or {},
         )
 
         conv.messages.append(message)
-        conv.updated_at = datetime.now(timezone.utc)
+        conv.updated_at = datetime.now(UTC)
         self._messages[str(message.id)] = message
 
         return message
@@ -130,7 +130,7 @@ class MockShortTermMemory:
                 id=uuid4(),
                 session_id=session_id,
                 messages=[],
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
 
         conv = self._conversations[session_id]
@@ -315,7 +315,7 @@ class MockLongTermMemory:
             type=entity_type,
             description=description,
             canonical_name=name,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         self._entities[str(entity.id)] = entity
@@ -337,7 +337,7 @@ class MockLongTermMemory:
             preference=preference,
             context=context,
             confidence=confidence,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         self._preferences[str(pref.id)] = pref
@@ -359,7 +359,7 @@ class MockLongTermMemory:
             predicate=predicate,
             object=object_,
             confidence=confidence,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
         self._facts[str(fact.id)] = fact
@@ -461,7 +461,7 @@ class MockReasoningMemory:
             id=uuid4(),
             session_id=session_id,
             task=task,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             metadata=metadata or {},
         )
 
@@ -489,7 +489,7 @@ class MockReasoningMemory:
             thought=thought,
             action=action,
             observation=observation,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             metadata=metadata or {},
         )
 
@@ -568,7 +568,7 @@ class MockReasoningMemory:
 
         trace.outcome = outcome
         trace.success = success
-        trace.completed_at = datetime.now(timezone.utc)
+        trace.completed_at = datetime.now(UTC)
 
         return trace
 

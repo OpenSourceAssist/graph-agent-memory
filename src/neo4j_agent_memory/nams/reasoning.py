@@ -37,7 +37,7 @@ Field name mapping (Protocol → NAMS):
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
@@ -91,7 +91,7 @@ def _json_safe_str(value: Any) -> str:
 
 
 def _now_utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _normalize_step(payload: dict[str, Any], *, trace_id: UUID | str) -> dict[str, Any]:

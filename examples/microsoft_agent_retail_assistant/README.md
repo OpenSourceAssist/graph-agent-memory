@@ -323,12 +323,12 @@ Configuration lives in `memory_config.py`, where `Neo4jMicrosoftMemory` bundles 
 ```python
 def create_memory(client: MemoryClient, session_id: str, user_id: str | None = None):
     return Neo4jMicrosoftMemory(
-        memory_client=client,      # the connected client from the FastAPI lifespan
+        memory_client=client,  # the connected client from the FastAPI lifespan
         session_id=session_id,
         user_id=user_id,
-        include_short_term=True,   # conversation history
-        include_long_term=True,    # entities & preferences
-        include_reasoning=True,    # past task traces
+        include_short_term=True,  # conversation history
+        include_long_term=True,  # entities & preferences
+        include_reasoning=True,  # past task traces
         max_context_items=15,
         extract_entities=True,
         extract_entities_async=True,  # non-blocking extraction

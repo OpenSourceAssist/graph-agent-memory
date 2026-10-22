@@ -110,7 +110,7 @@ class BackgroundEnrichmentService:
         if self._worker_task:
             try:
                 await asyncio.wait_for(self._worker_task, timeout=timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("Enrichment service stop timeout - cancelling")
                 self._worker_task.cancel()
                 try:
@@ -197,7 +197,7 @@ class BackgroundEnrichmentService:
                 # Get next task with timeout
                 try:
                     _, task = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
 
                 # Process the task

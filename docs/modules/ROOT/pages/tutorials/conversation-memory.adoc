@@ -14,7 +14,7 @@ anchor:_prerequisites[]anchor:_what_youll_learn[]anchor:_time_required[]anchor:_
 
 == Before you begin
 
-* Python 3.10 or newer and a POSIX shell such as Bash or Zsh.
+* Python 3.11 or newer and a POSIX shell such as Bash or Zsh.
 * An OpenAI API key with access to `text-embedding-3-small`.
 * A Neo4j Aura account with capacity for a dedicated AuraDB Free instance.
 

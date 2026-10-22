@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -176,7 +176,7 @@ class MemoryIntegration:
 
         if self._strategy == SessionStrategy.PER_DAY:
             user = self._user_id or "default"
-            date_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+            date_str = datetime.now(tz=UTC).strftime("%Y-%m-%d")
             return f"{user}-{date_str}"
 
         # PERSISTENT

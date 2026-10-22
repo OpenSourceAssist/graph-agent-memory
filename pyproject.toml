@@ -4,7 +4,7 @@ version = "0.7.0"
 description = "A comprehensive memory system for AI agents using Neo4j"
 readme = "README-pypi.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "William Lyon", email = "lyonwj@gmail.com" }
 ]
@@ -30,7 +30,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -325,7 +324,7 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
@@ -370,7 +369,7 @@ module = "nest_asyncio"
 ignore_missing_imports = true
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
@@ -398,6 +397,7 @@ ignore = [
     "B007",   # unused loop variable (sometimes intentional for iteration)
     "B904",   # raise from in except (can add noise without benefit)
     "B905",   # zip strict parameter (not always needed)
+    "UP042",  # StrEnum changes str() of members ("Class.MEMBER" -> value); str,Enum is part of serialized output
 ]
 
 [tool.ruff.lint.per-file-ignores]

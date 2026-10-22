@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import UUID, uuid4
@@ -110,14 +110,14 @@ def _stored_entity_id(rows: Any, generated_id: str) -> str:
 def _to_python_datetime(neo4j_datetime: Any) -> datetime:
     """Convert Neo4j DateTime to Python datetime."""
     if neo4j_datetime is None:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
     if isinstance(neo4j_datetime, datetime):
         return neo4j_datetime
     # Neo4j DateTime has to_native() method — cast because neo4j ships no stubs
     try:
         return cast(datetime, neo4j_datetime.to_native())
     except AttributeError:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
 
 _SENTENCE_BOUNDARY_CHARS = ".!?\n"
@@ -397,7 +397,7 @@ class Conversation(BaseModel):
     session_id: str = Field(description="User/agent session identifier")
     title: str | None = Field(default=None, description="Conversation title")
     messages: list[Message] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -434,7 +434,7 @@ class ConversationSummary(BaseModel):
     )
     key_topics: list[str] = Field(default_factory=list, description="Key topics discussed")
     generated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), description="When summary was generated"
+        default_factory=lambda: datetime.now(UTC), description="When summary was generated"
     )
 
 

@@ -956,12 +956,10 @@ class TestStrandsBaseClassContract:
     under Neo4jSessionManager.
     """
 
-    def test_base_registers_multi_agent_and_bidi_hooks_unconditionally(self) -> None:
-        from strands.experimental.hooks.events import (
-            BidiAfterInvocationEvent,
-            BidiAgentInitializedEvent,
-            BidiMessageAddedEvent,
-        )
+    def test_base_registers_multi_agent_hooks_unconditionally(self) -> None:
+        # strands dropped the experimental BidiAgent surface (hooks and the
+        # SessionManager bidi methods) after 1.55, so only the multi-agent
+        # (Graph/Swarm) hooks remain part of the base-class contract.
         from strands.hooks.events import (
             AfterMultiAgentInvocationEvent,
             AfterNodeCallEvent,
@@ -977,9 +975,6 @@ class TestStrandsBaseClassContract:
                 MultiAgentInitializedEvent,
                 AfterNodeCallEvent,
                 AfterMultiAgentInvocationEvent,
-                BidiAgentInitializedEvent,
-                BidiMessageAddedEvent,
-                BidiAfterInvocationEvent,
             ):
                 assert event_type in event_types, event_type.__name__
         finally:
@@ -990,15 +985,12 @@ class TestStrandsBaseClassContract:
         [
             ("sync_multi_agent", (SimpleNamespace(),)),
             ("initialize_multi_agent", (SimpleNamespace(),)),
-            ("initialize_bidi_agent", (SimpleNamespace(),)),
-            ("append_bidi_message", ({"role": "user", "content": []}, SimpleNamespace())),
-            ("sync_bidi_agent", (SimpleNamespace(),)),
         ],
     )
-    def test_multi_agent_and_bidi_persistence_is_unsupported_and_says_so(
+    def test_multi_agent_persistence_is_unsupported_and_says_so(
         self, method: str, args: tuple[object, ...]
     ) -> None:
-        """Documented limitation: one manager per Agent, no Graph/Swarm/Bidi.
+        """Documented limitation: one manager per Agent, no Graph/Swarm.
 
         The inherited implementations raise, and the message names this class —
         so the adapter needs no override of its own.

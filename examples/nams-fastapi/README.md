@@ -162,8 +162,8 @@ memory = MemoryIntegration(
     session_strategy=SessionStrategy.PER_DAY,  # "{user_id}-YYYY-MM-DD"
     user_id="alice",
     auto_preferences=False,  # required on NAMS: the background detector calls
-                             # long_term.add_preference(), which raises
-                             # NotSupportedError there (logged once per turn)
+    # long_term.add_preference(), which raises
+    # NotSupportedError there (logged once per turn)
 )
 ```
 
