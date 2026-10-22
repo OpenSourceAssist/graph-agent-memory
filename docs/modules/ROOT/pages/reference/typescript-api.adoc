@@ -44,9 +44,9 @@ that touches `typescript/src/**` (see `.github/workflows/docs-typedoc.yml`).
 
 [source,bash]
 ----
-npm install @neo4j-labs/agent-memory@0.5.0
-# pnpm add @neo4j-labs/agent-memory@0.5.0
-# bun add @neo4j-labs/agent-memory@0.5.0
+npm install @neo4j-labs/agent-memory@0.6.0
+# pnpm add @neo4j-labs/agent-memory@0.6.0
+# bun add @neo4j-labs/agent-memory@0.6.0
 ----
 
 Requires Node.js 22+. The core REST transport uses `fetch`; pass credentials explicitly where environment access differs. Framework adapters retain their own runtime and peer requirements.
@@ -610,7 +610,7 @@ See xref:how-to/typescript/observability.adoc[enable request logging] for the fu
 == Versioning
 
 The SDK has its own package version; NAMS itself is continuously shipped and
-`/v1` is the service API path. The current release is `0.5.0` (2026-09-22).
+`/v1` is the service API path. The current release is `0.6.0` (2026-10-22).
 Release tags are namespaced per package: `typescript-v<X.Y.Z>` publishes
 `@neo4j-labs/agent-memory` itself, separately from Python's `python-v*` tags;
 `nams-ai-provider-v<X.Y.Z>` publishes the separate

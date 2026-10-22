@@ -4,7 +4,7 @@ Node.js 22.9; the SDK itself supports Node.js 22. These lessons
 share one repository checkout. The example-based lessons build the SDK from
 source so they run against current source; application code, including the
 MCP lesson's standalone `my-memory-mcp` project, installs the published
-`@neo4j-labs/agent-memory@0.5.0` package from npm. Keep this checkout for the
+`@neo4j-labs/agent-memory@0.6.0` package from npm. Keep this checkout for the
 remaining TypeScript lessons.
 
 *For your first lesson*, clone and build the SDK:
