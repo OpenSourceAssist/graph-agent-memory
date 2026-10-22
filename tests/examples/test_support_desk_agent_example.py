@@ -164,7 +164,7 @@ class TestBackendStructure:
 
     @pytest.mark.syntax
     def test_pyproject_pins_the_library_with_the_extras_it_needs(self):
-        pin = assert_library_pin(BACKEND_DIR / "pyproject.toml", minimum="0.7.0")
+        pin = assert_library_pin(BACKEND_DIR / "pyproject.toml", minimum="0.8.0")
         assert set(pin.extras) == {"gliner2", "sentence-transformers"}
 
     @pytest.mark.syntax

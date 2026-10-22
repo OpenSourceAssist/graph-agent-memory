@@ -26,13 +26,13 @@ per distinct surface form. One setting restores that behavior; see
 
 * A Bolt connection to Neo4j, such as the AuraDB instance from
   xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the first memory tutorial's Aura setup].
-* `neo4j-agent-memory` 0.7.0 with an embedding provider, and optionally the
+* `neo4j-agent-memory` 0.8.0 with an embedding provider, and optionally the
   `fuzzy` extra for RapidFuzz scoring (the resolver falls back to `difflib`
   without it):
 +
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai,fuzzy]==0.7.0'
+python -m pip install 'neo4j-agent-memory[openai,fuzzy]==0.8.0'
 ----
 * An extractor that produces entities on ingestion. Resolution only sees
   mentions that extraction produced.

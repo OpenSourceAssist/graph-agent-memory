@@ -17,7 +17,7 @@ entities the local pipeline extracted so a degraded install is obvious.
 
 Requirements:
 
-    pip install "neo4j-agent-memory[extraction,sentence-transformers]==0.7.0"
+    pip install "neo4j-agent-memory[extraction,sentence-transformers]==0.8.0"
     python -m spacy download en_core_web_sm
 
 Model weights (sentence-transformers ~90 MB, GLiNER2.5 ~407 MB) download once on

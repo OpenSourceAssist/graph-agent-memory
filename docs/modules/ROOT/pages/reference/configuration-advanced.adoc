@@ -53,8 +53,8 @@ Install the extra for the provider you use: `opentelemetry` adds the OpenTelemet
 
 [source,bash]
 ----
-pip install 'neo4j-agent-memory[opentelemetry]==0.7.0'
-# Or: pip install 'neo4j-agent-memory[opik]==0.7.0'
+pip install 'neo4j-agent-memory[opentelemetry]==0.8.0'
+# Or: pip install 'neo4j-agent-memory[opik]==0.8.0'
 ----
 
 This fragment assumes a connected MemoryClient named `client` and a `query` string, inside an async function:

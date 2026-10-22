@@ -17,7 +17,7 @@ dependencies = [
     # sentencepiece/protobuf the DeBERTa-v3 SPM tokenizer needs), so no direct
     # model dependency is declared here. GLiNER v1 and GLiREL were removed in
     # the library's 0.7 release.
-    "neo4j-agent-memory[extraction,openai,fuzzy,cli,mcp]>=0.7.0,<0.8",
+    "neo4j-agent-memory[extraction,openai,fuzzy,cli,mcp]>=0.8.0,<0.9",
     "spacy>=3.8,<4",
     "en-core-web-sm",
 ]

@@ -12,7 +12,7 @@ Install the `cli` extra and PyYAML. The `cli` extra does not include PyYAML, but
 
 [source,bash]
 ----
-pip install 'neo4j-agent-memory[cli]==0.7.0' pyyaml
+pip install 'neo4j-agent-memory[cli]==0.8.0' pyyaml
 ----
 
 Add the extras for the commands you run:
@@ -32,14 +32,14 @@ For example, to run every `extract` example on this page:
 
 [source,bash]
 ----
-pip install 'neo4j-agent-memory[cli,gliner2,openai]==0.7.0' pyyaml
+pip install 'neo4j-agent-memory[cli,gliner2,openai]==0.8.0' pyyaml
 ----
 
 To run the MCP server against NAMS:
 
 [source,bash]
 ----
-pip install 'neo4j-agent-memory[cli,mcp,nams]==0.7.0' pyyaml
+pip install 'neo4j-agent-memory[cli,mcp,nams]==0.8.0' pyyaml
 ----
 
 == Commands

@@ -13,10 +13,10 @@ include::partial$labs-disclaimer.adoc[]
 
 [source,bash]
 ----
-npm install @neo4j-labs/agent-memory@0.5.0
+npm install @neo4j-labs/agent-memory@0.6.0
 # or
-pnpm add @neo4j-labs/agent-memory@0.5.0
-bun add @neo4j-labs/agent-memory@0.5.0
+pnpm add @neo4j-labs/agent-memory@0.6.0
+bun add @neo4j-labs/agent-memory@0.6.0
 ----
 
 Requires Node.js 22 or newer.
@@ -83,7 +83,7 @@ The first five ship as subpath exports; the NAMS AI provider is a separate npm p
 
 * Package: link:https://www.npmjs.com/package/@neo4j-labs/agent-memory[`@neo4j-labs/agent-memory` on npm]
 * Source: link:https://github.com/neo4j-labs/agent-memory/tree/main/typescript[`typescript/` in the agent-memory repo]
-* Release tags: `typescript-v*` (e.g. `typescript-v0.5.0`)
+* Release tags: `typescript-v*` (e.g. `typescript-v0.6.0`)
 * Changelog: link:https://github.com/neo4j-labs/agent-memory/blob/main/typescript/CHANGELOG.md[typescript/CHANGELOG.md]
 
 == Looking for the Python SDK?

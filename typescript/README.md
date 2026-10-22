@@ -4,7 +4,7 @@
 ![Status: Beta](https://img.shields.io/badge/Status-Beta-6366F1)
 ![Community Supported](https://img.shields.io/badge/Support-Community-6B7280)
 
-> **Package installation.** Install with `npm install @neo4j-labs/agent-memory@0.5.0`
+> **Package installation.** Install with `npm install @neo4j-labs/agent-memory@0.6.0`
 > ([package page](https://www.npmjs.com/package/@neo4j-labs/agent-memory)).
 > Source lives alongside the Python SDK at
 > [`neo4j-labs/agent-memory`](https://github.com/neo4j-labs/agent-memory)
@@ -44,11 +44,11 @@
 ## 📦 Installation
 
 ```bash
-npm install @neo4j-labs/agent-memory@0.5.0
+npm install @neo4j-labs/agent-memory@0.6.0
 ```
 
 Requires Node.js 22+. This README describes the current source; changes made
-since the 0.5.0 release are listed under *Unreleased* in the
+since the 0.6.0 release are listed under *Unreleased* in the
 [CHANGELOG](https://github.com/neo4j-labs/agent-memory/blob/main/typescript/CHANGELOG.md).
 The [source examples](https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples)
 build the SDK before installing their local `file:` dependency.

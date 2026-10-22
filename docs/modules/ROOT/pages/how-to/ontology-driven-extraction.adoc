@@ -29,7 +29,7 @@ version — see xref:how-to/use-ontologies.adoc[Use ontologies].
 +
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[gliner2,openai,cli]==0.7.0' pyyaml
+python -m pip install 'neo4j-agent-memory[gliner2,openai,cli]==0.8.0' pyyaml
 ----
 +
 The first extraction downloads the GLiNER2.5 checkpoint `fastino/gliner2.5-base-v1` (about 407 MB).

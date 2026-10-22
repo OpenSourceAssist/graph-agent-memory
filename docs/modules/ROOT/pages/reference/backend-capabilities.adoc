@@ -1,10 +1,10 @@
 = Backend capabilities and data scope
 :page-pagination:
-:description: This reference describes the released SDKs, Python neo4j-agent-memory 0.7.0 and TypeScript @neo4j-labs/agent-memory 0.5.0. Check the installed SDK's API...
+:description: This reference describes the released SDKs, Python neo4j-agent-memory 0.8.0 and TypeScript @neo4j-labs/agent-memory 0.6.0. Check the installed SDK's API...
 :page-product: agent-memory
 :toclevels: 2
 
-This reference describes the released SDKs, Python `neo4j-agent-memory` 0.7.0 and TypeScript `@neo4j-labs/agent-memory` 0.5.0. Check the installed SDK's API reference before using a method introduced after its release. NAMS is a continuously shipped service; `/v1` identifies its REST API, not an SDK release.
+This reference describes the released SDKs, Python `neo4j-agent-memory` 0.8.0 and TypeScript `@neo4j-labs/agent-memory` 0.6.0. Check the installed SDK's API reference before using a method introduced after its release. NAMS is a continuously shipped service; `/v1` identifies its REST API, not an SDK release.
 
 == Backend and language
 
@@ -29,7 +29,7 @@ TypeScript with NAMS REST::: `longTerm.addEntity` / `searchEntities`; server-man
 Client-created relationships::
 +
 [horizontal]
-Python with Bolt::: Supported with `add_relationship(source, target, relationship_type, ...)`; `attributes` are returned on the model but not persisted in 0.7.0
+Python with Bolt::: Supported with `add_relationship(source, target, relationship_type, ...)`; `attributes` are returned on the model but not persisted in 0.8.0
 Python with NAMS::: Unsupported; inspect relationships produced by supported service processing
 TypeScript with NAMS REST::: Direct relationship-write methods are unsupported on REST
 

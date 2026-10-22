@@ -26,7 +26,7 @@ Configure an AWS profile, role or environment credentials before running the blo
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[bedrock]==0.7.0'
+python -m pip install 'neo4j-agent-memory[bedrock]==0.8.0'
 export AWS_REGION='us-east-1'
 export NEO4J_URI='neo4j+s://<instance-id>.databases.neo4j.io'
 export NEO4J_USERNAME='neo4j'
@@ -93,7 +93,7 @@ anchor:_using_with_environment_variables[]
 anchor:_configuration_options[]
 anchor:_see_also[]
 
-`BedrockEmbeddingProvider` accepts the model string, `aws_region`, optional `aws_profile` or explicit keys, `dimensions`, `batch_size` and `normalize`, and delegates to `BedrockEmbedder`. In 0.7.0, `dimensions` only declares the vector size used to create the index; it is not sent to Bedrock, so leave it unset (Titan V2 returns 1024) unless it matches the model's actual output. The provider's `embed()` call coordinates individual Titan requests in bounded groups; it is not a promise that Titan accepts a 25-document payload. Embedding execution is a remote API operation, not a CPU-bound Lambda workload by definition.
+`BedrockEmbeddingProvider` accepts the model string, `aws_region`, optional `aws_profile` or explicit keys, `dimensions`, `batch_size` and `normalize`, and delegates to `BedrockEmbedder`. In 0.8.0, `dimensions` only declares the vector size used to create the index; it is not sent to Bedrock, so leave it unset (Titan V2 returns 1024) unless it matches the model's actual output. The provider's `embed()` call coordinates individual Titan requests in bounded groups; it is not a promise that Titan accepts a 25-document payload. Embedding execution is a remote API operation, not a CPU-bound Lambda workload by definition.
 
 The adapter contains mappings for Titan V1/V2 and Cohere embedding models. Mapping a model ID is not proof that it is available in every AWS region or account. Check access for the selected model instead of relying on a static region list. Provider error codes distinguish authentication, access, throttling and invalid configuration; changing regions blindly can make the mismatch worse.
 

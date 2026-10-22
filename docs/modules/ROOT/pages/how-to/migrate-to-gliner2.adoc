@@ -26,7 +26,7 @@ retired to avoid the collision.
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[gliner2]==0.7.0'
+python -m pip install 'neo4j-agent-memory[gliner2]==0.8.0'
 ----
 
 [cols="2,3", options="header"]

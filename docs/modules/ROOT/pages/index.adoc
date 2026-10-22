@@ -136,6 +136,6 @@ anchor:_documentation[]
 
 anchor:_demos[]anchor:_lennys_podcast_memory_explorer_flagship[]anchor:_full_stack_chat_agent[]anchor:_domain_schema_examples[]anchor:_quick_links[]
 
-Run the Python lessons with the published `neo4j-agent-memory==0.7.0` package and the complete programs shown on each tutorial page. The xref:sdks/python.adoc[Python SDK guide] links the setup paths. Explore https://github.com/neo4j-labs/agent-memory/tree/main/examples[larger Python applications] and https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples[TypeScript source examples] using their own dependency and build instructions.
+Run the Python lessons with the published `neo4j-agent-memory==0.8.0` package and the complete programs shown on each tutorial page. The xref:sdks/python.adoc[Python SDK guide] links the setup paths. Explore https://github.com/neo4j-labs/agent-memory/tree/main/examples[larger Python applications] and https://github.com/neo4j-labs/agent-memory/tree/main/typescript/examples[TypeScript source examples] using their own dependency and build instructions.
 
 Ask questions in the https://community.neo4j.com[community forum], report reproducible problems through https://github.com/neo4j-labs/agent-memory/issues[GitHub issues], and see https://github.com/neo4j-labs/agent-memory/blob/main/CONTRIBUTING.md[contributing] for development and documentation workflows.

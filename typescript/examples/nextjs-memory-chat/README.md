@@ -133,8 +133,8 @@ write.)
 This is a source-checkout example. Its `file:../..` and
 `file:../../packages/vercel-ai-provider` dependencies require the repository
 layout. In an application (not this checkout) these are two separate npm
-installs — `@neo4j-labs/nams-ai-provider@0.3.0` (the provider `lib/handlers.ts`
-wraps the chat model in) and `@neo4j-labs/agent-memory@0.5.0` (the SDK the
+installs — `@neo4j-labs/nams-ai-provider@0.4.0` (the provider `lib/handlers.ts`
+wraps the chat model in) and `@neo4j-labs/agent-memory@0.6.0` (the SDK the
 memory rail's routes call directly). This example links both to the packages in
 this repository instead. The memory rail's routes therefore run against the
 in-tree SDK. The provider link is a symlink, so the provider loads
@@ -157,7 +157,7 @@ packages before** installing this example; their exports point at
 `typescript/dist/` and `typescript/packages/vercel-ai-provider/dist/`, and npm
 does not build local `file:` dependencies on installation. For standalone
 copies, follow the [copy checklist](../README.md#copying-an-example), install
-`@neo4j-labs/nams-ai-provider@0.3.0` and `@neo4j-labs/agent-memory@0.5.0` from
+`@neo4j-labs/nams-ai-provider@0.4.0` and `@neo4j-labs/agent-memory@0.6.0` from
 npm instead of the `file:` links, and verify the selected artifacts supply
 every API used here.
 

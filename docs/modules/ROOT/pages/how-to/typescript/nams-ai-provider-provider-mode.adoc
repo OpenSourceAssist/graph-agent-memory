@@ -33,7 +33,7 @@ Prerequisites:
 ----
 npm init -y   # only if the directory has no package.json yet
 npm pkg set type=module
-npm install @neo4j-labs/nams-ai-provider@0.3.0 @neo4j-labs/agent-memory@0.5.0 ai@^7 @ai-sdk/openai@^4 zod@^4
+npm install @neo4j-labs/nams-ai-provider@0.4.0 @neo4j-labs/agent-memory@0.6.0 ai@^7 @ai-sdk/openai@^4 zod@^4
 npm install --save-dev tsx
 ----
 

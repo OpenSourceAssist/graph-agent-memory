@@ -7,12 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-22
+
 ### Changed
 
 - **Breaking:** Remove the ignored `user_identifier` / `user_id` keywords from
   NAMS feedback tools in MCP, Pydantic AI, and Strands. Callers must omit them;
   backend isolation is unchanged.
 - Enforce positive limits for MCP history/reflections and Pydantic AI history.
+- **Breaking:** Python 3.10 support is removed; `requires-python` is now
+  `>=3.11`, the floor the CI matrix and the toolchain already enforce.
+
+### Fixed
+
+- The OpenAI embedder's missing-dependency error now names the exact extras
+  and configuration for OpenAI and local (`sentence-transformers`) embeddings
+  instead of a single install hint.
+
+### Dependencies
+
+- Security upgrades across the lockfile (part of the 528-alert Dependabot
+  resolution): transitive pins refreshed. No direct dependency floor in
+  `pyproject.toml` changed.
 
 ## [0.7.0] - 2026-10-07
 

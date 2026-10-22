@@ -104,7 +104,7 @@ The `GET /ontologies/active` response carries a `version` object (`id`,
 `ontology_id`, `revision`, `validation_mode`, …) that identifies the bound
 revision, which can be older than the ontology's latest revision.
 
-Python `neo4j-agent-memory==0.7.0` reads that object. The `ActiveOntology`
+Python `neo4j-agent-memory==0.8.0` reads that object. The `ActiveOntology`
 returned by `get_active()` takes `version_id`, `ontology_id`, `revision`,
 `validation_mode` and `schema_hash` from it, so they name the bound revision.
 When a response carries no `version` object, those fields are `None`: the
@@ -116,7 +116,9 @@ reads the active `(:OntologyVersion)` node directly.
 Python 0.6.0 and TypeScript `@neo4j-labs/agent-memory@0.5.0` ignore the
 `version` object: `get_active()` / `getActive()` compose the version metadata
 from a second `list()` / `get()` lookup, which picks the ontology's current
-(latest) revision rather than the bound one. When an older revision is active,
+(latest) revision rather than the bound one. TypeScript
+`@neo4j-labs/agent-memory@0.6.0` reads the bound revision from the `version`
+object instead. When an older revision is active,
 the returned `version_id` / `versionId`, `revision` and `validation_mode` /
 `validationMode` describe the latest revision instead. With those releases, do
 not use them to capture a rollback target or certify restoration.

@@ -191,7 +191,7 @@ See xref:how-to/typescript/edge-runtime.adoc[deploy to edge runtimes] for detail
 
 == Compatibility
 
-The published `@neo4j-labs/agent-memory@0.5.0` package on npm implements
+The published `@neo4j-labs/agent-memory@0.6.0` package on npm implements
 provider specification v4 (`LanguageModelV4Middleware` from `@ai-sdk/provider`
 4.x), the specification `ai` 7 uses, on Node.js 22 or newer. Projects still
 on `ai` 4 to 6 should pin `@neo4j-labs/agent-memory` to a `0.4.x` release.

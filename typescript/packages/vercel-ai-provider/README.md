@@ -73,15 +73,15 @@ Requires Node.js 22+ (24+ for the eve entry point). Install the provider with
 the core SDK it calls NAMS through:
 
 ```bash
-npm install @neo4j-labs/nams-ai-provider @neo4j-labs/agent-memory ai@^7 zod@^4
+npm install @neo4j-labs/nams-ai-provider@0.4.0 @neo4j-labs/agent-memory@0.6.0 ai@^7 zod@^4
 ```
 
 The peer dependencies are `ai` `^7.0.0`, `zod` `^3.25.76 || ^4.1.8` and
-`@neo4j-labs/agent-memory` `~0.5.0`. This README describes the source, which
-needs a provider release newer than 0.3.0 and an SDK release newer than 0.5.0.
-SDK 0.5.0 installs but fails against hosted NAMS: it sends `threshold` with
-every message search, which NAMS rejects with 400, and sends the conversation
-user filter as `user_id`, which NAMS ignores. Two optional peers are needed only for one feature each:
+`@neo4j-labs/agent-memory` `~0.6.0`. This README describes the source, which
+is the 0.4.0 release against SDK 0.6.0. SDK 0.5.x is not supported — 0.5.0
+installs but fails against hosted NAMS: it sends `threshold` with every
+message search, which NAMS rejects with 400, and sends the conversation
+user filter as `user_id`, which NAMS ignores.Two optional peers are needed only for one feature each:
 `@ai-sdk/mcp` `^2.0.0` for [MCP tool merging](#tools-mode-with-mcp-optional),
 and `eve` `>=0.69.0` for the [eve memory provider](#eve-memory-provider).
 
@@ -688,10 +688,10 @@ and capture the turn after it, and gives the model the provider's tools.
 [memory-provider contract](https://eve.dev/docs/memory/custom-provider) with
 NAMS. It needs eve 0.69.0 or later and Node.js 24, and is tested on eve 0.69.0,
 0.70.3, 0.71.0, 0.75.1, 0.77.0, 0.78.0 and 0.79.0. The entry point ships in the
-first provider release after 0.3.0.
+first provider release after 0.3.0 — release 0.4.0.
 
 ```bash
-npm install @neo4j-labs/nams-ai-provider @neo4j-labs/agent-memory
+npm install @neo4j-labs/nams-ai-provider@0.4.0 @neo4j-labs/agent-memory@0.6.0
 ```
 
 ```ts
@@ -737,8 +737,8 @@ ingestion, are shared by the whole workspace. They are recalled only with
 delete a single message, so there is no `forget` tool yet. To erase one
 scope's memory, call NAMS `DELETE /v1/memory?userId=<scope key>`.
 
-**Requires an `@neo4j-labs/agent-memory` release newer than 0.5.0.** With
-0.5.0 the provider loses most of its memory against hosted NAMS: every message
+**Requires `@neo4j-labs/agent-memory` 0.6.0 or newer.** With
+0.5.x the provider loses most of its memory against hosted NAMS: every message
 search sends `threshold`, which NAMS rejects with 400, so recall's matching
 messages and `nams__search` come back empty; the conversation listing sends
 `user_id`, which NAMS ignores, so the provider sees only the workspace's newest

@@ -32,7 +32,7 @@ script walks one revision cycle of a support-desk domain:
 
 Install and run::
 
-    pip install "neo4j-agent-memory[gliner2,sentence-transformers]==0.7.0"
+    pip install "neo4j-agent-memory[gliner2,sentence-transformers]==0.8.0"
     python ontology-lifecycle-bolt/main.py
 
 Model weights (GLiNER2.5 ~407 MB, MiniLM ~90 MB) download once and are cached.

@@ -244,7 +244,7 @@ from neo4j_agent_memory.memory.short_term import (
     ShortTermMemory,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 __all__ = [
     # Main client

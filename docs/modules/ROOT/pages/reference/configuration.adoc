@@ -50,7 +50,7 @@ anchor:_embedding_and_llm_three_accepted_shapes[]
 
 The runnable examples use Aura connection values exported by xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup]. The Default columns in the field tables on the subpages describe the SDK defaults, not these values.
 
-Provider strings resolve immediately through `from_provider`. Pass a constructed provider for constructor-specific options such as API base URL, timeout, or custom dimensions. Explicit legacy EmbeddingConfig/LLMConfig inputs still work in 0.7.0 and emit DeprecationWarning; prefer provider strings/instances for new code. The warning's historical removal date does not describe current availability.
+Provider strings resolve immediately through `from_provider`. Pass a constructed provider for constructor-specific options such as API base URL, timeout, or custom dimensions. Explicit legacy EmbeddingConfig/LLMConfig inputs still work in 0.8.0 and emit DeprecationWarning; prefer provider strings/instances for new code. The warning's historical removal date does not describe current availability.
 
 [source,python]
 ----
