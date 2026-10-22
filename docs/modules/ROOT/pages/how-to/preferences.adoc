@@ -26,7 +26,7 @@ include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.7.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.8.0'
 ----
 
 include::partial$python-core-recipe-intro.adoc[]

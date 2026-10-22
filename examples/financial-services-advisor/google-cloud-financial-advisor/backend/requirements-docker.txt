@@ -207,7 +207,7 @@ neo4j==6.4.1
     # via
     #   google-cloud-financial-advisor
     #   neo4j-agent-memory
-neo4j-agent-memory==0.7.0
+neo4j-agent-memory==0.8.0
     # via google-cloud-financial-advisor
 openai==2.54.0
     # via litellm

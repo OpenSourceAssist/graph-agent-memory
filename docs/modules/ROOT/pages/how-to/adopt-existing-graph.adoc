@@ -22,7 +22,7 @@ and is idempotent.
 == Prerequisites
 
 * A running Neo4j 5.x with your existing domain graph already loaded.
-* The Python SDK plus the extra for your configured embedding provider, for example `pip install 'neo4j-agent-memory[openai]==0.7.0'`, which provides `client.schema.adopt_existing_graph`.
+* The Python SDK plus the extra for your configured embedding provider, for example `pip install 'neo4j-agent-memory[openai]==0.8.0'`, which provides `client.schema.adopt_existing_graph`.
 * A `MemorySettings` configured for the database (see xref:reference/configuration.adoc[Configuration reference]), and an already-open `async with MemoryClient(settings) as client:` block — every snippet below shares that one connected `client`.
 
 If your domain types differ from the POLE+O default ontology, also configure `SchemaModel.CUSTOM`:

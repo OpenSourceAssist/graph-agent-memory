@@ -78,7 +78,7 @@ anchor:_troubleshooting[]
 [[gliner-not-installed]]
 === ImportError: GLiNER2.5 not installed
 
-GLiNER2.5 is optional. Install the `gliner2` extra, `pip install "neo4j-agent-memory[gliner2]==0.7.0"`, in the environment running the program; the `extraction` and `full` extras include it too, and `gliner` remains a deprecated alias until 0.8. `GLiNER2Extractor` loads the `gliner2` package on its first extraction, so the `ImportError` appears there rather than when the extractor is constructed. A broad extra does not necessarily include local models, and installing a Python package does not download every model. See xref:how-to/entity-extraction.adoc[Configure extraction].
+GLiNER2.5 is optional. Install the `gliner2` extra, `pip install "neo4j-agent-memory[gliner2]==0.8.0"`, in the environment running the program; the `extraction` and `full` extras include it too, and `gliner` remains a deprecated alias of `gliner2`. `GLiNER2Extractor` loads the `gliner2` package on its first extraction, so the `ImportError` appears there rather than when the extractor is constructed. A broad extra does not necessarily include local models, and installing a Python package does not download every model. See xref:how-to/entity-extraction.adoc[Configure extraction].
 
 Importing a name that 0.7.0 removed, such as `GLiNEREntityExtractor`, `GLiRELExtractor`, `GLiNERWithRelationsExtractor` or `is_gliner_available`, raises an `ImportError` that names its replacement. See xref:how-to/migrate-to-gliner2.adoc[Migrate to GLiNER2.5].
 
@@ -97,14 +97,14 @@ A `ValueError` that names a GLiNER v1 checkpoint is a different problem: identif
 [[extra-forbidden-from-env]]
 === Why does `MemorySettings(...)` raise `extra_forbidden` for `neo4j_uri` / `openai_api_key`?
 
-Releases before 0.2.1 raised this error when a `.env` file held unprefixed keys such as `NEO4J_URI` or `OPENAI_API_KEY`. From 0.2.1, including 0.7.0, `MemorySettings` ignores `.env` keys that are not its own settings, so upgrading fixes that case:
+Releases before 0.2.1 raised this error when a `.env` file held unprefixed keys such as `NEO4J_URI` or `OPENAI_API_KEY`. From 0.2.1, including 0.8.0, `MemorySettings` ignores `.env` keys that are not its own settings, so upgrading fixes that case:
 
 [source,bash]
 ----
-pip install --upgrade 'neo4j-agent-memory==0.7.0'
+pip install --upgrade 'neo4j-agent-memory==0.8.0'
 ----
 
-If the error persists on 0.7.0, a keyword argument is misspelled or flattened: `MemorySettings(neo4j_uri=...)` still raises `extra_forbidden`, because the field is `MemorySettings(neo4j={"uri": ...})`, or `NAM_NEO4J__URI` in the environment. Validation stays strict so that typos fail; do not disable it to hide an unknown key. See xref:reference/configuration.adoc[Settings] and xref:reference/environment-variables.adoc[Environment variables].
+If the error persists on 0.8.0, a keyword argument is misspelled or flattened: `MemorySettings(neo4j_uri=...)` still raises `extra_forbidden`, because the field is `MemorySettings(neo4j={"uri": ...})`, or `NAM_NEO4J__URI` in the environment. Validation stays strict so that typos fail; do not disable it to hide an unknown key. See xref:reference/configuration.adoc[Settings] and xref:reference/environment-variables.adoc[Environment variables].
 
 [[storing-and-retrieving-memory]]
 == Storing and retrieving memory
@@ -136,7 +136,7 @@ Resolution decides whether different mentions refer to the same entity. Similari
 [[resolution-strategies]]
 === What resolution strategies are available?
 
-Python's Bolt client selects exact, fuzzy, semantic, or composite matching with `resolution.strategy`. In 0.7.0 the default, `composite`, builds an ontology-aware `OntologyResolver`, which resolves extracted mentions against stored entities on ingest unless `resolution.resolve_on_ingest` is `False`. NAMS owns its server-side behavior. See xref:how-to/tune-entity-resolution.adoc[Tune entity resolution], xref:reference/configuration.adoc[Resolution settings] and xref:reference/backend-capabilities.adoc[Backend capabilities].
+Python's Bolt client selects exact, fuzzy, semantic, or composite matching with `resolution.strategy`. Since 0.7.0 the default, `composite`, builds an ontology-aware `OntologyResolver`, which resolves extracted mentions against stored entities on ingest unless `resolution.resolve_on_ingest` is `False`. NAMS owns its server-side behavior. See xref:how-to/tune-entity-resolution.adoc[Tune entity resolution], xref:reference/configuration.adoc[Resolution settings] and xref:reference/backend-capabilities.adoc[Backend capabilities].
 
 [[resolution-type-aware]]
 === Is resolution type-aware?
@@ -146,7 +146,7 @@ Type constraints can prevent some false matches, but the behavior depends on the
 [[deduplication-on-ingest]]
 === How does entity deduplication on ingest work?
 
-On Bolt in 0.7.0, message ingestion and `long_term.add_entity()` make the same decision through `OntologyResolver` when it is the configured resolver, which is the default. `ResolutionConfig` sets the bands: a score at or above `auto_merge_threshold` (`0.90`) reuses the stored entity and keeps the new name as an alias, and a score at or above `review_threshold` (`0.85`) creates the entity with a pending `SAME_AS` edge for review. An ontology can override both per entity type. These are similarity cutoffs, not calibrated correctness probabilities. Set `resolution.resolve_on_ingest=False` to have message ingestion store one node per distinct extracted name and type instead. There is no `deduplication` settings section. See xref:how-to/tune-entity-resolution.adoc[Tune entity resolution] and xref:how-to/deduplication.adoc[the review workflow]. NAMS uses its service-side contract.
+On Bolt since 0.7.0, message ingestion and `long_term.add_entity()` make the same decision through `OntologyResolver` when it is the configured resolver, which is the default. `ResolutionConfig` sets the bands: a score at or above `auto_merge_threshold` (`0.90`) reuses the stored entity and keeps the new name as an alias, and a score at or above `review_threshold` (`0.85`) creates the entity with a pending `SAME_AS` edge for review. An ontology can override both per entity type. These are similarity cutoffs, not calibrated correctness probabilities. Set `resolution.resolve_on_ingest=False` to have message ingestion store one node per distinct extracted name and type instead. There is no `deduplication` settings section. See xref:how-to/tune-entity-resolution.adoc[Tune entity resolution] and xref:how-to/deduplication.adoc[the review workflow]. NAMS uses its service-side contract.
 
 [[same-as-relationships]]
 === What are SAME_AS relationships?

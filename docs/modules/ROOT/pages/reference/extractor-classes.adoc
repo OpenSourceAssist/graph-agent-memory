@@ -62,7 +62,7 @@ anchor:_glinerentityextractor[]
 [#gliner2extractor]
 == GLiNER2Extractor
 
-Joint entity and relation extraction with a GLiNER2.5 checkpoint, locally and without an LLM call. Install the `gliner2` extra, for example `pip install 'neo4j-agent-memory[gliner2]==0.7.0'`, and allow the checkpoint to download on first use. The `gliner` extra is a deprecated alias of `gliner2` in 0.7.
+Joint entity and relation extraction with a GLiNER2.5 checkpoint, locally and without an LLM call. Install the `gliner2` extra, for example `pip install 'neo4j-agent-memory[gliner2]==0.8.0'`, and allow the checkpoint to download on first use. The `gliner` extra is a deprecated alias of `gliner2`.
 
 GLiNER2.5 decodes entities and relations in one pass through its JointIE engine. The ontology's endpoint types are enforced during beam search rather than filtered afterwards, so every relation endpoint is one of the entities in the same result and relations carry mention ids. Preferences are never extracted; pair this extractor with `LLMEntityExtractor` when you need them. The checkpoint loads lazily when inference is first requested.
 

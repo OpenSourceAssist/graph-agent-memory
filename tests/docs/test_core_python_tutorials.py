@@ -453,7 +453,7 @@ def test_python_tutorials_install_published_sdk_and_run_local_files(page, extras
     sdk = [requirement for requirement in installed if requirement.name == "neo4j-agent-memory"]
     assert len(sdk) == 1
     assert sdk[0].extras == extras
-    assert str(sdk[0].specifier) == "==0.7.0"
+    assert str(sdk[0].specifier) == "==0.8.0"
     assert sdk[0].url is None
     scripts = {command[1] for command in commands if command[1].endswith(".py")}
     # The Skills seed spans lines; later standalone phases still identify the program.

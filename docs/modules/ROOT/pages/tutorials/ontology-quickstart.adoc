@@ -45,14 +45,14 @@ include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[nams]==0.7.0'
+python -m pip install 'neo4j-agent-memory[nams]==0.8.0'
 python -c "from importlib.metadata import version; \
 import neo4j_agent_memory; \
-assert version('neo4j-agent-memory') == '0.7.0'; \
-print('SDK 0.7.0 import verified')"
+assert version('neo4j-agent-memory') == '0.8.0'; \
+print('SDK 0.8.0 import verified')"
 ----
 
-Expected: `SDK 0.7.0 import verified`. Configure the dedicated workspace:
+Expected: `SDK 0.8.0 import verified`. Configure the dedicated workspace:
 
 [source,bash]
 ----

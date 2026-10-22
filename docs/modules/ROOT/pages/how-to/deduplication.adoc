@@ -27,7 +27,7 @@ include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.7.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.8.0'
 ----
 
 include::partial$python-core-recipe-intro.adoc[]
@@ -62,7 +62,7 @@ anchor:_review_flagged_duplicates[]anchor:_find_pending_reviews[]anchor:_confirm
 
 To let new writes use the configured policy, leave `deduplicate=True` on `store.add_entity`. Inspect the returned `DeduplicationResult.action` (`"none"`, `"merged"` or `"flagged"`), `matched_entity_id`, and `similarity_score`. Default thresholds are 0.90 for automatic merging and 0.85 for review, in both `ResolutionConfig` and `DeduplicationConfig`; their suitability depends on the corpus and embedding model. When an ontology declares `resolution_threshold` or `review_threshold` on an entity type, `OntologyResolver` uses those bands for that type.
 
-`find_potential_duplicates(limit=...)` returns `(entity1, entity2, confidence)` tuples for pending pairs, highest confidence first. In 0.7.0 each pair appears once, with the flagged (newer) entity first and its existing match second, and `confidence` is the `SAME_AS` edge's stored score. Pairs flagged during message ingestion join the same queue. After an application review, call `review_duplicate(source_id, target_id, confirm=True)` to merge or `confirm=False` to reject the flag. An empty review queue is a valid result. `get_deduplication_stats()` returns a dataclass with `total_entities`, `merged_entities`, `same_as_relationships`, and `pending_reviews`.
+`find_potential_duplicates(limit=...)` returns `(entity1, entity2, confidence)` tuples for pending pairs, highest confidence first. Since 0.7.0 each pair appears once, with the flagged (newer) entity first and its existing match second, and `confidence` is the `SAME_AS` edge's stored score. Pairs flagged during message ingestion join the same queue. After an application review, call `review_duplicate(source_id, target_id, confirm=True)` to merge or `confirm=False` to reject the flag. An empty review queue is a valid result. `get_deduplication_stats()` returns a dataclass with `total_entities`, `merged_entities`, `same_as_relationships`, and `pending_reviews`.
 
 [#ingest-time-resolution]
 == Account for resolution during ingestion
@@ -79,7 +79,7 @@ The decision is recorded in each new node's `metadata` as `resolution.action`, `
 
 anchor:_manual_entity_merging[]anchor:_merge_specific_entities[]anchor:_merge_with_property_strategy[]anchor:_best_practices[]anchor:_1_start_conservative[]anchor:_2_use_specific_entity_types[]anchor:_3_add_known_aliases_upfront[]anchor:_adjust_thresholds_based_on_quality[]
 
-In SDK 0.7.0, the merge query adds the source name as a target alias and copies the source's edges of these types onto the target — inbound `MENTIONS`, `RELATED_TO` in both directions, `SAME_AS`, outbound `EXTRACTED_FROM` and `EXTRACTED_BY` provenance, inbound `APPLIES_TO`, and inbound `TOUCHED` — then marks the source with `merged_into`/`merged_at`. It copies rather than deletes, so the source keeps its own edges. The copies are marked differently by type: `RELATED_TO` copies keep the source edge's `id` and gain a `migrated_from` property set to the source entity ID; `EXTRACTED_FROM`, `EXTRACTED_BY`, `APPLIES_TO`, and `TOUCHED` copies gain `migrated_from` only; `MENTIONS` copies carry no marker, and `SAME_AS` copies are recorded with `match_type: 'merged'` but no source reference. To audit or undo a merge, rely on the source's `merged_into` marker and the retained source edges rather than on a marker on every copy. Relationship types outside that list are not transferred automatically; inspect those edges and decide how your application will reconcile them before merging a populated graph.
+Since SDK 0.7.0, the merge query adds the source name as a target alias and copies the source's edges of these types onto the target — inbound `MENTIONS`, `RELATED_TO` in both directions, `SAME_AS`, outbound `EXTRACTED_FROM` and `EXTRACTED_BY` provenance, inbound `APPLIES_TO`, and inbound `TOUCHED` — then marks the source with `merged_into`/`merged_at`. It copies rather than deletes, so the source keeps its own edges. The copies are marked differently by type: `RELATED_TO` copies keep the source edge's `id` and gain a `migrated_from` property set to the source entity ID; `EXTRACTED_FROM`, `EXTRACTED_BY`, `APPLIES_TO`, and `TOUCHED` copies gain `migrated_from` only; `MENTIONS` copies carry no marker, and `SAME_AS` copies are recorded with `match_type: 'merged'` but no source reference. To audit or undo a merge, rely on the source's `merged_into` marker and the retained source edges rather than on a marker on every copy. Relationship types outside that list are not transferred automatically; inspect those edges and decide how your application will reconcile them before merging a populated graph.
 
 Known aliases, type consistency, and a labeled sample of true/false duplicates help assess a policy. Do not choose automatic thresholds from an unmeasured "safe" universal value.
 

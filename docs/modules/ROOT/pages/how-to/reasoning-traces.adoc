@@ -16,7 +16,7 @@ For the rationale, see xref:explanation/memory-types.adoc[Understanding the thre
 
 [NOTE]
 ====
-This recipe targets Bolt, which persists the trace and its structured outcome. The Python NAMS client also accepts `start_trace`, `add_step`, `record_tool_call`, `complete_trace`, `get_trace_with_steps` and `get_session_traces`, with these differences in 0.7.0:
+This recipe targets Bolt, which persists the trace and its structured outcome. The Python NAMS client also accepts `start_trace`, `add_step`, `record_tool_call`, `complete_trace`, `get_trace_with_steps` and `get_session_traces`, with these differences since 0.7.0:
 
 * Pass the conversation ID that NAMS issued as `session_id`. Steps and tool calls are stored on that conversation; the trace itself, its task and its outcome exist only in the client instance that started it.
 * `complete_trace` sets `success` only from a `success=` keyword. Pass the outcome as a string: a `TraceOutcome` object makes the later `get_trace_with_steps` call fail validation.
@@ -36,7 +36,7 @@ include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.7.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.8.0'
 ----
 
 include::partial$python-core-recipe-intro.adoc[]

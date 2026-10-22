@@ -16,7 +16,7 @@ For the rationale, see xref:explanation/memory-types.adoc[Understanding the thre
 
 [NOTE]
 ====
-This recipe targets Bolt. The Python NAMS client stores and reads conversations with these differences in 0.7.0:
+This recipe targets Bolt. The Python NAMS client stores and reads conversations with these differences since 0.7.0:
 
 * Create the conversation with `create_conversation(label)`, then pass `str(conversation.id)` as `session_id` to later calls. NAMS issues conversation IDs; your label is not sent to the service and cannot address the conversation.
 * `add_message` sends only `role` and `content`; metadata is dropped. For batches, use `bulk_add_messages(session_id, messages)` (at most 100 per call). `add_messages_batch` is not defined on NAMS and raises `AttributeError`.
@@ -34,7 +34,7 @@ include::partial$python-tutorial-setup.adoc[]
 
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[openai]==0.7.0'
+python -m pip install 'neo4j-agent-memory[openai]==0.8.0'
 ----
 
 include::partial$python-core-recipe-intro.adoc[]

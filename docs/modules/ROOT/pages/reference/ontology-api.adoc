@@ -104,7 +104,7 @@ The `GET /ontologies/active` response carries a `version` object (`id`,
 `ontology_id`, `revision`, `validation_mode`, …) that identifies the bound
 revision, which can be older than the ontology's latest revision.
 
-Python `neo4j-agent-memory==0.7.0` reads that object. The `ActiveOntology`
+Python `neo4j-agent-memory==0.8.0` reads that object. The `ActiveOntology`
 returned by `get_active()` takes `version_id`, `ontology_id`, `revision`,
 `validation_mode` and `schema_hash` from it, so they name the bound revision.
 When a response carries no `version` object, those fields are `None`: the

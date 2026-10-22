@@ -29,7 +29,7 @@ The program leaves `support-desk` revision 2 active, in strict mode. Activation 
 +
 [source,bash]
 ----
-python -m pip install 'neo4j-agent-memory[gliner2,sentence-transformers]==0.7.0'
+python -m pip install 'neo4j-agent-memory[gliner2,sentence-transformers]==0.8.0'
 ----
 +
 The first run downloads the GLiNER2.5 checkpoint `fastino/gliner2.5-base-v1` (about 407 MB) and the `all-MiniLM-L6-v2` embedder (about 90 MB). No API key is needed: the client runs with `llm=None`.
