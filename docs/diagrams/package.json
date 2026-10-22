@@ -3,7 +3,7 @@
   "private": true,
   "description": "Optional editable diagram export tooling; not required for the Antora build",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.23.4"
   },
   "devDependencies": {
     "@excalidraw/excalidraw": "0.18.1",
