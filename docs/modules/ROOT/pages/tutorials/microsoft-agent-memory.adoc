@@ -1,4 +1,5 @@
 = Build a shopping response with Microsoft Agent Framework memory
+:description: We will store an explicit shopping preference in AuraDB, attach a Neo4j context provider to a Microsoft Agent Framework agent, and verify the persisted turn...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:
@@ -19,7 +20,7 @@ This lesson uses `neo4j-agent-memory` 0.7.0 from PyPI and the complete programs 
 
 anchor:_prerequisites[]
 
-* Python 3.10 or newer and a POSIX shell.
+* Python 3.11 or newer and a POSIX shell.
 * A Neo4j Aura account for a dedicated lesson instance.
 * An OpenAI API key with access to the chat model selected for this lesson and `text-embedding-3-small`.
 

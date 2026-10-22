@@ -9,11 +9,11 @@ not yet expose (see the TODO on :func:`set_conversation_title`).
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException
-
 from neo4j_agent_memory import MemoryClient
+
 from src.api.schemas import (
     ChatMessage,
     CreateThreadRequest,
@@ -102,7 +102,7 @@ async def create_thread(request: CreateThreadRequest) -> ThreadSummary:
     """
     memory = get_memory_client()
     thread_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     title = request.title or DEFAULT_TITLE
 
     if memory is not None:
@@ -126,7 +126,7 @@ async def create_thread(request: CreateThreadRequest) -> ThreadSummary:
 async def get_thread(thread_id: str) -> Thread:
     """Get a thread with its messages."""
     memory = get_memory_client()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     if memory is None:
         raise HTTPException(status_code=503, detail="Memory service unavailable")

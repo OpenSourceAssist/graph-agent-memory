@@ -1,4 +1,7 @@
 = Expose memory as tools
+:page-product: agent-memory
+:page-pagination:
+:description: The @neo4j-labs/nams-ai-provider package talks only to the hosted Neo4j Agent Memory Service (NAMS) at https://memory.neo4jlabs.com — it has no Bolt...
 :source-highlighter: rouge
 
 The `@neo4j-labs/nams-ai-provider` package talks only to the hosted Neo4j

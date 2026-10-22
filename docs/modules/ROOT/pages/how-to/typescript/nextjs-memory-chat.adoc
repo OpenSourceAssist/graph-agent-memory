@@ -1,4 +1,7 @@
 = Build a Next.js chat app with a memory rail
+:page-product: agent-memory
+:page-pagination:
+:description: This guide builds a Next.js 16 App Router chat app whose whole memory — the transcript, the entity graph and the reasoning trail — lives in the hosted Neo4j...
 :source-highlighter: rouge
 
 This guide builds a Next.js 16 App Router chat app whose whole memory — the

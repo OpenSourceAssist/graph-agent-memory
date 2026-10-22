@@ -1,4 +1,5 @@
 = Extractor classes reference
+:description: Local Python extraction classes and result models. They can be used independently or injected into a bolt MemoryClient; they do not configure the hosted...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

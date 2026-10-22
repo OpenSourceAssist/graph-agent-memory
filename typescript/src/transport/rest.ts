@@ -80,6 +80,11 @@ interface RestCall {
   /** GET/DELETE → no body. */
   hasBody?: boolean;
   /**
+   * The only fields sent in the body. Hosted NAMS rejects unknown fields, and
+   * some params are for the bridge only (`threshold`, `entity_type`).
+   */
+  bodyParams?: string[];
+  /**
    * Send the verbatim object passed as the `body` param as the request body,
    * bypassing the snake→camel key conversion. Required for the ontology
    * sub-API, which (unlike the rest of the hosted REST surface) speaks
@@ -168,6 +173,7 @@ const ROUTES: Record<string, RestCall | "noop" | "unsupported"> = {
     path: "/conversations/{sessionId}/search",
     pathParams: ["sessionId"],
     hasBody: true,
+    bodyParams: ["query", "limit"],
     shape: (raw) => (raw as { messages?: unknown[] })?.messages ?? [],
   },
   clear_session: {
@@ -182,19 +188,32 @@ const ROUTES: Record<string, RestCall | "noop" | "unsupported"> = {
     method: "POST",
     path: "/entities",
     hasBody: true,
+    bodyParams: ["name", "type", "description", "properties", "userId"],
   },
   search_entities: {
     method: "POST",
     path: "/entities/search",
     hasBody: true,
+    bodyParams: ["query", "type", "limit", "userId"],
     shape: (raw) => (raw as { entities?: unknown[] })?.entities ?? [],
+  },
+  get_entity_by_name: {
+    method: "GET",
+    path: "/entities/by-name",
+    queryParams: ["name", "type", "userId"],
+    // Matches come best first; an empty list means no match.
+    shape: (raw) => (raw as { entities?: unknown[] })?.entities?.[0] ?? null,
+  },
+  add_relationship: {
+    method: "POST",
+    path: "/relationships",
+    hasBody: true,
+    bodyParams: ["sourceId", "targetId", "relationshipType", "properties", "userId"],
   },
   add_preference: "unsupported",
   add_fact: "unsupported",
   search_preferences: "unsupported",
-  get_entity_by_name: "unsupported",
   get_related_entities: "unsupported",
-  add_relationship: "unsupported",
   merge_duplicate_entities: "unsupported",
 
   // Reasoning — legacy not directly representable in REST
@@ -270,6 +289,7 @@ const ROUTES: Record<string, RestCall | "noop" | "unsupported"> = {
     method: "GET",
     path: "/entities/{entityId}",
     pathParams: ["entityId"],
+    queryParams: ["userId"],
   },
   update_entity: {
     method: "PUT",
@@ -480,7 +500,7 @@ export class RestTransport implements Transport {
     if (response.status === 401 || response.status === 403) {
       const err = new AuthenticationError(
         `Authentication failed against ${this.endpoint}: ${response.status} ${response.statusText}`,
-        { requestId },
+        { requestId, statusCode: response.status },
       );
       this.emit({
         kind: "error",
@@ -645,6 +665,7 @@ export class RestTransport implements Transport {
       } else {
         const bodyObj: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(camelParams)) {
+          if (route.bodyParams && !route.bodyParams.includes(k)) continue;
           if (!consumed.has(k) && v !== undefined && v !== null) {
             bodyObj[k] = v;
           }
@@ -683,7 +704,7 @@ export class RestTransport implements Transport {
     if (response.status === 401 || response.status === 403) {
       const err = new AuthenticationError(
         `Authentication failed: ${response.status} ${response.statusText}`,
-        { requestId },
+        { requestId, statusCode: response.status },
       );
       this.emit({
         kind: "error",

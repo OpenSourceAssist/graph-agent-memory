@@ -1,4 +1,5 @@
 = Configuration reference
+:description: Python configuration types, defaults, constraints, and integration limits. The field tables are on the four subpages listed under <<onthissubsystem,On this...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

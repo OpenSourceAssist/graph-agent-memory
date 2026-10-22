@@ -42,10 +42,10 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, Self, cast, overload
 
 from pydantic import BaseModel, Field
-from typing_extensions import Self, TypeVar
+from typing_extensions import TypeVar
 
 if TYPE_CHECKING:
     from neo4j_agent_memory.core.protocols import (

@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import cast
 
 from neo4j import AsyncDriver
-
 from neo4j_agent_memory import MemoryClient
 from neo4j_agent_memory.integrations.pydantic_ai import MemoryDependency
 

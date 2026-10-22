@@ -1,4 +1,5 @@
 = Configure an LLM provider
+:description: Configure an LLM provider through MemorySettings.llm and verify which adapter handles requests.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

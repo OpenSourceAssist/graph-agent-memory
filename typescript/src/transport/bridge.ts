@@ -97,7 +97,7 @@ export class BridgeTransport implements Transport {
     if (response.status === 401 || response.status === 403) {
       const err = new AuthenticationError(
         `Authentication failed: ${response.status} ${response.statusText}`,
-        { requestId },
+        { requestId, statusCode: response.status },
       );
       this.emit({
         kind: "error",
@@ -161,7 +161,7 @@ export class BridgeTransport implements Transport {
     if (response.status === 401 || response.status === 403) {
       const err = new AuthenticationError(
         `Authentication failed: ${response.status} ${response.statusText}`,
-        { requestId },
+        { requestId, statusCode: response.status },
       );
       this.emit({
         kind: "error",

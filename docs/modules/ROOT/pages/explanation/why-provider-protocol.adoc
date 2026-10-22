@@ -1,4 +1,5 @@
 = Why the provider protocol?
+:description: The Python provider interfaces separate model access from memory storage. They let client-side extraction and embeddings use a selected adapter while...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

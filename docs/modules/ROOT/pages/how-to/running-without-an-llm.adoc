@@ -1,4 +1,5 @@
 = Run without an LLM
+:description: Use neo4j-agent-memory with local extraction and embeddings, without constructing an LLM provider or requiring an OPENAIAPIKEY. This example stores its...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3
@@ -16,7 +17,7 @@ Use `neo4j-agent-memory` with local extraction and embeddings, without construct
 
 == Prerequisites
 
-Use Python 3.10+ and a POSIX shell. Prepare the example files and environment:
+Use Python 3.11+ and a POSIX shell. Prepare the example files and environment:
 
 include::partial$python-tutorial-setup.adoc[]
 

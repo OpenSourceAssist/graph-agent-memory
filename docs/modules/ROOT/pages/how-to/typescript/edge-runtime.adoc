@@ -1,4 +1,7 @@
 = Deploy to edge runtimes
+:page-product: agent-memory
+:page-pagination:
+:description: The core @neo4j-labs/agent-memory REST client can run on Cloudflare Workers and Vercel Edge. The package uses fetch only, has zero runtime dependencies, and...
 :source-highlighter: rouge
 
 The core `@neo4j-labs/agent-memory` REST client can run on Cloudflare

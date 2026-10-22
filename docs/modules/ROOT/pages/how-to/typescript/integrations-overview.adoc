@@ -1,4 +1,6 @@
 = TypeScript framework integrations
+:page-product: agent-memory
+:page-pagination:
 :description: Pick a TypeScript agent framework integration for @neo4j-labs/agent-memory.
 
 See also xref:how-to/integrations/index.adoc[the Python framework integrations index] for the equivalent guides in the Python SDK.

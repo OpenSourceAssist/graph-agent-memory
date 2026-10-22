@@ -21,6 +21,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Request
 from neo4j import AsyncDriver
+from neo4j_agent_memory import MemoryClient, MemoryIntegration
+from neo4j_agent_memory.memory.reasoning import ToolCallStatus
+from neo4j_agent_memory.schema.models import EntityRef, TraceOutcome
 from pydantic_ai import AgentRunResultEvent
 from pydantic_ai.messages import (
     FunctionToolCallEvent,
@@ -33,9 +36,6 @@ from pydantic_ai.messages import (
 )
 from sse_starlette.sse import EventSourceResponse
 
-from neo4j_agent_memory import MemoryClient, MemoryIntegration
-from neo4j_agent_memory.memory.reasoning import ToolCallStatus
-from neo4j_agent_memory.schema.models import EntityRef, TraceOutcome
 from src.agent.agent import get_news_agent
 from src.agent.dependencies import AgentDeps
 from src.api.schemas import ChatRequest

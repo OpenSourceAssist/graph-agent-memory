@@ -1,4 +1,5 @@
 = Search, statistics, and NAMS lifecycle
+:description: Semantic search over traces/steps, tool-usage statistics, and the NAMS synthetic-trace lifecycle from ReasoningMemory API reference. Signatures show types...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

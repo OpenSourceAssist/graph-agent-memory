@@ -28,7 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const holder = vi.hoisted(() => ({ client: undefined as unknown }));
 
 vi.mock('@neo4j-labs/agent-memory', () => ({
-  MemoryClient: vi.fn().mockImplementation(() => holder.client),
+  MemoryClient: vi.fn().mockImplementation(function () { return holder.client; }),
 }));
 
 import { namsMemory } from '../src/vercel-ai-provider-eve';

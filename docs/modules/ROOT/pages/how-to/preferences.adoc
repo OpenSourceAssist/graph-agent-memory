@@ -1,4 +1,5 @@
 = Store and revise a user preference
+:description: To retain an explicit user preference and its revision history, attach it to the user identifier, optionally scope it to an entity, and supersede the old...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

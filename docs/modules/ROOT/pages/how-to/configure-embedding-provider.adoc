@@ -1,4 +1,5 @@
 = Configure an embedding provider
+:description: Configure a client-side embedding provider through MemorySettings.embedding and verify that its output matches the graph indexes.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

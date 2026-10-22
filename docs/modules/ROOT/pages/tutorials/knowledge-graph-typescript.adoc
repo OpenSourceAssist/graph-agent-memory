@@ -1,4 +1,7 @@
 = Ingest documents and inspect extracted entities (TypeScript)
+:page-product: agent-memory
+:page-pagination:
+:description: anchor:whatyoulllearn[] anchor:timerequired[] anchor:whatwerebuilding[] We will store two synthetic documents as conversation messages, wait for a specific...
 :page-role: code-nocollapse
 :ts-program: src/tutorials/knowledge-graph.ts
 :ts-seed: seed

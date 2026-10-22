@@ -1,4 +1,6 @@
 = NAMS AI provider API reference
+:page-pagination:
+:description: The shape of the public surface of @neo4j-labs/nams-ai-provider: every export, grouped by the mode that uses it, plus every option's type, default, and...
 :page-product: agent-memory
 :toclevels: 2
 :source-highlighter: rouge

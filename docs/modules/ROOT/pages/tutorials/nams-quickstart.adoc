@@ -1,4 +1,5 @@
 = Store and read back memory on NAMS
+:description: We will create a hosted conversation, read its two messages back, wait for extraction, and verify the same messages from a fresh process. We will retain the...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:
@@ -16,7 +17,7 @@ This lesson uses `neo4j-agent-memory` 0.7.0 from PyPI and the complete programs 
 [[_what_youll_need]]
 == Before you begin
 
-* Python 3.10 or newer and a POSIX shell.
+* Python 3.11 or newer and a POSIX shell.
 * A dedicated NAMS test workspace and its *workspace key*, using `https://memory.neo4jlabs.com/v1`.
 * Permission to create tutorial records in that workspace. Keep the same workspace key throughout the lesson.
 

@@ -120,13 +120,11 @@ async function entityGraphPayload(
   // so a malformed call does not open a connection for nothing.
   await store.initialize();
 
-  const matches = await store.client.longTerm.searchEntities(entityName, { limit: 1 });
-  const centre = matches[0];
+  const centre = await store.client.longTerm.getEntityByName(entityName);
   if (!centre) return { error: `entity not found: ${entityName}` };
 
-  // expandGraph is keyed by node id and traverses one hop, so the name is
-  // resolved through entity search first (get_entity_by_name has no REST
-  // route) and the reported depth is always 1.
+  // expandGraph is keyed by node id and traverses one hop, so the reported
+  // depth is always 1.
   const expansion = await store.client.longTerm.expandGraph(centre.id);
 
   const nodes = expansion.nodes.slice(0, MAX_ELEMENTS).map((node) => ({

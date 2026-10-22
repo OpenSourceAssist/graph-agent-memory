@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from uuid import UUID
 
 import pytest
@@ -30,7 +30,7 @@ class TestJsonSafe:
         assert json_safe(uid) == "12345678-1234-5678-1234-567812345678"
 
     def test_aware_datetime_isoformatted(self):
-        dt = datetime(2026, 5, 17, 12, 30, 0, tzinfo=timezone.utc)
+        dt = datetime(2026, 5, 17, 12, 30, 0, tzinfo=UTC)
         assert json_safe(dt) == "2026-05-17T12:30:00+00:00"
 
     def test_naive_datetime_treated_as_utc(self):
@@ -39,7 +39,7 @@ class TestJsonSafe:
 
     def test_nested_dict(self):
         uid = UUID(int=1)
-        dt = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        dt = datetime(2026, 1, 1, tzinfo=UTC)
         out = json_safe({"id": uid, "when": dt, "name": "x"})
         assert out["id"] == str(uid)
         assert out["when"] == "2026-01-01T00:00:00+00:00"
@@ -65,7 +65,7 @@ class TestModelToPayload:
         m = _SampleModel(
             id=UUID(int=42),
             name="alice",
-            created_at=datetime(2026, 5, 17, tzinfo=timezone.utc),
+            created_at=datetime(2026, 5, 17, tzinfo=UTC),
         )
         payload = model_to_payload(m)
         assert payload["id"] == "00000000-0000-0000-0000-00000000002a"
@@ -78,7 +78,7 @@ class TestModelToPayload:
         m = _SampleModel(
             id=UUID(int=1),
             name="bob",
-            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
         payload = model_to_payload(m, exclude_none=False)
         assert "optional" in payload
@@ -88,7 +88,7 @@ class TestModelToPayload:
         m = _SampleModel(
             id=UUID(int=1),
             name="bob",
-            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
         payload = model_to_payload(m, exclude={"created_at"})
         assert "created_at" not in payload
@@ -100,7 +100,7 @@ class TestPayloadToModel:
         original = _SampleModel(
             id=UUID(int=99),
             name="charlie",
-            created_at=datetime(2026, 5, 17, 10, 0, tzinfo=timezone.utc),
+            created_at=datetime(2026, 5, 17, 10, 0, tzinfo=UTC),
         )
         payload = model_to_payload(original)
         roundtripped = payload_to_model(payload, _SampleModel)
@@ -119,18 +119,18 @@ class TestPayloadToModel:
 class TestParseDatetime:
     def test_z_suffix(self):
         dt = parse_datetime("2026-05-17T12:00:00Z")
-        assert dt == datetime(2026, 5, 17, 12, 0, 0, tzinfo=timezone.utc)
+        assert dt == datetime(2026, 5, 17, 12, 0, 0, tzinfo=UTC)
 
     def test_offset_suffix(self):
         dt = parse_datetime("2026-05-17T12:00:00+00:00")
-        assert dt == datetime(2026, 5, 17, 12, 0, 0, tzinfo=timezone.utc)
+        assert dt == datetime(2026, 5, 17, 12, 0, 0, tzinfo=UTC)
 
     def test_naive_string_treated_as_utc(self):
         dt = parse_datetime("2026-05-17T12:00:00")
-        assert dt == datetime(2026, 5, 17, 12, 0, 0, tzinfo=timezone.utc)
+        assert dt == datetime(2026, 5, 17, 12, 0, 0, tzinfo=UTC)
 
     def test_passthrough_existing_datetime(self):
-        existing = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        existing = datetime(2026, 1, 1, tzinfo=UTC)
         assert parse_datetime(existing) is existing
 
 

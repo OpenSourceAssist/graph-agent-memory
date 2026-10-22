@@ -31,15 +31,15 @@ This example wires `MemorySettings` for environments where you can't (or don't w
 
 ```python
 settings = MemorySettings(
-    backend="bolt",                                    # ignore MEMORY_API_KEY
+    backend="bolt",  # ignore MEMORY_API_KEY
     neo4j=Neo4jConfig(...),
-    llm=None,                                          # explicit opt-out
-    embedding="sentence-transformers/all-MiniLM-L6-v2", # local embeddings
+    llm=None,  # explicit opt-out
+    embedding="sentence-transformers/all-MiniLM-L6-v2",  # local embeddings
     extraction=ExtractionConfig(
         extractor_type=ExtractorType.PIPELINE,
         enable_spacy=True,
         enable_gliner=True,
-        enable_llm_fallback=False,            # required when llm=None
+        enable_llm_fallback=False,  # required when llm=None
     ),
 )
 ```

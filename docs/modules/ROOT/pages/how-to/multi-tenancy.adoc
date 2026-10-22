@@ -1,4 +1,6 @@
 = Associate memory with users and select scoped reads
+:page-pagination:
+:description: To associate Bolt conversation writes and preferences with a user, pass the identifier only to supported operations and use an explicitly scoped read. This...
 :page-product: agent-memory
 :toclevels: 2
 

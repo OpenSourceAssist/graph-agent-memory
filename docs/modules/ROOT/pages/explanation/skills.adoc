@@ -1,4 +1,5 @@
 = Agent Skills (Preview)
+:description: An Agent Skill packages a reusable procedure derived from selected memory records. It connects a workspace's recorded experience to material another agent...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

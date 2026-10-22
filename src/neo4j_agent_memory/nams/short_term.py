@@ -38,7 +38,7 @@ Methods that don't exist on NAMS raise :class:`NotSupportedError`:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -161,7 +161,7 @@ def _coerce_uuid_str(value: UUID | str) -> str:
 
 
 def _now_utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _normalize_message(payload: dict[str, Any]) -> dict[str, Any]:

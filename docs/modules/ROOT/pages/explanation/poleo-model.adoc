@@ -1,4 +1,5 @@
 = The POLE+O data model
+:description: POLE+O is the default entity classification in Neo4j Agent Memory. Its broad categories provide a common vocabulary for extracted knowledge while leaving...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

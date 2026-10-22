@@ -223,12 +223,12 @@ _memory_client = MemoryClient(memory_settings)
 await _memory_client.connect()
 
 _memory_integration = MemoryIntegration(
-    client=_memory_client,            # reuse the connected client: one driver
+    client=_memory_client,  # reuse the connected client: one driver
     session_strategy=SessionStrategy.PER_CONVERSATION,
-    auto_extract=True,                # entity extraction on store
-    auto_preferences=True,            # background PreferenceDetector
+    auto_extract=True,  # entity extraction on store
+    auto_preferences=True,  # background PreferenceDetector
 )
-await _memory_integration.connect()   # no-op when a client was supplied
+await _memory_integration.connect()  # no-op when a client was supplied
 ```
 
 Constructing it from `neo4j_uri=` / `neo4j_password=` instead would open a *second* driver with its own configuration — and `auto_extract` only does anything if the shared client has an extractor, which is what `EXTRACTION_MODE` controls.
@@ -262,7 +262,7 @@ One trace per turn, one step per tool call, plus a structured outcome:
 trace = await memory.reasoning.start_trace(
     session_id=thread_id,
     task=request.message,
-    triggered_by_message_id=user_message_id,   # (ReasoningTrace)-[:INITIATED_BY]->(Message)
+    triggered_by_message_id=user_message_id,  # (ReasoningTrace)-[:INITIATED_BY]->(Message)
 )
 
 # ...as each FunctionToolResultEvent arrives:
@@ -273,7 +273,7 @@ await memory.reasoning.record_tool_call(
     arguments=args,
     result=result,
     duration_ms=duration_ms,
-    message_id=user_message_id,                # (ToolCall)-[:TRIGGERED_BY]->(Message)
+    message_id=user_message_id,  # (ToolCall)-[:TRIGGERED_BY]->(Message)
     touched_entities=[EntityRef(name="Statkraft", type="ORGANIZATION")],
 )
 

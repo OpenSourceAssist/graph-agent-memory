@@ -1,4 +1,5 @@
 = Migrate to GLiNER2.5
+:description: Release 0.7 replaced the local extraction stack. The gliner v1 package and the separate GLiREL relation model are gone; GLiNER2Extractor on GLiNER2.5 does...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

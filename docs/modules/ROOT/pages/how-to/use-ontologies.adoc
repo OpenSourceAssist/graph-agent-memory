@@ -1,4 +1,6 @@
 = Activate and verify a workspace ontology
+:page-product: agent-memory
+:page-pagination:
 :description: Clone a NAMS ontology template, select strict validation and verify the active version.
 
 [IMPORTANT]
@@ -10,7 +12,7 @@ To apply a domain schema to future NAMS writes, clone a template, choose the val
 
 == Prerequisites
 
-* Python 3.10+ and a POSIX shell.
+* Python 3.11+ and a POSIX shell.
 * A dedicated, nonconcurrent sandbox workspace with a key in `MEMORY_API_KEY` and permission to manage its ontology.
 * A selected template from the current catalog. The program below uses `healthcare` only after checking it is present.
 * A known active version to restore if validation fails. For a temporary exercise that restores automatically, use xref:tutorials/ontology-quickstart.adoc[the ontology tutorial].

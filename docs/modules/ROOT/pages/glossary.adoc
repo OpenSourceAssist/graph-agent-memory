@@ -1,4 +1,6 @@
 = Glossary
+:page-pagination:
+:description: Definitions of Neo4j Agent Memory terms: memory types, POLE+O entities, reasoning traces, ontologies, workspaces, and extraction concepts.
 :page-product: agent-memory
 :toclevels: 2
 

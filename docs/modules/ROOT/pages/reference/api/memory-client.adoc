@@ -1,4 +1,5 @@
 = MemoryClient API reference
+:description: MemoryClient connects to the configured backend and exposes its memory stores. The concrete stores and supported operations differ between bolt and NAMS.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

@@ -1,4 +1,7 @@
 = Enable request logging
+:page-product: agent-memory
+:page-pagination:
+:description: The TypeScript client emits a typed event stream around every HTTP exchange via the logger constructor option. Hook this into your favourite logger (Pino...
 :source-highlighter: rouge
 
 The TypeScript client emits a typed event stream around every HTTP

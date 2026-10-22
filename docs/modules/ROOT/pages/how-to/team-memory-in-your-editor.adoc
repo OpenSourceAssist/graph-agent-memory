@@ -1,4 +1,6 @@
 = Share team memory with an editor
+:page-pagination:
+:description: How to give Claude Code, Claude Desktop and Cursor a shared memory graph, so one person's session can recall what another person's session recorded — with...
 :page-product: agent-memory
 :toclevels: 2
 :icons: font
@@ -25,7 +27,7 @@ also contains an extended editor-restart walkthrough. This page displays all fil
 
 == Prerequisites
 
-* Python 3.10+ and a POSIX shell; the setup below installs the published Python 0.7.0 package.
+* Python 3.11+ and a POSIX shell; the setup below installs the published Python 0.7.0 package.
 * An intended shared workspace, a workspace administrator for key creation, and a separate data-plane key for each editor that uses key authentication.
 * An installed MCP host. Its configuration and OAuth support must be checked against the installed version.
 * Agreement about what the team will share; user metadata and session naming do not enforce all memory search boundaries.

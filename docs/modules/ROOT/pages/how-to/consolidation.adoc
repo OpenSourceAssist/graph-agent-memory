@@ -1,4 +1,6 @@
 = Memory consolidation
+:page-pagination:
+:description: How to keep your memory graph clean over time. The library ships four dry-runnable consolidation primitives — entity dedupe, long-trace flagging, preference...
 :page-product: agent-memory
 :toclevels: 2
 

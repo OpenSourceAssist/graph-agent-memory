@@ -1,4 +1,6 @@
 = Ontology API reference
+:page-product: agent-memory
+:page-pagination:
 :description: The client.ontology method surface on both backends, document schema, REST endpoints, and templates.
 
 `client.ontology` is available on both backends since 0.7.0: `NamsOntology` (hosted, REST) and `BoltOntology` (your own Neo4j, stored as `(:Ontology)-[:HAS_VERSION]->(:OntologyVersion)`). Both satisfy the `neo4j_agent_memory.ontology.OntologyAPI` protocol, so the signatures below are backend-independent; the *Bolt* column records where the behavior differs. The TypeScript SDK targets NAMS only; it has no Bolt transport.

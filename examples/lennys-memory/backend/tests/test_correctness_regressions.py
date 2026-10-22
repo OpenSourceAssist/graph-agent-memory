@@ -13,7 +13,7 @@ a blanket ``except Exception`` or by a bare ``MagicMock`` in the old fixtures:
 * ``DELETE /api/preferences/{id}`` returned success without deleting anything.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -48,8 +48,8 @@ def _preference(category: str = "format") -> Preference:
 class TestGetUserPreferences:
     async def test_returns_stored_preferences(self, mock_agent_context):
         client = mock_agent_context.deps.client
-        client.long_term.get_preferences_by_category.side_effect = (
-            lambda category, **_: [_preference(category)] if category == "format" else []
+        client.long_term.get_preferences_by_category.side_effect = lambda category, **_: (
+            [_preference(category)] if category == "format" else []
         )
 
         results = await get_user_preferences(mock_agent_context)
@@ -127,7 +127,7 @@ class TestGetConversationContext:
 
 class TestConversationHistory:
     async def test_history_contains_the_last_turn(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         messages = []
         for i in range(30):
             role = MessageRole.USER if i % 2 == 0 else MessageRole.ASSISTANT
@@ -240,8 +240,8 @@ class TestPreferenceRoutes:
 
     def test_list_preferences_uses_public_accessor(self, client_and_memory):
         client, memory = client_and_memory
-        memory.long_term.get_preferences_by_category.side_effect = (
-            lambda category, **_: [_preference(category)] if category == "topics" else []
+        memory.long_term.get_preferences_by_category.side_effect = lambda category, **_: (
+            [_preference(category)] if category == "topics" else []
         )
 
         response = client.get("/api/preferences")
@@ -260,7 +260,7 @@ class TestThreadRoutes:
 
     def test_threads_are_persisted_as_conversations(self, client_and_memory):
         client, memory = client_and_memory
-        created = datetime.now(timezone.utc)
+        created = datetime.now(UTC)
         memory.short_term.create_conversation.return_value = Conversation(
             session_id="chat-x", created_at=created
         )

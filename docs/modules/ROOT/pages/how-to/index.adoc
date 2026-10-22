@@ -1,4 +1,6 @@
 = How-to guides
+:page-pagination:
+:description: Task-focused Neo4j Agent Memory guides: store and search messages, manage entities, tune extraction, connect frameworks, and deploy to production.
 :page-product: agent-memory
 :toclevels: 2
 

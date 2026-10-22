@@ -157,6 +157,7 @@ def delegate_to_kyc_agent(customer_id: str, task: str) -> dict:
     result = kyc_agent(prompt)
     return {"agent": "kyc", "findings": str(result)}
 
+
 supervisor = Agent(model=BedrockModel(...), tools=[delegate_to_kyc_agent, ...])
 ```
 

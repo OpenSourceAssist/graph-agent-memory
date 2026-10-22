@@ -1,4 +1,5 @@
 = Restore a Strands conversation after a process restart
+:description: We will record a passphrase with a Strands agent, exit the process, and start a second process using the saved session ID. Before the second model call, we...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:
@@ -16,7 +17,7 @@ This lesson uses `neo4j-agent-memory` 0.7.0 from PyPI and the complete programs 
 
 anchor:_prerequisites[]anchor:_time_required[]
 
-* Python 3.10 or newer and a POSIX shell.
+* Python 3.11 or newer and a POSIX shell.
 * A Neo4j Aura account for a dedicated lesson instance.
 * AWS credentials already configured in the standard credential chain.
 * Access to a Bedrock chat model or inference-profile ID and `amazon.titan-embed-text-v2:0` in the selected region.

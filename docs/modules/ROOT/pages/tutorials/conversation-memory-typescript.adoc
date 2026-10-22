@@ -1,4 +1,7 @@
 = Recall conversation memory after a restart (TypeScript)
+:page-product: agent-memory
+:page-pagination:
+:description: anchor:whatyoulllearn[] anchor:timerequired[] anchor:whatwerebuilding[] We will store a fictional running-club name and shoe size, exit the process, then...
 :page-role: code-nocollapse
 :ts-program: src/tutorials/conversation.ts
 :ts-seed: teach

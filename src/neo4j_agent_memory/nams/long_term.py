@@ -32,7 +32,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -303,7 +303,7 @@ class NamsLongTermMemory:
                 "id": str(merged_id),
                 "name": name,
                 "type": nams_type,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
             }
         resolution: dict[str, Any] = {
             "resolution": "merged",
@@ -578,7 +578,7 @@ class NamsLongTermMemory:
         :class:`Relationship` with bolt-flavored field names where
         the source field is the entity_id parameter.
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         payload = await self._transport.request(
             _SPEC_GET_ENTITY,
@@ -587,7 +587,7 @@ class NamsLongTermMemory:
         if not isinstance(payload, dict):
             return []
         rels = payload.get("relationships") or []
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         out: list[Relationship] = []
         for r in rels:
             if not isinstance(r, dict):

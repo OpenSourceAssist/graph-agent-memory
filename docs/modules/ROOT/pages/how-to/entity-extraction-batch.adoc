@@ -1,4 +1,5 @@
 = Account for batch and chunk extraction results
+:description: To process multiple source texts without losing failed inputs, use the pipeline's batch result wrappers and retain the input index for every result. For...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2
@@ -14,7 +15,7 @@ For the rationale, see xref:explanation/extraction-pipeline.adoc[Understanding t
 
 anchor:_prerequisites[]
 
-Use Python 3.10 or newer and a POSIX shell. Prepare the example files and install the required extra:
+Use Python 3.11 or newer and a POSIX shell. Prepare the example files and install the required extra:
 
 include::partial$python-tutorial-setup.adoc[]
 

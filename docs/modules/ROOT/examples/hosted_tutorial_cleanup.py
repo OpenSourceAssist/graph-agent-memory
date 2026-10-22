@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import quote
 
 # Start from retained message IDs, then inspect all sources and neighboring IDs.
@@ -93,7 +93,7 @@ def exclusively_owned(row, message_ids, started_at):
         return (
             bool(row.get("sources"))
             and set(row["sources"]) <= message_ids
-            and started <= created <= datetime.now(timezone.utc)
+            and started <= created <= datetime.now(UTC)
         )
     except (KeyError, ValueError, TypeError):
         return False

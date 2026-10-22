@@ -1,4 +1,5 @@
 = How entity extraction works
+:description: Extraction converts text into candidate entities, relationships, and preferences. It is an inference step: a well-formed result can still omit information...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

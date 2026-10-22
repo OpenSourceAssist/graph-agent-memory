@@ -15,7 +15,7 @@ fix; it needs a visitor identity the frontend does not yet send.
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException
 
@@ -80,7 +80,7 @@ def _to_datetime(value: object) -> datetime | None:
     if callable(to_native):
         value = to_native()
     if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
     return None
 
 
@@ -135,7 +135,7 @@ async def create_thread(
         {"session_id": thread_id, "title": title},
     )
 
-    created = conversation.created_at or datetime.now(timezone.utc)
+    created = conversation.created_at or datetime.now(UTC)
     return ThreadSummary(
         id=thread_id,
         title=title,
@@ -175,8 +175,8 @@ async def get_thread(
     return Thread(
         id=thread_id,
         title=thread_data["title"],
-        created_at=thread_data["created_at"] or datetime.now(timezone.utc),
-        updated_at=thread_data["updated_at"] or datetime.now(timezone.utc),
+        created_at=thread_data["created_at"] or datetime.now(UTC),
+        updated_at=thread_data["updated_at"] or datetime.now(UTC),
         messages=messages,
     )
 
@@ -218,7 +218,7 @@ async def update_thread(
     return ThreadSummary(
         id=thread_id,
         title=thread_data["title"],
-        created_at=thread_data["created_at"] or datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=thread_data["created_at"] or datetime.now(UTC),
+        updated_at=datetime.now(UTC),
         message_count=thread_data["message_count"],
     )

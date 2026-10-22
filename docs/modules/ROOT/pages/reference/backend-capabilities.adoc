@@ -1,4 +1,6 @@
 = Backend capabilities and data scope
+:page-pagination:
+:description: This reference describes the released SDKs, Python neo4j-agent-memory 0.7.0 and TypeScript @neo4j-labs/agent-memory 0.5.0. Check the installed SDK's API...
 :page-product: agent-memory
 :toclevels: 2
 

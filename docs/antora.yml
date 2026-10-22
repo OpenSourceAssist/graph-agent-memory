@@ -8,3 +8,8 @@ asciidoc:
     page-theme: labs
     page-product: agent-memory
     page-pagination: ''
+    # The docs are served at https://neo4j.com/labs/agent-memory/ but generated
+    # under /agent-memory/. The UI template prepends canonical-root to page.url
+    # when emitting <link rel="canonical"> and og:url, so keep this aligned with
+    # the public base path. No trailing slash (page.url already starts with /).
+    page-canonical-root: /labs

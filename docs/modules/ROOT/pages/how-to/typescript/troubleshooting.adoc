@@ -1,4 +1,6 @@
 = Troubleshooting
+:page-product: agent-memory
+:page-pagination:
 :source-highlighter: rouge
 
 == `AuthenticationError: Authentication failed: 401`

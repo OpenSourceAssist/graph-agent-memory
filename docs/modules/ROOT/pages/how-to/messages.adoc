@@ -1,4 +1,5 @@
 = Store, retrieve, and summarize messages
+:description: To retain an ordered conversation and retrieve it later, write messages with a known session ID, read that conversation, and compare stored message IDs. Use...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

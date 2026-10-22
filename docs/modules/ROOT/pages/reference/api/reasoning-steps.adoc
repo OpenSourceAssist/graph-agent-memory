@@ -1,4 +1,5 @@
 = Step, tool-call, and streaming operations
+:description: Step and tool-call recording, message-linking, and the StreamingTraceRecorder context manager from ReasoningMemory API reference. The signatures and...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

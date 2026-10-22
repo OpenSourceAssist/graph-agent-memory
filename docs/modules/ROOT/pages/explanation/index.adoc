@@ -1,4 +1,6 @@
 = Concepts
+:page-pagination:
+:description: Concepts and architecture behind Neo4j Agent Memory: memory types, the POLE+O model, entity extraction, resolution, and graph-native design tradeoffs.
 :page-product: agent-memory
 :toclevels: 2
 

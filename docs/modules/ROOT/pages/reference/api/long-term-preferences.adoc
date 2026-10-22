@@ -1,4 +1,5 @@
 = Preference and fact operations
+:description: Preference and fact storage/search operations from LongTermMemory API reference. Signatures show types, keyword-only arguments (*), and defaults; they are...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

@@ -1,4 +1,5 @@
 = CLI reference
+:description: Command-line interface for local extraction, bolt schema/statistics commands, and MCP serving with bolt or NAMS. Add the selected extractor/provider extras...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

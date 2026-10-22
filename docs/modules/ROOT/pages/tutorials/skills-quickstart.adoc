@@ -1,4 +1,5 @@
 = Distil and download a skill from a recorded procedure
+:description: We will seed a simulated refund-decision procedure in an empty test workspace, request distillation, inspect the generated procedure and its provenance...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:
@@ -21,7 +22,7 @@ not establish that a live workspace will pass the service's quality gates.
 
 Provision a second, empty NAMS workspace for this lesson from https://memory.neo4jlabs.com[the NAMS dashboard] before continuing.
 
-* Python 3.10 or newer and a POSIX shell.
+* Python 3.11 or newer and a POSIX shell.
 * A newly provisioned *empty* NAMS test workspace reserved for this fixture,
   with a workspace data key permitting the lesson's memory operations and
   `skills:read` / `skills:write` (see xref:reference/authentication.adoc#_key_categories[Key categories]).

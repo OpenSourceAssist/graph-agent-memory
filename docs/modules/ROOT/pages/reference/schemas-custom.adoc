@@ -1,4 +1,5 @@
 = Custom schemas and persistence
+:description: Custom DomainSchema and OntologyDocument examples, the Bolt-only schema persistence overview, the label-to-POLE+O entity type mapping, and the schema...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

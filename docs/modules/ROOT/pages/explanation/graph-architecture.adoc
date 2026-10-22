@@ -1,4 +1,5 @@
 = Why Neo4j? Graph memory architecture
+:description: Why agent memory belongs in a graph database: how conversations, entities, and reasoning traces are stored as connected records you can traverse and audit.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

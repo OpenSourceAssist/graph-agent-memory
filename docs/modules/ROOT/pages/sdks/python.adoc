@@ -1,4 +1,6 @@
 = Python SDK
+:page-product: agent-memory
+:page-pagination:
 :description: Install the published Python SDK and choose Aura or NAMS setup.
 
 The Python SDK connects directly to Neo4j over Bolt or to NAMS over HTTP. Supported methods, result shapes and data scope differ; see xref:reference/backend-capabilities.adoc[backend capabilities].
@@ -12,7 +14,7 @@ anchor:_select_a_release_or_a_checkout[]
 anchor:_install[]
 
 These Python examples use the published `neo4j-agent-memory==0.7.0` package.
-Use Python 3.10 or later and install the extras needed by the selected backend
+Use Python 3.11 or later and install the extras needed by the selected backend
 and provider. For hosted NAMS memory:
 
 [source,bash]

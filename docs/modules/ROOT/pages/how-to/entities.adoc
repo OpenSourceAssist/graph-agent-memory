@@ -1,4 +1,5 @@
 = Store entities, relationships, and facts
+:description: To build explicit graph knowledge, create typed entities, connect their returned IDs, and read the stored relationship back. Use POLE+O types with optional...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

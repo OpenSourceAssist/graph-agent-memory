@@ -1,4 +1,5 @@
 = Neo4j Agent Memory
+:description: Give your AI agents persistent, graph-native memory. Neo4j Agent Memory stores conversations, entities, and reasoning traces in Neo4j, with Python and TypeScript SDKs, MCP support, and a hosted NAMS backend.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

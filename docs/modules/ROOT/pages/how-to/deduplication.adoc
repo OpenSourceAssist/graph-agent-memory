@@ -1,4 +1,5 @@
 = Merge a reviewed entity pair
+:description: To combine two known duplicate entities, choose the source and target explicitly, merge that pair, and verify the source marker and target aliases. Review...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

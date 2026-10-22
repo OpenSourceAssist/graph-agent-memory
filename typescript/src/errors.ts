@@ -35,9 +35,11 @@ export class ConnectionError extends MemoryError {
 }
 
 export class AuthenticationError extends MemoryError {
-  constructor(message: string, options?: MemoryErrorOptions) {
+  public readonly statusCode?: number;
+  constructor(message: string, options?: MemoryErrorOptions & { statusCode?: number }) {
     super(message, options);
     this.name = "AuthenticationError";
+    this.statusCode = options?.statusCode;
   }
 }
 

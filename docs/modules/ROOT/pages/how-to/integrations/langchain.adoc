@@ -1,4 +1,5 @@
 = Use with LangChain
+:description: Add verified conversation persistence to a LangChain 1.x create_agent agent with Neo4jMemoryMiddleware. The middleware owns message writes in this recipe...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2
@@ -11,7 +12,7 @@ Add verified conversation persistence to a LangChain 1.x `create_agent` agent wi
 anchor:_overview[]
 anchor:_prerequisites[]
 
-Use Python 3.10+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.7.0 package; provider access and database execution must be verified in your environment.
+Use Python 3.11+ and a POSIX shell. The recipe uses xref:reference/configuration.adoc[`BoltSettings`] to select Neo4j explicitly and disables entity extraction so that message persistence can be checked independently. Use a dedicated AuraDB instance with vector-index support and no incompatible existing vectors. Follow xref:tutorials/first-agent-memory.adoc#_step_2_set_up_neo4j[the Aura connection setup] and copy its connection values into the exports below. These recipes use the published Python 0.7.0 package; provider access and database execution must be verified in your environment.
 
 include::partial$python-tutorial-setup.adoc[]
 

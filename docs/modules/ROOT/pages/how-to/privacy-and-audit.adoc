@@ -1,4 +1,6 @@
 = Privacy and audit
+:page-pagination:
+:description: Record an explicit audit event after a sensitive read and mark old conversations for archival. These are Bolt consolidation operations; the hosted client...
 :page-product: agent-memory
 :toclevels: 2
 

@@ -14,8 +14,8 @@ describe("documented ordinary REST failure contract", () => {
     vi.stubGlobal("fetch", fetch);
     const failure: unknown = await client().shortTerm.listConversations().catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(status === 401 || status === 403 ? AuthenticationError : TransportError);
+    expect((failure as AuthenticationError | TransportError).statusCode).toBe(status);
     if (failure instanceof TransportError) {
-      expect(failure.statusCode).toBe(status);
       expect(failure.responseBody).toEqual({ error: "fixture" });
     }
     expect((failure as MemoryError).requestId).toBe("docs-check");
@@ -48,8 +48,6 @@ describe("documented ordinary REST failure contract", () => {
       () => memory.longTerm.addPreference("category", "preference"),
       () => memory.longTerm.searchPreferences("query"),
       () => memory.longTerm.addFact("subject", "predicate", "object"),
-      () => memory.longTerm.addRelationship("source", "target", "WORKS_AT"),
-      () => memory.longTerm.getEntityByName("name"),
       () => memory.longTerm.getRelatedEntities("entity"),
       () => memory.reasoning.startTrace("conversation", "task"),
       () => memory.reasoning.addStep("trace", {}),

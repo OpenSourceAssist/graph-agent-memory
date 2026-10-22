@@ -31,7 +31,7 @@ immediately after a write can legitimately come back empty. Don't sleep; await
 the pipeline:
 
 ```python
-status = await client.short_term.get_extraction_status(conversation_id)   # pending count
+status = await client.short_term.get_extraction_status(conversation_id)  # pending count
 settled = await client.long_term.wait_for_extraction(
     session_id=conversation_id, expected_names=["Alice"], timeout=30.0
 )

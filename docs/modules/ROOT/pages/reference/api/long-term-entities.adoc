@@ -1,4 +1,5 @@
 = Entity and relationship operations
+:description: Entity CRUD, search, and relationship operations from LongTermMemory API reference. Signatures show types, keyword-only arguments (*), and defaults; they...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

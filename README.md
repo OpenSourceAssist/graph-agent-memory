@@ -1,5 +1,7 @@
 # Neo4j Agent Memory
 
+> This is an experimental Neo4j Labs project and not part of Neo4j's supported product lineup. See the [Neo4j Labs disclaimer](./LABS_DISCLAIMER.txt).
+
 A graph-native memory system for AI agents. Store conversations, build knowledge graphs, and record and retrieve application-supplied reasoning -- all backed by Neo4j.
 
 [![Neo4j Labs](https://img.shields.io/badge/Neo4j-Labs-6366F1?logo=neo4j)](https://neo4j.com/labs/)
@@ -354,7 +356,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide, CI pipeli
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - Neo4j 5.26+ (including 2025.x) or Neo4j AuraDB for the `bolt` backend; merging duplicate entities uses `CALL` subquery syntax that needs 5.23+
 
 ## License

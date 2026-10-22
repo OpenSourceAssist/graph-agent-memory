@@ -1,4 +1,6 @@
 = Buffered (fire-and-forget) writes
+:page-pagination:
+:description: How to keep the agent's user-facing response from blocking on Neo4j round-trips, using an opt-in fire-and-forget write API.
 :page-product: agent-memory
 :toclevels: 2
 

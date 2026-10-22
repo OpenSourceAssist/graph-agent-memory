@@ -1,4 +1,6 @@
 = Skills API (Preview)
+:page-pagination:
+:description: REST endpoints, MCP tools, lifecycle outcomes, and operator gates for the NAMS Agent Skills surface.
 :page-product: agent-memory
 :toclevels: 2
 :icons: font

@@ -1,4 +1,5 @@
 = Bolt and NAMS backends
+:description: Neo4j Agent Memory can store memory through a Python client connected directly to Neo4j with Bolt, or through the hosted Neo4j Agent Memory Service (NAMS)....
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

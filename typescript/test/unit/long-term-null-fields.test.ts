@@ -21,7 +21,9 @@ describe("LongTermMemory nullable wire fields", () => {
       source_stage: null,
       metadata: null,
       relationships: [{
-        id: "r1", type: "KNOWS", target_id: "e2", target_name: null, properties: null,
+        id: "r1", relationship_type: "KNOWS", rel_type: "KNOWS", direction: "out",
+        target_id: "e2", target_name: null, target_type: null, confidence: null, predicate: null,
+        properties: null,
       }],
     }).getEntity("e1");
     for (const key of [
@@ -31,8 +33,22 @@ describe("LongTermMemory nullable wire fields", () => {
       expect(entity[key]).toBeUndefined();
     }
     expect(entity.relationships?.[0]).toEqual({
-      id: "r1", type: "KNOWS", targetId: "e2", targetName: undefined, properties: undefined,
+      id: "r1", type: "KNOWS", direction: "out", targetId: "e2", targetName: undefined,
+      targetType: undefined, confidence: undefined, predicate: undefined, properties: undefined,
     });
+  });
+
+  it("reads the relationship type from the deprecated alias or the bridge's type field", async () => {
+    const entity = await memoryReturning({
+      id: "e1", name: "Alice", type: "person",
+      relationships: [
+        { id: "r1", rel_type: "KNOWS", target_id: "e2" },
+        { id: "r2", type: "WORKS_AT", target_id: "e3" },
+        { id: "r3", relationship_type: "", type: "OWNS", target_id: "e4", direction: "sideways" },
+      ],
+    }).getEntity("e1");
+    expect(entity.relationships?.map((r) => r.type)).toEqual(["KNOWS", "WORKS_AT", "OWNS"]);
+    expect(entity.relationships?.[2]?.direction).toBeUndefined();
   });
 
   it("preserves zero, empty strings and arrays, and nulls in user dictionaries", async () => {

@@ -1,4 +1,5 @@
 = Extract memory with Anthropic and local embeddings
+:description: We will store a message in AuraDB through the Bolt backend, request entity extraction using an Anthropic adapter, and retrieve context using locally...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:
@@ -14,7 +15,7 @@ This lesson uses `neo4j-agent-memory` 0.7.0 from PyPI and the complete programs 
 
 anchor:_prerequisites[]
 
-* Python 3.10 or newer and a POSIX shell.
+* Python 3.11 or newer and a POSIX shell.
 * A Neo4j Aura account for a dedicated lesson instance.
 * An Anthropic API key and an accessible model ID for that account.
 * Local disk space and network access for the embedding-model download.

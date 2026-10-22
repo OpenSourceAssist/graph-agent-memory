@@ -127,7 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v7
 
@@ -284,7 +284,7 @@ jobs:
     needs: integration-test
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
       fail-fast: false
     services:
       neo4j:
@@ -668,9 +668,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v4
-      - name: Install a clean Python 3.10 hosted environment
+      - name: Install a clean Python 3.11 hosted environment
         run: |
-          uv venv --python 3.10 .venv-hosted
+          uv venv --python 3.11 .venv-hosted
           uv pip install --python .venv-hosted/bin/python '.[nams]' pytest pytest-asyncio pytest-timeout respx
       - name: Verify hosted clients and maintained tutorial failure paths
         run: |

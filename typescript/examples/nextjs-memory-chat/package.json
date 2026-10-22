@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.23.4"
   },
   "scripts": {
     "dev": "next dev",
@@ -40,5 +40,8 @@
     "typescript": "^5.9.3",
     "vitest": "^5.0.0",
     "zod": "^4.6.0"
+  },
+  "overrides": {
+    "js-cookie": "^3.0.7"
   }
 }

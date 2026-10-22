@@ -9,6 +9,10 @@ appear in minor versions with a callout in this file.
 
 ## [Unreleased]
 
+The package version stays at 0.5.0 until these ship. Each entry below names the
+problem it fixes and the code that changed; the tests are in
+`test/integration/rest-transport.test.ts` and `test/integration/docs-contract.test.ts`.
+
 ### Fixed
 
 - **REST: `getConversation` returns messages oldest first again.** The hosted
@@ -23,14 +27,82 @@ appear in minor versions with a callout in this file.
 - **REST: `listConversations({ userId })` filters by user.** The transport sent
   the filter as `user_id`, a query param the service ignores, so every listing
   covered the whole workspace. It now sends `userId`.
+- **REST: `searchMessages` works against hosted NAMS.** Hosted NAMS
+  rejects unknown body fields with 400, and 0.5.0 always sent `threshold`
+  (default `0.7`), so every hosted message search failed with `unknown field:
+  threshold`. The REST transport no longer sends it. A `threshold` you pass is
+  now applied by the SDK to each result's `score` (text matches have none and
+  are kept), and there is no default: 0.7 hid a real match scored 0.683.
+  `Message` gains an optional `score`. The bridge still receives `threshold`.
+  _Code:_ `short-term/index.ts` (`searchMessages`), `transport/rest.ts`
+  (`bodyParams` on `search_messages`), `types.ts`.
+- **REST: `addEntity` no longer sends `entityType` to hosted NAMS**, which
+  accepts only `name`, `type`, `description` and `properties`. _Code:_
+  `transport/rest.ts` (`bodyParams` on `add_entity`).
+- **REST: entity relationships carry their type.** Hosted
+  `GET /entities/{id}` names each relationship's type `relationshipType`, but
+  0.5.0 read only `type`, so `Entity.relationships[].type` was `undefined` on
+  every hosted entity. Worse, `addEntity` threw `ValidationError: Invalid
+  merged entity response: relationship type` whenever the service merged the
+  new name onto an entity that had any relationship. The SDK now reads
+  `relationshipType`, then the deprecated `relType`, then `type` (bridge).
+  `EntityRelationshipRef` gains optional `direction` (`"out"` is
+  (entity)-[type]->(target), `"in"` is (target)-[type]->(entity)),
+  `targetType`, `confidence` and `predicate`. A caller that writes every ref as
+  (entity)-[type]->(target) should swap the ends when `direction` is `"in"`.
+  _Code:_ `long-term/index.ts` (`toRelRef`, `mergedEntityDetail`), `types.ts`.
+- **REST: keys inside `metadata` and `properties` are kept as written.** The
+  transport converted every key between camelCase and snake_case, including the
+  caller's own data, so `{ namsKind: "x" }` was read back as `{ nams_kind: "x" }`
+  and `{ source_app: "web" }` was stored as `sourceApp`. An object under a
+  `metadata` or `properties` key now crosses the wire unchanged in both
+  directions (messages, bulk messages, conversations, entities, relationships).
+  Data that 0.5.0 wrote with snake_case keys was stored camelCased and now reads
+  back camelCased. The Mastra adapter's `mastraTitle` key is now read back, so a
+  title survives the round trip on REST. _Code:_ `transport/casing.ts`.
 
 ### Added
 
 - **`ActiveOntology.schemaHash`** — `ontology.getActive()` now returns the bound
   version's schema hash alongside its other binding metadata.
+- **`AuthenticationError.statusCode`** — the HTTP status behind the error, 401
+  (credentials rejected) or 403 (not allowed), so a caller can tell a wrong key
+  from a missing permission without parsing the message. _Code:_ `errors.ts`,
+  `transport/rest.ts`, `transport/bridge.ts`.
+- **Per-user entities on REST.** `searchEntities(query, { userId })` returns
+  only that user's entities, the ones hosted NAMS extracted from conversations
+  created with that `userId` or stored for them; without it the search covers
+  every user's entities and the shared ones, as before.
+  `addEntity(name, type, { userId })` stores the entity in that user's memory
+  (otherwise it is shared), and `getEntity(id, { userId })` finds it only in
+  that user's memory and returns only relationships to that user's entities.
+  `Entity.userId` names the user whose memory holds an entity, and is absent
+  on a shared one. The REST transport now sends only the fields
+  `POST /entities/search` and `POST /entities` accept. _Code:_
+  `long-term/index.ts`, `transport/rest.ts`, `types.ts`.
+- **`getEntityByName` on REST.** `getEntityByName(name, { type, userId })` calls
+  `GET /entities/by-name` and returns the best match, or `null`. Matching
+  follows the resolver: case, punctuation and corporate suffixes are ignored and
+  aliases count, and because resolution is per type one name can match entities
+  of several types, so pass `type` to pick one. 0.5.0 threw `NotSupportedError`
+  on REST. _Code:_ `long-term/index.ts`, `transport/rest.ts`, `types.ts`
+  (`GetEntityByNameOptions`).
+- **`addRelationship` on REST.** `addRelationship(sourceId, targetId, type,
+  { properties, userId })` calls `POST /relationships`. A type outside the
+  workspace's allowlist is stored as `RELATED_TO`, and the returned
+  `Relationship` then carries the name you sent as `predicate`. Both entities
+  must belong to one user (`userId`'s, when given) or both be shared, otherwise
+  the service answers 422 `cross_user_relationship`. 0.5.0 threw
+  `NotSupportedError` on REST. _Code:_ `long-term/index.ts`,
+  `transport/rest.ts`, `types.ts`.
 
 ### Changed
 
+- **Strands memory store: `get_entity_graph` looks the entity up by name.** It
+  called `searchEntities(name, { limit: 1 })`, which always returns the nearest
+  entity, so an unknown name expanded an unrelated one and `entity not found`
+  was never reported. It now calls `getEntityByName`, which returns no entity
+  when nothing matches. _Code:_ `integrations/strands/store-tools.ts`.
 - **BREAKING (behavioural): `ontology.getActive()` reads the binding from the
   active response.** It returns the `version` object the service sends with the
   active document, which can be older than the ontology's latest revision.

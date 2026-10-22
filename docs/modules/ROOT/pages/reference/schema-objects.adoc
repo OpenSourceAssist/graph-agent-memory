@@ -1,4 +1,6 @@
 = Schema objects reference
+:page-pagination:
+:description: Inventory of the constraints, regular indexes, text indexes, vector indexes, and point indexes that the bolt backend attempts to create on connection. NAMS...
 :page-product: agent-memory
 :toclevels: 2
 

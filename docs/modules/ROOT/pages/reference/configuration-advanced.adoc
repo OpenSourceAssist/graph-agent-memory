@@ -1,4 +1,5 @@
 = Deduplication, observability, and CLI settings
+:description: Settings and constructs that sit outside MemorySettings for Configuration reference: the DeduplicationConfig dataclass and how it follows ResolutionConfig...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

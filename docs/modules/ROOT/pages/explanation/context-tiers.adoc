@@ -1,4 +1,6 @@
 = Understanding the three-tier context model
+:page-pagination:
+:description: The hosted service (NAMS) assembles a conversation's context as three tiers of increasing compression: recent messages, observations, and reflections. Every...
 :page-product: agent-memory
 :toclevels: 2
 

@@ -1,4 +1,5 @@
 = Record and verify a failed tool call
+:description: To diagnose an unsuccessful tool action, create a trace, add the action as a step, record its error with ToolCallStatus, and complete the trace with a...
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 2

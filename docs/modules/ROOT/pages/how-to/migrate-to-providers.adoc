@@ -1,4 +1,5 @@
 = Migrate to pluggable providers
+:description: Replace legacy EmbeddingConfig and LLMConfig objects with the provider API in neo4j-agent-memory 0.7.0.
 :page-product: agent-memory
 :page-pagination:
 :toclevels: 3

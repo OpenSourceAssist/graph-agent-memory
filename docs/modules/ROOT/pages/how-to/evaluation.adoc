@@ -1,4 +1,6 @@
 = Evaluate memory quality
+:page-pagination:
+:description: How to run labeled regression tests against your memory graph using the evaluation harness.
 :page-product: agent-memory
 :toclevels: 2
 
@@ -267,7 +269,7 @@ if report.overall_score < MIN_SCORE:
 ----
 
 For a complete synthetic fixture and gate, save the complete harness files below. You
-need Python 3.10+, a POSIX shell, and a dedicated test Aura database. Each run
+need Python 3.11+, a POSIX shell, and a dedicated test Aura database. Each run
 resets the harness's fixed demo users, session, and entity names. Keep this
 fixture separate from application data.
 

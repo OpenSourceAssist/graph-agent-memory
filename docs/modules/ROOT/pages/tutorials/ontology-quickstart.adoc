@@ -1,4 +1,5 @@
 = Activate and restore a NAMS ontology
+:description: We will capture the workspace's active ontology version, clone the healthcare template, activate and inspect a strict revision, then restore the exact...
 :page-product: agent-memory
 :page-role: code-nocollapse
 :page-pagination:
@@ -28,7 +29,7 @@ verify activation and restoration against your hosted workspace.
 [[_before_you_begin]]
 == Before you begin
 
-* Python 3.10 or newer and a POSIX shell.
+* Python 3.11 or newer and a POSIX shell.
 * A dedicated NAMS test workspace with its workspace-scoped data key and
   permission to create, activate and delete lesson ontologies.
 * A `healthcare` template and an active ontology with authoritative version
