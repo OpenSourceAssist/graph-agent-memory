@@ -413,7 +413,11 @@ class SchemaManager:
         except Exception:
             # Vector indexes require Neo4j 5.11+, log warning but don't fail
             # as the package can still work without vector search
-            pass
+            logger.warning(
+                "Failed to create vector index %r (vector search unavailable).",
+                index_name,
+                exc_info=True,
+            )
 
     async def _create_point_index(
         self,
@@ -431,7 +435,11 @@ class SchemaManager:
             await self._client.execute_write(query)
         except Exception:
             # Point indexes require Neo4j 5.0+, log warning but don't fail
-            pass
+            logger.warning(
+                "Failed to create point index %r (geospatial queries will be slower).",
+                index_name,
+                exc_info=True,
+            )
 
     async def drop_all(self) -> None:
         """Drop all memory-related indexes and constraints."""
