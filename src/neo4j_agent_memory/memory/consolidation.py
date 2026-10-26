@@ -63,6 +63,29 @@ class ConsolidationMemory:
             max_pairs: Cap on the number of candidate pairs to return.
             dry_run: When True, no mutations.
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Verify the vector index exists before running the query; a fresh
+        # Neo4j instance that skipped schema bootstrap will otherwise fail
+        # with a generic Neo4jException that surfaces as a misleading
+        # ConnectionError. When the index is missing we return an empty
+        # report rather than raising — the caller can run
+        # ``client.schema.ensure_vector_indexes()`` first.
+        index_exists = await self._client.check_index_exists("entity_embedding_idx")
+        if not index_exists:
+            logger.warning(
+                "Vector index 'entity_embedding_idx' not found — dedupe_entities "
+                "skipping. Run client.schema.ensure_vector_indexes() first."
+            )
+            return ConsolidationReport(
+                kind="dedupe_entities",
+                dry_run=dry_run,
+                candidates=[],
+                run_id=None,
+            )
+
         # Find candidate pairs via vector similarity. We compare each
         # entity to its top-k nearest neighbors of the same type, then
         # filter to pairs above the threshold and not already merged.
