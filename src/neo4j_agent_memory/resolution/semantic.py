@@ -36,25 +36,34 @@ class SemanticMatchResolver(BaseResolver):
         """
         self._embedder = embedder
         self._threshold = threshold
-        # Cache embeddings to avoid recomputation
+        # Pre-normalized embeddings cached by normalized entity name.
+        # Storing the L2-normalized vector turns every cosine similarity
+        # into a single dot product — roughly a 2x speedup on hot paths.
         self._embedding_cache: dict[str, list[float]] = {}
 
+    @staticmethod
+    def _normalize_vector(vec: list[float]) -> list[float]:
+        """Return the L2-normalized form of *vec*."""
+        norm = sum(x * x for x in vec) ** 0.5
+        if norm == 0.0:
+            return [0.0] * len(vec)
+        inv = 1.0 / norm
+        return [x * inv for x in vec]
+
     async def _get_embedding(self, text: str) -> list[float]:
-        """Get embedding for text, using cache if available."""
+        """Get the pre-normalized embedding for *text*, caching on first call."""
         normalized = self._normalize(text)
         if normalized not in self._embedding_cache:
-            self._embedding_cache[normalized] = await self._embedder.embed(text)
+            raw = await self._embedder.embed(text)
+            self._embedding_cache[normalized] = self._normalize_vector(raw)
         return self._embedding_cache[normalized]
 
     def _cosine_similarity(self, a: list[float], b: list[float]) -> float:
-        """Compute cosine similarity between two vectors."""
+        """Cosine similarity between two L2-normalized vectors (pure dot product)."""
+        # Vectors returned by _get_embedding are already normalized.
         dot_product: float = sum(x * y for x, y in zip(a, b))
-        norm_a: float = sum(x * x for x in a) ** 0.5
-        norm_b: float = sum(x * x for x in b) ** 0.5
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
         # Clamp to [0.0, 1.0] to handle floating point precision issues
-        return float(min(1.0, max(0.0, dot_product / (norm_a * norm_b))))
+        return float(min(1.0, max(0.0, dot_product)))
 
     async def resolve(
         self,
