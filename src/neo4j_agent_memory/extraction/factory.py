@@ -363,8 +363,15 @@ def create_extraction_pipeline(
             )
             stages.append(llm_extractor)
             logger.info("Added LLM extractor to pipeline")
+        except ImportError as e:
+            logger.warning(f"LLM provider dependencies missing, skipping LLM stage: {e}")
+        except ValueError as e:
+            logger.warning(f"LLM configuration invalid, skipping LLM stage: {e}")
         except Exception as e:
-            logger.warning(f"LLM extractor not available, skipping: {e}")
+            logger.warning(
+                f"LLM extractor failed to initialize ({type(e).__name__}), skipping LLM stage: {e}",
+                exc_info=True,
+            )
 
     if not stages:
         logger.warning("No extraction stages available, using NoOpExtractor")
